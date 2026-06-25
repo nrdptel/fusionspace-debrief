@@ -106,6 +106,30 @@ describe('units-row detection does not misfire on terse headers', () => {
   });
 });
 
+describe('real-world messiness: CRLF, trailing commas, blank lines', () => {
+  it('parses an Eggtimer Classic export with CRLF and a trailing blank line', () => {
+    const text = 'T,Alt,VRaw,VFilt\r\n0,0,0,0\r\n100,2,20,7\r\n200,19,170,69\r\n\r\n';
+    const result = importFlight({ name: 'flight.csv', text });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('eggtimer');
+  });
+
+  it('handles a generic CSV with a trailing comma / empty last column', () => {
+    const rows = [
+      'Time (s),Altitude (m),',
+      '0,0,',
+      '0.1,5,',
+      '0.2,20,',
+    ].join('\n');
+    const result = importFlight({ name: 'data.csv', text: rows });
+    // Either auto-maps or offers a mapping — must not throw and must see the columns.
+    if (result.kind === 'mapping') {
+      expect(result.table.headers.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+});
+
 describe('Altus Metrum parser', () => {
   const sample = [
     '# Altus Metrum',

@@ -81,6 +81,27 @@ describe('PerfectFlite (StratoLogger) parser', () => {
   });
 });
 
+describe('StratoLogger DataCap-style CSV with a header row above the data', () => {
+  it('skips the header row and reads the columns positionally', () => {
+    const text = [
+      'PerfectFlite StratoLoggerCF',
+      'Time,Altitude,Velocity,Temperature,Voltage',
+      '0.00,0,0,71,9.3',
+      '0.05,2,40,71,9.3',
+      '0.10,9,120,71,9.3',
+      '0.15,25,200,71,9.3',
+      '0.20,48,260,71,9.3',
+      '0.25,80,300,71,9.3',
+    ].join('\r\n'); // CRLF, as a Windows export would use
+    const result = importFlight({ name: 'flight.csv', text });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('perfectflite');
+    // Altitude is feet -> metres; first real data row is 0.
+    expect(getChannel(result.flight, 'altitude')!.values[0]).toBeCloseTo(0, 5);
+  });
+});
+
 describe('headerless numeric file falls back to a usable mapping', () => {
   it('synthesises column names so the mapper can be used', () => {
     const text = ['0,0,0', '0.1,5,12', '0.2,20,30', '0.3,44,40'].join('\n');
