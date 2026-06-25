@@ -13,12 +13,13 @@ import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
 import { saveRecent, listRecents, getRecent, removeRecent, clearRecents, type RecentMeta } from '@/lib/recents';
+import { decodeFlight, payloadFromHash } from '@/lib/share';
 
 type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
-  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number }
+  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string }
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
@@ -74,7 +75,7 @@ export default function Analyzer() {
         const result = importFlight({ name, text });
         if (result.kind === 'flight') {
           const analysis = analyzeFlight(result.flight);
-          setState({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now() });
+          setState({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -143,7 +144,7 @@ export default function Analyzer() {
           mappings,
         });
         const analysis = analyzeFlight(flight);
-        setState({ phase: 'report', flight, analysis, analyzedAt: Date.now() });
+        setState({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text: state.text });
         void saveRecent({
           name: state.fileName,
           formatLabel: 'Generic CSV',
@@ -186,6 +187,18 @@ export default function Analyzer() {
     refreshRecents();
   }, [refreshRecents]);
 
+  // A shared link carries the flight in the URL fragment; decode and analyze it.
+  useEffect(() => {
+    const payload = payloadFromHash(window.location.hash);
+    if (!payload) return;
+    setState({ phase: 'loading' });
+    decodeFlight(payload)
+      .then((res) =>
+        res ? ingest(res.name, res.text) : setState({ phase: 'error', message: 'This shared link couldn’t be read.' }),
+      )
+      .catch(() => setState({ phase: 'error', message: 'This shared link couldn’t be read.' }));
+  }, [ingest]);
+
   if (state.phase === 'report') {
     return (
       <div className="space-y-6">
@@ -200,6 +213,7 @@ export default function Analyzer() {
           flight={state.flight}
           analysis={state.analysis}
           analyzedAt={state.analyzedAt}
+          sourceText={state.text}
           sys={sys}
           onToggleUnits={toggleUnits}
         />

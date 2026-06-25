@@ -6,6 +6,7 @@ import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
 import { summaryText, reportStem, formatAnalyzedAt } from '@/lib/report';
+import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
 import Chart, { type ChartMarker } from './Chart';
@@ -34,12 +35,14 @@ export default function FlightReport({
   flight,
   analysis,
   analyzedAt,
+  sourceText,
   sys,
   onToggleUnits,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
   analyzedAt: number;
+  sourceText: string;
   sys: UnitSystem;
   onToggleUnits: () => void;
 }) {
@@ -48,8 +51,26 @@ export default function FlightReport({
   const notes = flight.notes;
   const altChartRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
 
   const stem = reportStem(flight.source);
+
+  async function shareLink() {
+    setShareMsg('Building link…');
+    try {
+      const payload = await encodeFlight(flight.source, sourceText);
+      const url = shareUrl(window.location.origin, window.location.pathname, payload);
+      if (url.length > MAX_SHARE_URL) {
+        setShareMsg('This flight is too large to share as a link — use Save chart or Copy summary instead.');
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareMsg('Link copied — the flight rides inside it; nothing was uploaded.');
+      setTimeout(() => setShareMsg(null), 4000);
+    } catch {
+      setShareMsg('Couldn’t build a share link in this browser.');
+    }
+  }
 
   async function copySummary() {
     const text = summaryText(flight, analysis, sys, analyzedAt);
@@ -119,6 +140,14 @@ export default function FlightReport({
           </button>
           <button
             type="button"
+            onClick={shareLink}
+            title="Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded"
+            className={ACTION_BTN}
+          >
+            Share link
+          </button>
+          <button
+            type="button"
             onClick={onToggleUnits}
             aria-label={`Units: ${sys === 'imperial' ? 'feet' : 'meters'}. Switch to ${sys === 'imperial' ? 'meters' : 'feet'}.`}
             className={ACTION_BTN}
@@ -130,6 +159,12 @@ export default function FlightReport({
           </span>
         </div>
       </div>
+
+      {shareMsg && (
+        <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">
+          {shareMsg}
+        </p>
+      )}
 
       <p className="-mt-4 text-xs text-zinc-500 dark:text-zinc-400">
         Analyzed{' '}

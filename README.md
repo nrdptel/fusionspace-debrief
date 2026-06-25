@@ -22,6 +22,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   from altitude when it didn't — labelling which is which.
 - Exports a flight: copy a text summary, save it as `.txt`, or save the altitude chart
   as a PNG. Recent flights are remembered on your device for quick re-opening.
+- Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
+  the recipient's browser, never uploaded.
 
 ## Privacy
 

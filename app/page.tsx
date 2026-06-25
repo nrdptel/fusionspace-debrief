@@ -44,6 +44,12 @@ export default function Home() {
               choice is remembered and rides in the URL.
             </li>
             <li>
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Share</strong> —{' '}
+              <em>Share link</em> copies a link with the whole flight encoded inside it. The data rides
+              in the link itself and is decoded in the recipient&apos;s browser — it never touches a
+              server. A very large flight can be too big for a link; save the chart or summary instead.
+            </li>
+            <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Privacy</strong> — the
               file is parsed in this browser and never leaves your device. There is no upload and no
               server.
