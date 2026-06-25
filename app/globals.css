@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/* Tri-state theme to match the rest of Fusion Space: an explicit `.dark` or
+   `.light` class on <html> wins; with neither set we follow the system. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(.light, .light *)) {
+      @slot;
+    }
+  }
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+}
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+/* Honour reduced-motion for the few transitions we use. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
