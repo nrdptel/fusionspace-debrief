@@ -1,0 +1,14 @@
+{
+  "name": "Debrief — altimeter flight-log analyzer",
+  "short_name": "Debrief",
+  "description": "Read any altimeter's flight log in your browser: apogee, max velocity and acceleration, deployments and descent rates. Files are parsed on your device and never uploaded.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}
