@@ -32,11 +32,21 @@ export const perfectFliteParser: Parser = {
   label: 'PerfectFlite (StratoLogger)',
 
   detect(input: ParseInput): number {
-    const name = input.name.toLowerCase();
-    if (name.endsWith('.pf2')) return 0.95;
+    if (input.name.toLowerCase().endsWith('.pf2')) return 0.95;
+    // A whole-word marker on its own is not enough (it could appear in a notes
+    // column); also require the body to look header-less and numeric, the way a
+    // real PerfectFlite export does.
     const head = input.text.slice(0, 4000).toLowerCase();
-    if (MARKERS.some((m) => head.includes(m))) return 0.9;
-    return 0;
+    const hasMarker = new RegExp(`\\b(${MARKERS.join('|')})\\b`).test(head);
+    if (!hasMarker) return 0;
+    let dataish = 0;
+    for (const line of input.text.split(/\r?\n/).slice(0, 80)) {
+      if (isDataLine(line)) {
+        const cols = line.split(',').length;
+        if (cols >= 3 && cols <= 8) dataish++;
+      }
+    }
+    return dataish >= 5 ? 0.9 : 0;
   },
 
   parse(input: ParseInput): RawFlight {

@@ -112,7 +112,7 @@ export interface AnalyzedTable {
 function looksLikeUnitsRow(row: string[]): boolean {
   if (row.length < 2) return false;
   const resolved = row.filter((c) => c && resolveUnit(c)).length;
-  return resolved / row.length >= 0.5;
+  return resolved / row.length >= 0.6;
 }
 
 /** Turn a raw row list into headers, data rows, and a per-column guess. */
@@ -122,7 +122,7 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
   // Headerless file (data from the very first row): synthesise column names so
   // the mapper is still usable, and treat every row as data.
   if (firstData === 0) {
-    const width = Math.max(...rows.slice(0, 20).map((r) => r.length), 0);
+    const width = Math.max(...rows.slice(0, 200).map((r) => r.length), 0);
     const headers = Array.from({ length: width }, (_, i) => `Column ${i + 1}`);
     const dataRows = rows.filter((r) => r.some((c) => c !== ''));
     const columns: ColumnGuess[] = headers.map((header, index) => ({
@@ -139,8 +139,15 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
   let namesRow = Math.max(0, firstData - 1);
   let unitsRow = -1;
   // Some loggers split the header across two lines: names, then a row of units
-  // (e.g. "Time,Alt,Accel" / "s,ft,g"). Detect that and read both.
-  if (firstData - 1 >= 1 && looksLikeUnitsRow(rows[firstData - 1])) {
+  // (e.g. "Time,Alt,Accel" / "s,ft,g"). Accept that only when there's a real
+  // names row above whose width matches the data — otherwise a terse header of
+  // short names (T,M,S) could be mistaken for units.
+  const dataWidth = rows[firstData]?.length ?? 0;
+  if (
+    firstData - 2 >= 0 &&
+    looksLikeUnitsRow(rows[firstData - 1]) &&
+    Math.abs((rows[firstData - 2]?.length ?? 0) - dataWidth) <= 1
+  ) {
     unitsRow = firstData - 1;
     namesRow = firstData - 2;
   }

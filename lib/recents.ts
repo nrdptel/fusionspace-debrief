@@ -52,6 +52,10 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt'>): Pro
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
     // De-dup by name + format: replace an earlier copy of the same file.
     const store = tx(db, 'readwrite');
+    // Swallow a quota/abort failure (e.g. a very large file text) instead of
+    // letting it surface as an uncaught transaction error.
+    store.transaction.onerror = (e) => e.preventDefault();
+    store.transaction.onabort = (e) => e.preventDefault();
     for (const r of all) {
       if (r.name === rec.name && r.formatLabel === rec.formatLabel) store.delete(r.id);
     }

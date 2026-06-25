@@ -82,6 +82,30 @@ describe('BOM-prefixed Altus file still detects', () => {
   });
 });
 
+describe('detection is token-anchored, not substring', () => {
+  it('does not treat a CSV that merely contains "vraw" as an Eggtimer file', () => {
+    // "vraw_x"/"vfilt_y" are column names, not the bare VRaw/VFilt tokens.
+    const text = ['time,vraw_x,vfilt_y,alt', '0,1,2,0', '0.1,1,2,5', '0.2,1,2,9'].join('\n');
+    const result = importFlight({ name: 'data.csv', text });
+    expect(result.kind).toBe('mapping');
+  });
+});
+
+describe('units-row detection does not misfire on terse headers', () => {
+  it('keeps a short header (T,M,S) as names, not units, when there is no real names row above', () => {
+    const rows = [
+      ['# my logger'],
+      ['T', 'M', 'S'],
+      ['0', '0', '0'],
+      ['0.1', '5', '12'],
+      ['0.2', '20', '30'],
+    ];
+    const t = analyzeTable(rows);
+    expect(t.headers).toEqual(['T', 'M', 'S']);
+    expect(t.dataRows.length).toBe(3);
+  });
+});
+
 describe('Altus Metrum parser', () => {
   const sample = [
     '# Altus Metrum',

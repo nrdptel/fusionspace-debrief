@@ -26,8 +26,14 @@ export const eggtimerParser: Parser = {
   label: 'Eggtimer',
 
   detect(input: ParseInput): number {
-    const head = input.text.slice(0, 4000).toLowerCase();
-    return head.includes('vraw') && head.includes('vfilt') ? 0.95 : 0;
+    // Require VRaw and VFilt as whole comma-separated header tokens, not as
+    // substrings anywhere in the text — otherwise an unrelated CSV that merely
+    // mentions them would be force-parsed with a fixed positional mapping.
+    for (const line of input.text.split(/\r?\n/).slice(0, 12)) {
+      const toks = line.toLowerCase().split(',').map((s) => s.trim());
+      if (toks.includes('vraw') && toks.includes('vfilt')) return 0.95;
+    }
+    return 0;
   },
 
   parse(input: ParseInput): RawFlight {
@@ -37,7 +43,9 @@ export const eggtimerParser: Parser = {
 
     const headers = rows[headerIdx].map((c) => c.trim());
     const lower = headers.map((h) => h.toLowerCase());
-    const dataRows = rows.slice(headerIdx + 1).filter((r) => r[0] !== '');
+    // Need at least T + Alt + a velocity column; this also drops a stray
+    // single-number summary/footer line from becoming a phantom sample.
+    const dataRows = rows.slice(headerIdx + 1).filter((r) => r[0] !== '' && r.length >= 3);
 
     const col = (name: string) => lower.indexOf(name);
     const mappings: ColumnMapping[] = [];

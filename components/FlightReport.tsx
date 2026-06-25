@@ -20,7 +20,9 @@ function download(blob: Blob, name: string) {
   a.href = url;
   a.download = name;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoke after the click has been handled, not synchronously (racy for large
+  // blobs on some engines).
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function round(v: number, p: number): string {

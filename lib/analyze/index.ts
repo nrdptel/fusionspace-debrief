@@ -237,9 +237,19 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // Main deployment: the sharpest sustained drop from a fast drogue descent to a
   // slow main. Thresholds scale with the drogue rate so a slow-drogue flight is
   // judged on the same relative terms as a fast one.
+  // Some loggers drop their sample rate after nose-over; size the descent
+  // windows from the descent's own rate, not the (ascent-dominated) global one.
+  const ascentDt = apogeeIdx > 4 ? medianDt(time.subarray(0, apogeeIdx + 1)) || dt : dt;
+  const descentDt = apogeeIdx < n - 4 ? medianDt(time.subarray(apogeeIdx)) || dt : dt;
+  if (ascentDt > 0 && descentDt > 0 && Math.max(descentDt / ascentDt, ascentDt / descentDt) >= 2.5) {
+    warnings.push(
+      `The sample rate changes around apogee (about ${(1 / ascentDt).toFixed(0)} Hz climbing, ${(1 / descentDt).toFixed(0)} Hz descending), so descent timing is coarser than the climb.`,
+    );
+  }
+
   let mainIdx: number | null = null;
   if (landingIdx > apogeeIdx + 4) {
-    const guard = Math.max(2, Math.round(0.5 / (dt || 0.1)));
+    const guard = Math.max(2, Math.round(0.5 / (descentDt || 0.1)));
     let bestDrop = 0;
     for (let i = apogeeIdx + guard; i < landingIdx - guard; i++) {
       const before = mean(descent, Math.max(apogeeIdx, i - guard), i);

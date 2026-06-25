@@ -33,8 +33,11 @@ export const altusMetrumParser: Parser = {
   label: 'Altus Metrum (AltOS)',
 
   detect(input: ParseInput): number {
-    const head = input.text.slice(0, 8000).toLowerCase();
-    if (head.includes('accel_speed') && head.includes('baro_speed')) return 0.97;
+    // accel_speed + baro_speed as whole header tokens (not loose substrings).
+    for (const line of input.text.split(/\r?\n/).slice(0, 60)) {
+      const toks = line.toLowerCase().split(',').map((s) => s.replace(/^#\s*/, '').trim());
+      if (toks.includes('accel_speed') && toks.includes('baro_speed')) return 0.97;
+    }
     return 0;
   },
 
