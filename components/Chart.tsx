@@ -8,6 +8,13 @@ import { useEffect, useRef } from 'react';
 // altitude/velocity/acceleration plots read as one linked view.
 const zoomGroups = new Map<string, Set<uPlot>>();
 
+/** Set the x-range on every chart in a sync group (used by the zoom presets). */
+export function focusRange(syncKey: string, min: number, max: number) {
+  const set = zoomGroups.get(syncKey);
+  if (!set) return;
+  for (const u of set) u.setScale('x', { min, max });
+}
+
 export interface ChartSeries {
   label: string;
   values: Float64Array;

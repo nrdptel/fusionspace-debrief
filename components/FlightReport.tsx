@@ -9,7 +9,7 @@ import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/li
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
-import Chart, { type ChartMarker } from './Chart';
+import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 
 const ACTION_BTN =
@@ -116,6 +116,23 @@ export default function FlightReport({
   // A per-flight key links the three charts' hover cursor and zoom range.
   const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
 
+  // One-click zoom presets that frame all three charts to a flight phase.
+  const zoomPresets = useMemo(() => {
+    const t0 = series.time[0] ?? 0;
+    const tEnd = series.time[series.time.length - 1] ?? 0;
+    const at = (type: string) => events.find((e) => e.type === type)?.time;
+    const lo = at('liftoff');
+    const bo = at('burnout');
+    const apo = at('apogee');
+    const land = at('landing');
+    const presets: { label: string; min: number; max: number }[] = [];
+    if (lo != null && bo != null && bo > lo) presets.push({ label: 'Boost', min: Math.max(t0, lo - 0.3), max: bo + 1 });
+    if (lo != null && apo != null) presets.push({ label: 'Ascent', min: Math.max(t0, lo - 0.3), max: Math.min(tEnd, apo + (tEnd - apo) * 0.05 + 1) });
+    if (apo != null && land != null && land > apo) presets.push({ label: 'Descent', min: Math.max(t0, apo - 1), max: land });
+    presets.push({ label: 'Full', min: t0, max: tEnd });
+    return presets;
+  }, [series.time, events]);
+
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
@@ -215,6 +232,21 @@ export default function FlightReport({
       <MetricGrid metrics={metrics} sys={sys} />
 
       {/* Charts */}
+      {zoomPresets.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Zoom to</span>
+          {zoomPresets.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => focusRange(syncKey, p.min, p.max)}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="space-y-6">
         <ChartBlock title={`Altitude (${UNIT_LABEL[sys].length} AGL)`}>
           <div ref={altChartRef}>
