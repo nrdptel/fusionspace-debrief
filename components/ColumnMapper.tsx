@@ -125,7 +125,7 @@ export default function ColumnMapper({
                       <span className="text-xs text-zinc-400">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs text-zinc-400 dark:text-zinc-500">
+                  <td className="px-3 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
                     {preview.map((r) => r[i]).filter(Boolean).slice(0, 3).join(', ') || '—'}
                   </td>
                 </tr>

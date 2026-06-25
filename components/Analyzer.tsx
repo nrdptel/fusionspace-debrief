@@ -20,6 +20,9 @@ type State =
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
+const MAX_BYTES = 64 * 1024 * 1024; // 64 MB — far above any real flight log
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function readInitialUnits(): UnitSystem {
   if (typeof window === 'undefined') return 'imperial';
@@ -55,9 +58,18 @@ export default function Analyzer() {
 
   const ingest = useCallback((name: string, text: string) => {
     try {
+      if (text.trim().length === 0) {
+        setState({ phase: 'error', message: 'That file is empty.' });
+        return;
+      }
       const result = importFlight({ name, text });
       if (result.kind === 'flight') {
         setState({ phase: 'report', flight: result.flight, analysis: analyzeFlight(result.flight) });
+      } else if (result.table.dataRows.length === 0) {
+        setState({
+          phase: 'error',
+          message: 'Debrief couldn’t find any data rows in this file. Is it a flight log export?',
+        });
       } else {
         setState({ phase: 'mapping', fileName: name, table: result.table, suggested: result.suggested });
       }
@@ -68,9 +80,17 @@ export default function Analyzer() {
 
   const onFile = useCallback(
     async (file: File) => {
+      if (file.size > MAX_BYTES) {
+        setState({
+          phase: 'error',
+          message: `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB — larger than Debrief reads in the browser (64 MB). If it's really a single flight, trim it first.`,
+        });
+        return;
+      }
       setState({ phase: 'loading' });
       try {
         const text = await file.text();
+        await tick(); // let the loading state paint before the synchronous parse
         ingest(file.name, text);
       } catch {
         setState({ phase: 'error', message: 'Could not read this file.' });
@@ -84,7 +104,9 @@ export default function Analyzer() {
     try {
       const res = await fetch(SAMPLE_URL);
       if (!res.ok) throw new Error('sample missing');
-      ingest('sample-altusmetrum.csv', await res.text());
+      const text = await res.text();
+      await tick();
+      ingest('sample-altusmetrum.csv', text);
     } catch {
       setState({ phase: 'error', message: 'Could not load the sample flight.' });
     }

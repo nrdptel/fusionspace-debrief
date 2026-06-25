@@ -25,9 +25,11 @@ export interface ChartProps {
   height?: number;
   /** Format a y value for the axis and the hover legend. */
   fmt?: (v: number) => string;
+  /** Text alternative for the canvas, for screen readers. */
+  ariaLabel?: string;
 }
 
-export default function Chart({ time, series, markers = [], dark, height = 240, fmt }: ChartProps) {
+export default function Chart({ time, series, markers = [], dark, height = 240, fmt, ariaLabel }: ChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
 
@@ -118,5 +120,5 @@ export default function Chart({ time, series, markers = [], dark, height = 240, 
     };
   }, [time, series, markers, dark, height, fmt]);
 
-  return <div ref={hostRef} className="w-full" />;
+  return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
 }

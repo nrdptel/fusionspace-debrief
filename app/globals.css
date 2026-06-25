@@ -22,6 +22,14 @@ html {
   color-scheme: light dark;
 }
 
+/* A consistent, visible focus ring on every interactive control (the family
+   ships one; the UA default is uneven across buttons/links/selects). */
+:focus-visible {
+  outline: 2px solid #6366f1; /* indigo-500 */
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* Honour reduced-motion for the few transitions we use. */
 @media (prefers-reduced-motion: reduce) {
   *,

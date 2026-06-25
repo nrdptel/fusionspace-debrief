@@ -3,7 +3,7 @@
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtTime } from '@/lib/display';
+import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
 import Chart, { type ChartMarker } from './Chart';
@@ -37,8 +37,14 @@ export default function FlightReport({
 
   const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
 
+  const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
+  const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
+  const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
+  const accLabel = `Line chart: acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration)}` : ''}.`;
+
   return (
     <div className="space-y-8">
+      <h2 className="sr-only">Flight report for {flight.source}</h2>
       {/* File / format line */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -46,7 +52,7 @@ export default function FlightReport({
           <span className="inline-flex items-center rounded-md border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:text-indigo-300">
             {flight.formatLabel}
           </span>
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">read locally — never uploaded</span>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
         </div>
         <button
           type="button"
@@ -90,6 +96,7 @@ export default function FlightReport({
             dark={dark}
             height={300}
             fmt={(v) => round(lengthIn(v, sys), 0)}
+            ariaLabel={altLabel}
           />
         </ChartBlock>
 
@@ -104,6 +111,7 @@ export default function FlightReport({
             dark={dark}
             height={200}
             fmt={(v) => round(speedIn(v, sys), 0)}
+            ariaLabel={velLabel}
           />
         </ChartBlock>
 
@@ -119,6 +127,7 @@ export default function FlightReport({
               dark={dark}
               height={200}
               fmt={(v) => round(accelInG(v), 1)}
+              ariaLabel={accLabel}
             />
           </ChartBlock>
         )}
@@ -141,7 +150,7 @@ export default function FlightReport({
                 />
                 <span className="font-medium text-zinc-700 dark:text-zinc-300">{e.label}</span>
                 {e.provenance !== 'measured' && (
-                  <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{e.provenance}</span>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{e.provenance}</span>
                 )}
               </span>
               <span className="text-right font-mono text-xs text-zinc-500 dark:text-zinc-400">
@@ -160,7 +169,7 @@ function ChartBlock({ title, note, children }: { title: string; note?: string; c
     <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">{title}</h3>
-        {note && <span className="text-xs text-zinc-400 dark:text-zinc-500">{note}</span>}
+        {note && <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>}
       </div>
       {children}
     </div>
