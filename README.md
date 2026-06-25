@@ -40,6 +40,9 @@ of parsing and analysis runs locally.
   auto-detected including the header-less native layout.
 - **Eggtimer** — Classic / Quantum / Apogee flight-detail CSV (`T,Alt,VRaw,VFilt`),
   auto-detected; assumes the device's default feet.
+- **Featherweight Raven** — the Featherweight Interface Program (FIP) CSV export, whose
+  per-channel time bases are resampled onto a common clock; altitude is from the
+  barometric channel.
 - **Featherweight Blue Raven** — the low-rate `LOG_LOW` capture (token format, 50 Hz);
   altitude is read from its barometric sensor. The high-rate gyro/accel file is
   recognized too, with a pointer to use the low-rate file for the flight profile.

@@ -139,6 +139,15 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     velocitySource = 'baro';
   }
 
+  // A barometric vertical velocity, always. Device velocities are usually
+  // accelerometer-integrated and drift toward zero after deployment, so descent
+  // rates and landing are read from this baro velocity (reliable at low speed)
+  // even when a device velocity is used for the ascent and max-velocity.
+  const baroVel =
+    velocitySource === 'baro'
+      ? velocity
+      : movingAverage(derivative(time, altSmooth), windowFor(dt, 0.1));
+
   // --- Acceleration ---------------------------------------------------------
   let acceleration: Float64Array;
   let accelerationSource: 'device' | 'baro';
@@ -235,24 +244,37 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   if (burnoutIdx !== null && apogeeIdx - burnoutIdx < 2) burnoutIdx = null;
 
   // --- Landing --------------------------------------------------------------
+  // Landing: altitude has come back near the pad and stays there — judged on
+  // altitude (stable and low) rather than velocity, which is noisy at rest.
   let landingIdx = n - 1;
+  const settleWin = Math.max(3, Math.round(1 / (dt || 0.1)));
   for (let i = apogeeIdx; i < n; i++) {
-    if (altClean[i] < 3 && Math.abs(velocity[i]) < 1.5) {
-      landingIdx = i;
-      break;
+    if (altClean[i] < 2) {
+      let stayed = true;
+      const end = Math.min(n, i + settleWin);
+      for (let j = i; j < end; j++) {
+        if (altClean[j] > 5) {
+          stayed = false;
+          break;
+        }
+      }
+      if (stayed) {
+        landingIdx = i;
+        break;
+      }
     }
   }
   const landingTime = time[landingIdx];
-  const landingFound = landingIdx < n - 1 || (altClean[n - 1] < 5 && Math.abs(velocity[n - 1]) < 2);
+  const landingFound = landingIdx < n - 1 || altClean[n - 1] < 5;
   if (apogeeIdx >= n - 2) {
     warnings.push('The log appears to end at or before apogee — descent numbers may be missing.');
   }
 
   // --- Deployments & descent rates -----------------------------------------
-  // Descent speed (positive downward), lightly smoothed.
+  // Descent speed (positive downward) from the baro velocity, lightly smoothed.
   const descent = movingAverage(
-    Float64Array.from(velocity, (v) => -v),
-    windowFor(dt, 0.3),
+    Float64Array.from(baroVel, (v) => -v),
+    windowFor(dt, 0.6),
   );
   // Main deployment: the sharpest sustained drop from a fast drogue descent to a
   // slow main. Thresholds scale with the drogue rate so a slow-drogue flight is

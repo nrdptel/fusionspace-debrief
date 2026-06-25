@@ -92,8 +92,8 @@ export const eggtimerParser: Parser = {
     };
     add(tIdx, 'time', unit);
     add(col('alt'), 'altitude', 'ft');
-    // Prefer Eggtimer's filtered velocity (VFilt), then Quantum's Veloc, then VRaw.
-    add(col('vfilt', 'veloc', 'vraw'), 'velocity', 'ft/s');
+    // Prefer a filtered velocity (Classic VFilt / Quantum FVeloc), then raw.
+    add(col('vfilt', 'fveloc', 'veloc', 'vraw'), 'velocity', 'ft/s');
 
     return buildFlight({
       source: input.name,

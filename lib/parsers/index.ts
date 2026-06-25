@@ -12,10 +12,17 @@ import { altusMetrumParser } from './altusmetrum';
 import { perfectFliteParser } from './perfectflite';
 import { eggtimerParser } from './eggtimer';
 import { blueRavenParser } from './blueraven';
+import { featherweightFipParser } from './featherweightFip';
 
 export type { ParseInput, Parser } from './types';
 
-export const PARSERS: Parser[] = [altusMetrumParser, perfectFliteParser, eggtimerParser, blueRavenParser];
+export const PARSERS: Parser[] = [
+  altusMetrumParser,
+  perfectFliteParser,
+  eggtimerParser,
+  blueRavenParser,
+  featherweightFipParser,
+];
 
 const AUTO_THRESHOLD = 0.6;
 

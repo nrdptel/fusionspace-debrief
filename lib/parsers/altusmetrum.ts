@@ -1,13 +1,14 @@
 // Altus Metrum (TeleMetrum / TeleMega / EasyMega / EasyMini …). AltOS exports a
-// CSV with a few '#'-prefixed preamble lines, then a single header line, then one
-// row per sample. Columns are documented and stable; the distinctive pair
-// accel_speed / baro_speed makes detection unambiguous.
+// CSV with a few '#'-prefixed preamble lines, then one '#'-prefixed header line,
+// then one row per sample, in SI units. The exact columns vary by device and
+// firmware — TeleMega/EasyMega add IMU/GPS columns, and the velocity column is
+// "accel_speed"/"baro_speed" on some builds and a single "speed" on others — so
+// we detect on the stable trio state_name + height + pressure and map by name.
 //
-// Header (core): version,serial,flight,call,time,clock,rssi,lqi,state,state_name,
-//   acceleration,pressure,altitude,height,accel_speed,baro_speed,temperature,
-//   battery_voltage,drogue_voltage,main_voltage[,accel_x,…][,GPS…]
-// Units: time s (since boost), acceleration m/s², pressure mBar, altitude/height m
-//   (MSL / AGL), speeds m/s, temperature °C, voltages V.
+// Header (core): version,serial,flight,call,time,…,state,state_name,acceleration,
+//   pressure,altitude,height,(accel_speed|speed)[,baro_speed],temperature,…,
+//   battery_voltage,… Units: time s, acceleration m/s², height m (AGL), speed m/s,
+//   temperature °C, voltage V.
 
 import type { Parser, ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
@@ -18,12 +19,13 @@ function stripHash(cell: string): string {
   return cell.replace(/^#\s*/, '').trim();
 }
 
+function isAltosHeader(toks: string[]): boolean {
+  return toks.includes('state_name') && toks.includes('height') && toks.includes('pressure');
+}
+
 function findHeaderRow(rows: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 60); i++) {
-    const norm = rows[i].map((c) => stripHash(c).toLowerCase());
-    if (norm.includes('time') && norm.includes('height') && norm.includes('accel_speed')) {
-      return i;
-    }
+    if (isAltosHeader(rows[i].map((c) => stripHash(c).toLowerCase()))) return i;
   }
   return -1;
 }
@@ -33,10 +35,9 @@ export const altusMetrumParser: Parser = {
   label: 'Altus Metrum (AltOS)',
 
   detect(input: ParseInput): number {
-    // accel_speed + baro_speed as whole header tokens (not loose substrings).
     for (const line of input.text.split(/\r?\n/).slice(0, 60)) {
       const toks = line.toLowerCase().split(',').map((s) => s.replace(/^#\s*/, '').trim());
-      if (toks.includes('accel_speed') && toks.includes('baro_speed')) return 0.97;
+      if (isAltosHeader(toks)) return 0.97;
     }
     return 0;
   },
@@ -48,34 +49,33 @@ export const altusMetrumParser: Parser = {
 
     const headers = rows[headerIdx].map(stripHash);
     const lower = headers.map((h) => h.toLowerCase());
-    // Keep any row that still carries the leading columns (version…time). A
-    // truncated final write (power-loss) keeps its tail samples; preamble lines
-    // split to far fewer cells and fall away. buildFlight drops rows whose time
-    // isn't numeric, so a short row just contributes NaN to missing channels.
     const minCols = Math.min(headers.length, 6);
     const dataRows = rows.slice(headerIdx + 1).filter((r) => r.length >= minCols && r[0] !== '');
 
-    // Map by exact column name (first occurrence). `height` is already AGL, so we
-    // use it as the altitude channel and leave the MSL `altitude` column aside.
-    const col = (name: string) => lower.indexOf(name);
-    const mappings: ColumnMapping[] = [];
-    const add = (name: string, role: ColumnMapping['role'], unit: string | null) => {
-      const i = col(name);
-      if (i >= 0) mappings.push({ index: i, role, unit });
+    // Map by exact column name (first occurrence). `height` is already AGL, so it's
+    // the altitude channel; `altitude` (baro MSL, and a duplicate GPS column) is left
+    // aside. Velocity is whichever speed column this build emits.
+    const col = (...names: string[]) => {
+      for (const n of names) {
+        const i = lower.indexOf(n);
+        if (i >= 0) return i;
+      }
+      return -1;
     };
-    add('time', 'time', 's');
-    add('height', 'altitude', 'm');
-    add('pressure', 'pressure', 'mbar');
-    add('acceleration', 'accelAxial', 'm/s²');
-    add('accel_speed', 'velocity', 'm/s');
-    add('temperature', 'temperature', 'c');
-    add('battery_voltage', 'voltage', 'v');
+    const mappings: ColumnMapping[] = [];
+    const add = (index: number, role: ColumnMapping['role'], unit: string | null) => {
+      if (index >= 0) mappings.push({ index, role, unit });
+    };
+    add(col('time'), 'time', 's');
+    add(col('height'), 'altitude', 'm');
+    add(col('acceleration'), 'accelAxial', 'm/s²');
+    add(col('accel_speed', 'speed', 'baro_speed'), 'velocity', 'm/s');
+    add(col('temperature'), 'temperature', 'c');
+    add(col('battery_voltage'), 'voltage', 'v');
 
-    // Pull a little metadata from the preamble for display/provenance.
     const meta: Record<string, string | number> = {};
     for (let i = 0; i < headerIdx; i++) {
-      const cell = rows[i][0] ?? '';
-      const m = stripHash(cell).match(/^([a-z_ ]+)\s+(.+)$/i);
+      const m = stripHash(rows[i][0] ?? '').match(/^([a-z_ ]+)\s+(.+)$/i);
       if (m && ['serial', 'flight', 'product', 'version'].includes(m[1].trim().toLowerCase())) {
         meta[m[1].trim()] = m[2].trim();
       }
@@ -89,9 +89,7 @@ export const altusMetrumParser: Parser = {
       dataRows,
       mappings,
       meta,
-      notes: [
-        'Altitude is the AltOS AGL "height" channel; velocity is the accelerometer-integrated speed.',
-      ],
+      notes: ['Altitude is the AltOS AGL "height" channel; values are read in AltOS’s native metric units.'],
     });
   },
 };

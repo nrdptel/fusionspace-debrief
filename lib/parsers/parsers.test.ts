@@ -130,6 +130,26 @@ describe('real-world messiness: CRLF, trailing commas, blank lines', () => {
   });
 });
 
+describe('Altus Metrum: real files use a single "speed" column, not accel_speed', () => {
+  const sample = [
+    '# Altus Metrum',
+    '# serial 2098',
+    'version,serial,flight,call,time,state,state_name,acceleration,pressure,altitude,height,speed,temperature,battery_voltage,altitude,latitude',
+    '6,2098,12,KD9LJW,-1.0,3,boost,3.6,98235,260,0,0,28,3.9,218,41.4',
+    '6,2098,12,KD9LJW,0.0,3,boost,80,97000,300,40,90,28,3.9,218,41.4',
+    '6,2098,12,KD9LJW,0.5,4,fast,0,90000,800,540,120,27,3.9,218,41.4',
+  ].join('\n');
+
+  it('detects and maps the speed column to velocity', () => {
+    const result = importFlight({ name: 'TeleMetrum.csv', text: sample });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('altusmetrum');
+    expect(getChannel(result.flight, 'velocity')).toBeTruthy();
+    expect(getChannel(result.flight, 'altitude')).toBeTruthy(); // from "height"
+  });
+});
+
 describe('Altus Metrum parser', () => {
   const sample = [
     '# Altus Metrum',
@@ -149,10 +169,8 @@ describe('Altus Metrum parser', () => {
     expect(result.parser.id).toBe('altusmetrum');
     const flight = result.flight;
     // height is AGL in metres; velocity comes from accel_speed.
-    expect(getChannel(flight, 'altitude')).toBeTruthy();
+    expect(getChannel(flight, 'altitude')!.unit).toBe('m');
     expect(getChannel(flight, 'velocity')).toBeTruthy();
-    expect(getChannel(flight, 'pressure')!.unit).toBe('Pa');
-    // 1013.25 mBar -> ~101325 Pa
-    expect(getChannel(flight, 'pressure')!.values[0]).toBeCloseTo(101325, -1);
+    expect(getChannel(flight, 'accelAxial')).toBeTruthy();
   });
 });
