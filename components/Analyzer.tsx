@@ -11,11 +11,13 @@ import type { UnitSystem } from '@/lib/display';
 import DropZone from './DropZone';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
+import RecentFlights from './RecentFlights';
+import { saveRecent, listRecents, getRecent, removeRecent, clearRecents, type RecentMeta } from '@/lib/recents';
 
 type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
-  | { phase: 'mapping'; fileName: string; table: AnalyzedTable; suggested: ColumnMapping[] }
+  | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
   | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis }
   | { phase: 'error'; message: string };
 
@@ -36,10 +38,16 @@ function readInitialUnits(): UnitSystem {
 export default function Analyzer() {
   const [state, setState] = useState<State>({ phase: 'idle' });
   const [sys, setSys] = useState<UnitSystem>('imperial');
+  const [recents, setRecents] = useState<RecentMeta[]>([]);
+
+  const refreshRecents = useCallback(() => {
+    listRecents().then(setRecents);
+  }, []);
 
   useEffect(() => {
     setSys(readInitialUnits());
-  }, []);
+    refreshRecents();
+  }, [refreshRecents]);
 
   const toggleUnits = useCallback(() => {
     setSys((prev) => {
@@ -56,27 +64,37 @@ export default function Analyzer() {
     });
   }, []);
 
-  const ingest = useCallback((name: string, text: string) => {
-    try {
-      if (text.trim().length === 0) {
-        setState({ phase: 'error', message: 'That file is empty.' });
-        return;
+  const ingest = useCallback(
+    (name: string, text: string) => {
+      try {
+        if (text.trim().length === 0) {
+          setState({ phase: 'error', message: 'That file is empty.' });
+          return;
+        }
+        const result = importFlight({ name, text });
+        if (result.kind === 'flight') {
+          const analysis = analyzeFlight(result.flight);
+          setState({ phase: 'report', flight: result.flight, analysis });
+          void saveRecent({
+            name,
+            formatLabel: result.flight.formatLabel,
+            apogeeM: analysis.metrics.apogeeAltitude ?? null,
+            text,
+          }).then(refreshRecents);
+        } else if (result.table.dataRows.length === 0) {
+          setState({
+            phase: 'error',
+            message: 'Debrief couldn’t find any data rows in this file. Is it a flight log export?',
+          });
+        } else {
+          setState({ phase: 'mapping', fileName: name, text, table: result.table, suggested: result.suggested });
+        }
+      } catch (err) {
+        setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
       }
-      const result = importFlight({ name, text });
-      if (result.kind === 'flight') {
-        setState({ phase: 'report', flight: result.flight, analysis: analyzeFlight(result.flight) });
-      } else if (result.table.dataRows.length === 0) {
-        setState({
-          phase: 'error',
-          message: 'Debrief couldn’t find any data rows in this file. Is it a flight log export?',
-        });
-      } else {
-        setState({ phase: 'mapping', fileName: name, table: result.table, suggested: result.suggested });
-      }
-    } catch (err) {
-      setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
-    }
-  }, []);
+    },
+    [refreshRecents],
+  );
 
   const onFile = useCallback(
     async (file: File) => {
@@ -124,7 +142,14 @@ export default function Analyzer() {
           dataRows: state.table.dataRows,
           mappings,
         });
-        setState({ phase: 'report', flight, analysis: analyzeFlight(flight) });
+        const analysis = analyzeFlight(flight);
+        setState({ phase: 'report', flight, analysis });
+        void saveRecent({
+          name: state.fileName,
+          formatLabel: 'Generic CSV',
+          apogeeM: analysis.metrics.apogeeAltitude ?? null,
+          text: state.text,
+        }).then(refreshRecents);
       } catch (err) {
         setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyse this file.' });
       }
@@ -133,6 +158,33 @@ export default function Analyzer() {
   );
 
   const reset = useCallback(() => setState({ phase: 'idle' }), []);
+
+  const openRecent = useCallback(
+    async (id: string) => {
+      setState({ phase: 'loading' });
+      const rec = await getRecent(id);
+      if (!rec) {
+        setState({ phase: 'error', message: 'That saved flight could no longer be read.' });
+        return;
+      }
+      await tick();
+      ingest(rec.name, rec.text);
+    },
+    [ingest],
+  );
+
+  const removeOne = useCallback(
+    async (id: string) => {
+      await removeRecent(id);
+      refreshRecents();
+    },
+    [refreshRecents],
+  );
+
+  const clearAll = useCallback(async () => {
+    await clearRecents();
+    refreshRecents();
+  }, [refreshRecents]);
 
   if (state.phase === 'report') {
     return (
@@ -171,6 +223,9 @@ export default function Analyzer() {
         <div className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300">
           {state.message}
         </div>
+      )}
+      {state.phase !== 'loading' && (
+        <RecentFlights recents={recents} sys={sys} onOpen={openRecent} onRemove={removeOne} onClear={clearAll} />
       )}
     </div>
   );

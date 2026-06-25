@@ -20,6 +20,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   higher reading.
 - Uses the device's own velocity/acceleration when it logged them, and derives them
   from altitude when it didn't — labelling which is which.
+- Exports a flight: copy a text summary, save it as `.txt`, or save the altitude chart
+  as a PNG. Recent flights are remembered on your device for quick re-opening.
 
 ## Privacy
 
