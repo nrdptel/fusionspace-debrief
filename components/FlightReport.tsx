@@ -1,13 +1,27 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
+import { summaryText, reportStem } from '@/lib/report';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
 import Chart, { type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+
+const ACTION_BTN =
+  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+
+function download(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -28,6 +42,39 @@ export default function FlightReport({
   const dark = useIsDark();
   const { series, events, metrics, warnings } = analysis;
   const notes = flight.notes;
+  const altChartRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  const stem = reportStem(flight.source);
+
+  async function copySummary() {
+    const text = summaryText(flight, analysis, sys);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      download(new Blob([text], { type: 'text/plain' }), `${stem}-debrief.txt`);
+    }
+  }
+
+  function downloadSummary() {
+    download(new Blob([summaryText(flight, analysis, sys)], { type: 'text/plain' }), `${stem}-debrief.txt`);
+  }
+
+  function saveChartPng() {
+    const canvas = altChartRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const out = document.createElement('canvas');
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = dark ? '#09090b' : '#ffffff'; // solid background, not transparent
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(canvas, 0, 0);
+    out.toBlob((blob) => blob && download(blob, `${stem}-altitude.png`));
+  }
 
   const markers: ChartMarker[] = events.map((e) => ({
     x: e.time,
@@ -54,14 +101,20 @@ export default function FlightReport({
           </span>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
         </div>
-        <button
-          type="button"
-          onClick={onToggleUnits}
-          title="Switch units"
-          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          Units: {sys === 'imperial' ? 'feet' : 'metres'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={copySummary} title="Copy a text summary to the clipboard" className={ACTION_BTN}>
+            {copied ? 'Copied ✓' : 'Copy summary'}
+          </button>
+          <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={ACTION_BTN}>
+            Save .txt
+          </button>
+          <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={ACTION_BTN}>
+            Save chart
+          </button>
+          <button type="button" onClick={onToggleUnits} title="Switch units" className={ACTION_BTN}>
+            Units: {sys === 'imperial' ? 'feet' : 'metres'}
+          </button>
+        </div>
       </div>
 
       {warnings.length > 0 && (
@@ -89,15 +142,17 @@ export default function FlightReport({
       {/* Charts */}
       <div className="space-y-6">
         <ChartBlock title={`Altitude (${UNIT_LABEL[sys].length} AGL)`}>
-          <Chart
-            time={series.time}
-            series={[{ label: 'altitude', values: series.altitude, stroke: '#6366f1', width: 2 }]}
-            markers={markers}
-            dark={dark}
-            height={300}
-            fmt={(v) => round(lengthIn(v, sys), 0)}
-            ariaLabel={altLabel}
-          />
+          <div ref={altChartRef}>
+            <Chart
+              time={series.time}
+              series={[{ label: 'altitude', values: series.altitude, stroke: '#6366f1', width: 2 }]}
+              markers={markers}
+              dark={dark}
+              height={300}
+              fmt={(v) => round(lengthIn(v, sys), 0)}
+              ariaLabel={altLabel}
+            />
+          </div>
         </ChartBlock>
 
         <ChartBlock
