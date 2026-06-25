@@ -36,15 +36,7 @@ export default function DropZone({
           setDragging(false);
           pick(e.dataTransfer.files);
         }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label="Flight log drop zone. Press Enter to choose a file, or drop a file here."
+        aria-label="Flight log drop zone"
         className={`rounded-xl border border-dashed p-10 text-center transition ${
           dragging
             ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-500/60 dark:bg-indigo-950/30'

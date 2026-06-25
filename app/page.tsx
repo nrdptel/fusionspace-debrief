@@ -40,7 +40,7 @@ export default function Home() {
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> toggle
-              between feet and metres (top-right of the report); acceleration is always in g. Your
+              between feet and meters (top-right of the report); acceleration is always in g. Your
               choice is remembered and rides in the URL.
             </li>
             <li>
@@ -71,7 +71,7 @@ export default function Home() {
             way the pad level is set from the median of the opening samples, so altitude reads zero on
             the rail and everything after is height above the pad (AGL). Barometric altitude drifts
             with weather and is disturbed by a rocket&apos;s own airflow near the airframe — treat it
-            as good to a few metres, not centimetres.
+            as good to a few meters, not centimeters.
           </Method>
           <Method title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
@@ -84,7 +84,7 @@ export default function Home() {
             high-speed boost), Debrief uses it. Otherwise velocity is the time-derivative of the
             cleaned altitude, smoothed to a window sized to the file&apos;s own sample rate so a noisy
             baro trace doesn&apos;t turn into a noisier velocity. Derived velocity is reliable through
-            the slower parts of a flight and softer at peak speed; it&apos;s labelled wherever it
+            the slower parts of a flight and softer at peak speed; it&apos;s labeled wherever it
             appears.
           </Method>
           <Method title="Acceleration">
@@ -109,7 +109,7 @@ export default function Home() {
             so on a hot or cold day expect it to shift slightly.
           </Method>
           <Method title="Formats & privacy">
-            Altus Metrum (AltOS), PerfectFlite (StratoLogger) and Eggtimer files are recognised and
+            Altus Metrum (AltOS), PerfectFlite (StratoLogger) and Eggtimer files are recognized and
             parsed automatically; more loggers are being added, and the generic-CSV mapper — which also
             reads header-less exports — covers the rest in the meantime. Files are read with the browser&apos;s
             own file API and never uploaded — the analysis you see ran entirely on your device. For live

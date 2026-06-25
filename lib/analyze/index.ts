@@ -66,7 +66,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
   const n = time.length;
-  if (n < 4) throw new Error('This file has too few samples to analyse.');
+  if (n < 4) throw new Error('This file has too few samples to analyze.');
   const dt = medianDt(time);
   const sampleHz = dt > 0 ? 1 / dt : 0;
 
@@ -84,7 +84,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     altitude = altitudeFromPressure(presCh.values, padPressure);
     warnings.push('No altitude channel — altitude was derived from barometric pressure.');
   } else {
-    throw new Error('This file has no altitude or pressure data to analyse.');
+    throw new Error('This file has no altitude or pressure data to analyze.');
   }
 
   // Pad baseline: the median of the opening samples (before anything happens).

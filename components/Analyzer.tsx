@@ -18,7 +18,7 @@ type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
-  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis }
+  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number }
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
@@ -74,7 +74,7 @@ export default function Analyzer() {
         const result = importFlight({ name, text });
         if (result.kind === 'flight') {
           const analysis = analyzeFlight(result.flight);
-          setState({ phase: 'report', flight: result.flight, analysis });
+          setState({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now() });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -143,7 +143,7 @@ export default function Analyzer() {
           mappings,
         });
         const analysis = analyzeFlight(flight);
-        setState({ phase: 'report', flight, analysis });
+        setState({ phase: 'report', flight, analysis, analyzedAt: Date.now() });
         void saveRecent({
           name: state.fileName,
           formatLabel: 'Generic CSV',
@@ -151,7 +151,7 @@ export default function Analyzer() {
           text: state.text,
         }).then(refreshRecents);
       } catch (err) {
-        setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyse this file.' });
+        setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
     },
     [state],
@@ -196,7 +196,13 @@ export default function Analyzer() {
         >
           ← Analyze another flight
         </button>
-        <FlightReport flight={state.flight} analysis={state.analysis} sys={sys} onToggleUnits={toggleUnits} />
+        <FlightReport
+          flight={state.flight}
+          analysis={state.analysis}
+          analyzedAt={state.analyzedAt}
+          sys={sys}
+          onToggleUnits={toggleUnits}
+        />
       </div>
     );
   }

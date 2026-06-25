@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength } from '@/lib/display';
@@ -27,6 +28,7 @@ export default function RecentFlights({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   if (recents.length === 0) return null;
   return (
     <div className="mt-8">
@@ -36,10 +38,22 @@ export default function RecentFlights({
         </h2>
         <button
           type="button"
-          onClick={onClear}
-          className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          onClick={() => {
+            if (confirming) {
+              onClear();
+              setConfirming(false);
+            } else {
+              setConfirming(true);
+            }
+          }}
+          onBlur={() => setConfirming(false)}
+          className={`text-xs font-medium ${
+            confirming
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+          }`}
         >
-          Clear
+          {confirming ? 'Clear all — tap to confirm' : 'Clear'}
         </button>
       </div>
       <ul className="mt-3 space-y-2">
@@ -50,7 +64,7 @@ export default function RecentFlights({
           >
             <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
               <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
-              <span className="hidden shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 sm:inline">
+              <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                 {r.formatLabel}
               </span>
               <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400">
@@ -63,7 +77,7 @@ export default function RecentFlights({
               onClick={() => onRemove(r.id)}
               aria-label={`Remove ${r.name} from recent flights`}
               title="Remove"
-              className="shrink-0 rounded-md px-1.5 text-zinc-400 transition hover:text-zinc-700 dark:hover:text-zinc-200"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             >
               ✕
             </button>

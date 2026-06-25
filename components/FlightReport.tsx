@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
-import { summaryText, reportStem } from '@/lib/report';
+import { summaryText, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
 import Chart, { type ChartMarker } from './Chart';
@@ -33,11 +33,13 @@ function round(v: number, p: number): string {
 export default function FlightReport({
   flight,
   analysis,
+  analyzedAt,
   sys,
   onToggleUnits,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
+  analyzedAt: number;
   sys: UnitSystem;
   onToggleUnits: () => void;
 }) {
@@ -50,7 +52,7 @@ export default function FlightReport({
   const stem = reportStem(flight.source);
 
   async function copySummary() {
-    const text = summaryText(flight, analysis, sys);
+    const text = summaryText(flight, analysis, sys, analyzedAt);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -95,13 +97,15 @@ export default function FlightReport({
     <div className="space-y-8">
       <h2 className="sr-only">Flight report for {flight.source}</h2>
       {/* File / format line */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-mono text-zinc-700 dark:text-zinc-300">{flight.source}</span>
-          <span className="inline-flex items-center rounded-md border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:text-indigo-300">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+          <span className="min-w-0 max-w-full truncate font-mono text-zinc-700 dark:text-zinc-300">
+            {flight.source}
+          </span>
+          <span className="inline-flex shrink-0 items-center rounded-md border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:text-indigo-300">
             {flight.formatLabel}
           </span>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
+          <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={copySummary} title="Copy a text summary to the clipboard" className={ACTION_BTN}>
@@ -113,14 +117,32 @@ export default function FlightReport({
           <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={ACTION_BTN}>
             Save chart
           </button>
-          <button type="button" onClick={onToggleUnits} title="Switch units" className={ACTION_BTN}>
-            Units: {sys === 'imperial' ? 'feet' : 'metres'}
+          <button
+            type="button"
+            onClick={onToggleUnits}
+            aria-label={`Units: ${sys === 'imperial' ? 'feet' : 'meters'}. Switch to ${sys === 'imperial' ? 'meters' : 'feet'}.`}
+            className={ACTION_BTN}
+          >
+            Units: {sys === 'imperial' ? 'feet' : 'meters'}
           </button>
+          <span className="sr-only" role="status" aria-live="polite">
+            {copied ? 'Summary copied to the clipboard.' : ''}
+          </span>
         </div>
       </div>
 
+      <p className="-mt-4 text-xs text-zinc-500 dark:text-zinc-400">
+        Analyzed{' '}
+        <time dateTime={new Date(analyzedAt).toISOString()}>{formatAnalyzedAt(analyzedAt)}</time>
+      </p>
+
       {warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <p className="mb-1 font-medium text-amber-900 dark:text-amber-100">Worth knowing</p>
           <ul className="space-y-1">
             {warnings.map((w, i) => (
               <li key={i}>{w}</li>
@@ -131,6 +153,7 @@ export default function FlightReport({
 
       {notes.length > 0 && (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+          <p className="mb-1 font-medium text-zinc-700 dark:text-zinc-300">How this file was read</p>
           <ul className="space-y-1">
             {notes.map((w, i) => (
               <li key={i}>{w}</li>
@@ -187,6 +210,11 @@ export default function FlightReport({
               ariaLabel={accLabel}
             />
           </ChartBlock>
+        )}
+        {!hasAccel && (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            This logger didn&apos;t record acceleration, so only altitude and velocity are shown.
+          </p>
         )}
       </div>
 

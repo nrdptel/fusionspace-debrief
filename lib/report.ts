@@ -10,11 +10,17 @@ function row(label: string, value: string): string {
   return `${label.padEnd(18)}${value}`;
 }
 
-export function summaryText(flight: RawFlight, analysis: FlightAnalysis, sys: UnitSystem): string {
+export function summaryText(
+  flight: RawFlight,
+  analysis: FlightAnalysis,
+  sys: UnitSystem,
+  analyzedAt?: number,
+): string {
   const m = analysis.metrics;
   const lines: string[] = [];
   lines.push('Debrief — flight report');
   lines.push(`${flight.source} · ${flight.formatLabel}`);
+  if (analyzedAt) lines.push(`Analyzed ${formatAnalyzedAt(analyzedAt)}`);
   lines.push('');
 
   lines.push(row('Apogee', fmtLength(m.apogeeAltitude, sys)));
@@ -40,7 +46,8 @@ export function summaryText(flight: RawFlight, analysis: FlightAnalysis, sys: Un
     lines.push('');
     lines.push('Events');
     for (const e of analysis.events) {
-      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}`);
+      const prov = e.provenance !== 'measured' ? `  (${e.provenance})` : '';
+      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${prov}`);
     }
   }
 
@@ -51,8 +58,21 @@ export function summaryText(flight: RawFlight, analysis: FlightAnalysis, sys: Un
   }
 
   lines.push('');
-  lines.push('Analyzed at debrief.fusionspace.co — parsed locally, never uploaded.');
+  lines.push('Figures are computed best-effort from the logger’s own data — a careful');
+  lines.push('reading, not gospel; values marked (derived) were inferred, not measured.');
+  lines.push('Made with Debrief (debrief.fusionspace.co) — parsed locally, never uploaded.');
   return lines.join('\n');
+}
+
+/** A friendly "Jun 25, 2026, 10:37 AM" stamp, matching the family's style. */
+export function formatAnalyzedAt(ts: number): string {
+  return new Date(ts).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 /** A filesystem-safe stem from the source file name. */

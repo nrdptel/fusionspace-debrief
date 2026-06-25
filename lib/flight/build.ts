@@ -109,7 +109,7 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     // Voltage is never converted; everything else converts from its source unit.
     const u = m.unit && expected ? resolveUnit(m.unit) : null;
     if (m.unit && expected && (!u || u.quantity !== expected)) {
-      notes.push(`Column "${opts.headers[m.index]}" had an unrecognised unit; values kept as-is.`);
+      notes.push(`Column "${opts.headers[m.index]}" had an unrecognized unit; values kept as-is.`);
     }
     for (let i = 0; i < order.length; i++) {
       const v = src[order[i]];

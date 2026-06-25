@@ -41,7 +41,7 @@ of parsing and analysis runs locally.
   Debrief guesses the columns and units and lets you confirm them.
 
 More named formats are being added. A new parser is a single module under
-[`lib/parsers/`](lib/parsers/) that declares how to recognise a file and how to read it
+[`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it
 into the canonical flight model — the analysis never changes.
 
 ## Stack
