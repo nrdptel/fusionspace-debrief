@@ -4,7 +4,18 @@
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
 import type { UnitSystem } from './display';
-import { fmtLength, fmtSpeed, fmtAccel, fmtTemp, fmtTime, fmtMach } from './display';
+import {
+  fmtLength,
+  fmtSpeed,
+  fmtAccel,
+  fmtTemp,
+  fmtTime,
+  fmtMach,
+  lengthIn,
+  speedIn,
+  accelInG,
+  UNIT_LABEL,
+} from './display';
 
 function row(label: string, value: string): string {
   return `${label.padEnd(18)}${value}`;
@@ -62,6 +73,26 @@ export function summaryText(
   lines.push('reading, not gospel; values marked (derived) were inferred, not measured.');
   lines.push('Made with Debrief (debrief.fusionspace.co) — parsed locally, never uploaded.');
   return lines.join('\n');
+}
+
+/** The analyzed series as a tidy CSV in the chosen units — the cleaned data a
+ *  spreadsheet user would otherwise have to derive by hand. */
+export function analyzedDataCsv(analysis: FlightAnalysis, sys: UnitSystem): string {
+  const { time, altitude, velocity, acceleration } = analysis.series;
+  const L = UNIT_LABEL[sys];
+  const cell = (v: number) => (Number.isFinite(v) ? v : '');
+  const rows = [`time (s),altitude (${L.length} AGL),velocity (${L.speed}),acceleration (g)`];
+  for (let i = 0; i < time.length; i++) {
+    rows.push(
+      [
+        time[i].toFixed(3),
+        cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
+        cell(Number(speedIn(velocity[i], sys).toFixed(1))),
+        cell(Number(accelInG(acceleration[i]).toFixed(2))),
+      ].join(','),
+    );
+  }
+  return rows.join('\n');
 }
 
 /** A friendly "Jun 25, 2026, 10:37 AM" stamp, matching the family's style. */

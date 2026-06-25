@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
-import { summaryText, reportStem, formatAnalyzedAt } from '@/lib/report';
+import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
@@ -84,7 +84,11 @@ export default function FlightReport({
   }
 
   function downloadSummary() {
-    download(new Blob([summaryText(flight, analysis, sys)], { type: 'text/plain' }), `${stem}-debrief.txt`);
+    download(new Blob([summaryText(flight, analysis, sys, analyzedAt)], { type: 'text/plain' }), `${stem}-debrief.txt`);
+  }
+
+  function downloadData() {
+    download(new Blob([analyzedDataCsv(analysis, sys)], { type: 'text/csv' }), `${stem}-debrief.csv`);
   }
 
   function saveChartPng() {
@@ -138,8 +142,16 @@ export default function FlightReport({
           <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={ACTION_BTN}>
             Save .txt
           </button>
+          <button
+            type="button"
+            onClick={downloadData}
+            title="Download the analyzed series (time, altitude, velocity, acceleration) as CSV"
+            className={ACTION_BTN}
+          >
+            Save .csv
+          </button>
           <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={ACTION_BTN}>
-            Save chart
+            Save .png
           </button>
           <button
             type="button"

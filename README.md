@@ -20,8 +20,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   higher reading.
 - Uses the device's own velocity/acceleration when it logged them, and derives them
   from altitude when it didn't — labelling which is which.
-- Exports a flight: copy a text summary, save it as `.txt`, or save the altitude chart
-  as a PNG. Recent flights are remembered on your device for quick re-opening.
+- Exports a flight: copy a text summary, save it as `.txt`, save the analyzed series
+  (time, altitude, velocity, acceleration) as `.csv`, or save the altitude chart as a
+  PNG. Recent flights are remembered on your device for quick re-opening.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 
