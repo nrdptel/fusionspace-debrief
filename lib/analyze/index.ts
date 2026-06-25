@@ -48,6 +48,14 @@ function mean(values: Float64Array, from: number, to: number): number {
   return n ? sum / n : NaN;
 }
 
+function median(values: Float64Array, from: number, to: number): number {
+  const arr: number[] = [];
+  for (let i = from; i < to; i++) if (Number.isFinite(values[i])) arr.push(values[i]);
+  if (arr.length === 0) return NaN;
+  arr.sort((a, b) => a - b);
+  return arr[arr.length >> 1];
+}
+
 function stdev(values: Float64Array, from: number, to: number): number {
   const m = mean(values, from, to);
   if (!Number.isFinite(m)) return NaN;
@@ -76,26 +84,38 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   let altitude: Float64Array;
   const altCh = getChannel(flight, 'altitude');
   const presCh = getChannel(flight, 'pressure');
-  const baseN = Math.max(3, Math.min(n, Math.round(2 / (dt || 0.1))));
+  // A short window for the pad pressure reference — long enough to average sensor
+  // noise, short enough not to swallow the launch on logs with little pre-roll.
+  const baseShort = Math.max(3, Math.min(n, Math.round(0.3 / (dt || 0.1))));
   if (altCh) {
     altitude = altCh.values.slice();
   } else if (presCh) {
-    const padPressure = mean(presCh.values, 0, baseN);
+    const padPressure = median(presCh.values, 0, baseShort);
     altitude = altitudeFromPressure(presCh.values, padPressure);
     warnings.push('No altitude channel — altitude was derived from barometric pressure.');
   } else {
     throw new Error('This file has no altitude or pressure data to analyze.');
   }
 
-  // Pad baseline: the median of the opening samples (before anything happens).
-  const baseSorted = Array.from(altitude.slice(0, baseN)).filter(Number.isFinite).sort((a, b) => a - b);
-  const baseline = baseSorted.length ? baseSorted[baseSorted.length >> 1] : 0;
-  for (let i = 0; i < n; i++) altitude[i] -= baseline;
+  // Pad baseline from the quiet pre-launch window: the opening run of samples that
+  // haven't yet climbed off the pad. This adapts to logs that start anywhere from
+  // seconds before launch to right at it, instead of assuming a fixed 2 s of pad.
+  const ref = altitude[0];
+  const maxBase = Math.min(n, Math.round(3 / (dt || 0.1)));
+  let baseEnd = 1;
+  while (baseEnd < maxBase && Number.isFinite(altitude[baseEnd]) && Math.abs(altitude[baseEnd] - ref) < 6) {
+    baseEnd++;
+  }
+  baseEnd = Math.max(3, baseEnd);
+  const baseline = median(altitude, 0, baseEnd);
+  const baseOffset = Number.isFinite(baseline) ? baseline : 0;
+  for (let i = 0; i < n; i++) altitude[i] -= baseOffset;
 
-  // If the opening samples aren't quiet, the file probably starts mid-flight, so
-  // the baseline (and anything measured against it) can't be trusted.
-  const baselineNoise = stdev(altitude, 0, baseN);
-  const padDataLikely = Number.isFinite(baselineNoise) && baselineNoise < 8;
+  // If there's no real quiet window, the file probably starts mid-flight, so the
+  // baseline (and anything measured against it) can't be fully trusted.
+  const baselineNoise = stdev(altitude, 0, baseEnd);
+  const minQuiet = Math.max(5, Math.round(0.4 / (dt || 0.1)));
+  const padDataLikely = baseEnd >= minQuiet;
   if (!padDataLikely) {
     warnings.push(
       'The log doesn’t appear to start on the pad, so the ground baseline is approximate — altitude AGL and any ground reading may be offset.',
@@ -295,7 +315,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
 
   // --- Mach & temperature ---------------------------------------------------
   const tempCh = getChannel(flight, 'temperature');
-  const groundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseN) : null;
+  const groundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseEnd) : null;
   const tempK = (groundTemperature ?? 15) + 273.15;
   const speedOfSound = Math.sqrt(1.4 * 287.05 * tempK);
   const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / speedOfSound : null;

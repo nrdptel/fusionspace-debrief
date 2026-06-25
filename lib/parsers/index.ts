@@ -11,10 +11,11 @@ import type { ColumnMapping } from '../flight/build';
 import { altusMetrumParser } from './altusmetrum';
 import { perfectFliteParser } from './perfectflite';
 import { eggtimerParser } from './eggtimer';
+import { blueRavenParser } from './blueraven';
 
 export type { ParseInput, Parser } from './types';
 
-export const PARSERS: Parser[] = [altusMetrumParser, perfectFliteParser, eggtimerParser];
+export const PARSERS: Parser[] = [altusMetrumParser, perfectFliteParser, eggtimerParser, blueRavenParser];
 
 const AUTO_THRESHOLD = 0.6;
 
