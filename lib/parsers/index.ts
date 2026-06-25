@@ -10,10 +10,11 @@ import { analyzeTable, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
 import { altusMetrumParser } from './altusmetrum';
 import { perfectFliteParser } from './perfectflite';
+import { eggtimerParser } from './eggtimer';
 
 export type { ParseInput, Parser } from './types';
 
-export const PARSERS: Parser[] = [altusMetrumParser, perfectFliteParser];
+export const PARSERS: Parser[] = [altusMetrumParser, perfectFliteParser, eggtimerParser];
 
 const AUTO_THRESHOLD = 0.6;
 

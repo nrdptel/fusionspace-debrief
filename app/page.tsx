@@ -109,9 +109,9 @@ export default function Home() {
             so on a hot or cold day expect it to shift slightly.
           </Method>
           <Method title="Formats & privacy">
-            Altus Metrum (AltOS) and PerfectFlite (StratoLogger) files are recognised and parsed
-            automatically; more loggers are being added, and the generic-CSV mapper — which also reads
-            header-less exports — covers the rest in the meantime. Files are read with the browser&apos;s
+            Altus Metrum (AltOS), PerfectFlite (StratoLogger) and Eggtimer files are recognised and
+            parsed automatically; more loggers are being added, and the generic-CSV mapper — which also
+            reads header-less exports — covers the rest in the meantime. Files are read with the browser&apos;s
             own file API and never uploaded — the analysis you see ran entirely on your device. For live
             motor stock and pricing, see the{' '}
             <a

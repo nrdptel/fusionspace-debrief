@@ -35,6 +35,8 @@ of parsing and analysis runs locally.
   auto-detected and parsed.
 - **PerfectFlite** — StratoLogger / StratoLoggerCF / Pnut (`.pf2` and CSV exports),
   auto-detected including the header-less native layout.
+- **Eggtimer** — Classic / Quantum / Apogee flight-detail CSV (`T,Alt,VRaw,VFilt`),
+  auto-detected; assumes the device's default feet.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units and lets you confirm them.
 
