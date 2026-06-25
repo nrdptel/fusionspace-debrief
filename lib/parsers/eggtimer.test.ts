@@ -47,6 +47,61 @@ function eggtimerCsv(): string {
   return lines.join('\n');
 }
 
+// Quantum-style detail CSV: T (seconds), Alt (ft), Veloc (ft/s) + event columns.
+function quantumCsv(): string {
+  const G = 9.80665;
+  const aBoost = 90;
+  const tBurn = 0.9;
+  const vB = aBoost * tBurn;
+  const hB = 0.5 * aBoost * tBurn * tBurn;
+  const coastT = vB / G;
+  const lines = ['T,Alt,Veloc,Apogee,Drogue,Main,N-O'];
+  let t = 0;
+  let prev = 0;
+  const padT = 1;
+  const end = padT + tBurn + coastT + 90;
+  const dt = 0.1; // 10 Hz, in seconds
+  while (t <= end) {
+    const ft = t - padT;
+    let h: number;
+    if (ft <= 0) h = 0;
+    else if (ft <= tBurn) h = 0.5 * aBoost * ft * ft;
+    else if (ft <= tBurn + coastT) {
+      const c = ft - tBurn;
+      h = hB + vB * c - 0.5 * G * c * c;
+    } else h = Math.max(0, prev - 5 * dt);
+    const v = (h - prev) / dt;
+    prev = h;
+    lines.push(`${t.toFixed(2)},${(h / 0.3048).toFixed(0)},${(v / 0.3048).toFixed(0)},0,0,0,0`);
+    t += dt;
+  }
+  return lines.join('\n');
+}
+
+describe('Eggtimer Quantum format (Veloc + event columns, seconds)', () => {
+  const text = quantumCsv();
+
+  it('auto-detects the Quantum variant', () => {
+    const result = importFlight({ name: 'quantum.csv', text });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('eggtimer');
+  });
+
+  it('maps Veloc to velocity, reads seconds, and analyses sanely', () => {
+    const result = importFlight({ name: 'quantum.csv', text });
+    if (result.kind !== 'flight') throw new Error('expected a flight');
+    expect(getChannel(result.flight, 'velocity')).toBeTruthy();
+    const a = analyzeFlight(result.flight);
+    // Time must be read as seconds (apogee a few seconds in, not thousands).
+    expect(a.metrics.timeToApogee).toBeGreaterThan(2);
+    expect(a.metrics.timeToApogee).toBeLessThan(20);
+    const apogeeFt = convert(a.metrics.apogeeAltitude, 'm', 'ft');
+    expect(apogeeFt).toBeGreaterThan(1000);
+    expect(apogeeFt).toBeLessThan(1500);
+  });
+});
+
 describe('Eggtimer parser', () => {
   const text = eggtimerCsv();
 
