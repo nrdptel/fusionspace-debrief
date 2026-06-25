@@ -76,3 +76,63 @@ describe('Featherweight Blue Raven parser', () => {
     expect(() => importFlight({ name: 'BLR_hir.txt', text: hir })).toThrow(/high-rate/i);
   });
 });
+
+// Phone-app export: a normal headered CSV with Blue Raven's column names.
+function blueRavenAppLow(): string {
+  const G = 9.80665;
+  const dt = 0.02; // 50 Hz
+  const padT = 1;
+  const aBoost = 100;
+  const tBurn = 0.7;
+  const vB = aBoost * tBurn;
+  const hB = 0.5 * aBoost * tBurn * tBurn;
+  const coastT = vB / G;
+  const total = padT + tBurn + coastT + 60;
+  const header =
+    'Year,Month,Day,Time,Flight_Time_(s),Sync,Velocity_Up,Velocity_DR,Velocity_CR,' +
+    'Inertial_Altitude,Inertial_DR_Position,Inertial_CR_position,Tilt_Angle_(deg),Roll_Angle_(deg)';
+  const lines = [header];
+  let prev = 0;
+  let sync = 0;
+  for (let t = 0; t <= total; t += dt) {
+    const ft = t - padT;
+    let h: number;
+    if (ft <= 0) h = 0;
+    else if (ft <= tBurn) h = 0.5 * aBoost * ft * ft;
+    else if (ft <= tBurn + coastT) {
+      const c = ft - tBurn;
+      h = hB + vB * c - 0.5 * G * c * c;
+    } else h = Math.max(0, prev - 5 * dt);
+    const v = (h - prev) / dt;
+    prev = h;
+    sync = (sync + 20) % 250;
+    lines.push(
+      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},${(v / 0.3048).toFixed(1)},0,0,${(h / 0.3048).toFixed(1)},0,0,0,0`,
+    );
+  }
+  return lines.join('\n');
+}
+
+describe('Blue Raven phone-app export', () => {
+  it('auto-detects and analyses the low-rate app CSV', () => {
+    const result = importFlight({ name: 'tcf_TTV_018 LR.csv', text: blueRavenAppLow() });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('blueraven');
+    expect(getChannel(result.flight, 'altitude')!.unit).toBe('m');
+    expect(getChannel(result.flight, 'velocity')).toBeTruthy();
+    const a = analyzeFlight(result.flight);
+    const apogeeFt = convert(a.metrics.apogeeAltitude, 'm', 'ft');
+    expect(apogeeFt).toBeGreaterThan(750);
+    expect(apogeeFt).toBeLessThan(1100);
+  });
+
+  it('points the user to the low-rate file for a high-rate app CSV', () => {
+    const hr = [
+      'Year,Month,Day,Time,Flight_Time_(s),Sync,Gyro_X,Gyro_Y,Gyro_Z,Accel_X,Accel_Y,Accel_Z,Quat_1,Quat_2,Quat_3,Quat_4,Aux_Volts,Current',
+      '2025,5,24,08:29:54.433,6.318,101,169.6,64.8,-280.4,0.60,1.25,0.00,-0.55,0.17,-0.81,0.09,0.07,0.126',
+      '2025,5,24,08:29:54.435,6.320,107,206.2,70.1,-300.2,0.58,1.27,0.04,-0.55,0.18,-0.81,0.10,0.07,0.129',
+    ].join('\n');
+    expect(() => importFlight({ name: 'tcf_TTV_018 HR.csv', text: hr })).toThrow(/low-rate/i);
+  });
+});

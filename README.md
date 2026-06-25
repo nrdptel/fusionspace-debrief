@@ -43,9 +43,10 @@ of parsing and analysis runs locally.
 - **Featherweight Raven** — the Featherweight Interface Program (FIP) CSV export, whose
   per-channel time bases are resampled onto a common clock; altitude is from the
   barometric channel.
-- **Featherweight Blue Raven** — the low-rate `LOG_LOW` capture (token format, 50 Hz);
-  altitude is read from its barometric sensor. The high-rate gyro/accel file is
-  recognized too, with a pointer to use the low-rate file for the flight profile.
+- **Featherweight Blue Raven** — both the low-rate `LOG_LOW` serial capture (token
+  format, 50 Hz) and the phone-app low-rate CSV export; altitude is read from the
+  barometric channel where present. The high-rate gyro/accel files are recognized too,
+  with a pointer to use the low-rate file for the flight profile.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units and lets you confirm them.
 
