@@ -45,7 +45,11 @@ function suggestMapping(table: AnalyzedTable): ColumnMapping[] {
  * Identify and import a flight file. Named formats parse straight through;
  * anything else comes back as a table + suggested mapping for confirmation.
  */
-export function importFlight(input: ParseInput): ImportResult {
+export function importFlight(raw: ParseInput): ImportResult {
+  // Strip a UTF-8 BOM (common on Windows exports) so the first header cell and
+  // delimiter detection aren't thrown off.
+  const input: ParseInput = { name: raw.name, text: raw.text.replace(/^﻿/, '') };
+
   let best: { parser: Parser; score: number } | null = null;
   for (const parser of PARSERS) {
     const score = parser.detect(input);

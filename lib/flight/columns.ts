@@ -30,8 +30,10 @@ export interface ColumnGuess {
 // wins, so more specific roles come first (total-accel before generic accel).
 const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   { role: 'time', test: (h) => /\b(time|seconds?|millis|timestamp|elapsed|flttime|flighttime)\b/.test(h) || /^t$/.test(h) },
-  { role: 'accelTotal', test: (h) => /(total.?acc|acc.?total|net.?acc|accel.?mag|gforce|g.?force|accel.?total)/.test(h) },
-  { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz]?|az\b)/.test(h) || /\bg\b/.test(h) },
+  { role: 'accelTotal', test: (h) => /(total.?acc|acc.?total|net.?acc|accel.?mag|gforce|g.?force)/.test(h) },
+  // Deliberately does NOT match a bare "g" — that steals GPS/geoid columns; rely
+  // on an explicit accel word, with the unit (g) read separately from the header.
+  { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz])\b/.test(h) },
   { role: 'velocity', test: (h) => /\b(velocity|speed|veloc|vel)\b/.test(h) },
   { role: 'altitude', test: (h) => /\b(altitude|alt|height|agl|baroalt|apogee|elevation)\b/.test(h) },
   { role: 'pressure', test: (h) => /\b(pressure|press|baro|barometric|hpa|mbar|kpa)\b/.test(h) },
@@ -80,26 +82,23 @@ function numericFraction(rows: string[][], index: number): number {
   return total === 0 ? 0 : n / total;
 }
 
-/**
- * Find the header row in a raw table: the last mostly-non-numeric row that is
- * immediately followed by mostly-numeric rows. Loggers often precede the data
- * with a few preamble lines, so we can't assume row 0.
- */
-export function findHeaderRow(rows: string[][]): number {
-  const limit = Math.min(rows.length, 40);
+/** First row that looks like data (mostly numeric, at least two columns). */
+function findFirstDataRow(rows: string[][]): number {
+  const limit = Math.min(rows.length, 60);
   for (let i = 0; i < limit; i++) {
     const row = rows[i];
     if (row.length < 2) continue;
-    const numericHere = row.filter(isNumeric).length / row.length;
-    const next = rows[i + 1];
-    if (!next) continue;
-    const numericNext = next.filter(isNumeric).length / next.length;
-    if (numericHere < 0.5 && numericNext >= 0.5 && next.length >= row.length - 1) {
-      return i;
-    }
+    if (row.filter(isNumeric).length / row.length >= 0.5) return i;
   }
-  // Fallback: first row.
-  return 0;
+  return rows.length > 1 ? 1 : 0;
+}
+
+/**
+ * Find the header row in a raw table: the row just before the data. Loggers
+ * often precede the data with preamble lines, so we can't assume row 0.
+ */
+export function findHeaderRow(rows: string[][]): number {
+  return Math.max(0, findFirstDataRow(rows) - 1);
 }
 
 export interface AnalyzedTable {
@@ -109,11 +108,28 @@ export interface AnalyzedTable {
   columns: ColumnGuess[];
 }
 
+/** Does a row read as a row of unit labels (s, ft, g, …) rather than names? */
+function looksLikeUnitsRow(row: string[]): boolean {
+  if (row.length < 2) return false;
+  const resolved = row.filter((c) => c && resolveUnit(c)).length;
+  return resolved / row.length >= 0.5;
+}
+
 /** Turn a raw row list into headers, data rows, and a per-column guess. */
 export function analyzeTable(rows: string[][]): AnalyzedTable {
-  const headerRow = findHeaderRow(rows);
-  const headers = rows[headerRow] ?? [];
-  const dataRows = rows.slice(headerRow + 1).filter((r) => r.some((c) => c !== ''));
+  const firstData = findFirstDataRow(rows);
+  let namesRow = Math.max(0, firstData - 1);
+  let unitsRow = -1;
+  // Some loggers split the header across two lines: names, then a row of units
+  // (e.g. "Time,Alt,Accel" / "s,ft,g"). Detect that and read both.
+  if (firstData - 1 >= 1 && looksLikeUnitsRow(rows[firstData - 1])) {
+    unitsRow = firstData - 1;
+    namesRow = firstData - 2;
+  }
+
+  const headers = rows[namesRow] ?? [];
+  const units = unitsRow >= 0 ? rows[unitsRow] : null;
+  const dataRows = rows.slice(firstData).filter((r) => r.some((c) => c !== ''));
 
   const used = new Set<ColumnRole>();
   const columns: ColumnGuess[] = headers.map((header, index) => {
@@ -123,15 +139,19 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
     // second match is left for the user to sort out rather than guessed wrongly.
     if (role !== 'ignore' && role !== 'accelAxial' && used.has(role)) role = 'ignore';
     if (role !== 'ignore') used.add(role);
+    // Unit: prefer one embedded in the name, else a separate units row.
+    const headerUnit = unitFromHeader(header);
+    const rowUnit = units && units[index] ? resolveUnit(units[index])?.unit ?? null : null;
+    const unit = headerUnit ?? rowUnit;
     return {
       index,
       header,
       role,
-      unit: unitFromHeader(header),
-      unitFromHeader: unitFromHeader(header) !== null,
+      unit,
+      unitFromHeader: unit !== null,
       numericFraction: frac,
     };
   });
 
-  return { headerRow, headers, dataRows, columns };
+  return { headerRow: namesRow, headers, dataRows, columns };
 }

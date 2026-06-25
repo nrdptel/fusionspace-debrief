@@ -34,15 +34,19 @@ export function tempIn(c: number, sys: UnitSystem): number {
 }
 
 export function fmtLength(meters: number, sys: UnitSystem): string {
+  if (!Number.isFinite(meters)) return '—';
   return `${round(lengthIn(meters, sys), 0)} ${UNIT_LABEL[sys].length}`;
 }
 export function fmtSpeed(ms: number, sys: UnitSystem): string {
+  if (!Number.isFinite(ms)) return '—';
   return `${round(speedIn(ms, sys), 0)} ${UNIT_LABEL[sys].speed}`;
 }
 export function fmtAccel(ms2: number): string {
+  if (!Number.isFinite(ms2)) return '—';
   return `${round(accelInG(ms2), 1)} g`;
 }
 export function fmtTemp(c: number, sys: UnitSystem): string {
+  if (!Number.isFinite(c)) return '—';
   return `${round(tempIn(c, sys), 0)} ${UNIT_LABEL[sys].temp}`;
 }
 export function fmtTime(seconds: number): string {

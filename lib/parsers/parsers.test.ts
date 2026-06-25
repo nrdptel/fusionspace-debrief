@@ -39,6 +39,49 @@ describe('generic CSV column detection', () => {
   });
 });
 
+describe('generic CSV with a separate units row', () => {
+  it('reads names from one row and units from the next', () => {
+    const rows = [
+      ['Time', 'Altitude', 'Accel'],
+      ['s', 'ft', 'g'],
+      ['0', '0', '1'],
+      ['0.1', '5', '8'],
+      ['0.2', '20', '7'],
+    ];
+    const t = analyzeTable(rows);
+    expect(t.headers).toEqual(['Time', 'Altitude', 'Accel']);
+    const byRole = Object.fromEntries(t.columns.map((c) => [c.role, c]));
+    expect(byRole.altitude.unit).toBe('ft');
+    expect(byRole.accelAxial.unit).toBe('g');
+    expect(t.dataRows.length).toBe(3);
+  });
+});
+
+describe('a bare "g" column does not get mis-read as acceleration', () => {
+  it('leaves a geoid/GPS g column ignored', () => {
+    const rows = [
+      ['time', 'g', 'height'],
+      ['0', '17.1', '0'],
+      ['0.1', '17.1', '5'],
+    ];
+    const t = analyzeTable(rows);
+    const byIndex = Object.fromEntries(t.columns.map((c) => [c.header, c.role]));
+    expect(byIndex['g']).toBe('ignore');
+    expect(byIndex['height']).toBe('altitude');
+  });
+});
+
+describe('BOM-prefixed Altus file still detects', () => {
+  it('strips a UTF-8 BOM before parsing', () => {
+    const text =
+      '﻿version,serial,flight,call,time,clock,rssi,lqi,state,state_name,acceleration,pressure,altitude,height,accel_speed,baro_speed,temperature,battery_voltage,drogue_voltage,main_voltage\n' +
+      '5,1,1,N,0,0,0,0,1,boost,150,1013.25,100,0,0,0,20,7.4,0,0\n' +
+      '5,1,1,N,0.1,0,0,0,1,boost,150,1000,110,10,40,5,20,7.4,0,0';
+    const result = importFlight({ name: 'f.csv', text });
+    expect(result.kind).toBe('flight');
+  });
+});
+
 describe('Altus Metrum parser', () => {
   const sample = [
     '# Altus Metrum',

@@ -45,7 +45,12 @@ export const altusMetrumParser: Parser = {
 
     const headers = rows[headerIdx].map(stripHash);
     const lower = headers.map((h) => h.toLowerCase());
-    const dataRows = rows.slice(headerIdx + 1).filter((r) => r.length >= headers.length - 2 && r[0] !== '');
+    // Keep any row that still carries the leading columns (version…time). A
+    // truncated final write (power-loss) keeps its tail samples; preamble lines
+    // split to far fewer cells and fall away. buildFlight drops rows whose time
+    // isn't numeric, so a short row just contributes NaN to missing channels.
+    const minCols = Math.min(headers.length, 6);
+    const dataRows = rows.slice(headerIdx + 1).filter((r) => r.length >= minCols && r[0] !== '');
 
     // Map by exact column name (first occurrence). `height` is already AGL, so we
     // use it as the altitude channel and leave the MSL `altitude` column aside.

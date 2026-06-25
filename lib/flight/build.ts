@@ -82,8 +82,21 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     throw new Error('No usable rows: the time column had no numeric values.');
   }
 
-  // Sort by time, then zero the clock at the first sample.
-  const order = rawTime.map((_, i) => i).sort((a, b) => rawTime[a] - rawTime[b]);
+  // Sort by time, then drop duplicate timestamps (a logger that writes two rows
+  // per tick would otherwise create zero-dt points that derail differentiation
+  // and the landing detector). Keep the first row at each timestamp.
+  const sorted = rawTime.map((_, i) => i).sort((a, b) => rawTime[a] - rawTime[b]);
+  const order: number[] = [];
+  let lastT = NaN;
+  for (const idx of sorted) {
+    if (order.length === 0 || rawTime[idx] !== lastT) {
+      order.push(idx);
+      lastT = rawTime[idx];
+    }
+  }
+  if (order.length < sorted.length) {
+    notes.push(`Dropped ${sorted.length - order.length} row(s) with duplicate timestamps.`);
+  }
   const t0 = rawTime[order[0]];
   const time = new Float64Array(order.length);
   for (let i = 0; i < order.length; i++) time[i] = rawTime[order[i]] - t0;

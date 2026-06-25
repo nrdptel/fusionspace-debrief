@@ -20,7 +20,8 @@ function syntheticBaroFlight(opts?: { ejectionSpike?: boolean }): {
   const apogee = altBurnout + (vBurnout * vBurnout) / (2 * G0);
   const descentRate = 15;
   const descentT = apogee / descentRate;
-  const total = padT + tBurn + coastT + descentT;
+  const restT = 5; // loggers keep recording at rest after touchdown
+  const total = padT + tBurn + coastT + descentT + restT;
 
   const time: number[] = [];
   const alt: number[] = [];

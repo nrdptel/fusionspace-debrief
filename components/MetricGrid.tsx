@@ -14,19 +14,23 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
     {
       label: 'Apogee',
       value: fmtLength(m.apogeeAltitude, sys),
-      sub: `${fmtTime(m.timeToApogee)} to apogee`,
+      sub: Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined,
       primary: true,
     },
     {
       label: 'Max velocity',
       value: fmtSpeed(m.maxVelocity, sys),
-      sub: m.mach ? fmtMach(m.mach) : undefined,
+      sub: m.mach ? fmtMach(m.mach) : Number.isFinite(m.maxVelocity) ? undefined : 'not in this log',
       primary: true,
     },
     {
       label: 'Max acceleration',
       value: fmtAccel(m.maxAcceleration),
-      sub: m.accelerationSource === 'device' ? 'measured' : 'derived',
+      sub: Number.isFinite(m.maxAcceleration)
+        ? m.accelerationSource === 'device'
+          ? 'measured'
+          : 'derived'
+        : undefined,
       primary: true,
     },
   ];
