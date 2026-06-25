@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
@@ -109,6 +109,9 @@ export default function FlightReport({
 
   const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
 
+  // A per-flight key links the three charts' hover cursor and zoom range.
+  const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
+
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
@@ -211,6 +214,7 @@ export default function FlightReport({
               height={300}
               fmt={(v) => round(lengthIn(v, sys), 0)}
               ariaLabel={altLabel}
+              syncKey={syncKey}
             />
           </div>
         </ChartBlock>
@@ -227,6 +231,7 @@ export default function FlightReport({
             height={200}
             fmt={(v) => round(speedIn(v, sys), 0)}
             ariaLabel={velLabel}
+            syncKey={syncKey}
           />
         </ChartBlock>
 
@@ -243,6 +248,7 @@ export default function FlightReport({
               height={200}
               fmt={(v) => round(accelInG(v), 1)}
               ariaLabel={accLabel}
+              syncKey={syncKey}
             />
           </ChartBlock>
         )}
@@ -252,6 +258,10 @@ export default function FlightReport({
           </p>
         )}
       </div>
+
+      <p className="text-center text-xs text-zinc-400 dark:text-zinc-500">
+        Hover to read all three at a time · drag across a chart to zoom · double-click to reset
+      </p>
 
       {/* Event legend */}
       <div>
