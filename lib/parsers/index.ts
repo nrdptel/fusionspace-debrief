@@ -9,10 +9,11 @@ import { parseTable } from '../csv';
 import { analyzeTable, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
 import { altusMetrumParser } from './altusmetrum';
+import { perfectFliteParser } from './perfectflite';
 
 export type { ParseInput, Parser } from './types';
 
-export const PARSERS: Parser[] = [altusMetrumParser];
+export const PARSERS: Parser[] = [altusMetrumParser, perfectFliteParser];
 
 const AUTO_THRESHOLD = 0.6;
 

@@ -118,6 +118,24 @@ function looksLikeUnitsRow(row: string[]): boolean {
 /** Turn a raw row list into headers, data rows, and a per-column guess. */
 export function analyzeTable(rows: string[][]): AnalyzedTable {
   const firstData = findFirstDataRow(rows);
+
+  // Headerless file (data from the very first row): synthesise column names so
+  // the mapper is still usable, and treat every row as data.
+  if (firstData === 0) {
+    const width = Math.max(...rows.slice(0, 20).map((r) => r.length), 0);
+    const headers = Array.from({ length: width }, (_, i) => `Column ${i + 1}`);
+    const dataRows = rows.filter((r) => r.some((c) => c !== ''));
+    const columns: ColumnGuess[] = headers.map((header, index) => ({
+      index,
+      header,
+      role: 'ignore',
+      unit: null,
+      unitFromHeader: false,
+      numericFraction: numericFraction(dataRows, index),
+    }));
+    return { headerRow: -1, headers, dataRows, columns };
+  }
+
   let namesRow = Math.max(0, firstData - 1);
   let unitsRow = -1;
   // Some loggers split the header across two lines: names, then a row of units

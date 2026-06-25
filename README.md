@@ -31,8 +31,10 @@ of parsing and analysis runs locally.
 
 - **Altus Metrum (AltOS)** — TeleMetrum, TeleMega, EasyMega, EasyMini, etc.,
   auto-detected and parsed.
-- **Generic CSV** — any logger that can export a CSV. Debrief guesses the columns and
-  units and lets you confirm them.
+- **PerfectFlite** — StratoLogger / StratoLoggerCF / Pnut (`.pf2` and CSV exports),
+  auto-detected including the header-less native layout.
+- **Generic CSV** — any logger that can export a CSV (with or without a header row).
+  Debrief guesses the columns and units and lets you confirm them.
 
 More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognise a file and how to read it
