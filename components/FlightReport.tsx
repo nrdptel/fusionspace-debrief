@@ -303,7 +303,7 @@ export default function FlightReport({
         )}
       </div>
 
-      <p className="text-center text-xs text-zinc-400 dark:text-zinc-500">
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         Hover to read all three at a time · drag across a chart to zoom · double-click to reset
       </p>
 

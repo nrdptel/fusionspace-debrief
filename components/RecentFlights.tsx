@@ -70,7 +70,7 @@ export default function RecentFlights({
               <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400">
                 {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
               </span>
-              <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">{relativeTime(r.addedAt)}</span>
+              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
             </button>
             <button
               type="button"
