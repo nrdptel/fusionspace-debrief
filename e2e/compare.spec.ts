@@ -34,3 +34,15 @@ test('compare two flights from the recents list', async ({ page }) => {
   await page.getByRole('button', { name: /Back to a single flight/ }).click();
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
 });
+
+// Dropping (choosing) several files at once should import each and jump straight
+// into the comparison, no recents round-trip needed.
+test('choosing several files at once jumps straight to a comparison', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
+});

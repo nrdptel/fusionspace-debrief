@@ -121,6 +121,52 @@ export default function Analyzer() {
     [ingest],
   );
 
+  // One file → the normal single-flight flow (incl. the column-mapping path for a
+  // generic CSV). Several files → import each auto-detected flight and go straight
+  // to a comparison (≥2) or its report (exactly 1). Files that need manual column
+  // mapping can't be batch-read, so they're skipped here.
+  const onFiles = useCallback(
+    async (files: File[]) => {
+      const list = files.filter(Boolean);
+      if (list.length === 0) return;
+      if (list.length === 1) {
+        onFile(list[0]);
+        return;
+      }
+      setState({ phase: 'loading' });
+      await tick();
+      const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string }[] = [];
+      for (const file of list.slice(0, MAX_COMPARE)) {
+        try {
+          if (file.size > MAX_BYTES) continue;
+          const text = await file.text();
+          const result = importFlight({ name: file.name, text });
+          if (result.kind !== 'flight') continue;
+          const analysis = analyzeFlight(result.flight);
+          results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text });
+          void saveRecent({ name: file.name, formatLabel: result.flight.formatLabel, apogeeM: analysis.metrics.apogeeAltitude ?? null, text }).then(
+            refreshRecents,
+          );
+        } catch {
+          /* skip this file */
+        }
+      }
+      if (results.length >= 2) {
+        const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis }));
+        setState({ phase: 'compare', comparison: buildComparison(inputs) });
+      } else if (results.length === 1) {
+        const r = results[0];
+        setState({ phase: 'report', flight: r.flight, analysis: r.analysis, analyzedAt: Date.now(), text: r.text });
+      } else {
+        setState({
+          phase: 'error',
+          message: 'None of those files auto-detected as a flight. Open them one at a time to map the columns by hand.',
+        });
+      }
+    },
+    [onFile, refreshRecents],
+  );
+
   const onSample = useCallback(async () => {
     setState({ phase: 'loading' });
     try {
@@ -280,7 +326,7 @@ export default function Analyzer() {
 
   return (
     <div className="space-y-4">
-      <DropZone onFile={onFile} onSample={onSample} busy={state.phase === 'loading'} />
+      <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && (
         <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">Reading…</p>
       )}

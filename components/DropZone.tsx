@@ -3,24 +3,19 @@
 import { useRef, useState } from 'react';
 
 export default function DropZone({
-  onFile,
+  onFiles,
   onSample,
   busy,
 }: {
-  onFile: (file: File) => void;
+  onFiles: (files: File[]) => void;
   onSample: () => void;
   busy: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const [multi, setMulti] = useState(false);
-
   const pick = (files: FileList | null) => {
-    if (files && files[0]) {
-      setMulti(files.length > 1);
-      onFile(files[0]);
-    }
+    if (files && files.length > 0) onFiles(Array.from(files));
   };
 
   return (
@@ -47,7 +42,8 @@ export default function DropZone({
           Drop a flight log here
         </p>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          CSV or text export from your altimeter — or any logger&apos;s CSV.
+          CSV or text export from your altimeter — or any logger&apos;s CSV. Drop several at
+          once to compare them.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button
@@ -56,7 +52,7 @@ export default function DropZone({
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
           >
-            Choose a file
+            Choose files
           </button>
           <button
             type="button"
@@ -70,17 +66,13 @@ export default function DropZone({
         <input
           ref={inputRef}
           type="file"
+          multiple
           aria-label="Choose a flight log file"
           accept=".csv,.txt,.log,text/csv,text/plain"
           className="sr-only"
           onChange={(e) => pick(e.target.files)}
         />
       </div>
-      {multi && (
-        <p className="mt-3 text-center text-xs text-amber-600 dark:text-amber-400">
-          Debrief reads one flight at a time — using the first file you chose.
-        </p>
-      )}
       <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
         Your file is read in this browser and never uploaded — parsing and analysis happen entirely
         on your device.

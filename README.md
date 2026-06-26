@@ -23,8 +23,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Exports a flight: copy a text summary, save it as `.txt`, save the analyzed series
   (time, altitude, velocity, acceleration) as `.csv`, or save the altitude chart as a
   PNG. Recent flights are remembered on your device for quick re-opening.
-- Compares several flights at once — tick two or more recent flights to overlay their
-  altitude and velocity curves (aligned at liftoff) with a side-by-side metrics table.
+- Compares several flights at once — drop multiple files (or tick two or more recent
+  flights) to overlay their altitude and velocity curves (aligned at liftoff) with a
+  side-by-side metrics table.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 
