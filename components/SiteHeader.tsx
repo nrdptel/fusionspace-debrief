@@ -1,6 +1,6 @@
 import ThemeToggle from './ThemeToggle';
-import { GitHubIcon } from './icons';
-import { HUB_URL, REPO_URL } from '@/lib/links';
+import KofiButton from './KofiButton';
+import { HUB_URL } from '@/lib/links';
 
 export default function SiteHeader() {
   return (
@@ -28,19 +28,9 @@ export default function SiteHeader() {
           browser, never uploaded.
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <a
-          href={REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Source on GitHub"
-          aria-label="Source on GitHub"
-          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-        >
-          <GitHubIcon className="h-3.5 w-3.5 fill-current" />
-          <span className="hidden sm:inline">GitHub</span>
-        </a>
+      <div className="flex shrink-0 flex-col items-end gap-2">
         <ThemeToggle />
+        <KofiButton />
       </div>
     </header>
   );
