@@ -26,3 +26,15 @@ test('uploading a file through the input analyzes it', async ({ page }) => {
   await page.getByRole('button', { name: /Analyze another flight/ }).click();
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
 });
+
+test('the channel explorer plots any channel against any axis', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // Switch the Y channel, then put a channel on the X axis (not time).
+  await page.getByLabel('Y axis channel').selectOption({ label: 'Velocity' });
+  await page.getByLabel('X axis channel').selectOption({ label: 'Altitude (AGL)' });
+  await expect(page.getByText(/Plotting one channel against another/)).toBeVisible();
+});

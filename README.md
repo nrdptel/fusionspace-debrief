@@ -15,6 +15,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   burnout, time-to-apogee, deployments, descent rates, and flight time.
 - Draws altitude, velocity, and acceleration against time, with liftoff, burnout,
   apogee, main deploy, and landing marked on each.
+- Opens up the full data — a channel explorer lets you plot anything the logger
+  recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
+  against time, or one channel against another (e.g. velocity vs altitude).
 - Finds the *real* apogee — a short median filter removes the single-sample spike an
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.

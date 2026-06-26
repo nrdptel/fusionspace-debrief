@@ -8,9 +8,11 @@ import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel,
 import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import { buildPlotChannels } from '@/lib/explore';
 import { useIsDark } from './useIsDark';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import ChannelExplorer from './ChannelExplorer';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
@@ -112,6 +114,9 @@ export default function FlightReport({
   }));
 
   const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
+
+  // Every channel worth plotting, for the flexible explorer below.
+  const plotChannels = useMemo(() => buildPlotChannels(flight, series), [flight, series]);
 
   // A per-flight key links the three charts' hover cursor and zoom range.
   const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
@@ -334,6 +339,8 @@ export default function FlightReport({
           ))}
         </div>
       </div>
+
+      <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} />
     </div>
   );
 }

@@ -103,3 +103,29 @@ It fits the family by construction:
 
 What "correctly-analyzed" means, and the format and sharing decisions, are in
 `docs/plan.md`.
+
+## Scope: an engineer's tool, not just a quick check
+
+Debrief began as a fast way to drop in a log and read the headline numbers, and that
+fast path stays — auto-detected events, the real apogee, a clean summary. But at the end
+of the day this is a tool for rocketeers, and most serious rocketeers are engineers who
+want to *interrogate* their data, not just glance at it. The direction is **comprehensive
+and flexible**, not casual:
+
+- **Expose everything the logger recorded**, not only the three derived curves. A modern
+  altimeter logs battery voltage, temperature, raw pressure, per-axis acceleration, tilt,
+  GPS, and more — those channels are in the file and should be available to plot, not
+  hidden behind the headline summary.
+- **Let the engineer choose what goes on each axis.** Any recorded (or derived) channel
+  against time, or one channel against another (velocity vs altitude, accel vs velocity —
+  phase-space views), so people can actually find the relationships they're after.
+- **Depth with restraint.** Flexibility is the goal, but the calm, honest look and the
+  "show your work" voice stay. The summary is the fast lane; the explorer is the deep
+  lane. Both are first-class, neither is loud.
+- Still **100% client-side**: all of this is just plotting data already parsed in the
+  browser. No backend, ever.
+
+The litmus test: an engineer should be able to open a flight and answer a question the
+headline numbers don't — "what did the battery do under boost?", "how noisy is the
+baro past apogee?", "what's the velocity at each altitude on the way up?" — without
+exporting to Excel.

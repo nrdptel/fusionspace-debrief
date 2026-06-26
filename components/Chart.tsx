@@ -36,13 +36,28 @@ export interface ChartProps {
   height?: number;
   /** Format a y value for the axis and the hover legend. */
   fmt?: (v: number) => string;
+  /** Format an x value for the axis and the hover legend. Defaults to seconds. */
+  xFmt?: (v: number) => string;
+  /** Legend label for the x series. Defaults to "time". */
+  xLabel?: string;
   /** Text alternative for the canvas, for screen readers. */
   ariaLabel?: string;
   /** Charts sharing this key share a hover cursor and zoom range. */
   syncKey?: string;
 }
 
-export default function Chart({ time, series, markers = [], dark, height = 240, fmt, ariaLabel, syncKey }: ChartProps) {
+export default function Chart({
+  time,
+  series,
+  markers = [],
+  dark,
+  height = 240,
+  fmt,
+  xFmt,
+  xLabel,
+  ariaLabel,
+  syncKey,
+}: ChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
 
@@ -53,6 +68,7 @@ export default function Chart({ time, series, markers = [], dark, height = 240, 
     const axisColor = dark ? '#a1a1aa' : '#52525b'; // zinc-400 / zinc-600
     const gridColor = dark ? 'rgba(63,63,70,0.4)' : 'rgba(228,228,231,0.8)';
     const yFmt = fmt ?? ((v: number) => String(v));
+    const xTick = xFmt ?? ((v: number) => `${v}s`);
 
     const drawMarkers = (u: uPlot) => {
       const ctx = u.ctx;
@@ -110,7 +126,7 @@ export default function Chart({ time, series, markers = [], dark, height = 240, 
           stroke: axisColor,
           grid: { stroke: gridColor, width: 1 },
           ticks: { stroke: gridColor, width: 1 },
-          values: (_u, vals) => vals.map((v) => `${v}s`),
+          values: (_u, vals) => vals.map((v) => xTick(v)),
           font: '11px var(--font-geist-sans, sans-serif)',
         },
         {
@@ -123,7 +139,7 @@ export default function Chart({ time, series, markers = [], dark, height = 240, 
         },
       ],
       series: [
-        { label: 'time', value: (_u, v) => (v == null ? '' : `${v.toFixed(2)} s`) },
+        { label: xLabel ?? 'time', value: (_u, v) => (v == null ? '' : xFmt ? xFmt(v) : `${v.toFixed(2)} s`) },
         ...series.map((s) => ({
           label: s.label,
           stroke: s.stroke,
@@ -160,7 +176,7 @@ export default function Chart({ time, series, markers = [], dark, height = 240, 
       plot.destroy();
       plotRef.current = null;
     };
-  }, [time, series, markers, dark, height, fmt, syncKey]);
+  }, [time, series, markers, dark, height, fmt, xFmt, xLabel, syncKey]);
 
   return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
 }
