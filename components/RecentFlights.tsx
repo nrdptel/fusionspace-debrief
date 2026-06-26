@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength } from '@/lib/display';
+import { MAX_COMPARE } from '@/lib/compare';
 
 function relativeTime(ts: number): string {
   const s = (Date.now() - ts) / 1000;
@@ -21,71 +22,112 @@ export default function RecentFlights({
   onOpen,
   onRemove,
   onClear,
+  onCompare,
 }: {
   recents: RecentMeta[];
   sys: UnitSystem;
   onOpen: (id: string) => void;
   onRemove: (id: string) => void;
   onClear: () => void;
+  onCompare: (ids: string[]) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
   if (recents.length === 0) return null;
+
+  // Selected ids that still exist (a removed flight drops out of the selection).
+  const present = new Set(recents.map((r) => r.id));
+  const chosen = [...selected].filter((id) => present.has(id));
+  const atCap = chosen.length >= MAX_COMPARE;
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < MAX_COMPARE) next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="mt-8">
       <div className="flex items-baseline justify-between gap-4 border-b border-zinc-200 pb-2 dark:border-zinc-800">
         <h2 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
           Recent flights
         </h2>
-        <button
-          type="button"
-          onClick={() => {
-            if (confirming) {
-              onClear();
-              setConfirming(false);
-            } else {
-              setConfirming(true);
-            }
-          }}
-          onBlur={() => setConfirming(false)}
-          className={`text-xs font-medium ${
-            confirming
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-          }`}
-        >
-          {confirming ? 'Clear all — tap to confirm' : 'Clear'}
-        </button>
-      </div>
-      <ul className="mt-3 space-y-2">
-        {recents.map((r) => (
-          <li
-            key={r.id}
-            className="group flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 transition hover:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60"
-          >
-            <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-              <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
-              <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-                {r.formatLabel}
-              </span>
-              <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
-              </span>
-              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
-            </button>
+        <div className="flex items-center gap-3">
+          {chosen.length >= 2 && (
             <button
               type="button"
-              onClick={() => onRemove(r.id)}
-              aria-label={`Remove ${r.name} from recent flights`}
-              title="Remove"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              onClick={() => onCompare(chosen)}
+              className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-indigo-500"
             >
-              ✕
+              Compare {chosen.length} flights
             </button>
-          </li>
-        ))}
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (confirming) {
+                onClear();
+                setConfirming(false);
+              } else {
+                setConfirming(true);
+              }
+            }}
+            onBlur={() => setConfirming(false)}
+            className={`text-xs font-medium ${
+              confirming
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            {confirming ? 'Clear all — tap to confirm' : 'Clear'}
+          </button>
+        </div>
+      </div>
+      <ul className="mt-3 space-y-2">
+        {recents.map((r) => {
+          const isSel = selected.has(r.id);
+          return (
+            <li
+              key={r.id}
+              className="group flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 transition hover:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60"
+            >
+              <input
+                type="checkbox"
+                checked={isSel}
+                disabled={!isSel && atCap}
+                onChange={() => toggle(r.id)}
+                aria-label={`Select ${r.name} to compare`}
+                className="h-4 w-4 shrink-0 accent-indigo-600 disabled:opacity-40"
+              />
+              <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
+                <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                  {r.formatLabel}
+                </span>
+                <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                  {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(r.id)}
+                aria-label={`Remove ${r.name} from recent flights`}
+                title="Remove"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                ✕
+              </button>
+            </li>
+          );
+        })}
       </ul>
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-        Remembered on this device only — never uploaded.
+        Remembered on this device only — never uploaded. Tick two or more to compare them.
       </p>
     </div>
   );

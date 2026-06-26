@@ -12,7 +12,9 @@ import DropZone from './DropZone';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
+import CompareView from './CompareView';
 import { saveRecent, listRecents, getRecent, removeRecent, clearRecents, type RecentMeta } from '@/lib/recents';
+import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
 
 type State =
@@ -20,6 +22,7 @@ type State =
   | { phase: 'loading' }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
   | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string }
+  | { phase: 'compare'; comparison: Comparison }
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
@@ -174,6 +177,38 @@ export default function Analyzer() {
     [ingest],
   );
 
+  const compareRecents = useCallback(async (ids: string[]) => {
+    setState({ phase: 'loading' });
+    try {
+      const inputs = [];
+      for (const id of ids.slice(0, MAX_COMPARE)) {
+        const rec = await getRecent(id);
+        if (!rec) continue;
+        // Only auto-detected flights can be compared; a generic CSV that needed
+        // manual column mapping can't be re-analyzed without that mapping.
+        const result = importFlight({ name: rec.name, text: rec.text });
+        if (result.kind !== 'flight') continue;
+        inputs.push({
+          id,
+          name: rec.name,
+          formatLabel: result.flight.formatLabel,
+          analysis: analyzeFlight(result.flight),
+        });
+      }
+      if (inputs.length < 2) {
+        setState({
+          phase: 'error',
+          message:
+            'Need at least two readable flights to compare. Files that needed manual column mapping (Generic CSV) can’t be auto-compared.',
+        });
+        return;
+      }
+      setState({ phase: 'compare', comparison: buildComparison(inputs) });
+    } catch {
+      setState({ phase: 'error', message: 'Could not build the comparison.' });
+    }
+  }, []);
+
   const removeOne = useCallback(
     async (id: string) => {
       await removeRecent(id);
@@ -221,6 +256,10 @@ export default function Analyzer() {
     );
   }
 
+  if (state.phase === 'compare') {
+    return <CompareView comparison={state.comparison} sys={sys} onToggleUnits={toggleUnits} onBack={reset} />;
+  }
+
   if (state.phase === 'mapping') {
     return (
       <ColumnMapper
@@ -245,7 +284,14 @@ export default function Analyzer() {
         </div>
       )}
       {state.phase !== 'loading' && (
-        <RecentFlights recents={recents} sys={sys} onOpen={openRecent} onRemove={removeOne} onClear={clearAll} />
+        <RecentFlights
+          recents={recents}
+          sys={sys}
+          onOpen={openRecent}
+          onRemove={removeOne}
+          onClear={clearAll}
+          onCompare={compareRecents}
+        />
       )}
     </div>
   );
