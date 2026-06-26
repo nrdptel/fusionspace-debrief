@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { GitHubIcon } from './icons';
 import { HUB_URL, MOTOR_URL, REPO_URL } from '@/lib/links';
 import { observancesForDate } from '@/lib/observances';
@@ -31,6 +32,12 @@ export default function SiteFooter() {
           >
             Motor Finder
           </a>
+          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+            ·
+          </span>
+          <Link href="/privacy" className="hover:text-zinc-800 dark:hover:text-zinc-200">
+            Privacy
+          </Link>
         </nav>
         <a
           href={HUB_URL}
