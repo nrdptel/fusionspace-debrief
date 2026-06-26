@@ -29,7 +29,6 @@ export interface CompareFlight {
   altitude: Float64Array;
   /** Velocity (m/s) resampled onto the shared grid; NaN outside the flight. */
   velocity: Float64Array;
-  hasVelocity: boolean;
   metrics: FlightMetrics;
 }
 
@@ -71,7 +70,10 @@ export function resample(srcTime: Float64Array, srcVal: Float64Array, grid: Floa
     const tb = srcTime[j + 1] ?? ta;
     const va = srcVal[j];
     const vb = srcVal[j + 1] ?? va;
-    out[i] = tb === ta ? va : va + (vb - va) * ((t - ta) / (tb - ta));
+    // Clamp the fraction to [0,1] so a non-monotonic or duplicated source
+    // timestamp can never extrapolate past the bracketing samples.
+    const f = tb === ta ? 0 : Math.min(1, Math.max(0, (t - ta) / (tb - ta)));
+    out[i] = va + (vb - va) * f;
   }
   return out;
 }
@@ -118,7 +120,6 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       color: COMPARE_PALETTE[idx % COMPARE_PALETTE.length],
       altitude,
       velocity,
-      hasVelocity: series.velocity.some((v) => Number.isFinite(v) && v !== 0),
       metrics,
     };
   });

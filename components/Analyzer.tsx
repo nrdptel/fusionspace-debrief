@@ -182,18 +182,24 @@ export default function Analyzer() {
     try {
       const inputs = [];
       for (const id of ids.slice(0, MAX_COMPARE)) {
-        const rec = await getRecent(id);
-        if (!rec) continue;
-        // Only auto-detected flights can be compared; a generic CSV that needed
-        // manual column mapping can't be re-analyzed without that mapping.
-        const result = importFlight({ name: rec.name, text: rec.text });
-        if (result.kind !== 'flight') continue;
-        inputs.push({
-          id,
-          name: rec.name,
-          formatLabel: result.flight.formatLabel,
-          analysis: analyzeFlight(result.flight),
-        });
+        // Each file is independent: one that can't be re-read or re-analyzed is
+        // skipped, not allowed to sink the whole comparison.
+        try {
+          const rec = await getRecent(id);
+          if (!rec) continue;
+          // Only auto-detected flights can be compared; a generic CSV that needed
+          // manual column mapping can't be re-analyzed without that mapping.
+          const result = importFlight({ name: rec.name, text: rec.text });
+          if (result.kind !== 'flight') continue;
+          inputs.push({
+            id,
+            name: rec.name,
+            formatLabel: result.flight.formatLabel,
+            analysis: analyzeFlight(result.flight),
+          });
+        } catch {
+          /* skip this file */
+        }
       }
       if (inputs.length < 2) {
         setState({

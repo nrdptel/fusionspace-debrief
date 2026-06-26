@@ -25,7 +25,7 @@ test('compare two flights from the recents list', async ({ page }) => {
   await page.getByRole('button', { name: /Compare 2 flights/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Apogee', exact: true })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
 
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();

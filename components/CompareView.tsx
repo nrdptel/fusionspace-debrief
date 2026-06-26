@@ -55,25 +55,30 @@ export default function CompareView({
     { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—') },
   ];
 
-  // Index of the flight holding the best (max) value per emphasized row.
+  // Index of the flight holding the best (max) value per emphasized row. Only
+  // emphasize when at least two flights have a finite value — "best of one" isn't
+  // a comparison.
   const bestIdx = (row: Row): number => {
     if (row.best !== 'max' || !row.value) return -1;
     let bi = -1;
     let bv = -Infinity;
+    let finite = 0;
     flights.forEach((f, i) => {
       const v = row.value!(f.metrics);
-      if (Number.isFinite(v) && v > bv) {
+      if (!Number.isFinite(v)) return;
+      finite++;
+      if (v > bv) {
         bv = v;
         bi = i;
       }
     });
-    return bi;
+    return finite >= 2 ? bi : -1;
   };
 
+  // Like the single-flight report, always show velocity (it's the best estimate,
+  // derived from altitude when the device didn't log it).
   const altSeries = flights.map((f) => ({ label: stem(f.name), values: f.altitude, stroke: f.color, width: 2 }));
-  const velSeries = flights
-    .filter((f) => f.hasVelocity)
-    .map((f) => ({ label: stem(f.name), values: f.velocity, stroke: f.color, width: 1.75 }));
+  const velSeries = flights.map((f) => ({ label: stem(f.name), values: f.velocity, stroke: f.color, width: 1.75 }));
   const liftoffMarker: ChartMarker[] = [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }];
 
   const altLabel = `Altitude against time after liftoff for ${flights.length} flights: ${flights
@@ -113,11 +118,14 @@ export default function CompareView({
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-white py-2 pr-4 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
+              <th
+                scope="col"
+                className="sticky left-0 bg-white py-2 pr-4 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
+              >
                 Metric
               </th>
               {flights.map((f) => (
-                <th key={f.id} className="px-3 py-2 text-right align-bottom">
+                <th key={f.id} scope="col" className="px-3 py-2 text-right align-bottom">
                   <span className="flex items-center justify-end gap-1.5">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -140,9 +148,12 @@ export default function CompareView({
               const bi = bestIdx(row);
               return (
                 <tr key={row.label} className="border-t border-zinc-100 dark:border-zinc-900">
-                  <td className="sticky left-0 bg-white py-2 pr-4 text-left font-medium text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400">
+                  <th
+                    scope="row"
+                    className="sticky left-0 bg-white py-2 pr-4 text-left font-medium text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
+                  >
                     {row.label}
-                  </td>
+                  </th>
                   {flights.map((f, i) => (
                     <td
                       key={f.id}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength } from '@/lib/display';
@@ -34,9 +34,19 @@ export default function RecentFlights({
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Drop a selected id once its flight leaves the list, so the cap math (which
+  // counts the raw set) can't drift out of step with what's actually selectable.
+  const presentKey = recents.map((r) => r.id).join(',');
+  useEffect(() => {
+    const ids = new Set(presentKey ? presentKey.split(',') : []);
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((id) => ids.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [presentKey]);
+
   if (recents.length === 0) return null;
 
-  // Selected ids that still exist (a removed flight drops out of the selection).
   const present = new Set(recents.map((r) => r.id));
   const chosen = [...selected].filter((id) => present.has(id));
   const atCap = chosen.length >= MAX_COMPARE;

@@ -59,6 +59,16 @@ describe('resample', () => {
     expect(out[1]).toBe(10);
     expect(Number.isNaN(out[2])).toBe(true);
   });
+
+  it('never extrapolates past a duplicated timestamp', () => {
+    // Duplicate at t=1 (zero-width bracket): the value must stay within [10,20],
+    // not shoot past it.
+    const t = Float64Array.from([0, 1, 1, 2]);
+    const v = Float64Array.from([0, 10, 20, 30]);
+    const out = resample(t, v, Float64Array.from([1]));
+    expect(out[0]).toBeGreaterThanOrEqual(10);
+    expect(out[0]).toBeLessThanOrEqual(20);
+  });
 });
 
 describe('buildComparison', () => {
