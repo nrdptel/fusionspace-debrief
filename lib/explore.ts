@@ -51,6 +51,46 @@ export function planAxes(units: string[]): { leftUnit?: string; rightUnit?: stri
   return { leftUnit: distinct[0], rightUnit: distinct[1] };
 }
 
+export interface WindowStats {
+  count: number;
+  min: number;
+  max: number;
+  mean: number;
+  /** Value at the window's last in-range sample minus its first. */
+  delta: number;
+  /** delta / (x at last − x at first); NaN when the x span is zero. */
+  rate: number;
+}
+
+/** Summary stats for one y-series over the samples whose x falls in [lo, hi].
+ * Used to measure whatever range is currently in view (zoom = selection). NaN y
+ * values are ignored; returns null when no sample is in range. */
+export function windowStats(x: Float64Array, y: Float64Array, lo: number, hi: number): WindowStats | null {
+  const n = Math.min(x.length, y.length);
+  let count = 0;
+  let sum = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  let firstI = -1;
+  let lastI = -1;
+  for (let i = 0; i < n; i++) {
+    const xv = x[i];
+    if (!(xv >= lo && xv <= hi)) continue;
+    const yv = y[i];
+    if (!Number.isFinite(yv)) continue;
+    count++;
+    sum += yv;
+    if (yv < min) min = yv;
+    if (yv > max) max = yv;
+    if (firstI < 0) firstI = i;
+    lastI = i;
+  }
+  if (count === 0) return null;
+  const delta = y[lastI] - y[firstI];
+  const dx = x[lastI] - x[firstI];
+  return { count, min, max, mean: sum / count, delta, rate: dx !== 0 ? delta / dx : NaN };
+}
+
 /** Every channel worth plotting: Debrief's three derived series first (the cleaned
  * canonical altitude/velocity/acceleration), then each channel the file recorded. */
 export function buildPlotChannels(flight: RawFlight, series: FlightSeries): PlotChannel[] {

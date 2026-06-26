@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { planAxes, type PlotChannel } from '@/lib/explore';
+import { useCallback, useMemo, useState } from 'react';
+import { planAxes, windowStats, type PlotChannel } from '@/lib/explore';
 import { COMPARE_PALETTE } from '@/lib/compare';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
@@ -41,6 +41,11 @@ export default function ChannelExplorer({
 
   const [yKeys, setYKeys] = useState<string[]>(channels[0] ? [channels[0].key] : []);
   const [xKey, setXKey] = useState('time');
+  // Visible x-range, reported by the chart; zoom is the measurement selection.
+  const [view, setView] = useState<[number, number] | null>(null);
+  const onView = useCallback((min: number, max: number) => {
+    setView((prev) => (prev && prev[0] === min && prev[1] === max ? prev : [min, max]));
+  }, []);
 
   const selected = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c);
   const { leftUnit, rightUnit } = planAxes(selected.map((c) => c.unitLabel(sys)));
@@ -199,8 +204,21 @@ export default function ChannelExplorer({
           xFmt={xIsTime ? undefined : num}
           xLabel={xIsTime ? 'time' : xName}
           ariaLabel={`Line chart of ${selected.map((c) => c.label).join(', ')} against ${xName}.`}
+          onView={onView}
         />
       </div>
+
+      {/* Live stats for whatever's in view — drag across the chart to zoom into a
+          phase, double-click to reset; the numbers track the visible window. */}
+      <Stats
+        channels={selected}
+        seriesData={seriesData}
+        xVals={xVals}
+        sys={sys}
+        view={view}
+        xName={xName}
+        xUnit={xUnit}
+      />
 
       {!xIsTime && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -209,6 +227,107 @@ export default function ChannelExplorer({
           down).
         </p>
       )}
+    </div>
+  );
+}
+
+const TH_NUM = 'px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400';
+const TD_NUM = 'px-3 py-1.5 text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-200';
+
+/** Min / max / mean / Δ / rate for each plotted channel over the visible window
+ * (the current zoom). Zoom is the selection — these numbers track it. */
+function Stats({
+  channels,
+  seriesData,
+  xVals,
+  sys,
+  view,
+  xName,
+  xUnit,
+}: {
+  channels: PlotChannel[];
+  seriesData: Float64Array[];
+  xVals: Float64Array;
+  sys: UnitSystem;
+  view: [number, number] | null;
+  xName: string;
+  xUnit: string;
+}) {
+  const [lo, hi] = view ?? [-Infinity, Infinity];
+  const rows = channels.map((c, i) => ({ c, i, s: windowStats(xVals, seriesData[i], lo, hi) }));
+
+  let fullLo = Infinity;
+  let fullHi = -Infinity;
+  for (let i = 0; i < xVals.length; i++) {
+    const v = xVals[i];
+    if (!Number.isFinite(v)) continue;
+    if (v < fullLo) fullLo = v;
+    if (v > fullHi) fullHi = v;
+  }
+  const shownLo = Number.isFinite(lo) ? lo : fullLo;
+  const shownHi = Number.isFinite(hi) ? hi : fullHi;
+  const zoomed = view != null && (shownLo > fullLo + 1e-6 || shownHi < fullHi - 1e-6);
+
+  return (
+    <div className="mt-4">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          {zoomed ? 'In the selected window' : 'Across the whole flight'}
+        </h4>
+        <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
+          {xName} {num(shownLo)}–{num(shownHi)} {xUnit}
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-separate border-spacing-0 text-sm">
+          <thead>
+            <tr>
+              <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                Channel
+              </th>
+              <th scope="col" className={TH_NUM}>min</th>
+              <th scope="col" className={TH_NUM}>max</th>
+              <th scope="col" className={TH_NUM}>mean</th>
+              <th scope="col" className={TH_NUM}>Δ</th>
+              <th scope="col" className={TH_NUM}>rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ c, i, s }) => (
+              <tr key={c.key} className="border-t border-zinc-100 dark:border-zinc-900">
+                <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: COMPARE_PALETTE[i % COMPARE_PALETTE.length] }}
+                      aria-hidden="true"
+                    />
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.label}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>
+                  </span>
+                </th>
+                {s ? (
+                  <>
+                    <td className={TD_NUM}>{num(s.min)}</td>
+                    <td className={TD_NUM}>{num(s.max)}</td>
+                    <td className={TD_NUM}>{num(s.mean)}</td>
+                    <td className={TD_NUM}>{num(s.delta)}</td>
+                    <td className={TD_NUM}>{num(s.rate)}</td>
+                  </>
+                ) : (
+                  <td colSpan={5} className="px-3 py-1.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                    no samples in range
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        Stats are for the visible window — drag across the chart to zoom into a phase, double-click
+        to reset. Values are in each channel&apos;s unit; rate is the change per {xUnit}.
+      </p>
     </div>
   );
 }

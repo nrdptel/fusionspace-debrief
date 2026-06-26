@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPlotChannels, planAxes } from './explore';
+import { buildPlotChannels, planAxes, windowStats } from './explore';
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
 
@@ -64,5 +64,30 @@ describe('planAxes', () => {
   });
   it('ignores a third distinct unit (nowhere to put it)', () => {
     expect(planAxes(['ft', 'V', 'g'])).toEqual({ leftUnit: 'ft', rightUnit: 'V' });
+  });
+});
+
+describe('windowStats', () => {
+  const x = Float64Array.from([0, 1, 2, 3, 4]);
+  const y = Float64Array.from([0, 10, 20, 30, 40]);
+
+  it('summarizes the samples whose x falls in range', () => {
+    const s = windowStats(x, y, 1, 3)!;
+    expect(s.count).toBe(3);
+    expect(s.min).toBe(10);
+    expect(s.max).toBe(30);
+    expect(s.mean).toBe(20);
+    expect(s.delta).toBe(20); // y[3] - y[1]
+    expect(s.rate).toBe(10); // 20 / (3 - 1)
+  });
+
+  it('ignores NaN y values and returns null for an empty window', () => {
+    const yn = Float64Array.from([NaN, 10, NaN, 30, 40]);
+    // Window [0,0]: only x=0, whose y is NaN → no finite samples → null.
+    expect(windowStats(x, yn, 0, 0)).toBeNull();
+    // Window [0,2]: x=0 (NaN, skipped), 1 (10), 2 (NaN, skipped) → one sample.
+    const s = windowStats(x, yn, 0, 2)!;
+    expect(s.count).toBe(1);
+    expect(s.mean).toBe(10);
   });
 });

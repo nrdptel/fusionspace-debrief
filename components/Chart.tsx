@@ -48,6 +48,8 @@ export interface ChartProps {
   ariaLabel?: string;
   /** Charts sharing this key share a hover cursor and zoom range. */
   syncKey?: string;
+  /** Called with the visible x-range on init and whenever it changes (zoom). */
+  onView?: (min: number, max: number) => void;
 }
 
 export default function Chart({
@@ -62,6 +64,7 @@ export default function Chart({
   xLabel,
   ariaLabel,
   syncKey,
+  onView,
 }: ChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
@@ -113,6 +116,16 @@ export default function Chart({
         if (p === u) continue;
         const s = p.scales.x;
         if (s.min !== min || s.max !== max) p.setScale('x', { min, max });
+      }
+    };
+
+    // Fan a scale change out to the sync group and report the visible range.
+    const onSetScale = (u: uPlot, scaleKey: string) => {
+      if (scaleKey !== 'x') return;
+      if (syncKey) syncZoom(u, scaleKey);
+      if (onView) {
+        const { min, max } = u.scales.x;
+        if (min != null && max != null) onView(min, max);
       }
     };
 
@@ -172,12 +185,18 @@ export default function Chart({
             v == null ? '—' : s.axis === 'right' ? yFmtRight(v) : yFmt(v),
         })),
       ],
-      hooks: { draw: [drawMarkers], setScale: syncKey ? [syncZoom] : [] },
+      hooks: { draw: [drawMarkers], setScale: syncKey || onView ? [onSetScale] : [] },
     };
 
     const data: uPlot.AlignedData = [time, ...series.map((s) => s.values)];
     const plot = new uPlot(opts, data, host);
     plotRef.current = plot;
+
+    // Report the initial full range so a stats panel can populate before any zoom.
+    if (onView) {
+      const { min, max } = plot.scales.x;
+      if (min != null && max != null) onView(min, max);
+    }
 
     if (syncKey) {
       let set = zoomGroups.get(syncKey);
@@ -200,7 +219,7 @@ export default function Chart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, syncKey]);
+  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, syncKey, onView]);
 
   return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
 }
