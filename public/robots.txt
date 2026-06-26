@@ -1,5 +1,0 @@
-User-Agent: *
-Allow: /
-
-Sitemap: https://debrief.fusionspace.co/sitemap.xml
-Host: https://debrief.fusionspace.co
