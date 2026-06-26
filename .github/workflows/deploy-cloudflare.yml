@@ -1,0 +1,49 @@
+name: Deploy to Cloudflare Pages
+
+# Builds the Next static export (out/) and deploys it to Cloudflare Pages.
+# The whole site is static and client-side — there is no backend and there are
+# no Pages Functions, so the deploy is just "build, then upload out/".
+#
+# Triggers:
+#   - push to main: every change to the production branch redeploys the site.
+#   - workflow_dispatch: manual deploy from the Actions tab.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One in-flight deploy at a time; a newer commit supersedes an older one.
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install + build static export
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Upload the built static site (out/). public/_headers is copied into
+          # out/ by the build, so Cloudflare applies it automatically.
+          # `--branch=main` forces a PRODUCTION deployment (main is the project's
+          # production branch) — the custom domain serves production, so an
+          # implicit/preview branch would deploy but never go live.
+          command: pages deploy out --project-name=fusionspace-debrief --branch=main
