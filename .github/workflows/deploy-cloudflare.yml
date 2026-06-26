@@ -7,10 +7,15 @@ name: Deploy to Cloudflare Pages
 # Triggers:
 #   - push to main: every change to the production branch redeploys the site.
 #   - workflow_dispatch: manual deploy from the Actions tab.
+#   - schedule: a monthly rebuild so the time-based UI (the observance accent
+#     bars + footer lines, evaluated from the date at build) rolls over with the
+#     calendar even when nothing is pushed.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *' # 00:00 UTC on the 1st of each month
 
 # One in-flight deploy at a time; a newer commit supersedes an older one.
 concurrency:

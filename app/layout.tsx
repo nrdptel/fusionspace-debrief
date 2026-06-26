@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { SITE_URL, HUB_URL, REPO_URL } from '@/lib/links';
+import { observancesForDate } from '@/lib/observances';
 import './globals.css';
 
 const DESCRIPTION =
@@ -75,6 +76,11 @@ const jsonLd = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Small monthly flourishes (Pride, Men's Mental Health Month, …) — a thin
+  // accent rule per active observance, stacked at the very top. Evaluated when
+  // the static HTML is generated; a monthly scheduled rebuild keeps them current.
+  const bars = observancesForDate().filter((o) => o.bar);
+
   return (
     <html
       lang="en"
@@ -88,6 +94,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-full flex flex-col bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+        {bars.map((o) => (
+          <div
+            key={o.id}
+            aria-hidden="true"
+            title={o.bar!.title}
+            className="h-1.5 w-full shrink-0"
+            style={{ background: o.bar!.background }}
+          />
+        ))}
         {children}
       </body>
     </html>
