@@ -24,17 +24,6 @@ export default function SiteFooter() {
             ·
           </span>
           <a
-            href={HUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-zinc-800 dark:hover:text-zinc-200"
-          >
-            Fusion Space
-          </a>
-          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
-            ·
-          </span>
-          <a
             href={MOTOR_URL}
             target="_blank"
             rel="noopener noreferrer"
@@ -43,17 +32,29 @@ export default function SiteFooter() {
             Motor Finder
           </a>
         </nav>
-        <div className="flex items-center gap-1.5">
-          <span>Built by</span>
+        <a
+          href={HUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Fusion Space — free, polished tools for high-power rocketry"
+          className="group inline-flex items-center gap-1.5 transition hover:opacity-80"
+        >
+          <span>A</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/fusion-space-wordmark.svg"
             alt="Fusion Space"
             width={1598}
             height={281}
-            className="h-4 w-auto"
+            className="h-5 w-auto"
           />
-        </div>
+          <span>
+            project{' '}
+            <span aria-hidden="true" className="opacity-0 transition group-hover:opacity-100">
+              ↗
+            </span>
+          </span>
+        </a>
       </div>
       <p className="mt-5 max-w-3xl leading-relaxed text-zinc-500 dark:text-zinc-400">
         Your flight file is read in this browser and never uploaded — all parsing and
