@@ -27,14 +27,27 @@ test('uploading a file through the input analyzes it', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
 });
 
-test('the channel explorer plots any channel against any axis', async ({ page }) => {
+test('the channel explorer overlays channels and plots any axis', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  page.on('pageerror', (e) => errors.push(String(e)));
+
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
 
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
 
-  // Switch the Y channel, then put a channel on the X axis (not time).
-  await page.getByLabel('Y axis channel').selectOption({ label: 'Velocity' });
+  // Overlay a second channel — velocity's unit differs from altitude's, so it
+  // lands on a second (right) axis. This exercises the dual-axis uPlot path.
+  await page.getByLabel('Add a channel to the plot').selectOption({ label: 'Velocity' });
+  await expect(page.getByText(/Right axis:/)).toBeVisible();
+  await expect(page.locator('.uplot canvas').first()).toBeVisible();
+
+  // Put a channel on the X axis (not time) — the path note appears.
   await page.getByLabel('X axis channel').selectOption({ label: 'Altitude (AGL)' });
-  await expect(page.getByText(/Plotting one channel against another/)).toBeVisible();
+  await expect(page.getByText(/Plotting against another channel/)).toBeVisible();
+
+  expect(errors).toEqual([]);
 });

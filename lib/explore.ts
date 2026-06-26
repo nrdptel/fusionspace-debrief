@@ -42,6 +42,15 @@ function display(unit: string): Pick<PlotChannel, 'toDisplay' | 'unitLabel'> {
 
 const hasData = (v: Float64Array) => v.some((x) => Number.isFinite(x));
 
+/** Bucket display-units onto a left and right axis, in the order they first
+ * appear. Two distinct units share a chart cleanly (independent scales); a third
+ * distinct unit has nowhere to go, so the UI prevents adding one. */
+export function planAxes(units: string[]): { leftUnit?: string; rightUnit?: string } {
+  const distinct: string[] = [];
+  for (const u of units) if (!distinct.includes(u)) distinct.push(u);
+  return { leftUnit: distinct[0], rightUnit: distinct[1] };
+}
+
 /** Every channel worth plotting: Debrief's three derived series first (the cleaned
  * canonical altitude/velocity/acceleration), then each channel the file recorded. */
 export function buildPlotChannels(flight: RawFlight, series: FlightSeries): PlotChannel[] {

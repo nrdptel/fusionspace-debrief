@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { PlotChannel } from '@/lib/explore';
+import { planAxes, type PlotChannel } from '@/lib/explore';
+import { COMPARE_PALETTE } from '@/lib/compare';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -10,8 +11,8 @@ import Chart, { type ChartMarker } from './Chart';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
-const Y_COLOR = '#6366f1';
 const GROUPS: PlotChannel['group'][] = ['Debrief', 'Recorded'];
+const MAX_SERIES = COMPARE_PALETTE.length;
 
 function num(v: number): string {
   if (!Number.isFinite(v)) return '—';
@@ -20,29 +21,10 @@ function num(v: number): string {
   return (Math.round(v * f) / f).toLocaleString('en-US', { maximumFractionDigits: p });
 }
 
-function Options({ channels }: { channels: PlotChannel[] }) {
-  return (
-    <>
-      {GROUPS.map((g) => {
-        const inGroup = channels.filter((c) => c.group === g);
-        if (inGroup.length === 0) return null;
-        return (
-          <optgroup key={g} label={g}>
-            {inGroup.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </optgroup>
-        );
-      })}
-    </>
-  );
-}
-
-/** Pick any recorded or derived channel for each axis and plot it. The summary
- * above is the fast lane; this is the deep lane — every channel the logger wrote,
- * against time or against another channel. */
+/** Pick any recorded or derived channels and overlay them. The summary above is
+ * the fast lane; this is the deep lane — every channel the logger wrote, against
+ * time or against another channel, with a second axis so different units (say
+ * altitude and battery voltage) share one chart without flattening each other. */
 export default function ChannelExplorer({
   channels,
   time,
@@ -57,10 +39,12 @@ export default function ChannelExplorer({
   const dark = useIsDark();
   const byKey = useMemo(() => new Map(channels.map((c) => [c.key, c])), [channels]);
 
+  const [yKeys, setYKeys] = useState<string[]>(channels[0] ? [channels[0].key] : []);
   const [xKey, setXKey] = useState('time');
-  const [yKey, setYKey] = useState(channels[0]?.key ?? '');
 
-  const yChan = byKey.get(yKey) ?? channels[0];
+  const selected = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c);
+  const { leftUnit, rightUnit } = planAxes(selected.map((c) => c.unitLabel(sys)));
+
   const xIsTime = xKey === 'time';
   const xChan = xIsTime ? undefined : byKey.get(xKey);
 
@@ -71,72 +55,158 @@ export default function ChannelExplorer({
     return out;
   }, [xIsTime, xChan, time, sys]);
 
-  const yVals = useMemo(() => {
-    if (!yChan) return new Float64Array(0);
-    const out = new Float64Array(yChan.values.length);
-    for (let i = 0; i < out.length; i++) out[i] = yChan.toDisplay(yChan.values[i], sys);
-    return out;
-  }, [yChan, sys]);
+  const seriesData = useMemo(
+    () =>
+      yKeys
+        .map((k) => byKey.get(k))
+        .filter((c): c is PlotChannel => !!c)
+        .map((c) => {
+          const out = new Float64Array(c.values.length);
+          for (let i = 0; i < out.length; i++) out[i] = c.toDisplay(c.values[i], sys);
+          return out;
+        }),
+    [yKeys, byKey, sys],
+  );
 
-  if (!yChan) return null;
+  if (selected.length === 0) return null;
 
-  const yUnit = yChan.unitLabel(sys);
   const xUnit = xIsTime ? 's' : (xChan?.unitLabel(sys) ?? '');
   const xName = xIsTime ? 'Time' : (xChan?.label ?? 'Time');
+
+  const series = selected.map((c, i) => ({
+    label: `${c.label} (${c.unitLabel(sys)})`,
+    values: seriesData[i],
+    stroke: COMPARE_PALETTE[i % COMPARE_PALETTE.length],
+    width: 1.75,
+    axis: c.unitLabel(sys) === leftUnit ? ('left' as const) : ('right' as const),
+  }));
 
   const markers: ChartMarker[] = xIsTime
     ? events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] }))
     : [];
 
+  // A channel can be added unless it's already shown, we're at the cap, or it
+  // would need a third axis (a third distinct unit).
+  const canAdd = (c: PlotChannel) => {
+    if (yKeys.includes(c.key) || selected.length >= MAX_SERIES) return false;
+    const u = c.unitLabel(sys);
+    return !rightUnit || u === leftUnit || u === rightUnit;
+  };
+  const addable = channels.filter(canAdd);
+
   return (
     <div>
       <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Explore the data</h3>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-        Plot any channel your logger recorded — pick what goes on each axis.
+        Plot any channel your logger recorded — overlay a few, and choose what goes on each axis.
       </p>
 
-      <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2">
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          Y axis
-          <select aria-label="Y axis channel" value={yKey} onChange={(e) => setYKey(e.target.value)} className={SELECT}>
-            <Options channels={channels} />
+      {/* Selected Y channels as removable chips */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {selected.map((c, i) => (
+          <span
+            key={c.key}
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white py-1 pl-2 pr-1 text-xs dark:border-zinc-800 dark:bg-zinc-900/40"
+          >
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: COMPARE_PALETTE[i % COMPARE_PALETTE.length] }}
+              aria-hidden="true"
+            />
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.label}</span>
+            <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>
+            {selected.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setYKeys((ks) => ks.filter((k) => k !== c.key))}
+                aria-label={`Remove ${c.label} from the plot`}
+                title="Remove"
+                className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                ✕
+              </button>
+            )}
+          </span>
+        ))}
+        {addable.length > 0 && (
+          <select
+            aria-label="Add a channel to the plot"
+            value=""
+            onChange={(e) => {
+              if (e.target.value) setYKeys((ks) => [...ks, e.target.value]);
+            }}
+            className={SELECT}
+          >
+            <option value="">+ Add channel…</option>
+            {GROUPS.map((g) => {
+              const inGroup = addable.filter((c) => c.group === g);
+              if (inGroup.length === 0) return null;
+              return (
+                <optgroup key={g} label={g}>
+                  {inGroup.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
-        </label>
-        <span className="pb-2 text-xs text-zinc-500 dark:text-zinc-400">vs</span>
-        <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        )}
+      </div>
+
+      {/* X axis selector */}
+      <div className="mt-3">
+        <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
           X axis
           <select aria-label="X axis channel" value={xKey} onChange={(e) => setXKey(e.target.value)} className={SELECT}>
             <option value="time">Time</option>
-            <Options channels={channels} />
+            {GROUPS.map((g) => {
+              const inGroup = channels.filter((c) => c.group === g);
+              if (inGroup.length === 0) return null;
+              return (
+                <optgroup key={g} label={g}>
+                  {inGroup.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
         </label>
       </div>
 
       <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <div className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          {yChan.label}
-          {yUnit && <span className="text-zinc-500 dark:text-zinc-400"> ({yUnit})</span>}{' '}
-          <span className="text-zinc-500 dark:text-zinc-400">vs</span> {xName}
-          {xUnit && <span className="text-zinc-500 dark:text-zinc-400"> ({xUnit})</span>}
+        <div className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Left axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{leftUnit}</span>
+          {rightUnit && (
+            <>
+              {' · '}Right axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{rightUnit}</span>
+            </>
+          )}
+          {' · '}X: <span className="font-medium text-zinc-700 dark:text-zinc-300">{xName}{xUnit && ` (${xUnit})`}</span>
         </div>
         <Chart
           time={xVals}
-          series={[{ label: yChan.label, values: yVals, stroke: Y_COLOR, width: 1.75 }]}
+          series={series}
           markers={markers}
           dark={dark}
-          height={260}
+          height={280}
           fmt={num}
+          fmtRight={rightUnit ? num : undefined}
           xFmt={xIsTime ? undefined : num}
           xLabel={xIsTime ? 'time' : xName}
-          ariaLabel={`Line chart of ${yChan.label} against ${xName}.`}
+          ariaLabel={`Line chart of ${selected.map((c) => c.label).join(', ')} against ${xName}.`}
         />
       </div>
 
       {!xIsTime && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Plotting one channel against another draws the path the flight traced through them, in
-          time order — so a curve can loop back on itself (for example, the same altitude on the way
-          up and the way down).
+          Plotting against another channel draws the path the flight traced through them, in time
+          order — so a curve can loop back on itself (the same altitude on the way up and the way
+          down).
         </p>
       )}
     </div>

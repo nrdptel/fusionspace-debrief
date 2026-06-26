@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPlotChannels } from './explore';
+import { buildPlotChannels, planAxes } from './explore';
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
 
@@ -52,5 +52,17 @@ describe('buildPlotChannels', () => {
     const batt = channels.find((c) => c.label === 'Batt')!;
     expect(batt.toDisplay(7.4, 'imperial')).toBe(7.4); // native unit, no conversion
     expect(batt.unitLabel('imperial')).toBe('V');
+  });
+});
+
+describe('planAxes', () => {
+  it('puts the first distinct unit left and the second right', () => {
+    expect(planAxes(['ft', 'ft', 'V'])).toEqual({ leftUnit: 'ft', rightUnit: 'V' });
+  });
+  it('leaves the right axis empty when everything shares a unit', () => {
+    expect(planAxes(['ft', 'ft'])).toEqual({ leftUnit: 'ft', rightUnit: undefined });
+  });
+  it('ignores a third distinct unit (nowhere to put it)', () => {
+    expect(planAxes(['ft', 'V', 'g'])).toEqual({ leftUnit: 'ft', rightUnit: 'V' });
   });
 });

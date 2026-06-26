@@ -20,6 +20,8 @@ export interface ChartSeries {
   values: Float64Array;
   stroke: string;
   width?: number;
+  /** Which y-axis/scale to bind to. Defaults to the left axis. */
+  axis?: 'left' | 'right';
 }
 
 export interface ChartMarker {
@@ -34,8 +36,10 @@ export interface ChartProps {
   markers?: ChartMarker[];
   dark: boolean;
   height?: number;
-  /** Format a y value for the axis and the hover legend. */
+  /** Format a y value for the (left) axis and the hover legend. */
   fmt?: (v: number) => string;
+  /** Format a value for the right axis, when any series binds to it. */
+  fmtRight?: (v: number) => string;
   /** Format an x value for the axis and the hover legend. Defaults to seconds. */
   xFmt?: (v: number) => string;
   /** Legend label for the x series. Defaults to "time". */
@@ -53,6 +57,7 @@ export default function Chart({
   dark,
   height = 240,
   fmt,
+  fmtRight,
   xFmt,
   xLabel,
   ariaLabel,
@@ -68,7 +73,9 @@ export default function Chart({
     const axisColor = dark ? '#a1a1aa' : '#52525b'; // zinc-400 / zinc-600
     const gridColor = dark ? 'rgba(63,63,70,0.4)' : 'rgba(228,228,231,0.8)';
     const yFmt = fmt ?? ((v: number) => String(v));
+    const yFmtRight = fmtRight ?? yFmt;
     const xTick = xFmt ?? ((v: number) => `${v}s`);
+    const hasRight = series.some((s) => s.axis === 'right');
 
     const drawMarkers = (u: uPlot) => {
       const ctx = u.ctx;
@@ -120,7 +127,7 @@ export default function Chart({
         ...(syncKey ? { sync: { key: syncKey } } : {}),
       },
       legend: { show: true, live: true },
-      scales: { x: { time: false } },
+      scales: { x: { time: false }, y: {}, ...(hasRight ? { y2: {} } : {}) },
       axes: [
         {
           stroke: axisColor,
@@ -130,6 +137,7 @@ export default function Chart({
           font: '11px var(--font-geist-sans, sans-serif)',
         },
         {
+          scale: 'y',
           stroke: axisColor,
           grid: { stroke: gridColor, width: 1 },
           ticks: { stroke: gridColor, width: 1 },
@@ -137,6 +145,20 @@ export default function Chart({
           values: (_u, vals) => vals.map((v) => yFmt(v)),
           font: '11px var(--font-geist-sans, sans-serif)',
         },
+        ...(hasRight
+          ? [
+              {
+                scale: 'y2',
+                side: 1 as const,
+                stroke: axisColor,
+                grid: { show: false },
+                ticks: { stroke: gridColor, width: 1 },
+                size: 56,
+                values: (_u: uPlot, vals: number[]) => vals.map((v) => yFmtRight(v)),
+                font: '11px var(--font-geist-sans, sans-serif)',
+              },
+            ]
+          : []),
       ],
       series: [
         { label: xLabel ?? 'time', value: (_u, v) => (v == null ? '' : xFmt ? xFmt(v) : `${v.toFixed(2)} s`) },
@@ -144,8 +166,10 @@ export default function Chart({
           label: s.label,
           stroke: s.stroke,
           width: s.width ?? 1.75,
+          scale: s.axis === 'right' ? 'y2' : 'y',
           points: { show: false },
-          value: (_u: uPlot, v: number | null) => (v == null ? '—' : yFmt(v)),
+          value: (_u: uPlot, v: number | null) =>
+            v == null ? '—' : s.axis === 'right' ? yFmtRight(v) : yFmt(v),
         })),
       ],
       hooks: { draw: [drawMarkers], setScale: syncKey ? [syncZoom] : [] },
@@ -176,7 +200,7 @@ export default function Chart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [time, series, markers, dark, height, fmt, xFmt, xLabel, syncKey]);
+  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, syncKey]);
 
   return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
 }
