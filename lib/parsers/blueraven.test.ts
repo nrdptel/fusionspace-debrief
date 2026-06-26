@@ -88,9 +88,13 @@ function blueRavenAppLow(): string {
   const hB = 0.5 * aBoost * tBurn * tBurn;
   const coastT = vB / G;
   const total = padT + tBurn + coastT + 60;
+  // Real app low-rate columns. Includes both a sea-level baro altitude and an
+  // (intentionally drifted-high) inertial altitude, so the test proves the parser
+  // picks the barometric AGL column over the ASL and inertial ones.
+  const padAsl = 1000; // ft
   const header =
-    'Year,Month,Day,Time,Flight_Time_(s),Sync,Velocity_Up,Velocity_DR,Velocity_CR,' +
-    'Inertial_Altitude,Inertial_DR_Position,Inertial_CR_position,Tilt_Angle_(deg),Roll_Angle_(deg)';
+    'Year,Month,Day,Time,Flight_Time_(s),Sync,Temperature_(F),Baro_Press_(atm),' +
+    'Baro_Altitude_ASL_(feet),Baro_Altitude_AGL_(feet),Batt_Volts,Velocity_Up,Inertial_Altitude';
   const lines = [header];
   let prev = 0;
   let sync = 0;
@@ -106,8 +110,9 @@ function blueRavenAppLow(): string {
     const v = (h - prev) / dt;
     prev = h;
     sync = (sync + 20) % 250;
+    const aglFt = h / 0.3048;
     lines.push(
-      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},${(v / 0.3048).toFixed(1)},0,0,${(h / 0.3048).toFixed(1)},0,0,0,0`,
+      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},70,0.95,${(padAsl + aglFt).toFixed(1)},${aglFt.toFixed(1)},9.3,${(v / 0.3048).toFixed(1)},${(aglFt * 1.1).toFixed(1)}`,
     );
   }
   return lines.join('\n');

@@ -91,11 +91,16 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
 
   const where = (pred: (h: string) => boolean) => lower.findIndex(pred);
   const timeIdx = where((h) => h.includes('flight_time'));
+  // Prefer the barometric AGL altitude; the inertial altitude drifts (a real
+  // flight reads ~11% high on the inertial channel vs baro).
+  const aglIdx = where((h) => h.includes('baro') && h.includes('agl'));
   const baroAltIdx = where((h) => h.includes('baro') && h.includes('alt'));
   const inertAltIdx = where((h) => h.includes('inertial') && h.includes('alt'));
-  const altIdx = baroAltIdx >= 0 ? baroAltIdx : inertAltIdx >= 0 ? inertAltIdx : where((h) => h.includes('altitude'));
+  const altIdx =
+    aglIdx >= 0 ? aglIdx : baroAltIdx >= 0 ? baroAltIdx : inertAltIdx >= 0 ? inertAltIdx : where((h) => h.includes('altitude'));
   const velIdx = where((h) => h.includes('velocity_up') || (h.includes('velocity') && h.includes('up')));
   const battIdx = where((h) => h.includes('batt'));
+  const tempIdx = where((h) => h.includes('temperature'));
 
   if (altIdx < 0) throw new Error(HR_HINT);
   if (timeIdx < 0) throw new Error('No flight-time column was found in this Blue Raven file.');
@@ -104,8 +109,9 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   mappings.push({ index: altIdx, role: 'altitude', unit: 'ft' });
   if (velIdx >= 0) mappings.push({ index: velIdx, role: 'velocity', unit: 'ft/s' });
   if (battIdx >= 0) mappings.push({ index: battIdx, role: 'voltage', unit: 'V' });
+  if (tempIdx >= 0) mappings.push({ index: tempIdx, role: 'temperature', unit: 'F' });
 
-  const inertial = altIdx === inertAltIdx && baroAltIdx < 0;
+  const inertial = altIdx === inertAltIdx && aglIdx < 0 && baroAltIdx < 0;
   const note = inertial
     ? 'Blue Raven app export: altitude and velocity here are the onboard inertial estimates, read as feet. The inertial solution can drift after deployment.'
     : 'Blue Raven app export (low-rate): altitude is from the barometric channel; values are read as feet.';

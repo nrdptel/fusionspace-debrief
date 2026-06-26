@@ -289,27 +289,32 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     );
   }
 
+  // Main deployment, found from landing backwards: the main chute's terminal is
+  // the steady descent just before touchdown, so we walk back from landing while
+  // the descent stays near that terminal — the point where it was last clearly
+  // faster is the main deploy. This is robust to a non-monotonic drogue descent
+  // (a real flight can have a slow patch up high that a "biggest drop" detector
+  // mistakes for the main). A single-deploy descent has one steady rate, so the
+  // drogue-was-faster check fails and no main is marked.
+  const guard = Math.max(2, Math.round(0.5 / (descentDt || 0.1)));
   let mainIdx: number | null = null;
-  if (landingIdx > apogeeIdx + 4) {
-    const guard = Math.max(2, Math.round(0.5 / (descentDt || 0.1)));
-    let bestDrop = 0;
-    for (let i = apogeeIdx + guard; i < landingIdx - guard; i++) {
-      const before = mean(descent, Math.max(apogeeIdx, i - guard), i);
-      const after = mean(descent, i, Math.min(landingIdx, i + guard));
-      const drop = before - after;
-      // A real main snap: a fast-enough drogue descent that more than halves and
-      // drops by a real margin. Judged on relative terms so slow- and fast-drogue
-      // flights are treated alike; a single-deploy descent never satisfies it
-      // (its speed rises toward terminal, it doesn't step down).
+  if (landingIdx > apogeeIdx + 4 * guard) {
+    const tail = Math.max(3, Math.round(2 / (descentDt || 0.1)));
+    const lo = Math.max(apogeeIdx + 1, landingIdx - tail);
+    const mainTerminal = median(descent, lo, Math.max(lo + 1, landingIdx - (guard >> 1)));
+    if (Number.isFinite(mainTerminal) && mainTerminal > 1) {
+      const tol = Math.max(mainTerminal * 1.6, mainTerminal + 3);
+      let i = landingIdx - 1;
+      while (i > apogeeIdx && descent[i] <= tol) i--;
+      const candidate = i + 1;
+      const drogueMed = median(descent, apogeeIdx + 1, candidate);
       if (
-        drop > bestDrop &&
-        before > 5 &&
-        after > 0 &&
-        after < before * 0.6 &&
-        drop > Math.max(3, before * 0.3)
+        candidate > apogeeIdx + guard &&
+        candidate < landingIdx - 1 &&
+        Number.isFinite(drogueMed) &&
+        drogueMed > mainTerminal * 1.4
       ) {
-        bestDrop = drop;
-        mainIdx = i;
+        mainIdx = candidate;
       }
     }
   }
