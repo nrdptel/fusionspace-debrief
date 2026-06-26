@@ -1,0 +1,41 @@
+name: Bug report
+description: Something on the site is wrong or broken
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! If a flight reads wrong, the most useful thing you
+        can attach is the flight file itself — but only if you're comfortable
+        sharing it publicly here. Debrief never uploads your files; attaching one
+        to a GitHub issue is entirely your choice.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - A file won't load or isn't detected
+        - The numbers look wrong (apogee, velocity, events…)
+        - Charts / zoom / display
+        - Export, share link, or units
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: logger
+    attributes:
+      label: Altimeter / logger
+      description: Which device or export produced the file?
+      placeholder: e.g. Featherweight Blue Raven, Altus Metrum TeleMetrum, generic CSV
+  - type: textarea
+    id: what
+    attributes:
+      label: What's wrong?
+      description: What did you expect, and what did you actually see?
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Browser / device (optional)
+      placeholder: e.g. Chrome on Android, Safari on iPhone

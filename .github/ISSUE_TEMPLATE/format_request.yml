@@ -1,0 +1,30 @@
+name: Format / altimeter request
+description: Ask for support for a logger or file format Debrief doesn't read yet
+labels: ["format request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Debrief aims to read a flight file from any altimeter. If yours isn't
+        detected, tell me about it — a real sample file is by far the most useful
+        thing, but only share one you're comfortable posting publicly.
+  - type: input
+    id: device
+    attributes:
+      label: Altimeter / logger
+      description: Make and model, and the export type if you know it.
+      placeholder: e.g. Eggtimer Quantum CSV, PerfectFlite StratoLogger .pf2
+    validations:
+      required: true
+  - type: textarea
+    id: format
+    attributes:
+      label: What does the file look like?
+      description: >
+        Paste the header row and a few sample lines (or describe the columns).
+        What are the units — feet or metres, seconds or milliseconds?
+  - type: input
+    id: link
+    attributes:
+      label: Sample file or docs (optional)
+      description: A link to an example export or the logger's format documentation.
