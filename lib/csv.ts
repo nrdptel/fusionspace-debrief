@@ -99,3 +99,16 @@ export function isNumeric(cell: string): boolean {
   const v = Number(cell);
   return Number.isFinite(v);
 }
+
+// --- Writing ---------------------------------------------------------------
+
+/** Quote a cell only when it needs it (a comma, quote or newline), doubling any
+ *  embedded quotes — enough to keep grouped numbers like "1,234 ft" intact. */
+export function csvCell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/** Join a grid of string cells into CSV text, quoting each cell as needed. */
+export function toCsv(rows: string[][]): string {
+  return rows.map((r) => r.map(csvCell).join(',')).join('\n');
+}

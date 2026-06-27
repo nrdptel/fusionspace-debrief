@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
+import { exploreCsv } from '@/lib/explore';
+import { toCsv } from '@/lib/csv';
+import { download } from '@/lib/download';
 import {
   lengthIn,
   speedIn,
@@ -76,6 +79,7 @@ export default function CompareView({
   const { time, flights } = comparison;
   const syncKey = useMemo(() => `compare-${flights.map((f) => f.id).join('-')}`, [flights]);
   const [metric, setMetric] = useState<MetricKey>('altitude');
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const rows: Row[] = [
     { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), best: 'max', value: (m) => m.apogeeAltitude },
@@ -122,12 +126,18 @@ export default function CompareView({
 
   // Pick which quantity to overlay across flights. All three are derived for
   // every analyzed flight, so they overlay cleanly regardless of logger.
-  const metrics: { key: MetricKey; label: string; unit: string; get: (f: CompareFlight) => Float64Array }[] = [
-    { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude },
-    { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity },
-    { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration },
-    { key: 'mach', label: 'Mach', unit: '', get: (f) => f.mach },
-    { key: 'dynamicPressure', label: 'Dynamic pressure', unit: pressureUnit(sys), get: (f) => f.dynamicPressure },
+  const metrics: {
+    key: MetricKey;
+    label: string;
+    unit: string;
+    get: (f: CompareFlight) => Float64Array;
+    toDisplay: (v: number) => number;
+  }[] = [
+    { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude, toDisplay: (v) => lengthIn(v, sys) },
+    { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity, toDisplay: (v) => speedIn(v, sys) },
+    { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration, toDisplay: (v) => accelInG(v) },
+    { key: 'mach', label: 'Mach', unit: '', get: (f) => f.mach, toDisplay: (v) => v },
+    { key: 'dynamicPressure', label: 'Dynamic pressure', unit: pressureUnit(sys), get: (f) => f.dynamicPressure, toDisplay: (v) => pressureIn(v, sys) },
   ];
   const active = metrics.find((m) => m.key === metric) ?? metrics[0];
   const metricSeries = useMemo(
@@ -152,6 +162,37 @@ export default function CompareView({
     [metric, sys],
   );
   const chartLabel = `${active.label} against time after liftoff for ${flights.length} flights.`;
+
+  // Export the comparison — all on-device, like the rest. The overlay CSV is the
+  // currently selected channel for every flight on the shared (liftoff-aligned)
+  // grid; the metrics CSV is the side-by-side table; the PNG is the chart.
+  const saveOverlayCsv = () => {
+    const x = { label: 'time after liftoff', unit: 's', values: time };
+    const ys = flights.map((f) => ({
+      label: stem(f.name),
+      unit: active.unit,
+      values: Float64Array.from(active.get(f), (v) => active.toDisplay(v)),
+    }));
+    download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `compare-${metric}.csv`);
+  };
+  const saveMetricsCsv = () => {
+    const header = ['Metric', ...flights.map((f) => stem(f.name))];
+    const body = rows.map((r) => [r.label, ...flights.map((f) => r.get(f.metrics))]);
+    download(new Blob([toCsv([header, ...body])], { type: 'text/csv' }), 'compare-metrics.csv');
+  };
+  const savePng = () => {
+    const canvas = chartRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const out = document.createElement('canvas');
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = dark ? '#09090b' : '#ffffff'; // solid background, not transparent
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(canvas, 0, 0);
+    out.toBlob((blob) => blob && download(blob, `compare-${metric}.png`));
+  };
 
   return (
     <div className="space-y-6">
@@ -266,17 +307,43 @@ export default function CompareView({
             </button>
           ))}
         </div>
+
+        {/* Export the comparison — chart, the overlaid data, or the table. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={savePng} title="Save the comparison chart as a PNG" className={ACTION_BTN}>
+            Save .png
+          </button>
+          <button
+            type="button"
+            onClick={saveOverlayCsv}
+            title={`Save the overlaid ${active.label.toLowerCase()} curves (one column per flight) as CSV`}
+            className={ACTION_BTN}
+          >
+            Save chart data
+          </button>
+          <button
+            type="button"
+            onClick={saveMetricsCsv}
+            title="Save the side-by-side metrics table as CSV"
+            className={ACTION_BTN}
+          >
+            Save metrics
+          </button>
+        </div>
+
         <ChartBlock title={active.unit ? `${active.label} (${active.unit})` : active.label}>
-          <Chart
-            time={time}
-            series={metricSeries}
-            markers={liftoffMarker}
-            dark={dark}
-            height={320}
-            fmt={metricFmt}
-            ariaLabel={chartLabel}
-            syncKey={syncKey}
-          />
+          <div ref={chartRef}>
+            <Chart
+              time={time}
+              series={metricSeries}
+              markers={liftoffMarker}
+              dark={dark}
+              height={320}
+              fmt={metricFmt}
+              ariaLabel={chartLabel}
+              syncKey={syncKey}
+            />
+          </div>
         </ChartBlock>
       </div>
 

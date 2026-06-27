@@ -41,6 +41,18 @@ test('compare two flights from the recents list', async ({ page }) => {
   await page.getByRole('button', { name: 'Dynamic pressure', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Dynamic pressure \((kPa|psi)\)/ })).toBeVisible();
 
+  // Export the comparison — the chart data, the metrics table, and a PNG.
+  const [dataCsv] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save chart data' }).click(),
+  ]);
+  expect(dataCsv.suggestedFilename()).toMatch(/^compare-.*\.csv$/);
+  const [metricsCsv] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save metrics' }).click(),
+  ]);
+  expect(metricsCsv.suggestedFilename()).toBe('compare-metrics.csv');
+
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   expect(violations.map((v) => v.id)).toEqual([]);
