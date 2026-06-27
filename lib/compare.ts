@@ -29,6 +29,8 @@ export interface CompareFlight {
   altitude: Float64Array;
   /** Velocity (m/s) resampled onto the shared grid; NaN outside the flight. */
   velocity: Float64Array;
+  /** Acceleration (m/s²) resampled onto the shared grid; NaN outside the flight. */
+  acceleration: Float64Array;
   metrics: FlightMetrics;
 }
 
@@ -111,15 +113,14 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
 
   const flights: CompareFlight[] = items.map((it, idx) => {
     const { series, metrics } = it.analysis;
-    const altitude = resample(rels[idx], series.altitude, grid);
-    const velocity = resample(rels[idx], series.velocity, grid);
     return {
       id: it.id,
       name: it.name,
       formatLabel: it.formatLabel,
       color: COMPARE_PALETTE[idx % COMPARE_PALETTE.length],
-      altitude,
-      velocity,
+      altitude: resample(rels[idx], series.altitude, grid),
+      velocity: resample(rels[idx], series.velocity, grid),
+      acceleration: resample(rels[idx], series.acceleration, grid),
       metrics,
     };
   });

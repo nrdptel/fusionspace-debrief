@@ -27,6 +27,11 @@ test('compare two flights from the recents list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
 
+  // Switch which quantity is overlaid across the flights.
+  await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Acceleration' }).click();
+  await expect(page.getByRole('heading', { name: /Acceleration \(g\)/ })).toBeVisible();
+
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   expect(violations.map((v) => v.id)).toEqual([]);

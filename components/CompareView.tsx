@@ -1,18 +1,32 @@
 'use client';
 
-import { useMemo } from 'react';
-import type { Comparison } from '@/lib/compare';
+import { useMemo, useState } from 'react';
+import type { Comparison, CompareFlight } from '@/lib/compare';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { lengthIn, speedIn, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
+import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
 import { useIsDark } from './useIsDark';
 import Chart, { type ChartMarker } from './Chart';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
 
+type MetricKey = 'altitude' | 'velocity' | 'acceleration';
+
 function round0(v: number): string {
   return Number.isFinite(v) ? String(Math.round(v)) : '—';
+}
+
+function round1(v: number): string {
+  return Number.isFinite(v) ? (Math.round(v * 10) / 10).toString() : '—';
+}
+
+function seg(active: boolean): string {
+  return `rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+    active
+      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
+      : 'border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
+  }`;
 }
 
 /** Trim a file extension for a tidier chart/legend label. */
@@ -42,6 +56,7 @@ export default function CompareView({
   const dark = useIsDark();
   const { time, flights } = comparison;
   const syncKey = useMemo(() => `compare-${flights.map((f) => f.id).join('-')}`, [flights]);
+  const [metric, setMetric] = useState<MetricKey>('altitude');
 
   const rows: Row[] = [
     { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), best: 'max', value: (m) => m.apogeeAltitude },
@@ -75,15 +90,18 @@ export default function CompareView({
     return finite >= 2 ? bi : -1;
   };
 
-  // Like the single-flight report, always show velocity (it's the best estimate,
-  // derived from altitude when the device didn't log it).
-  const altSeries = flights.map((f) => ({ label: stem(f.name), values: f.altitude, stroke: f.color, width: 2 }));
-  const velSeries = flights.map((f) => ({ label: stem(f.name), values: f.velocity, stroke: f.color, width: 1.75 }));
   const liftoffMarker: ChartMarker[] = [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }];
 
-  const altLabel = `Altitude against time after liftoff for ${flights.length} flights: ${flights
-    .map((f) => `${stem(f.name)} peaking at ${fmtLength(f.metrics.apogeeAltitude, sys)}`)
-    .join('; ')}.`;
+  // Pick which quantity to overlay across flights. All three are derived for
+  // every analyzed flight, so they overlay cleanly regardless of logger.
+  const metrics: { key: MetricKey; label: string; unit: string; get: (f: CompareFlight) => Float64Array; disp: (v: number) => string }[] = [
+    { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude, disp: (v) => round0(lengthIn(v, sys)) },
+    { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity, disp: (v) => round0(speedIn(v, sys)) },
+    { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration, disp: (v) => round1(accelInG(v)) },
+  ];
+  const active = metrics.find((m) => m.key === metric) ?? metrics[0];
+  const metricSeries = flights.map((f) => ({ label: stem(f.name), values: active.get(f), stroke: f.color, width: 2 }));
+  const chartLabel = `${active.label} against time after liftoff for ${flights.length} flights.`;
 
   return (
     <div className="space-y-6">
@@ -173,39 +191,38 @@ export default function CompareView({
         </table>
       </div>
 
-      {/* Overlaid charts */}
-      <div className="space-y-6">
-        <ChartBlock title={`Altitude (${UNIT_LABEL[sys].length} AGL)`}>
+      {/* Overlaid chart — pick which quantity to compare across the flights. */}
+      <div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Channel</span>
+          {metrics.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setMetric(m.key)}
+              aria-pressed={m.key === metric}
+              className={seg(m.key === metric)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <ChartBlock title={`${active.label} (${active.unit})`}>
           <Chart
             time={time}
-            series={altSeries}
+            series={metricSeries}
             markers={liftoffMarker}
             dark={dark}
             height={320}
-            fmt={(v) => round0(lengthIn(v, sys))}
-            ariaLabel={altLabel}
+            fmt={active.disp}
+            ariaLabel={chartLabel}
             syncKey={syncKey}
           />
         </ChartBlock>
-
-        {velSeries.length > 0 && (
-          <ChartBlock title={`Velocity (${UNIT_LABEL[sys].speed})`}>
-            <Chart
-              time={time}
-              series={velSeries}
-              markers={liftoffMarker}
-              dark={dark}
-              height={220}
-              fmt={(v) => round0(speedIn(v, sys))}
-              ariaLabel={`Velocity against time after liftoff for ${velSeries.length} flights.`}
-              syncKey={syncKey}
-            />
-          </ChartBlock>
-        )}
       </div>
 
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        Hover to read every flight at the same instant · drag across a chart to zoom · double-click
+        Hover to read every flight at the same instant · drag across the chart to zoom · double-click
         to reset
       </p>
     </div>

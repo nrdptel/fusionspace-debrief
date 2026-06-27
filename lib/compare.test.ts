@@ -95,6 +95,15 @@ describe('buildComparison', () => {
     expect(cmp.flights[1].metrics.apogeeAltitude).toBe(200);
   });
 
+  it('resamples altitude, velocity and acceleration onto the shared grid', () => {
+    const cmp = buildComparison([input('a', 2, 100), input('b', 5, 200)]);
+    for (const f of cmp.flights) {
+      expect(f.altitude.length).toBe(cmp.time.length);
+      expect(f.velocity.length).toBe(cmp.time.length);
+      expect(f.acceleration.length).toBe(cmp.time.length);
+    }
+  });
+
   it('caps the number of flights at MAX_COMPARE', () => {
     const many = Array.from({ length: MAX_COMPARE + 3 }, (_, i) => input(`f${i}`, 2, 100 + i));
     expect(buildComparison(many).flights).toHaveLength(MAX_COMPARE);
