@@ -15,6 +15,7 @@ megabytes. Original sources below.
 | `blueraven-app-lr.csv` | Featherweight Blue Raven phone-app low-rate CSV; downsampled ×2 | RocketryForum (kjh, C40511-h180) | see `blueraven-app.summary.csv` |
 | `blueraven-app.summary.csv` | Blue Raven flight summary for the LR file above | RocketryForum (kjh) | apogee 4,034.98 ft, max V 700.36 ft/s, drogue −45.7, main −23.5 ft/s |
 | `aim-xtra.csv` | Entacore AIM XTRA (per-channel `time` columns, `Pressure MSL/AGL`); downsampled ×10 | HMC AdvRoc FlightData / DOFPro (E190, H148R) | device reports ≈ **643 m AGL** |
+| `featherweight-gps.csv` | Featherweight GPS tracker (`UTCTIME,UNIXTIME,ALT,LAT,LON,…`), out-of-order clock | HMC AdvRoc FlightData / DOFPro (Adventurer, J510W) | GPS apogee ≈ **10,668 ft**, lands ~144 m N of pad |
 
 The Pnut `.pf2` and the Raven FIP CSV are the **same physical flight** recorded by
 two altimeters, so they cross-check each other (~1,009 ft).

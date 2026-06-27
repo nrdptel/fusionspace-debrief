@@ -102,6 +102,13 @@ export default function Home() {
             liftoff is the first real climb off the pad and burnout is taken at peak velocity, which
             is where a coasting rocket&apos;s speed turns over.
           </Method>
+          <Method title="Recovery (ground track)">
+            When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
+            north-up, equal-scale map of metres around the pad and reads off how far and which way the
+            rocket landed, plus the furthest it drifted. The pad reference is the median of the opening
+            fixes; positions are GPS, so they&apos;re good to a few metres. No map tiles are fetched —
+            it&apos;s drawn from your own fixes, entirely in the browser.
+          </Method>
           <Method title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             descent giving way to a slow main — and marks it as the main deployment. Descent rates are
@@ -124,10 +131,11 @@ export default function Home() {
           </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite (StratoLogger / Pnut), Eggtimer, Featherweight
-            (Raven via the Interface Program, and Blue Raven) and Entacore AIM files are recognized
-            and parsed automatically; more loggers are being added, and the generic-CSV mapper — which
-            also reads header-less exports — covers the rest in the meantime. Files are read with the
-            browser&apos;s own file API and never uploaded — the analysis you see ran entirely on your device.
+            (Raven via the Interface Program, Blue Raven, and the GPS tracker) and Entacore AIM files
+            are recognized and parsed automatically; more loggers are being added, and the generic-CSV
+            mapper — which also reads header-less exports — covers the rest in the meantime. Files are
+            read with the browser&apos;s own file API and never uploaded — the analysis you see ran
+            entirely on your device.
           </Method>
           <Method title="What Debrief isn't">
             Debrief reads and analyzes flights you have already flown. It is <em>not</em> a simulator: it

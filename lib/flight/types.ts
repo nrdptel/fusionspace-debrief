@@ -11,6 +11,8 @@ export type ChannelKind =
   | 'accelTotal' // magnitude of total acceleration, m/s²
   | 'velocity' // velocity as reported by the device, m/s
   | 'voltage' // battery / pyro voltage, V
+  | 'latitude' // GPS latitude, decimal degrees (+N)
+  | 'longitude' // GPS longitude, decimal degrees (+E)
   | 'other';
 
 export interface Channel {

@@ -32,6 +32,7 @@ for (const file of [
   'featherweight-raven-fip.csv',
   'blueraven-app-lr.csv',
   'aim-xtra.csv',
+  'featherweight-gps.csv',
 ]) {
   test(`auto-detects and analyses ${file} in the browser`, async ({ page }) => {
     await page.goto('/');
@@ -39,6 +40,18 @@ for (const file of [
     await reachesReport(page);
   });
 }
+
+test('a GPS log shows the recovery (ground track) view with walkback numbers', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));
+  await reachesReport(page);
+  await expect(page.getByRole('heading', { name: 'Recovery', exact: true })).toBeVisible();
+  await expect(page.getByText('Landed from pad', { exact: true })).toBeVisible();
+  await expect(page.getByText('Bearing', { exact: true })).toBeVisible();
+  await expect(page.getByText('Max drift', { exact: true })).toBeVisible();
+  // The canvas exposes a text description of the track for screen readers.
+  await expect(page.getByRole('img', { name: /landed .* from the pad, bearing/i })).toBeVisible();
+});
 
 test('auto-detects a tiny Eggtimer file', async ({ page }) => {
   await page.goto('/');

@@ -8,6 +8,7 @@ import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel,
 import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import { getChannel } from '@/lib/flight/types';
 import { buildPlotChannels } from '@/lib/explore';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
@@ -16,6 +17,7 @@ import MetricGrid from './MetricGrid';
 import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
 import FlightTimeline from './FlightTimeline';
+import GroundTrack from './GroundTrack';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
@@ -49,6 +51,9 @@ export default function FlightReport({
   const [shareMsg, setShareMsg] = useState<string | null>(null);
 
   const stem = reportStem(flight.source);
+  // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
+  const gpsLat = getChannel(flight, 'latitude');
+  const gpsLon = getChannel(flight, 'longitude');
 
   async function shareLink() {
     setShareMsg('Building link…');
@@ -415,6 +420,8 @@ export default function FlightReport({
           ))}
         </div>
       </div>
+
+      {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} />}
 
       <div className="print:hidden">
         <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />

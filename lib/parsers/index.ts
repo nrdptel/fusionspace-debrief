@@ -14,6 +14,7 @@ import { eggtimerParser } from './eggtimer';
 import { blueRavenParser } from './blueraven';
 import { featherweightFipParser } from './featherweightFip';
 import { entacoreAimParser } from './entacoreAim';
+import { featherweightGpsParser } from './featherweightGps';
 
 export type { ParseInput, Parser } from './types';
 
@@ -24,6 +25,7 @@ export const PARSERS: Parser[] = [
   blueRavenParser,
   featherweightFipParser,
   entacoreAimParser,
+  featherweightGpsParser,
 ];
 
 const AUTO_THRESHOLD = 0.6;

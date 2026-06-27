@@ -64,6 +64,22 @@ describe('real files — Entacore AIM XTRA', () => {
   });
 });
 
+describe('real files — Featherweight GPS', () => {
+  it('detects, sorts the out-of-order clock, and exposes a lat/lon track', () => {
+    const { r, a } = apogeeFt(read('featherweight-gps.csv'), 'GPS.csv');
+    expect(r.parser.id).toBe('featherweight-gps');
+    expect(getChannel(r.flight, 'latitude')).toBeTruthy();
+    expect(getChannel(r.flight, 'longitude')).toBeTruthy();
+    // Time base must be strictly ascending after the sort.
+    const t = r.flight.time;
+    for (let i = 1; i < t.length; i++) expect(t[i]).toBeGreaterThan(t[i - 1]);
+    // GPS apogee ≈ 10,668 ft AGL for this flight.
+    const ft = convert(a.metrics.apogeeAltitude, 'm', 'ft');
+    expect(ft).toBeGreaterThan(9800);
+    expect(ft).toBeLessThan(11500);
+  });
+});
+
 describe('real files — PerfectFlite StratoLogger CSV', () => {
   it('falls back to a usable mapping with the right roles/units', () => {
     const r = importFlight({ name: 'StratoLogger.csv', text: read('perfectflite-stratologger.csv') });

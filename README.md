@@ -24,6 +24,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   apogee, main deploy, and landing marked on each.
 - Shows the flight's shape at a glance — a proportional timeline breaks it into boost,
   coast and the descent legs, each with its duration and descent rate.
+- Helps you find it — for a flight with a GPS track, a north-up recovery map plots the
+  ground track and reports how far and which way it landed from the pad (and the furthest
+  it drifted), so you know where to walk. Drawn from your own GPS fixes; no map tiles are
+  fetched, nothing leaves the browser.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
   alongside Debrief's own derived channels — including **Mach number** and
@@ -76,6 +80,9 @@ of parsing and analysis runs locally.
 - **Entacore AIM** — the AIM XTRA flight computer (and the AIM BASE ground-station
   telemetry), whose per-channel time bases are resampled onto a common clock; altitude
   is derived from the barometric pressure channel.
+- **Featherweight GPS** — the GPS tracker log (`UTCTIME,UNIXTIME,ALT,LAT,LON,…`),
+  re-sorted onto a monotonic clock; altitude is the (coarser) GPS reading, and the lat/lon
+  track drives the recovery view.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units and lets you confirm them.
 
