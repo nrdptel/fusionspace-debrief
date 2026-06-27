@@ -122,6 +122,10 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     );
   }
 
+  // Keep the pre-filter altitude (baseline-subtracted, still carrying any
+  // ejection spikes/noise) so the explorer can show it against the cleaned line.
+  const altitudeRaw = altitude.slice();
+
   // Spike-resistant altitude: a Hampel filter removes the multi-sample jumps an
   // ejection charge punches into a baro trace, without rounding the true peak.
   const altClean = hampelFilter(altitude, windowFor(dt, 0.3));
@@ -163,6 +167,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const series: FlightSeries = {
     time,
     altitude: altClean,
+    altitudeRaw,
     velocity,
     acceleration,
     velocitySource,

@@ -48,6 +48,21 @@ describe('analysis robustness', () => {
     expect(Math.abs(spiked.metrics.apogeeAltitude - clean.metrics.apogeeAltitude)).toBeLessThan(15);
   });
 
+  it('keeps the spike in altitudeRaw while cleaning it from altitude', () => {
+    const spiked = analyzeFlight(
+      triangleFlight((alt) => {
+        const ap = alt.indexOf(Math.max(...alt));
+        alt[ap] += 80;
+        alt[ap + 1] += 80;
+        alt[ap + 2] += 80;
+      }),
+    );
+    // The raw trace still carries the ~80 m pop; the cleaned trace does not.
+    const rawPeak = Math.max(...spiked.series.altitudeRaw);
+    const cleanPeak = Math.max(...spiked.series.altitude);
+    expect(rawPeak).toBeGreaterThan(cleanPeak + 50);
+  });
+
   it('handles a descent-only log without inventing ascent numbers', () => {
     const dt = 0.05;
     const time: number[] = [];

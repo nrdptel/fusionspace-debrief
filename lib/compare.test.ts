@@ -29,7 +29,7 @@ function analysis(t0: number, apogee: number): FlightAnalysis {
   const altitude = Float64Array.from([0, 0, 50, 100, 50]); // 50 m AGL at liftoff
   const velocity = Float64Array.from([0, 0, 80, 40, -10]);
   return {
-    series: { time, altitude, velocity, acceleration: new Float64Array(5), velocitySource: 'baro', accelerationSource: 'baro' },
+    series: { time, altitude, altitudeRaw: altitude, velocity, acceleration: new Float64Array(5), velocitySource: 'baro', accelerationSource: 'baro' },
     events: [{ type: 'liftoff', label: 'Liftoff', time: t0, index: 2, altitude: 50, provenance: 'measured' }],
     metrics: metrics(apogee),
     warnings: [],

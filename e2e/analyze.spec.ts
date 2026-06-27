@@ -39,6 +39,9 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
 
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
 
+  // The raw (pre-filter) altitude is offered alongside the cleaned one.
+  await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'Altitude (raw)' })).toHaveCount(1);
+
   // The live stats panel populates for the full flight before any zoom.
   await expect(page.getByText('Across the whole flight')).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'mean' })).toBeVisible();

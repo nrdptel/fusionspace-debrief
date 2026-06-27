@@ -17,7 +17,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   apogee, main deploy, and landing marked on each.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
-  against time, or one channel against another (e.g. velocity vs altitude).
+  against time, or one channel against another (e.g. velocity vs altitude), with a
+  second axis for mixed units and live min/max/mean/Δ/rate over the zoomed window.
+- Shows its work — overlay the raw (pre-filter) altitude on the cleaned line to see
+  exactly what spike-removal took out.
 - Finds the *real* apogee — a short median filter removes the single-sample spike an
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.

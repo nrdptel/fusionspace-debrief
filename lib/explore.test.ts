@@ -6,6 +6,7 @@ import type { FlightSeries } from './analyze/types';
 const series: FlightSeries = {
   time: Float64Array.from([0, 1, 2]),
   altitude: Float64Array.from([0, 50, 100]),
+  altitudeRaw: Float64Array.from([0, 50, 100]),
   velocity: Float64Array.from([0, 40, 0]),
   acceleration: Float64Array.from([0, 9.80665, -9.80665]),
   velocitySource: 'baro',
@@ -29,9 +30,14 @@ const flight: RawFlight = {
 describe('buildPlotChannels', () => {
   const channels = buildPlotChannels(flight, series);
 
-  it('lists the three derived channels first, then recorded ones', () => {
-    expect(channels.slice(0, 3).map((c) => c.key)).toEqual(['d-altitude', 'd-velocity', 'd-acceleration']);
-    expect(channels.slice(0, 3).every((c) => c.group === 'Debrief')).toBe(true);
+  it('lists the derived channels (incl. raw altitude) first, then recorded ones', () => {
+    expect(channels.slice(0, 4).map((c) => c.key)).toEqual([
+      'd-altitude',
+      'd-altitude-raw',
+      'd-velocity',
+      'd-acceleration',
+    ]);
+    expect(channels.slice(0, 4).every((c) => c.group === 'Debrief')).toBe(true);
     expect(channels.find((c) => c.label === 'Batt')?.group).toBe('Recorded');
   });
 

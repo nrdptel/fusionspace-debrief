@@ -96,6 +96,9 @@ export function windowStats(x: Float64Array, y: Float64Array, lo: number, hi: nu
 export function buildPlotChannels(flight: RawFlight, series: FlightSeries): PlotChannel[] {
   const out: PlotChannel[] = [
     { key: 'd-altitude', label: 'Altitude (AGL)', group: 'Debrief', values: series.altitude, ...display('m') },
+    // The pre-filter altitude — overlay it with the cleaned line to see exactly
+    // what spike-removal took out (e.g. an ejection charge's pressure pop).
+    { key: 'd-altitude-raw', label: 'Altitude (raw)', group: 'Debrief', values: series.altitudeRaw, ...display('m') },
     { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s') },
     { key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2') },
   ];

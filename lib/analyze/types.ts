@@ -36,7 +36,8 @@ export interface FlightMetrics {
 
 export interface FlightSeries {
   time: Float64Array; // s from first sample
-  altitude: Float64Array; // m AGL
+  altitude: Float64Array; // m AGL (spike-cleaned — what the report shows)
+  altitudeRaw: Float64Array; // m AGL before spike removal (keeps ejection spikes/noise)
   velocity: Float64Array; // m/s (best estimate, + = up)
   acceleration: Float64Array; // m/s² (+ = up)
   velocitySource: 'device' | 'baro';
