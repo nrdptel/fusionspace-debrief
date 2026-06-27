@@ -134,7 +134,8 @@ export default function Home() {
             doesn&apos;t predict or estimate how a rocket will perform, recommend motors, or model
             anything you haven&apos;t flown. Every number on the page is read or derived from your
             logger&apos;s own recording — nothing more. It&apos;s a standalone tool and works entirely on
-            its own.
+            its own. To plan or predict a flight <em>before</em> you fly it, reach for a dedicated,
+            well-validated rocketry flight simulator — this is a hobby where that margin matters.
           </Method>
         </div>
       </section>

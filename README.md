@@ -8,7 +8,9 @@ sample rates, units) handled.
 Debrief reads and analyzes flights you have already flown. It is **not a simulator** —
 it doesn't predict or estimate performance, recommend motors, or model anything you
 haven't flown; every number comes from your logger's own recording. It's a **standalone
-tool** that works entirely on its own.
+tool** that works entirely on its own. To plan or predict a flight *before* you fly it,
+use a dedicated, well-validated flight simulator — this is a hobby where that margin
+matters.
 
 Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 [Fusion Space](https://fusionspace.co).
