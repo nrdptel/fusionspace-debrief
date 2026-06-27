@@ -157,6 +157,8 @@ export default function CompareView({
           return round2(v);
         case 'dynamicPressure':
           return round1(pressureIn(v, sys));
+        default:
+          return String(v);
       }
     },
     [metric, sys],

@@ -43,6 +43,7 @@ export default function FlightReport({
   const { series, events, metrics, warnings } = analysis;
   const notes = flight.notes;
   const altChartRef = useRef<HTMLDivElement>(null);
+  const printingRef = useRef(false);
   const [copied, setCopied] = useState(false);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
 
@@ -86,25 +87,47 @@ export default function FlightReport({
 
   // Print a clean flight card. Force a light theme first so the canvas charts
   // (whose pixels are baked at draw time, beyond the reach of print CSS) come
-  // out on white, then restore whatever the user had once the dialog closes.
+  // out on white, then restore whatever the user had once printing is done.
   function printCard() {
+    // Ignore re-entry until the previous print has restored, so a double-click
+    // can't capture the already-forced `light` as the "original" theme.
+    if (printingRef.current) return;
+    printingRef.current = true;
+
     const el = document.documentElement;
     const hadDark = el.classList.contains('dark');
     const hadLight = el.classList.contains('light');
     el.classList.remove('dark');
     el.classList.add('light');
+
+    const mql = window.matchMedia('print');
+    let done = false;
     const restore = () => {
+      if (done) return;
+      done = true;
       el.classList.toggle('dark', hadDark);
       el.classList.toggle('light', hadLight);
+      window.removeEventListener('afterprint', restore);
+      mql.removeEventListener?.('change', onMedia);
+      printingRef.current = false;
     };
+    // Restore on whichever signal the browser gives us: `afterprint`, or the
+    // print media-query turning back off. Either way `restore` is idempotent, so
+    // we never get stuck in light mode even if only one of them fires.
+    const onMedia = (e: MediaQueryListEvent) => {
+      if (!e.matches) restore();
+    };
+    window.addEventListener('afterprint', restore);
+    mql.addEventListener?.('change', onMedia);
+
     // Give React a beat to repaint the charts light before the dialog opens.
     window.setTimeout(() => {
-      const after = () => {
-        window.removeEventListener('afterprint', after);
+      try {
+        window.print();
+      } catch {
+        // Dialog was blocked/unavailable — nothing got printed, so undo now.
         restore();
-      };
-      window.addEventListener('afterprint', after);
-      window.print();
+      }
     }, 250);
   }
 

@@ -54,8 +54,10 @@ describe('buildPlotChannels', () => {
     expect(mach.unitLabel('imperial')).toBe(''); // unitless
 
     const q = channels.find((c) => c.key === 'd-q')!;
-    expect(Array.from(q.values)).toEqual([0, 0.5 * 1.2 * 40 * 40, 0]);
-    expect(q.unitLabel('metric')).toBe('Pa');
+    expect(Array.from(q.values)).toEqual([0, 0.5 * 1.2 * 40 * 40, 0]); // stored raw (Pa)
+    expect(q.unitLabel('metric')).toBe('kPa');
+    expect(q.unitLabel('imperial')).toBe('psi');
+    expect(q.toDisplay(1000, 'metric')).toBeCloseTo(1, 6); // 1000 Pa → 1 kPa
   });
 
   it('converts known units by the unit system and leaves native units alone', () => {

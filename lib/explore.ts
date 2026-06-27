@@ -5,7 +5,7 @@
 
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
-import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, UNIT_LABEL } from './display';
+import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, UNIT_LABEL } from './display';
 
 export interface PlotChannel {
   key: string;
@@ -142,7 +142,16 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
       const v = series.velocity[i];
       q[i] = 0.5 * series.airDensity[i] * v * v;
     }
-    out.push({ key: 'd-q', label: 'Dynamic pressure', group: 'Debrief', values: q, ...display('Pa') });
+    // Shown in the chosen system's pressure unit (kPa/psi), matching the report
+    // and comparison — not raw Pa like a recorded barometric-pressure channel.
+    out.push({
+      key: 'd-q',
+      label: 'Dynamic pressure',
+      group: 'Debrief',
+      values: q,
+      toDisplay: (v, sys) => pressureIn(v, sys),
+      unitLabel: (sys) => pressureUnit(sys),
+    });
   }
   const n = flight.time.length;
   flight.channels.forEach((c, i) => {
