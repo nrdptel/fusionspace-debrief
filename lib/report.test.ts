@@ -34,13 +34,18 @@ describe('report exports', () => {
   it('analyzedDataCsv has a unit header and one row per sample', () => {
     const csv = analyzedDataCsv(analysis, 'imperial');
     const lines = csv.split('\n');
-    expect(lines[0]).toBe('time (s),altitude (ft AGL),velocity (ft/s),acceleration (g)');
+    expect(lines[0]).toBe(
+      'time (s),altitude (ft AGL),velocity (ft/s),acceleration (g),mach,dynamic pressure (psi)',
+    );
     expect(lines.length).toBe(flight.time.length + 1);
     expect(lines[1].split(',')[0]).toBe('0.000');
+    expect(lines[1].split(',')).toHaveLength(6); // every column present, even at t=0
   });
 
   it('switches CSV units with the system', () => {
-    expect(analyzedDataCsv(analysis, 'metric').split('\n')[0]).toContain('altitude (m AGL)');
+    const header = analyzedDataCsv(analysis, 'metric').split('\n')[0];
+    expect(header).toContain('altitude (m AGL)');
+    expect(header).toContain('dynamic pressure (kPa)');
   });
 
   it('summaryText carries provenance and a hedge', () => {

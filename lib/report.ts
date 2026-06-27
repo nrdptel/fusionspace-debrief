@@ -15,6 +15,8 @@ import {
   lengthIn,
   speedIn,
   accelInG,
+  pressureIn,
+  pressureUnit,
   UNIT_LABEL,
 } from './display';
 
@@ -60,7 +62,9 @@ export function summaryText(
     lines.push('Events');
     for (const e of analysis.events) {
       const prov = e.provenance !== 'measured' ? `  (${e.provenance})` : '';
-      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${prov}`);
+      const v = analysis.series.velocity[e.index];
+      const speed = Number.isFinite(v) ? `   ${fmtSpeed(v, sys)}` : '';
+      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${speed}${prov}`);
     }
   }
 
@@ -80,17 +84,25 @@ export function summaryText(
 /** The analyzed series as a tidy CSV in the chosen units — the cleaned data a
  *  spreadsheet user would otherwise have to derive by hand. */
 export function analyzedDataCsv(analysis: FlightAnalysis, sys: UnitSystem): string {
-  const { time, altitude, velocity, acceleration } = analysis.series;
+  const { time, altitude, velocity, acceleration, speedOfSound, airDensity } = analysis.series;
   const L = UNIT_LABEL[sys];
+  const pUnit = pressureUnit(sys);
   const cell = (v: number) => (Number.isFinite(v) ? v : '');
-  const rows = [`time (s),altitude (${L.length} AGL),velocity (${L.speed}),acceleration (g)`];
+  const rows = [
+    `time (s),altitude (${L.length} AGL),velocity (${L.speed}),acceleration (g),mach,dynamic pressure (${pUnit})`,
+  ];
   for (let i = 0; i < time.length; i++) {
+    const v = velocity[i];
+    const mach = speedOfSound > 0 ? v / speedOfSound : NaN;
+    const q = 0.5 * airDensity[i] * v * v;
     rows.push(
       [
         time[i].toFixed(3),
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
         cell(Number(speedIn(velocity[i], sys).toFixed(1))),
         cell(Number(accelInG(acceleration[i]).toFixed(2))),
+        cell(Number(mach.toFixed(3))),
+        cell(Number(pressureIn(q, sys).toFixed(2))),
       ].join(','),
     );
   }

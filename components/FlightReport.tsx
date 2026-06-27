@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
+import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from '@/lib/display';
 import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -130,6 +130,15 @@ export default function FlightReport({
   );
 
   const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
+
+  // Speed (and Mach, once it's worth showing) at an event — so the events list
+  // answers "how fast at burnout / at deployment", not just when and how high.
+  const eventSpeed = (index: number): string => {
+    const v = series.velocity[index];
+    if (!Number.isFinite(v)) return '';
+    const m = series.speedOfSound > 0 ? v / series.speedOfSound : NaN;
+    return Number.isFinite(m) && Math.abs(m) >= 0.8 ? `${fmtSpeed(v, sys)} · ${fmtMach(m)}` : fmtSpeed(v, sys);
+  };
 
   const altSeries = useMemo(() => [{ label: 'altitude', values: series.altitude, stroke: '#6366f1', width: 2 }], [series.altitude]);
   const velSeries = useMemo(() => [{ label: 'velocity', values: series.velocity, stroke: '#10b981' }], [series.velocity]);
@@ -368,7 +377,10 @@ export default function FlightReport({
                 )}
               </span>
               <span className="text-right font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                {fmtTime(e.time)} · {fmtLength(e.altitude, sys)}
+                <span className="block">
+                  {fmtTime(e.time)} · {fmtLength(e.altitude, sys)}
+                </span>
+                {eventSpeed(e.index) && <span className="block">{eventSpeed(e.index)}</span>}
               </span>
             </div>
           ))}
