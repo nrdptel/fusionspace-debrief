@@ -14,6 +14,7 @@ import { useIsDark } from './useIsDark';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import ChannelExplorer from './ChannelExplorer';
+import LogDetails from './LogDetails';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
@@ -251,6 +252,8 @@ export default function FlightReport({
         Analyzed{' '}
         <time dateTime={new Date(analyzedAt).toISOString()}>{formatAnalyzedAt(analyzedAt)}</time>
       </p>
+
+      <LogDetails flight={flight} />
 
       {warnings.length > 0 && (
         <div

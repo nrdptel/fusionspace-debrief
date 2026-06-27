@@ -24,7 +24,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   second axis for mixed units and live min/max/mean/Δ/rate over the zoomed window —
   and save the current plot as a PNG or its exact data (your axes, your units) as CSV.
 - Shows its work — overlay the raw (pre-filter) altitude on the cleaned line to see
-  exactly what spike-removal took out.
+  exactly what spike-removal took out, and open *Log details* for the factual read of
+  the file: the logger's reported identity, sample rate, duration and recorded channels.
 - Finds the *real* apogee — a short median filter removes the single-sample spike an
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.
