@@ -82,14 +82,17 @@ describe('Featherweight Raven FIP parser', () => {
     expect(a.events.some((e) => e.type === 'landing')).toBe(true);
   });
 
-  it('sorts an out-of-order clock so the master time base is monotonic', () => {
-    // Rows arriving out of order (a dropped/retransmitted serial packet) must
-    // still yield a strictly ascending time base — the analysis assumes it.
+  it('sorts and de-duplicates an out-of-order clock into a strictly ascending base', () => {
+    // Rows arriving out of order or duplicated (a dropped/retransmitted serial
+    // packet) must still yield a strictly ascending time base — the analysis
+    // assumes it. The strict-increase assertion below also proves the duplicate
+    // timestamp was collapsed (a kept duplicate would fail it).
     const header = 'Time@Baro (Atm),Baro (Atm),bILBA';
     const rows: [number, number][] = [
       [0, 1.0],
       [2, 0.98],
       [1, 0.99], // out of order
+      [2, 0.975], // duplicate timestamp
       [4, 0.96],
       [3, 0.97], // out of order
       [5, 0.95],
@@ -100,6 +103,7 @@ describe('Featherweight Raven FIP parser', () => {
     if (result.kind !== 'flight') return;
     expect(result.parser.id).toBe('featherweight-fip');
     const time = result.flight.time;
+    expect(time.length).toBe(6); // 7 rows, one duplicate timestamp collapsed
     for (let i = 1; i < time.length; i++) expect(time[i]).toBeGreaterThan(time[i - 1]);
   });
 });

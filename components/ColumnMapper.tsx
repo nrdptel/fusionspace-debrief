@@ -57,6 +57,12 @@ export default function ColumnMapper({
   const hasAltitudeSource = rows.some((r) => r.role === 'altitude' || r.role === 'pressure');
   const ready = hasTime && hasAltitudeSource;
 
+  // If the same role is mapped to more than one column, only the first is used —
+  // say so rather than silently dropping the rest.
+  const roleCounts = new Map<ColumnRole, number>();
+  for (const r of rows) if (r.role !== 'ignore') roleCounts.set(r.role, (roleCounts.get(r.role) ?? 0) + 1);
+  const duplicated = ROLE_OPTIONS.filter((o) => (roleCounts.get(o.value) ?? 0) > 1).map((o) => o.label);
+
   const submit = () => {
     const mappings: ColumnMapping[] = rows
       .map((r, i) => ({ index: i, role: r.role, unit: r.unit || null }))
@@ -122,7 +128,7 @@ export default function ColumnMapper({
                         ))}
                       </select>
                     ) : (
-                      <span className="text-xs text-zinc-400">—</span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
@@ -154,6 +160,12 @@ export default function ColumnMapper({
         {!ready && (
           <span className="text-xs text-amber-600 dark:text-amber-400">
             Set a time column and an altitude or pressure column to continue.
+          </span>
+        )}
+        {ready && duplicated.length > 0 && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            {duplicated.join(' and ')} {duplicated.length > 1 ? 'are' : 'is'} mapped to more than one
+            column — only the first of each is used.
           </span>
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
@@ -97,17 +97,27 @@ export default function CompareView({
     return finite >= 2 && ties === 1 ? bi : -1;
   };
 
-  const liftoffMarker: ChartMarker[] = [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }];
+  // Memoized so an Analyzer re-render (e.g. a background recents refresh) doesn't
+  // change these prop identities and rebuild the chart, resetting any zoom.
+  const liftoffMarker = useMemo<ChartMarker[]>(() => [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }], [dark]);
 
   // Pick which quantity to overlay across flights. All three are derived for
   // every analyzed flight, so they overlay cleanly regardless of logger.
-  const metrics: { key: MetricKey; label: string; unit: string; get: (f: CompareFlight) => Float64Array; disp: (v: number) => string }[] = [
-    { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude, disp: (v) => round0(lengthIn(v, sys)) },
-    { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity, disp: (v) => round0(speedIn(v, sys)) },
-    { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration, disp: (v) => round1(accelInG(v)) },
+  const metrics: { key: MetricKey; label: string; unit: string; get: (f: CompareFlight) => Float64Array }[] = [
+    { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude },
+    { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity },
+    { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration },
   ];
   const active = metrics.find((m) => m.key === metric) ?? metrics[0];
-  const metricSeries = flights.map((f) => ({ label: stem(f.name), values: active.get(f), stroke: f.color, width: 2 }));
+  const metricSeries = useMemo(
+    () => flights.map((f) => ({ label: stem(f.name), values: f[metric], stroke: f.color, width: 2 })),
+    [flights, metric],
+  );
+  const metricFmt = useCallback(
+    (v: number) =>
+      metric === 'altitude' ? round0(lengthIn(v, sys)) : metric === 'velocity' ? round0(speedIn(v, sys)) : round1(accelInG(v)),
+    [metric, sys],
+  );
   const chartLabel = `${active.label} against time after liftoff for ${flights.length} flights.`;
 
   return (
@@ -230,7 +240,7 @@ export default function CompareView({
             markers={liftoffMarker}
             dark={dark}
             height={320}
-            fmt={active.disp}
+            fmt={metricFmt}
             ariaLabel={chartLabel}
             syncKey={syncKey}
           />

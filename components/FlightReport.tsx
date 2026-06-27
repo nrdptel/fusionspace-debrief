@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
@@ -107,13 +107,22 @@ export default function FlightReport({
     out.toBlob((blob) => blob && download(blob, `${stem}-altitude.png`));
   }
 
-  const markers: ChartMarker[] = events.map((e) => ({
-    x: e.time,
-    label: e.label.toLowerCase(),
-    color: EVENT_COLOR[e.type],
-  }));
+  // Memoized so an unrelated re-render (e.g. clicking Copy summary / Share link,
+  // which only flips `copied`/`shareMsg`) doesn't change these prop identities
+  // and tear down + rebuild the charts, which would reset any zoom the user set.
+  const markers = useMemo<ChartMarker[]>(
+    () => events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] })),
+    [events],
+  );
 
   const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
+
+  const altSeries = useMemo(() => [{ label: 'altitude', values: series.altitude, stroke: '#6366f1', width: 2 }], [series.altitude]);
+  const velSeries = useMemo(() => [{ label: 'velocity', values: series.velocity, stroke: '#10b981' }], [series.velocity]);
+  const accSeries = useMemo(() => [{ label: 'acceleration', values: series.acceleration, stroke: '#f59e0b' }], [series.acceleration]);
+  const altFmt = useCallback((v: number) => round(lengthIn(v, sys), 0), [sys]);
+  const velFmt = useCallback((v: number) => round(speedIn(v, sys), 0), [sys]);
+  const accFmt = useCallback((v: number) => round(accelInG(v), 1), [sys]);
 
   // Every channel worth plotting, for the flexible explorer below.
   const plotChannels = useMemo(() => buildPlotChannels(flight, series), [flight, series]);
@@ -257,11 +266,11 @@ export default function FlightReport({
           <div ref={altChartRef}>
             <Chart
               time={series.time}
-              series={[{ label: 'altitude', values: series.altitude, stroke: '#6366f1', width: 2 }]}
+              series={altSeries}
               markers={markers}
               dark={dark}
               height={300}
-              fmt={(v) => round(lengthIn(v, sys), 0)}
+              fmt={altFmt}
               ariaLabel={altLabel}
               syncKey={syncKey}
             />
@@ -274,11 +283,11 @@ export default function FlightReport({
         >
           <Chart
             time={series.time}
-            series={[{ label: 'velocity', values: series.velocity, stroke: '#10b981' }]}
+            series={velSeries}
             markers={markers}
             dark={dark}
             height={200}
-            fmt={(v) => round(speedIn(v, sys), 0)}
+            fmt={velFmt}
             ariaLabel={velLabel}
             syncKey={syncKey}
           />
@@ -291,11 +300,11 @@ export default function FlightReport({
           >
             <Chart
               time={series.time}
-              series={[{ label: 'acceleration', values: series.acceleration, stroke: '#f59e0b' }]}
+              series={accSeries}
               markers={markers}
               dark={dark}
               height={200}
-              fmt={(v) => round(accelInG(v), 1)}
+              fmt={accFmt}
               ariaLabel={accLabel}
               syncKey={syncKey}
             />
