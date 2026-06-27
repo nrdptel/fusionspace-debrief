@@ -19,6 +19,13 @@ test('the sample flight analyzes into a report', async ({ page }) => {
   await page.getByText('Log details', { exact: true }).click();
   await expect(page.getByText('Sample rate', { exact: true })).toBeVisible();
   await expect(page.getByText('Channels recorded', { exact: true })).toBeVisible();
+
+  // Entering a liftoff mass yields a motor estimate and a link to the Motor Finder.
+  await expect(page.getByRole('heading', { name: 'Motor estimate' })).toBeVisible();
+  await page.getByLabel('Liftoff mass').fill('500');
+  await expect(page.getByText('Total impulse', { exact: true })).toBeVisible();
+  await expect(page.getByText('Motor class', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /motor on the Motor Finder/ })).toBeVisible();
 });
 
 test('uploading a file through the input analyzes it', async ({ page }) => {

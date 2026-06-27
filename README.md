@@ -31,6 +31,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   higher reading.
 - Uses the device's own velocity/acceleration when it logged them, and derives them
   from altitude when it didn't — labelling which is which.
+- Estimates the motor — enter the rocket's liftoff mass and Debrief turns the measured
+  boost into a total impulse, an NAR/TRA letter class, average and peak thrust, and a
+  thrust-to-weight ratio, with a link to the [Motor Finder](https://motor.fusionspace.co)
+  to pick a motor in that class. (A rough, drag-free estimate — clearly labelled as a floor.)
 - Exports a flight: copy a text summary, save it as `.txt`, save the analyzed series
   (time, altitude, velocity, acceleration, Mach, dynamic pressure) as `.csv`, or save
   the altitude chart as a PNG. Recent flights are remembered on your device for quick
