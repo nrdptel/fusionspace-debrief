@@ -29,18 +29,28 @@ function findHeaderRow(rows: string[][]): number {
 }
 
 function readChannel(dataRows: string[][], timeCol: number, valCol: number): Series {
-  const t: number[] = [];
-  const v: number[] = [];
+  const pairs: [number, number][] = [];
   for (const row of dataRows) {
     const tc = row[timeCol];
     const vc = row[valCol];
     if (!tc || !vc) continue;
     const tn = Number(tc);
     const vn = Number(vc);
-    if (Number.isFinite(tn) && Number.isFinite(vn)) {
-      t.push(tn);
-      v.push(vn);
+    if (Number.isFinite(tn) && Number.isFinite(vn)) pairs.push([tn, vn]);
+  }
+  // Sort by time and drop duplicate timestamps so the master clock and every
+  // resample source are strictly ascending — the analysis (and resample's
+  // forward cursor) assume monotonic time. A no-op on an already-ordered export.
+  pairs.sort((a, b) => a[0] - b[0]);
+  const t: number[] = [];
+  const v: number[] = [];
+  for (const [tn, vn] of pairs) {
+    if (t.length > 0 && tn === t[t.length - 1]) {
+      v[v.length - 1] = vn; // duplicate timestamp: keep the latest sample
+      continue;
     }
+    t.push(tn);
+    v.push(vn);
   }
   return { t, v };
 }

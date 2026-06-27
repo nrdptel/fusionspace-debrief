@@ -1,5 +1,10 @@
 # Debrief — product & build plan
 
+> Historical planning doc — kept for context, not a description of the current
+> product. Some early proposals here were since changed (e.g. share-by-link now
+> encodes the whole flight in the URL fragment, not just the view). For what's
+> actually shipped, see the README and `docs/design-notes.md`.
+
 This is the plan for the first real version. `docs/design-notes.md` covers the look,
 voice, and constraints; this covers the product and the engineering.
 

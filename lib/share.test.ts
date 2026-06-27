@@ -33,4 +33,9 @@ describe('share-by-link round trip', () => {
     expect(await decodeFlight('1@@@not-base64@@@')).toBeNull();
     expect(await decodeFlight('')).toBeNull();
   });
+
+  it('rejects an absurdly large payload instead of trying to decode it', async () => {
+    // Far beyond any real link — a hostile fragment shouldn't be decoded at all.
+    expect(await decodeFlight('1' + 'A'.repeat(6_000_000))).toBeNull();
+  });
 });

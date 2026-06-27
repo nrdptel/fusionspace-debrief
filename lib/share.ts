@@ -28,6 +28,12 @@ function base64UrlToBytes(s: string): Uint8Array {
 
 const hasCompression = typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
 
+// Caps for decoding an untrusted share link: refuse an absurd base64 payload
+// outright, and stop decompression past the same ceiling we read files at, so a
+// crafted link can't inflate to an out-of-memory crash.
+const MAX_DECODED_BYTES = 64 * 1024 * 1024;
+const MAX_PAYLOAD_CHARS = 5_000_000; // far above any real link (~16k)
+
 async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
   const cs = new CompressionStream('gzip');
   const writer = cs.writable.getWriter();
@@ -43,7 +49,28 @@ async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
   const writer = ds.writable.getWriter();
   writer.write(bytes as Uint8Array<ArrayBuffer>);
   writer.close();
-  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+  // Read incrementally so a "zip bomb" link is stopped at the cap instead of
+  // being fully buffered into an out-of-memory crash.
+  const reader = ds.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_DECODED_BYTES) {
+      await reader.cancel();
+      throw new Error('shared flight is too large to decode');
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.length;
+  }
+  return out;
 }
 
 /** Encode a flight file into a fragment payload (a leading flag marks gzip). */
@@ -59,6 +86,7 @@ export async function encodeFlight(name: string, text: string): Promise<string> 
 /** Decode a fragment payload back into a flight file, or null if it's unreadable. */
 export async function decodeFlight(payload: string): Promise<{ name: string; text: string } | null> {
   try {
+    if (payload.length > MAX_PAYLOAD_CHARS) return null;
     const flag = payload[0];
     let bytes = base64UrlToBytes(payload.slice(1));
     if (flag === '1') bytes = await gunzip(bytes);

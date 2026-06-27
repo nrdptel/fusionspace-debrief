@@ -26,8 +26,3 @@ const UNIT_OPTIONS: Partial<Record<ColumnRole, string[]>> = {
 export function unitOptionsFor(role: ColumnRole): string[] {
   return UNIT_OPTIONS[role] ?? [];
 }
-
-/** Roles that may appear at most once (everything except ignore and axial accel). */
-export function isSingleton(role: ColumnRole): boolean {
-  return role !== 'ignore' && role !== 'accelAxial';
-}

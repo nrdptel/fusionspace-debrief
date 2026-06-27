@@ -9,5 +9,3 @@ export const EVENT_COLOR: Record<EventType, string> = {
   main: '#0ea5e9', // sky-500
   landing: '#71717a', // zinc-500
 };
-
-export const EVENT_ORDER: EventType[] = ['liftoff', 'burnout', 'apogee', 'drogue', 'main', 'landing'];

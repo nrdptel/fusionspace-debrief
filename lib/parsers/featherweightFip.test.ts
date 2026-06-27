@@ -81,4 +81,25 @@ describe('Featherweight Raven FIP parser', () => {
     expect(a.events.some((e) => e.type === 'apogee')).toBe(true);
     expect(a.events.some((e) => e.type === 'landing')).toBe(true);
   });
+
+  it('sorts an out-of-order clock so the master time base is monotonic', () => {
+    // Rows arriving out of order (a dropped/retransmitted serial packet) must
+    // still yield a strictly ascending time base — the analysis assumes it.
+    const header = 'Time@Baro (Atm),Baro (Atm),bILBA';
+    const rows: [number, number][] = [
+      [0, 1.0],
+      [2, 0.98],
+      [1, 0.99], // out of order
+      [4, 0.96],
+      [3, 0.97], // out of order
+      [5, 0.95],
+    ];
+    const csv = [header, ...rows.map(([t, p]) => `${t},${p},x`)].join('\n');
+    const result = importFlight({ name: 'fip.csv', text: csv });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('featherweight-fip');
+    const time = result.flight.time;
+    for (let i = 1; i < time.length; i++) expect(time[i]).toBeGreaterThan(time[i - 1]);
+  });
 });
