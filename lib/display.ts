@@ -56,3 +56,15 @@ export function fmtTime(seconds: number): string {
 export function fmtMach(m: number | null): string {
   return m && Number.isFinite(m) ? `Mach ${round(m, 2)}` : '—';
 }
+
+/** Dynamic pressure label/unit for a system — kPa (metric) or psi (imperial). */
+export function pressureUnit(sys: UnitSystem): string {
+  return sys === 'imperial' ? 'psi' : 'kPa';
+}
+export function pressureIn(pa: number, sys: UnitSystem): number {
+  return convert(pa, 'Pa', pressureUnit(sys));
+}
+export function fmtPressure(pa: number | null, sys: UnitSystem): string {
+  if (pa == null || !Number.isFinite(pa)) return '—';
+  return `${round(pressureIn(pa, sys), 1)} ${pressureUnit(sys)}`;
+}

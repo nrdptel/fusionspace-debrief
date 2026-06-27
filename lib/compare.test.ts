@@ -8,6 +8,7 @@ const metrics = (apogee: number): FlightMetrics => ({
   maxVelocity: 100,
   maxVelocitySource: 'baro',
   mach: null,
+  maxDynamicPressure: null,
   maxAcceleration: 100,
   maxDeceleration: -20,
   accelerationSource: 'baro',
@@ -102,6 +103,23 @@ describe('buildComparison', () => {
       expect(f.velocity.length).toBe(cmp.time.length);
       expect(f.acceleration.length).toBe(cmp.time.length);
     }
+  });
+
+  it('derives Mach and dynamic-pressure curves on the shared grid', () => {
+    const cmp = buildComparison([input('a', 2, 100), input('b', 5, 200)]);
+    // The grid point nearest liftoff (t≈0), where velocity is 80 m/s in the fixture.
+    let k = 0;
+    for (let i = 1; i < cmp.time.length; i++) {
+      if (Math.abs(cmp.time[i]) < Math.abs(cmp.time[k])) k = i;
+    }
+    const f = cmp.flights[0];
+    expect(f.mach.length).toBe(cmp.time.length);
+    expect(f.dynamicPressure.length).toBe(cmp.time.length);
+    // v≈80 m/s at this grid point (interpolated), so Mach≈0.235 and q≈3920 Pa.
+    expect(f.mach[k]).toBeGreaterThan(0.22);
+    expect(f.mach[k]).toBeLessThan(0.245);
+    expect(f.dynamicPressure[k]).toBeGreaterThan(3700);
+    expect(f.dynamicPressure[k]).toBeLessThan(3950);
   });
 
   it('caps the number of flights at MAX_COMPARE', () => {

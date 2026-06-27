@@ -12,7 +12,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 ## What it does
 
 - Reads a flight log and reports apogee, max velocity (and Mach), max acceleration,
-  burnout, time-to-apogee, deployments, descent rates, and flight time.
+  max Q (peak dynamic pressure), burnout, time-to-apogee, deployments, descent rates,
+  and flight time.
 - Draws altitude, velocity, and acceleration against time, with liftoff, burnout,
   apogee, main deploy, and landing marked on each.
 - Opens up the full data — a channel explorer lets you plot anything the logger
@@ -33,8 +34,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   (time, altitude, velocity, acceleration) as `.csv`, or save the altitude chart as a
   PNG. Recent flights are remembered on your device for quick re-opening.
 - Compares several flights at once — drop multiple files (or tick two or more recent
-  flights) to overlay their altitude and velocity curves (aligned at liftoff) with a
-  side-by-side metrics table.
+  flights) to overlay any of their altitude, velocity, acceleration, Mach or
+  dynamic-pressure curves (aligned at liftoff) with a side-by-side metrics table that
+  flags the best apogee, max velocity, Mach, acceleration and max Q.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 

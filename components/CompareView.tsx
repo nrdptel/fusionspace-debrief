@@ -4,14 +4,27 @@ import { useCallback, useMemo, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime } from '@/lib/display';
+import {
+  lengthIn,
+  speedIn,
+  accelInG,
+  pressureIn,
+  pressureUnit,
+  UNIT_LABEL,
+  fmtLength,
+  fmtSpeed,
+  fmtAccel,
+  fmtTime,
+  fmtMach,
+  fmtPressure,
+} from '@/lib/display';
 import { useIsDark } from './useIsDark';
 import Chart, { type ChartMarker } from './Chart';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
 
-type MetricKey = 'altitude' | 'velocity' | 'acceleration';
+type MetricKey = 'altitude' | 'velocity' | 'acceleration' | 'mach' | 'dynamicPressure';
 
 function round0(v: number): string {
   return Number.isFinite(v) ? String(Math.round(v)) : '—';
@@ -19,6 +32,10 @@ function round0(v: number): string {
 
 function round1(v: number): string {
   return Number.isFinite(v) ? (Math.round(v * 10) / 10).toString() : '—';
+}
+
+function round2(v: number): string {
+  return Number.isFinite(v) ? (Math.round(v * 100) / 100).toString() : '—';
 }
 
 function seg(active: boolean): string {
@@ -64,7 +81,9 @@ export default function CompareView({
     { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), best: 'max', value: (m) => m.apogeeAltitude },
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee) },
     { label: 'Max velocity', get: (m) => fmtSpeed(m.maxVelocity, sys), best: 'max', value: (m) => m.maxVelocity },
+    { label: 'Max Mach', get: (m) => fmtMach(m.mach), best: 'max', value: (m) => m.mach ?? NaN },
     { label: 'Max acceleration', get: (m) => fmtAccel(m.maxAcceleration), best: 'max', value: (m) => m.maxAcceleration },
+    { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), best: 'max', value: (m) => m.maxDynamicPressure ?? NaN },
     { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—') },
     { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—') },
     { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—') },
@@ -107,6 +126,8 @@ export default function CompareView({
     { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude },
     { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity },
     { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration },
+    { key: 'mach', label: 'Mach', unit: '', get: (f) => f.mach },
+    { key: 'dynamicPressure', label: 'Dynamic pressure', unit: pressureUnit(sys), get: (f) => f.dynamicPressure },
   ];
   const active = metrics.find((m) => m.key === metric) ?? metrics[0];
   const metricSeries = useMemo(
@@ -114,8 +135,20 @@ export default function CompareView({
     [flights, metric],
   );
   const metricFmt = useCallback(
-    (v: number) =>
-      metric === 'altitude' ? round0(lengthIn(v, sys)) : metric === 'velocity' ? round0(speedIn(v, sys)) : round1(accelInG(v)),
+    (v: number) => {
+      switch (metric) {
+        case 'altitude':
+          return round0(lengthIn(v, sys));
+        case 'velocity':
+          return round0(speedIn(v, sys));
+        case 'acceleration':
+          return round1(accelInG(v));
+        case 'mach':
+          return round2(v);
+        case 'dynamicPressure':
+          return round1(pressureIn(v, sys));
+      }
+    },
     [metric, sys],
   );
   const chartLabel = `${active.label} against time after liftoff for ${flights.length} flights.`;
@@ -233,7 +266,7 @@ export default function CompareView({
             </button>
           ))}
         </div>
-        <ChartBlock title={`${active.label} (${active.unit})`}>
+        <ChartBlock title={active.unit ? `${active.label} (${active.unit})` : active.label}>
           <Chart
             time={time}
             series={metricSeries}

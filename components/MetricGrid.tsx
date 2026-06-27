@@ -1,6 +1,6 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { fmtLength, fmtSpeed, fmtAccel, fmtTemp, fmtTime, fmtMach } from '@/lib/display';
+import { fmtLength, fmtSpeed, fmtAccel, fmtTemp, fmtTime, fmtMach, fmtPressure } from '@/lib/display';
 
 interface Tile {
   label: string;
@@ -41,6 +41,7 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   if (m.burnoutVelocity != null)
     out.push({ label: 'Burnout velocity', value: fmtSpeed(m.burnoutVelocity, sys) });
   if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
+  if (m.maxDynamicPressure != null) out.push({ label: 'Max Q', value: fmtPressure(m.maxDynamicPressure, sys) });
   if (m.drogueDescentRate != null)
     out.push({ label: 'Drogue descent', value: fmtSpeed(m.drogueDescentRate, sys) });
   if (m.mainDescentRate != null)

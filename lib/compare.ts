@@ -31,6 +31,10 @@ export interface CompareFlight {
   velocity: Float64Array;
   /** Acceleration (m/s²) resampled onto the shared grid; NaN outside the flight. */
   acceleration: Float64Array;
+  /** Mach number resampled onto the shared grid; NaN outside the flight. */
+  mach: Float64Array;
+  /** Dynamic pressure (Pa) resampled onto the shared grid; NaN outside the flight. */
+  dynamicPressure: Float64Array;
   metrics: FlightMetrics;
 }
 
@@ -114,6 +118,17 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
 
   const flights: CompareFlight[] = items.map((it, idx) => {
     const { series, metrics } = it.analysis;
+    // Per-sample Mach and dynamic pressure from the same atmosphere the analysis
+    // used, built here so they resample onto the shared grid like the rest.
+    const n = Math.min(series.velocity.length, series.airDensity.length);
+    const mach = new Float64Array(series.velocity.length);
+    const q = new Float64Array(series.velocity.length);
+    const sos = series.speedOfSound;
+    for (let i = 0; i < mach.length; i++) {
+      const v = series.velocity[i];
+      mach[i] = sos > 0 ? v / sos : NaN;
+      q[i] = i < n ? 0.5 * series.airDensity[i] * v * v : NaN;
+    }
     return {
       id: it.id,
       name: it.name,
@@ -122,6 +137,8 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       altitude: resample(rels[idx], series.altitude, grid),
       velocity: resample(rels[idx], series.velocity, grid),
       acceleration: resample(rels[idx], series.acceleration, grid),
+      mach: resample(rels[idx], mach, grid),
+      dynamicPressure: resample(rels[idx], q, grid),
       metrics,
     };
   });

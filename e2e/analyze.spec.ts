@@ -12,6 +12,8 @@ test('the sample flight analyzes into a report', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   // Headline metric rendered.
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  // The max-Q tile (derived from the atmosphere model) shows up too.
+  await expect(page.getByText('Max Q', { exact: true })).toBeVisible();
 });
 
 test('uploading a file through the input analyzes it', async ({ page }) => {

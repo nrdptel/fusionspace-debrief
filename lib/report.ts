@@ -11,6 +11,7 @@ import {
   fmtTemp,
   fmtTime,
   fmtMach,
+  fmtPressure,
   lengthIn,
   speedIn,
   accelInG,
@@ -41,6 +42,7 @@ export function summaryText(
     lines.push(row('Max velocity', fmtSpeed(m.maxVelocity, sys) + mach));
   }
   if (Number.isFinite(m.maxAcceleration)) lines.push(row('Max acceleration', fmtAccel(m.maxAcceleration)));
+  if (m.maxDynamicPressure != null) lines.push(row('Max Q', fmtPressure(m.maxDynamicPressure, sys)));
   if (m.burnTime != null) lines.push(row('Burn time', fmtTime(m.burnTime)));
   if (m.burnoutAltitude != null) lines.push(row('Burnout altitude', fmtLength(m.burnoutAltitude, sys)));
   if (m.burnoutVelocity != null) lines.push(row('Burnout velocity', fmtSpeed(m.burnoutVelocity, sys)));

@@ -396,9 +396,19 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   push('main', mainIdx, 'Main deploy', 'derived');
   if (landingFound) push('landing', landingIdx, 'Landing', 'derived');
 
-  // --- Mach -----------------------------------------------------------------
-  // (Speed of sound and ground temperature were computed with the atmosphere above.)
+  // --- Mach & max-Q ---------------------------------------------------------
+  // (Speed of sound, ground temperature and air density were computed with the
+  // atmosphere above.)
   const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / speedOfSound : null;
+  // Peak dynamic pressure (½ρv²) over the flight — the structural load case.
+  let maxDynamicPressure: number | null = null;
+  for (let i = 0; i < n; i++) {
+    const v = velocity[i];
+    const rho = airDensity[i];
+    if (!Number.isFinite(v) || !Number.isFinite(rho)) continue;
+    const q = 0.5 * rho * v * v;
+    if (maxDynamicPressure === null || q > maxDynamicPressure) maxDynamicPressure = q;
+  }
 
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
@@ -406,6 +416,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxVelocity,
     maxVelocitySource: velocitySource,
     mach,
+    maxDynamicPressure,
     maxAcceleration,
     maxDeceleration,
     accelerationSource,

@@ -27,10 +27,19 @@ test('compare two flights from the recents list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
 
-  // Switch which quantity is overlaid across the flights.
+  // The engineering metrics are in the table too.
+  await expect(page.getByRole('rowheader', { name: 'Max Mach', exact: true })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: 'Max Q', exact: true })).toBeVisible();
+
+  // Switch which quantity is overlaid across the flights, including the derived
+  // engineering channels (Mach, dynamic pressure).
   await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
   await page.getByRole('button', { name: 'Acceleration' }).click();
   await expect(page.getByRole('heading', { name: /Acceleration \(g\)/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Mach', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Mach', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Dynamic pressure', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Dynamic pressure \((kPa|psi)\)/ })).toBeVisible();
 
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();

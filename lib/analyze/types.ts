@@ -20,6 +20,7 @@ export interface FlightMetrics {
   maxVelocity: number; // m/s
   maxVelocitySource: 'device' | 'baro';
   mach: number | null;
+  maxDynamicPressure: number | null; // Pa (max-Q) — peak ½ρv² over the flight
   maxAcceleration: number; // m/s²
   maxDeceleration: number; // m/s² (most negative)
   accelerationSource: 'device' | 'baro';
