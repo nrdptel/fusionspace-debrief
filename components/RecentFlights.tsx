@@ -3,8 +3,15 @@
 import { useEffect, useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
 import type { UnitSystem } from '@/lib/display';
-import { fmtLength } from '@/lib/display';
+import { fmtLength, fmtSpeed } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
+import { sortRecents, personalBests, type LogbookSort } from '@/lib/logbook';
+
+const SORTS: { key: LogbookSort; label: string }[] = [
+  { key: 'recent', label: 'Recent' },
+  { key: 'apogee', label: 'Apogee' },
+  { key: 'speed', label: 'Speed' },
+];
 
 function relativeTime(ts: number): string {
   const s = (Date.now() - ts) / 1000;
@@ -33,6 +40,7 @@ export default function RecentFlights({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<LogbookSort>('recent');
 
   // Drop a selected id once its flight leaves the list, so the cap math (which
   // counts the raw set) can't drift out of step with what's actually selectable.
@@ -50,6 +58,9 @@ export default function RecentFlights({
   const present = new Set(recents.map((r) => r.id));
   const chosen = [...selected].filter((id) => present.has(id));
   const atCap = chosen.length >= MAX_COMPARE;
+
+  const ordered = sortRecents(recents, sort);
+  const bests = personalBests(recents);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -97,9 +108,33 @@ export default function RecentFlights({
           </button>
         </div>
       </div>
+
+      {recents.length > 1 && (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sort by</span>
+          {SORTS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSort(s.key)}
+              aria-pressed={s.key === sort}
+              className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
+                s.key === sort
+                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
+                  : 'border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <ul className="mt-3 space-y-2">
-        {recents.map((r) => {
+        {ordered.map((r) => {
           const isSel = selected.has(r.id);
+          const isApogeeBest = r.id === bests.apogeeId;
+          const isSpeedBest = r.id === bests.speedId;
           return (
             <li
               key={r.id}
@@ -118,7 +153,20 @@ export default function RecentFlights({
                 <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                   {r.formatLabel}
                 </span>
-                <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Max velocity">
+                  {isSpeedBest && (
+                    <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
+                      ★<span className="sr-only">fastest, </span>
+                    </span>
+                  )}
+                  {r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—'}
+                </span>
+                <span className="shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Apogee">
+                  {isApogeeBest && (
+                    <span className="mr-0.5 text-amber-500" title="Highest of your remembered flights">
+                      ★<span className="sr-only">highest, </span>
+                    </span>
+                  )}
                   {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
                 </span>
                 <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
@@ -137,7 +185,9 @@ export default function RecentFlights({
         })}
       </ul>
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-        Remembered on this device only — never uploaded. Tick two or more to compare them.
+        Remembered on this device only — never uploaded. Each row shows its top speed and apogee;{' '}
+        <span className="text-amber-500">★</span> marks the best of your remembered flights. Tick two or
+        more to compare them.
       </p>
     </div>
   );

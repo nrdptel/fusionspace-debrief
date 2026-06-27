@@ -83,6 +83,7 @@ export default function Analyzer() {
             name,
             formatLabel: result.flight.formatLabel,
             apogeeM: analysis.metrics.apogeeAltitude ?? null,
+            maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
             text,
           }).then(refreshRecents);
         } else if (result.table.dataRows.length === 0) {
@@ -146,7 +147,13 @@ export default function Analyzer() {
           const analysis = analyzeFlight(result.flight);
           results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text });
           // Awaited (not fire-and-forget) so the per-save prune doesn't race itself.
-          await saveRecent({ name: file.name, formatLabel: result.flight.formatLabel, apogeeM: analysis.metrics.apogeeAltitude ?? null, text });
+          await saveRecent({
+            name: file.name,
+            formatLabel: result.flight.formatLabel,
+            apogeeM: analysis.metrics.apogeeAltitude ?? null,
+            maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+            text,
+          });
         } catch {
           /* skip this file */
         }
@@ -204,6 +211,7 @@ export default function Analyzer() {
           name: state.fileName,
           formatLabel: 'Generic CSV',
           apogeeM: analysis.metrics.apogeeAltitude ?? null,
+          maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
           text: state.text,
         }).then(refreshRecents);
       } catch (err) {

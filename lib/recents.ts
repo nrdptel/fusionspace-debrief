@@ -10,6 +10,8 @@ export interface RecentMeta {
   formatLabel: string;
   addedAt: number;
   apogeeM: number | null;
+  /** Max velocity (m/s) for the logbook; null when the flight didn't yield one. */
+  maxVelocityMs: number | null;
 }
 
 export interface RecentFlight extends RecentMeta {
@@ -77,7 +79,15 @@ export async function listRecents(): Promise<RecentMeta[]> {
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
     return all
       .sort((a, b) => b.addedAt - a.addedAt)
-      .map(({ id, name, formatLabel, addedAt, apogeeM }) => ({ id, name, formatLabel, addedAt, apogeeM }));
+      .map(({ id, name, formatLabel, addedAt, apogeeM, maxVelocityMs }) => ({
+        id,
+        name,
+        formatLabel,
+        addedAt,
+        apogeeM,
+        // Older records predate this field — treat them as "unknown" rather than 0.
+        maxVelocityMs: maxVelocityMs ?? null,
+      }));
   } catch {
     return [];
   }

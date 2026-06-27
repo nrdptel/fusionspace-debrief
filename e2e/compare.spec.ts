@@ -20,6 +20,11 @@ test('compare two flights from the recents list', async ({ page }) => {
   await load('altusmetrum-telemetrum.csv');
   await load('featherweight-raven-fip.csv');
 
+  // With two flights remembered, the logbook offers sorting and crowns a best.
+  await expect(page.getByRole('button', { name: 'Apogee' })).toBeVisible();
+  await page.getByRole('button', { name: 'Apogee' }).click();
+  await expect(page.getByText('marks the best of your remembered flights')).toBeVisible();
+
   await page.getByLabel('Select altusmetrum-telemetrum.csv to compare').check();
   await page.getByLabel('Select featherweight-raven-fip.csv to compare').check();
   await page.getByRole('button', { name: /Compare 2 flights/ }).click();
