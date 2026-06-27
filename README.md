@@ -73,6 +73,9 @@ of parsing and analysis runs locally.
   format, 50 Hz) and the phone-app low-rate CSV export; altitude is read from the
   barometric channel where present. The high-rate gyro/accel files are recognized too,
   with a pointer to use the low-rate file for the flight profile.
+- **Entacore AIM** — the AIM XTRA flight computer (and the AIM BASE ground-station
+  telemetry), whose per-channel time bases are resampled onto a common clock; altitude
+  is derived from the barometric pressure channel.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units and lets you confirm them.
 

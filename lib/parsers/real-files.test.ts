@@ -50,6 +50,20 @@ describe('real files — Featherweight Raven (FIP)', () => {
   });
 });
 
+describe('real files — Entacore AIM XTRA', () => {
+  it('resamples the per-channel clocks and derives a sane apogee (~643 m AGL)', () => {
+    const { r, a } = apogeeFt(read('aim-xtra.csv'), 'AIM_XTRA.csv');
+    expect(r.parser.id).toBe('entacore-aim');
+    expect(getChannel(r.flight, 'pressure')).toBeTruthy();
+    expect(getChannel(r.flight, 'accelAxial')).toBeTruthy();
+    expect(getChannel(r.flight, 'temperature')).toBeTruthy();
+    // Device reported ~643 m AGL; deriving from raw baro lands close.
+    const m = a.metrics.apogeeAltitude;
+    expect(m).toBeGreaterThan(560);
+    expect(m).toBeLessThan(740);
+  });
+});
+
 describe('real files — PerfectFlite StratoLogger CSV', () => {
   it('falls back to a usable mapping with the right roles/units', () => {
     const r = importFlight({ name: 'StratoLogger.csv', text: read('perfectflite-stratologger.csv') });

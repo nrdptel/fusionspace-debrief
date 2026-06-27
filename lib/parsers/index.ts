@@ -13,6 +13,7 @@ import { perfectFliteParser } from './perfectflite';
 import { eggtimerParser } from './eggtimer';
 import { blueRavenParser } from './blueraven';
 import { featherweightFipParser } from './featherweightFip';
+import { entacoreAimParser } from './entacoreAim';
 
 export type { ParseInput, Parser } from './types';
 
@@ -22,6 +23,7 @@ export const PARSERS: Parser[] = [
   eggtimerParser,
   blueRavenParser,
   featherweightFipParser,
+  entacoreAimParser,
 ];
 
 const AUTO_THRESHOLD = 0.6;

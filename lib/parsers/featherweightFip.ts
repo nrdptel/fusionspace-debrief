@@ -14,11 +14,7 @@ import type { Parser, ParseInput } from './types';
 import type { RawFlight, Channel } from '../flight/types';
 import { parseTable } from '../csv';
 import { G0 } from '../units';
-
-interface Series {
-  t: number[];
-  v: number[];
-}
+import { type Series, readChannel, resample } from './multiTimebase';
 
 function findHeaderRow(rows: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 20); i++) {
@@ -26,57 +22,6 @@ function findHeaderRow(rows: string[][]): number {
     if (low.some((c) => c.startsWith('time@')) && low.includes('bilba')) return i;
   }
   return -1;
-}
-
-function readChannel(dataRows: string[][], timeCol: number, valCol: number): Series {
-  const pairs: [number, number][] = [];
-  for (const row of dataRows) {
-    const tc = row[timeCol];
-    const vc = row[valCol];
-    if (!tc || !vc) continue;
-    const tn = Number(tc);
-    const vn = Number(vc);
-    if (Number.isFinite(tn) && Number.isFinite(vn)) pairs.push([tn, vn]);
-  }
-  // Sort by time and drop duplicate timestamps so the master clock and every
-  // resample source are strictly ascending — the analysis (and resample's
-  // forward cursor) assume monotonic time. A no-op on an already-ordered export.
-  pairs.sort((a, b) => a[0] - b[0]);
-  const t: number[] = [];
-  const v: number[] = [];
-  for (const [tn, vn] of pairs) {
-    if (t.length > 0 && tn === t[t.length - 1]) {
-      v[v.length - 1] = vn; // duplicate timestamp: keep the latest sample
-      continue;
-    }
-    t.push(tn);
-    v.push(vn);
-  }
-  return { t, v };
-}
-
-/** Linearly resample (src.t, src.v) onto the target time grid (both ascending). */
-function resample(src: Series, target: Float64Array): Float64Array {
-  const out = new Float64Array(target.length);
-  const n = src.t.length;
-  if (n === 0) {
-    out.fill(NaN);
-    return out;
-  }
-  let j = 0;
-  for (let i = 0; i < target.length; i++) {
-    const t = target[i];
-    while (j < n - 1 && src.t[j + 1] < t) j++;
-    if (t <= src.t[0]) out[i] = src.v[0];
-    else if (t >= src.t[n - 1]) out[i] = src.v[n - 1];
-    else {
-      const t0 = src.t[j];
-      const t1 = src.t[j + 1];
-      const f = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
-      out[i] = src.v[j] + f * (src.v[j + 1] - src.v[j]);
-    }
-  }
-  return out;
 }
 
 export const featherweightFipParser: Parser = {

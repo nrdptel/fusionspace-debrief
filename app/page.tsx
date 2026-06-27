@@ -123,11 +123,11 @@ export default function Home() {
             value. Both ride on the derived velocity, so they inherit its softness near peak speed.
           </Method>
           <Method title="Formats & privacy">
-            Altus Metrum (AltOS), PerfectFlite (StratoLogger / Pnut), Eggtimer and Featherweight
-            (Raven via the Interface Program, and Blue Raven) files are recognized and parsed
-            automatically; more loggers are being added, and the generic-CSV mapper — which also reads
-            header-less exports — covers the rest in the meantime. Files are read with the browser&apos;s
-            own file API and never uploaded — the analysis you see ran entirely on your device.
+            Altus Metrum (AltOS), PerfectFlite (StratoLogger / Pnut), Eggtimer, Featherweight
+            (Raven via the Interface Program, and Blue Raven) and Entacore AIM files are recognized
+            and parsed automatically; more loggers are being added, and the generic-CSV mapper — which
+            also reads header-less exports — covers the rest in the meantime. Files are read with the
+            browser&apos;s own file API and never uploaded — the analysis you see ran entirely on your device.
           </Method>
           <Method title="What Debrief isn't">
             Debrief reads and analyzes flights you have already flown. It is <em>not</em> a simulator: it
