@@ -150,12 +150,16 @@ test('share link round-trips a small flight through the URL fragment', async ({ 
   await page.getByRole('button', { name: 'Share link' }).click();
   await expect(page.getByText(/Link copied/)).toBeVisible();
   const url = await page.evaluate(() => navigator.clipboard.readText());
-  expect(url).toMatch(/#/);
+  expect(url).toMatch(/#f=/);
 
-  // Open the link fresh — it must decode in-browser back into a report.
-  await page.goto(url);
-  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
-  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  // Open the link in a FRESH page — a fragment-only navigation on the same page
+  // wouldn't reload, so this is the only way to actually exercise the in-browser
+  // decode-on-load that a recipient hits.
+  const fresh = await context.newPage();
+  await fresh.goto(url);
+  await expect(fresh.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await expect(fresh.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await fresh.close();
 });
 
 test('zoom presets reframe the charts without error', async ({ page }) => {
