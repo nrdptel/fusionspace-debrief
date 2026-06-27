@@ -35,6 +35,9 @@ export interface CompareFlight {
   mach: Float64Array;
   /** Dynamic pressure (Pa) resampled onto the shared grid; NaN outside the flight. */
   dynamicPressure: Float64Array;
+  /** Whether a real liftoff was detected. When false the flight is aligned at its
+   *  first sample instead of a true t=0, so the overlay says so. */
+  liftoffDetected: boolean;
   metrics: FlightMetrics;
 }
 
@@ -139,6 +142,7 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       acceleration: resample(rels[idx], series.acceleration, grid),
       mach: resample(rels[idx], mach, grid),
       dynamicPressure: resample(rels[idx], q, grid),
+      liftoffDetected: it.analysis.events.some((e) => e.type === 'liftoff'),
       metrics,
     };
   });

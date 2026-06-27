@@ -96,6 +96,14 @@ describe('buildComparison', () => {
     expect(cmp.flights[1].metrics.apogeeAltitude).toBe(200);
   });
 
+  it('flags whether each flight had a detected liftoff', () => {
+    const withLiftoff = input('a', 2, 100); // analysis() includes a liftoff event
+    const noLiftoff = { ...input('b', 2, 200), analysis: { ...analysis(2, 200), events: [] } };
+    const cmp = buildComparison([withLiftoff, noLiftoff]);
+    expect(cmp.flights[0].liftoffDetected).toBe(true);
+    expect(cmp.flights[1].liftoffDetected).toBe(false);
+  });
+
   it('resamples altitude, velocity and acceleration onto the shared grid', () => {
     const cmp = buildComparison([input('a', 2, 100), input('b', 5, 200)]);
     for (const f of cmp.flights) {

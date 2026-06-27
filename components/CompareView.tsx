@@ -81,12 +81,32 @@ export default function CompareView({
   const [metric, setMetric] = useState<MetricKey>('altitude');
   const chartRef = useRef<HTMLDivElement>(null);
 
+  // Velocity and acceleration can be device-logged on one flight and derived from
+  // the barometer on another; a derived curve under-reads at peak speed, so when
+  // the compared flights MIX sources we mark the baro ones rather than silently
+  // crowning a "best" across methods that aren't directly comparable. (When every
+  // flight shares a source, the comparison is fair and the marks would be noise.)
+  const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
+  const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
+  const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
+    mixed && source === 'baro' && finite ? ' (baro)' : '';
+
   const rows: Row[] = [
     { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), best: 'max', value: (m) => m.apogeeAltitude },
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee) },
-    { label: 'Max velocity', get: (m) => fmtSpeed(m.maxVelocity, sys), best: 'max', value: (m) => m.maxVelocity },
+    {
+      label: 'Max velocity',
+      get: (m) => fmtSpeed(m.maxVelocity, sys) + baroTag(velMixed, m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
+      best: 'max',
+      value: (m) => m.maxVelocity,
+    },
     { label: 'Max Mach', get: (m) => fmtMach(m.mach), best: 'max', value: (m) => m.mach ?? NaN },
-    { label: 'Max acceleration', get: (m) => fmtAccel(m.maxAcceleration), best: 'max', value: (m) => m.maxAcceleration },
+    {
+      label: 'Max acceleration',
+      get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)),
+      best: 'max',
+      value: (m) => m.maxAcceleration,
+    },
     { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), best: 'max', value: (m) => m.maxDynamicPressure ?? NaN },
     { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—') },
     { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—') },
@@ -217,7 +237,9 @@ export default function CompareView({
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">Comparing {flights.length} flights</h2>
+        <h2 className="text-xl font-semibold tracking-tight">
+          Comparing {flights.length} flight{flights.length === 1 ? '' : 's'}
+        </h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Aligned at liftoff (t = 0, or the start of the log when no liftoff was detected) and
           resampled onto a shared time base. Read locally — never uploaded.
@@ -258,6 +280,14 @@ export default function CompareView({
                   <span className="mt-0.5 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
                     {f.formatLabel}
                   </span>
+                  {!f.liftoffDetected && (
+                    <span
+                      className="mt-0.5 block text-[11px] font-normal text-amber-600 dark:text-amber-400"
+                      title="No liftoff was detected, so this flight is aligned at its first sample rather than a true t=0."
+                    >
+                      ≈ est. liftoff
+                    </span>
+                  )}
                 </th>
               ))}
             </tr>
@@ -292,6 +322,13 @@ export default function CompareView({
           </tbody>
         </table>
       </div>
+
+      {(velMixed || accMixed) && (
+        <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-mono">(baro)</span> — derived from altitude rather than logged by the
+          device, so it reads softer at peak speed; compare those values with that in mind.
+        </p>
+      )}
 
       {/* Overlaid chart — pick which quantity to compare across the flights. */}
       <div>

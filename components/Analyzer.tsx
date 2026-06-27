@@ -137,8 +137,11 @@ export default function Analyzer() {
       setState({ phase: 'loading' });
       await tick();
       const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string }[] = [];
-      const capped = list.slice(0, MAX_COMPARE);
-      for (const file of capped) {
+      // Cap on the number of *flights we can show*, not on input files: keep
+      // parsing past a file that fails to auto-detect so a valid later file can
+      // still fill a slot, and stop once the comparison is full.
+      for (const file of list) {
+        if (results.length >= MAX_COMPARE) break;
         try {
           if (file.size > MAX_BYTES) continue;
           const text = await file.text();
@@ -161,10 +164,10 @@ export default function Analyzer() {
       refreshRecents();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis }));
-        // Tell the user if more files were dropped than a comparison can show.
+        // Only when the cap actually held some flights back from a larger drop.
         const note =
-          list.length > MAX_COMPARE
-            ? `Showing the first ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`
+          results.length === MAX_COMPARE && list.length > MAX_COMPARE
+            ? `Showing ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`
             : undefined;
         setState({ phase: 'compare', comparison: buildComparison(inputs), note });
       } else if (results.length === 1) {
