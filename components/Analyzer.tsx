@@ -22,7 +22,7 @@ type State =
   | { phase: 'loading' }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
   | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string }
-  | { phase: 'compare'; comparison: Comparison }
+  | { phase: 'compare'; comparison: Comparison; note?: string }
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
@@ -136,7 +136,8 @@ export default function Analyzer() {
       setState({ phase: 'loading' });
       await tick();
       const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string }[] = [];
-      for (const file of list.slice(0, MAX_COMPARE)) {
+      const capped = list.slice(0, MAX_COMPARE);
+      for (const file of capped) {
         try {
           if (file.size > MAX_BYTES) continue;
           const text = await file.text();
@@ -144,16 +145,21 @@ export default function Analyzer() {
           if (result.kind !== 'flight') continue;
           const analysis = analyzeFlight(result.flight);
           results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text });
-          void saveRecent({ name: file.name, formatLabel: result.flight.formatLabel, apogeeM: analysis.metrics.apogeeAltitude ?? null, text }).then(
-            refreshRecents,
-          );
+          // Awaited (not fire-and-forget) so the per-save prune doesn't race itself.
+          await saveRecent({ name: file.name, formatLabel: result.flight.formatLabel, apogeeM: analysis.metrics.apogeeAltitude ?? null, text });
         } catch {
           /* skip this file */
         }
       }
+      refreshRecents();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis }));
-        setState({ phase: 'compare', comparison: buildComparison(inputs) });
+        // Tell the user if more files were dropped than a comparison can show.
+        const note =
+          list.length > MAX_COMPARE
+            ? `Showing the first ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`
+            : undefined;
+        setState({ phase: 'compare', comparison: buildComparison(inputs), note });
       } else if (results.length === 1) {
         const r = results[0];
         setState({ phase: 'report', flight: r.flight, analysis: r.analysis, analyzedAt: Date.now(), text: r.text });
@@ -309,7 +315,7 @@ export default function Analyzer() {
   }
 
   if (state.phase === 'compare') {
-    return <CompareView comparison={state.comparison} sys={sys} onToggleUnits={toggleUnits} onBack={reset} />;
+    return <CompareView comparison={state.comparison} note={state.note} sys={sys} onToggleUnits={toggleUnits} onBack={reset} />;
   }
 
   if (state.phase === 'mapping') {

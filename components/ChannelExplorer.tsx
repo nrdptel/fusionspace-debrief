@@ -73,22 +73,35 @@ export default function ChannelExplorer({
     [yKeys, byKey, sys],
   );
 
+  // Memoized so a zoom (which updates `view` for the stats panel) doesn't change
+  // these prop identities and force the chart to re-initialize, which would snap
+  // the zoom straight back to the full range.
+  const series = useMemo(() => {
+    const sel = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c);
+    const units: string[] = [];
+    for (const c of sel) {
+      const u = c.unitLabel(sys);
+      if (!units.includes(u)) units.push(u);
+    }
+    const left = units[0];
+    return sel.map((c, i) => ({
+      label: `${c.label} (${c.unitLabel(sys)})`,
+      values: seriesData[i],
+      stroke: COMPARE_PALETTE[i % COMPARE_PALETTE.length],
+      width: 1.75,
+      axis: (c.unitLabel(sys) === left ? 'left' : 'right') as 'left' | 'right',
+    }));
+  }, [yKeys, byKey, seriesData, sys]);
+
+  const markers = useMemo<ChartMarker[]>(
+    () => (xIsTime ? events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] })) : []),
+    [xIsTime, events],
+  );
+
   if (selected.length === 0) return null;
 
   const xUnit = xIsTime ? 's' : (xChan?.unitLabel(sys) ?? '');
   const xName = xIsTime ? 'Time' : (xChan?.label ?? 'Time');
-
-  const series = selected.map((c, i) => ({
-    label: `${c.label} (${c.unitLabel(sys)})`,
-    values: seriesData[i],
-    stroke: COMPARE_PALETTE[i % COMPARE_PALETTE.length],
-    width: 1.75,
-    axis: c.unitLabel(sys) === leftUnit ? ('left' as const) : ('right' as const),
-  }));
-
-  const markers: ChartMarker[] = xIsTime
-    ? events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] }))
-    : [];
 
   // A channel can be added unless it's already shown, we're at the cap, or it
   // would need a third axis (a third distinct unit).
@@ -218,6 +231,7 @@ export default function ChannelExplorer({
         view={view}
         xName={xName}
         xUnit={xUnit}
+        showDeltaRate={xIsTime}
       />
 
       {!xIsTime && (
@@ -244,6 +258,7 @@ function Stats({
   view,
   xName,
   xUnit,
+  showDeltaRate,
 }: {
   channels: PlotChannel[];
   seriesData: Float64Array[];
@@ -252,21 +267,30 @@ function Stats({
   view: [number, number] | null;
   xName: string;
   xUnit: string;
+  // Δ and rate only mean something on a monotonic time axis; hidden otherwise.
+  showDeltaRate: boolean;
 }) {
   const [lo, hi] = view ?? [-Infinity, Infinity];
-  const rows = channels.map((c, i) => ({ c, i, s: windowStats(xVals, seriesData[i], lo, hi) }));
+  const rows = useMemo(
+    () => channels.map((c, i) => ({ c, i, s: windowStats(xVals, seriesData[i], lo, hi) })),
+    [channels, seriesData, xVals, lo, hi],
+  );
+  const [fullLo, fullHi] = useMemo(() => {
+    let a = Infinity;
+    let b = -Infinity;
+    for (let i = 0; i < xVals.length; i++) {
+      const v = xVals[i];
+      if (!Number.isFinite(v)) continue;
+      if (v < a) a = v;
+      if (v > b) b = v;
+    }
+    return [a, b];
+  }, [xVals]);
 
-  let fullLo = Infinity;
-  let fullHi = -Infinity;
-  for (let i = 0; i < xVals.length; i++) {
-    const v = xVals[i];
-    if (!Number.isFinite(v)) continue;
-    if (v < fullLo) fullLo = v;
-    if (v > fullHi) fullHi = v;
-  }
   const shownLo = Number.isFinite(lo) ? lo : fullLo;
   const shownHi = Number.isFinite(hi) ? hi : fullHi;
   const zoomed = view != null && (shownLo > fullLo + 1e-6 || shownHi < fullHi - 1e-6);
+  const emptyCols = showDeltaRate ? 5 : 3;
 
   return (
     <div className="mt-4">
@@ -288,8 +312,12 @@ function Stats({
               <th scope="col" className={TH_NUM}>min</th>
               <th scope="col" className={TH_NUM}>max</th>
               <th scope="col" className={TH_NUM}>mean</th>
-              <th scope="col" className={TH_NUM}>Δ</th>
-              <th scope="col" className={TH_NUM}>rate</th>
+              {showDeltaRate && (
+                <>
+                  <th scope="col" className={TH_NUM}>Δ</th>
+                  <th scope="col" className={TH_NUM}>rate</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -311,11 +339,15 @@ function Stats({
                     <td className={TD_NUM}>{num(s.min)}</td>
                     <td className={TD_NUM}>{num(s.max)}</td>
                     <td className={TD_NUM}>{num(s.mean)}</td>
-                    <td className={TD_NUM}>{num(s.delta)}</td>
-                    <td className={TD_NUM}>{num(s.rate)}</td>
+                    {showDeltaRate && (
+                      <>
+                        <td className={TD_NUM}>{num(s.delta)}</td>
+                        <td className={TD_NUM}>{num(s.rate)}</td>
+                      </>
+                    )}
                   </>
                 ) : (
-                  <td colSpan={5} className="px-3 py-1.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={emptyCols} className="px-3 py-1.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
                     no samples in range
                   </td>
                 )}
@@ -326,7 +358,8 @@ function Stats({
       </div>
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
         Stats are for the visible window — drag across the chart to zoom into a phase, double-click
-        to reset. Values are in each channel&apos;s unit; rate is the change per {xUnit}.
+        to reset. Values are in each channel&apos;s unit
+        {showDeltaRate ? <>; rate is the change per {xUnit}.</> : '.'}
       </p>
     </div>
   );

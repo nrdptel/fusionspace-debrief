@@ -53,7 +53,8 @@ function liftoffTime(a: FlightAnalysis): number {
  */
 export function resample(srcTime: Float64Array, srcVal: Float64Array, grid: Float64Array): Float64Array {
   const out = new Float64Array(grid.length);
-  const n = srcTime.length;
+  // Defensive: never read past either array if a parser left them mismatched.
+  const n = Math.min(srcTime.length, srcVal.length);
   if (n === 0) {
     out.fill(NaN);
     return out;

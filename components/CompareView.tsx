@@ -44,11 +44,13 @@ interface Row {
 
 export default function CompareView({
   comparison,
+  note,
   sys,
   onToggleUnits,
   onBack,
 }: {
   comparison: Comparison;
+  note?: string;
   sys: UnitSystem;
   onToggleUnits: () => void;
   onBack: () => void;
@@ -62,7 +64,7 @@ export default function CompareView({
     { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), best: 'max', value: (m) => m.apogeeAltitude },
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee) },
     { label: 'Max velocity', get: (m) => fmtSpeed(m.maxVelocity, sys), best: 'max', value: (m) => m.maxVelocity },
-    { label: 'Max acceleration', get: (m) => fmtAccel(m.maxAcceleration) },
+    { label: 'Max acceleration', get: (m) => fmtAccel(m.maxAcceleration), best: 'max', value: (m) => m.maxAcceleration },
     { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—') },
     { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—') },
     { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—') },
@@ -78,6 +80,7 @@ export default function CompareView({
     let bi = -1;
     let bv = -Infinity;
     let finite = 0;
+    let ties = 0;
     flights.forEach((f, i) => {
       const v = row.value!(f.metrics);
       if (!Number.isFinite(v)) return;
@@ -85,9 +88,13 @@ export default function CompareView({
       if (v > bv) {
         bv = v;
         bi = i;
+        ties = 1;
+      } else if (v === bv) {
+        ties++;
       }
     });
-    return finite >= 2 ? bi : -1;
+    // Only crown a single winner: needs ≥2 flights with a value, and no tie for top.
+    return finite >= 2 && ties === 1 ? bi : -1;
   };
 
   const liftoffMarker: ChartMarker[] = [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }];
@@ -126,9 +133,17 @@ export default function CompareView({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Comparing {flights.length} flights</h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Aligned at liftoff (t = 0) and resampled onto a shared time base. Read locally — never
-          uploaded.
+          Aligned at liftoff (t = 0, or the start of the log when no liftoff was detected) and
+          resampled onto a shared time base. Read locally — never uploaded.
         </p>
+        {note && (
+          <p
+            role="status"
+            className="mt-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            {note}
+          </p>
+        )}
       </div>
 
       {/* Side-by-side metrics */}
@@ -182,6 +197,7 @@ export default function CompareView({
                       }`}
                     >
                       {row.get(f.metrics)}
+                      {i === bi && <span className="sr-only"> (highest)</span>}
                     </td>
                   ))}
                 </tr>

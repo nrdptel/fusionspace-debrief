@@ -43,15 +43,31 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
   await expect(page.getByText('Across the whole flight')).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'mean' })).toBeVisible();
 
+  // Drag across the explorer chart (the last uPlot on the page) to zoom — the
+  // zoom must HOLD and the stats must switch to the selected window. (Regression
+  // guard: a chart that re-inits on the view update would snap straight back.)
+  const chart = page.locator('.uplot').last();
+  await chart.scrollIntoViewIfNeeded();
+  const box = await chart.locator('canvas').first().boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5, { steps: 12 });
+    await page.mouse.up();
+  }
+  await expect(page.getByText('In the selected window')).toBeVisible();
+
   // Overlay a second channel — velocity's unit differs from altitude's, so it
   // lands on a second (right) axis. This exercises the dual-axis uPlot path.
   await page.getByLabel('Add a channel to the plot').selectOption({ label: 'Velocity' });
   await expect(page.getByText(/Right axis:/)).toBeVisible();
   await expect(page.locator('.uplot canvas').first()).toBeVisible();
 
-  // Put a channel on the X axis (not time) — the path note appears.
+  // Put a channel on the X axis (not time) — the path note appears and the Δ/rate
+  // columns (meaningless off a time axis) are hidden.
   await page.getByLabel('X axis channel').selectOption({ label: 'Altitude (AGL)' });
   await expect(page.getByText(/Plotting against another channel/)).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'rate' })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

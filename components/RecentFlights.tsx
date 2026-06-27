@@ -53,7 +53,7 @@ export default function RecentFlights({
 
   const toggle = (id: string) => {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Set([...prev].filter((k) => present.has(k)));
       if (next.has(id)) next.delete(id);
       else if (next.size < MAX_COMPARE) next.add(id);
       return next;

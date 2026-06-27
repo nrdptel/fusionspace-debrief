@@ -99,8 +99,11 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
     { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s') },
     { key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2') },
   ];
+  const n = flight.time.length;
   flight.channels.forEach((c, i) => {
-    if (!hasData(c.values)) return; // skip channels the file declared but never filled
+    // Skip channels the file declared but never filled, and any whose length
+    // doesn't match the time base (a ragged array would break the shared x-axis).
+    if (c.values.length !== n || !hasData(c.values)) return;
     out.push({ key: `r-${i}`, label: c.label, group: 'Recorded', values: c.values, ...display(c.unit) });
   });
   return out;
