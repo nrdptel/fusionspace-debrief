@@ -72,5 +72,12 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
   await expect(page.getByText(/Plotting against another channel/)).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'rate' })).toHaveCount(0);
 
+  // Export what's plotted — the explorer's own CSV (distinct from the report's).
+  const [csv] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/Save the plotted data/).click(),
+  ]);
+  expect(csv.suggestedFilename()).toMatch(/-explore\.csv$/);
+
   expect(errors).toEqual([]);
 });

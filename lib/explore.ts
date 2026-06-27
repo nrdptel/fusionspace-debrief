@@ -42,6 +42,30 @@ function display(unit: string): Pick<PlotChannel, 'toDisplay' | 'unitLabel'> {
 
 const hasData = (v: Float64Array) => v.some((x) => Number.isFinite(x));
 
+interface CsvColumn {
+  label: string;
+  unit: string;
+  values: Float64Array;
+}
+
+function csvHeader({ label, unit }: CsvColumn): string {
+  const h = unit ? `${label} (${unit})` : label;
+  return `"${h.replace(/"/g, '""')}"`;
+}
+
+/** CSV of exactly what the explorer is plotting (X column then each Y series),
+ * in the displayed units — the data an engineer would otherwise re-derive by
+ * hand. Values are trimmed to 6 significant figures; gaps are blank. */
+export function exploreCsv(x: CsvColumn, ys: CsvColumn[]): string {
+  const n = ys.reduce((m, y) => Math.min(m, y.values.length), x.values.length);
+  const cell = (v: number) => (Number.isFinite(v) ? Number(v.toPrecision(6)) : '');
+  const rows = [[csvHeader(x), ...ys.map(csvHeader)].join(',')];
+  for (let i = 0; i < n; i++) {
+    rows.push([cell(x.values[i]), ...ys.map((y) => cell(y.values[i]))].join(','));
+  }
+  return rows.join('\n');
+}
+
 /** Bucket display-units onto a left and right axis, in the order they first
  * appear. Two distinct units share a chart cleanly (independent scales); a third
  * distinct unit has nowhere to go, so the UI prevents adding one. */

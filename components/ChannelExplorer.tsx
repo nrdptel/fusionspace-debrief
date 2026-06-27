@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { planAxes, windowStats, type PlotChannel } from '@/lib/explore';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { planAxes, windowStats, exploreCsv, type PlotChannel } from '@/lib/explore';
 import { COMPARE_PALETTE } from '@/lib/compare';
+import { download } from '@/lib/download';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -11,6 +12,8 @@ import Chart, { type ChartMarker } from './Chart';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
+const ACTION_BTN =
+  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
 const GROUPS: PlotChannel['group'][] = ['Debrief', 'Recorded'];
 const MAX_SERIES = COMPARE_PALETTE.length;
 
@@ -30,13 +33,17 @@ export default function ChannelExplorer({
   time,
   events,
   sys,
+  stem,
 }: {
   channels: PlotChannel[];
   time: Float64Array;
   events: FlightEvent[];
   sys: UnitSystem;
+  /** Filesystem-safe stem of the source file, for export filenames. */
+  stem: string;
 }) {
   const dark = useIsDark();
+  const chartRef = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(channels.map((c) => [c.key, c])), [channels]);
 
   const [yKeys, setYKeys] = useState<string[]>(channels[0] ? [channels[0].key] : []);
@@ -111,6 +118,27 @@ export default function ChannelExplorer({
     return !rightUnit || u === leftUnit || u === rightUnit;
   };
   const addable = channels.filter(canAdd);
+
+  // Export exactly what's plotted — the CSV is the displayed data in the chosen
+  // units; the PNG is the current chart. Both stay on-device (no upload).
+  const saveCsv = () => {
+    const x = { label: xName, unit: xUnit, values: xVals };
+    const ys = selected.map((c, i) => ({ label: c.label, unit: c.unitLabel(sys), values: seriesData[i] }));
+    download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `${stem}-explore.csv`);
+  };
+  const savePng = () => {
+    const canvas = chartRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const out = document.createElement('canvas');
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = dark ? '#09090b' : '#ffffff'; // solid background, not transparent
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(canvas, 0, 0);
+    out.toBlob((blob) => blob && download(blob, `${stem}-explore.png`));
+  };
 
   return (
     <div>
@@ -196,7 +224,22 @@ export default function ChannelExplorer({
         </label>
       </div>
 
-      <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+      {/* Export what's plotted */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={savePng} title="Save the current plot as a PNG" className={ACTION_BTN}>
+          Save .png
+        </button>
+        <button
+          type="button"
+          onClick={saveCsv}
+          title="Save the plotted data — your chosen axes, in the displayed units — as CSV"
+          className={ACTION_BTN}
+        >
+          Save .csv
+        </button>
+      </div>
+
+      <div ref={chartRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <div className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
           Left axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{leftUnit}</span>
           {rightUnit && (

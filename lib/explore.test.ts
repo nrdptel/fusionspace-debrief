@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPlotChannels, planAxes, windowStats } from './explore';
+import { buildPlotChannels, planAxes, windowStats, exploreCsv } from './explore';
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
 
@@ -95,5 +95,29 @@ describe('windowStats', () => {
     const s = windowStats(x, yn, 0, 2)!;
     expect(s.count).toBe(1);
     expect(s.mean).toBe(10);
+  });
+});
+
+describe('exploreCsv', () => {
+  it('emits the X column then each Y series, with quoted headers and blank gaps', () => {
+    const csv = exploreCsv(
+      { label: 'Time', unit: 's', values: Float64Array.from([0, 1, 2]) },
+      [
+        { label: 'Altitude (AGL)', unit: 'ft', values: Float64Array.from([0, 100, NaN]) },
+        { label: 'Batt', unit: 'V', values: Float64Array.from([7.4, 7.3, 7.2]) },
+      ],
+    );
+    const lines = csv.split('\n');
+    expect(lines[0]).toBe('"Time (s)","Altitude (AGL) (ft)","Batt (V)"');
+    expect(lines[1]).toBe('0,0,7.4');
+    expect(lines[3]).toBe('2,,7.2'); // NaN altitude → blank cell
+  });
+
+  it('stops at the shortest column', () => {
+    const csv = exploreCsv(
+      { label: 't', unit: 's', values: Float64Array.from([0, 1, 2, 3]) },
+      [{ label: 'y', unit: '', values: Float64Array.from([0, 1]) }],
+    );
+    expect(csv.split('\n')).toHaveLength(1 + 2); // header + 2 rows
   });
 });

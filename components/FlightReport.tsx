@@ -9,6 +9,7 @@ import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/li
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { buildPlotChannels } from '@/lib/explore';
+import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
@@ -16,17 +17,6 @@ import ChannelExplorer from './ChannelExplorer';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
-
-function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  // Revoke after the click has been handled, not synchronously (racy for large
-  // blobs on some engines).
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -349,7 +339,7 @@ export default function FlightReport({
         </div>
       </div>
 
-      <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} />
+      <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />
     </div>
   );
 }
