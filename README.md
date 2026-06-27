@@ -17,6 +17,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   apogee, main deploy, and landing marked on each.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
+  alongside Debrief's own derived channels — including **Mach number** and
+  **dynamic pressure** (the transonic and max-Q curves a rocket is designed around) —
   against time, or one channel against another (e.g. velocity vs altitude), with a
   second axis for mixed units and live min/max/mean/Δ/rate over the zoomed window —
   and save the current plot as a PNG or its exact data (your axes, your units) as CSV.

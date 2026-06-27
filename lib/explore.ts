@@ -126,6 +126,24 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
     { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s') },
     { key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2') },
   ];
+
+  // Mach number and dynamic pressure — the quantities a rocket is designed
+  // around (transonic region, max-Q). Both ride on the derived velocity and the
+  // flight's atmosphere, so they're only as good as it; offered when defined.
+  if (Number.isFinite(series.speedOfSound) && series.speedOfSound > 0) {
+    const mach = new Float64Array(series.velocity.length);
+    for (let i = 0; i < mach.length; i++) mach[i] = series.velocity[i] / series.speedOfSound;
+    // Unitless, so it sits on its own axis cleanly and reads straight off as Mach.
+    out.push({ key: 'd-mach', label: 'Mach', group: 'Debrief', values: mach, ...display('') });
+  }
+  if (hasData(series.airDensity)) {
+    const q = new Float64Array(series.velocity.length);
+    for (let i = 0; i < q.length; i++) {
+      const v = series.velocity[i];
+      q[i] = 0.5 * series.airDensity[i] * v * v;
+    }
+    out.push({ key: 'd-q', label: 'Dynamic pressure', group: 'Debrief', values: q, ...display('Pa') });
+  }
   const n = flight.time.length;
   flight.channels.forEach((c, i) => {
     // Skip channels the file declared but never filled, and any whose length

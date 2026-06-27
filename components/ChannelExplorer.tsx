@@ -91,13 +91,16 @@ export default function ChannelExplorer({
       if (!units.includes(u)) units.push(u);
     }
     const left = units[0];
-    return sel.map((c, i) => ({
-      label: `${c.label} (${c.unitLabel(sys)})`,
-      values: seriesData[i],
-      stroke: COMPARE_PALETTE[i % COMPARE_PALETTE.length],
-      width: 1.75,
-      axis: (c.unitLabel(sys) === left ? 'left' : 'right') as 'left' | 'right',
-    }));
+    return sel.map((c, i) => {
+      const u = c.unitLabel(sys);
+      return {
+        label: u ? `${c.label} (${u})` : c.label,
+        values: seriesData[i],
+        stroke: COMPARE_PALETTE[i % COMPARE_PALETTE.length],
+        width: 1.75,
+        axis: (u === left ? 'left' : 'right') as 'left' | 'right',
+      };
+    });
   }, [yKeys, byKey, seriesData, sys]);
 
   const markers = useMemo<ChartMarker[]>(
@@ -111,11 +114,14 @@ export default function ChannelExplorer({
   const xName = xIsTime ? 'Time' : (xChan?.label ?? 'Time');
 
   // A channel can be added unless it's already shown, we're at the cap, or it
-  // would need a third axis (a third distinct unit).
+  // would need a third axis (a third distinct unit). `rightUnit` can legitimately
+  // be the empty string (a unitless channel like Mach on the second axis), so test
+  // for "a second axis exists" explicitly rather than truthiness.
+  const hasRightAxis = rightUnit !== undefined;
   const canAdd = (c: PlotChannel) => {
     if (yKeys.includes(c.key) || selected.length >= MAX_SERIES) return false;
     const u = c.unitLabel(sys);
-    return !rightUnit || u === leftUnit || u === rightUnit;
+    return !hasRightAxis || u === leftUnit || u === rightUnit;
   };
   const addable = channels.filter(canAdd);
 
@@ -160,7 +166,7 @@ export default function ChannelExplorer({
               aria-hidden="true"
             />
             <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.label}</span>
-            <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>
+            {c.unitLabel(sys) && <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>}
             {selected.length > 1 && (
               <button
                 type="button"
@@ -241,10 +247,10 @@ export default function ChannelExplorer({
 
       <div ref={chartRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <div className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Left axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{leftUnit}</span>
-          {rightUnit && (
+          Left axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{leftUnit || 'unitless'}</span>
+          {hasRightAxis && (
             <>
-              {' · '}Right axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{rightUnit}</span>
+              {' · '}Right axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{rightUnit || 'unitless'}</span>
             </>
           )}
           {' · '}X: <span className="font-medium text-zinc-700 dark:text-zinc-300">{xName}{xUnit && ` (${xUnit})`}</span>
@@ -374,7 +380,7 @@ function Stats({
                       aria-hidden="true"
                     />
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.label}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>
+                    {c.unitLabel(sys) && <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>}
                   </span>
                 </th>
                 {s ? (

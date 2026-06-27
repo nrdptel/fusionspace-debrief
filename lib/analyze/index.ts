@@ -70,6 +70,44 @@ function stdev(values: Float64Array, from: number, to: number): number {
   return n ? Math.sqrt(sum / n) : NaN;
 }
 
+// Standard-atmosphere constants (troposphere).
+const R_AIR = 287.05; // specific gas constant for dry air, J/(kg·K)
+const LAPSE = -0.0065; // temperature lapse rate, K/m
+const G_STD = 9.80665; // m/s²
+const ISA_SEA_LEVEL_PRESSURE = 101325; // Pa
+
+/** Launch-pad ambient pressure (Pa) for the density model: the mean of any
+ *  pressure channel over the quiet pad window, falling back to standard sea-level
+ *  pressure when the logger records no pressure (so density is still defined). */
+function padPressure(flight: RawFlight, baseEnd: number, padDataLikely: boolean): number {
+  const presCh = getChannel(flight, 'pressure');
+  if (presCh && padDataLikely) {
+    const p = mean(presCh.values, 0, baseEnd);
+    if (Number.isFinite(p) && p > 0) return p;
+  }
+  return ISA_SEA_LEVEL_PRESSURE;
+}
+
+/** Air density (kg/m³) at each AGL altitude from the standard-atmosphere lapse,
+ *  anchored to the pad's own temperature and pressure rather than sea level — so
+ *  a mile-high launch site reads its real (thinner) air. */
+function standardAtmosphereDensity(altAgl: Float64Array, groundTempK: number, groundPressure: number): Float64Array {
+  const rho0 = groundPressure / (R_AIR * groundTempK);
+  // ρ/ρ0 = (T/T0)^(−g/(R·L) − 1), with T = T0 + L·h (h is AGL, T0 the pad temp).
+  const exponent = -G_STD / (R_AIR * LAPSE) - 1;
+  const out = new Float64Array(altAgl.length);
+  for (let i = 0; i < altAgl.length; i++) {
+    const h = altAgl[i];
+    if (!Number.isFinite(h)) {
+      out[i] = NaN;
+      continue;
+    }
+    const tRatio = (groundTempK + LAPSE * h) / groundTempK;
+    out[i] = tRatio > 0 ? rho0 * Math.pow(tRatio, exponent) : NaN;
+  }
+  return out;
+}
+
 export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
@@ -164,6 +202,17 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     accelerationSource = 'baro';
   }
 
+  // --- Atmosphere (Mach & dynamic pressure) ---------------------------------
+  // Speed of sound from the ground temperature (a standard 15 °C day when the
+  // logger didn't record one), and air density from a standard-atmosphere lapse
+  // anchored to the pad's own conditions — so a high-desert launch isn't read as
+  // sea level. These drive the Mach and dynamic-pressure channels in the explorer.
+  const tempCh = getChannel(flight, 'temperature');
+  const groundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseEnd) : null;
+  const groundTempK = (groundTemperature ?? 15) + 273.15;
+  const speedOfSound = Math.sqrt(1.4 * 287.05 * groundTempK);
+  const airDensity = standardAtmosphereDensity(altClean, groundTempK, padPressure(flight, baseEnd, padDataLikely));
+
   const series: FlightSeries = {
     time,
     altitude: altClean,
@@ -172,6 +221,8 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     acceleration,
     velocitySource,
     accelerationSource,
+    speedOfSound,
+    airDensity,
   };
 
   // --- Apogee & whether there is an ascent at all ---------------------------
@@ -345,11 +396,8 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   push('main', mainIdx, 'Main deploy', 'derived');
   if (landingFound) push('landing', landingIdx, 'Landing', 'derived');
 
-  // --- Mach & temperature ---------------------------------------------------
-  const tempCh = getChannel(flight, 'temperature');
-  const groundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseEnd) : null;
-  const tempK = (groundTemperature ?? 15) + 273.15;
-  const speedOfSound = Math.sqrt(1.4 * 287.05 * tempK);
+  // --- Mach -----------------------------------------------------------------
+  // (Speed of sound and ground temperature were computed with the atmosphere above.)
   const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / speedOfSound : null;
 
   const metrics: FlightMetrics = {

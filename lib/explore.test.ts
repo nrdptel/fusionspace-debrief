@@ -11,6 +11,8 @@ const series: FlightSeries = {
   acceleration: Float64Array.from([0, 9.80665, -9.80665]),
   velocitySource: 'baro',
   accelerationSource: 'baro',
+  speedOfSound: 340,
+  airDensity: Float64Array.from([1.2, 1.2, 1.2]),
 };
 
 const flight: RawFlight = {
@@ -43,6 +45,17 @@ describe('buildPlotChannels', () => {
 
   it('skips a channel the file declared but never filled', () => {
     expect(channels.some((c) => c.label === 'Empty')).toBe(false);
+  });
+
+  it('derives Mach (velocity ÷ speed of sound) and dynamic pressure (½ρv²)', () => {
+    const mach = channels.find((c) => c.key === 'd-mach')!;
+    expect(mach.group).toBe('Debrief');
+    expect(Array.from(mach.values)).toEqual([0, 40 / 340, 0]);
+    expect(mach.unitLabel('imperial')).toBe(''); // unitless
+
+    const q = channels.find((c) => c.key === 'd-q')!;
+    expect(Array.from(q.values)).toEqual([0, 0.5 * 1.2 * 40 * 40, 0]);
+    expect(q.unitLabel('metric')).toBe('Pa');
   });
 
   it('converts known units by the unit system and leaves native units alone', () => {

@@ -99,4 +99,16 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.mainDescentRate).toBeGreaterThan(10);
     expect(a.metrics.mainDescentRate).toBeLessThan(20);
   });
+
+  it('builds an atmosphere for the Mach & dynamic-pressure channels', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    // No temperature channel → a standard 15 °C day → ~340 m/s.
+    expect(a.series.speedOfSound).toBeGreaterThan(335);
+    expect(a.series.speedOfSound).toBeLessThan(345);
+    // Density starts near the standard sea-level value and thins with altitude.
+    expect(a.series.airDensity[0]).toBeGreaterThan(1.1);
+    expect(a.series.airDensity[0]).toBeLessThan(1.3);
+    const apIdx = a.series.altitude.indexOf(Math.max(...a.series.altitude));
+    expect(a.series.airDensity[apIdx]).toBeLessThan(a.series.airDensity[0]);
+  });
 });

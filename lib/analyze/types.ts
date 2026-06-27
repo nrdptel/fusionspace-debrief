@@ -42,6 +42,12 @@ export interface FlightSeries {
   acceleration: Float64Array; // m/s² (+ = up)
   velocitySource: 'device' | 'baro';
   accelerationSource: 'device' | 'baro';
+  /** Speed of sound for this flight (m/s), from the ground temperature — the
+   *  divisor behind the Mach channel. */
+  speedOfSound: number;
+  /** Air density at each sample (kg/m³), from a ground-anchored standard
+   *  atmosphere — the ρ behind the dynamic-pressure channel. */
+  airDensity: Float64Array;
 }
 
 export interface FlightAnalysis {

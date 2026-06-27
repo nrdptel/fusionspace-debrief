@@ -42,6 +42,10 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
   // The raw (pre-filter) altitude is offered alongside the cleaned one.
   await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'Altitude (raw)' })).toHaveCount(1);
 
+  // The derived engineering channels (Mach, dynamic pressure) are offered too.
+  await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'Mach' })).toHaveCount(1);
+  await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'Dynamic pressure' })).toHaveCount(1);
+
   // The live stats panel populates for the full flight before any zoom.
   await expect(page.getByText('Across the whole flight')).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'mean' })).toBeVisible();

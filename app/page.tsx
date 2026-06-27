@@ -114,6 +114,15 @@ export default function Home() {
             falling back to a 15&nbsp;°C standard day. Mach is max velocity over that speed of sound,
             so on a hot or cold day expect it to shift slightly.
           </Method>
+          <Method title="Mach & dynamic-pressure channels">
+            The explorer offers two derived engineering channels. <em>Mach</em> is velocity over the
+            speed of sound at each instant. <em>Dynamic pressure</em> is ½&nbsp;ρv², where the air
+            density&nbsp;ρ comes from a standard-atmosphere lapse anchored to the pad&apos;s own
+            temperature and pressure — so a high-elevation launch reads its real, thinner air. When
+            the logger records no pressure, a standard sea-level pad is assumed, so dynamic pressure
+            is an estimate that tracks the shape (and the max-Q point) more reliably than the absolute
+            value. Both ride on the derived velocity, so they inherit its softness near peak speed.
+          </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite (StratoLogger / Pnut), Eggtimer and Featherweight
             (Raven via the Interface Program, and Blue Raven) files are recognized and parsed
