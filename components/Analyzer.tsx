@@ -298,7 +298,7 @@ export default function Analyzer() {
         <button
           type="button"
           onClick={reset}
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 print:hidden"
         >
           ← Analyze another flight
         </button>

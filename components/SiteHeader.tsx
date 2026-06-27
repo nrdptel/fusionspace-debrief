@@ -4,7 +4,7 @@ import FusionSpaceBadge from './FusionSpaceBadge';
 
 export default function SiteHeader() {
   return (
-    <header className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
+    <header className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800 print:hidden">
       <div>
         <FusionSpaceBadge className="mb-1.5" />
         <h1 className="text-2xl font-semibold tracking-tight">Debrief</h1>

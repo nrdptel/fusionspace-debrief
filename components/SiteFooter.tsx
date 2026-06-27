@@ -9,7 +9,7 @@ export default function SiteFooter() {
   const observances = observancesForDate();
 
   return (
-    <footer className="mt-20 border-t border-zinc-200 pt-6 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400 md:mt-28">
+    <footer className="mt-20 border-t border-zinc-200 pt-6 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400 md:mt-28 print:hidden">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <a

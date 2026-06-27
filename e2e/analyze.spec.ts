@@ -81,3 +81,28 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
 
   expect(errors).toEqual([]);
 });
+
+test('the printed flight card keeps the numbers and drops the interactive chrome', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+
+  // There's a way to print it.
+  await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
+
+  await page.emulateMedia({ media: 'print' });
+
+  // The headline numbers and events survive onto the card.
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+  await expect(page.getByText('Debrief · Flight Report')).toBeVisible();
+  await expect(page.getByText(/debrief\.fusionspace\.co · analyzed/)).toBeVisible();
+
+  // The interactive chrome is gone: the toolbar, the channel explorer, the
+  // site header/footer, and the "analyze another" link.
+  await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeHidden();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeHidden();
+
+  await page.emulateMedia({ media: 'screen' });
+});

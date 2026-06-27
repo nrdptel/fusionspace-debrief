@@ -39,3 +39,25 @@ html {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Printing a flight report yields a clean one-piece card (numbers, events,
+   charts) — the interactive chrome is hidden with `print:hidden` utilities and
+   the report forces a light theme first so the canvas charts come out on white.
+   Keep the real colours (chart strokes, the format/event chips) on paper. */
+@media print {
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @page {
+    margin: 1.5cm;
+  }
+  /* uPlot fixes the canvas to its on-screen width; let it shrink onto the page
+     rather than clipping at the right margin. */
+  .uplot,
+  .uplot canvas {
+    max-width: 100% !important;
+  }
+}

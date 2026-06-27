@@ -83,6 +83,30 @@ export default function FlightReport({
     download(new Blob([analyzedDataCsv(analysis, sys)], { type: 'text/csv' }), `${stem}-debrief.csv`);
   }
 
+  // Print a clean flight card. Force a light theme first so the canvas charts
+  // (whose pixels are baked at draw time, beyond the reach of print CSS) come
+  // out on white, then restore whatever the user had once the dialog closes.
+  function printCard() {
+    const el = document.documentElement;
+    const hadDark = el.classList.contains('dark');
+    const hadLight = el.classList.contains('light');
+    el.classList.remove('dark');
+    el.classList.add('light');
+    const restore = () => {
+      el.classList.toggle('dark', hadDark);
+      el.classList.toggle('light', hadLight);
+    };
+    // Give React a beat to repaint the charts light before the dialog opens.
+    window.setTimeout(() => {
+      const after = () => {
+        window.removeEventListener('afterprint', after);
+        restore();
+      };
+      window.addEventListener('afterprint', after);
+      window.print();
+    }, 250);
+  }
+
   function saveChartPng() {
     const canvas = altChartRef.current?.querySelector('canvas');
     if (!canvas) return;
@@ -145,6 +169,10 @@ export default function FlightReport({
   return (
     <div className="space-y-8">
       <h2 className="sr-only">Flight report for {flight.source}</h2>
+      {/* Print-only masthead: a printed card should still say what it is. */}
+      <div className="hidden print:block">
+        <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Debrief · Flight Report</p>
+      </div>
       {/* File / format line */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
@@ -156,7 +184,7 @@ export default function FlightReport({
           </span>
           <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
           <button type="button" onClick={copySummary} title="Copy a text summary to the clipboard" className={ACTION_BTN}>
             {copied ? 'Copied ✓' : 'Copy summary'}
           </button>
@@ -173,6 +201,14 @@ export default function FlightReport({
           </button>
           <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={ACTION_BTN}>
             Save .png
+          </button>
+          <button
+            type="button"
+            onClick={printCard}
+            title="Print a clean flight card (or save it as a PDF) — numbers, events and charts on one page"
+            className={ACTION_BTN}
+          >
+            Print
           </button>
           <button
             type="button"
@@ -237,7 +273,7 @@ export default function FlightReport({
 
       {/* Charts */}
       {zoomPresets.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Zoom to</span>
           {zoomPresets.map((p) => (
             <button
@@ -307,7 +343,7 @@ export default function FlightReport({
         )}
       </div>
 
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400 print:hidden">
         Hover to read all three at a time · drag across a chart to zoom · double-click to reset
       </p>
 
@@ -339,7 +375,15 @@ export default function FlightReport({
         </div>
       </div>
 
-      <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />
+      <div className="print:hidden">
+        <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />
+      </div>
+
+      {/* Print-only provenance line, so a card that leaves the screen says where
+          it came from. */}
+      <p className="hidden text-center text-[11px] text-zinc-500 print:block">
+        debrief.fusionspace.co · analyzed {formatAnalyzedAt(analyzedAt)}
+      </p>
     </div>
   );
 }
