@@ -1,7 +1,6 @@
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import Analyzer from '@/components/Analyzer';
-import { MOTOR_URL } from '@/lib/links';
 
 export default function Home() {
   return (
@@ -127,19 +126,15 @@ export default function Home() {
             Altus Metrum (AltOS), PerfectFlite (StratoLogger / Pnut), Eggtimer and Featherweight
             (Raven via the Interface Program, and Blue Raven) files are recognized and parsed
             automatically; more loggers are being added, and the generic-CSV mapper — which also reads
-            header-less exports — covers the rest in the meantime.
-            Files are read with the browser&apos;s
-            own file API and never uploaded — the analysis you see ran entirely on your device. For live
-            motor stock and pricing, see the{' '}
-            <a
-              href={MOTOR_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-indigo-600 underline hover:text-indigo-500 dark:text-indigo-400"
-            >
-              HPR Motor Finder
-            </a>
-            .
+            header-less exports — covers the rest in the meantime. Files are read with the browser&apos;s
+            own file API and never uploaded — the analysis you see ran entirely on your device.
+          </Method>
+          <Method title="What Debrief isn't">
+            Debrief reads and analyzes flights you have already flown. It is <em>not</em> a simulator: it
+            doesn&apos;t predict or estimate how a rocket will perform, recommend motors, or model
+            anything you haven&apos;t flown. Every number on the page is read or derived from your
+            logger&apos;s own recording — nothing more. It&apos;s a standalone tool and works entirely on
+            its own.
           </Method>
         </div>
       </section>

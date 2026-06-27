@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { GitHubIcon } from './icons';
-import { HUB_URL, MOTOR_URL, REPO_URL } from '@/lib/links';
+import { HUB_URL, REPO_URL } from '@/lib/links';
 import { observancesForDate } from '@/lib/observances';
 
 export default function SiteFooter() {
@@ -20,17 +20,6 @@ export default function SiteFooter() {
           >
             <GitHubIcon className="h-4 w-4 fill-current" />
             Source on GitHub
-          </a>
-          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
-            ·
-          </span>
-          <a
-            href={MOTOR_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-zinc-800 dark:hover:text-zinc-200"
-          >
-            Motor Finder
           </a>
           <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
             ·
@@ -64,12 +53,14 @@ export default function SiteFooter() {
         </a>
       </div>
       <p className="mt-5 max-w-3xl leading-relaxed text-zinc-500 dark:text-zinc-400">
-        Your flight file is read in this browser and never uploaded — all parsing and
-        analysis happen on your device. The numbers Debrief reports are derived
-        best-effort from your logger's data and are only as good as it; treat them as a
-        careful reading, not gospel. Personal, non-commercial project — not affiliated
-        with any altimeter or rocketry manufacturer. Built for the hobby rocketry
-        community.
+        Debrief reads and analyzes flights you have already flown — it is not a
+        simulator and does not predict or estimate performance; every number comes
+        from your logger's own data. It is a standalone tool. Your flight file is read
+        in this browser and never uploaded — all parsing and analysis happen on your
+        device. The numbers Debrief reports are derived best-effort from your logger's
+        data and are only as good as it; treat them as a careful reading, not gospel.
+        Personal, non-commercial project — not affiliated with any altimeter or
+        rocketry manufacturer. Built for the hobby rocketry community.
       </p>
 
       {observances.length > 0 && (

@@ -94,10 +94,10 @@ It fits the family by construction:
   tier and needs nothing on a schedule. This is the hard line.
 - **The privacy promise is stated plainly**, the way the Motor Finder states its
   data disclaimer — your file is read in this browser and never uploaded.
-- **Same chrome, same voice.** Brand mark, theme toggle, footer disclaimer, links back
-  to the hub and the Motor Finder, a GitHub link. A "How to read this" intro and a
-  "Where the numbers come from" section that explains every derived number and every
-  auto-detected event, and says where it can be wrong.
+- **Same chrome, same voice.** Brand mark, theme toggle, footer disclaimer, a link back
+  to the hub, a GitHub link. A "How to read this" intro and a "Where the numbers come
+  from" section that explains every derived number and every auto-detected event, and
+  says where it can be wrong.
 - **State in the URL** for view settings (units, which curves, smoothing, selected
   events); the flight data itself stays local. Recent flights remembered per device.
 
@@ -124,6 +124,20 @@ and flexible**, not casual:
   lane. Both are first-class, neither is loud.
 - Still **100% client-side**: all of this is just plotting data already parsed in the
   browser. No backend, ever.
+
+### Two hard limits on that scope
+
+Comprehensive does not mean "do everything." Two lines are explicit and not to be crossed:
+
+- **No simulation.** Debrief reads and analyzes flights that have *already been flown*.
+  It never predicts or estimates how a rocket *will* perform, recommends motors, or models
+  anything that isn't in the recording. Every number on the page is read or derived from
+  the logger's own data. (Derived quantities like velocity or dynamic pressure are
+  computed *from* the recorded flight — that's analysis, not simulation.)
+- **No cross-tool use.** Debrief is standalone. It does not depend on, drive traffic to,
+  or build workflows around the other Fusion Space tools. The only outbound link is the
+  shared family footer back to the hub (fusionspace.co); there are no in-product links to
+  the Motor Finder or features that hand off to it.
 
 The litmus test: an engineer should be able to open a flight and answer a question the
 headline numbers don't — "what did the battery do under boost?", "how noisy is the
