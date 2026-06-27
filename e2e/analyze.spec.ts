@@ -15,6 +15,12 @@ test('the sample flight analyzes into a report', async ({ page }) => {
   // The max-Q tile (derived from the atmosphere model) shows up too.
   await expect(page.getByText('Max Q', { exact: true })).toBeVisible();
 
+  // The flight timeline breaks the flight into its phases (the chips are list
+  // items, distinct from the "Boost" zoom-preset button).
+  await expect(page.getByRole('heading', { name: 'Flight timeline' })).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Boost' })).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Coast' })).toBeVisible();
+
   // The "Log details" panel expands to the factual read of the file.
   await page.getByText('Log details', { exact: true }).click();
   await expect(page.getByText('Sample rate', { exact: true })).toBeVisible();

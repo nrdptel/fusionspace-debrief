@@ -22,6 +22,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   and flight time.
 - Draws altitude, velocity, and acceleration against time, with liftoff, burnout,
   apogee, main deploy, and landing marked on each.
+- Shows the flight's shape at a glance — a proportional timeline breaks it into boost,
+  coast and the descent legs, each with its duration and descent rate.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
   alongside Debrief's own derived channels — including **Mach number** and
