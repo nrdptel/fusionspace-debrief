@@ -102,6 +102,15 @@ export default function Home() {
             liftoff is the first real climb off the pad and burnout is taken at peak velocity, which
             is where a coasting rocket&apos;s speed turns over.
           </Method>
+          <Method title="Rail-exit velocity">
+            How fast the rocket was moving when it cleared the launch rail — the airspeed its fins
+            had to keep it pointed straight at the most critical moment of the flight. Debrief reads
+            the flown velocity at the height one rail-length above the pad (you pick the rail length),
+            interpolating between samples. It&apos;s a measurement, not a prediction — nothing is
+            modelled. On a logger that didn&apos;t record velocity it rides on the derived velocity and
+            is labeled approximate, and a clearance speed on the low side is flagged as a gentle
+            heads-up, not a rule.
+          </Method>
           <Method title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
             north-up, equal-scale map of metres around the pad and reads off how far and which way the
@@ -114,6 +123,14 @@ export default function Home() {
             descent giving way to a slow main — and marks it as the main deployment. Descent rates are
             the average vertical speed over each phase. A single-deploy flight shows one descent rate
             and no separate main event. Marginal transitions are left unmarked rather than guessed.
+          </Method>
+          <Method title="Landing energy">
+            How hard the rocket came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured
+            near touchdown and the descending mass you enter (the log can&apos;t know your rocket&apos;s
+            mass). Reported in ft·lbf and joules — the figure a certification flight card and many club
+            waivers ask for. It&apos;s a measurement of the flight you flew, not a prediction, and it&apos;s
+            shown only when the log actually descended to a readable landing rate. Compare it against
+            your own club or certification limit.
           </Method>
           <Method title="Mach & temperature">
             The speed of sound is computed from the ground temperature where the logger records it,

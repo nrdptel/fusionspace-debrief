@@ -137,7 +137,9 @@ test('rail-exit velocity is omitted for a GPS-only flight', async ({ page }) => 
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));
   await reachesReport(page);
-  await expect(page.getByRole('heading', { name: 'Rail-exit velocity' })).toHaveCount(0);
+  // The card (a labelled region) is absent — note the methodology section below the
+  // report still has a same-named heading, so we check for the region, not the text.
+  await expect(page.getByRole('region', { name: 'Rail-exit velocity' })).toHaveCount(0);
 });
 
 test('renders a shareable flight card and saves it as a PNG', async ({ page }) => {

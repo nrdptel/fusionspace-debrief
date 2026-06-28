@@ -436,11 +436,12 @@ export default function FlightReport({
 
       {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} stem={stem} />}
 
-      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} />
-
       <div className="print:hidden">
         <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />
       </div>
+
+      {/* The shareable card closes the report, once everything it summarizes is shown. */}
+      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} />
 
       {/* Print-only provenance line, so a card that leaves the screen says where
           it came from. */}
