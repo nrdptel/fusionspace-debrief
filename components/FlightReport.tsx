@@ -18,6 +18,7 @@ import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
 import FlightTimeline from './FlightTimeline';
 import RailExit from './RailExit';
+import LandingEnergy from './LandingEnergy';
 import GroundTrack from './GroundTrack';
 
 const ACTION_BTN =
@@ -427,6 +428,10 @@ export default function FlightReport({
           ))}
         </div>
       </div>
+
+      {/* Landing energy belongs with recovery — it reads off the measured landing
+          descent rate, so it's only shown when the log actually descended to it. */}
+      {metrics.mainDescentRate != null && <LandingEnergy metrics={metrics} sys={sys} />}
 
       {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} stem={stem} />}
 

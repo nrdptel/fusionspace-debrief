@@ -114,6 +114,25 @@ test('reports rail-exit velocity for a barometric flight, and remembers the rail
   await expect(page.getByLabel('Launch rail length')).toHaveValue(/3\.6/);
 });
 
+test('computes landing energy from a supplied descending mass, and remembers it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Landing energy' });
+  await expect(panel.getByRole('heading', { name: 'Landing energy' })).toBeVisible();
+  // Until a mass is entered there's nothing to compute.
+  await expect(panel.getByText('—', { exact: true })).toBeVisible();
+
+  await panel.getByLabel(/Descending mass/).fill('24');
+  // ½·m·v² in ft·lbf (imperial default) — e.g. "11 ft·lbf".
+  await expect(panel.getByText(/\d+(\.\d+)?\s*ft·lbf/)).toBeVisible();
+
+  // The mass sticks across a reload (localStorage).
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByLabel(/Descending mass/)).toHaveValue('24');
+});
+
 test('rail-exit velocity is omitted for a GPS-only flight', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));
