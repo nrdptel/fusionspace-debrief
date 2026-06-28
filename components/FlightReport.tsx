@@ -17,6 +17,7 @@ import MetricGrid from './MetricGrid';
 import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
 import FlightTimeline from './FlightTimeline';
+import RailExit from './RailExit';
 import GroundTrack from './GroundTrack';
 
 const ACTION_BTN =
@@ -311,6 +312,10 @@ export default function FlightReport({
       )}
 
       <MetricGrid metrics={metrics} sys={sys} />
+
+      {/* Rail-exit velocity is a fine-grained reading of the first couple of metres,
+          so it only makes sense with barometric altitude — GPS is far too coarse. */}
+      {series.altitudeSource !== 'gps' && <RailExit series={series} sys={sys} />}
 
       <FlightTimeline events={events} metrics={metrics} sys={sys} />
 

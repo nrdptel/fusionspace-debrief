@@ -98,6 +98,29 @@ test('compare selection is capped at six flights', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Compare 6 flights/ })).toBeVisible();
 });
 
+test('reports rail-exit velocity for a barometric flight, and remembers the rail', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const rail = page.getByRole('region', { name: 'Rail-exit velocity' });
+  await expect(rail.getByRole('heading', { name: 'Rail-exit velocity' })).toBeVisible();
+  // A real boosted flight clears the rail with a readable speed (e.g. "89 ft/s").
+  await expect(rail.getByText(/\d+\s*ft\/s/)).toBeVisible();
+
+  // Picking a different rail length sticks across a reload (localStorage).
+  await page.getByLabel('Launch rail length').selectOption({ label: '12 ft (3.7 m)' });
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByLabel('Launch rail length')).toHaveValue(/3\.6/);
+});
+
+test('rail-exit velocity is omitted for a GPS-only flight', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));
+  await reachesReport(page);
+  await expect(page.getByRole('heading', { name: 'Rail-exit velocity' })).toHaveCount(0);
+});
+
 test('the explorer exports the current plot as a PNG', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

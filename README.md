@@ -22,6 +22,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   and flight time.
 - Draws altitude, velocity, and acceleration against time, with liftoff, burnout,
   apogee, main deploy, and landing marked on each.
+- Reports **rail-exit velocity** — how fast the rocket was actually moving when it
+  cleared the launch rail, read straight from the flown record at your rail's length
+  above the pad (pick from the common 4–12 ft lengths). It's a *measurement*, not a
+  prediction, and flags a clearance speed on the low side for stability.
 - Shows the flight's shape at a glance — a proportional timeline breaks it into boost,
   coast and the descent legs, each with its duration and descent rate.
 - Helps you find it — for a flight with a GPS track, a north-up recovery map plots the
