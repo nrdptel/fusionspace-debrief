@@ -69,98 +69,76 @@ export default function Home() {
           each number is worked out, and where it can be wrong.
         </p>
 
-        <div className="mt-6 space-y-5 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <div className="mt-6 grid gap-x-8 gap-y-5 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method title="Ground baseline & altitude">
-            Altitude is taken from the logger&apos;s own altitude channel where it has one, or derived
-            from barometric pressure with the standard atmosphere when it only logs pressure. Either
-            way the pad level is set from the median of the opening samples, so altitude reads zero on
-            the rail and everything after is height above the pad (AGL). Barometric altitude drifts
-            with weather and is disturbed by a rocket&apos;s own airflow near the airframe — treat it
-            as good to a few meters, not centimeters.
+            From the logger&apos;s own altitude channel, or from barometric pressure (with the standard
+            atmosphere) when it only logs pressure. The pad level is the median of the opening samples,
+            so everything reads as height above the pad (AGL). Baro altitude drifts with weather and
+            the airframe&apos;s own airflow — good to a few metres, not centimetres.
           </Method>
           <Method title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
-            two-sample jumps that an ejection charge&apos;s pressure pulse punches into a baro trace,
-            which is exactly what makes a naïve &ldquo;highest reading&rdquo; report an apogee that
-            never happened. The filter is narrow enough to leave the true peak untouched.
+            two-sample jump an ejection charge punches into a baro trace — what makes a naïve
+            &ldquo;highest reading&rdquo; report an apogee that never happened — while leaving the true
+            peak untouched.
           </Method>
           <Method title="Velocity & max velocity">
-            If the device logged a velocity (an accelerometer-integrated speed is best through the
-            high-speed boost), Debrief uses it. Otherwise velocity is the time-derivative of the
-            cleaned altitude, smoothed to a window sized to the file&apos;s own sample rate so a noisy
-            baro trace doesn&apos;t turn into a noisier velocity. Derived velocity is reliable through
-            the slower parts of a flight and softer at peak speed; it&apos;s labeled wherever it
-            appears.
+            Used straight from the device when it logged a velocity (an accelerometer-integrated speed
+            is best through the fast boost); otherwise it&apos;s the time-derivative of the cleaned
+            altitude, smoothed to the file&apos;s own sample rate. Derived velocity is softer at peak
+            speed, and labelled wherever it appears.
           </Method>
           <Method title="Acceleration">
             Used directly from the accelerometer when present, otherwise derived from velocity. Max
-            acceleration is read over the boost; max deceleration over the same ascent.
+            acceleration is read over the boost, max deceleration over the same ascent.
           </Method>
           <Method title="Liftoff & burnout">
             With an accelerometer, liftoff is the first sustained kick above about 2 g and burnout is
-            where axial acceleration falls back through zero — the end of thrust. With baro only,
-            liftoff is the first real climb off the pad and burnout is taken at peak velocity, which
-            is where a coasting rocket&apos;s speed turns over.
+            where axial acceleration falls back through zero. With baro only, liftoff is the first real
+            climb off the pad and burnout is taken at peak velocity, where a coasting rocket&apos;s
+            speed turns over.
           </Method>
           <Method title="Rail-exit velocity">
-            How fast the rocket was moving when it cleared the launch rail — the airspeed its fins
-            had to keep it pointed straight at the most critical moment of the flight. Debrief reads
-            the flown velocity at the height one rail-length above the pad (you pick the rail length),
-            interpolating between samples. It&apos;s a measurement, not a prediction — nothing is
-            modelled. On a logger that didn&apos;t record velocity it rides on the derived velocity and
-            is labeled approximate, and a clearance speed on the low side is flagged as a gentle
-            heads-up, not a rule.
+            How fast the rocket was moving when it cleared the rail, read from the flown velocity at
+            the height one rail-length above the pad (you pick the rail length). It&apos;s a
+            measurement, not a prediction; on a logger without its own velocity it rides on the derived
+            velocity and is labelled approximate.
           </Method>
-          <Method title="Recovery (ground track)">
-            When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
-            north-up, equal-scale map of metres around the pad and reads off how far and which way the
-            rocket landed, plus the furthest it drifted. The pad reference is the median of the opening
-            fixes; positions are GPS, so they&apos;re good to a few metres. No map tiles are fetched —
-            it&apos;s drawn from your own fixes, entirely in the browser.
+          <Method title="Landing energy">
+            How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
+            touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
+            of the flight you flew, shown only when the log descended to a readable landing rate.
           </Method>
           <Method title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
-            descent giving way to a slow main — and marks it as the main deployment. Descent rates are
-            the average vertical speed over each phase. A single-deploy flight shows one descent rate
-            and no separate main event. Marginal transitions are left unmarked rather than guessed.
+            giving way to a slow main — and marks it as the main deployment. Descent rates are the
+            average vertical speed over each phase; a marginal transition is left unmarked rather than
+            guessed.
           </Method>
-          <Method title="Landing energy">
-            How hard the rocket came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured
-            near touchdown and the descending mass you enter (the log can&apos;t know your rocket&apos;s
-            mass). Reported in ft·lbf and joules — the figure a certification flight card and many club
-            waivers ask for. It&apos;s a measurement of the flight you flew, not a prediction, and it&apos;s
-            shown only when the log actually descended to a readable landing rate. Compare it against
-            your own club or certification limit.
+          <Method title="Recovery (ground track)">
+            When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
+            north-up, equal-scale map and reads off how far and which way the rocket landed, and the
+            furthest it drifted. Positions are GPS, good to a few metres; no map tiles are fetched —
+            it&apos;s drawn from your own fixes.
           </Method>
-          <Method title="Mach & temperature">
-            The speed of sound is computed from the ground temperature where the logger records it,
-            falling back to a 15&nbsp;°C standard day. Mach is max velocity over that speed of sound,
-            so on a hot or cold day expect it to shift slightly.
-          </Method>
-          <Method title="Mach & dynamic-pressure channels">
-            The explorer offers two derived engineering channels. <em>Mach</em> is velocity over the
-            speed of sound at each instant. <em>Dynamic pressure</em> is ½&nbsp;ρv², where the air
-            density&nbsp;ρ comes from a standard-atmosphere lapse anchored to the pad&apos;s own
-            temperature and pressure — so a high-elevation launch reads its real, thinner air. When
-            the logger records no pressure, a standard sea-level pad is assumed, so dynamic pressure
-            is an estimate that tracks the shape (and the max-Q point) more reliably than the absolute
-            value. Both ride on the derived velocity, so they inherit its softness near peak speed.
+          <Method title="Mach & dynamic pressure">
+            The speed of sound comes from the ground temperature where the logger records it, else a
+            15&nbsp;°C standard day; Mach is velocity over that. The explorer also derives a
+            dynamic-pressure channel (½&nbsp;ρv²), with air density anchored to the pad&apos;s own
+            conditions — so a high-elevation launch reads its real, thinner air. Both ride on the
+            derived velocity, so they soften near peak speed.
           </Method>
           <Method title="Formats & privacy">
-            Altus Metrum (AltOS), PerfectFlite (StratoLogger / Pnut), Eggtimer, Featherweight
-            (Raven via the Interface Program, Blue Raven, and the GPS tracker) and Entacore AIM files
-            are recognized and parsed automatically; more loggers are being added, and the generic-CSV
-            mapper — which also reads header-less exports — covers the rest in the meantime. Files are
-            read with the browser&apos;s own file API and never uploaded — the analysis you see ran
-            entirely on your device.
+            Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS)
+            and Entacore AIM files are recognized automatically; the generic-CSV mapper — which also
+            reads header-less exports — covers everything else. Files are read with the browser&apos;s
+            own file API and never uploaded.
           </Method>
           <Method title="What Debrief isn't">
-            Debrief reads and analyzes flights you have already flown. It is <em>not</em> a simulator: it
-            doesn&apos;t predict or estimate how a rocket will perform, recommend motors, or model
-            anything you haven&apos;t flown. Every number on the page is read or derived from your
-            logger&apos;s own recording — nothing more. It&apos;s a standalone tool and works entirely on
-            its own. To plan or predict a flight <em>before</em> you fly it, reach for a dedicated,
-            well-validated rocketry flight simulator — this is a hobby where that margin matters.
+            Debrief reads flights you have already flown. It is <em>not</em> a simulator: it doesn&apos;t
+            predict performance, recommend motors, or model anything you haven&apos;t flown. To plan a
+            flight <em>before</em> you fly it, reach for a dedicated, well-validated rocketry simulator —
+            this is a hobby where that margin matters.
           </Method>
         </div>
       </section>

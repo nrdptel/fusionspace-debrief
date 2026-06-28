@@ -52,15 +52,9 @@ export default function SiteFooter() {
           </span>
         </a>
       </div>
-      <p className="mt-5 max-w-3xl leading-relaxed text-zinc-500 dark:text-zinc-400">
-        Debrief reads and analyzes flights you have already flown — it is not a
-        simulator and does not predict or estimate performance; every number comes
-        from your logger's own data. It is a standalone tool. Your flight file is read
-        in this browser and never uploaded — all parsing and analysis happen on your
-        device. The numbers Debrief reports are derived best-effort from your logger's
-        data and are only as good as it; treat them as a careful reading, not gospel.
-        Personal, non-commercial project — not affiliated with any altimeter or
-        rocketry manufacturer. Built for the hobby rocketry community.
+      <p className="mt-5 max-w-2xl text-zinc-500 dark:text-zinc-400">
+        Personal, non-commercial project — not affiliated with any altimeter or rocketry
+        manufacturer. Built for the hobby rocketry community.
       </p>
 
       {observances.length > 0 && (
