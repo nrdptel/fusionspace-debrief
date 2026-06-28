@@ -19,6 +19,7 @@ import LogDetails from './LogDetails';
 import FlightTimeline from './FlightTimeline';
 import RailExit from './RailExit';
 import LandingEnergy from './LandingEnergy';
+import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 
 const ACTION_BTN =
@@ -434,6 +435,8 @@ export default function FlightReport({
       {metrics.mainDescentRate != null && <LandingEnergy metrics={metrics} sys={sys} />}
 
       {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} stem={stem} />}
+
+      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} />
 
       <div className="print:hidden">
         <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />

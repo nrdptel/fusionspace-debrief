@@ -140,6 +140,22 @@ test('rail-exit velocity is omitted for a GPS-only flight', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Rail-exit velocity' })).toHaveCount(0);
 });
 
+test('renders a shareable flight card and saves it as a PNG', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const card = page.getByRole('region', { name: 'Flight card' });
+  await expect(card.getByRole('heading', { name: 'Flight card' })).toBeVisible();
+  // The card itself is a canvas exposed to assistive tech as an image of the flight.
+  await expect(card.getByRole('img', { name: /Shareable flight card/ })).toBeVisible();
+
+  const [png] = await Promise.all([
+    page.waitForEvent('download'),
+    card.getByRole('button', { name: 'Save card' }).click(),
+  ]);
+  expect(png.suggestedFilename()).toBe('sample-altusmetrum-card.png');
+});
+
 test('the explorer exports the current plot as a PNG', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

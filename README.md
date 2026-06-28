@@ -66,6 +66,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   flags the best apogee, max velocity, Mach, acceleration and max Q.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
+- Makes a **flight card** — a clean, branded image of the headline numbers and the
+  altitude curve, drawn in the browser, to save or copy straight into a club chat or
+  forum post.
 - Works at the field — installable to your home screen and, once opened online, fully
   usable offline (a service worker caches the app itself, not your flights), so you can
   read a log in the middle of the desert with no signal.
