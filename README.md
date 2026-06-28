@@ -26,8 +26,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   coast and the descent legs, each with its duration and descent rate.
 - Helps you find it — for a flight with a GPS track, a north-up recovery map plots the
   ground track and reports how far and which way it landed from the pad (and the furthest
-  it drifted), so you know where to walk. Drawn from your own GPS fixes; no map tiles are
-  fetched, nothing leaves the browser.
+  it drifted), gives the exact landing coordinates to copy, and exports the track plus a
+  landing waypoint as a **GPX** you can navigate to on a phone, handheld GPS, or in Google
+  Earth. Drawn from your own GPS fixes; no map tiles are fetched, nothing leaves the browser.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
   alongside Debrief's own derived channels — including **Mach number** and

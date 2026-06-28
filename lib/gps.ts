@@ -55,10 +55,41 @@ export interface RecoveryStats {
   /** Landing point relative to the pad (last valid fix), metres. */
   landingEast: number;
   landingNorth: number;
+  /** Sample index of the last valid fix (so the caller can read its lat/lon). */
+  landingIndex: number;
   /** Straight-line distance from the pad to the landing point, metres. */
   landingDistance: number;
   /** Compass bearing pad → landing, degrees clockwise from north [0, 360). */
   landingBearing: number;
+}
+
+function xmlEscape(s: string): string {
+  return s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]!);
+}
+
+/** A GPX 1.1 document for the flight: the ground track as a <trk>, plus a
+ *  <wpt> at the landing point so a phone/handheld can navigate straight to it.
+ *  Lat/lon only (the recovery walk is on the ground); gaps in the fix are skipped. */
+export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, landingIndex: number): string {
+  const n = Math.min(lat.length, lon.length);
+  const fix = (v: number) => v.toFixed(6);
+  const pts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
+    pts.push(`      <trkpt lat="${fix(lat[i])}" lon="${fix(lon[i])}"/>`);
+  }
+  const wpt =
+    landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
+      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>Landing</name>\n  </wpt>\n`
+      : '';
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<gpx version="1.1" creator="Debrief" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+    wpt +
+    `  <trk>\n    <name>${xmlEscape(name)}</name>\n    <trkseg>\n` +
+    pts.join('\n') +
+    '\n    </trkseg>\n  </trk>\n</gpx>\n'
+  );
 }
 
 /** The 8-point compass label for a bearing in degrees. */
@@ -74,21 +105,21 @@ export function recoveryStats(track: GroundTrack): RecoveryStats | null {
   let maxDrift = 0;
   let landingEast = NaN;
   let landingNorth = NaN;
-  let any = false;
+  let landingIndex = -1;
   for (let i = 0; i < east.length; i++) {
     const e = east[i];
     const no = north[i];
     if (!Number.isFinite(e) || !Number.isFinite(no)) continue;
-    any = true;
     const d = Math.hypot(e, no);
     if (d > maxDrift) maxDrift = d;
     landingEast = e; // last valid fix wins → the resting place
     landingNorth = no;
+    landingIndex = i;
   }
-  if (!any) return null;
+  if (landingIndex < 0) return null;
   const landingDistance = Math.hypot(landingEast, landingNorth);
   // atan2(east, north) gives clockwise-from-north, which is the compass convention.
   let landingBearing = (Math.atan2(landingEast, landingNorth) * 180) / Math.PI;
   if (landingBearing < 0) landingBearing += 360;
-  return { maxDrift, landingEast, landingNorth, landingDistance, landingBearing };
+  return { maxDrift, landingEast, landingNorth, landingIndex, landingDistance, landingBearing };
 }

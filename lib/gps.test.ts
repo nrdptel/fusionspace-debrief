@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundTrack, recoveryStats, compass } from './gps';
+import { groundTrack, recoveryStats, compass, trackGpx } from './gps';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -44,11 +44,31 @@ describe('recoveryStats', () => {
     const track = { east: Float64Array.from([0, 100, NaN]), north: Float64Array.from([0, 0, NaN]), lat0: 0, lon0: 0 };
     const s = recoveryStats(track)!;
     expect(s.landingEast).toBe(100);
+    expect(s.landingIndex).toBe(1); // the last finite fix, not the trailing NaN
     expect(s.landingBearing).toBeCloseTo(90, 6); // due east
   });
 
   it('returns null when no fix is valid', () => {
     expect(recoveryStats({ east: Float64Array.from([NaN]), north: Float64Array.from([NaN]), lat0: 0, lon0: 0 })).toBeNull();
+  });
+});
+
+describe('trackGpx', () => {
+  const lat = Float64Array.from([34.1, NaN, 34.2]);
+  const lon = Float64Array.from([-116.1, NaN, -116.2]);
+  const gpx = trackGpx('rocket & co', lat, lon, 2);
+
+  it('emits a valid GPX with a Landing waypoint and skips gaps', () => {
+    expect(gpx).toContain('<gpx version="1.1"');
+    expect(gpx).toContain('<wpt lat="34.200000" lon="-116.200000">');
+    expect(gpx).toContain('<name>Landing</name>');
+    // Two finite trackpoints; the NaN sample is dropped.
+    expect((gpx.match(/<trkpt /g) ?? []).length).toBe(2);
+    expect(gpx).toContain('<trkpt lat="34.100000" lon="-116.100000"/>');
+  });
+
+  it('escapes XML in the track name', () => {
+    expect(gpx).toContain('<name>rocket &amp; co</name>');
   });
 });
 

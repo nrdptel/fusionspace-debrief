@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength, lengthIn, UNIT_LABEL } from '@/lib/display';
-import { groundTrack, recoveryStats, compass } from '@/lib/gps';
+import { groundTrack, recoveryStats, compass, trackGpx } from '@/lib/gps';
+import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
+
+const ACTION_BTN =
+  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
 
 /** A round ring spacing (1/2/5 × 10ⁿ) giving a handful of rings across `maxM`. */
 function niceStep(maxM: number): number {
@@ -18,11 +22,23 @@ function niceStep(maxM: number): number {
 /** The recovery (walkback) view: a north-up, equal-scale ground track of where
  *  the rocket drifted and came down relative to the pad, with the headline
  *  distance/bearing. Shown only when a flight carries a GPS lat/lon track. */
-export default function GroundTrack({ lat, lon, sys }: { lat: Float64Array; lon: Float64Array; sys: UnitSystem }) {
+export default function GroundTrack({
+  lat,
+  lon,
+  sys,
+  stem,
+}: {
+  lat: Float64Array;
+  lon: Float64Array;
+  sys: UnitSystem;
+  /** Filesystem-safe stem of the source file, for the GPX filename. */
+  stem: string;
+}) {
   const dark = useIsDark();
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   const track = useMemo(() => groundTrack(lat, lon), [lat, lon]);
   const stats = useMemo(() => (track ? recoveryStats(track) : null), [track]);
@@ -131,6 +147,7 @@ export default function GroundTrack({ lat, lon, sys }: { lat: Float64Array; lon:
   if (!track || !stats) return null;
 
   const bearing = Math.round(stats.landingBearing);
+  const coords = `${lat[stats.landingIndex].toFixed(5)}, ${lon[stats.landingIndex].toFixed(5)}`;
   const ariaLabel = `Ground track: landed ${fmtLength(stats.landingDistance, sys)} from the pad, bearing ${bearing} degrees ${compass(
     stats.landingBearing,
   )}, having drifted up to ${fmtLength(stats.maxDrift, sys)} from the pad.`;
@@ -151,9 +168,45 @@ export default function GroundTrack({ lat, lon, sys }: { lat: Float64Array; lon:
         <Stat label="Bearing" value={`${bearing}° ${compass(stats.landingBearing)}`} />
         <Stat label="Max drift" value={fmtLength(stats.maxDrift, sys)} />
       </dl>
+
+      {/* The exact landing coordinates and a GPX you can navigate to on a phone
+          or handheld — the precise walkback, on top of the rough bearing. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-sm text-zinc-700 dark:text-zinc-300">{coords}</span>
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard?.writeText(coords).then(
+              () => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              },
+              () => {},
+            );
+          }}
+          title="Copy the landing coordinates"
+          className={ACTION_BTN}
+        >
+          {copied ? 'Copied ✓' : 'Copy coords'}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            download(
+              new Blob([trackGpx(stem, lat, lon, stats.landingIndex)], { type: 'application/gpx+xml' }),
+              `${stem}-track.gpx`,
+            )
+          }
+          title="Download the track and landing point as a GPX file (opens in any GPS app or Google Earth)"
+          className={ACTION_BTN}
+        >
+          Save GPX
+        </button>
+      </div>
+
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°) to recover it; the cross marks
-        the last GPS fix. Positions are GPS — good to a few metres.
+        Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°), or put the coordinates
+        into your phone/GPS — the cross marks the last fix. Positions are GPS, good to a few metres.
       </p>
     </div>
   );

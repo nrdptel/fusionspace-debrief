@@ -421,7 +421,7 @@ export default function FlightReport({
         </div>
       </div>
 
-      {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} />}
+      {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} stem={stem} />}
 
       <div className="print:hidden">
         <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />

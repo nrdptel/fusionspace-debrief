@@ -53,6 +53,14 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   await expect(page.getByRole('img', { name: /landed .* from the pad, bearing/i })).toBeVisible();
   // This flight is supersonic — the design-point note calls it out.
   await expect(page.getByText(/Went supersonic — crossed Mach 1/)).toBeVisible();
+
+  // The recovery view offers the exact landing coordinates and a GPX export.
+  await expect(page.getByText(/^-?\d+\.\d+, -?\d+\.\d+$/)).toBeVisible(); // "34.49802, -116.95231"
+  const [gpx] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save GPX' }).click(),
+  ]);
+  expect(gpx.suggestedFilename()).toMatch(/-track\.gpx$/);
 });
 
 test('an Altus Metrum GPS flight also gets the recovery view', async ({ page }) => {
