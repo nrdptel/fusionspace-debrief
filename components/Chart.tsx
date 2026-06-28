@@ -3,6 +3,7 @@
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { useEffect, useRef } from 'react';
+import { finiteMinMax } from '@/lib/range';
 
 // Charts that share a syncKey share a hover cursor and zoom range, so the
 // altitude/velocity/acceleration plots read as one linked view.
@@ -28,18 +29,39 @@ function rangeFinite(
     for (let i = 1; i < u.series.length; i++) {
       const s = u.series[i];
       if (s.scale !== scaleKey || s.show === false) continue;
-      const d = u.data[i] as ReadonlyArray<number | null | undefined>;
-      for (let j = 0; j < d.length; j++) {
-        const v = d[j];
-        if (v != null && Number.isFinite(v)) {
-          if (v < lo) lo = v;
-          if (v > hi) hi = v;
-        }
+      const r = finiteMinMax(u.data[i] as ArrayLike<number | null | undefined>);
+      if (r) {
+        if (r[0] < lo) lo = r[0];
+        if (r[1] > hi) hi = r[1];
       }
     }
     if (lo > hi) return [0, 1];
   }
   return uPlot.rangeNum(lo, hi, 0.1, true);
+}
+
+// uPlot finds the x-extent by reading the first and last samples (it assumes a
+// sorted x), and then ranges y only over the points whose x falls in that window.
+// When x is a non-monotonic channel (the explorer plotting one channel against
+// another) those endpoints collapse both scales. Bracket the series with two
+// sentinel samples carrying the true min and max x — and a null y, so they draw
+// nothing — so uPlot's endpoint read gives the real x-extent and every point is
+// in view for the y-range. For a sorted (time) axis this is skipped entirely.
+function bracketUnsortedX(time: Float64Array, series: ChartSeries[]): uPlot.AlignedData {
+  const ext = finiteMinMax(time);
+  if (!ext) return [time, ...series.map((s) => s.values)];
+  const [xMin, xMax] = ext;
+  const n = time.length;
+  const x = new Float64Array(n + 2);
+  x[0] = xMin;
+  x.set(time, 1);
+  x[n + 1] = xMax;
+  const ys = series.map((s) => {
+    const y = new Float64Array(n + 2).fill(NaN);
+    y.set(s.values, 1);
+    return y;
+  });
+  return [x, ...ys];
 }
 
 /** Set the x-range on every chart in a sync group (used by the zoom presets). */
@@ -78,6 +100,11 @@ export interface ChartProps {
   xFmt?: (v: number) => string;
   /** Legend label for the x series. Defaults to "time". */
   xLabel?: string;
+  /** Whether the x-data is sorted ascending (true for a time axis). When false —
+   *  e.g. plotting one channel against another, where x is non-monotonic — uPlot
+   *  is told to scan for the x-extent instead of reading the (meaningless) first
+   *  and last samples, which would otherwise collapse the axis. */
+  xSorted?: boolean;
   /** Text alternative for the canvas, for screen readers. */
   ariaLabel?: string;
   /** Charts sharing this key share a hover cursor and zoom range. */
@@ -96,6 +123,7 @@ export default function Chart({
   fmtRight,
   xFmt,
   xLabel,
+  xSorted = true,
   ariaLabel,
   syncKey,
   onView,
@@ -226,7 +254,7 @@ export default function Chart({
       hooks: { draw: [drawMarkers], setScale: syncKey || onView ? [onSetScale] : [] },
     };
 
-    const data: uPlot.AlignedData = [time, ...series.map((s) => s.values)];
+    const data: uPlot.AlignedData = xSorted ? [time, ...series.map((s) => s.values)] : bracketUnsortedX(time, series);
     const plot = new uPlot(opts, data, host);
     plotRef.current = plot;
 
@@ -257,7 +285,7 @@ export default function Chart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, syncKey, onView]);
+  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, xSorted, syncKey, onView]);
 
   return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
 }

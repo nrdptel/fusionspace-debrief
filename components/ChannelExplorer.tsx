@@ -265,6 +265,7 @@ export default function ChannelExplorer({
           fmtRight={rightUnit ? num : undefined}
           xFmt={xIsTime ? undefined : num}
           xLabel={xIsTime ? 'time' : xName}
+          xSorted={xIsTime}
           ariaLabel={`Line chart of ${selected.map((c) => c.label).join(', ')} against ${xName}.`}
           onView={onView}
         />

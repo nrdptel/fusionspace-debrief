@@ -158,6 +158,32 @@ test('renders a shareable flight card and saves it as a PNG', async ({ page }) =
   expect(png.suggestedFilename()).toBe('sample-altusmetrum-card.png');
 });
 
+test('the explorer plots one channel against another (non-monotonic x)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // Velocity (y) against altitude (x). Altitude is non-monotonic — it climbs then
+  // falls — which once collapsed both scales (uPlot ranges x by its endpoints, then
+  // y only over that window) and drew nothing at all on this flight. Guard that the
+  // curve actually draws.
+  await page.getByLabel('Add a channel to the plot').selectOption({ label: 'Velocity' });
+  await page.getByRole('button', { name: /Remove Altitude .AGL. from the plot/ }).click();
+  await page.getByLabel('X axis channel').selectOption({ label: 'Altitude (AGL)' });
+  const coloured = await page.evaluate(() => {
+    const cs = Array.from(document.querySelectorAll('.uplot canvas')) as HTMLCanvasElement[];
+    const c = cs[cs.length - 1];
+    const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height);
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (data[i + 3] > 20 && Math.max(r, g, b) - Math.min(r, g, b) > 40) n++;
+    }
+    return n;
+  });
+  expect(coloured).toBeGreaterThan(500);
+});
+
 test('the explorer exports the current plot as a PNG', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
