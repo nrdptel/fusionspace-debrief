@@ -55,6 +55,11 @@ export default function PrivacyPage() {
               <strong>Your theme and units</strong> — a small local-storage value remembering
               light/dark and feet/metres.
             </li>
+            <li>
+              <strong>An offline copy of the app</strong> — a service worker caches Debrief&apos;s own
+              pages and code (so it works without a signal at the field). It caches the app itself,
+              never your flight files.
+            </li>
           </ul>
           <p className="mt-2">
             Clearing your browser data (or using the &ldquo;clear&rdquo; control on the recents list)

@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { SITE_URL, HUB_URL, REPO_URL } from '@/lib/links';
 import { observancesForDate } from '@/lib/observances';
+import ServiceWorker from '@/components/ServiceWorker';
 import './globals.css';
 
 const DESCRIPTION =
@@ -104,6 +105,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         ))}
         {children}
+        <ServiceWorker />
       </body>
     </html>
   );

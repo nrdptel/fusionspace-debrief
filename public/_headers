@@ -6,3 +6,8 @@
 
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The service worker must always be revalidated so a new build's worker is
+# picked up promptly rather than served stale.
+/sw.js
+  Cache-Control: no-cache
