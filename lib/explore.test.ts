@@ -11,6 +11,7 @@ const series: FlightSeries = {
   acceleration: Float64Array.from([0, 9.80665, -9.80665]),
   velocitySource: 'baro',
   accelerationSource: 'baro',
+  altitudeSource: 'baro',
   speedOfSound: 340,
   airDensity: Float64Array.from([1.2, 1.2, 1.2]),
 };

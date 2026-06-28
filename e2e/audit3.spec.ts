@@ -54,6 +54,10 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   // This flight is supersonic — the design-point note calls it out.
   await expect(page.getByText(/Went supersonic — crossed Mach 1/)).toBeVisible();
 
+  // GPS altitude → acceleration is honestly omitted, not shown as noise.
+  await expect(page.getByText(/Acceleration is omitted/)).toBeVisible();
+  await expect(page.getByText('Max acceleration', { exact: true })).toHaveCount(0);
+
   // The recovery view offers the exact landing coordinates and a GPX export.
   await expect(page.getByText(/^-?\d+\.\d+, -?\d+\.\d+$/)).toBeVisible(); // "34.49802, -116.95231"
   const [gpx] = await Promise.all([

@@ -32,17 +32,17 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
       sub: maxVelocitySub(m, sys),
       primary: true,
     },
-    {
+  ];
+  // Acceleration is omitted for a GPS-only flight (it's not meaningful), so only
+  // show the tile when there's a real figure.
+  if (Number.isFinite(m.maxAcceleration)) {
+    out.push({
       label: 'Max acceleration',
       value: fmtAccel(m.maxAcceleration),
-      sub: Number.isFinite(m.maxAcceleration)
-        ? m.accelerationSource === 'device'
-          ? 'measured'
-          : 'derived'
-        : undefined,
+      sub: m.accelerationSource === 'device' ? 'measured' : 'derived',
       primary: true,
-    },
-  ];
+    });
+  }
 
   if (m.burnTime != null) out.push({ label: 'Burn time', value: fmtTime(m.burnTime) });
   if (m.burnoutAltitude != null)

@@ -87,6 +87,10 @@ describe('real files — Featherweight GPS', () => {
     expect(a.metrics.mach).toBeGreaterThan(1);
     expect(a.metrics.transonicTime).not.toBeNull();
     expect(a.metrics.transonicAltitude).not.toBeNull();
+    // Altitude is GPS, so acceleration (a second derivative) is omitted, not noise.
+    expect(a.series.altitudeSource).toBe('gps');
+    expect(Number.isNaN(a.metrics.maxAcceleration)).toBe(true);
+    expect(a.series.acceleration.every((v) => Number.isNaN(v))).toBe(true);
   });
 });
 

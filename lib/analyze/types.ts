@@ -49,6 +49,9 @@ export interface FlightSeries {
   acceleration: Float64Array; // m/s² (+ = up)
   velocitySource: 'device' | 'baro';
   accelerationSource: 'device' | 'baro';
+  /** Where altitude came from. 'gps' is coarse: velocity off it is rough and
+   *  acceleration (a second derivative) isn't meaningful, so it's omitted. */
+  altitudeSource: 'baro' | 'gps';
   /** Speed of sound for this flight (m/s), from the ground temperature — the
    *  divisor behind the Mach channel. */
   speedOfSound: number;

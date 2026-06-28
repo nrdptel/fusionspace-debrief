@@ -191,10 +191,20 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       : movingAverage(derivative(time, altSmooth), windowFor(dt, 0.1));
 
   // --- Acceleration ---------------------------------------------------------
+  // GPS altitude is coarse, so velocity off it is already rough and acceleration —
+  // a derivative of that derivative — is dominated by noise. Rather than present a
+  // misleading figure, omit acceleration entirely for a GPS-only log.
+  const altitudeSource: 'baro' | 'gps' = flight.meta.altitudeSource === 'gps' ? 'gps' : 'baro';
   let acceleration: Float64Array;
   let accelerationSource: 'device' | 'baro';
   const accCh = getChannel(flight, 'accelAxial') ?? getChannel(flight, 'accelTotal');
-  if (accCh) {
+  if (altitudeSource === 'gps') {
+    acceleration = new Float64Array(n).fill(NaN);
+    accelerationSource = 'baro';
+    warnings.push(
+      'Altitude is from GPS, so velocity derived from it is approximate; acceleration would be a second derivative of coarse GPS data and isn’t meaningful, so it’s omitted.',
+    );
+  } else if (accCh) {
     acceleration = accCh.values.slice();
     accelerationSource = 'device';
   } else {
@@ -221,6 +231,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     acceleration,
     velocitySource,
     accelerationSource,
+    altitudeSource,
     speedOfSound,
     airDensity,
   };

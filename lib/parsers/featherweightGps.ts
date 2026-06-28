@@ -97,7 +97,7 @@ export const featherweightGpsParser: Parser = {
       formatLabel: 'Featherweight GPS',
       time,
       channels,
-      meta: { device: 'Featherweight GPS' },
+      meta: { device: 'Featherweight GPS', altitudeSource: 'gps' },
       notes: [
         'Featherweight GPS log: altitude is the GPS reading, which is coarser than a barometer — read it as approximate. The ground track shows where the rocket drifted and landed.',
       ],

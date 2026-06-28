@@ -381,7 +381,9 @@ export default function FlightReport({
         )}
         {!hasAccel && (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            This logger didn&apos;t record acceleration, so only altitude and velocity are shown.
+            {series.altitudeSource === 'gps'
+              ? 'Acceleration is omitted — it would be a second derivative of coarse GPS altitude, too noisy to be meaningful.'
+              : "This logger didn't record acceleration, so only altitude and velocity are shown."}
           </p>
         )}
       </div>
