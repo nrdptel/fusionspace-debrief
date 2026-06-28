@@ -2,6 +2,7 @@
   "name": "fusionspace-debrief",
   "version": "0.1.0",
   "private": true,
+  "description": "A universal, in-browser altimeter flight-log analyzer — one file in, one clean flight out, parsed entirely on your device.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
