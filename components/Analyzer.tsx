@@ -9,6 +9,7 @@ import { analyzeFlight } from '@/lib/analyze';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import DropZone from './DropZone';
+import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
@@ -360,6 +361,7 @@ export default function Analyzer() {
           {state.message}
         </div>
       )}
+      {state.phase !== 'loading' && <RecognizedFormats />}
       {state.phase !== 'loading' && (
         <RecentFlights
           recents={recents}

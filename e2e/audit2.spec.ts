@@ -124,6 +124,15 @@ test('the report renders on a phone viewport without spilling sideways', async (
   expect(spills).toBe(false);
 });
 
+test('the landing page names the loggers it recognizes', async ({ page }) => {
+  await page.goto('/');
+  const formats = page.getByRole('region', { name: 'Recognized loggers' });
+  await expect(formats).toBeVisible();
+  await expect(formats.getByText('Altus Metrum (AltOS)')).toBeVisible();
+  await expect(formats.getByText('Eggtimer')).toBeVisible();
+  await expect(formats.getByText(/any logger that exports a CSV/)).toBeVisible();
+});
+
 test('the intro expander and Ko-fi link behave', async ({ page }) => {
   await page.goto('/');
   await page.getByText('How to read this').click();
