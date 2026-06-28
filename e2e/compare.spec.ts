@@ -90,6 +90,30 @@ test('the overlay chart draws the flight curves', async ({ page }) => {
   expect(coloured).toBeGreaterThan(500);
 });
 
+// Comparing a GPS-only flight (whose acceleration is entirely absent) against a
+// barometric one, on the Acceleration channel: one series is all-NaN. The axis
+// must still range off the other flight and draw its curve, not come up blank.
+test('the overlay survives an all-NaN series (mixed GPS + baro)', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('featherweight-gps.csv'), fixture('altusmetrum-telemetrum.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await page.getByRole('button', { name: 'Acceleration', exact: true }).click();
+  const coloured = await page.evaluate(() => {
+    const c = document.querySelector('.uplot canvas') as HTMLCanvasElement | null;
+    if (!c) return 0;
+    const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height);
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (data[i + 3] > 20 && Math.max(r, g, b) - Math.min(r, g, b) > 40) n++;
+    }
+    return n;
+  });
+  expect(coloured).toBeGreaterThan(500);
+});
+
 // Dropping (choosing) several files at once should import each and jump straight
 // into the comparison, no recents round-trip needed.
 test('choosing several files at once jumps straight to a comparison', async ({ page }) => {

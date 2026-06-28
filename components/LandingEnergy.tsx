@@ -68,7 +68,11 @@ export default function LandingEnergy({ metrics, sys }: { metrics: FlightMetrics
   return (
     <section
       aria-labelledby="landing-energy-heading"
-      className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40"
+      // Nothing to print until a mass is entered — don't put an empty input on a
+      // printed card. Once it computes, it prints with the rest.
+      className={`rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40 ${
+        ftlbf == null ? 'print:hidden' : ''
+      }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
