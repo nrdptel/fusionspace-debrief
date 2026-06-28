@@ -9,49 +9,40 @@ export default function Home() {
 
       <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden">
         <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
-          How to read this
+          How to use this
         </summary>
         <div className="mt-3 space-y-3 text-zinc-600 dark:text-zinc-400">
           <p>
-            Drop in a flight log and Debrief reads it into one flight: the headline numbers and the
-            curves that matter, with the events marked on them. It auto-detects the loggers it knows;
-            for anything else it falls back to a column mapper, so{' '}
-            <em>any</em> logger that can export a CSV works.
+            Drop in a flight log — or several at once to compare — and Debrief reads each into one
+            clean flight: the headline numbers and the curves that matter, with liftoff, burnout,
+            apogee and the deployments marked on them. It auto-detects the loggers it knows and falls
+            back to a column mapper for anything else, so <em>any</em> logger that exports a CSV works.
+            Everything runs in your browser — files never leave your device.
           </p>
           <ul className="space-y-2">
             <li>
-              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Apogee</strong> is the
-              real peak — a short median filter removes the single-sample jump an ejection charge
-              punches into a barometric trace, so a deployment pop can&apos;t fake a higher altitude.
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Compare</strong> — drop
+              several files at once, or tick flights in your logbook, to overlay their curves and line
+              up the numbers side by side.
             </li>
             <li>
-              <strong className="font-medium text-zinc-800 dark:text-zinc-200">
-                Velocity and acceleration
-              </strong>{' '}
-              come straight from the device when it logged them; otherwise they&apos;re derived from
-              altitude and clearly marked as such.
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Explore</strong> — plot
+              any channel the logger recorded, against time or one against another, alongside
+              Debrief&apos;s own Mach and dynamic-pressure channels, then save the plot or its data.
             </li>
             <li>
-              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Events</strong> —
-              liftoff, burnout, apogee, main deploy and landing — are detected and drawn on every
-              chart. Each is tagged <em>measured</em> or <em>derived</em> so nothing looks more
-              certain than it is.
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch
+              feet and meters on a report (top-right); acceleration is always in g. Your choice is
+              remembered and rides in the URL.
             </li>
             <li>
-              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> toggle
-              between feet and meters (top-right of the report); acceleration is always in g. Your
-              choice is remembered and rides in the URL.
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Share &amp; keep</strong>{' '}
+              — copy a link with the whole flight encoded inside it, or let the logbook remember recent
+              flights on this device — both stay on your machine.
             </li>
             <li>
-              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Share</strong> —{' '}
-              <em>Share link</em> copies a link with the whole flight encoded inside it. The data rides
-              in the link itself and is decoded in the recipient&apos;s browser — it never touches a
-              server. A very large flight can be too big for a link; save the chart or summary instead.
-            </li>
-            <li>
-              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Privacy</strong> — the
-              file is parsed in this browser and never leaves your device. There is no upload and no
-              server.
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Offline</strong> —
+              install it to your home screen; once opened it works with no signal, right at the field.
             </li>
           </ul>
         </div>

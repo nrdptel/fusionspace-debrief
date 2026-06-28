@@ -135,8 +135,8 @@ test('the landing page names the loggers it recognizes', async ({ page }) => {
 
 test('the intro expander and Ko-fi link behave', async ({ page }) => {
   await page.goto('/');
-  await page.getByText('How to read this').click();
-  await expect(page.getByText(/Drop in a flight log and Debrief reads it/)).toBeVisible();
+  await page.getByText('How to use this').click();
+  await expect(page.getByText(/reads each into one clean flight/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'Tip' })).toHaveAttribute('href', /ko-fi\.com/);
 });
 
