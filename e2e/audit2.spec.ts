@@ -51,6 +51,29 @@ test('recent flights can be removed individually and cleared', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
 });
 
+test('a flight can be annotated with a logbook note (and cleared)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles({ name: 'cert.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+  // Add a note.
+  await page.getByRole('button', { name: 'Add note for cert.csv' }).click();
+  await page.getByRole('textbox', { name: 'Note for cert.csv' }).fill('H128, L1 cert, windy');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('H128, L1 cert, windy')).toBeVisible();
+  // The affordance now reads "Edit", confirming the note stuck.
+  await expect(page.getByRole('button', { name: 'Edit note for cert.csv' })).toBeVisible();
+
+  // Clicking the note re-opens it for editing; clearing it removes the note.
+  await page.getByText('H128, L1 cert, windy').click();
+  await expect(page.getByRole('textbox', { name: 'Note for cert.csv' })).toHaveValue('H128, L1 cert, windy');
+  await page.getByRole('textbox', { name: 'Note for cert.csv' }).fill('');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('H128, L1 cert, windy')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add note for cert.csv' })).toBeVisible();
+});
+
 test('theme choice survives a reload', async ({ page }) => {
   await page.goto('/');
   const btn = page.getByRole('button', { name: /Color theme/ });

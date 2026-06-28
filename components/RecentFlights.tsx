@@ -30,6 +30,7 @@ export default function RecentFlights({
   onRemove,
   onClear,
   onCompare,
+  onNote,
 }: {
   recents: RecentMeta[];
   sys: UnitSystem;
@@ -37,10 +38,22 @@ export default function RecentFlights({
   onRemove: (id: string) => void;
   onClear: () => void;
   onCompare: (ids: string[]) => void;
+  onNote: (id: string, note: string) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<LogbookSort>('recent');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+
+  const startEdit = (id: string, current: string) => {
+    setEditingId(id);
+    setDraft(current);
+  };
+  const saveEdit = () => {
+    if (editingId) onNote(editingId, draft.trim());
+    setEditingId(null);
+  };
 
   // Drop a selected id once its flight leaves the list, so the cap math (which
   // counts the raw set) can't drift out of step with what's actually selectable.
@@ -138,56 +151,116 @@ export default function RecentFlights({
           return (
             <li
               key={r.id}
-              className="group flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 transition hover:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60"
+              className={`group rounded-lg border bg-white transition hover:border-indigo-400 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60 ${
+                r.note
+                  ? 'border-zinc-200 border-l-2 border-l-indigo-400 dark:border-zinc-800 dark:border-l-indigo-500/60'
+                  : 'border-zinc-200 dark:border-zinc-800'
+              }`}
             >
-              <input
-                type="checkbox"
-                checked={isSel}
-                disabled={!isSel && atCap}
-                onChange={() => toggle(r.id)}
-                aria-label={`Select ${r.name} to compare`}
-                className="h-4 w-4 shrink-0 accent-indigo-600 disabled:opacity-40"
-              />
-              <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
-                <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-                  {r.formatLabel}
-                </span>
-                <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Max velocity">
-                  {isSpeedBest && (
-                    <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
-                      ★<span className="sr-only">fastest, </span>
-                    </span>
-                  )}
-                  {r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—'}
-                </span>
-                <span className="shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Apogee">
-                  {isApogeeBest && (
-                    <span className="mr-0.5 text-amber-500" title="Highest of your remembered flights">
-                      ★<span className="sr-only">highest, </span>
-                    </span>
-                  )}
-                  {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
-                </span>
-                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(r.id)}
-                aria-label={`Remove ${r.name} from recent flights`}
-                title="Remove"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-3 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={isSel}
+                  disabled={!isSel && atCap}
+                  onChange={() => toggle(r.id)}
+                  aria-label={`Select ${r.name} to compare`}
+                  className="h-4 w-4 shrink-0 accent-indigo-600 disabled:opacity-40"
+                />
+                <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
+                  <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                    {r.formatLabel}
+                  </span>
+                  <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Max velocity">
+                    {isSpeedBest && (
+                      <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
+                        ★<span className="sr-only">fastest, </span>
+                      </span>
+                    )}
+                    {r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—'}
+                  </span>
+                  <span className="shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Apogee">
+                    {isApogeeBest && (
+                      <span className="mr-0.5 text-amber-500" title="Highest of your remembered flights">
+                        ★<span className="sr-only">highest, </span>
+                      </span>
+                    )}
+                    {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
+                  </span>
+                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startEdit(r.id, r.note)}
+                  aria-label={`${r.note ? 'Edit' : 'Add'} note for ${r.name}`}
+                  title={r.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                    r.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(r.id)}
+                  aria-label={`Remove ${r.name} from recent flights`}
+                  title="Remove"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {editingId === r.id ? (
+                <div className="flex items-center gap-2 px-3 pb-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={draft}
+                    maxLength={140}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEdit();
+                      else if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    aria-label={`Note for ${r.name}`}
+                    placeholder="Motor, conditions, cert… (kept as a logbook entry)"
+                    className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-indigo-500"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="px-1.5 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                r.note && (
+                  <button
+                    type="button"
+                    onClick={() => startEdit(r.id, r.note)}
+                    className="block w-full px-3 pb-2 text-left text-xs italic text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    {r.note}
+                  </button>
+                )
+              )}
             </li>
           );
         })}
       </ul>
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-        Remembered on this device only — never uploaded. Each row shows its top speed and apogee;{' '}
-        <span className="text-amber-500">★</span> marks the best of your remembered flights. Tick two or
-        more to compare them.
+        Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks
+        your best; tick two or more to compare. Add a <span aria-hidden="true">✎</span> note (motor,
+        conditions, cert…) to keep a flight as a logbook entry that won&apos;t be pruned.
       </p>
     </div>
   );

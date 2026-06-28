@@ -9,6 +9,7 @@ const rec = (id: string, addedAt: number, apogeeM: number | null, maxVelocityMs:
   addedAt,
   apogeeM,
   maxVelocityMs,
+  note: '',
 });
 
 const flights = [

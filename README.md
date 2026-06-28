@@ -48,8 +48,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   (time, altitude, velocity, acceleration, Mach, dynamic pressure) as `.csv`, or save
   the altitude chart as a PNG.
 - Keeps a logbook — recent flights are remembered on your device for quick re-opening,
-  sortable by date, apogee or top speed, with a ★ marking your best of the bunch. Never
-  uploaded; clears in one tap.
+  sortable by date, apogee or top speed, with a ★ marking your best of the bunch. Add a
+  note to any flight (motor, conditions, cert…) and it's kept as a logbook entry that
+  won't be pruned. Never uploaded; clears in one tap.
 - Compares several flights at once — drop multiple files (or tick two or more recent
   flights) to overlay any of their altitude, velocity, acceleration, Mach or
   dynamic-pressure curves (aligned at liftoff) with a side-by-side metrics table that

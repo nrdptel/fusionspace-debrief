@@ -23,7 +23,7 @@ test('compare two flights from the recents list', async ({ page }) => {
   // With two flights remembered, the logbook offers sorting and crowns a best.
   await expect(page.getByRole('button', { name: 'Apogee' })).toBeVisible();
   await page.getByRole('button', { name: 'Apogee' }).click();
-  await expect(page.getByText('marks the best of your remembered flights')).toBeVisible();
+  await expect(page.getByText(/marks your best/)).toBeVisible();
 
   await page.getByLabel('Select altusmetrum-telemetrum.csv to compare').check();
   await page.getByLabel('Select featherweight-raven-fip.csv to compare').check();

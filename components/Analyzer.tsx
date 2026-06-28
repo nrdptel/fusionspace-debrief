@@ -13,7 +13,7 @@ import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
-import { saveRecent, listRecents, getRecent, removeRecent, clearRecents, type RecentMeta } from '@/lib/recents';
+import { saveRecent, listRecents, getRecent, removeRecent, clearRecents, updateNote, type RecentMeta } from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
 
@@ -291,6 +291,14 @@ export default function Analyzer() {
     refreshRecents();
   }, [refreshRecents]);
 
+  const setNote = useCallback(
+    async (id: string, note: string) => {
+      await updateNote(id, note);
+      refreshRecents();
+    },
+    [refreshRecents],
+  );
+
   // A shared link carries the flight in the URL fragment; decode and analyze it.
   useEffect(() => {
     const payload = payloadFromHash(window.location.hash);
@@ -360,6 +368,7 @@ export default function Analyzer() {
           onRemove={removeOne}
           onClear={clearAll}
           onCompare={compareRecents}
+          onNote={setNote}
         />
       )}
     </div>
