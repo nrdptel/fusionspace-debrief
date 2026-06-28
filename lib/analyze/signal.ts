@@ -53,7 +53,10 @@ export function hampelFilter(values: Float64Array, window: number, nSigma = 4): 
       if (Number.isFinite(values[j])) win.push(values[j]);
     }
     if (win.length < 3) continue;
-    const med = medianOf(win.slice());
+    // Sort `win` in place — the deviation loop below is order-independent, so the
+    // throwaway copy was pure allocation churn (this filter is the analysis's hot
+    // loop on a large log).
+    const med = medianOf(win);
     dev.length = 0;
     for (const v of win) dev.push(Math.abs(v - med));
     const mad = medianOf(dev);
