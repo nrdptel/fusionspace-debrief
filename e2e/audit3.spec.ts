@@ -53,6 +53,14 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   await expect(page.getByRole('img', { name: /landed .* from the pad, bearing/i })).toBeVisible();
 });
 
+test('an Altus Metrum GPS flight also gets the recovery view', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altusmetrum-telemetrum.csv'));
+  await reachesReport(page);
+  await expect(page.getByRole('heading', { name: 'Recovery', exact: true })).toBeVisible();
+  await expect(page.getByText('Max drift', { exact: true })).toBeVisible();
+});
+
 test('auto-detects a tiny Eggtimer file', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles({ name: 'egg.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });

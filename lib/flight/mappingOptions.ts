@@ -10,6 +10,8 @@ export const ROLE_OPTIONS: { value: ColumnRole; label: string }[] = [
   { value: 'accelTotal', label: 'Acceleration (total)' },
   { value: 'temperature', label: 'Temperature' },
   { value: 'voltage', label: 'Voltage' },
+  { value: 'latitude', label: 'GPS latitude' },
+  { value: 'longitude', label: 'GPS longitude' },
 ];
 
 const UNIT_OPTIONS: Partial<Record<ColumnRole, string[]>> = {

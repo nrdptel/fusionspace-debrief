@@ -21,6 +21,8 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> 
   accelTotal: 'accelTotal',
   velocity: 'velocity',
   voltage: 'voltage',
+  latitude: 'latitude',
+  longitude: 'longitude',
 };
 
 // Voltage is intentionally absent: it's stored as-is in volts, not converted.
@@ -118,7 +120,9 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     return {
       kind,
       label: opts.headers[m.index] ?? kind,
-      unit: kind === 'voltage' ? 'V' : expected ? CANONICAL[expected] : '',
+      // Voltage stays in volts and lat/lon in degrees; neither goes through the
+      // unit converter.
+      unit: kind === 'voltage' ? 'V' : kind === 'latitude' || kind === 'longitude' ? '°' : expected ? CANONICAL[expected] : '',
       values,
     };
   });

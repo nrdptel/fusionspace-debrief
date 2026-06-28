@@ -65,7 +65,8 @@ of parsing and analysis runs locally.
 ## Supported formats
 
 - **Altus Metrum (AltOS)** — TeleMetrum, TeleMega, EasyMega, EasyMini, etc.,
-  auto-detected and parsed.
+  auto-detected and parsed; GPS lat/lon (on the units that log it) feeds the recovery
+  view alongside the barometric altitude.
 - **PerfectFlite** — StratoLogger / StratoLoggerCF / Pnut (`.pf2` and CSV exports),
   auto-detected including the header-less native layout.
 - **Eggtimer** — Classic / Quantum / Apogee flight-detail CSV (`T,Alt,VRaw,VFilt`),
@@ -84,7 +85,8 @@ of parsing and analysis runs locally.
   re-sorted onto a monotonic clock; altitude is the (coarser) GPS reading, and the lat/lon
   track drives the recovery view.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
-  Debrief guesses the columns and units and lets you confirm them.
+  Debrief guesses the columns and units — including GPS latitude/longitude — and lets
+  you confirm them.
 
 More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it

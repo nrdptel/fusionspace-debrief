@@ -12,6 +12,7 @@
 
 import type { Parser, ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
+import { getChannel } from '../flight/types';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 
@@ -72,6 +73,9 @@ export const altusMetrumParser: Parser = {
     add(col('accel_speed', 'speed', 'baro_speed'), 'velocity', 'm/s');
     add(col('temperature'), 'temperature', 'c');
     add(col('battery_voltage'), 'voltage', 'v');
+    // GPS, on the units that have it — drives the recovery (ground-track) view.
+    add(col('latitude'), 'latitude', null);
+    add(col('longitude'), 'longitude', null);
 
     const meta: Record<string, string | number> = {};
     for (let i = 0; i < headerIdx; i++) {
@@ -81,7 +85,7 @@ export const altusMetrumParser: Parser = {
       }
     }
 
-    return buildFlight({
+    const flight = buildFlight({
       source: input.name,
       format: 'altusmetrum',
       formatLabel: 'Altus Metrum (AltOS)',
@@ -91,5 +95,26 @@ export const altusMetrumParser: Parser = {
       meta,
       notes: ['Altitude is the AltOS AGL "height" channel; values are read in AltOS’s native metric units.'],
     });
+
+    // AltOS writes (0, 0) — and holds the last value — before a GPS lock; blank
+    // those out so the ground track isn't dragged to the equator. A real launch
+    // site is never at exactly 0,0 or out of range.
+    const lat = getChannel(flight, 'latitude');
+    const lon = getChannel(flight, 'longitude');
+    if (lat && lon) {
+      let any = false;
+      for (let i = 0; i < lat.values.length; i++) {
+        const la = lat.values[i];
+        const lo = lon.values[i];
+        const ok = Number.isFinite(la) && Number.isFinite(lo) && Math.abs(la) <= 90 && Math.abs(lo) <= 180 && !(la === 0 && lo === 0);
+        if (!ok) {
+          lat.values[i] = NaN;
+          lon.values[i] = NaN;
+        } else any = true;
+      }
+      if (any) flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');
+    }
+
+    return flight;
   },
 };

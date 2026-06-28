@@ -22,6 +22,12 @@ describe('real files — Altus Metrum TeleMetrum', () => {
     const { r, a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
     expect(r.parser.id).toBe('altusmetrum');
     expect(getChannel(r.flight, 'velocity')).toBeTruthy();
+    // TeleMetrum logs GPS — surfaced so the recovery view can use the baro altitude
+    // and the GPS track together.
+    const lat = getChannel(r.flight, 'latitude');
+    expect(lat).toBeTruthy();
+    expect(lat!.values.some((v) => Number.isFinite(v))).toBe(true);
+    expect(getChannel(r.flight, 'longitude')).toBeTruthy();
     const ft = convert(a.metrics.apogeeAltitude, 'm', 'ft');
     expect(ft).toBeGreaterThan(9000);
     expect(ft).toBeLessThan(9600);
