@@ -19,8 +19,14 @@ export interface FlightMetrics {
   timeToApogee: number; // s from liftoff
   maxVelocity: number; // m/s
   maxVelocitySource: 'device' | 'baro';
+  maxVelocityAltitude: number; // m AGL where max velocity occurred
   mach: number | null;
   maxDynamicPressure: number | null; // Pa (max-Q) — peak ½ρv² over the flight
+  maxDynamicPressureAltitude: number | null; // m AGL where max-Q occurred (the load case)
+  /** When the rocket first crossed Mach 1 (s from liftoff) and the altitude there,
+   *  or null for a subsonic flight. */
+  transonicTime: number | null;
+  transonicAltitude: number | null;
   maxAcceleration: number; // m/s²
   maxDeceleration: number; // m/s² (most negative)
   accelerationSource: 'device' | 'baro';

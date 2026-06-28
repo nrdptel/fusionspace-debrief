@@ -400,14 +400,36 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // (Speed of sound, ground temperature and air density were computed with the
   // atmosphere above.)
   const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / speedOfSound : null;
-  // Peak dynamic pressure (½ρv²) over the flight — the structural load case.
+  // Peak dynamic pressure (½ρv²) over the flight — the structural load case — and
+  // the altitude it happened at (a real design point).
   let maxDynamicPressure: number | null = null;
+  let maxQIdx = -1;
   for (let i = 0; i < n; i++) {
     const v = velocity[i];
     const rho = airDensity[i];
     if (!Number.isFinite(v) || !Number.isFinite(rho)) continue;
     const q = 0.5 * rho * v * v;
-    if (maxDynamicPressure === null || q > maxDynamicPressure) maxDynamicPressure = q;
+    if (maxDynamicPressure === null || q > maxDynamicPressure) {
+      maxDynamicPressure = q;
+      maxQIdx = i;
+    }
+  }
+  const maxDynamicPressureAltitude = maxQIdx >= 0 ? altClean[maxQIdx] : null;
+  const maxVelocityAltitude = maxVelIdx >= 0 ? altClean[maxVelIdx] : NaN;
+
+  // Transonic crossing: the first ascent sample at or past Mach 1 — both an
+  // engineering point (the transonic region) and a bragging right.
+  let transonicTime: number | null = null;
+  let transonicAltitude: number | null = null;
+  if (mach !== null && mach >= 1 && speedOfSound > 0) {
+    const end = ascentPresent ? apogeeIdx + 1 : n;
+    for (let i = liftoffRef; i < end; i++) {
+      if (Number.isFinite(velocity[i]) && velocity[i] / speedOfSound >= 1) {
+        transonicTime = liftoffFound ? time[i] - liftoffTime : time[i];
+        transonicAltitude = altClean[i];
+        break;
+      }
+    }
   }
 
   const metrics: FlightMetrics = {
@@ -415,8 +437,12 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
     maxVelocity,
     maxVelocitySource: velocitySource,
+    maxVelocityAltitude,
     mach,
     maxDynamicPressure,
+    maxDynamicPressureAltitude,
+    transonicTime,
+    transonicAltitude,
     maxAcceleration,
     maxDeceleration,
     accelerationSource,

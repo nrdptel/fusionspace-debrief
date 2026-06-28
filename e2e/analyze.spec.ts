@@ -12,8 +12,10 @@ test('the sample flight analyzes into a report', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   // Headline metric rendered.
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
-  // The max-Q tile (derived from the atmosphere model) shows up too.
+  // The max-Q tile (derived from the atmosphere model) shows up too, with the
+  // design-point altitude it occurred at.
   await expect(page.getByText('Max Q', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^at /).first()).toBeVisible(); // e.g. "at 1,420 ft"
 
   // The flight timeline breaks the flight into its phases (the chips are list
   // items, distinct from the "Boost" zoom-preset button).

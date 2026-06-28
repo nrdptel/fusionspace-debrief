@@ -83,6 +83,10 @@ describe('real files — Featherweight GPS', () => {
     const ft = convert(a.metrics.apogeeAltitude, 'm', 'ft');
     expect(ft).toBeGreaterThan(9800);
     expect(ft).toBeLessThan(11500);
+    // This J510W flight is genuinely fast — it crosses Mach 1 on the way up.
+    expect(a.metrics.mach).toBeGreaterThan(1);
+    expect(a.metrics.transonicTime).not.toBeNull();
+    expect(a.metrics.transonicAltitude).not.toBeNull();
   });
 });
 

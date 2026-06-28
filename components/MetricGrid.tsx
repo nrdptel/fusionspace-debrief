@@ -9,6 +9,15 @@ interface Tile {
   primary?: boolean;
 }
 
+/** Mach (when known) and the altitude the peak speed was reached at. */
+function maxVelocitySub(m: FlightMetrics, sys: UnitSystem): string | undefined {
+  const parts: string[] = [];
+  if (m.mach) parts.push(fmtMach(m.mach));
+  if (Number.isFinite(m.maxVelocityAltitude)) parts.push(`at ${fmtLength(m.maxVelocityAltitude, sys)}`);
+  if (parts.length) return parts.join(' · ');
+  return Number.isFinite(m.maxVelocity) ? undefined : 'not in this log';
+}
+
 function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   const out: Tile[] = [
     {
@@ -20,7 +29,7 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
     {
       label: 'Max velocity',
       value: fmtSpeed(m.maxVelocity, sys),
-      sub: m.mach ? fmtMach(m.mach) : Number.isFinite(m.maxVelocity) ? undefined : 'not in this log',
+      sub: maxVelocitySub(m, sys),
       primary: true,
     },
     {
@@ -41,7 +50,12 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   if (m.burnoutVelocity != null)
     out.push({ label: 'Burnout velocity', value: fmtSpeed(m.burnoutVelocity, sys) });
   if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
-  if (m.maxDynamicPressure != null) out.push({ label: 'Max Q', value: fmtPressure(m.maxDynamicPressure, sys) });
+  if (m.maxDynamicPressure != null)
+    out.push({
+      label: 'Max Q',
+      value: fmtPressure(m.maxDynamicPressure, sys),
+      sub: m.maxDynamicPressureAltitude != null ? `at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : undefined,
+    });
   if (m.drogueDescentRate != null)
     out.push({ label: 'Drogue descent', value: fmtSpeed(m.drogueDescentRate, sys) });
   if (m.mainDescentRate != null)
@@ -93,9 +107,17 @@ export default function MetricGrid({ metrics, sys }: { metrics: FlightMetrics; s
               <div className="mt-0.5 font-mono text-base font-semibold text-zinc-900 dark:text-zinc-100">
                 {t.value}
               </div>
+              {t.sub && <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{t.sub}</div>}
             </div>
           ))}
         </div>
+      )}
+      {metrics.transonicTime != null && (
+        <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+          Went supersonic — crossed Mach 1
+          {metrics.transonicAltitude != null ? ` at ${fmtLength(metrics.transonicAltitude, sys)}` : ''},{' '}
+          {fmtTime(metrics.transonicTime)} after liftoff.
+        </p>
       )}
     </div>
   );

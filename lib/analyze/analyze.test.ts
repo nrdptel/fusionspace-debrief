@@ -100,6 +100,21 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.mainDescentRate).toBeLessThan(20);
   });
 
+  it('locates the design points: max-velocity & max-Q altitudes', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    // Peak speed is at burnout (~200 m up); max-Q is in the lower, faster air, so
+    // both land in the boost band, well below apogee and above the pad.
+    expect(a.metrics.maxVelocityAltitude).toBeGreaterThan(100);
+    expect(a.metrics.maxVelocityAltitude).toBeLessThan(a.metrics.apogeeAltitude);
+    expect(a.metrics.maxDynamicPressureAltitude).not.toBeNull();
+    expect(a.metrics.maxDynamicPressureAltitude!).toBeGreaterThan(0);
+  });
+
+  it('flags a transonic crossing only when the flight actually goes supersonic', () => {
+    // The default synthetic flight tops out near ~200 m/s (subsonic, < ~340 m/s).
+    expect(analyzeFlight(syntheticBaroFlight().flight).metrics.transonicTime).toBeNull();
+  });
+
   it('builds an atmosphere for the Mach & dynamic-pressure channels', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     // No temperature channel → a standard 15 °C day → ~340 m/s.

@@ -44,7 +44,14 @@ export function summaryText(
     lines.push(row('Max velocity', fmtSpeed(m.maxVelocity, sys) + mach));
   }
   if (Number.isFinite(m.maxAcceleration)) lines.push(row('Max acceleration', fmtAccel(m.maxAcceleration)));
-  if (m.maxDynamicPressure != null) lines.push(row('Max Q', fmtPressure(m.maxDynamicPressure, sys)));
+  if (m.maxDynamicPressure != null) {
+    const at = m.maxDynamicPressureAltitude != null ? ` at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : '';
+    lines.push(row('Max Q', fmtPressure(m.maxDynamicPressure, sys) + at));
+  }
+  if (m.transonicTime != null) {
+    const at = m.transonicAltitude != null ? ` at ${fmtLength(m.transonicAltitude, sys)}` : '';
+    lines.push(row('Supersonic', `crossed Mach 1${at}, ${fmtTime(m.transonicTime)} after liftoff`));
+  }
   if (m.burnTime != null) lines.push(row('Burn time', fmtTime(m.burnTime)));
   if (m.burnoutAltitude != null) lines.push(row('Burnout altitude', fmtLength(m.burnoutAltitude, sys)));
   if (m.burnoutVelocity != null) lines.push(row('Burnout velocity', fmtSpeed(m.burnoutVelocity, sys)));

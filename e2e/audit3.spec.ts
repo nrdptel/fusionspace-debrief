@@ -51,6 +51,8 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   await expect(page.getByText('Max drift', { exact: true })).toBeVisible();
   // The canvas exposes a text description of the track for screen readers.
   await expect(page.getByRole('img', { name: /landed .* from the pad, bearing/i })).toBeVisible();
+  // This flight is supersonic — the design-point note calls it out.
+  await expect(page.getByText(/Went supersonic — crossed Mach 1/)).toBeVisible();
 });
 
 test('an Altus Metrum GPS flight also gets the recovery view', async ({ page }) => {
