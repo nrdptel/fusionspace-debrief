@@ -66,6 +66,30 @@ test('compare two flights from the recents list', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
 });
 
+// The overlay chart must actually draw its curves. A shorter flight is NaN-padded
+// out to the shared time base, which once left uPlot unable to range the y-axis —
+// so the canvas came up blank while the metrics table still looked fine. Guard it
+// by checking the chart canvas has real coloured (curve) pixels, not just axes.
+test('the overlay chart draws the flight curves', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
+  const coloured = await page.evaluate(() => {
+    const c = document.querySelector('.uplot canvas') as HTMLCanvasElement | null;
+    if (!c) return 0;
+    const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height);
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (data[i + 3] > 20 && Math.max(r, g, b) - Math.min(r, g, b) > 40) n++; // a saturated (curve) pixel
+    }
+    return n;
+  });
+  expect(coloured).toBeGreaterThan(500);
+});
+
 // Dropping (choosing) several files at once should import each and jump straight
 // into the comparison, no recents round-trip needed.
 test('choosing several files at once jumps straight to a comparison', async ({ page }) => {

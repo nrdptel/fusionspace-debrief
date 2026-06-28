@@ -8,6 +8,40 @@ import { useEffect, useRef } from 'react';
 // altitude/velocity/acceleration plots read as one linked view.
 const zoomGroups = new Map<string, Set<uPlot>>();
 
+// Auto-range a y-scale from the finite data, robust to uPlot mis-ranging a
+// series that's been NaN-padded onto a shared grid. The compare overlay pads a
+// shorter flight with NaN out to the common time base; uPlot returns a null
+// data range for such a series, which nulls the whole scale so nothing draws.
+// When uPlot hands us a usable range we keep it (identical to its default);
+// when it doesn't, we scan the series on this scale ourselves.
+function rangeFinite(
+  u: uPlot,
+  scaleKey: string,
+  dataMin: number | null,
+  dataMax: number | null,
+): uPlot.Range.MinMax {
+  let lo = dataMin;
+  let hi = dataMax;
+  if (lo == null || hi == null || !Number.isFinite(lo) || !Number.isFinite(hi)) {
+    lo = Infinity;
+    hi = -Infinity;
+    for (let i = 1; i < u.series.length; i++) {
+      const s = u.series[i];
+      if (s.scale !== scaleKey || s.show === false) continue;
+      const d = u.data[i] as ReadonlyArray<number | null | undefined>;
+      for (let j = 0; j < d.length; j++) {
+        const v = d[j];
+        if (v != null && Number.isFinite(v)) {
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        }
+      }
+    }
+    if (lo > hi) return [0, 1];
+  }
+  return uPlot.rangeNum(lo, hi, 0.1, true);
+}
+
 /** Set the x-range on every chart in a sync group (used by the zoom presets). */
 export function focusRange(syncKey: string, min: number, max: number) {
   const set = zoomGroups.get(syncKey);
@@ -140,7 +174,11 @@ export default function Chart({
         ...(syncKey ? { sync: { key: syncKey } } : {}),
       },
       legend: { show: true, live: true },
-      scales: { x: { time: false }, y: {}, ...(hasRight ? { y2: {} } : {}) },
+      scales: {
+        x: { time: false },
+        y: { range: (u, dMin, dMax) => rangeFinite(u, 'y', dMin, dMax) },
+        ...(hasRight ? { y2: { range: (u, dMin, dMax) => rangeFinite(u, 'y2', dMin, dMax) } } : {}),
+      },
       axes: [
         {
           stroke: axisColor,
