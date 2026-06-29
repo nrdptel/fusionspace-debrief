@@ -407,8 +407,8 @@ function Stats({
         </table>
       </div>
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        Stats are for the visible window — drag across the chart to zoom into a phase, double-click
-        to reset. Values are in each channel&apos;s unit
+        Stats are for the visible window — drag across the chart to zoom into a phase (pinch on
+        touch), double-click or double-tap to reset. Values are in each channel&apos;s unit
         {showDeltaRate ? <>; rate is the change per {xUnit}.</> : '.'}
       </p>
     </div>

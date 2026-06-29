@@ -258,6 +258,65 @@ export default function Chart({
     const plot = new uPlot(opts, data, host);
     plotRef.current = plot;
 
+    // Touch zoom. uPlot binds only mouse events, so on a phone — where this tool
+    // is built to be used, reading a log at the field — the charts couldn't be
+    // zoomed at all. Add a two-finger pinch on the x-axis (one finger still
+    // scrolls the page, so the gestures never fight) and a double-tap to reset.
+    // The pinch anchors both fingers to the data points they grabbed, like a map.
+    const over = plot.over;
+    // The full x-extent for double-tap reset, read from the data (uPlot's scale
+    // isn't finalised at this point). For an unsorted x the bracket sentinels carry
+    // the true min/max, so this is the real extent either way.
+    const xExtent = finiteMinMax(data[0] as ArrayLike<number | null | undefined>);
+    const fullMin = xExtent ? xExtent[0] : 0;
+    const fullMax = xExtent ? xExtent[1] : 1;
+    let pinch: { d1: number; d2: number } | null = null;
+    let pinched = false;
+    let lastTapAt = 0;
+    const fracOf = (clientX: number, rect: DOMRect) => (clientX - rect.left) / rect.width;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      const { min, max } = plot.scales.x;
+      if (min == null || max == null) return;
+      const rect = over.getBoundingClientRect();
+      const u1 = fracOf(e.touches[0].clientX, rect);
+      const u2 = fracOf(e.touches[1].clientX, rect);
+      pinch = { d1: min + u1 * (max - min), d2: min + u2 * (max - min) };
+      pinched = true;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault(); // we own the two-finger gesture — suppress page pinch-zoom
+      const rect = over.getBoundingClientRect();
+      const u1 = fracOf(e.touches[0].clientX, rect);
+      const u2 = fracOf(e.touches[1].clientX, rect);
+      if (Math.abs(u2 - u1) < 0.02) return; // fingers vertical / too close to be stable
+      const range = (pinch.d2 - pinch.d1) / (u2 - u1);
+      const min = pinch.d1 - u1 * range;
+      const max = min + range;
+      if (max > min) plot.setScale('x', { min, max });
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinch = null;
+      if (e.touches.length > 0) return;
+      if (pinched) {
+        pinched = false; // a pinch ending isn't a tap
+        return;
+      }
+      // Double-tap (two quick single-finger taps) resets to the full range.
+      const now = e.timeStamp;
+      if (now - lastTapAt < 300) {
+        plot.setScale('x', { min: fullMin, max: fullMax });
+        lastTapAt = 0;
+      } else {
+        lastTapAt = now;
+      }
+    };
+    over.addEventListener('touchstart', onTouchStart, { passive: true });
+    over.addEventListener('touchmove', onTouchMove, { passive: false });
+    over.addEventListener('touchend', onTouchEnd, { passive: true });
+
     // Report the initial full range so a stats panel can populate before any zoom.
     if (onView) {
       const { min, max } = plot.scales.x;
@@ -277,6 +336,9 @@ export default function Chart({
 
     return () => {
       ro.disconnect();
+      over.removeEventListener('touchstart', onTouchStart);
+      over.removeEventListener('touchmove', onTouchMove);
+      over.removeEventListener('touchend', onTouchEnd);
       if (syncKey) {
         const set = zoomGroups.get(syncKey);
         set?.delete(plot);

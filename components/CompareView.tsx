@@ -387,8 +387,8 @@ export default function CompareView({
       </div>
 
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        Hover to read every flight at the same instant · drag across the chart to zoom · double-click
-        to reset
+        Hover to read every flight at the same instant · drag across the chart to zoom (pinch on
+        touch) · double-click or double-tap to reset
       </p>
     </div>
   );

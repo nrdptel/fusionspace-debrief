@@ -396,7 +396,8 @@ export default function FlightReport({
       </div>
 
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400 print:hidden">
-        Hover to read all three at a time · drag across a chart to zoom · double-click to reset
+        Hover to read all three at a time · drag across a chart to zoom (pinch on touch) · double-click
+        or double-tap to reset
       </p>
 
       {/* Event legend */}
