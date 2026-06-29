@@ -98,6 +98,14 @@ test('compare selection is capped at six flights', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Compare 6 flights/ })).toBeVisible();
 });
 
+test('shows battery voltage when the logger recorded it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText('Battery low', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+(\.\d+)?\s*V at rest/)).toBeVisible();
+});
+
 test('shows the deployment shock on a flight that logged acceleration', async ({ page }) => {
   await page.goto('/');
   // The bundled sample is a real Altus Metrum flight that logged acceleration and

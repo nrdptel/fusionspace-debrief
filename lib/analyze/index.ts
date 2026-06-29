@@ -458,6 +458,25 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     }
   }
 
+  // --- Battery (when the logger recorded it) -------------------------------
+  // Resting voltage at the start and the lowest it sagged to. A pack that droops
+  // under the deployment-charge current draw can fail to fire — a frequent cause
+  // of a "no recovery" flight — so the drop is worth surfacing. No judgement; just
+  // the two numbers.
+  let batteryStartV: number | null = null;
+  let batteryMinV: number | null = null;
+  const voltCh = getChannel(flight, 'voltage');
+  if (voltCh) {
+    const start = median(voltCh.values, 0, baseEnd);
+    let lo = Infinity;
+    for (let i = 0; i < voltCh.values.length; i++) {
+      const v = voltCh.values[i];
+      if (Number.isFinite(v) && v > 0 && v < lo) lo = v;
+    }
+    if (Number.isFinite(start) && start > 0) batteryStartV = start;
+    if (lo !== Infinity) batteryMinV = lo;
+  }
+
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
@@ -481,6 +500,8 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     descentTime: landingFound ? landingTime - apogeeTime : null,
     flightTime: liftoffFound && landingFound ? landingTime - liftoffTime : null,
     groundTemperature,
+    batteryStartV,
+    batteryMinV,
   };
 
   if (velocitySource === 'baro' && accelerationSource === 'baro') {

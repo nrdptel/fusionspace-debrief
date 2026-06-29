@@ -25,6 +25,8 @@ const base: FlightMetrics = {
   descentTime: 40,
   flightTime: 48,
   groundTemperature: 15,
+  batteryStartV: 9.2,
+  batteryMinV: 8.9,
 };
 
 describe('flightCardStats', () => {

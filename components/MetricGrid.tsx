@@ -1,6 +1,6 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { fmtLength, fmtSpeed, fmtAccel, fmtTemp, fmtTime, fmtMach, fmtPressure } from '@/lib/display';
+import { fmtLength, fmtSpeed, fmtAccel, fmtTemp, fmtTime, fmtMach, fmtPressure, fmtVoltage } from '@/lib/display';
 
 interface Tile {
   label: string;
@@ -67,6 +67,14 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   if (m.flightTime != null) out.push({ label: 'Flight time', value: fmtTime(m.flightTime) });
   if (m.groundTemperature != null)
     out.push({ label: 'Ground temp', value: fmtTemp(m.groundTemperature, sys) });
+  // Battery: the lowest it sagged to, with the resting voltage alongside so a
+  // drop (a weak pack — a common cause of a charge that didn't fire) is visible.
+  if (m.batteryMinV != null)
+    out.push({
+      label: 'Battery low',
+      value: fmtVoltage(m.batteryMinV),
+      sub: m.batteryStartV != null ? `${fmtVoltage(m.batteryStartV)} at rest` : undefined,
+    });
 
   return out;
 }

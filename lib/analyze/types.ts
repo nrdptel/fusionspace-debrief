@@ -44,6 +44,11 @@ export interface FlightMetrics {
   descentTime: number | null; // s, apogee → landing
   flightTime: number | null; // s, liftoff → landing
   groundTemperature: number | null; // °C
+  /** Battery voltage when the logger recorded it: the resting voltage at the start
+   *  and the lowest it sagged to. A big drop hints at a weak pack — a common cause
+   *  of a charge that didn't fire. Both null when no voltage was logged. */
+  batteryStartV: number | null;
+  batteryMinV: number | null;
 }
 
 export interface FlightSeries {

@@ -46,4 +46,14 @@ describe('end-to-end on the bundled Altus Metrum sample', () => {
     expect(main?.peakAccel).toBeDefined();
     expect(main!.peakAccel! / 9.80665).toBeGreaterThan(2);
   });
+
+  it('reads the battery voltage when the logger recorded it', () => {
+    if (result.kind !== 'flight') return;
+    const a = analyzeFlight(result.flight);
+    expect(a.metrics.batteryStartV).not.toBeNull();
+    expect(a.metrics.batteryMinV).not.toBeNull();
+    // A sane rocketry-battery range, and the low never above the resting voltage.
+    expect(a.metrics.batteryStartV!).toBeGreaterThan(2);
+    expect(a.metrics.batteryMinV!).toBeLessThanOrEqual(a.metrics.batteryStartV!);
+  });
 });

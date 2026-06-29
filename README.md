@@ -23,6 +23,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Reads **deployment shock** — when the logger recorded acceleration, the peak g the
   airframe felt as the apogee charge and the main fired (the snatch force that breaks
   shock cords and zippers tubes), shown on those events.
+- Surfaces **battery voltage** — when the logger recorded it, the resting voltage and
+  the lowest it sagged to, so a weak pack (a common cause of a charge that didn't fire)
+  stands out.
 - Draws altitude, velocity, and acceleration against time, with liftoff, burnout,
   apogee, main deploy, and landing marked on each.
 - Reports **rail-exit velocity** — how fast the rocket was actually moving when it

@@ -118,6 +118,12 @@ export default function Home() {
             furthest it drifted. Positions are GPS, good to a few metres; no map tiles are fetched —
             it&apos;s drawn from your own fixes.
           </Method>
+          <Method title="Battery">
+            When the logger recorded its battery voltage, the resting voltage at the start and the
+            lowest it sagged to. A pack that droops under the current a deployment charge draws can
+            fail to fire it, so the drop is worth a look — though what counts as low depends on your
+            battery, so it&apos;s reported plainly, not judged.
+          </Method>
           <Method title="Mach & dynamic pressure">
             The speed of sound comes from the ground temperature where the logger records it, else a
             15&nbsp;°C standard day; Mach is velocity over that. The explorer also derives a

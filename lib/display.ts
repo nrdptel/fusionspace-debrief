@@ -53,6 +53,10 @@ export function fmtTime(seconds: number): string {
   if (!Number.isFinite(seconds)) return '—';
   return `${round(seconds, 1)} s`;
 }
+export function fmtVoltage(v: number | null): string {
+  if (v == null || !Number.isFinite(v)) return '—';
+  return `${round(v, 1)} V`;
+}
 export function fmtMach(m: number | null): string {
   return m && Number.isFinite(m) ? `Mach ${round(m, 2)}` : '—';
 }
