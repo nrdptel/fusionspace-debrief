@@ -5,7 +5,7 @@ import { importFlight } from '@/lib/parsers';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import type { RawFlight } from '@/lib/flight/types';
-import { analyzeFlight } from '@/lib/analyze';
+import { analyzeAsync } from '@/lib/analyze/runner';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import DropZone from './DropZone';
@@ -70,7 +70,7 @@ export default function Analyzer() {
   }, []);
 
   const ingest = useCallback(
-    (name: string, text: string) => {
+    async (name: string, text: string) => {
       try {
         if (text.trim().length === 0) {
           setState({ phase: 'error', message: 'That file is empty.' });
@@ -78,7 +78,7 @@ export default function Analyzer() {
         }
         const result = importFlight({ name, text });
         if (result.kind === 'flight') {
-          const analysis = analyzeFlight(result.flight);
+          const analysis = await analyzeAsync(result.flight);
           setState({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
           void saveRecent({
             name,
@@ -114,8 +114,8 @@ export default function Analyzer() {
       setState({ phase: 'loading' });
       try {
         const text = await file.text();
-        await tick(); // let the loading state paint before the synchronous parse
-        ingest(file.name, text);
+        await tick(); // let the loading state paint before parsing
+        await ingest(file.name, text);
       } catch {
         setState({ phase: 'error', message: 'Could not read this file.' });
       }
@@ -148,7 +148,7 @@ export default function Analyzer() {
           const text = await file.text();
           const result = importFlight({ name: file.name, text });
           if (result.kind !== 'flight') continue;
-          const analysis = analyzeFlight(result.flight);
+          const analysis = await analyzeAsync(result.flight);
           results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text });
           // Awaited (not fire-and-forget) so the per-save prune doesn't race itself.
           await saveRecent({
@@ -191,38 +191,40 @@ export default function Analyzer() {
       if (!res.ok) throw new Error('sample missing');
       const text = await res.text();
       await tick();
-      ingest('sample-altusmetrum.csv', text);
+      await ingest('sample-altusmetrum.csv', text);
     } catch {
       setState({ phase: 'error', message: 'Could not load the sample flight.' });
     }
   }, [ingest]);
 
   const onMappingSubmit = useCallback(
-    (mappings: ColumnMapping[]) => {
+    async (mappings: ColumnMapping[]) => {
       if (state.phase !== 'mapping') return;
+      const { fileName, table, text } = state;
       try {
         const flight = buildFlight({
-          source: state.fileName,
+          source: fileName,
           format: 'csv',
           formatLabel: 'Generic CSV',
-          headers: state.table.headers,
-          dataRows: state.table.dataRows,
+          headers: table.headers,
+          dataRows: table.dataRows,
           mappings,
         });
-        const analysis = analyzeFlight(flight);
-        setState({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text: state.text });
+        setState({ phase: 'loading' });
+        const analysis = await analyzeAsync(flight);
+        setState({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
         void saveRecent({
-          name: state.fileName,
+          name: fileName,
           formatLabel: 'Generic CSV',
           apogeeM: analysis.metrics.apogeeAltitude ?? null,
           maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
-          text: state.text,
+          text,
         }).then(refreshRecents);
       } catch (err) {
         setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
     },
-    [state],
+    [state, refreshRecents],
   );
 
   const reset = useCallback(() => setState({ phase: 'idle' }), []);
@@ -236,7 +238,7 @@ export default function Analyzer() {
         return;
       }
       await tick();
-      ingest(rec.name, rec.text);
+      await ingest(rec.name, rec.text);
     },
     [ingest],
   );
@@ -259,7 +261,7 @@ export default function Analyzer() {
             id,
             name: rec.name,
             formatLabel: result.flight.formatLabel,
-            analysis: analyzeFlight(result.flight),
+            analysis: await analyzeAsync(result.flight),
           });
         } catch {
           /* skip this file */
