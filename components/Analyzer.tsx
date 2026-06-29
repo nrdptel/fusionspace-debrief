@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight } from '@/lib/parsers';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
@@ -44,6 +44,16 @@ export default function Analyzer() {
   const [state, setState] = useState<State>({ phase: 'idle' });
   const [sys, setSys] = useState<UnitSystem>('imperial');
   const [recents, setRecents] = useState<RecentMeta[]>([]);
+  // Analysis is async (it runs in a worker), so a slow load that resolves after a
+  // newer one must not overwrite it. Each load bumps this counter and only applies
+  // its result if it's still the most recent.
+  const reqRef = useRef(0);
+  const beginLoad = useCallback(() => {
+    const token = ++reqRef.current;
+    return (next: State) => {
+      if (reqRef.current === token) setState(next);
+    };
+  }, []);
 
   const refreshRecents = useCallback(() => {
     listRecents().then(setRecents);
@@ -71,15 +81,16 @@ export default function Analyzer() {
 
   const ingest = useCallback(
     async (name: string, text: string) => {
+      const set = beginLoad();
       try {
         if (text.trim().length === 0) {
-          setState({ phase: 'error', message: 'That file is empty.' });
+          set({ phase: 'error', message: 'That file is empty.' });
           return;
         }
         const result = importFlight({ name, text });
         if (result.kind === 'flight') {
           const analysis = await analyzeAsync(result.flight);
-          setState({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
+          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -88,18 +99,18 @@ export default function Analyzer() {
             text,
           }).then(refreshRecents);
         } else if (result.table.dataRows.length === 0) {
-          setState({
+          set({
             phase: 'error',
             message: 'Debrief couldn’t find any data rows in this file. Is it a flight log export?',
           });
         } else {
-          setState({ phase: 'mapping', fileName: name, text, table: result.table, suggested: result.suggested });
+          set({ phase: 'mapping', fileName: name, text, table: result.table, suggested: result.suggested });
         }
       } catch (err) {
-        setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
+        set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
       }
     },
-    [refreshRecents],
+    [refreshRecents, beginLoad],
   );
 
   const onFile = useCallback(
@@ -135,7 +146,8 @@ export default function Analyzer() {
         onFile(list[0]);
         return;
       }
-      setState({ phase: 'loading' });
+      const set = beginLoad();
+      set({ phase: 'loading' });
       await tick();
       const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string }[] = [];
       // Cap on the number of *flights we can show*, not on input files: keep
@@ -170,18 +182,18 @@ export default function Analyzer() {
           results.length === MAX_COMPARE && list.length > MAX_COMPARE
             ? `Showing ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`
             : undefined;
-        setState({ phase: 'compare', comparison: buildComparison(inputs), note });
+        set({ phase: 'compare', comparison: buildComparison(inputs), note });
       } else if (results.length === 1) {
         const r = results[0];
-        setState({ phase: 'report', flight: r.flight, analysis: r.analysis, analyzedAt: Date.now(), text: r.text });
+        set({ phase: 'report', flight: r.flight, analysis: r.analysis, analyzedAt: Date.now(), text: r.text });
       } else {
-        setState({
+        set({
           phase: 'error',
           message: 'None of those files auto-detected as a flight. Open them one at a time to map the columns by hand.',
         });
       }
     },
-    [onFile, refreshRecents],
+    [onFile, refreshRecents, beginLoad],
   );
 
   const onSample = useCallback(async () => {
@@ -201,6 +213,7 @@ export default function Analyzer() {
     async (mappings: ColumnMapping[]) => {
       if (state.phase !== 'mapping') return;
       const { fileName, table, text } = state;
+      const set = beginLoad();
       try {
         const flight = buildFlight({
           source: fileName,
@@ -210,9 +223,9 @@ export default function Analyzer() {
           dataRows: table.dataRows,
           mappings,
         });
-        setState({ phase: 'loading' });
+        set({ phase: 'loading' });
         const analysis = await analyzeAsync(flight);
-        setState({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
+        set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
         void saveRecent({
           name: fileName,
           formatLabel: 'Generic CSV',
@@ -221,10 +234,10 @@ export default function Analyzer() {
           text,
         }).then(refreshRecents);
       } catch (err) {
-        setState({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
+        set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
     },
-    [state, refreshRecents],
+    [state, refreshRecents, beginLoad],
   );
 
   const reset = useCallback(() => setState({ phase: 'idle' }), []);
@@ -244,7 +257,8 @@ export default function Analyzer() {
   );
 
   const compareRecents = useCallback(async (ids: string[]) => {
-    setState({ phase: 'loading' });
+    const set = beginLoad();
+    set({ phase: 'loading' });
     try {
       const inputs = [];
       for (const id of ids.slice(0, MAX_COMPARE)) {
@@ -268,18 +282,18 @@ export default function Analyzer() {
         }
       }
       if (inputs.length < 2) {
-        setState({
+        set({
           phase: 'error',
           message:
             'Need at least two readable flights to compare. Files that needed manual column mapping (Generic CSV) can’t be auto-compared.',
         });
         return;
       }
-      setState({ phase: 'compare', comparison: buildComparison(inputs) });
+      set({ phase: 'compare', comparison: buildComparison(inputs) });
     } catch {
-      setState({ phase: 'error', message: 'Could not build the comparison.' });
+      set({ phase: 'error', message: 'Could not build the comparison.' });
     }
-  }, []);
+  }, [beginLoad]);
 
   const removeOne = useCallback(
     async (id: string) => {
