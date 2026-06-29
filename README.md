@@ -114,7 +114,9 @@ of parsing and analysis runs locally.
   track drives the recovery view.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units — including GPS latitude/longitude — and lets
-  you confirm them.
+  you confirm them. Comma, tab, semicolon and pipe delimiters are auto-detected, along
+  with European-locale exports (semicolon-separated with comma decimals) and Windows,
+  Unix or classic-Mac line endings.
 
 More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it

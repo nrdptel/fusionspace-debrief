@@ -19,6 +19,10 @@ describe('detectDelimiter', () => {
     expect(detectDelimiter('time;altitude\n0;0\n0.1;5')).toBe(';');
     expect(detectDelimiter('time\taltitude\n0\t0\n0.1\t5')).toBe('\t');
   });
+
+  it('detects across lone-CR line endings', () => {
+    expect(detectDelimiter('time;altitude\r0;0\r0.1;5')).toBe(';');
+  });
 });
 
 describe('parseTable', () => {
@@ -29,6 +33,31 @@ describe('parseTable', () => {
       ['0', '0'],
       ['0.1', '5'],
     ]);
+  });
+
+  it('reads lone-CR (classic Mac) line endings', () => {
+    const { rows } = parseTable('time,altitude\r0,0\r0.1,5');
+    expect(rows).toEqual([
+      ['time', 'altitude'],
+      ['0', '0'],
+      ['0.1', '5'],
+    ]);
+  });
+
+  it('canonicalises comma decimals in a semicolon (European) CSV', () => {
+    const { delimiter, rows } = parseTable('t;alt\n0,0;5\n0,1;12');
+    expect(delimiter).toBe(';');
+    expect(rows).toEqual([
+      ['t', 'alt'],
+      ['0.0', '5'],
+      ['0.1', '12'],
+    ]);
+  });
+
+  it('leaves commas alone when the comma is itself the delimiter', () => {
+    // Here "0,0" is two cells, not a decimal — must not be merged into "0.0".
+    const { rows } = parseTable('t,alt\n0,0\n0.1,5');
+    expect(rows[1]).toEqual(['0', '0']);
   });
 });
 

@@ -14,7 +14,7 @@
 // the inertial solution drifts after deployment. The high-rate file has no
 // altitude, so we point the user at the low-rate one.
 
-import type { Parser, ParseInput } from './types';
+import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { RawFlight, Channel } from '../flight/types';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
@@ -102,7 +102,7 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   const battIdx = where((h) => h.includes('batt'));
   const tempIdx = where((h) => h.includes('temperature'));
 
-  if (altIdx < 0) throw new Error(HR_HINT);
+  if (altIdx < 0) throw new ParseGuidanceError(HR_HINT);
   if (timeIdx < 0) throw new Error('No flight-time column was found in this Blue Raven file.');
 
   const mappings: ColumnMapping[] = [{ index: timeIdx, role: 'time', unit: 's' }];
@@ -145,7 +145,7 @@ export const blueRavenParser: Parser = {
     const head = input.text.slice(0, 4000);
     const isSerialLow = /\bLOG_LOW\b/.test(head) || input.text.includes('Bo:');
     const isSerialHigh = /\bLOG_HIR\b/.test(head);
-    if (isSerialHigh && !isSerialLow) throw new Error(HR_HINT);
+    if (isSerialHigh && !isSerialLow) throw new ParseGuidanceError(HR_HINT);
     if (isSerialLow) return parseSerialLow(input);
 
     const { rows } = parseTable(input.text, ',');

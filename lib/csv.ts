@@ -10,10 +10,20 @@ export interface ParsedTable {
 
 const DELIMITERS = [',', '\t', ';', '|'];
 
+// Split on LF, CRLF, or a lone CR — the last is how a classic-Mac (or some
+// oddball firmware) export ends its lines, which a plain /\r?\n/ would miss,
+// collapsing the whole file to a single unreadable line.
+const LINE_SPLIT = /\r\n|\r|\n/;
+
+// A European decimal written with a comma — "1,5" meaning 1.5. Only meaningful
+// when the field delimiter isn't itself a comma (i.e. a semicolon CSV), where it
+// would otherwise read as a non-number and leave the column empty.
+const DECIMAL_COMMA = /^[+-]?\d+,\d+$/;
+
 /** Guess the delimiter by which one yields the most consistent column count. */
 export function detectDelimiter(text: string): string {
   const lines = text
-    .split(/\r?\n/)
+    .split(LINE_SPLIT)
     .filter((l) => l.trim().length > 0)
     .slice(0, 50);
   if (lines.length === 0) return ',';
@@ -85,10 +95,20 @@ export function splitLine(line: string, delimiter: string): string[] {
 /** Parse delimited text into rows of trimmed string cells. */
 export function parseTable(text: string, delimiter?: string): ParsedTable {
   const d = delimiter ?? detectDelimiter(text);
+  // A semicolon delimiter is the strong signal of a European-locale export, where
+  // the decimal point is a comma. Canonicalise those cells (1,5 → 1.5) so the
+  // numbers read — and so the mapper preview shows them the way they'll be parsed.
+  const decimalComma = d === ';';
   const rows: string[][] = [];
-  for (const line of text.split(/\r?\n/)) {
+  for (const line of text.split(LINE_SPLIT)) {
     if (line.length === 0) continue;
-    rows.push(splitLine(line, d));
+    const cells = splitLine(line, d);
+    if (decimalComma) {
+      for (let i = 0; i < cells.length; i++) {
+        if (DECIMAL_COMMA.test(cells[i])) cells[i] = cells[i].replace(',', '.');
+      }
+    }
+    rows.push(cells);
   }
   return { delimiter: d, rows };
 }
