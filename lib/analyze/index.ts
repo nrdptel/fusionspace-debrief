@@ -18,6 +18,7 @@ import {
   argMax,
   argMin,
   peakAbsInWindow,
+  longestRunNear,
 } from './signal';
 
 /** Window (in samples) covering roughly `seconds`, clamped to something sane. */
@@ -284,6 +285,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   let maxAcceleration = NaN;
   let maxDeceleration = NaN;
   let maxVelIdx = -1;
+  let accelClipped = false;
   if (ascentPresent) {
     maxVelIdx = argMax(velocity, liftoffRef, apogeeIdx + 1);
     maxVelocity = maxVelIdx >= 0 ? velocity[maxVelIdx] : NaN;
@@ -291,6 +293,17 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxAcceleration = maxAccIdx >= 0 ? acceleration[maxAccIdx] : NaN;
     const maxDecIdx = argMin(acceleration, liftoffRef, apogeeIdx + 1);
     maxDeceleration = maxDecIdx >= 0 ? acceleration[maxDecIdx] : NaN;
+
+    // Saturation: a device accelerometer that hit its full-scale limit reads a
+    // flat top at its peak. A real boost rounds over its maximum (mass falls
+    // through the burn, so net accel is never held dead flat), so a sustained
+    // plateau right at the peak means the sensor railed — the reported max is a
+    // floor, not the truth. Only meaningful for a measured (device) trace.
+    if (accelerationSource === 'device' && Number.isFinite(maxAcceleration) && maxAcceleration > 0) {
+      const eps = Math.max(maxAcceleration * 0.003, 0.25); // m/s² — a tight band at the rail
+      const minRun = Math.max(4, Math.round(0.05 / (dt || 0.1)));
+      accelClipped = longestRunNear(acceleration, liftoffRef, apogeeIdx + 1, maxAcceleration, eps) >= minRun;
+    }
   }
 
   // --- Burnout --------------------------------------------------------------
@@ -491,6 +504,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxAcceleration,
     maxDeceleration,
     accelerationSource,
+    accelClipped,
     burnTime: burnoutIdx !== null && liftoffFound ? time[burnoutIdx] - liftoffTime : null,
     burnoutAltitude: burnoutIdx !== null ? altClean[burnoutIdx] : null,
     burnoutVelocity: burnoutIdx !== null ? velocity[burnoutIdx] : null,
@@ -504,6 +518,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     batteryMinV,
   };
 
+  if (accelClipped) {
+    warnings.push(
+      `The accelerometer reads a flat top at its peak (about ${(maxAcceleration / G0).toFixed(0)} g) — the signature of a sensor that hit its full-scale limit and saturated, so the true maximum could be higher.`,
+    );
+  }
   if (velocitySource === 'baro' && accelerationSource === 'baro') {
     warnings.push(
       'Velocity and acceleration were derived from altitude, so they are smoothed estimates rather than direct measurements.',

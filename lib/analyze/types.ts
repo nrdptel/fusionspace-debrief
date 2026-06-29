@@ -35,6 +35,10 @@ export interface FlightMetrics {
   maxAcceleration: number; // m/s²
   maxDeceleration: number; // m/s² (most negative)
   accelerationSource: 'device' | 'baro';
+  /** True when a device accelerometer flat-tops at its peak — the signature of a
+   *  sensor that hit its full-scale limit (saturated). The reported max is then a
+   *  floor, not the truth. Always false for a derived (baro) acceleration. */
+  accelClipped: boolean;
   burnTime: number | null; // s
   burnoutAltitude: number | null; // m AGL
   burnoutVelocity: number | null; // m/s

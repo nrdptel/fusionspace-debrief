@@ -39,7 +39,12 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
     out.push({
       label: 'Max acceleration',
       value: fmtAccel(m.maxAcceleration),
-      sub: m.accelerationSource === 'device' ? 'measured' : 'derived',
+      sub:
+        m.accelerationSource === 'device'
+          ? m.accelClipped
+            ? 'measured · may be clipped'
+            : 'measured'
+          : 'derived',
       primary: true,
     });
   }

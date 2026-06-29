@@ -64,6 +64,58 @@ function syntheticBaroFlight(opts?: { ejectionSpike?: boolean }): {
   return { flight, truth: { apogee, vBurnout, tToApogee: tBurn + coastT } };
 }
 
+// A flight that logs a device accelerometer with a triangular (rounded-peak)
+// boost pulse, climbing to a clear apogee and descending. Pass `clipAt` to rail
+// the trace at a full-scale limit, flat-topping the peak the way a saturated
+// sensor does.
+function accelFlight(clipAt: number | null): RawFlight {
+  const dt = 0.02;
+  const n = 600; // ~12 s at 50 Hz
+  const time = new Float64Array(n);
+  const alt = new Float64Array(n);
+  const acc = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i * dt;
+    time[i] = t;
+    // Altitude: a clean concave climb to ~1000 m at t=4 s, then a steady descent.
+    alt[i] = t < 4 ? 1000 * (t / 4) * (2 - t / 4) : Math.max(0, 1000 * (1 - (t - 4) / 6));
+    // Acceleration (specific force, + up): quiet pad, a triangular boost pulse
+    // peaking at 250 m/s² around t=1 s, then a mild negative coast to apogee.
+    if (t < 0.5) acc[i] = 0;
+    else if (t < 1.6) acc[i] = 250 * (1 - Math.abs((2 * (t - 0.5)) / 1.1 - 1));
+    else if (t < 4) acc[i] = -9.8;
+    else acc[i] = 0;
+  }
+  if (clipAt != null) for (let i = 0; i < n; i++) if (acc[i] > clipAt) acc[i] = clipAt;
+  return {
+    source: 'synthetic',
+    format: 'test',
+    formatLabel: 'Test',
+    time,
+    channels: [
+      { kind: 'altitude', label: 'alt', unit: 'm', values: alt },
+      { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc },
+    ],
+    meta: {},
+    notes: [],
+  };
+}
+
+describe('accelerometer saturation', () => {
+  it('flags a flat-topped (clipped) accelerometer peak as possibly saturated', () => {
+    const a = analyzeFlight(accelFlight(160));
+    expect(a.metrics.accelerationSource).toBe('device');
+    expect(a.metrics.accelClipped).toBe(true);
+    expect(a.warnings.some((w) => /saturat|full-scale|flat top/i.test(w))).toBe(true);
+  });
+
+  it('does not flag a normally rounded accelerometer peak', () => {
+    const a = analyzeFlight(accelFlight(null));
+    expect(a.metrics.accelerationSource).toBe('device');
+    expect(a.metrics.accelClipped).toBe(false);
+  });
+});
+
 describe('analyzeFlight (barometric)', () => {
   it('recovers apogee, max velocity and time-to-apogee', () => {
     const { flight, truth } = syntheticBaroFlight();

@@ -134,6 +134,32 @@ export function peakAbsInWindow(values: Float64Array, center: number, half: numb
   return peak;
 }
 
+/** Longest run of consecutive finite samples within `eps` of `target`, over
+ *  [from, to). A flat top at the trace's own extreme is how a saturated (railed)
+ *  sensor reads — a real boost rounds over its peak rather than holding it dead
+ *  flat — so this is the tell for an accelerometer that hit its full-scale limit. */
+export function longestRunNear(
+  values: Float64Array,
+  from: number,
+  to: number,
+  target: number,
+  eps: number,
+): number {
+  let best = 0;
+  let run = 0;
+  const hi = Math.min(values.length, to);
+  for (let i = Math.max(0, from); i < hi; i++) {
+    const v = values[i];
+    if (Number.isFinite(v) && Math.abs(v - target) <= eps) {
+      run++;
+      if (run > best) best = run;
+    } else {
+      run = 0;
+    }
+  }
+  return best;
+}
+
 /** Index of the maximum finite value, or -1. */
 export function argMax(values: Float64Array, from = 0, to = values.length): number {
   let best = -1;

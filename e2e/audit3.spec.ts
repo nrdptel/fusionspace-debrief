@@ -115,6 +115,15 @@ test('shows the deployment shock on a flight that logged acceleration', async ({
   await expect(page.getByText(/\d+(\.\d+)?\s*g shock/).first()).toBeVisible();
 });
 
+test('flags a saturated accelerometer on the bundled sample', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  // The sample's TeleMetrum accelerometer railed at ~17.9 g — a flat top we flag
+  // honestly rather than reporting the railed value as the true peak.
+  await expect(page.getByText('may be clipped')).toBeVisible();
+});
+
 test('reports rail-exit velocity for a barometric flight, and remembers the rail', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

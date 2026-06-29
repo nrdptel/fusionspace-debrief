@@ -58,7 +58,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.
 - Uses the device's own velocity/acceleration when it logged them, and derives them
-  from altitude when it didn't — labelling which is which.
+  from altitude when it didn't — labelling which is which. Flags a **saturated
+  accelerometer** — when the trace flat-tops at its peak (the sign a sensor hit its
+  full-scale limit), the max acceleration is marked as possibly clipped rather than
+  read as the true maximum.
 - Exports a flight: copy a text summary, save it as `.txt`, save the analyzed series
   (time, altitude, velocity, acceleration, Mach, dynamic pressure) as `.csv`, or save
   the altitude chart as a PNG.
