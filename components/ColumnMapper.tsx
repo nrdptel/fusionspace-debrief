@@ -96,15 +96,17 @@ export default function ColumnMapper({
           <tbody>
             {table.headers.map((header, i) => {
               const units = unitOptionsFor(rows[i].role);
+              const colName = header || `col ${i + 1}`;
               return (
                 <tr key={i} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
                   <td className="px-3 py-2 font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                    {header || `col ${i + 1}`}
+                    {colName}
                   </td>
                   <td className="px-3 py-2">
                     <select
                       value={rows[i].role}
                       onChange={(e) => setRole(i, e.target.value as ColumnRole)}
+                      aria-label={`Role for the ${colName} column`}
                       className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       {ROLE_OPTIONS.map((o) => (
@@ -119,6 +121,7 @@ export default function ColumnMapper({
                       <select
                         value={rows[i].unit}
                         onChange={(e) => setUnit(i, e.target.value)}
+                        aria-label={`Unit for the ${colName} column`}
                         className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       >
                         {units.map((u) => (
@@ -157,17 +160,15 @@ export default function ColumnMapper({
         >
           Choose a different file
         </button>
-        {!ready && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
-            Set a time column and an altitude or pressure column to continue.
-          </span>
-        )}
-        {ready && duplicated.length > 0 && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
-            {duplicated.join(' and ')} {duplicated.length > 1 ? 'are' : 'is'} mapped to more than one
-            column — only the first of each is used.
-          </span>
-        )}
+        {/* A persistent live region: announces when the file becomes analysable
+            (or a role is doubled up) as the user changes the selects above. */}
+        <span role="status" aria-live="polite" className="text-xs text-amber-600 dark:text-amber-400">
+          {!ready
+            ? 'Set a time column and an altitude or pressure column to continue.'
+            : duplicated.length > 0
+              ? `${duplicated.join(' and ')} ${duplicated.length > 1 ? 'are' : 'is'} mapped to more than one column — only the first of each is used.`
+              : ''}
+        </span>
       </div>
     </div>
   );
