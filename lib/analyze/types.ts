@@ -12,6 +12,11 @@ export interface FlightEvent {
   /** AGL altitude at the event, metres. */
   altitude: number;
   provenance: Provenance;
+  /** Peak acceleration magnitude (m/s²) measured at a deployment event — the
+   *  "snatch" shock as the charge fires and the recovery gear snaps taut. Set for
+   *  apogee (apogee charge / ejection) and main only when the logger recorded
+   *  acceleration; absent otherwise. */
+  peakAccel?: number;
 }
 
 export interface FlightMetrics {

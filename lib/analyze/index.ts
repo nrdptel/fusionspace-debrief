@@ -17,6 +17,7 @@ import {
   medianDt,
   argMax,
   argMin,
+  peakAbsInWindow,
 } from './signal';
 
 /** Window (in samples) covering roughly `seconds`, clamped to something sane. */
@@ -396,10 +397,24 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   }
 
   // --- Events ---------------------------------------------------------------
+  // Deployment shock: the peak acceleration the airframe felt as a charge fired
+  // and the recovery gear snapped taut — the snatch force that breaks shock cords
+  // and zippers tubes. Read straight from the accelerometer in a short window at
+  // the apogee charge and the main deploy; only meaningful when the logger
+  // recorded acceleration (a coarse sample rate undersamples the spike, so treat
+  // it as a floor). Events that aren't deployments don't carry it.
+  const shockHalf = Math.max(2, Math.round(0.3 / (dt || 0.1)));
+  const shockAt = (idx: number | null): number | undefined => {
+    if (idx === null || accelerationSource !== 'device') return undefined;
+    const peak = peakAbsInWindow(acceleration, idx, shockHalf);
+    return Number.isFinite(peak) ? peak : undefined;
+  };
+
   const events: FlightEvent[] = [];
   const push = (type: FlightEvent['type'], idx: number | null, label: string, provenance: FlightEvent['provenance']) => {
     if (idx === null || idx < 0 || idx >= n) return;
-    events.push({ type, label, time: time[idx], index: idx, altitude: altClean[idx], provenance });
+    const peakAccel = type === 'apogee' || type === 'main' ? shockAt(idx) : undefined;
+    events.push({ type, label, time: time[idx], index: idx, altitude: altClean[idx], provenance, peakAccel });
   };
   if (liftoffFound) push('liftoff', liftoffIdx, 'Liftoff', accelerationSource === 'device' ? 'measured' : 'derived');
   if (ascentPresent) push('burnout', burnoutIdx, 'Burnout', accelerationSource === 'device' ? 'measured' : 'derived');

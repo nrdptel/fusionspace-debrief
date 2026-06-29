@@ -100,6 +100,12 @@ export default function Home() {
             touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
             of the flight you flew, shown only when the log descended to a readable landing rate.
           </Method>
+          <Method title="Deployment shock">
+            When the logger recorded acceleration, the peak the airframe felt as the apogee charge
+            and the main fired — the snatch force that breaks shock cords and zippers tubes — read
+            straight from the accelerometer at each deployment. A gentle deployment shows none; a
+            coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
+          </Method>
           <Method title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             giving way to a slow main — and marks it as the main deployment. Descent rates are the

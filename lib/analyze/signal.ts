@@ -117,6 +117,23 @@ export function medianDt(time: Float64Array): number {
   return diffs[diffs.length >> 1];
 }
 
+/** Largest absolute finite value within `half` samples either side of `center`
+ *  (the peak magnitude of a transient like a deployment shock), or NaN if the
+ *  window holds no finite samples. */
+export function peakAbsInWindow(values: Float64Array, center: number, half: number): number {
+  let peak = NaN;
+  const lo = Math.max(0, center - half);
+  const hi = Math.min(values.length - 1, center + half);
+  for (let i = lo; i <= hi; i++) {
+    const v = values[i];
+    if (Number.isFinite(v)) {
+      const a = Math.abs(v);
+      if (!(a <= peak)) peak = a; // NaN-safe max
+    }
+  }
+  return peak;
+}
+
 /** Index of the maximum finite value, or -1. */
 export function argMax(values: Float64Array, from = 0, to = values.length): number {
   let best = -1;

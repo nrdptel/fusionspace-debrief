@@ -424,6 +424,9 @@ export default function FlightReport({
                   {fmtTime(e.time)} · {fmtLength(e.altitude, sys)}
                 </span>
                 {eventSpeed(e.index) && <span className="block">{eventSpeed(e.index)}</span>}
+                {e.peakAccel != null && accelInG(e.peakAccel) >= 2 && (
+                  <span className="block">{fmtAccel(e.peakAccel)} shock</span>
+                )}
               </span>
             </div>
           ))}

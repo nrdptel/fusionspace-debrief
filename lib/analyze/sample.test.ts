@@ -37,4 +37,13 @@ describe('end-to-end on the bundled Altus Metrum sample', () => {
     const types = a.events.map((e) => e.type);
     expect(types).toEqual(expect.arrayContaining(['liftoff', 'burnout', 'apogee', 'main', 'landing']));
   });
+
+  it('reads a deployment shock at main from the accelerometer', () => {
+    if (result.kind !== 'flight') return;
+    const a = analyzeFlight(result.flight);
+    const main = a.events.find((e) => e.type === 'main');
+    // The logger recorded acceleration, so the main snatch is measured (~6.9 g here).
+    expect(main?.peakAccel).toBeDefined();
+    expect(main!.peakAccel! / 9.80665).toBeGreaterThan(2);
+  });
 });
