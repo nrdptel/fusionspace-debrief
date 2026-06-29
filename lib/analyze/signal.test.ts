@@ -1,5 +1,48 @@
 import { describe, it, expect } from 'vitest';
-import { peakAbsInWindow, longestRunNear } from './signal';
+import { peakAbsInWindow, longestRunNear, medianFilter } from './signal';
+
+// medianFilter runs a quickselect under the hood (it dominates the analysis on a
+// big log, and only ever needs the median, not a full sort). Pin it to a simple
+// sort-based reference over a lot of random data — odd and even windows, NaN gaps,
+// duplicates and edge clipping — so the fast path can't silently diverge.
+describe('medianFilter (quickselect) matches a sort-based reference', () => {
+  const ref = (values: Float64Array, window: number): Float64Array => {
+    const n = values.length;
+    const out = new Float64Array(n);
+    const half = Math.floor(window / 2);
+    for (let i = 0; i < n; i++) {
+      const buf: number[] = [];
+      for (let j = i - half; j <= i + half; j++) {
+        if (j < 0 || j >= n) continue;
+        if (Number.isFinite(values[j])) buf.push(values[j]);
+      }
+      if (buf.length === 0) {
+        out[i] = values[i];
+        continue;
+      }
+      buf.sort((a, b) => a - b);
+      const m = buf.length >> 1;
+      out[i] = buf.length % 2 ? buf[m] : (buf[m - 1] + buf[m]) / 2;
+    }
+    return out;
+  };
+
+  it('is identical to the reference across random data and window sizes', () => {
+    for (let trial = 0; trial < 200; trial++) {
+      const n = 5 + ((trial * 7) % 120);
+      const v = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        // Coarse rounding forces ties/duplicates (the case quickselect is fussiest on).
+        v[i] = i % 9 === 0 ? NaN : Math.round(Math.sin(i * 1.3 + trial) * 30) / 5;
+      }
+      for (const w of [3, 4, 7, 8, 21, 50]) {
+        const got = medianFilter(v, w);
+        const want = ref(v, w);
+        for (let i = 0; i < n; i++) expect(got[i]).toBe(want[i]);
+      }
+    }
+  });
+});
 
 describe('peakAbsInWindow', () => {
   const f = (xs: number[]) => Float64Array.from(xs);

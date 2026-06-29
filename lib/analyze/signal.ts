@@ -1,6 +1,60 @@
 // Small numerical helpers for the analysis pipeline. Everything here tolerates
 // NaN gaps and non-uniform time steps, because real logs have both.
 
+/**
+ * In-place quickselect: returns the k-th smallest of a[0..len-1] and partitions
+ * `a` so that a[0..k-1] are all ≤ a[k]. A median-of-three pivot keeps it ~O(len)
+ * on the nearly-sorted windows this sees — a sliding window over a smooth flight
+ * trace is almost in order, exactly where a naïve pivot degrades to O(len²). It
+ * also avoids Array.sort's per-comparison callback, the real cost on a big log:
+ * the median filters dominate the analysis, and they only ever need the median,
+ * not a fully sorted window.
+ */
+function quickselect(a: number[], len: number, k: number): number {
+  let lo = 0;
+  let hi = len - 1;
+  while (lo < hi) {
+    if (hi - lo >= 2) {
+      // Order a[lo] ≤ a[mid] ≤ a[hi] of the three, leaving their median at a[hi].
+      const mid = (lo + hi) >> 1;
+      let t: number;
+      if (a[mid] < a[lo]) { t = a[lo]; a[lo] = a[mid]; a[mid] = t; }
+      if (a[hi] < a[lo]) { t = a[lo]; a[lo] = a[hi]; a[hi] = t; }
+      if (a[mid] < a[hi]) { t = a[mid]; a[mid] = a[hi]; a[hi] = t; }
+    } else if (a[hi] < a[lo]) {
+      const t = a[lo]; a[lo] = a[hi]; a[hi] = t;
+    }
+    const pivot = a[hi];
+    let store = lo;
+    for (let i = lo; i < hi; i++) {
+      if (a[i] < pivot) {
+        const t = a[i]; a[i] = a[store]; a[store] = t;
+        store++;
+      }
+    }
+    const t = a[store]; a[store] = a[hi]; a[hi] = t; // pivot to its sorted place
+    if (store === k) return a[k];
+    if (store < k) lo = store + 1;
+    else hi = store - 1;
+  }
+  return a[lo];
+}
+
+/** Median of a scratch buffer (mutated in place). Even lengths average the two
+ *  middle order statistics, matching a sort-then-pick exactly. */
+function medianOf(buf: number[]): number {
+  const n = buf.length;
+  if (n === 1) return buf[0];
+  const mid = n >> 1;
+  if (n & 1) return quickselect(buf, n, mid);
+  // Even: after selecting the upper-middle element, a[0..mid-1] are all ≤ it, so
+  // the lower-middle order statistic is simply the largest of that left segment.
+  const upper = quickselect(buf, n, mid);
+  let lower = buf[0];
+  for (let i = 1; i < mid; i++) if (buf[i] > lower) lower = buf[i];
+  return (lower + upper) / 2;
+}
+
 /** Median of a window — the workhorse for killing single-sample ejection spikes. */
 export function medianFilter(values: Float64Array, window: number): Float64Array {
   const n = values.length;
@@ -18,17 +72,9 @@ export function medianFilter(values: Float64Array, window: number): Float64Array
       out[i] = values[i];
       continue;
     }
-    buf.sort((a, b) => a - b);
-    const m = buf.length >> 1;
-    out[i] = buf.length % 2 ? buf[m] : (buf[m - 1] + buf[m]) / 2;
+    out[i] = medianOf(buf);
   }
   return out;
-}
-
-function medianOf(buf: number[]): number {
-  buf.sort((a, b) => a - b);
-  const m = buf.length >> 1;
-  return buf.length % 2 ? buf[m] : (buf[m - 1] + buf[m]) / 2;
 }
 
 /**
