@@ -122,10 +122,28 @@ export function isNumeric(cell: string): boolean {
 
 // --- Writing ---------------------------------------------------------------
 
+// A cell a spreadsheet would run as a formula starts with one of these (or a
+// leading tab/CR). Untrusted text reaches an export here — a flight's column
+// labels and file name, which can arrive via a shared link — so a value like
+// "=HYPERLINK(...)" must not execute when the CSV is opened in Excel/Sheets.
+const FORMULA_LEAD = /^[=@\t\r]/;
+
+/** Defang a cell that a spreadsheet would treat as a formula (CWE-1236) by
+ *  prefixing a quote, so it's read as text. A real number is left untouched (a
+ *  leading +/- there is a sign, not a formula) so the data still round-trips. */
+export function formulaGuard(value: string): string {
+  if (value === '') return value;
+  const c = value[0];
+  const risky = FORMULA_LEAD.test(value) || ((c === '+' || c === '-') && !Number.isFinite(Number(value)));
+  return risky ? `'${value}` : value;
+}
+
 /** Quote a cell only when it needs it (a comma, quote or newline), doubling any
- *  embedded quotes — enough to keep grouped numbers like "1,234 ft" intact. */
+ *  embedded quotes — enough to keep grouped numbers like "1,234 ft" intact —
+ *  after defanging any spreadsheet-formula cell. */
 export function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  const v = formulaGuard(value);
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
 /** Join a grid of string cells into CSV text, quoting each cell as needed. */

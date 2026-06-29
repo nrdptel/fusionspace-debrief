@@ -6,6 +6,7 @@
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
 import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, UNIT_LABEL } from './display';
+import { formulaGuard } from './csv';
 
 export interface PlotChannel {
   key: string;
@@ -49,7 +50,9 @@ interface CsvColumn {
 }
 
 function csvHeader({ label, unit }: CsvColumn): string {
-  const h = unit ? `${label} (${unit})` : label;
+  // The label is file-derived (a logger's column name, or a flight's file name),
+  // so defang any spreadsheet-formula text before quoting it.
+  const h = formulaGuard(unit ? `${label} (${unit})` : label);
   return `"${h.replace(/"/g, '""')}"`;
 }
 

@@ -136,4 +136,13 @@ describe('exploreCsv', () => {
     );
     expect(csv.split('\n')).toHaveLength(1 + 2); // header + 2 rows
   });
+
+  it('defangs a formula-injected channel label (it arrives via the file/share link)', () => {
+    const csv = exploreCsv(
+      { label: 'Time', unit: 's', values: Float64Array.from([0, 1]) },
+      [{ label: '=HYPERLINK("http://evil")', unit: '', values: Float64Array.from([1, 2]) }],
+    );
+    // The header is quoted and prefixed with ' so a spreadsheet reads it as text.
+    expect(csv.split('\n')[0]).toBe('"Time (s)","\'=HYPERLINK(""http://evil"")"');
+  });
 });

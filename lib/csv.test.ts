@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { csvCell, toCsv, splitLine, detectDelimiter, parseTable, isNumeric } from './csv';
+import { csvCell, toCsv, splitLine, detectDelimiter, parseTable, isNumeric, formulaGuard } from './csv';
 
 describe('splitLine', () => {
   it('splits on the delimiter and trims cells', () => {
@@ -82,6 +82,27 @@ describe('csvCell', () => {
     expect(csvCell('1,234 ft')).toBe('"1,234 ft"');
     expect(csvCell('a "b" c')).toBe('"a ""b"" c"');
     expect(csvCell('line\nbreak')).toBe('"line\nbreak"');
+  });
+
+  it('defangs spreadsheet-formula cells (CWE-1236) without breaking numbers', () => {
+    // Formula-leading text is prefixed with a quote so a spreadsheet reads it as text.
+    expect(csvCell('=HYPERLINK("http://evil")')).toBe('"\'=HYPERLINK(""http://evil"")"');
+    expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvCell('+1+cmd')).toBe("'+1+cmd");
+    expect(csvCell('-2+3+cmd|calc')).toBe("'-2+3+cmd|calc"); // guarded; no comma → not quoted
+    // Real numbers (incl. negative/scientific) must pass through untouched so the
+    // exported data still round-trips as numbers.
+    expect(csvCell('-5.2')).toBe('-5.2');
+    expect(csvCell('+5')).toBe('+5');
+    expect(csvCell('1e5')).toBe('1e5');
+    expect(csvCell('Apogee')).toBe('Apogee');
+  });
+});
+
+describe('formulaGuard', () => {
+  it('only guards genuine formula leads', () => {
+    for (const s of ['=1', '+x', '-x', '@x', '\tx', '\rx']) expect(formulaGuard(s)).toBe(`'${s}`);
+    for (const s of ['-5', '+5', '0', '12.3', 'name', '', 'a=b']) expect(formulaGuard(s)).toBe(s);
   });
 });
 
