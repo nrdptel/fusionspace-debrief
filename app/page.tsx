@@ -131,6 +131,14 @@ export default function Home() {
             conditions — so a high-elevation launch reads its real, thinner air. Both ride on the
             derived velocity, so they soften near peak speed.
           </Method>
+          <Method title="Logbook & backup">
+            Flights you open are remembered in this browser (IndexedDB) for quick re-opening,
+            and a note keeps one as a permanent logbook entry. Because that lives only on this
+            device, <em>Export</em> bundles the whole logbook — flights and notes — into a JSON
+            file you keep, and <em>Import</em> merges it back, so a new machine or a cleared
+            browser doesn&apos;t lose it. The file never leaves your device; it&apos;s yours to
+            store wherever you like.
+          </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS)
             and Entacore AIM files are recognized automatically; the generic-CSV mapper — which also

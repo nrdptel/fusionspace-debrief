@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength, fmtSpeed } from '@/lib/display';
@@ -31,6 +31,8 @@ export default function RecentFlights({
   onClear,
   onCompare,
   onNote,
+  onExport,
+  onImport,
 }: {
   recents: RecentMeta[];
   sys: UnitSystem;
@@ -39,12 +41,43 @@ export default function RecentFlights({
   onClear: () => void;
   onCompare: (ids: string[]) => void;
   onNote: (id: string, note: string) => void;
+  onExport: () => void;
+  onImport: (file: File) => Promise<number>;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<LogbookSort>('recent');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [importMsg, setImportMsg] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const onImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be picked again
+    if (!file) return;
+    setImportMsg('Restoring…');
+    const n = await onImport(file);
+    setImportMsg(
+      n > 0
+        ? `Restored ${n} flight${n === 1 ? '' : 's'}.`
+        : 'No flights found in that file — is it a Debrief logbook export?',
+    );
+  };
+
+  // A hidden picker, shared by the header Import button and the empty-state
+  // "Restore it" link, so a backup can be brought back even on a fresh device.
+  const filePicker = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept=".json,application/json"
+      onChange={onImportChange}
+      className="hidden"
+      aria-hidden="true"
+      tabIndex={-1}
+    />
+  );
 
   const startEdit = (id: string, current: string) => {
     setEditingId(id);
@@ -66,7 +99,26 @@ export default function RecentFlights({
     });
   }, [presentKey]);
 
-  if (recents.length === 0) return null;
+  if (recents.length === 0) {
+    return (
+      <div className="mt-8">
+        {filePicker}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Flights you open are remembered here on this device — never uploaded. Got a logbook backup
+          from another machine?{' '}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+          >
+            Restore it
+          </button>
+          .
+        </p>
+        {importMsg && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{importMsg}</p>}
+      </div>
+    );
+  }
 
   const present = new Set(recents.map((r) => r.id));
   const chosen = [...selected].filter((id) => present.has(id));
@@ -86,6 +138,7 @@ export default function RecentFlights({
 
   return (
     <div className="mt-8">
+      {filePicker}
       <div className="flex items-baseline justify-between gap-4 border-b border-zinc-200 pb-2 dark:border-zinc-800">
         <h2 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
           Recent flights
@@ -100,6 +153,22 @@ export default function RecentFlights({
               Compare {chosen.length} flights
             </button>
           )}
+          <button
+            type="button"
+            onClick={onExport}
+            title="Download your logbook (flights + notes) as a backup file"
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            title="Restore flights from a logbook backup file"
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Import
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -257,10 +326,14 @@ export default function RecentFlights({
           );
         })}
       </ul>
+      {importMsg && <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">{importMsg}</p>}
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
         Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks
         your best; tick two or more to compare. Add a <span aria-hidden="true">✎</span> note (motor,
-        conditions, cert…) to keep a flight as a logbook entry that won&apos;t be pruned.
+        conditions, cert…) to keep a flight as a logbook entry that won&apos;t be pruned.{' '}
+        <strong className="font-medium text-zinc-600 dark:text-zinc-300">Export</strong> backs the whole
+        logbook up to a file you keep; <strong className="font-medium text-zinc-600 dark:text-zinc-300">Import</strong>{' '}
+        restores it on another machine.
       </p>
     </div>
   );

@@ -14,9 +14,20 @@ import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
-import { saveRecent, listRecents, getRecent, removeRecent, clearRecents, updateNote, type RecentMeta } from '@/lib/recents';
+import {
+  saveRecent,
+  listRecents,
+  getRecent,
+  removeRecent,
+  clearRecents,
+  updateNote,
+  exportLogbook,
+  importLogbook,
+  type RecentMeta,
+} from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
+import { download } from '@/lib/download';
 
 type State =
   | { phase: 'idle' }
@@ -316,6 +327,26 @@ export default function Analyzer() {
     [refreshRecents],
   );
 
+  // Back up the whole logbook to a file you keep, and restore it on another
+  // machine (or after a clear). Still entirely on-device — nothing is uploaded.
+  const exportLog = useCallback(async () => {
+    const json = await exportLogbook();
+    download(new Blob([json], { type: 'application/json' }), 'debrief-logbook.json');
+  }, []);
+
+  const importLog = useCallback(
+    async (file: File): Promise<number> => {
+      try {
+        const n = await importLogbook(await file.text());
+        if (n > 0) refreshRecents();
+        return n;
+      } catch {
+        return 0;
+      }
+    },
+    [refreshRecents],
+  );
+
   // A shared link carries the flight in the URL fragment; decode and analyze it.
   useEffect(() => {
     const payload = payloadFromHash(window.location.hash);
@@ -387,6 +418,8 @@ export default function Analyzer() {
           onClear={clearAll}
           onCompare={compareRecents}
           onNote={setNote}
+          onExport={exportLog}
+          onImport={importLog}
         />
       )}
     </div>
