@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { fmtSpeed } from '@/lib/display';
 import { landingEnergyJoules, joulesToFtLbf, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
-
-const MASS_KEY = 'debrief.mass.kg';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
 function massUnit(sys: UnitSystem): 'g' | 'oz' {
@@ -25,25 +23,24 @@ function plain(v: number, places: number): string {
   return String(Math.round(v * f) / f);
 }
 
-function readInitialMassKg(): number | null {
-  if (typeof window === 'undefined') return null;
-  const v = Number(window.localStorage.getItem(MASS_KEY));
-  return Number.isFinite(v) && v > 0 && v <= MAX_REASONABLE_MASS_KG ? v : null;
-}
-
 /**
  * Landing kinetic energy — how hard the rocket actually came in: ½·m·v² from the
  * descent rate the logger measured near touchdown and the descending mass the
  * flier supplies. A measurement of this flight, not a prediction; it's the figure
- * a cert flight card and many club waivers ask for, usually in ft·lbf.
+ * a cert flight card and many club waivers ask for, usually in ft·lbf. The
+ * descending mass is owned by the report (shared with the parachute-Cd panel).
  */
-export default function LandingEnergy({ metrics, sys }: { metrics: FlightMetrics; sys: UnitSystem }) {
-  const [massKg, setMassKg] = useState<number | null>(null);
-
-  useEffect(() => {
-    setMassKg(readInitialMassKg());
-  }, []);
-
+export default function LandingEnergy({
+  metrics,
+  sys,
+  massKg,
+  onMassKg,
+}: {
+  metrics: FlightMetrics;
+  sys: UnitSystem;
+  massKg: number | null;
+  onMassKg: (kg: number | null) => void;
+}) {
   const unit = massUnit(sys);
   const rate = metrics.mainDescentRate; // landing descent rate (m/s), measured
 
@@ -52,21 +49,10 @@ export default function LandingEnergy({ metrics, sys }: { metrics: FlightMetrics
   const onMass = (raw: string) => {
     const n = Number(raw);
     if (raw.trim() === '' || !Number.isFinite(n) || n <= 0) {
-      setMassKg(null);
-      try {
-        window.localStorage.removeItem(MASS_KEY);
-      } catch {
-        /* ignore */
-      }
+      onMassKg(null);
       return;
     }
-    const kg = Math.min(massToKg(n, unit), MAX_REASONABLE_MASS_KG);
-    setMassKg(kg);
-    try {
-      window.localStorage.setItem(MASS_KEY, String(kg));
-    } catch {
-      /* ignore */
-    }
+    onMassKg(Math.min(massToKg(n, unit), MAX_REASONABLE_MASS_KG));
   };
 
   const joules = useMemo(() => (massKg != null ? landingEnergyJoules(massKg, rate) : null), [massKg, rate]);

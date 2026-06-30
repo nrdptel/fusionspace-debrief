@@ -49,6 +49,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   drag area Cd·A) over the faster part of the coast, with the Mach window shown — the number
   to check your simulation's assumed Cd against. A *measurement* of the flown flight, not a
   prediction; softer (and flagged) on a logger without its own velocity.
+- Measures the **parachute Cd** — under a steady main the rocket is at terminal velocity, where
+  drag balances weight, so the canopy's drag coefficient (Cd = 2·m·g / ρv²A) falls out of the
+  measured descent rate, given the descending mass and canopy diameter. A *measurement* of how
+  the chute actually performed — check it against the rule of thumb (~0.75 flat, ~1.5 domed).
 - Reads **landing energy** — give it your rocket's descending mass and it reports the
   kinetic energy the flight came in with (½·m·v² from the measured landing descent
   rate, in ft·lbf and joules), the figure a certification flight card and many club

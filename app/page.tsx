@@ -119,6 +119,15 @@ export default function Home() {
             faster part of the coast, with the Mach window shown; a derived (baro) velocity makes it
             softer and it&apos;s flagged approximate.
           </Method>
+          <Method title="Parachute Cd">
+            How the main actually performed: under a steady canopy the rocket is at terminal
+            velocity, where drag balances weight, so C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;g ÷
+            (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A) falls straight out of the measured main descent rate, with
+            the descending mass and canopy diameter you supply (A is the canopy area, ρ the low-air
+            density). A measurement of the flown descent, not a prediction — check it against the
+            rule of thumb (~0.75 for a flat sheet, ~1.5 for a domed chute). It assumes the main
+            reached a steady rate.
+          </Method>
           <Method title="Landing energy">
             How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
             touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement

@@ -169,6 +169,30 @@ test('flags a saturated accelerometer on the bundled sample', async ({ page }) =
   await expect(page.getByText('may be clipped')).toBeVisible();
 });
 
+test('measures the parachute Cd from the descent, and remembers the inputs', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Parachute Cd (measured)' });
+  await expect(panel.getByRole('heading', { name: 'Parachute Cd (measured)' })).toBeVisible();
+  await expect(panel.getByText('—', { exact: true })).toBeVisible(); // nothing until inputs
+
+  // The descending mass is entered once (in Landing energy) and shared.
+  await page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/).fill('53'); // oz
+  await panel.getByLabel(/Canopy diameter/).fill('36'); // in
+  // A real canopy Cd lands in the rule-of-thumb band (this sample reads ~0.85), 2 dp.
+  await expect(panel.getByText(/^\d\.\d{2}$/)).toBeVisible();
+  await expect(panel.getByText(/terminal · rule of thumb/)).toBeVisible();
+
+  // The inputs stick across a reload (localStorage).
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('region', { name: 'Parachute Cd (measured)' }).getByLabel(/Canopy diameter/)).toHaveValue(
+    '36',
+  );
+  await expect(page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/)).toHaveValue('53');
+});
+
 test('measures the drag coefficient from the coast, and remembers the inputs', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

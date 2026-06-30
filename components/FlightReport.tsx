@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
@@ -11,6 +11,7 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
 import { buildPlotChannels } from '@/lib/explore';
 import { canMeasureDrag } from '@/lib/drag';
+import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 import Chart, { focusRange, type ChartMarker } from './Chart';
@@ -21,6 +22,7 @@ import FlightTimeline from './FlightTimeline';
 import RailExit from './RailExit';
 import LandingEnergy from './LandingEnergy';
 import DragCoefficient from './DragCoefficient';
+import ParachuteCd from './ParachuteCd';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 
@@ -50,6 +52,24 @@ export default function FlightReport({
   const dark = useIsDark();
   const { series, events, metrics, warnings } = analysis;
   const notes = flight.notes;
+
+  // The descending mass is one quantity used by two recovery panels (landing
+  // energy and parachute Cd), so the report owns it and feeds both — one input,
+  // no drift. Persisted on this device, like the unit choice.
+  const [massKg, setMassKgState] = useState<number | null>(null);
+  useEffect(() => {
+    const v = Number(window.localStorage.getItem('debrief.mass.kg'));
+    setMassKgState(Number.isFinite(v) && v > 0 && v <= MAX_REASONABLE_MASS_KG ? v : null);
+  }, []);
+  const setMassKg = useCallback((kg: number | null) => {
+    setMassKgState(kg);
+    try {
+      if (kg == null) window.localStorage.removeItem('debrief.mass.kg');
+      else window.localStorage.setItem('debrief.mass.kg', String(kg));
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const altChartRef = useRef<HTMLDivElement>(null);
   const printingRef = useRef(false);
   const [copied, setCopied] = useState(false);
@@ -442,7 +462,22 @@ export default function FlightReport({
 
       {/* Landing energy belongs with recovery — it reads off the measured landing
           descent rate, so it's only shown when the log actually descended to it. */}
-      {metrics.mainDescentRate != null && <LandingEnergy metrics={metrics} sys={sys} />}
+      {metrics.mainDescentRate != null && (
+        <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
+      )}
+
+      {/* Parachute Cd reads off the terminal main descent — shown with landing
+          energy, the other recovery measurement that needs the descending mass. */}
+      {metrics.mainDescentRate != null && (
+        <ParachuteCd
+          descentRate={metrics.mainDescentRate}
+          // Ground-level air density (first finite sample) — the main descends low,
+          // where density is near the pad's, so this is the right ρ for terminal v.
+          airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}
+          sys={sys}
+          massKg={massKg}
+        />
+      )}
 
       {gpsLat && gpsLon && (
         <GroundTrack
