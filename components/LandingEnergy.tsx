@@ -18,6 +18,13 @@ function round(v: number, places: number): string {
   return (Math.round(v * f) / f).toLocaleString('en-US', { maximumFractionDigits: places });
 }
 
+/** Like round, but without thousands separators — a grouped "1,500" is invalid in
+ *  a number input, so the editable mass field uses this (a heavy rocket is ≥1 kg). */
+function plain(v: number, places: number): string {
+  const f = Math.pow(10, places);
+  return String(Math.round(v * f) / f);
+}
+
 function readInitialMassKg(): number | null {
   if (typeof window === 'undefined') return null;
   const v = Number(window.localStorage.getItem(MASS_KEY));
@@ -40,7 +47,7 @@ export default function LandingEnergy({ metrics, sys }: { metrics: FlightMetrics
   const unit = massUnit(sys);
   const rate = metrics.mainDescentRate; // landing descent rate (m/s), measured
 
-  const massField = massKg == null ? '' : round(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);
+  const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);
 
   const onMass = (raw: string) => {
     const n = Number(raw);

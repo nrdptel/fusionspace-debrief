@@ -124,6 +124,29 @@ test('flags a saturated accelerometer on the bundled sample', async ({ page }) =
   await expect(page.getByText('may be clipped')).toBeVisible();
 });
 
+test('measures the drag coefficient from the coast, and remembers the inputs', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const drag = page.getByRole('region', { name: 'Drag coefficient (measured)' });
+  await expect(drag.getByRole('heading', { name: 'Drag coefficient (measured)' })).toBeVisible();
+  // Until both inputs are given there's nothing to compute.
+  await expect(drag.getByText('—', { exact: true })).toBeVisible();
+
+  // Imperial is the default unit system, so the fields read ounces and inches.
+  await drag.getByLabel(/Coast mass/).fill('53'); // oz (~1.5 kg)
+  await drag.getByLabel(/Body diameter/).fill('2.1'); // in (~54 mm)
+  // A real airframe Cd lands in a sane band (this sample reads ~0.65), shown to 2 dp.
+  await expect(drag.getByText(/^\d\.\d{2}$/)).toBeVisible();
+  await expect(drag.getByText(/over Mach/)).toBeVisible();
+
+  // The inputs stick across a reload (localStorage).
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByLabel(/Coast mass/)).toHaveValue('53');
+  await expect(page.getByLabel(/Body diameter/)).toHaveValue('2.1');
+});
+
 test('reports rail-exit velocity for a barometric flight, and remembers the rail', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

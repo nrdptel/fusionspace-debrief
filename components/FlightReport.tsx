@@ -10,6 +10,7 @@ import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
 import { buildPlotChannels } from '@/lib/explore';
+import { canMeasureDrag } from '@/lib/drag';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 import Chart, { focusRange, type ChartMarker } from './Chart';
@@ -19,6 +20,7 @@ import LogDetails from './LogDetails';
 import FlightTimeline from './FlightTimeline';
 import RailExit from './RailExit';
 import LandingEnergy from './LandingEnergy';
+import DragCoefficient from './DragCoefficient';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 
@@ -318,6 +320,10 @@ export default function FlightReport({
       {/* Rail-exit velocity is a fine-grained reading of the first couple of metres,
           so it only makes sense with barometric altitude — GPS is far too coarse. */}
       {series.altitudeSource !== 'gps' && <RailExit series={series} sys={sys} />}
+
+      {/* Measured drag coefficient — read from the coast deceleration, so it needs a
+          real coast between burnout and apogee (and an accelerometer or baro trace). */}
+      {canMeasureDrag(series, events) && <DragCoefficient series={series} events={events} sys={sys} />}
 
       <FlightTimeline events={events} metrics={metrics} sys={sys} />
 

@@ -34,6 +34,12 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   prediction, and flags a clearance speed on the low side for stability.
 - Shows the flight's shape at a glance — a proportional timeline breaks it into boost,
   coast and the descent legs, each with its duration and descent rate.
+- Measures the **drag coefficient** — after burnout the only forces on the airframe are
+  gravity and drag, so the coast deceleration is a direct reading of the drag the rocket
+  actually had. Give it the coast mass and body diameter and it back-calculates Cd (and the
+  drag area Cd·A) over the faster part of the coast, with the Mach window shown — the number
+  to check your simulation's assumed Cd against. A *measurement* of the flown flight, not a
+  prediction; softer (and flagged) on a logger without its own velocity.
 - Reads **landing energy** — give it your rocket's descending mass and it reports the
   kinetic energy the flight came in with (½·m·v² from the measured landing descent
   rate, in ft·lbf and joules), the figure a certification flight card and many club

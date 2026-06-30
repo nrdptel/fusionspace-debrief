@@ -98,6 +98,17 @@ export default function Home() {
             measurement, not a prediction; on a logger without its own velocity it rides on the derived
             velocity and is labelled approximate.
           </Method>
+          <Method title="Drag coefficient">
+            Back-calculated from the coast: after burnout and before apogee the only forces are
+            gravity and drag, so the deceleration is a direct reading of the drag the airframe had
+            on this flight. From the coast deceleration, the air density, and the coast mass and body
+            diameter you supply: C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;(drag deceleration) ÷
+            (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A). It&apos;s a measurement of the flown flight, not a
+            prediction — the figure to check your simulation&apos;s assumed C<sub>d</sub> against.
+            C<sub>d</sub> rises through the transonic region, so the value is the median over the
+            faster part of the coast, with the Mach window shown; a derived (baro) velocity makes it
+            softer and it&apos;s flagged approximate.
+          </Method>
           <Method title="Landing energy">
             How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
             touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
