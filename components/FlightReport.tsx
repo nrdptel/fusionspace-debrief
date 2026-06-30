@@ -24,6 +24,7 @@ import LandingEnergy from './LandingEnergy';
 import DragCoefficient from './DragCoefficient';
 import ParachuteCd from './ParachuteCd';
 import EjectionDelay from './EjectionDelay';
+import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 
@@ -465,6 +466,16 @@ export default function FlightReport({
           ))}
         </div>
       </div>
+
+      {/* Main-deploy altitude check — a dual-deploy flight fires the main at a set
+          altitude; this surfaces where it actually fired (and the drogue descent
+          before it). Shown only when a main deployment was detected. */}
+      {(() => {
+        const main = events.find((e) => e.type === 'main');
+        return main ? (
+          <DeployAltitude mainAltitudeM={main.altitude} apogeeAltitudeM={metrics.apogeeAltitude} sys={sys} />
+        ) : null;
+      })()}
 
       {/* Landing energy belongs with recovery — it reads off the measured landing
           descent rate, so it's only shown when the log actually descended to it. */}

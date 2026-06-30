@@ -268,6 +268,32 @@ test('computes landing energy from a supplied descending mass, and remembers it'
   await expect(page.getByLabel(/Descending mass/)).toHaveValue('24');
 });
 
+test('reads the main deploy altitude and checks it against a set value', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Main deploy altitude' });
+  await expect(panel.getByRole('heading', { name: 'Main deploy altitude' })).toBeVisible();
+  // The sample is dual-deploy: the main fired near 969 ft AGL, shown always.
+  await expect(panel.getByText(/\d{3} ft\b/).first()).toBeVisible();
+  await expect(panel.getByText(/of drogue descent first/)).toBeVisible();
+
+  // Setting ~the measured firing altitude → reads within slop, "on the mark".
+  await panel.getByLabel(/Set main deploy altitude/).fill('960');
+  await expect(panel.getByText(/right on the mark/)).toBeVisible();
+
+  // A much lower set value → the main reads as firing higher than set.
+  await panel.getByLabel(/Set main deploy altitude/).fill('500');
+  await expect(panel.getByText(/fired about .* higher/)).toBeVisible();
+
+  // The set altitude sticks across a reload (localStorage).
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('region', { name: 'Main deploy altitude' }).getByLabel(/Set main deploy altitude/)).toHaveValue(
+    '500',
+  );
+});
+
 test('frames the coast time as the ideal ejection delay and checks a flown delay', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

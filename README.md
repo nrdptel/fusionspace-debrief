@@ -47,6 +47,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   gained shows how much of the coast drag ate — the efficiency and the altitude drag cost
   (the bundled sample reaches 59%: drag cost it ~1,560 m). Pure energy conservation on the
   flown numbers, no model or prediction.
+- Checks the **main deploy altitude** — on a dual-deploy flight the altimeter fires the main at
+  a set altitude; Debrief reads off where it *actually* fired (and how far the rocket fell under
+  drogue first), and against the altitude you set it tells you how close the two were. A
+  *measurement* and a safety check — a main that fires well below its setting lands hard.
 - Checks the **ejection delay** — for a motor-ejection flight the ideal motor delay is the
   coast time (burnout → apogee), the moment the rocket is slowest and a charge deploys most
   gently. Debrief already measures that, so it frames it as the delay to load and, given the

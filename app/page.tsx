@@ -155,6 +155,13 @@ export default function Home() {
             straight from the accelerometer at each deployment. A gentle deployment shows none; a
             coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
           </Method>
+          <Method title="Main deploy altitude">
+            On a dual-deploy flight the altimeter fires the main at a set altitude. Debrief detects
+            the main deployment and the AGL altitude it happened at, so it reads off where the main
+            actually fired — and, given the altitude you set, how close the two were. It also shows
+            how far the rocket fell under drogue first (apogee minus the main altitude). A reading of
+            the flown flight and a safety check: a main that fires well below its setting lands hard.
+          </Method>
           <Method title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             giving way to a slow main — and marks it as the main deployment. Descent rates are the
