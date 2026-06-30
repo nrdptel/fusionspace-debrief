@@ -142,6 +142,69 @@ function rollFlight(rateDps: number): RawFlight {
   };
 }
 
+// A flight with a device velocity channel: it peaks at burnout (100 m/s) then
+// coasts to a chosen apogee, so the coast-efficiency arithmetic has known inputs.
+function coastFlight(): RawFlight {
+  const dt = 0.05;
+  const n = 220;
+  const time = new Float64Array(n);
+  const alt = new Float64Array(n);
+  const vel = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    time[i] = i * dt;
+    if (i <= 20) {
+      vel[i] = (i / 20) * 100; // boost: → 100 m/s at burnout
+      alt[i] = (i / 20) * 100; // → 100 m at burnout
+    } else if (i <= 120) {
+      const c = (i - 20) / 100;
+      vel[i] = 100 * (1 - c); // coast: 100 → 0
+      alt[i] = 100 + 300 * c * (2 - c); // → 400 m apogee
+    } else {
+      vel[i] = -15;
+      alt[i] = Math.max(0, 400 - (i - 120) * 5);
+    }
+  }
+  return {
+    source: 'synthetic',
+    format: 'test',
+    formatLabel: 'Test',
+    time,
+    channels: [
+      { kind: 'altitude', label: 'alt', unit: 'm', values: alt },
+      { kind: 'velocity', label: 'vel', unit: 'm/s', values: vel },
+    ],
+    meta: {},
+    notes: [],
+  };
+}
+
+describe('coast efficiency (drag loss)', () => {
+  it('matches the kinematic definition from the flown numbers', () => {
+    const a = analyzeFlight(coastFlight());
+    const vacuumGain = (a.metrics.burnoutVelocity! * a.metrics.burnoutVelocity!) / (2 * G0);
+    const actualGain = a.metrics.apogeeAltitude - a.metrics.burnoutAltitude!;
+    expect(a.metrics.coastEfficiency).toBeCloseTo(Math.min(1, actualGain / vacuumGain), 2);
+    expect(a.metrics.dragLossAltitude).toBeCloseTo(Math.max(0, vacuumGain - actualGain), 0);
+    // This flight is draggy (apogee gain < vacuum coast), so it's under 100%.
+    expect(a.metrics.coastEfficiency!).toBeGreaterThan(0.3);
+    expect(a.metrics.coastEfficiency!).toBeLessThan(1);
+  });
+
+  it('omits it without a detected burnout', () => {
+    // A descent-only / no-ascent log has no burnout to coast from.
+    const flat = analyzeFlight({
+      source: 's',
+      format: 't',
+      formatLabel: 'T',
+      time: Float64Array.from([0, 1, 2, 3, 4]),
+      channels: [{ kind: 'altitude', label: 'a', unit: 'm', values: Float64Array.from([100, 80, 60, 40, 20]) }],
+      meta: {},
+      notes: [],
+    });
+    expect(flat.metrics.coastEfficiency).toBeNull();
+  });
+});
+
 describe('roll / spin', () => {
   it('reads peak roll rate and total revolutions from a roll-rate channel', () => {
     const a = analyzeFlight(rollFlight(720));

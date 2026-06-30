@@ -99,6 +99,15 @@ export default function Home() {
             measurement, not a prediction; on a logger without its own velocity it rides on the derived
             velocity and is labelled approximate.
           </Method>
+          <Method title="Coast efficiency">
+            After burnout the rocket coasts on the energy it has; with no drag it would trade all of
+            its burnout speed for height — a vacuum coast of v²/2g above burnout. Comparing that to
+            the height actually gained reads off how much of the coast drag ate: the efficiency, and
+            the altitude drag cost. Pure energy conservation on the flown numbers, no aerodynamic
+            model. It assumes a near-vertical flight (a tilted one reads lower, since some coast went
+            sideways) and rides on the burnout velocity, so it&apos;s withheld when that&apos;s too
+            soft to trust.
+          </Method>
           <Method title="Drag coefficient">
             Back-calculated from the coast: after burnout and before apogee the only forces are
             gravity and drag, so the deceleration is a direct reading of the drag the airframe had

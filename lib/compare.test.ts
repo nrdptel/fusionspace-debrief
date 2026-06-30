@@ -22,6 +22,8 @@ const metrics = (apogee: number): FlightMetrics => ({
   burnoutAltitude: 50,
   burnoutVelocity: 90,
   coastTime: 1,
+  coastEfficiency: 0.6,
+  dragLossAltitude: 120,
   drogueDescentRate: 30,
   mainDescentRate: 6,
   descentTime: 10,

@@ -57,6 +57,12 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   if (m.burnoutVelocity != null)
     out.push({ label: 'Burnout velocity', value: fmtSpeed(m.burnoutVelocity, sys) });
   if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
+  if (m.coastEfficiency != null)
+    out.push({
+      label: 'Coast efficiency',
+      value: `${Math.round(m.coastEfficiency * 100)}%`,
+      sub: m.dragLossAltitude != null ? `drag cost ${fmtLength(m.dragLossAltitude, sys)}` : undefined,
+    });
   if (m.maxDynamicPressure != null)
     out.push({
       label: 'Max Q',

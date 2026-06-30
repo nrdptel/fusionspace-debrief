@@ -22,6 +22,8 @@ const base: FlightMetrics = {
   burnoutAltitude: 200,
   burnoutVelocity: 190,
   coastTime: 6,
+  coastEfficiency: 0.7,
+  dragLossAltitude: 200,
   drogueDescentRate: 20,
   mainDescentRate: 6,
   descentTime: 40,

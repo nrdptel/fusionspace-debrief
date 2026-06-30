@@ -46,6 +46,14 @@ export interface FlightMetrics {
   burnoutAltitude: number | null; // m AGL
   burnoutVelocity: number | null; // m/s
   coastTime: number | null; // s, burnout → apogee
+  /** How much of a drag-free coast the rocket achieved: the actual coast height
+   *  gain (apogee − burnout altitude) over the vacuum coast a body would gain from
+   *  the burnout velocity (v²/2g). 1.0 = no drag; the shortfall is what drag cost.
+   *  Pure kinematics on the flown numbers — null without a clean, physical coast. */
+  coastEfficiency: number | null;
+  /** Altitude drag cost over the coast (m): the vacuum coast height minus the
+   *  actual gain. The companion to coastEfficiency; null when that is. */
+  dragLossAltitude: number | null;
   drogueDescentRate: number | null; // m/s (positive = downward)
   mainDescentRate: number | null; // m/s
   descentTime: number | null; // s, apogee → landing

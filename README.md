@@ -38,6 +38,11 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   prediction, and flags a clearance speed on the low side for stability.
 - Shows the flight's shape at a glance — a proportional timeline breaks it into boost,
   coast and the descent legs, each with its duration and descent rate.
+- Reads **coast efficiency** — after burnout, with no drag, the rocket would trade all its
+  burnout speed for height (a vacuum coast of v²/2g). Comparing that to the height actually
+  gained shows how much of the coast drag ate — the efficiency and the altitude drag cost
+  (the bundled sample reaches 59%: drag cost it ~1,560 m). Pure energy conservation on the
+  flown numbers, no model or prediction.
 - Measures the **drag coefficient** — after burnout the only forces on the airframe are
   gravity and drag, so the coast deceleration is a direct reading of the drag the rocket
   actually had. Give it the coast mass and body diameter and it back-calculates Cd (and the

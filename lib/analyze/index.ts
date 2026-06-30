@@ -490,6 +490,25 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     if (lo !== Infinity) batteryMinV = lo;
   }
 
+  // --- Coast efficiency / drag loss ----------------------------------------
+  // After burnout the rocket coasts on what it has; with no drag it would convert
+  // its burnout kinetic energy straight to height (v²/2g above burnout). Comparing
+  // that vacuum coast to the height actually gained reads off what drag cost — pure
+  // energy conservation on the flown numbers, no aerodynamic model. Skipped when
+  // the velocity is too soft to trust (an underestimate makes the "actual" exceed
+  // the vacuum coast, which is unphysical) or there's no real coast.
+  let coastEfficiency: number | null = null;
+  let dragLossAltitude: number | null = null;
+  if (burnoutIdx !== null) {
+    const vBo = velocity[burnoutIdx];
+    const vacuumGain = Number.isFinite(vBo) ? (vBo * vBo) / (2 * G0) : NaN;
+    const actualGain = apogeeAlt - altClean[burnoutIdx];
+    if (vBo > 20 && vacuumGain > 0 && actualGain > 0 && actualGain <= vacuumGain * 1.05) {
+      coastEfficiency = Math.min(1, actualGain / vacuumGain);
+      dragLossAltitude = Math.max(0, vacuumGain - actualGain);
+    }
+  }
+
   // --- Roll / spin (when the logger recorded a roll-rate channel) ----------
   // Peak rate about the long axis (deg/s), and the total revolutions the airframe
   // turned through — the integral of |rate| over time / 360, so a spin in either
@@ -544,6 +563,8 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     burnoutAltitude: burnoutIdx !== null ? altClean[burnoutIdx] : null,
     burnoutVelocity: burnoutIdx !== null ? velocity[burnoutIdx] : null,
     coastTime: burnoutIdx !== null ? apogeeTime - time[burnoutIdx] : null,
+    coastEfficiency,
+    dragLossAltitude,
     drogueDescentRate,
     mainDescentRate,
     descentTime: landingFound ? landingTime - apogeeTime : null,

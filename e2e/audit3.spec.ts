@@ -118,6 +118,15 @@ test('shows the deployment shock on a flight that logged acceleration', async ({
   await expect(page.getByText(/\d+(\.\d+)?\s*g shock/).first()).toBeVisible();
 });
 
+test('reports coast efficiency (drag loss) on the bundled sample', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText('Coast efficiency', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^\d{1,3}%$/)).toBeVisible(); // e.g. "59%"
+  await expect(page.getByText(/drag cost [\d,]+ (ft|m)/)).toBeVisible(); // the tile sub, e.g. "drag cost 5,109 ft"
+});
+
 test('reads roll/spin from a mapped roll-rate column', async ({ page }) => {
   await page.goto('/');
   const csv =
