@@ -13,8 +13,24 @@
 
 const CACHE = 'debrief-runtime-v1';
 
-self.addEventListener('install', () => {
-  self.skipWaiting();
+// The one asset worth precaching: the bundled sample flight. Its URL is stable
+// across builds (not content-hashed), so caching it on install — unlike a drift-
+// prone precache manifest of the hashed app chunks — lets "Try a sample flight"
+// work on a first *offline* visit too, not only after it's been opened online.
+const PRECACHE = ['/samples/sample-altusmetrum.csv'];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE);
+        await cache.addAll(PRECACHE);
+      } catch {
+        /* offline at install, or asset moved — runtime caching still picks it up */
+      }
+      await self.skipWaiting();
+    })(),
+  );
 });
 
 self.addEventListener('activate', (event) => {
