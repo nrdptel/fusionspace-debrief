@@ -11,6 +11,16 @@ describe('splitLine', () => {
     expect(splitLine('0,"pad, armed",5', ',')).toEqual(['0', 'pad, armed', '5']);
     expect(splitLine('"a ""b"" c",1', ',')).toEqual(['a "b" c', '1']);
   });
+
+  it('the unquoted fast path matches a plain delimiter split + trim', () => {
+    // Unquoted lines take a native-split fast path (the hot path on a big log);
+    // it must be identical to splitting on the delimiter and trimming each cell.
+    for (const d of [',', '\t', ';', '|']) {
+      for (const s of ['0' + d + '5' + d + '12', ' a ' + d + ' b ', '', d, 'x' + d, d + 'y', '1.5' + d + '-2' + d + '3e4']) {
+        expect(splitLine(s, d)).toEqual(s.split(d).map((c) => c.trim()));
+      }
+    }
+  });
 });
 
 describe('detectDelimiter', () => {

@@ -63,6 +63,16 @@ function modeOf(nums: number[]): number {
 
 /** Split a single line on a delimiter, honouring double-quoted fields. */
 export function splitLine(line: string, delimiter: string): string[] {
+  // Fast path: with no quote anywhere, there's nothing to honour, so a native
+  // split (then trim) gives the identical result far more cheaply than the
+  // char-by-char scan — and altimeter CSVs are overwhelmingly unquoted, so this
+  // is the hot path when parsing a big log on the main thread.
+  if (line.indexOf('"') === -1) {
+    const parts = line.split(delimiter);
+    for (let i = 0; i < parts.length; i++) parts[i] = parts[i].trim();
+    return parts;
+  }
+
   const out: string[] = [];
   let field = '';
   let inQuotes = false;
