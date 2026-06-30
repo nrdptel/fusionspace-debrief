@@ -187,6 +187,76 @@ export function descentWind(
   return { speed: dist / dt, fromBearing: (toward + 180) % 360 };
 }
 
+export interface WindLayer {
+  /** Altitude band this layer covers (m AGL), low and high edges. */
+  altLoM: number;
+  altHiM: number;
+  /** Mean horizontal drift speed across the band, m/s (≈ the wind at that height). */
+  speed: number;
+  /** Compass bearing the wind blew FROM, degrees clockwise from north [0, 360). */
+  fromBearing: number;
+  /** How many GPS fixes the band was averaged over — its reliability. */
+  fixes: number;
+}
+
+/** Below this many fixes (or this little time) in a band, the drift is too sparse
+ *  to read a wind from — the band is skipped rather than reported from noise. */
+const WIND_LAYER_MIN_FIXES = 4;
+const WIND_LAYER_MIN_DT = 3; // s
+
+/**
+ * The wind profile the rocket fell through — the descent drift binned by altitude,
+ * so the wind (and how it shears with height) reads off layer by layer, not just as
+ * one average. Under canopy the rocket drifts with the air, so the mean horizontal
+ * velocity across each altitude band IS the wind at that height. A measurement of
+ * the day's conditions aloft at this exact spot, not a forecast. The slow main-phase
+ * (low) layers read cleanest; a fast drogue layer with too few fixes is dropped.
+ * Returns the qualifying layers ordered high → low (empty if none qualify).
+ */
+export function windProfile(
+  track: GroundTrack,
+  time: Float64Array,
+  altitude: Float64Array,
+  fromIndex: number,
+  toIndex: number,
+  apogeeAltitudeM: number,
+): WindLayer[] {
+  const { east, north } = track;
+  const n = Math.min(east.length, north.length, time.length, altitude.length);
+  const lo = Math.max(0, fromIndex);
+  const hi = Math.min(n - 1, toIndex);
+  if (hi - lo < 2 || !(apogeeAltitudeM > 0)) return [];
+  // ~5 bands across the flight, but never thinner than 150 m (a band has to span
+  // enough descent to gather fixes). A low flight just gets fewer, taller bands.
+  const bandH = Math.max(150, apogeeAltitudeM / 5);
+  const nBands = Math.max(1, Math.ceil(apogeeAltitudeM / bandH));
+  const layers: WindLayer[] = [];
+  for (let b = nBands - 1; b >= 0; b--) {
+    const altLo = b * bandH;
+    const altHi = (b + 1) * bandH;
+    // First and last valid fix that fall in this altitude band during the descent.
+    let a = -1;
+    let z = -1;
+    let fixes = 0;
+    for (let i = lo; i <= hi; i++) {
+      if (!Number.isFinite(east[i]) || !Number.isFinite(north[i]) || !Number.isFinite(time[i])) continue;
+      const alt = altitude[i];
+      if (!Number.isFinite(alt) || alt < altLo || alt >= altHi) continue;
+      if (a < 0) a = i;
+      z = i;
+      fixes++;
+    }
+    if (a < 0 || z <= a || fixes < WIND_LAYER_MIN_FIXES) continue;
+    const dt = time[z] - time[a];
+    if (!(dt >= WIND_LAYER_MIN_DT)) continue;
+    const dist = Math.hypot(east[z] - east[a], north[z] - north[a]);
+    let toward = (Math.atan2(east[z] - east[a], north[z] - north[a]) * 180) / Math.PI;
+    if (toward < 0) toward += 360;
+    layers.push({ altLoM: altLo, altHiM: altHi, speed: dist / dt, fromBearing: (toward + 180) % 360, fixes });
+  }
+  return layers;
+}
+
 /** Recovery numbers from an east/north track: how far it drifted and where it
  *  came down relative to the pad. Returns null if there's no usable fix. */
 export function recoveryStats(track: GroundTrack): RecoveryStats | null {

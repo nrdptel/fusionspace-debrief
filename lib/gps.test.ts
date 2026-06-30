@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean } from './gps';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile } from './gps';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -93,6 +93,39 @@ describe('descentWind', () => {
     expect(descentWind(calm, Float64Array.from([0, 5, 10]), 0, 2)).toBeNull(); // < 5 m drift
     const track = { east: Float64Array.from([0, 100]), north: Float64Array.from([0, 0]), lat0: 0, lon0: 0 };
     expect(descentWind(track, Float64Array.from([0, 0]), 0, 1)).toBeNull(); // zero elapsed time
+  });
+});
+
+describe('windProfile', () => {
+  // A 1000 m descent (apogee → ground): the air above 500 m drifts the rocket
+  // east (wind from the west), below 500 m it drifts north (wind from the south).
+  // Bands are apogee/5 = 200 m; 21 fixes at 1 Hz give every band ≥ 4 fixes.
+  const n = 21;
+  const alt = Float64Array.from({ length: n }, (_, i) => 1000 - 50 * i);
+  const time = Float64Array.from({ length: n }, (_, i) => i);
+  const east = Float64Array.from({ length: n }, (_, i) => 10 * Math.min(i, 10)); // east drift up high
+  const north = Float64Array.from({ length: n }, (_, i) => (i <= 10 ? 0 : 10 * (i - 10))); // north drift down low
+  const track = { east, north, lat0: 0, lon0: 0 };
+
+  it('bins the descent drift into wind layers, high → low, with the shear', () => {
+    const layers = windProfile(track, time, alt, 0, n - 1, 1000);
+    expect(layers.length).toBe(5);
+    // Ordered top band first.
+    expect(layers[0].altHiM).toBe(1000);
+    expect(layers[layers.length - 1].altLoM).toBe(0);
+    // The top layer drifts east ⇒ wind from the west; the bottom drifts north ⇒ from the south.
+    expect(compass(layers[0].fromBearing)).toBe('W');
+    expect(compass(layers[layers.length - 1].fromBearing)).toBe('S');
+    expect(layers[0].speed).toBeCloseTo(10, 0);
+    expect(layers[0].fixes).toBeGreaterThanOrEqual(4);
+  });
+
+  it('skips a band with too few fixes rather than reading noise', () => {
+    // Only two valid fixes in the whole window → no band qualifies.
+    const sparseT = Float64Array.from([0, 100]);
+    const sparseA = Float64Array.from([900, 100]);
+    const sparseTrack = { east: Float64Array.from([0, 80]), north: Float64Array.from([0, 0]), lat0: 0, lon0: 0 };
+    expect(windProfile(sparseTrack, sparseT, sparseA, 0, 1, 1000)).toEqual([]);
   });
 });
 

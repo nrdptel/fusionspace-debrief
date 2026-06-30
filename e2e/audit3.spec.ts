@@ -51,7 +51,9 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   await expect(page.getByText('Max drift', { exact: true })).toBeVisible();
   // The measured wind aloft (from the descent drift), e.g. "12 ft/s from E".
   await expect(page.getByText('Wind (descent)', { exact: true })).toBeVisible();
-  await expect(page.getByText(/from (N|NE|E|SE|S|SW|W|NW)$/)).toBeVisible();
+  // The descent-wind stat value sits above the wind-aloft profile (which also reads
+  // "… from <dir>"), so take the first match — the average stat, not a layer.
+  await expect(page.getByText(/from (N|NE|E|SE|S|SW|W|NW)$/).first()).toBeVisible();
   // How far off vertical the ascent flew (weathercocking), from the GPS track.
   await expect(page.getByText('Off vertical', { exact: true })).toBeVisible();
   await expect(page.getByText(/flew about \d+° off vertical/)).toBeVisible();
@@ -71,6 +73,19 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
     page.getByRole('button', { name: 'Save GPX' }).click(),
   ]);
   expect(gpx.suggestedFilename()).toMatch(/-track\.gpx$/);
+});
+
+test('reads a wind-aloft profile (shear by altitude) from the GPS descent', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));
+  await reachesReport(page);
+  // The descent drift binned by altitude — a layered table of wind vs height.
+  await expect(page.getByText('Wind aloft (by altitude)', { exact: true })).toBeVisible();
+  // Each layer reads "<n> ft/s from <dir>"; there are several (the shear profile).
+  const layers = page.getByText(/\d+\s*ft\/s from (N|NE|E|SE|S|SW|W|NW)$/);
+  expect(await layers.count()).toBeGreaterThanOrEqual(2);
+  // And an altitude band label like "650–1,301 ft".
+  await expect(page.getByText(/[\d,]+–[\d,]+ ft$/).first()).toBeVisible();
 });
 
 test('an Altus Metrum GPS flight also gets the recovery view', async ({ page }) => {

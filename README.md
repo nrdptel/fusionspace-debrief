@@ -78,7 +78,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   Earth. Drawn from your own GPS fixes; no map tiles are fetched, nothing leaves the browser.
   It also reads the **wind aloft** the rocket fell through — under canopy it drifts with the air,
   so its descent drift velocity is the measured wind (speed and the direction it came from), the
-  ground truth a forecast-based drift predictor only estimates. And it reads how far **off vertical**
+  ground truth a forecast-based drift predictor only estimates — and bins that drift by altitude
+  into a **wind profile**, the speed and direction in each layer so the shear with height shows
+  (the slow low layers read cleanest; a sparse fast layer is dropped). And it reads how far **off vertical**
   the ascent flew — the apogee's horizontal offset from the pad (weathercocking plus ascent drift),
   a lean that costs altitude to the cosine.
 - Opens up the full data — a channel explorer lets you plot anything the logger

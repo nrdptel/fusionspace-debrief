@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength, fmtSpeed, lengthIn, UNIT_LABEL } from '@/lib/display';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean } from '@/lib/gps';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile } from '@/lib/gps';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 
@@ -28,6 +28,7 @@ export default function GroundTrack({
   sys,
   stem,
   time,
+  altitude,
   descentFromIndex,
   apogeeIndex,
   apogeeAltitude,
@@ -39,6 +40,8 @@ export default function GroundTrack({
   stem: string;
   /** Flight time base (s), aligned with lat/lon — needed to read drift velocity. */
   time?: Float64Array;
+  /** Altitude (m AGL), aligned with lat/lon — needed for the wind-by-altitude profile. */
+  altitude?: Float64Array;
   /** Index the descent starts at (apogee or main deploy), for the wind reading. */
   descentFromIndex?: number;
   /** Apogee sample index and altitude (m AGL), for the off-vertical reading. */
@@ -63,6 +66,16 @@ export default function GroundTrack({
   const lean = useMemo(
     () => (track && apogeeIndex != null && apogeeAltitude != null ? ascentLean(track, apogeeIndex, apogeeAltitude) : null),
     [track, apogeeIndex, apogeeAltitude],
+  );
+  // The wind binned by altitude (apogee → landing), so the shear reads off layer by
+  // layer. Computed over the whole descent so every altitude the rocket fell through
+  // is covered; the single "Wind (descent)" stat above is the average of it.
+  const profile = useMemo(
+    () =>
+      track && time && altitude && stats && apogeeIndex != null && apogeeAltitude != null
+        ? windProfile(track, time, altitude, apogeeIndex, stats.landingIndex, apogeeAltitude)
+        : [],
+    [track, time, altitude, stats, apogeeIndex, apogeeAltitude],
   );
 
   useEffect(() => {
@@ -247,6 +260,35 @@ export default function GroundTrack({
           </>
         )}
       </p>
+
+      {/* The wind by altitude — the descent drift binned into layers, so the shear
+          shows. Only worth its own block when there are at least two layers (one
+          would just restate the average above). */}
+      {profile.length >= 2 && (
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h4 className="text-xs font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Wind aloft (by altitude)</h4>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">measured from the descent drift</span>
+          </div>
+          <dl className="mt-2 divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            {profile.map((l) => (
+              <div key={l.altLoM} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
+                <dt className="font-mono text-zinc-500 dark:text-zinc-400">
+                  {Math.round(lengthIn(l.altLoM, sys)).toLocaleString('en-US')}–
+                  {Math.round(lengthIn(l.altHiM, sys)).toLocaleString('en-US')} {UNIT_LABEL[sys].length}
+                </dt>
+                <dd className="font-mono font-medium text-zinc-800 dark:text-zinc-200">
+                  {fmtSpeed(l.speed, sys)} from {compass(l.fromBearing)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            Under canopy the rocket drifts with the air, so its drift across each layer is the wind there. The slow,
+            low layers read cleanest; a sparse upper layer is dropped rather than guessed.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

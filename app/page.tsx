@@ -174,7 +174,10 @@ export default function Home() {
             furthest it drifted. Positions are GPS, good to a few metres; no map tiles are fetched —
             it&apos;s drawn from your own fixes. Under canopy the rocket drifts with the air, so the
             mean drift velocity over the descent is read off as the <em>wind aloft</em> it actually
-            fell through — a measurement of the day&apos;s conditions, not a forecast. The apogee&apos;s
+            fell through — a measurement of the day&apos;s conditions, not a forecast. Binning that
+            drift by altitude gives the wind <em>profile</em> — the speed and direction in each layer,
+            so the shear with height shows; the slow, low layers (under the main) read cleanest, and a
+            sparse fast layer is dropped rather than guessed. The apogee&apos;s
             horizontal offset from the pad gives how far <em>off vertical</em> the ascent flew
             (weathercocking into the wind, plus the drift during the slow coast) — a lean that costs
             altitude to the cosine and carries the rocket further downrange.
