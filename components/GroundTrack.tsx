@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength, fmtSpeed, lengthIn, UNIT_LABEL } from '@/lib/display';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind } from '@/lib/gps';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean } from '@/lib/gps';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 
@@ -29,6 +29,8 @@ export default function GroundTrack({
   stem,
   time,
   descentFromIndex,
+  apogeeIndex,
+  apogeeAltitude,
 }: {
   lat: Float64Array;
   lon: Float64Array;
@@ -39,6 +41,9 @@ export default function GroundTrack({
   time?: Float64Array;
   /** Index the descent starts at (apogee or main deploy), for the wind reading. */
   descentFromIndex?: number;
+  /** Apogee sample index and altitude (m AGL), for the off-vertical reading. */
+  apogeeIndex?: number;
+  apogeeAltitude?: number;
 }) {
   const dark = useIsDark();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -54,6 +59,10 @@ export default function GroundTrack({
         ? descentWind(track, time, descentFromIndex, Math.min(lat.length, lon.length) - 1)
         : null,
     [track, time, descentFromIndex, lat.length, lon.length],
+  );
+  const lean = useMemo(
+    () => (track && apogeeIndex != null && apogeeAltitude != null ? ascentLean(track, apogeeIndex, apogeeAltitude) : null),
+    [track, apogeeIndex, apogeeAltitude],
   );
 
   useEffect(() => {
@@ -185,6 +194,11 @@ export default function GroundTrack({
           // drifts with the air, so its descent drift velocity is the wind aloft.
           <Stat label="Wind (descent)" value={`${fmtSpeed(wind.speed, sys)} from ${compass(wind.fromBearing)}`} />
         )}
+        {lean && (
+          // How far off vertical the ascent flew (weathercocking + ascent drift) —
+          // the apogee's horizontal offset from the pad.
+          <Stat label="Off vertical" value={`${Math.round(lean.angleDeg)}° ${compass(lean.towardBearing)}`} />
+        )}
       </dl>
 
       {/* The exact landing coordinates and a GPX you can navigate to on a phone
@@ -225,6 +239,13 @@ export default function GroundTrack({
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
         Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°), or put the coordinates
         into your phone/GPS — the cross marks the last fix. Positions are GPS, good to a few metres.
+        {lean && (
+          <>
+            {' '}
+            It flew about {Math.round(lean.angleDeg)}° off vertical — {fmtLength(lean.downrange, sys)} downrange
+            toward {compass(lean.towardBearing)} at apogee.
+          </>
+        )}
       </p>
     </div>
   );

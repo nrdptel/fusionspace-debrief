@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind } from './gps';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean } from './gps';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -93,6 +93,29 @@ describe('descentWind', () => {
     expect(descentWind(calm, Float64Array.from([0, 5, 10]), 0, 2)).toBeNull(); // < 5 m drift
     const track = { east: Float64Array.from([0, 100]), north: Float64Array.from([0, 0]), lat0: 0, lon0: 0 };
     expect(descentWind(track, Float64Array.from([0, 0]), 0, 1)).toBeNull(); // zero elapsed time
+  });
+});
+
+describe('ascentLean', () => {
+  it('measures the off-vertical angle and direction at apogee', () => {
+    // Apogee 100 m due east of the pad at 1000 m up → atan(100/1000) ≈ 5.71° toward E.
+    const track = { east: Float64Array.from([0, 50, 100]), north: Float64Array.from([0, 0, 0]), lat0: 0, lon0: 0 };
+    const lean = ascentLean(track, 2, 1000)!;
+    expect(lean.downrange).toBeCloseTo(100, 6);
+    expect(lean.angleDeg).toBeCloseTo(5.71, 1);
+    expect(compass(lean.towardBearing)).toBe('E');
+  });
+
+  it('falls back to the nearest valid fix when the apogee sample is a gap', () => {
+    const track = { east: Float64Array.from([0, 80, NaN]), north: Float64Array.from([0, 0, NaN]), lat0: 0, lon0: 0 };
+    const lean = ascentLean(track, 2, 1000)!; // apogee index 2 is NaN → use index 1
+    expect(lean.downrange).toBeCloseTo(80, 6);
+  });
+
+  it('returns null for an essentially vertical flight or a bad apogee', () => {
+    const track = { east: Float64Array.from([0, 1, 2]), north: Float64Array.from([0, 1, 1]), lat0: 0, lon0: 0 };
+    expect(ascentLean(track, 2, 1000)).toBeNull(); // < 5 m offset
+    expect(ascentLean(track, 2, 0)).toBeNull(); // no altitude
   });
 });
 

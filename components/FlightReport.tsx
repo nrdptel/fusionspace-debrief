@@ -454,6 +454,8 @@ export default function FlightReport({
           // The descent (for the measured wind) starts at the main deploy when one
           // was found, else at apogee — the low, wind-coupled part of the fall.
           descentFromIndex={(events.find((e) => e.type === 'main') ?? events.find((e) => e.type === 'apogee'))?.index}
+          apogeeIndex={events.find((e) => e.type === 'apogee')?.index}
+          apogeeAltitude={metrics.apogeeAltitude}
         />
       )}
 

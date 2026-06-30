@@ -49,6 +49,45 @@ export function groundTrack(lat: Float64Array, lon: Float64Array, baseN = 16): G
   return { east, north, lat0, lon0 };
 }
 
+export interface AscentLean {
+  /** Horizontal distance from the pad to the apogee point, metres. */
+  downrange: number;
+  /** Average flight-path angle off vertical from the pad to apogee, degrees. */
+  angleDeg: number;
+  /** Compass bearing the flight leaned toward, degrees clockwise from north. */
+  towardBearing: number;
+}
+
+/**
+ * How far off vertical the flight actually went — the horizontal offset of the
+ * apogee point from the pad, and the average angle off vertical to reach it.
+ * A measurement of the flown ascent (weathercocking into the wind, plus the wind
+ * drift during the slow coast near apogee); a steeply leaning flight loses
+ * altitude to the cosine and drifts further. Returns null without a usable apogee
+ * fix or when the offset is in the GPS noise (essentially vertical).
+ */
+export function ascentLean(track: GroundTrack, apogeeIndex: number, apogeeAltitude: number): AscentLean | null {
+  const { east, north } = track;
+  const n = Math.min(east.length, north.length);
+  if (!(apogeeAltitude > 0) || apogeeIndex < 0 || apogeeIndex >= n) return null;
+  // The exact apogee sample may be a gap, so take the nearest valid fix to it.
+  let idx = -1;
+  for (let r = 0; r < 30 && idx < 0; r++) {
+    for (const i of [apogeeIndex - r, apogeeIndex + r]) {
+      if (i >= 0 && i < n && Number.isFinite(east[i]) && Number.isFinite(north[i])) {
+        idx = i;
+        break;
+      }
+    }
+  }
+  if (idx < 0) return null;
+  const downrange = Math.hypot(east[idx], north[idx]);
+  if (downrange < 5) return null; // within the GPS noise — call it vertical
+  let toward = (Math.atan2(east[idx], north[idx]) * 180) / Math.PI;
+  if (toward < 0) toward += 360;
+  return { downrange, angleDeg: (Math.atan2(downrange, apogeeAltitude) * 180) / Math.PI, towardBearing: toward };
+}
+
 export interface RecoveryStats {
   /** Greatest horizontal distance from the pad over the whole flight, metres. */
   maxDrift: number;

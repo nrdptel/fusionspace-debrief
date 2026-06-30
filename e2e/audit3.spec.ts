@@ -52,6 +52,9 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   // The measured wind aloft (from the descent drift), e.g. "12 ft/s from E".
   await expect(page.getByText('Wind (descent)', { exact: true })).toBeVisible();
   await expect(page.getByText(/from (N|NE|E|SE|S|SW|W|NW)$/)).toBeVisible();
+  // How far off vertical the ascent flew (weathercocking), from the GPS track.
+  await expect(page.getByText('Off vertical', { exact: true })).toBeVisible();
+  await expect(page.getByText(/flew about \d+° off vertical/)).toBeVisible();
   // The canvas exposes a text description of the track for screen readers.
   await expect(page.getByRole('img', { name: /landed .* from the pad, bearing/i })).toBeVisible();
   // This flight is supersonic — the design-point note calls it out.
