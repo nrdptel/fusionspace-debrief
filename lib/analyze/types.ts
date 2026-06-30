@@ -42,6 +42,12 @@ export interface FlightMetrics {
    *  sensor that hit its full-scale limit (saturated). The reported max is then a
    *  floor, not the truth. Always false for a derived (baro) acceleration. */
   accelClipped: boolean;
+  /** Thrust-to-weight off the pad: the accelerometer's specific-force reading (in
+   *  g) right at liftoff is the thrust-to-weight ratio, since drag is negligible at
+   *  low speed — the "5:1 rule" launch-safety number. Null without a measured
+   *  accelerometer, or when the trace was saturated at liftoff (a railed reading
+   *  would understate it). */
+  liftoffTWR: number | null;
   burnTime: number | null; // s
   burnoutAltitude: number | null; // m AGL
   burnoutVelocity: number | null; // m/s

@@ -490,6 +490,23 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     if (lo !== Infinity) batteryMinV = lo;
   }
 
+  // --- Thrust-to-weight off the pad ----------------------------------------
+  // At liftoff the accelerometer's specific force (in g) is the thrust-to-weight
+  // ratio — drag is negligible at low speed, so accel/g ≈ T/W. The 5:1 rule of
+  // thumb is the rail-departure safety check. Measured trace only, averaged over a
+  // short window off the pad (capped at burnout for a very short motor), and
+  // withheld if that window was saturated — a railed reading understates the true
+  // thrust, so it's better to show nothing than a floor.
+  let liftoffTWR: number | null = null;
+  if (ascentPresent && liftoffFound && accelerationSource === 'device') {
+    const w = Math.max(2, Math.round(0.2 / (dt || 0.1)));
+    const hi = Math.min(n, liftoffRef + w, burnoutIdx ?? n);
+    const m = hi > liftoffRef + 1 ? mean(acceleration, liftoffRef, hi) : NaN;
+    if (Number.isFinite(m) && m > 0 && !(accelClipped && m >= 0.97 * maxAcceleration)) {
+      liftoffTWR = m / G0;
+    }
+  }
+
   // --- Coast efficiency / drag loss ----------------------------------------
   // After burnout the rocket coasts on what it has; with no drag it would convert
   // its burnout kinetic energy straight to height (v²/2g above burnout). Comparing
@@ -559,6 +576,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxDeceleration,
     accelerationSource,
     accelClipped,
+    liftoffTWR,
     burnTime: burnoutIdx !== null && liftoffFound ? time[burnoutIdx] - liftoffTime : null,
     burnoutAltitude: burnoutIdx !== null ? altClean[burnoutIdx] : null,
     burnoutVelocity: burnoutIdx !== null ? velocity[burnoutIdx] : null,

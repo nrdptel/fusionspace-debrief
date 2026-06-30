@@ -20,6 +20,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Reads a flight log and reports apogee, max velocity (and Mach), max and average
   acceleration, max Q (peak dynamic pressure), burnout, time-to-apogee, coast time,
   deployments, descent rates, and flight time.
+- Reads **thrust-to-weight off the pad** — when the logger recorded acceleration, the g it
+  pulled at liftoff *is* the thrust-to-weight ratio (drag is negligible at low speed), the
+  "5:1 rule" rail-departure safety number — measured, not predicted, and withheld when the
+  accelerometer saturated at liftoff (a railed reading would understate it).
 - Reads **deployment shock** — when the logger recorded acceleration, the peak g the
   airframe felt as the apogee charge and the main fired (the snatch force that breaks
   shock cords and zippers tubes), shown on those events.

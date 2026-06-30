@@ -87,6 +87,14 @@ export default function Home() {
             saturates — the maximum is flagged as <em>may be clipped</em>, since the real peak could
             be higher.
           </Method>
+          <Method title="Thrust-to-weight (off the pad)">
+            The accelerometer&apos;s reading in g right at liftoff is the thrust-to-weight ratio —
+            at low speed drag is negligible, so the specific force it senses is just thrust over
+            weight. It&apos;s the &ldquo;5:1 rule&rdquo; number, the rail-departure safety check,
+            measured rather than predicted. Only from a real accelerometer (averaged over a moment
+            off the pad), and withheld when the trace was saturated at liftoff — a railed sensor
+            would read a floor, not the true thrust.
+          </Method>
           <Method title="Liftoff & burnout">
             With an accelerometer, liftoff is the first sustained kick above about 2 g and burnout is
             where axial acceleration falls back through zero. With baro only, liftoff is the first real

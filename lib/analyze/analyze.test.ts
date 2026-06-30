@@ -178,6 +178,21 @@ function coastFlight(): RawFlight {
   };
 }
 
+describe('thrust-to-weight off the pad', () => {
+  it('reads a thrust-to-weight from a clean accelerometer boost', () => {
+    // accelFlight has a rounded (un-clipped) boost, so the liftoff window is a
+    // trustworthy specific-force reading → a real T/W, between 1 and the peak g.
+    const a = analyzeFlight(accelFlight(null));
+    expect(a.metrics.liftoffTWR).not.toBeNull();
+    expect(a.metrics.liftoffTWR!).toBeGreaterThan(2);
+    expect(a.metrics.liftoffTWR!).toBeLessThan(a.metrics.maxAcceleration / G0);
+  });
+
+  it('omits it without a measured accelerometer', () => {
+    expect(analyzeFlight(syntheticBaroFlight().flight).metrics.liftoffTWR).toBeNull();
+  });
+});
+
 describe('coast efficiency (drag loss)', () => {
   it('matches the kinematic definition from the flown numbers', () => {
     const a = analyzeFlight(coastFlight());

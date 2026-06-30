@@ -47,6 +47,15 @@ describe('end-to-end on the bundled Altus Metrum sample', () => {
     expect(main!.peakAccel! / 9.80665).toBeGreaterThan(2);
   });
 
+  it('withholds thrust-to-weight when the accelerometer saturated at liftoff', () => {
+    if (result.kind !== 'flight') return;
+    const a = analyzeFlight(result.flight);
+    // This sample's accelerometer railed from the pad (it flags as clipped), so a
+    // T/W read off it would be a floor — it's withheld rather than shown low.
+    expect(a.metrics.accelClipped).toBe(true);
+    expect(a.metrics.liftoffTWR).toBeNull();
+  });
+
   it('reads the battery voltage when the logger recorded it', () => {
     if (result.kind !== 'flight') return;
     const a = analyzeFlight(result.flight);

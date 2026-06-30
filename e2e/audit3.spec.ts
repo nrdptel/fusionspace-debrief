@@ -160,6 +160,23 @@ test('reports average boost acceleration alongside the peak', async ({ page }) =
   await expect(page.getByText('over the boost', { exact: true })).toBeVisible();
 });
 
+test('reports thrust-to-weight off the pad on a clean accel flight, withholds it on a saturated one', async ({
+  page,
+}) => {
+  // The AIM flight's accelerometer didn't saturate at liftoff → a real T/W (~7.5:1).
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('aim-xtra.csv'));
+  await reachesReport(page);
+  await expect(page.getByText('Thrust-to-weight', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^\d+(\.\d)?:1$/)).toBeVisible(); // e.g. "7.5:1"
+
+  // The bundled sample railed its accelerometer from the pad → T/W is withheld.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText('Thrust-to-weight', { exact: true })).toHaveCount(0);
+});
+
 test('flags a saturated accelerometer on the bundled sample', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

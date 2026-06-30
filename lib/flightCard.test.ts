@@ -18,6 +18,7 @@ const base: FlightMetrics = {
   maxDeceleration: -20,
   accelerationSource: 'device',
   accelClipped: false,
+  liftoffTWR: null,
   burnTime: 1.6,
   burnoutAltitude: 200,
   burnoutVelocity: 190,

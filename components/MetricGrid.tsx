@@ -51,6 +51,8 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
 
   if (m.avgBoostAcceleration != null)
     out.push({ label: 'Avg acceleration', value: fmtAccel(m.avgBoostAcceleration), sub: 'over the boost' });
+  if (m.liftoffTWR != null)
+    out.push({ label: 'Thrust-to-weight', value: `${m.liftoffTWR.toFixed(1)}:1`, sub: 'off the pad' });
   if (m.burnTime != null) out.push({ label: 'Burn time', value: fmtTime(m.burnTime) });
   if (m.burnoutAltitude != null)
     out.push({ label: 'Burnout altitude', value: fmtLength(m.burnoutAltitude, sys) });

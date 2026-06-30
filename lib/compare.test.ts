@@ -18,6 +18,7 @@ const metrics = (apogee: number): FlightMetrics => ({
   maxDeceleration: -20,
   accelerationSource: 'baro',
   accelClipped: false,
+  liftoffTWR: null,
   burnTime: 1,
   burnoutAltitude: 50,
   burnoutVelocity: 90,
