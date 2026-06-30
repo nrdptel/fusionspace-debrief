@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
-import { fmtSpeed } from '@/lib/display';
-import { landingEnergyJoules, joulesToFtLbf, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
+import { fmtSpeed, fmtLength } from '@/lib/display';
+import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
 function massUnit(sys: UnitSystem): 'g' | 'oz' {
@@ -57,6 +57,9 @@ export default function LandingEnergy({
 
   const joules = useMemo(() => (massKg != null ? landingEnergyJoules(massKg, rate) : null), [massKg, rate]);
   const ftlbf = joules != null ? joulesToFtLbf(joules) : null;
+  // The landing speed as a free-fall drop height — exact, needs no mass, and makes
+  // the rate intuitive for the "was that too hard?" call.
+  const drop = dropHeightM(rate);
 
   return (
     <section
@@ -113,6 +116,15 @@ export default function LandingEnergy({
           </span>
         )}
       </div>
+
+      {/* The landing speed as a free-fall drop height — exact and mass-free, so it
+          shows even before a mass is entered, giving the gut-feel "how hard". */}
+      {drop != null && rate != null && (
+        <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+          Touched down at <span className="font-medium">{fmtSpeed(rate, sys)}</span> — the speed of a free-fall drop from{' '}
+          <span className="font-medium">{fmtLength(drop, sys)}</span>.
+        </p>
+      )}
 
       {rate == null ? (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

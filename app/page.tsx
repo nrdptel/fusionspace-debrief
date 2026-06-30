@@ -149,7 +149,10 @@ export default function Home() {
           <Method title="Landing energy">
             How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
             touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
-            of the flight you flew, shown only when the log descended to a readable landing rate.
+            of the flight you flew, shown only when the log descended to a readable landing rate. The
+            landing speed is also given as the free-fall <em>drop height</em> that reaches it
+            (h&nbsp;=&nbsp;v²/2g) — exact and mass-free, the gut-feel &ldquo;it came in like a drop from
+            here&rdquo; for judging whether a landing was too hard.
           </Method>
           <Method title="Deployment shock">
             When the logger recorded acceleration, the peak the airframe felt as the apogee charge

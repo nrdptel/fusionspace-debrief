@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { landingEnergyJoules, joulesToFtLbf, massToKg, JOULES_PER_FTLBF } from './landing';
+import { landingEnergyJoules, joulesToFtLbf, massToKg, JOULES_PER_FTLBF, dropHeightM } from './landing';
 
 describe('landingEnergyJoules', () => {
   it('computes ½·m·v² from the descending mass and landing descent rate', () => {
@@ -13,6 +13,22 @@ describe('landingEnergyJoules', () => {
     expect(landingEnergyJoules(1.5, null)).toBeNull(); // no descent rate (log ended at apogee)
     expect(landingEnergyJoules(1.5, 0)).toBeNull(); // not descending
     expect(landingEnergyJoules(1.5, -4)).toBeNull(); // sign guard
+  });
+});
+
+describe('dropHeightM', () => {
+  it('gives the free-fall height that reaches the landing speed (h = v²/2g)', () => {
+    // 9.80665 m/s lands exactly as a 1 g free fall from h = v²/2g = 4.9 m.
+    expect(dropHeightM(9.80665)).toBeCloseTo(4.903325, 5);
+    // A gentle 5 m/s → ~1.27 m; a hard 20 m/s → ~20.4 m.
+    expect(dropHeightM(5)).toBeCloseTo(1.2742, 3);
+    expect(dropHeightM(20)).toBeCloseTo(20.394, 2);
+  });
+
+  it('returns null without a usable descent rate', () => {
+    expect(dropHeightM(null)).toBeNull();
+    expect(dropHeightM(0)).toBeNull();
+    expect(dropHeightM(-3)).toBeNull();
   });
 });
 

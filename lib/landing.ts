@@ -4,6 +4,8 @@
 // predicted or modelled; it's the energy this flight landed with, the figure a
 // cert flight card and many club waivers ask for (usually in ft·lbf).
 
+import { G0 } from './units';
+
 /** 1 ft·lbf in joules — the energy unit recovery limits are written in. */
 export const JOULES_PER_FTLBF = 1.3558179483;
 
@@ -32,4 +34,13 @@ export function landingEnergyJoules(massKg: number, descentRateMs: number | null
 
 export function joulesToFtLbf(joules: number): number {
   return joules / JOULES_PER_FTLBF;
+}
+
+/** The free-fall drop height (m) that reaches the measured landing speed: from
+ *  v² = 2·g·h, h = v²/2g. An exact, mass-free way to make the landing rate
+ *  intuitive — "it touched down at the speed of a drop from this height" — for the
+ *  is-this-landing-too-hard judgement. null for a missing/non-positive rate. */
+export function dropHeightM(descentRateMs: number | null): number | null {
+  if (descentRateMs == null || !(descentRateMs > 0)) return null;
+  return (descentRateMs * descentRateMs) / (2 * G0);
 }

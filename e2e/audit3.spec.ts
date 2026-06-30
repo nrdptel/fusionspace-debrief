@@ -294,6 +294,9 @@ test('computes landing energy from a supplied descending mass, and remembers it'
   // Until a mass is entered there's nothing to compute.
   await expect(panel.getByText('—', { exact: true })).toBeVisible();
 
+  // The mass-free drop-height read shows even before a mass is entered.
+  await expect(panel.getByText(/free-fall drop from \d/)).toBeVisible();
+
   await panel.getByLabel(/Descending mass/).fill('24');
   // ½·m·v² in ft·lbf (imperial default) — e.g. "11 ft·lbf".
   await expect(panel.getByText(/\d+(\.\d+)?\s*ft·lbf/)).toBeVisible();

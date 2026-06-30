@@ -72,7 +72,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   kinetic energy the flight came in with (½·m·v² from the measured landing descent
   rate, in ft·lbf and joules), the figure a certification flight card and many club
   waivers ask for. Like rail-exit, it's a *measurement* of the flown flight, not a
-  prediction.
+  prediction. It also frames the landing speed as the free-fall **drop height** that reaches it
+  (h = v²/2g) — exact and mass-free, the gut-feel "it came in like a drop from here" for judging
+  whether a landing was too hard.
 - Helps you find it — for a flight with a GPS track, a north-up recovery map plots the
   ground track and reports how far and which way it landed from the pad (and the furthest
   it drifted), gives the exact landing coordinates to copy, and exports the track plus a
