@@ -444,7 +444,18 @@ export default function FlightReport({
           descent rate, so it's only shown when the log actually descended to it. */}
       {metrics.mainDescentRate != null && <LandingEnergy metrics={metrics} sys={sys} />}
 
-      {gpsLat && gpsLon && <GroundTrack lat={gpsLat.values} lon={gpsLon.values} sys={sys} stem={stem} />}
+      {gpsLat && gpsLon && (
+        <GroundTrack
+          lat={gpsLat.values}
+          lon={gpsLon.values}
+          sys={sys}
+          stem={stem}
+          time={series.time}
+          // The descent (for the measured wind) starts at the main deploy when one
+          // was found, else at apogee — the low, wind-coupled part of the fall.
+          descentFromIndex={(events.find((e) => e.type === 'main') ?? events.find((e) => e.type === 'apogee'))?.index}
+        />
+      )}
 
       <div className="print:hidden">
         <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundTrack, recoveryStats, compass, trackGpx } from './gps';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind } from './gps';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -69,6 +69,30 @@ describe('trackGpx', () => {
 
   it('escapes XML in the track name', () => {
     expect(gpx).toContain('<name>rocket &amp; co</name>');
+  });
+});
+
+describe('descentWind', () => {
+  it('reads the wind from a steady drift over the descent window', () => {
+    // Over 10 s the rocket drifts 100 m due east → 10 m/s, and since it drifts
+    // toward the east, the wind is FROM the west (270°).
+    const track = {
+      east: Float64Array.from([0, 0, 50, 100]),
+      north: Float64Array.from([0, 0, 0, 0]),
+      lat0: 0,
+      lon0: 0,
+    };
+    const time = Float64Array.from([0, 5, 10, 15]); // descent window: index 1 → 3 (10 s)
+    const w = descentWind(track, time, 1, 3)!;
+    expect(w.speed).toBeCloseTo(10, 6);
+    expect(w.fromBearing).toBeCloseTo(270, 6); // drifts east ⇒ wind from the west
+  });
+
+  it('returns null for negligible drift or a degenerate window', () => {
+    const calm = { east: Float64Array.from([0, 1, 0]), north: Float64Array.from([0, 0, 1]), lat0: 0, lon0: 0 };
+    expect(descentWind(calm, Float64Array.from([0, 5, 10]), 0, 2)).toBeNull(); // < 5 m drift
+    const track = { east: Float64Array.from([0, 100]), north: Float64Array.from([0, 0]), lat0: 0, lon0: 0 };
+    expect(descentWind(track, Float64Array.from([0, 0]), 0, 1)).toBeNull(); // zero elapsed time
   });
 });
 

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { UnitSystem } from '@/lib/display';
-import { fmtLength, lengthIn, UNIT_LABEL } from '@/lib/display';
-import { groundTrack, recoveryStats, compass, trackGpx } from '@/lib/gps';
+import { fmtLength, fmtSpeed, lengthIn, UNIT_LABEL } from '@/lib/display';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind } from '@/lib/gps';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 
@@ -27,12 +27,18 @@ export default function GroundTrack({
   lon,
   sys,
   stem,
+  time,
+  descentFromIndex,
 }: {
   lat: Float64Array;
   lon: Float64Array;
   sys: UnitSystem;
   /** Filesystem-safe stem of the source file, for the GPX filename. */
   stem: string;
+  /** Flight time base (s), aligned with lat/lon — needed to read drift velocity. */
+  time?: Float64Array;
+  /** Index the descent starts at (apogee or main deploy), for the wind reading. */
+  descentFromIndex?: number;
 }) {
   const dark = useIsDark();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -42,6 +48,13 @@ export default function GroundTrack({
 
   const track = useMemo(() => groundTrack(lat, lon), [lat, lon]);
   const stats = useMemo(() => (track ? recoveryStats(track) : null), [track]);
+  const wind = useMemo(
+    () =>
+      track && time && descentFromIndex != null
+        ? descentWind(track, time, descentFromIndex, Math.min(lat.length, lon.length) - 1)
+        : null,
+    [track, time, descentFromIndex, lat.length, lon.length],
+  );
 
   useEffect(() => {
     const host = hostRef.current;
@@ -167,6 +180,11 @@ export default function GroundTrack({
         <Stat label="Landed from pad" value={fmtLength(stats.landingDistance, sys)} />
         <Stat label="Bearing" value={`${bearing}° ${compass(stats.landingBearing)}`} />
         <Stat label="Max drift" value={fmtLength(stats.maxDrift, sys)} />
+        {wind && (
+          // The wind it actually fell through, measured: under canopy the rocket
+          // drifts with the air, so its descent drift velocity is the wind aloft.
+          <Stat label="Wind (descent)" value={`${fmtSpeed(wind.speed, sys)} from ${compass(wind.fromBearing)}`} />
+        )}
       </dl>
 
       {/* The exact landing coordinates and a GPX you can navigate to on a phone

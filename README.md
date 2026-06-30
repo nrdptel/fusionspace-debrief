@@ -54,6 +54,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   it drifted), gives the exact landing coordinates to copy, and exports the track plus a
   landing waypoint as a **GPX** you can navigate to on a phone, handheld GPS, or in Google
   Earth. Drawn from your own GPS fixes; no map tiles are fetched, nothing leaves the browser.
+  It also reads the **wind aloft** the rocket fell through — under canopy it drifts with the air,
+  so its descent drift velocity is the measured wind (speed and the direction it came from), the
+  ground truth a forecast-based drift predictor only estimates.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
   alongside Debrief's own derived channels — including **Mach number** and

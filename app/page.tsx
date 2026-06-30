@@ -131,7 +131,9 @@ export default function Home() {
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
             north-up, equal-scale map and reads off how far and which way the rocket landed, and the
             furthest it drifted. Positions are GPS, good to a few metres; no map tiles are fetched —
-            it&apos;s drawn from your own fixes.
+            it&apos;s drawn from your own fixes. Under canopy the rocket drifts with the air, so the
+            mean drift velocity over the descent is read off as the <em>wind aloft</em> it actually
+            fell through — a measurement of the day&apos;s conditions, not a forecast.
           </Method>
           <Method title="Roll &amp; spin">
             When the logger recorded a roll-rate channel (angular rate about the long axis), Debrief

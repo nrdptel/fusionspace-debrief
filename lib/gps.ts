@@ -98,6 +98,56 @@ export function compass(bearing: number): string {
   return points[Math.round((((bearing % 360) + 360) % 360) / 45) % 8];
 }
 
+export interface DescentWind {
+  /** Average horizontal drift speed over the descent, m/s (≈ the wind speed). */
+  speed: number;
+  /** Compass bearing the wind blew FROM, degrees clockwise from north [0, 360). */
+  fromBearing: number;
+}
+
+/**
+ * The wind the rocket actually fell through, measured — under canopy it drifts
+ * with the air, so its mean horizontal velocity over the descent IS the wind.
+ * Net horizontal displacement across the descent window divided by the elapsed
+ * time, so a steady wind reads cleanly and brief GPS jitter averages out. This is
+ * a reading of the conditions aloft on the day, not a forecast or a prediction.
+ * Returns null when the window is too short, lacks fixes, or barely drifted.
+ */
+export function descentWind(
+  track: GroundTrack,
+  time: Float64Array,
+  fromIndex: number,
+  toIndex: number,
+): DescentWind | null {
+  const { east, north } = track;
+  const n = Math.min(east.length, north.length, time.length);
+  const lo = Math.max(0, fromIndex);
+  const hi = Math.min(n - 1, toIndex);
+  if (hi - lo < 2) return null;
+  // First and last valid fixes within the window.
+  let a = -1;
+  let b = -1;
+  for (let i = lo; i <= hi; i++)
+    if (Number.isFinite(east[i]) && Number.isFinite(north[i]) && Number.isFinite(time[i])) {
+      a = i;
+      break;
+    }
+  for (let i = hi; i >= lo; i--)
+    if (Number.isFinite(east[i]) && Number.isFinite(north[i]) && Number.isFinite(time[i])) {
+      b = i;
+      break;
+    }
+  if (a < 0 || b <= a) return null;
+  const dt = time[b] - time[a];
+  const dist = Math.hypot(east[b] - east[a], north[b] - north[a]);
+  // Below a few metres the drift is in the GPS noise — call it calm, not a number.
+  if (!(dt > 0) || dist < 5) return null;
+  // Drift heads TOWARD this bearing; meteorological wind comes FROM the reciprocal.
+  let toward = (Math.atan2(east[b] - east[a], north[b] - north[a]) * 180) / Math.PI;
+  if (toward < 0) toward += 360;
+  return { speed: dist / dt, fromBearing: (toward + 180) % 360 };
+}
+
 /** Recovery numbers from an east/north track: how far it drifted and where it
  *  came down relative to the pad. Returns null if there's no usable fix. */
 export function recoveryStats(track: GroundTrack): RecoveryStats | null {
