@@ -23,6 +23,7 @@ import RailExit from './RailExit';
 import LandingEnergy from './LandingEnergy';
 import DragCoefficient from './DragCoefficient';
 import ParachuteCd from './ParachuteCd';
+import DrogueCd from './DrogueCd';
 import EjectionDelay from './EjectionDelay';
 import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
@@ -187,6 +188,20 @@ export default function FlightReport({
   );
 
   const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
+
+  // Air density over the drogue phase (apogee → main) — higher and thinner than the
+  // ground, the right ρ for the drogue Cd. Median over the phase so noise averages out.
+  const drogueDensity = useMemo(() => {
+    const ground = series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225;
+    const apo = events.find((e) => e.type === 'apogee');
+    const end = events.find((e) => e.type === 'main') ?? events.find((e) => e.type === 'landing');
+    if (!apo || !end || end.index <= apo.index) return ground;
+    const arr: number[] = [];
+    for (let i = apo.index; i <= end.index; i++) if (Number.isFinite(series.airDensity[i])) arr.push(series.airDensity[i]);
+    if (arr.length === 0) return ground;
+    arr.sort((a, b) => a - b);
+    return arr[arr.length >> 1];
+  }, [events, series.airDensity]);
 
   // Speed (and Mach, once it's worth showing) at an event — so the events list
   // answers "how fast at burnout / at deployment", not just when and how high.
@@ -494,6 +509,12 @@ export default function FlightReport({
           sys={sys}
           massKg={massKg}
         />
+      )}
+
+      {/* Drogue Cd — the same reading on the drogue-phase descent (in the thinner
+          air aloft), shown only on a dual-deploy flight that had a distinct drogue. */}
+      {metrics.drogueDescentRate != null && (
+        <DrogueCd descentRate={metrics.drogueDescentRate} airDensity={drogueDensity} sys={sys} massKg={massKg} />
       )}
 
       {gpsLat && gpsLon && (

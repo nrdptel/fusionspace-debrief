@@ -142,7 +142,9 @@ export default function Home() {
             the descending mass and canopy diameter you supply (A is the canopy area, ρ the low-air
             density). A measurement of the flown descent, not a prediction — check it against the
             rule of thumb (~0.75 for a flat sheet, ~1.5 for a domed chute). It assumes the main
-            reached a steady rate.
+            reached a steady rate. The same reading is offered for the <em>drogue</em> on a dual-deploy
+            flight — the fast fall between apogee and the main, worked with the thinner air density up
+            there — flagged approximate, since a small drogue may not be fully at terminal velocity.
           </Method>
           <Method title="Landing energy">
             How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near

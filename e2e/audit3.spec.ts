@@ -225,6 +225,27 @@ test('measures the parachute Cd from the descent, and remembers the inputs', asy
   await expect(page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/)).toHaveValue('53');
 });
 
+test('measures the drogue Cd from the drogue-phase descent on a dual-deploy flight', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Drogue Cd (measured)' });
+  await expect(panel.getByRole('heading', { name: 'Drogue Cd (measured)' })).toBeVisible();
+  await expect(panel.getByText('—', { exact: true })).toBeVisible(); // nothing until inputs
+
+  // Descending mass is shared (entered once in Landing energy); drogue diameter here.
+  await page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/).fill('53'); // oz
+  await panel.getByLabel(/Drogue diameter/).fill('15'); // in
+  // A sane drogue Cd (this sample reads ~0.5 for a 15" drogue), shown to 2 dp.
+  await expect(panel.getByText(/^\d\.\d{2}$/)).toBeVisible();
+  await expect(panel.getByText(/in the thinner air aloft/)).toBeVisible();
+
+  // The inputs stick across a reload (localStorage).
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('region', { name: 'Drogue Cd (measured)' }).getByLabel(/Drogue diameter/)).toHaveValue('15');
+});
+
 test('measures the drag coefficient from the coast, and remembers the inputs', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

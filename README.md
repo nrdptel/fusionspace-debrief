@@ -65,7 +65,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Measures the **parachute Cd** — under a steady main the rocket is at terminal velocity, where
   drag balances weight, so the canopy's drag coefficient (Cd = 2·m·g / ρv²A) falls out of the
   measured descent rate, given the descending mass and canopy diameter. A *measurement* of how
-  the chute actually performed — check it against the rule of thumb (~0.75 flat, ~1.5 domed).
+  the chute actually performed — check it against the rule of thumb (~0.75 flat, ~1.5 domed). On a
+  dual-deploy flight the same reading is offered for the **drogue** (the fast fall to the main, in
+  the thinner air aloft), flagged approximate since a small drogue may not be fully at terminal.
 - Reads **landing energy** — give it your rocket's descending mass and it reports the
   kinetic energy the flight came in with (½·m·v² from the measured landing descent
   rate, in ft·lbf and joules), the figure a certification flight card and many club
