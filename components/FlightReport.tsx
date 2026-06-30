@@ -23,6 +23,7 @@ import RailExit from './RailExit';
 import LandingEnergy from './LandingEnergy';
 import DragCoefficient from './DragCoefficient';
 import ParachuteCd from './ParachuteCd';
+import EjectionDelay from './EjectionDelay';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 
@@ -346,6 +347,11 @@ export default function FlightReport({
       {canMeasureDrag(series, events) && <DragCoefficient series={series} events={events} sys={sys} />}
 
       <FlightTimeline events={events} metrics={metrics} sys={sys} />
+
+      {/* Ejection-delay check — the coast time IS the ideal motor delay, so a
+          motor-eject flier can check the delay they flew against apogee. Shown
+          whenever a coast (burnout → apogee) was measured. */}
+      {metrics.coastTime != null && <EjectionDelay coastTimeS={metrics.coastTime} />}
 
       {/* Charts */}
       {zoomPresets.length > 1 && (

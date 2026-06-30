@@ -268,6 +268,26 @@ test('computes landing energy from a supplied descending mass, and remembers it'
   await expect(page.getByLabel(/Descending mass/)).toHaveValue('24');
 });
 
+test('frames the coast time as the ideal ejection delay and checks a flown delay', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Ejection delay' });
+  await expect(panel.getByRole('heading', { name: 'Ejection delay' })).toBeVisible();
+  // The ideal delay (the measured coast to apogee) is always shown, e.g. "18.5 s".
+  await expect(panel.getByText('ideal delay (coast to apogee)', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/^\d+(\.\d+)?\s*s$/)).toBeVisible();
+
+  // A short delay relative to this long coast fires before apogee — the risky case.
+  await panel.getByLabel(/Motor delay flown/).fill('4');
+  await expect(panel.getByText(/fires about .* before/)).toBeVisible();
+
+  // The flown delay sticks across a reload (localStorage).
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('region', { name: 'Ejection delay' }).getByLabel(/Motor delay flown/)).toHaveValue('4');
+});
+
 test('rail-exit velocity is omitted for a GPS-only flight', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles(fx('featherweight-gps.csv'));

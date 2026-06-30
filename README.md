@@ -47,6 +47,11 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   gained shows how much of the coast drag ate — the efficiency and the altitude drag cost
   (the bundled sample reaches 59%: drag cost it ~1,560 m). Pure energy conservation on the
   flown numbers, no model or prediction.
+- Checks the **ejection delay** — for a motor-ejection flight the ideal motor delay is the
+  coast time (burnout → apogee), the moment the rocket is slowest and a charge deploys most
+  gently. Debrief already measures that, so it frames it as the delay to load and, given the
+  printed delay you flew, reads off how far before or after apogee that charge actually fired
+  (delay − coast time). A *measurement* of the flown flight, the answer to "was my delay right."
 - Measures the **drag coefficient** — after burnout the only forces on the airframe are
   gravity and drag, so the coast deceleration is a direct reading of the drag the rocket
   actually had. Give it the coast mass and body diameter and it back-calculates Cd (and the

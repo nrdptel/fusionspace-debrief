@@ -116,6 +116,14 @@ export default function Home() {
             sideways) and rides on the burnout velocity, so it&apos;s withheld when that&apos;s too
             soft to trust.
           </Method>
+          <Method title="Ejection delay">
+            For a motor-ejection flight, the ideal motor delay is the coast time — the interval
+            from burnout to apogee, where the rocket has slowed to a stop and a charge deploys most
+            gently. Debrief measures that coast directly, so it frames it as the delay to load and,
+            given the printed delay you flew, reads off how far before or after apogee that charge
+            actually fired (delay − coast time). A reading of the flown flight, not a prediction; the
+            offset is only as sharp as the burnout and apogee it sits between.
+          </Method>
           <Method title="Drag coefficient">
             Back-calculated from the coast: after burnout and before apogee the only forces are
             gravity and drag, so the deceleration is a direct reading of the drag the airframe had
