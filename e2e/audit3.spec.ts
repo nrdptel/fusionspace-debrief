@@ -115,6 +115,28 @@ test('shows the deployment shock on a flight that logged acceleration', async ({
   await expect(page.getByText(/\d+(\.\d+)?\s*g shock/).first()).toBeVisible();
 });
 
+test('reads roll/spin from a mapped roll-rate column', async ({ page }) => {
+  await page.goto('/');
+  const csv =
+    'time,altitude,Roll Rate (deg/s)\n' +
+    Array.from({ length: 40 }, (_, i) => {
+      const alt = i < 20 ? i * 15 : Math.max(0, 300 - (i - 20) * 15);
+      return `${(i * 0.1).toFixed(1)},${alt},540`;
+    }).join('\n');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'spinny.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+
+  // Generic CSV → the mapper, with the roll column pre-recognized.
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  await expect(page.getByLabel(/Role for the Roll Rate/)).toHaveValue('rollRate');
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await expect(page.getByText('Peak roll rate', { exact: true })).toBeVisible();
+  await expect(page.getByText('Revolutions', { exact: true })).toBeVisible();
+});
+
 test('reports average boost acceleration alongside the peak', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

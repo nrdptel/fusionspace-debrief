@@ -490,6 +490,34 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     if (lo !== Infinity) batteryMinV = lo;
   }
 
+  // --- Roll / spin (when the logger recorded a roll-rate channel) ----------
+  // Peak rate about the long axis (deg/s), and the total revolutions the airframe
+  // turned through — the integral of |rate| over time / 360, so a spin in either
+  // direction counts. A reading of the flown flight; fin misalignment shows here.
+  let peakRollRate: number | null = null;
+  let rollRevolutions: number | null = null;
+  const rollCh = getChannel(flight, 'rollRate');
+  if (rollCh) {
+    let peak = 0;
+    let degrees = 0;
+    for (let i = 0; i < rollCh.values.length; i++) {
+      const r = rollCh.values[i];
+      if (!Number.isFinite(r)) continue;
+      const a = Math.abs(r);
+      if (a > peak) peak = a;
+      // Trapezoidal integral of |rate| over each step (deg/s · s = deg).
+      if (i > 0) {
+        const prev = rollCh.values[i - 1];
+        const dt = time[i] - time[i - 1];
+        if (Number.isFinite(prev) && dt > 0) degrees += ((a + Math.abs(prev)) / 2) * dt;
+      }
+    }
+    if (peak > 0) {
+      peakRollRate = peak;
+      rollRevolutions = degrees / 360;
+    }
+  }
+
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
@@ -523,6 +551,8 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     groundTemperature,
     batteryStartV,
     batteryMinV,
+    peakRollRate,
+    rollRevolutions,
   };
 
   if (accelClipped) {

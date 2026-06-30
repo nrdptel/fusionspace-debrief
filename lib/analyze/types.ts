@@ -56,6 +56,11 @@ export interface FlightMetrics {
    *  of a charge that didn't fire. Both null when no voltage was logged. */
   batteryStartV: number | null;
   batteryMinV: number | null;
+  /** Roll about the long axis, when the logger recorded a roll-rate channel: the
+   *  peak rate (deg/s) and the total number of revolutions the airframe turned
+   *  through over the flight. Both null when no roll-rate channel is present. */
+  peakRollRate: number | null;
+  rollRevolutions: number | null;
 }
 
 export interface FlightSeries {

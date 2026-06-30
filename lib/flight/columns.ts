@@ -14,6 +14,7 @@ export type ColumnRole =
   | 'accelAxial'
   | 'accelTotal'
   | 'velocity'
+  | 'rollRate'
   | 'voltage'
   | 'latitude'
   | 'longitude'
@@ -37,6 +38,9 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   // on an explicit accel word, with the unit (g) read separately from the header.
   { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz])\b/.test(h) },
   { role: 'velocity', test: (h) => /\b(velocity|speed|veloc|vel)\b/.test(h) },
+  // Roll/spin rate about the long axis. A bare "gyro" is left alone — that's three
+  // axes and which one is roll is logger-specific — so it keys off "roll"/"spin".
+  { role: 'rollRate', test: (h) => /\b(roll|spin)\b/.test(h) || /rollrate/.test(h) },
   // GPS — guarded against acceleration headers so "lat. x accel." isn't mistaken
   // for latitude.
   { role: 'latitude', test: (h) => /\b(latitude|lat)\b/.test(h) && !/acc/.test(h) },

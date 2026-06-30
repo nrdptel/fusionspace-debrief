@@ -29,6 +29,8 @@ const base: FlightMetrics = {
   groundTemperature: 15,
   batteryStartV: 9.2,
   batteryMinV: 8.9,
+  peakRollRate: null,
+  rollRevolutions: null,
 };
 
 describe('flightCardStats', () => {

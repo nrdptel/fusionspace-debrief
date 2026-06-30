@@ -10,6 +10,7 @@ export type ChannelKind =
   | 'accelAxial' // acceleration along the rocket's long axis, m/s²
   | 'accelTotal' // magnitude of total acceleration, m/s²
   | 'velocity' // velocity as reported by the device, m/s
+  | 'rollRate' // angular rate about the roll (long) axis, deg/s
   | 'voltage' // battery / pyro voltage, V
   | 'latitude' // GPS latitude, decimal degrees (+N)
   | 'longitude' // GPS longitude, decimal degrees (+E)

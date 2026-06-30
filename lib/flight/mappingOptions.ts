@@ -8,6 +8,7 @@ export const ROLE_OPTIONS: { value: ColumnRole; label: string }[] = [
   { value: 'velocity', label: 'Velocity' },
   { value: 'accelAxial', label: 'Acceleration (axial)' },
   { value: 'accelTotal', label: 'Acceleration (total)' },
+  { value: 'rollRate', label: 'Roll rate' },
   { value: 'temperature', label: 'Temperature' },
   { value: 'voltage', label: 'Voltage' },
   { value: 'latitude', label: 'GPS latitude' },
@@ -21,6 +22,7 @@ const UNIT_OPTIONS: Partial<Record<ColumnRole, string[]>> = {
   velocity: ['m/s', 'ft/s', 'mph', 'km/h'],
   accelAxial: ['g', 'm/s²'],
   accelTotal: ['g', 'm/s²'],
+  rollRate: ['deg/s', 'rad/s', 'rev/s'],
   temperature: ['C', 'F', 'K'],
   voltage: ['V'],
 };

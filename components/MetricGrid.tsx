@@ -83,6 +83,20 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
       sub: m.batteryStartV != null ? `${fmtVoltage(m.batteryStartV)} at rest` : undefined,
     });
 
+  // Roll/spin about the long axis, when the logger recorded a roll-rate channel.
+  if (m.peakRollRate != null)
+    out.push({
+      label: 'Peak roll rate',
+      value: `${Math.round(m.peakRollRate)} °/s`,
+      sub: `${(m.peakRollRate / 360).toFixed(1)} rev/s`,
+    });
+  if (m.rollRevolutions != null)
+    out.push({
+      label: 'Revolutions',
+      value: m.rollRevolutions.toFixed(m.rollRevolutions < 10 ? 1 : 0),
+      sub: 'total roll',
+    });
+
   return out;
 }
 

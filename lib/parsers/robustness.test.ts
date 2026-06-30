@@ -109,6 +109,25 @@ describe('import robustness', () => {
     expect(r.kind).toBe('mapping');
   });
 
+  it('recognizes a roll-rate column and reads the spin', () => {
+    const csv =
+      'time,altitude,Roll Rate (deg/s)\n' + [0, 0, 5, 12, 20, 14, 6, 0].map((a, i) => `${(i * 0.1).toFixed(1)},${a},720`).join('\n');
+    const r = importFlight({ name: 'roll.csv', text: csv });
+    if (r.kind !== 'mapping') throw new Error('expected the generic mapper');
+    const roll = r.suggested.find((s) => s.role === 'rollRate');
+    expect(roll).toBeDefined();
+    expect(roll!.unit).toBe('deg/s'); // unit read from the header bracket
+    const flight = buildFlight({
+      source: 'roll.csv',
+      format: 'csv',
+      formatLabel: 'Generic CSV',
+      headers: r.table.headers,
+      dataRows: r.table.dataRows,
+      mappings: r.suggested,
+    });
+    expect(analyzeFlight(flight).metrics.peakRollRate).toBeCloseTo(720, 0);
+  });
+
   it('surfaces a parser’s deliberate guidance message instead of falling back', () => {
     // A ParseGuidanceError is the parser saying "I recognise this, and here's what's
     // wrong" (e.g. wrong file of a pair) — that must reach the user, not be hidden.

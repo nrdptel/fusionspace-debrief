@@ -116,6 +116,47 @@ describe('accelerometer saturation', () => {
   });
 });
 
+// A flight that climbs to a peak and back, carrying a constant roll-rate channel.
+function rollFlight(rateDps: number): RawFlight {
+  const dt = 0.1;
+  const n = 51; // 0 … 5.0 s
+  const time = new Float64Array(n);
+  const alt = new Float64Array(n);
+  const roll = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    time[i] = i * dt;
+    alt[i] = i < 25 ? i * 4 : Math.max(0, 100 - (i - 25) * 4);
+    roll[i] = rateDps;
+  }
+  return {
+    source: 'synthetic',
+    format: 'test',
+    formatLabel: 'Test',
+    time,
+    channels: [
+      { kind: 'altitude', label: 'alt', unit: 'm', values: alt },
+      { kind: 'rollRate', label: 'roll', unit: 'deg/s', values: roll },
+    ],
+    meta: {},
+    notes: [],
+  };
+}
+
+describe('roll / spin', () => {
+  it('reads peak roll rate and total revolutions from a roll-rate channel', () => {
+    const a = analyzeFlight(rollFlight(720));
+    expect(a.metrics.peakRollRate).toBeCloseTo(720, 0);
+    // A constant 720 °/s over the 5.0 s flight is 3600° = 10 revolutions.
+    expect(a.metrics.rollRevolutions).toBeCloseTo(10, 1);
+  });
+
+  it('omits the roll metrics when no roll-rate channel is present', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    expect(a.metrics.peakRollRate).toBeNull();
+    expect(a.metrics.rollRevolutions).toBeNull();
+  });
+});
+
 describe('analyzeFlight (barometric)', () => {
   it('recovers apogee, max velocity and time-to-apogee', () => {
     const { flight, truth } = syntheticBaroFlight();

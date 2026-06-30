@@ -23,6 +23,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Reads **deployment shock** — when the logger recorded acceleration, the peak g the
   airframe felt as the apogee charge and the main fired (the snatch force that breaks
   shock cords and zippers tubes), shown on those events.
+- Reads **roll & spin** — when the logger recorded a roll-rate channel (or you map one),
+  the peak rate about the long axis and the total revolutions the airframe turned through,
+  so a fast spin (fin misalignment, a driver of coning) stands out. A bare three-axis gyro
+  is left alone — which axis is roll is logger-specific — so it keys off a labelled roll column.
 - Surfaces **battery voltage** — when the logger recorded it, the resting voltage and
   the lowest it sagged to, so a weak pack (a common cause of a charge that didn't fire)
   stands out.

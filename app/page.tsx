@@ -133,6 +133,14 @@ export default function Home() {
             furthest it drifted. Positions are GPS, good to a few metres; no map tiles are fetched —
             it&apos;s drawn from your own fixes.
           </Method>
+          <Method title="Roll &amp; spin">
+            When the logger recorded a roll-rate channel (angular rate about the long axis), Debrief
+            reports the peak rate and the total revolutions the airframe turned through — the
+            integral of the rate over the flight, so a spin either way counts. Fins induce roll, and
+            too much of it bleeds energy and can drive coning, so it&apos;s worth a look. It reads a
+            roll column you map (or one a logger labels &ldquo;roll&rdquo;); a bare three-axis gyro
+            is left alone, since which axis is roll is logger-specific.
+          </Method>
           <Method title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the
             lowest it sagged to. A pack that droops under the current a deployment charge draws can

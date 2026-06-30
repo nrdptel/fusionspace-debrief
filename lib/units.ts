@@ -3,7 +3,7 @@
 // the way in from a logger, and again for display. Keeping one internal system
 // means the analysis math never has to care what the file used.
 
-export type Quantity = 'length' | 'speed' | 'accel' | 'pressure' | 'temperature' | 'time';
+export type Quantity = 'length' | 'speed' | 'accel' | 'pressure' | 'temperature' | 'time' | 'rotation';
 
 export const CANONICAL: Record<Quantity, string> = {
   length: 'm',
@@ -12,6 +12,7 @@ export const CANONICAL: Record<Quantity, string> = {
   pressure: 'Pa',
   temperature: '°C',
   time: 's',
+  rotation: 'deg/s',
 };
 
 export const G0 = 9.80665; // standard gravity, m/s²
@@ -57,6 +58,11 @@ const UNITS: UnitDef[] = [
   { quantity: 'time', scale: 1, aliases: ['s', 'sec', 'secs', 'second', 'seconds'] },
   { quantity: 'time', scale: 0.001, aliases: ['ms', 'millisecond', 'milliseconds', 'msec'] },
   { quantity: 'time', scale: 60, aliases: ['min', 'minute', 'minutes'] },
+  // rotation rate (canonical degrees/second) — for a roll/spin-rate channel
+  { quantity: 'rotation', scale: 1, aliases: ['deg/s', 'dps', 'degs', 'degreespersecond', '°/s'] },
+  { quantity: 'rotation', scale: 180 / Math.PI, aliases: ['rad/s', 'radianspersecond'] },
+  { quantity: 'rotation', scale: 360, aliases: ['rev/s', 'rps', 'revs', 'revolutionspersecond'] },
+  { quantity: 'rotation', scale: 6, aliases: ['rpm', 'rev/min', 'revolutionsperminute'] },
 ];
 
 function normalizeToken(s: string): string {

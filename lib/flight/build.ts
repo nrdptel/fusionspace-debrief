@@ -20,6 +20,7 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> 
   accelAxial: 'accelAxial',
   accelTotal: 'accelTotal',
   velocity: 'velocity',
+  rollRate: 'rollRate',
   voltage: 'voltage',
   latitude: 'latitude',
   longitude: 'longitude',
@@ -33,6 +34,7 @@ const KIND_QUANTITY: Partial<Record<ChannelKind, keyof typeof CANONICAL>> = {
   accelAxial: 'accel',
   accelTotal: 'accel',
   velocity: 'speed',
+  rollRate: 'rotation',
 };
 
 export interface BuildOptions {
