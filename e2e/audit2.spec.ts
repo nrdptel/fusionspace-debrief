@@ -118,7 +118,10 @@ test('the report renders on a phone viewport without spilling sideways', async (
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
-  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  // Wait for the report itself — not "Apogee" text, which also appears in the
+  // always-present methodology section and would match during loading.
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await expect(page.locator('.uplot canvas').first()).toBeVisible();
   // The page itself shouldn't scroll horizontally (inner tables may, in their own boxes).
   const spills = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   expect(spills).toBe(false);
