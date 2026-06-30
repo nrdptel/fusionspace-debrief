@@ -17,9 +17,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 
 ## What it does
 
-- Reads a flight log and reports apogee, max velocity (and Mach), max acceleration,
-  max Q (peak dynamic pressure), burnout, time-to-apogee, deployments, descent rates,
-  and flight time.
+- Reads a flight log and reports apogee, max velocity (and Mach), max and average
+  acceleration, max Q (peak dynamic pressure), burnout, time-to-apogee, coast time,
+  deployments, descent rates, and flight time.
 - Reads **deployment shock** — when the logger recorded acceleration, the peak g the
   airframe felt as the apogee charge and the main fired (the snatch force that breaks
   shock cords and zippers tubes), shown on those events.

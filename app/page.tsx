@@ -81,7 +81,8 @@ export default function Home() {
           </Method>
           <Method title="Acceleration">
             Used directly from the accelerometer when present, otherwise derived from velocity. Max
-            acceleration is read over the boost, max deceleration over the same ascent. If the trace
+            acceleration is read over the boost, the average over the same boost (ignition to
+            burnout), and max deceleration over the ascent. If the trace
             flat-tops at its peak — how a sensor reads once it hits its full-scale limit and
             saturates — the maximum is flagged as <em>may be clipped</em>, since the real peak could
             be higher.

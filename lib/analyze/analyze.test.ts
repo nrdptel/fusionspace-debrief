@@ -146,6 +146,15 @@ describe('analyzeFlight (barometric)', () => {
     expect(t('apogee')).toBeLessThan(t('landing'));
   });
 
+  it('reports an average boost acceleration below the peak', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    // Constant ~100 m/s² boost → the mean over the boost sits near it, and never
+    // above the peak.
+    expect(a.metrics.avgBoostAcceleration).not.toBeNull();
+    expect(a.metrics.avgBoostAcceleration!).toBeGreaterThan(60);
+    expect(a.metrics.avgBoostAcceleration!).toBeLessThanOrEqual(a.metrics.maxAcceleration);
+  });
+
   it('reports a sensible descent rate', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     expect(a.metrics.mainDescentRate).toBeGreaterThan(10);

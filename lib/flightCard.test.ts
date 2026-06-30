@@ -14,6 +14,7 @@ const base: FlightMetrics = {
   transonicTime: null,
   transonicAltitude: null,
   maxAcceleration: 120,
+  avgBoostAcceleration: 70,
   maxDeceleration: -20,
   accelerationSource: 'device',
   accelClipped: false,

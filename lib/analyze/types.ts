@@ -33,6 +33,9 @@ export interface FlightMetrics {
   transonicTime: number | null;
   transonicAltitude: number | null;
   maxAcceleration: number; // m/s²
+  /** Mean acceleration over the boost (liftoff → burnout) — a standard altimeter
+   *  reading alongside the peak. null without a burnout or an acceleration trace. */
+  avgBoostAcceleration: number | null; // m/s²
   maxDeceleration: number; // m/s² (most negative)
   accelerationSource: 'device' | 'baro';
   /** True when a device accelerometer flat-tops at its peak — the signature of a

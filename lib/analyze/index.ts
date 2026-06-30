@@ -502,6 +502,13 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     transonicTime,
     transonicAltitude,
     maxAcceleration,
+    avgBoostAcceleration:
+      ascentPresent && burnoutIdx !== null
+        ? (() => {
+            const m = mean(acceleration, liftoffRef, burnoutIdx + 1);
+            return Number.isFinite(m) ? m : null;
+          })()
+        : null,
     maxDeceleration,
     accelerationSource,
     accelClipped,

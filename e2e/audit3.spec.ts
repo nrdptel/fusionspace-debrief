@@ -115,6 +115,14 @@ test('shows the deployment shock on a flight that logged acceleration', async ({
   await expect(page.getByText(/\d+(\.\d+)?\s*g shock/).first()).toBeVisible();
 });
 
+test('reports average boost acceleration alongside the peak', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText('Avg acceleration', { exact: true })).toBeVisible();
+  await expect(page.getByText('over the boost', { exact: true })).toBeVisible();
+});
+
 test('flags a saturated accelerometer on the bundled sample', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
