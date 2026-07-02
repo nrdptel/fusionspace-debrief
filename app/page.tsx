@@ -4,8 +4,11 @@ import Analyzer from '@/components/Analyzer';
 
 export default function Home() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-10">
-      <SiteHeader />
+    <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
+      {/* Chrome and prose stay at the focused reading width; only the analysis and
+          compare views (below) use the extra room, where the charts live. */}
+      <div className="mx-auto w-full max-w-5xl">
+        <SiteHeader />
 
       <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden">
         <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
@@ -47,12 +50,13 @@ export default function Home() {
           </ul>
         </div>
       </details>
+      </div>
 
       <section className="mt-8">
         <Analyzer />
       </section>
 
-      <section className="mt-16 border-t border-zinc-200 pt-8 dark:border-zinc-800 print:hidden">
+      <section className="mx-auto mt-16 w-full max-w-5xl border-t border-zinc-200 pt-8 dark:border-zinc-800 print:hidden">
         <h2 className="text-lg font-semibold tracking-tight">Where the numbers come from</h2>
         <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
           Every logger is different, so Debrief reads each file into one common shape — a time base
@@ -231,7 +235,9 @@ export default function Home() {
         </div>
       </section>
 
-      <SiteFooter />
+      <div className="mx-auto w-full max-w-5xl">
+        <SiteFooter />
+      </div>
     </main>
   );
 }

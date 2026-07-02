@@ -387,18 +387,20 @@ export default function Analyzer() {
 
   if (state.phase === 'mapping') {
     return (
-      <ColumnMapper
-        table={state.table}
-        suggested={state.suggested}
-        fileName={state.fileName}
-        onCancel={reset}
-        onSubmit={onMappingSubmit}
-      />
+      <div className="mx-auto w-full max-w-5xl">
+        <ColumnMapper
+          table={state.table}
+          suggested={state.suggested}
+          fileName={state.fileName}
+          onCancel={reset}
+          onSubmit={onMappingSubmit}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && (
         <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">Reading…</p>
