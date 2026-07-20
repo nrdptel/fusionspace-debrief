@@ -1,0 +1,7 @@
+{
+  "_comment": "Pins the private flight-log corpus that scripts/fetch-fixtures.mjs downloads. Update tag + sha256 when you cut a new corpus release. repo is owner/name of the PRIVATE fixtures repo.",
+  "repo": "nrdptel/debrief-fixtures",
+  "tag": "v1.0.0",
+  "asset": "corpus-v1.0.0.zip",
+  "sha256": "b9320c54da38febe145f7fce3d0b25ca02774913156787c9259ca1291bb0cdcf"
+}
