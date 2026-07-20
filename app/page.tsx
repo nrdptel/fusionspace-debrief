@@ -69,7 +69,10 @@ export default function Home() {
             From the logger&apos;s own altitude channel, or from barometric pressure (with the standard
             atmosphere) when it only logs pressure. The pad level is the median of the opening samples,
             so everything reads as height above the pad (AGL). Baro altitude drifts with weather and
-            the airframe&apos;s own airflow — good to a few metres, not centimetres.
+            the airframe&apos;s own airflow — good to a few metres, not centimetres. Above ~36,000&nbsp;ft
+            (11&nbsp;km), the top of the troposphere, the constant-lapse standard-atmosphere model behind
+            any barometric altitude stops holding and the reading under-reads; a flight that high is
+            flagged, and a GPS or inertial altitude is more trustworthy up there.
           </Method>
           <Method title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or

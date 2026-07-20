@@ -254,6 +254,38 @@ describe('analyzeFlight (barometric)', () => {
     expect(Math.abs(spiked.metrics.apogeeAltitude - clean.metrics.apogeeAltitude)).toBeLessThan(10);
   });
 
+  it('flags a barometric apogee above the troposphere as an approximate lower bound', () => {
+    // A high-altitude baro flight — apogee ~15 km, above the 11 km tropopause where
+    // the standard-atmosphere model behind a pressure altitude stops holding.
+    const dt = 0.1;
+    const n = 700;
+    const time = new Float64Array(n);
+    const alt = new Float64Array(n);
+    const apIdx = 200;
+    for (let i = 0; i < n; i++) {
+      time[i] = i * dt;
+      alt[i] = i <= apIdx ? (15000 * i) / apIdx : Math.max(0, 15000 - 40 * (i - apIdx));
+    }
+    const flight: RawFlight = {
+      source: 'synthetic',
+      format: 'test',
+      formatLabel: 'Test',
+      time,
+      channels: [{ kind: 'altitude', label: 'alt', unit: 'm', values: alt }],
+      meta: {},
+      notes: [],
+    };
+    const a = analyzeFlight(flight);
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(11000);
+    expect(a.warnings.some((w) => /top of the troposphere/.test(w))).toBe(true);
+  });
+
+  it('does not flag a normal-altitude baro flight (apogee well below the tropopause)', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight); // apogee ~2 km
+    expect(a.metrics.apogeeAltitude).toBeLessThan(11000);
+    expect(a.warnings.some((w) => /troposphere/.test(w))).toBe(false);
+  });
+
   it('finds liftoff, apogee and landing events in order', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     const types = a.events.map((e) => e.type);

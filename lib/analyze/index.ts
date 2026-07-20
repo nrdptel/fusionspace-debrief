@@ -78,6 +78,12 @@ const LAPSE = -0.0065; // temperature lapse rate, K/m
 const G_STD = 9.80665; // m/s²
 const ISA_SEA_LEVEL_PRESSURE = 101325; // Pa
 
+/** Top of the troposphere (US Standard Atmosphere 1976, first layer boundary at
+ *  11 km / 36,089 ft). Above it the constant-lapse model behind any barometric
+ *  altitude — the logger's or ours — no longer holds and the reading under-reads,
+ *  so a baro apogee this high is flagged as an approximate lower bound. */
+const TROPOSPHERE_LIMIT_M = 11000;
+
 /** Launch-pad ambient pressure (Pa) for the density model: the mean of any
  *  pressure channel over the quiet pad window, falling back to standard sea-level
  *  pressure when the logger records no pressure (so density is still defined). */
@@ -607,6 +613,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   if (sampleHz > 0 && sampleHz < 5 && velocitySource === 'baro') {
     warnings.push(
       `The log samples at about ${sampleHz.toFixed(1)} Hz, which is coarse for a derived velocity — fast events may be softened.`,
+    );
+  }
+  if (altitudeSource === 'baro' && Number.isFinite(apogeeAlt) && apogeeAlt > TROPOSPHERE_LIMIT_M) {
+    warnings.push(
+      'Apogee is above ~36,000 ft (11 km), the top of the troposphere, where the standard-atmosphere model behind a barometric altitude breaks down — a pressure-derived reading increasingly under-reads that high, so treat this apogee as an approximate lower bound rather than an exact figure. A GPS or inertial altitude, if the flight logged one, is more trustworthy up here.',
     );
   }
 
