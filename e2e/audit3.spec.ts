@@ -426,6 +426,17 @@ test('the explorer exports the current plot as a PNG', async ({ page }) => {
   expect(dl.suggestedFilename()).toMatch(/-explore\.png$/);
 });
 
+test('the explorer exports the current plot as a vector SVG', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/Save the plot as a vector SVG/).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/-explore\.svg$/);
+});
+
 test('the comparison exports its chart as a PNG', async ({ page }) => {
   await page.goto('/');
   await page

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { planAxes, windowStats, exploreCsv, type PlotChannel } from '@/lib/explore';
 import { COMPARE_PALETTE } from '@/lib/compare';
 import { download } from '@/lib/download';
+import { plotSvg } from '@/lib/svgChart';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -145,6 +146,18 @@ export default function ChannelExplorer({
     ctx.drawImage(canvas, 0, 0);
     out.toBlob((blob) => blob && download(blob, `${stem}-explore.png`));
   };
+  // A vector version of the same plot — crisp at any size for a report or slide.
+  const saveSvg = () => {
+    const svg = plotSvg({
+      x: xVals,
+      series: series.map((s) => ({ label: s.label, color: s.stroke, axis: s.axis, values: s.values })),
+      xLabel: xUnit ? `${xName} (${xUnit})` : xName,
+      leftLabel: leftUnit ?? '',
+      rightLabel: rightUnit,
+      dark,
+    });
+    download(new Blob([svg], { type: 'image/svg+xml' }), `${stem}-explore.svg`);
+  };
 
   return (
     <div>
@@ -234,6 +247,14 @@ export default function ChannelExplorer({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" onClick={savePng} title="Save the current plot as a PNG" className={ACTION_BTN}>
           Save .png
+        </button>
+        <button
+          type="button"
+          onClick={saveSvg}
+          title="Save the plot as a vector SVG — crisp at any size for a report or slide"
+          className={ACTION_BTN}
+        >
+          Save .svg
         </button>
         <button
           type="button"
