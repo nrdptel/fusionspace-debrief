@@ -25,3 +25,30 @@ test('a headerless CSV gets time and altitude guessed from the data', async ({ p
   await page.getByRole('button', { name: 'Analyze flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 });
+
+test('a remembered column mapping is re-applied to the next file with the same layout', async ({ page }) => {
+  const headerless = (seed: number) =>
+    Array.from({ length: 60 }, (_, i) => {
+      const alt = i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25);
+      return `${(i * 0.1).toFixed(2)},${alt},${(9.1 - i * 0.001 + seed).toFixed(2)}`;
+    }).join('\n');
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'logger-a.csv', mimeType: 'text/csv', buffer: Buffer.from(headerless(0)) });
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+
+  // Set a role the shape sniffer wouldn't, then remember the mapping.
+  await page.getByLabel('Role for the Column 3 column').selectOption('voltage');
+  await page.getByRole('button', { name: 'Remember these columns' }).click();
+  await expect(page.getByRole('button', { name: /Columns remembered/ })).toBeVisible();
+
+  // A different file with the same headerless layout comes back already mapped.
+  await page.getByRole('button', { name: 'Choose a different file' }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'logger-b.csv', mimeType: 'text/csv', buffer: Buffer.from(headerless(0.2)) });
+  await expect(page.getByText('Applied your saved column mapping')).toBeVisible();
+  await expect(page.getByLabel('Role for the Column 3 column')).toHaveValue('voltage');
+});

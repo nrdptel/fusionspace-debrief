@@ -5,6 +5,7 @@ import type { AnalyzedTable } from '@/lib/flight/columns';
 import type { ColumnRole } from '@/lib/flight/columns';
 import type { ColumnMapping } from '@/lib/flight/build';
 import { ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
+import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
 
 interface Row {
   role: ColumnRole;
@@ -24,20 +25,36 @@ export default function ColumnMapper({
   onCancel: () => void;
   onSubmit: (mappings: ColumnMapping[]) => void;
 }) {
+  const signature = useMemo(() => signatureOf(table), [table]);
+  const saved = useMemo(() => loadTemplate(signature), [signature]);
+  const appliedSaved = !!(saved && saved.length === table.headers.length);
+
   const initial = useMemo<Row[]>(() => {
+    const validRole = (r: string): r is ColumnRole => ROLE_OPTIONS.some((o) => o.value === r);
+    const rowFor = (role: ColumnRole, wantUnit: string | null | undefined): Row => {
+      const units = unitOptionsFor(role);
+      const unit = wantUnit && units.includes(wantUnit) ? wantUnit : (units[0] ?? '');
+      return { role, unit };
+    };
+    // A remembered mapping for this exact layout wins over the fresh guess.
+    if (appliedSaved) {
+      return table.headers.map((_, i) => {
+        const s = saved![i];
+        return rowFor(s && validRole(s.role) ? s.role : 'ignore', s?.unit);
+      });
+    }
     const byIndex = new Map(suggested.map((m) => [m.index, m]));
     return table.headers.map((_, i) => {
       const s = byIndex.get(i);
-      const role = s?.role ?? 'ignore';
-      const units = unitOptionsFor(role);
-      const unit = s?.unit && units.includes(s.unit) ? s.unit : (units[0] ?? '');
-      return { role, unit };
+      return rowFor(s?.role ?? 'ignore', s?.unit);
     });
-  }, [table.headers, suggested]);
+  }, [table.headers, suggested, saved, appliedSaved]);
 
   const [rows, setRows] = useState<Row[]>(initial);
+  const [remembered, setRemembered] = useState(false);
 
   const setRole = (i: number, role: ColumnRole) => {
+    setRemembered(false);
     setRows((prev) => {
       const next = prev.slice();
       const units = unitOptionsFor(role);
@@ -46,11 +63,19 @@ export default function ColumnMapper({
     });
   };
   const setUnit = (i: number, unit: string) => {
+    setRemembered(false);
     setRows((prev) => {
       const next = prev.slice();
       next[i] = { ...next[i], unit };
       return next;
     });
+  };
+
+  // Remember this mapping so the next file with the same layout comes back mapped.
+  const remember = () => {
+    const cols: SavedColumn[] = rows.map((r) => ({ role: r.role, unit: r.unit }));
+    saveTemplate(signature, cols);
+    setRemembered(true);
   };
 
   const hasTime = rows.some((r) => r.role === 'time');
@@ -81,6 +106,11 @@ export default function ColumnMapper({
           format, so tell it which column is which. It&apos;s pre-filled with a best guess — set the
           time column, an altitude or pressure column, and the units, then analyze.
         </p>
+        {appliedSaved && (
+          <p className="mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+            Applied your saved column mapping for this layout — adjust any row if this file differs.
+          </p>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
@@ -152,6 +182,15 @@ export default function ColumnMapper({
           className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Analyze flight
+        </button>
+        <button
+          type="button"
+          onClick={remember}
+          disabled={!ready}
+          title="Remember these columns for future files with the same layout — kept on this device"
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-indigo-400 dark:hover:text-indigo-300"
+        >
+          {remembered ? 'Columns remembered ✓' : 'Remember these columns'}
         </button>
         <button
           type="button"

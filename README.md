@@ -167,7 +167,9 @@ of parsing and analysis runs locally.
   with European-locale exports (semicolon-separated with comma decimals), Windows,
   Unix or classic-Mac line endings, and **UTF-16 files** — a byte-order mark is detected
   and decoded, so a Windows export like the Missile Works RRC3 mDACS text file or Excel's
-  "Unicode Text" save reads correctly instead of arriving as mojibake.
+  "Unicode Text" save reads correctly instead of arriving as mojibake. Map an unfamiliar
+  export once and Debrief can **remember the columns**, re-applying them to the next file
+  with the same layout — kept on your device, never uploaded.
 
 More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it
