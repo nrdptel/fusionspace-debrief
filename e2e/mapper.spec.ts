@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import path from 'node:path';
 
 // A headerless export (columns are just data — e.g. a PerfectFlite StratoLogger TSV)
 // used to map every column to "ignore". Now the mapper guesses the essential roles
@@ -51,4 +52,22 @@ test('a remembered column mapping is re-applied to the next file with the same l
     .setInputFiles({ name: 'logger-b.csv', mimeType: 'text/csv', buffer: Buffer.from(headerless(0.2)) });
   await expect(page.getByText('Applied your saved column mapping')).toBeVisible();
   await expect(page.getByLabel('Role for the Column 3 column')).toHaveValue('voltage');
+});
+
+// An .xlsx spreadsheet is unzipped in the browser and its first sheet flattened
+// to a table, so a flyer who keeps data in Excel can drop it straight in.
+test('an .xlsx spreadsheet drops in and maps its columns', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/sample-spreadsheet.xlsx'));
+
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  // Header row read from the sheet's shared strings, roles inferred from the names.
+  await expect(page.getByLabel(/Role for the Time \(s\)/)).toHaveValue('time');
+  await expect(page.getByLabel(/Role for the Altitude \(ft\)/)).toHaveValue('altitude');
+  await expect(page.getByLabel(/Role for the Velocity \(ft\/s\)/)).toHaveValue('velocity');
+
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 });

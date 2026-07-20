@@ -28,6 +28,7 @@ import {
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
 import { decodeBytes } from '@/lib/encoding';
+import { fileToText } from '@/lib/fileText';
 import { download } from '@/lib/download';
 
 type State =
@@ -136,9 +137,10 @@ export default function Analyzer() {
       }
       setState({ phase: 'loading' });
       try {
-        // Decode from the bytes, not file.text() (which assumes UTF-8) — a UTF-16
-        // export (RRC3 mDACS, Excel "Unicode Text", …) is otherwise unreadable.
-        const text = decodeBytes(new Uint8Array(await file.arrayBuffer()));
+        // Read from the bytes, not file.text(): an .xlsx workbook is unzipped to
+        // CSV, and a UTF-16 export (RRC3 mDACS, Excel "Unicode Text", …) is decoded
+        // from its BOM rather than assumed UTF-8.
+        const text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
         await tick(); // let the loading state paint before parsing
         await ingest(file.name, text);
       } catch {
@@ -171,7 +173,7 @@ export default function Analyzer() {
         if (results.length >= MAX_COMPARE) break;
         try {
           if (file.size > MAX_BYTES) continue;
-          const text = decodeBytes(new Uint8Array(await file.arrayBuffer()));
+          const text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
           const result = importFlight({ name: file.name, text });
           if (result.kind !== 'flight') continue;
           const analysis = await analyzeAsync(result.flight);

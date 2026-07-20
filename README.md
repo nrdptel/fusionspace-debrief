@@ -179,6 +179,10 @@ of parsing and analysis runs locally.
   "Unicode Text" save reads correctly instead of arriving as mojibake. Map an unfamiliar
   export once and Debrief can **remember the columns**, re-applying them to the next file
   with the same layout — kept on your device, never uploaded.
+- **Excel spreadsheet** (`.xlsx`) — drop the workbook you already keep your data in and
+  Debrief unzips it in the browser, reads the first sheet, and hands it to the same column
+  mapper as a CSV. No conversion step, no upload — the file is opened entirely on your
+  device. (Read from the published OpenXML/ZIP formats, no third-party library.)
 
 More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it
