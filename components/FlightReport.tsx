@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from '@/lib/display';
-import { summaryText, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
+import { summaryText, summaryMarkdown, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
@@ -113,6 +113,10 @@ export default function FlightReport({
 
   function downloadSummary() {
     download(new Blob([summaryText(flight, analysis, sys, analyzedAt)], { type: 'text/plain' }), `${stem}-debrief.txt`);
+  }
+
+  function downloadMarkdown() {
+    download(new Blob([summaryMarkdown(flight, analysis, sys, analyzedAt)], { type: 'text/markdown' }), `${stem}-debrief.md`);
   }
 
   function downloadData() {
@@ -271,6 +275,14 @@ export default function FlightReport({
           </button>
           <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={ACTION_BTN}>
             Save .txt
+          </button>
+          <button
+            type="button"
+            onClick={downloadMarkdown}
+            title="Download a Markdown report — metrics and events as tables, ready for a write-up or a forum post"
+            className={ACTION_BTN}
+          >
+            Save .md
           </button>
           <button
             type="button"

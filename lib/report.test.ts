@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown } from './report';
 
 function tinyFlight(): RawFlight {
   const dt = 0.05;
@@ -53,5 +53,24 @@ describe('report exports', () => {
     expect(txt).toContain('Apogee');
     expect(txt).toMatch(/not gospel/i);
     expect(txt).toMatch(/Analyzed/);
+  });
+
+  it('summaryMarkdown renders balanced metric and event tables', () => {
+    const md = summaryMarkdown(flight, analysis, 'imperial', 1_700_000_000_000);
+    expect(md).toContain('# Debrief — flight report');
+    expect(md).toContain('| Metric | Value |');
+    expect(md).toMatch(/\| Apogee \| [\d,]+ ft \|/);
+    expect(md).toContain('## Events');
+    expect(md).toContain('| Event | Time | Altitude | Speed |');
+    expect(md).toMatch(/Made with \[Debrief\]\(https:\/\/debrief\.fusionspace\.co\)/);
+    // Every metric row has the same column count as its header (a broken table
+    // would have a stray or missing pipe).
+    const bars = (s: string) => (s.match(/\|/g) ?? []).length;
+    const rows = md.split('\n');
+    const metricRows = rows.filter((l) => l.startsWith('| ') && !l.includes('---'));
+    expect(metricRows.length).toBeGreaterThan(3);
+    expect(metricRows.every((l) => bars(l) === bars('| Metric | Value |') || bars(l) === bars('| a | b | c | d |'))).toBe(
+      true,
+    );
   });
 });

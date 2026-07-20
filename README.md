@@ -105,9 +105,11 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   accelerometer** — when the trace flat-tops at its peak (the sign a sensor hit its
   full-scale limit), the max acceleration is marked as possibly clipped rather than
   read as the true maximum.
-- Exports a flight: copy a text summary, save it as `.txt`, save the analyzed series
-  (time, altitude, velocity, acceleration, Mach, dynamic pressure) as `.csv`, or save
-  the altitude chart as a PNG.
+- Exports a flight: copy a text summary, save it as `.txt` or a report-grade **Markdown**
+  file — the headline metrics and events as tables, ready to drop into a project write-up,
+  a certification document or a forum post — save the analyzed series (time, altitude,
+  velocity, acceleration, Mach, dynamic pressure) as `.csv`, or save the altitude chart as
+  a PNG.
 - Keeps a logbook — recent flights are remembered on your device for quick re-opening,
   sortable by date, apogee or top speed, with a ★ marking your best of the bunch. Add a
   note to any flight (motor, conditions, cert…) and it's kept as a logbook entry that

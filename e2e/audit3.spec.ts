@@ -362,6 +362,17 @@ test('rail-exit velocity is omitted for a GPS-only flight', async ({ page }) => 
   await expect(page.getByRole('region', { name: 'Rail-exit velocity' })).toHaveCount(0);
 });
 
+test('exports a report-grade Markdown summary', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  const [md] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .md' }).click(),
+  ]);
+  expect(md.suggestedFilename()).toBe('sample-altusmetrum-debrief.md');
+});
+
 test('renders a shareable flight card and saves it as a PNG', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
