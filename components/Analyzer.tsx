@@ -27,6 +27,7 @@ import {
 } from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
+import { decodeBytes } from '@/lib/encoding';
 import { download } from '@/lib/download';
 
 type State =
@@ -135,7 +136,9 @@ export default function Analyzer() {
       }
       setState({ phase: 'loading' });
       try {
-        const text = await file.text();
+        // Decode from the bytes, not file.text() (which assumes UTF-8) — a UTF-16
+        // export (RRC3 mDACS, Excel "Unicode Text", …) is otherwise unreadable.
+        const text = decodeBytes(new Uint8Array(await file.arrayBuffer()));
         await tick(); // let the loading state paint before parsing
         await ingest(file.name, text);
       } catch {
@@ -168,7 +171,7 @@ export default function Analyzer() {
         if (results.length >= MAX_COMPARE) break;
         try {
           if (file.size > MAX_BYTES) continue;
-          const text = await file.text();
+          const text = decodeBytes(new Uint8Array(await file.arrayBuffer()));
           const result = importFlight({ name: file.name, text });
           if (result.kind !== 'flight') continue;
           const analysis = await analyzeAsync(result.flight);
@@ -212,7 +215,7 @@ export default function Analyzer() {
     try {
       const res = await fetch(SAMPLE_URL);
       if (!res.ok) throw new Error('sample missing');
-      const text = await res.text();
+      const text = decodeBytes(new Uint8Array(await res.arrayBuffer()));
       await tick();
       await ingest('sample-altusmetrum.csv', text);
     } catch {
