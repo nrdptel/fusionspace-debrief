@@ -1,6 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, COMPARE_PALETTE, MAX_COMPARE, type CompareInput } from './compare';
+import { resample, buildComparison, crossCheck, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
+
+describe('crossCheck', () => {
+  const flight = (apogee: number, maxV: number): CompareFlight =>
+    ({ metrics: { apogeeAltitude: apogee, maxVelocity: maxV } as FlightMetrics }) as CompareFlight;
+
+  it('reports the spread across flights for apogee and max speed', () => {
+    const a = crossCheck([flight(2440, 300), flight(2490, 310), flight(2465, 305)]);
+    const apo = a.find((x) => x.key === 'apogee')!;
+    expect(apo.count).toBe(3);
+    expect(apo.min).toBe(2440);
+    expect(apo.max).toBe(2490);
+    expect(apo.spreadPct).toBeCloseTo((50 / 2465) * 100, 1);
+    expect(a.find((x) => x.key === 'maxVelocity')!.spreadPct).toBeGreaterThan(0);
+  });
+
+  it('skips a metric that is finite on fewer than two flights', () => {
+    const a = crossCheck([flight(2000, NaN), flight(2100, NaN)]);
+    expect(a.some((x) => x.key === 'apogee')).toBe(true);
+    expect(a.some((x) => x.key === 'maxVelocity')).toBe(false);
+  });
+});
 
 const metrics = (apogee: number): FlightMetrics => ({
   apogeeAltitude: apogee,

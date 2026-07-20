@@ -149,3 +149,41 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
 
   return { time: grid, flights };
 }
+
+export interface Agreement {
+  key: string;
+  /** Lower-case metric name for a sentence ("apogee", "max speed"). */
+  label: string;
+  min: number;
+  max: number;
+  /** Spread as a percentage of the mean — how far apart the readings are. */
+  spreadPct: number;
+  count: number;
+}
+
+/**
+ * How closely the compared flights' headline numbers agree. Read as a cross-check:
+ * if these are independent recordings of the SAME flight (redundant altimeters, a
+ * booster and its sustainer bay), close agreement builds confidence and a large gap
+ * is a flag worth chasing; if they're different flights, it's just the spread. A
+ * measurement of the recordings, never a verdict — so it's stated as a range, not a
+ * single blessed number. Only metrics with a finite value on two or more flights.
+ */
+export function crossCheck(flights: CompareFlight[]): Agreement[] {
+  const specs: { key: string; label: string; get: (m: FlightMetrics) => number | null }[] = [
+    { key: 'apogee', label: 'apogee', get: (m) => m.apogeeAltitude },
+    { key: 'maxVelocity', label: 'max speed', get: (m) => m.maxVelocity },
+  ];
+  const out: Agreement[] = [];
+  for (const s of specs) {
+    const vals = flights
+      .map((f) => s.get(f.metrics))
+      .filter((v): v is number => v != null && Number.isFinite(v) && v > 0);
+    if (vals.length < 2) continue;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length });
+  }
+  return out;
+}

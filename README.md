@@ -120,7 +120,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Compares several flights at once — drop multiple files (or tick two or more recent
   flights) to overlay any of their altitude, velocity, acceleration, Mach or
   dynamic-pressure curves (aligned at liftoff) with a side-by-side metrics table that
-  flags the best apogee, max velocity, Mach, acceleration and max Q.
+  flags the best apogee, max velocity, Mach, acceleration and max Q — plus a **cross-check**
+  reading how closely the flights' apogee and top speed agree, so redundant altimeters (or a
+  booster and its sustainer bay) read as independent measurements: close agreement builds
+  confidence, a wide gap is a flag worth chasing, never a single number to trust on faith.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 - Makes a **flight card** — a clean, branded image of the headline numbers and the

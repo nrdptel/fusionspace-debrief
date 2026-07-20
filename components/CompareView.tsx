@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
+import { crossCheck } from '@/lib/compare';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
@@ -253,6 +254,29 @@ export default function CompareView({
           </p>
         )}
       </div>
+
+      {/* Cross-check: how closely the readings agree, as independent measurements. */}
+      {(() => {
+        const agree = crossCheck(flights);
+        if (agree.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+            <p className="font-medium text-zinc-700 dark:text-zinc-300">Cross-check</p>
+            <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+              If these are recordings of the same flight, the independent readings agree to within{' '}
+              {agree.map((a, i) => (
+                <span key={a.key}>
+                  {i > 0 && (i === agree.length - 1 ? ' and ' : ', ')}
+                  <span className={a.spreadPct > 10 ? 'font-medium text-amber-700 dark:text-amber-400' : 'font-medium text-emerald-700 dark:text-emerald-400'}>
+                    {a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on {a.label}
+                  </span>
+                </span>
+              ))}
+              . Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Side-by-side metrics */}
       <div className="overflow-x-auto">

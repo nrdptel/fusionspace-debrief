@@ -437,6 +437,16 @@ test('the explorer exports the current plot as a vector SVG', async ({ page }) =
   expect(dl.suggestedFilename()).toMatch(/-explore\.svg$/);
 });
 
+test('the comparison shows a cross-check of how closely the readings agree', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fx('altusmetrum-telemetrum.csv'), fx('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByText('Cross-check', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+(\.\d+)?% on apogee/)).toBeVisible();
+});
+
 test('the comparison exports its chart as a PNG', async ({ page }) => {
   await page.goto('/');
   await page
