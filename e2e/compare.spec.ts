@@ -58,6 +58,26 @@ test('compare two flights from the recents list', async ({ page }) => {
   ]);
   expect(metricsCsv.suggestedFilename()).toBe('compare-metrics.csv');
 
+  // A vector (SVG) export of the overlay, for reports — one path per compared flight.
+  // Overlay altitude first: both flights have a finite altitude curve, so the path
+  // count is deterministic.
+  await page.getByRole('button', { name: 'Altitude' }).click();
+  await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
+  const [svg] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .svg' }).click(),
+  ]);
+  expect(svg.suggestedFilename()).toMatch(/^compare-.*\.svg$/);
+  const stream = await svg.createReadStream();
+  const body = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream!.on('error', reject);
+  });
+  expect(body).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+  expect((body.match(/<path /g) ?? []).length).toBe(2); // one curve per flight
+
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   expect(violations.map((v) => v.id)).toEqual([]);

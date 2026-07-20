@@ -124,6 +124,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   reading how closely the flights' apogee and top speed agree, so redundant altimeters (or a
   booster and its sustainer bay) read as independent measurements: close agreement builds
   confidence, a wide gap is a flag worth chasing, never a single number to trust on faith.
+  The overlay saves as a PNG, a **vector SVG** (crisp at any size for a report), or its
+  exact data as CSV, alongside the metrics table.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 - Makes a **flight card** — a clean, branded image of the headline numbers and the

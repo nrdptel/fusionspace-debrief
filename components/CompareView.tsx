@@ -8,6 +8,7 @@ import type { UnitSystem } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
+import { plotSvg } from '@/lib/svgChart';
 import {
   lengthIn,
   speedIn,
@@ -216,6 +217,24 @@ export default function CompareView({
     ctx.drawImage(canvas, 0, 0);
     out.toBlob((blob) => blob && download(blob, `compare-${metric}.png`));
   };
+  // Vector version of the overlay — every flight's curve on the liftoff-aligned grid,
+  // crisp at any size for a report or cert document (and recolourable there).
+  const saveChartSvg = () => {
+    const svg = plotSvg({
+      x: time,
+      series: flights.map((f) => ({
+        label: stem(f.name),
+        color: f.color,
+        axis: 'left' as const,
+        values: Array.from(active.get(f), (v) => active.toDisplay(v)),
+      })),
+      xLabel: 'Time after liftoff (s)',
+      leftLabel: active.unit ? `${active.label} (${active.unit})` : active.label,
+      markers: liftoffMarker.map((m) => ({ x: m.x, label: m.label, color: m.color })),
+      dark,
+    });
+    download(new Blob([svg], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
+  };
 
   return (
     <div className="space-y-6">
@@ -375,6 +394,14 @@ export default function CompareView({
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button type="button" onClick={savePng} title="Save the comparison chart as a PNG" className={ACTION_BTN}>
             Save .png
+          </button>
+          <button
+            type="button"
+            onClick={saveChartSvg}
+            title="Save the comparison chart as a scalable SVG (vector — crisp at any size)"
+            className={ACTION_BTN}
+          >
+            Save .svg
           </button>
           <button
             type="button"
