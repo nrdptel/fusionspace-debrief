@@ -30,8 +30,8 @@ export default function RecognizedFormats() {
         ))}
       </ul>
       <p className="mt-2.5 text-xs text-zinc-500 dark:text-zinc-400">
-        Auto-detected from the file. Anything else — any logger that exports a CSV — works through a quick column
-        mapper.
+        Auto-detected from the file. Anything else — any logger that exports a CSV or an Excel spreadsheet —
+        works through a quick column mapper.
       </p>
     </section>
   );
