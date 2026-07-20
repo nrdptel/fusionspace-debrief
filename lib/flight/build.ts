@@ -5,6 +5,7 @@
 import type { RawFlight, Channel, ChannelKind } from './types';
 import type { ColumnRole } from './columns';
 import { resolveUnit, CANONICAL } from '../units';
+import { parseNumber } from '../csv';
 
 export interface ColumnMapping {
   index: number;
@@ -49,9 +50,7 @@ export interface BuildOptions {
 }
 
 function num(cell: string | undefined): number {
-  if (cell === undefined || cell === '') return NaN;
-  const v = Number(cell);
-  return Number.isFinite(v) ? v : NaN;
+  return cell === undefined ? NaN : parseNumber(cell);
 }
 
 export function buildFlight(opts: BuildOptions): RawFlight {

@@ -1,5 +1,33 @@
 import { describe, it, expect } from 'vitest';
-import { csvCell, toCsv, splitLine, detectDelimiter, parseTable, isNumeric, formulaGuard } from './csv';
+import { csvCell, toCsv, splitLine, detectDelimiter, parseTable, isNumeric, parseNumber, formulaGuard } from './csv';
+
+describe('parseNumber', () => {
+  it('reads a plain number', () => {
+    expect(parseNumber('100.5')).toBe(100.5);
+    expect(parseNumber(' -12 ')).toBe(-12);
+    expect(parseNumber('1.2e3')).toBe(1200);
+  });
+
+  it('tolerates a trailing unit a logger appends to the value', () => {
+    expect(parseNumber('100.5F')).toBe(100.5); // StratoLogger temperature
+    expect(parseNumber('9.1 V')).toBe(9.1); // battery
+    expect(parseNumber('1013hPa')).toBe(1013);
+    expect(parseNumber('540deg/s')).toBe(540);
+  });
+
+  it('rejects things that only look numeric — dates, times, versions, junk', () => {
+    expect(parseNumber('16:24:04')).toBeNaN();
+    expect(parseNumber('2023-08-09')).toBeNaN();
+    expect(parseNumber('3.2.1')).toBeNaN();
+    expect(parseNumber('')).toBeNaN();
+    expect(parseNumber('abc')).toBeNaN();
+  });
+
+  it('isNumeric follows the same rule', () => {
+    expect(isNumeric('100.5F')).toBe(true);
+    expect(isNumeric('16:24:04')).toBe(false);
+  });
+});
 
 describe('splitLine', () => {
   it('splits on the delimiter and trims cells', () => {
@@ -77,7 +105,7 @@ describe('isNumeric', () => {
     expect(isNumeric('-1.0')).toBe(true);
     expect(isNumeric('5e1')).toBe(true);
     expect(isNumeric('')).toBe(false);
-    expect(isNumeric('12 ft')).toBe(false);
+    expect(isNumeric('12 ft')).toBe(true); // a value with a unit is numeric (reads as 12)
     expect(isNumeric('Infinity')).toBe(false);
   });
 });

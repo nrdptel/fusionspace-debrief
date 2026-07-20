@@ -4,7 +4,7 @@
 // generic-CSV importer's first guess and several named parsers.
 
 import { resolveUnit } from '../units';
-import { isNumeric } from '../csv';
+import { isNumeric, parseNumber } from '../csv';
 
 export type ColumnRole =
   | 'time'
@@ -83,7 +83,10 @@ function numericSeries(rows: string[][], index: number): number[] {
   const out: number[] = [];
   for (const row of rows) {
     const cell = row[index];
-    if (cell !== undefined && cell !== '' && isNumeric(cell)) out.push(Number(cell));
+    if (cell !== undefined && cell !== '') {
+      const v = parseNumber(cell);
+      if (Number.isFinite(v)) out.push(v);
+    }
   }
   return out;
 }

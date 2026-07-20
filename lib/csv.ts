@@ -123,11 +123,25 @@ export function parseTable(text: string, delimiter?: string): ParsedTable {
   return { delimiter: d, rows };
 }
 
-/** Is a cell a finite number? Tolerates surrounding whitespace and a leading +. */
+/** Parse a cell to a number, tolerating a trailing unit a logger appends to the
+ *  value ("100.5F", "9.1 V", "1013hPa", "540deg/s"). Returns NaN for an empty cell,
+ *  or one that isn't a leading number followed only by a non-numeric unit — so a
+ *  time-of-day ("16:24:04"), a date ("2023-08-09") or a version isn't read as one. */
+export function parseNumber(cell: string): number {
+  const t = cell.trim();
+  if (t === '') return NaN;
+  const v = Number(t);
+  if (Number.isFinite(v)) return v;
+  const m = t.match(/^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*[^\d\s].*$/);
+  // Group 1 is the leading number; accept it only when the trailing unit carries no
+  // further digit (which would signal a date/time/version, not a value + unit).
+  if (m && !/\d/.test(t.slice(m[1].length))) return Number(m[1]);
+  return NaN;
+}
+
+/** Is a cell a finite number (allowing a trailing unit, per parseNumber)? */
 export function isNumeric(cell: string): boolean {
-  if (cell === '') return false;
-  const v = Number(cell);
-  return Number.isFinite(v);
+  return Number.isFinite(parseNumber(cell));
 }
 
 // --- Writing ---------------------------------------------------------------
