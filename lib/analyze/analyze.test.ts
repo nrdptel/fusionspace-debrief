@@ -133,6 +133,28 @@ describe('accelerometer saturation', () => {
     expect(a.metrics.maxAcceleration / G0).toBeGreaterThan(5); // the real peak, not ~0.1 g
   });
 
+  it('reports the resultant magnitude across a multi-axis logger, not one axis', () => {
+    // Two body axes that both see the boost: a thrust axis and a second at 0.75x
+    // it (a canted mount). The honest peak is the resultant √(1²+0.75²)=1.25x the
+    // thrust axis alone — a single axis would under-report it.
+    const single = analyzeFlight(accelFlight(null));
+    const two = accelFlight(null);
+    const real = two.channels.find((c) => c.kind === 'accelAxial')!.values;
+    const canted = Float64Array.from(real, (v) => v * 0.75);
+    two.channels = [
+      two.channels.find((c) => c.kind === 'altitude')!,
+      { kind: 'accelAxial', label: 'accel_x', unit: 'm/s²', values: real },
+      { kind: 'accelAxial', label: 'accel_y', unit: 'm/s²', values: canted },
+    ];
+    const a = analyzeFlight(two);
+    expect(a.series.accelerationResultant).toBe(true);
+    // Resultant peak ≈ 1.25x the single-axis peak, and the chart series is ≥ 0.
+    expect(a.metrics.maxAcceleration / single.metrics.maxAcceleration).toBeCloseTo(1.25, 1);
+    expect(Math.min(...a.series.acceleration)).toBeGreaterThanOrEqual(0);
+    // Burnout still detected off the signed axis (a magnitude never crosses zero).
+    expect(a.metrics.burnTime).not.toBeNull();
+  });
+
   it('does not cry saturation over a flat, near-zero (off-axis) channel', () => {
     // A multi-axis logger's lateral component: quiet through the whole flight,
     // so it sits flat near 0 g. That is not a railed sensor — clamping the flat

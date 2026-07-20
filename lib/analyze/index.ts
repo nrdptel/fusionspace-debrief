@@ -50,6 +50,33 @@ function pickAxialChannel(flight: RawFlight): Channel | undefined {
   return best;
 }
 
+/** For a multi-axis body logger, the honest peak-acceleration figure is the
+ *  resultant magnitude |a| = √(Σ aₖ²) of the recorded axes — which is what the
+ *  device's own "max acceleration" reports, and which a single body axis under-
+ *  reads (a rocket that pulls 31 g total reads ~15 g on the axis nearest thrust
+ *  when it isn't perfectly aligned). Returns the per-sample resultant when the
+ *  logger gave two or more axial channels, else null (one channel already IS the
+ *  axial acceleration, so nothing changes for a single-axis logger). */
+function axialResultant(flight: RawFlight): Float64Array | null {
+  const axial = flight.channels.filter((c) => c.kind === 'accelAxial');
+  if (axial.length < 2) return null;
+  const n = flight.time.length;
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let sq = 0;
+    let any = false;
+    for (const c of axial) {
+      const v = c.values[i];
+      if (Number.isFinite(v)) {
+        sq += v * v;
+        any = true;
+      }
+    }
+    out[i] = any ? Math.sqrt(sq) : NaN;
+  }
+  return out;
+}
+
 /** Barometric altitude (AGL) from pressure, given the launch-pad pressure. */
 function altitudeFromPressure(pressure: Float64Array, padPressure: number): Float64Array {
   const out = new Float64Array(pressure.length);
@@ -225,20 +252,37 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // a derivative of that derivative — is dominated by noise. Rather than present a
   // misleading figure, omit acceleration entirely for a GPS-only log.
   const altitudeSource: 'baro' | 'gps' = flight.meta.altitudeSource === 'gps' ? 'gps' : 'baro';
+  // `acceleration` is the magnitude read that drives the peak, the chart, clip
+  // detection, deployment shock, thrust-to-weight and the boost average. For a
+  // multi-axis logger that's the resultant of the axes (the true |a| the airframe
+  // felt); for a single-axis or baro-derived flight it's the one signed trace.
+  // `signedAccel` stays a signed axial trace for the two readings that need a
+  // sign — the most-negative deceleration and the burnout zero-crossing.
   let acceleration: Float64Array;
+  let signedAccel: Float64Array;
   let accelerationSource: 'device' | 'baro';
+  let accelerationResultant = false;
   const accCh = pickAxialChannel(flight) ?? getChannel(flight, 'accelTotal');
+  const resultant = axialResultant(flight);
   if (altitudeSource === 'gps') {
     acceleration = new Float64Array(n).fill(NaN);
+    signedAccel = acceleration;
     accelerationSource = 'baro';
     warnings.push(
       'Altitude is from GPS, so velocity derived from it is approximate; acceleration would be a second derivative of coarse GPS data and isn’t meaningful, so it’s omitted.',
     );
   } else if (accCh) {
-    acceleration = accCh.values.slice();
+    signedAccel = accCh.values.slice();
+    if (resultant) {
+      acceleration = resultant; // ≥2 body axes → report the resultant magnitude
+      accelerationResultant = true;
+    } else {
+      acceleration = signedAccel;
+    }
     accelerationSource = 'device';
   } else {
     acceleration = movingAverage(derivative(time, velocity), windowFor(dt, 0.1));
+    signedAccel = acceleration;
     accelerationSource = 'baro';
   }
 
@@ -261,6 +305,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     acceleration,
     velocitySource,
     accelerationSource,
+    accelerationResultant,
     altitudeSource,
     speedOfSound,
     airDensity,
@@ -325,8 +370,10 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxVelocity = maxVelIdx >= 0 ? velocity[maxVelIdx] : NaN;
     const maxAccIdx = argMax(acceleration, liftoffRef, apogeeIdx + 1);
     maxAcceleration = maxAccIdx >= 0 ? acceleration[maxAccIdx] : NaN;
-    const maxDecIdx = argMin(acceleration, liftoffRef, apogeeIdx + 1);
-    maxDeceleration = maxDecIdx >= 0 ? acceleration[maxDecIdx] : NaN;
+    // Deceleration is signed — read the most-negative axial value, not the
+    // (always-positive) resultant magnitude.
+    const maxDecIdx = argMin(signedAccel, liftoffRef, apogeeIdx + 1);
+    maxDeceleration = maxDecIdx >= 0 ? signedAccel[maxDecIdx] : NaN;
 
     // Saturation: a device accelerometer that hit its full-scale limit reads a
     // flat top at its peak. A real boost rounds over its maximum (mass falls
@@ -350,9 +397,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // "burnout" that lands on apogee (a coast-dominated read with no real boost).
   let burnoutIdx: number | null = null;
   if (ascentPresent && accelerationSource === 'device') {
-    const peak = argMax(acceleration, liftoffRef, apogeeIdx + 1);
+    // Burnout is a sign change on the axial trace (thrust → drag), so read the
+    // signed axis: the resultant magnitude never falls through zero.
+    const peak = argMax(signedAccel, liftoffRef, apogeeIdx + 1);
     for (let i = peak; i < apogeeIdx; i++) {
-      if (acceleration[i] <= 0) {
+      if (signedAccel[i] <= 0) {
         burnoutIdx = i;
         break;
       }

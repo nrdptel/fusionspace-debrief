@@ -107,10 +107,13 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.
 - Uses the device's own velocity/acceleration when it logged them, and derives them
-  from altitude when it didn't — labelling which is which. Flags a **saturated
-  accelerometer** — when the trace flat-tops at its peak (the sign a sensor hit its
-  full-scale limit), the max acceleration is marked as possibly clipped rather than
-  read as the true maximum.
+  from altitude when it didn't — labelling which is which. For a **multi-axis logger**
+  (separate accel_x/y/z body axes) it reports the **resultant magnitude** √(x²+y²+z²) —
+  the true peak the airframe felt, and what the device's own summary reports — rather
+  than a single body axis, which under-reads it whenever the airframe isn't perfectly
+  aligned to one axis. Flags a **saturated accelerometer** — when the trace flat-tops at
+  its peak (the sign a sensor hit its full-scale limit), the max acceleration is marked
+  as possibly clipped rather than read as the true maximum.
 - Exports a flight: copy a text summary, save it as `.txt` or a report-grade **Markdown**
   file — the headline metrics and events as tables (and, when the file carried the logger's
   own summary, the device-vs-Debrief cross-check), ready to drop into a project write-up,

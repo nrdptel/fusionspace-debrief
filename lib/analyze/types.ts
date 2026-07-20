@@ -85,6 +85,10 @@ export interface FlightSeries {
   acceleration: Float64Array; // m/s² (+ = up)
   velocitySource: 'device' | 'baro';
   accelerationSource: 'device' | 'baro';
+  /** True when `acceleration` is the resultant magnitude √(Σ aₖ²) of a multi-axis
+   *  logger's body axes rather than a single signed axial trace — so it reads ≥ 0
+   *  (no negative deceleration dip) and matches the device's own "max acc". */
+  accelerationResultant?: boolean;
   /** Where altitude came from. 'gps' is coarse: velocity off it is rough and
    *  acceleration (a second derivative) isn't meaningful, so it's omitted. */
   altitudeSource: 'baro' | 'gps';

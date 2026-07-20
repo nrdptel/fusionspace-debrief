@@ -274,7 +274,7 @@ export default function FlightReport({
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
-  const accLabel = `Line chart: acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration)}` : ''}.`;
+  const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration)}` : ''}.`;
 
   return (
     <div className="space-y-8">
@@ -469,8 +469,14 @@ export default function FlightReport({
 
         {hasAccel && (
           <ChartBlock
-            title="Acceleration (g)"
-            note={series.accelerationSource === 'device' ? 'logged by the device' : 'derived from velocity'}
+            title={series.accelerationResultant ? 'Total acceleration (g)' : 'Acceleration (g)'}
+            note={
+              series.accelerationResultant
+                ? 'resultant of the logged axes'
+                : series.accelerationSource === 'device'
+                  ? 'logged by the device'
+                  : 'derived from velocity'
+            }
           >
             <Chart
               time={series.time}
