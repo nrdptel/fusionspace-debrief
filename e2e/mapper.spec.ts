@@ -71,3 +71,14 @@ test('an .xlsx spreadsheet drops in and maps its columns', async ({ page }) => {
   await page.getByRole('button', { name: 'Analyze flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 });
+
+// A corrupt .xlsx must fail with a message the flyer can act on, not a generic line.
+test('a broken .xlsx explains what went wrong', async ({ page }) => {
+  await page.goto('/');
+  // ZIP magic so it's taken as an .xlsx, then garbage — no central directory.
+  const broken = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('not a real workbook'.repeat(4))]);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'broken.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: broken });
+  await expect(page.getByText(/not a readable ZIP archive/i)).toBeVisible();
+});

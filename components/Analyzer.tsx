@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { importFlight } from '@/lib/parsers';
+import { importFlight, ParseGuidanceError } from '@/lib/parsers';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import type { RawFlight } from '@/lib/flight/types';
@@ -143,8 +143,13 @@ export default function Analyzer() {
         const text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
         await tick(); // let the loading state paint before parsing
         await ingest(file.name, text);
-      } catch {
-        setState({ phase: 'error', message: 'Could not read this file.' });
+      } catch (err) {
+        // A deliberate, user-facing message (e.g. an .xlsx that couldn't be
+        // unzipped) should reach the flyer, not be hidden behind a generic line.
+        setState({
+          phase: 'error',
+          message: err instanceof ParseGuidanceError ? err.message : 'Could not read this file.',
+        });
       }
     },
     [ingest],

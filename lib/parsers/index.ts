@@ -17,6 +17,7 @@ import { entacoreAimParser } from './entacoreAim';
 import { featherweightGpsParser } from './featherweightGps';
 
 export type { ParseInput, Parser } from './types';
+export { ParseGuidanceError } from './types';
 
 export const PARSERS: Parser[] = [
   altusMetrumParser,
