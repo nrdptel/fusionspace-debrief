@@ -112,7 +112,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   full-scale limit), the max acceleration is marked as possibly clipped rather than
   read as the true maximum.
 - Exports a flight: copy a text summary, save it as `.txt` or a report-grade **Markdown**
-  file — the headline metrics and events as tables, ready to drop into a project write-up,
+  file — the headline metrics and events as tables (and, when the file carried the logger's
+  own summary, the device-vs-Debrief cross-check), ready to drop into a project write-up,
   a certification document or a forum post — save the analyzed series (time, altitude,
   velocity, acceleration, Mach, dynamic pressure) as `.csv`, or save the altitude chart as
   a PNG or a **vector SVG** with the events marked — crisp at any size for a report. The

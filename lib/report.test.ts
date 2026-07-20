@@ -73,4 +73,26 @@ describe('report exports', () => {
       true,
     );
   });
+
+  it('includes a device cross-check section when the file carried its own summary', () => {
+    const withReported: RawFlight = {
+      ...flight,
+      reported: [
+        { metric: 'apogeeAltitude', label: 'Apogee', value: 300, source: 'device' },
+        { metric: 'maxVelocity', label: 'Max velocity', value: 9999, source: 'device' }, // deliberately off
+      ],
+    };
+    const a = analyzeFlight(withReported);
+    const md = summaryMarkdown(withReported, a, 'metric');
+    expect(md).toContain("Logger’s own summary (cross-check)");
+    expect(md).toContain('| Reading | Logger | Debrief | Agreement |');
+    expect(md).toMatch(/\| Apogee \|.*\| agree/); // ~300 m computed vs 300 reported
+    expect(md).toMatch(/\| Max velocity \|.*\| differ/); // 9999 m/s can't match
+
+    const txt = summaryText(withReported, a, 'metric');
+    expect(txt).toContain('Logger’s own summary (cross-check)');
+
+    // A flight with no reported summary omits the section entirely.
+    expect(summaryMarkdown(flight, analysis, 'metric')).not.toContain('cross-check');
+  });
 });

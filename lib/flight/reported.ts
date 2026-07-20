@@ -9,6 +9,7 @@
 // row is never mistaken for a reading. Unknown formats simply yield nothing.
 
 import type { ReportedValue } from './types';
+import type { FlightMetrics } from '../analyze/types';
 import { parseNumber } from '../csv';
 import { G0 } from '../units';
 
@@ -46,4 +47,28 @@ export function extractReportedSummary(metadataRows: string[][]): ReportedValue[
     }
   }
   return out;
+}
+
+/** Within this fraction the device's figure and Debrief's read are called "agree". */
+export const AGREE_FRACTION = 0.05;
+
+export interface ReportedComparison {
+  reported: ReportedValue;
+  /** Debrief's own value for the same metric, in canonical SI (may be NaN). */
+  computed: number;
+  hasComputed: boolean;
+  /** |computed − device| / |device|, as a percentage; null when not comparable. */
+  deltaPct: number | null;
+  agree: boolean;
+}
+
+/** Pair each device-reported figure with Debrief's own read of the same metric —
+ *  the shared basis for the on-screen cross-check and the exported report. */
+export function compareReported(reported: ReportedValue[], metrics: FlightMetrics): ReportedComparison[] {
+  return reported.map((r) => {
+    const computed = metrics[r.metric];
+    const hasComputed = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
+    const deltaPct = hasComputed ? Math.abs((computed - r.value) / r.value) * 100 : null;
+    return { reported: r, computed, hasComputed, deltaPct, agree: deltaPct != null && deltaPct <= AGREE_FRACTION * 100 };
+  });
 }

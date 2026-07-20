@@ -7,9 +7,7 @@ import type { FlightMetrics } from '@/lib/analyze/types';
 import type { ReportedValue } from '@/lib/flight/types';
 import type { UnitSystem } from '@/lib/display';
 import { fmtLength, fmtSpeed, fmtAccel } from '@/lib/display';
-
-// Within this fraction the two reads are called "agree"; beyond it, "differ".
-const AGREE_FRACTION = 0.05;
+import { compareReported } from '@/lib/flight/reported';
 
 function fmt(metric: ReportedValue['metric'], si: number, sys: UnitSystem): string {
   if (metric === 'apogeeAltitude') return fmtLength(si, sys);
@@ -26,13 +24,13 @@ export default function DeviceSummary({
   metrics: FlightMetrics;
   sys: UnitSystem;
 }) {
-  const rows = reported.map((r) => {
-    const computed = metrics[r.metric];
-    const has = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
-    const deltaPct = has ? Math.abs((computed - r.value) / r.value) * 100 : null;
-    const agree = deltaPct != null && deltaPct <= AGREE_FRACTION * 100;
-    return { r, computed, has, deltaPct, agree };
-  });
+  const rows = compareReported(reported, metrics).map(({ reported: r, computed, hasComputed: has, deltaPct, agree }) => ({
+    r,
+    computed,
+    has,
+    deltaPct,
+    agree,
+  }));
 
   return (
     <section

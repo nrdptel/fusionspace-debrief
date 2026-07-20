@@ -1,9 +1,10 @@
 // Build a plain-text flight summary for sharing — the kind of thing you'd paste
 // into a forum post or save next to the log. Mirrors what the report shows.
 
-import type { RawFlight } from './flight/types';
+import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
 import type { UnitSystem } from './display';
+import { compareReported } from './flight/reported';
 import {
   fmtLength,
   fmtSpeed,
@@ -58,6 +59,23 @@ function headlineRows(m: FlightAnalysis['metrics'], sys: UnitSystem): [string, s
   return rows;
 }
 
+function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitSystem): string {
+  if (metric === 'apogeeAltitude') return fmtLength(si, sys);
+  if (metric === 'maxVelocity') return fmtSpeed(si, sys);
+  return fmtAccel(si);
+}
+
+/** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
+ *  read, and how closely they agree. Empty when the file carried no summary. */
+function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: UnitSystem): [string, string, string, string][] {
+  if (!flight.reported?.length) return [];
+  return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct }) => {
+    const agreement =
+      deltaPct == null ? 'not computed' : deltaPct <= 5 ? `agree (${deltaPct < 0.05 ? '≈0' : deltaPct.toFixed(1)}%)` : `differ (${deltaPct.toFixed(0)}%)`;
+    return [r.label, fmtReported(r.metric, r.value, sys), hasComputed ? fmtReported(r.metric, computed, sys) : '—', agreement];
+  });
+}
+
 export function summaryText(
   flight: RawFlight,
   analysis: FlightAnalysis,
@@ -80,6 +98,15 @@ export function summaryText(
       const v = analysis.series.velocity[e.index];
       const speed = Number.isFinite(v) ? `   ${fmtSpeed(v, sys)}` : '';
       lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${speed}${prov}`);
+    }
+  }
+
+  const xrows = crossCheckRows(flight, analysis.metrics, sys);
+  if (xrows.length) {
+    lines.push('');
+    lines.push('Logger’s own summary (cross-check)');
+    for (const [label, device, debrief, agreement] of xrows) {
+      lines.push(`  ${label.padEnd(16)} logger ${device.padStart(10)}   Debrief ${debrief.padStart(10)}   ${agreement}`);
     }
   }
 
@@ -125,6 +152,14 @@ export function summaryMarkdown(
       const v = analysis.series.velocity[e.index];
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
       out.push(`| ${cell(label)} | ${fmtTime(e.time)} | ${cell(fmtLength(e.altitude, sys))} | ${cell(speed)} |`);
+    }
+  }
+
+  const xrows = crossCheckRows(flight, analysis.metrics, sys);
+  if (xrows.length) {
+    out.push('', '## Logger’s own summary (cross-check)', '', '| Reading | Logger | Debrief | Agreement |', '| --- | --- | --- | --- |');
+    for (const [label, device, debrief, agreement] of xrows) {
+      out.push(`| ${cell(label)} | ${cell(device)} | ${cell(debrief)} | ${cell(agreement)} |`);
     }
   }
 
