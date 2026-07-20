@@ -94,4 +94,24 @@ describe('analysis robustness', () => {
     expect(a.metrics.apogeeAltitude).toBeLessThan(1550);
     expect(a.events.some((e) => e.type === 'landing')).toBe(true);
   });
+
+  it('does not pin liftoff to a lateral accel spike hundreds of metres up', () => {
+    // A per-axis (body-frame) accelerometer channel that is quiet through boost
+    // but throws a brief >2 g lateral blip at ejection near apogee — the kind of
+    // channel a multi-axis logger exposes. Liftoff must still land near the pad.
+    const flight = triangleFlight();
+    const n = flight.time.length;
+    const alt = flight.channels[0].values;
+    const apIdx = alt.indexOf(Math.max(...alt));
+    const acc = new Float64Array(n).fill(1 * 9.80665); // ~1 g resting/lateral
+    acc[apIdx - 12] = 6 * 9.80665; // ejection blip near (just before) apogee, two samples wide
+    acc[apIdx - 11] = 6 * 9.80665;
+    flight.channels.push({ kind: 'accelAxial', label: 'ax', unit: 'm/s²', values: acc });
+    const a = analyzeFlight(flight);
+    // Liftoff (~pad time 1.5 s) to apogee (~9.5 s) is several seconds, not the
+    // fraction of a second a spike-pinned liftoff would report.
+    expect(a.metrics.timeToApogee).toBeGreaterThan(4);
+    const liftoff = a.events.find((e) => e.type === 'liftoff');
+    expect(liftoff && liftoff.time).toBeLessThan(3);
+  });
 });

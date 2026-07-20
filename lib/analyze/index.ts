@@ -263,7 +263,13 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   let liftoffIdx = -1;
   if (ascentPresent && accelerationSource === 'device') {
     const thresh = 2 * G0;
+    // Only look for the ignition spike near the pad. A logger with per-axis
+    // channels (accel_x/y/z) can throw a lateral >2 g blip at ejection near
+    // apogee; without this ceiling the search would pin liftoff there — a
+    // couple of hundred metres up and a fraction of a second before apogee.
+    const padCeiling = Math.max(baselineNoise * 5, apogeeAlt * 0.5);
     for (let i = 0; i < apogeeIdx; i++) {
+      if (altClean[i] > padCeiling) break;
       if (acceleration[i] > thresh && acceleration[Math.min(i + 1, n - 1)] > thresh) {
         liftoffIdx = i;
         break;

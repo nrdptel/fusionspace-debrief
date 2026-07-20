@@ -33,7 +33,7 @@ export interface ColumnGuess {
 // wins, so more specific roles come first (total-accel before generic accel).
 const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   { role: 'time', test: (h) => /\b(time|seconds?|millis|timestamp|elapsed|flttime|flighttime)\b/.test(h) || /^t$/.test(h) },
-  { role: 'accelTotal', test: (h) => /(total.?acc|acc.?total|net.?acc|accel.?mag|gforce|g.?force)/.test(h) },
+  { role: 'accelTotal', test: (h) => /(total.?acc|acc.?total|net.?acc|accel.?mag|gforce|g.?force)/.test(h) || (/acc/.test(h) && /\b(total|net|resultant|magnitude)\b/.test(h)) },
   // Deliberately does NOT match a bare "g" — that steals GPS/geoid columns; rely
   // on an explicit accel word, with the unit (g) read separately from the header.
   { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz])\b/.test(h) },

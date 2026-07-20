@@ -58,3 +58,31 @@ describe('analyzeTable — headerless role inference from data shape', () => {
     expect(t.columns[2].role).toBe('voltage');
   });
 });
+
+describe('analyzeTable — a multi-axis logger (per-axis accel + a total)', () => {
+  // Headers in the style of AltimeterCloud/Mercury: three body axes in milli-g
+  // plus a total-magnitude channel, also in milli-g.
+  const rows = [
+    ['Time(ms)', 'Altitude(m)', 'Velocity(m/s)', 'acceleration_x(mG)', 'acceleration_y(mG)', 'acceleration_z(mG)', 'acceleration_total(mG)'],
+    ['0', '0', '0', '0', '0', '-1000', '-1000'],
+    ['20', '5', '30', '1400', '400', '-360', '509'],
+    ['40', '20', '42', '1200', '450', '-360', '354'],
+    ['60', '48', '52', '1080', '360', '-400', '215'],
+  ];
+  const t = analyzeTable(rows);
+  const by = (h: string) => t.columns.find((c) => c.header === h)!;
+
+  it('reads acceleration_total as the total channel, not a bare axial one', () => {
+    expect(by('acceleration_total(mG)').role).toBe('accelTotal');
+  });
+
+  it('leaves the per-axis channels as axial acceleration', () => {
+    expect(by('acceleration_x(mG)').role).toBe('accelAxial');
+    expect(by('acceleration_z(mG)').role).toBe('accelAxial');
+  });
+
+  it('reads the milli-g unit off the header for every accel column', () => {
+    expect(by('acceleration_x(mG)').unit).toBe('mg');
+    expect(by('acceleration_total(mG)').unit).toBe('mg');
+  });
+});

@@ -70,8 +70,11 @@ registry and falls back to the generic importer.
 The universal escape hatch is a **generic CSV importer with interactive column mapping
 and a unit picker** — point it at the time / altitude / accel columns, set units, done.
 This alone covers "any logger that can export a CSV," which is the Excel-wrangling pain
-the tool exists to kill. On top of that, a handful of named formats get
-auto-detected and parsed with zero configuration.
+the tool exists to kill. It reads the unit off the header where the logger writes it,
+including milli-g (`mG`) accelerometer channels, and recognises a multi-axis logger's
+`acceleration_total`/magnitude column as the total channel rather than a per-axis one.
+On top of that, a handful of named formats get auto-detected and parsed with zero
+configuration.
 
 Proposed first named formats (rationale below, and the exact priority is the main thing
 I want your read on):

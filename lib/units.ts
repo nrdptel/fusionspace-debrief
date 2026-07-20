@@ -42,6 +42,7 @@ const UNITS: UnitDef[] = [
   // acceleration
   { quantity: 'accel', scale: 1, aliases: ['m/s²', 'm/s2', 'm/s^2', 'mps2'] },
   { quantity: 'accel', scale: G0, aliases: ['g', 'gs', "g's", 'gee', 'grav'] },
+  { quantity: 'accel', scale: G0 / 1000, aliases: ['mg', 'milli-g', 'millig', 'mgee'] },
   { quantity: 'accel', scale: 0.3048, aliases: ['ft/s²', 'ft/s2', 'ft/s^2', 'fps2'] },
   // pressure
   { quantity: 'pressure', scale: 1, aliases: ['pa', 'pascal', 'pascals'] },
