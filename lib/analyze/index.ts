@@ -5,7 +5,7 @@
 // step, and the in-app "Where the numbers come from" section for the user-facing
 // version.
 
-import type { RawFlight } from '../flight/types';
+import type { RawFlight, Channel } from '../flight/types';
 import { getChannel } from '../flight/types';
 import { G0 } from '../units';
 import type { FlightAnalysis, FlightEvent, FlightMetrics, FlightSeries } from './types';
@@ -26,6 +26,28 @@ function windowFor(dt: number, seconds: number): number {
   if (dt <= 0) return 3;
   const w = Math.round(seconds / dt);
   return Math.max(3, Math.min(401, w | 1)); // odd, bounded
+}
+
+/** The axial-acceleration channel to analyze. A single-axis logger has one, and
+ *  that's it. A multi-axis logger (accel_x/y/z body axes) maps them all to
+ *  accelAxial, and which one is "axial" depends on how the airframe sat in the
+ *  bay — so pick the axis that saw the largest acceleration excursion, which the
+ *  thrust axis dominates during boost. Without this the first column wins, and a
+ *  quiet lateral axis can stand in for the real one (a ~0 g "max acceleration"). */
+function pickAxialChannel(flight: RawFlight): Channel | undefined {
+  const axial = flight.channels.filter((c) => c.kind === 'accelAxial');
+  if (axial.length <= 1) return axial[0];
+  let best = axial[0];
+  let bestPeak = -Infinity;
+  for (const ch of axial) {
+    let peak = 0;
+    for (const v of ch.values) if (Number.isFinite(v) && Math.abs(v) > peak) peak = Math.abs(v);
+    if (peak > bestPeak) {
+      bestPeak = peak;
+      best = ch;
+    }
+  }
+  return best;
 }
 
 /** Barometric altitude (AGL) from pressure, given the launch-pad pressure. */
@@ -205,7 +227,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const altitudeSource: 'baro' | 'gps' = flight.meta.altitudeSource === 'gps' ? 'gps' : 'baro';
   let acceleration: Float64Array;
   let accelerationSource: 'device' | 'baro';
-  const accCh = getChannel(flight, 'accelAxial') ?? getChannel(flight, 'accelTotal');
+  const accCh = pickAxialChannel(flight) ?? getChannel(flight, 'accelTotal');
   if (altitudeSource === 'gps') {
     acceleration = new Float64Array(n).fill(NaN);
     accelerationSource = 'baro';

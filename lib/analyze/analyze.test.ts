@@ -115,6 +115,24 @@ describe('accelerometer saturation', () => {
     expect(a.metrics.accelClipped).toBe(false);
   });
 
+  it('reads the largest-swing axis when a multi-axis logger gives several', () => {
+    // A body-axis logger maps accel_x/y/z all to accelAxial. The first is a quiet
+    // lateral axis (~0.1 g); the real thrust axis is another. The analysis must
+    // read the active axis, not the first column, so max acceleration isn't ~0.
+    const base = accelFlight(null);
+    const real = base.channels.find((c) => c.kind === 'accelAxial')!.values;
+    const lateral = new Float64Array(real.length).fill(0.1 * G0); // quiet off-axis
+    // Put the quiet lateral axis first, the real one second.
+    base.channels = [
+      base.channels.find((c) => c.kind === 'altitude')!,
+      { kind: 'accelAxial', label: 'accel_x', unit: 'm/s²', values: lateral },
+      { kind: 'accelAxial', label: 'accel_z', unit: 'm/s²', values: real },
+    ];
+    const a = analyzeFlight(base);
+    expect(a.metrics.accelerationSource).toBe('device');
+    expect(a.metrics.maxAcceleration / G0).toBeGreaterThan(5); // the real peak, not ~0.1 g
+  });
+
   it('does not cry saturation over a flat, near-zero (off-axis) channel', () => {
     // A multi-axis logger's lateral component: quiet through the whole flight,
     // so it sits flat near 0 g. That is not a railed sensor — clamping the flat
