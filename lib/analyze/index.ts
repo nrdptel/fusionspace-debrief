@@ -310,8 +310,12 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     // flat top at its peak. A real boost rounds over its maximum (mass falls
     // through the burn, so net accel is never held dead flat), so a sustained
     // plateau right at the peak means the sensor railed — the reported max is a
-    // floor, not the truth. Only meaningful for a measured (device) trace.
-    if (accelerationSource === 'device' && Number.isFinite(maxAcceleration) && maxAcceleration > 0) {
+    // floor, not the truth. Only meaningful for a measured (device) trace whose
+    // peak is a plausible boost acceleration: a flown rocket pulls more than 1 g,
+    // and no full-scale limit rails at a fraction of gravity, so a near-zero
+    // "peak" is a quiet or lateral channel (a multi-axis logger's off-axis
+    // component), not a railed one — don't cry saturation over it.
+    if (accelerationSource === 'device' && Number.isFinite(maxAcceleration) && maxAcceleration > G0) {
       const eps = Math.max(maxAcceleration * 0.003, 0.25); // m/s² — a tight band at the rail
       const minRun = Math.max(4, Math.round(0.05 / (dt || 0.1)));
       accelClipped = longestRunNear(acceleration, liftoffRef, apogeeIdx + 1, maxAcceleration, eps) >= minRun;

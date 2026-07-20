@@ -114,6 +114,19 @@ describe('accelerometer saturation', () => {
     expect(a.metrics.accelerationSource).toBe('device');
     expect(a.metrics.accelClipped).toBe(false);
   });
+
+  it('does not cry saturation over a flat, near-zero (off-axis) channel', () => {
+    // A multi-axis logger's lateral component: quiet through the whole flight,
+    // so it sits flat near 0 g. That is not a railed sensor — clamping the flat
+    // top to a ~0 g "peak" must not raise a false saturation warning.
+    const flight = accelFlight(null);
+    const acc = flight.channels.find((c) => c.kind === 'accelAxial')!.values;
+    for (let i = 0; i < acc.length; i++) acc[i] = 0.05 * 9.80665; // ~0.05 g, dead flat
+    const a = analyzeFlight(flight);
+    expect(a.metrics.accelerationSource).toBe('device');
+    expect(a.metrics.accelClipped).toBe(false);
+    expect(a.warnings.some((w) => /saturat|full-scale|flat top/i.test(w))).toBe(false);
+  });
 });
 
 // A flight that climbs to a peak and back, carrying a constant roll-rate channel.
