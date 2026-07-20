@@ -15,6 +15,7 @@ import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import { useIsDark } from './useIsDark';
+import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import ChannelExplorer from './ChannelExplorer';
@@ -54,6 +55,7 @@ export default function FlightReport({
   onToggleUnits: () => void;
 }) {
   const dark = useIsDark();
+  const [figureDark, toggleFigureDark] = useFigureDark();
   const { series, events, metrics, warnings } = analysis;
   const notes = flight.notes;
 
@@ -200,7 +202,7 @@ export default function FlightReport({
       xLabel: 'Time (s)',
       leftLabel: `${UNIT_LABEL[sys].length} AGL`,
       markers: events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] })),
-      dark,
+      dark: figureDark,
     });
     download(new Blob([svg], { type: 'image/svg+xml' }), `${stem}-altitude.svg`);
   }
@@ -314,6 +316,7 @@ export default function FlightReport({
           >
             Save .csv
           </button>
+          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
           <button
             type="button"
             onClick={saveChartSvg}

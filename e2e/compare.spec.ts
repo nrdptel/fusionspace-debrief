@@ -63,20 +63,30 @@ test('compare two flights from the recents list', async ({ page }) => {
   // count is deterministic.
   await page.getByRole('button', { name: 'Altitude' }).click();
   await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
-  const [svg] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Save .svg' }).click(),
-  ]);
-  expect(svg.suggestedFilename()).toMatch(/^compare-.*\.svg$/);
-  const stream = await svg.createReadStream();
-  const body = await new Promise<string>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
-    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    stream!.on('error', reject);
-  });
+  const exportSvg = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save .svg' }).click(),
+    ]);
+    expect(dl.suggestedFilename()).toMatch(/^compare-.*\.svg$/);
+    const stream = await dl.createReadStream();
+    return await new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+      stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      stream!.on('error', reject);
+    });
+  };
+  const body = await exportSvg();
   expect(body).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
   expect((body.match(/<path /g) ?? []).length).toBe(2); // one curve per flight
+  // A report figure defaults to a light background whatever the app theme is.
+  expect(body).toContain('fill="#ffffff"');
+  expect(body).not.toContain('fill="#09090b"');
+  // …and the flyer can flip it to dark for a slide deck.
+  await page.getByRole('button', { name: /Exported figure background/ }).click();
+  const darkBody = await exportSvg();
+  expect(darkBody).toContain('fill="#09090b"');
 
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();

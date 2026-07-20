@@ -24,6 +24,7 @@ import {
   fmtPressure,
 } from '@/lib/display';
 import { useIsDark } from './useIsDark';
+import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 
 const ACTION_BTN =
@@ -78,6 +79,7 @@ export default function CompareView({
   onBack: () => void;
 }) {
   const dark = useIsDark();
+  const [figureDark, toggleFigureDark] = useFigureDark();
   const { time, flights } = comparison;
   const syncKey = useMemo(() => `compare-${flights.map((f) => f.id).join('-')}`, [flights]);
   const [metric, setMetric] = useState<MetricKey>('altitude');
@@ -231,7 +233,7 @@ export default function CompareView({
       xLabel: 'Time after liftoff (s)',
       leftLabel: active.unit ? `${active.label} (${active.unit})` : active.label,
       markers: liftoffMarker.map((m) => ({ x: m.x, label: m.label, color: m.color })),
-      dark,
+      dark: figureDark,
     });
     download(new Blob([svg], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
   };
@@ -395,6 +397,7 @@ export default function CompareView({
           <button type="button" onClick={savePng} title="Save the comparison chart as a PNG" className={ACTION_BTN}>
             Save .png
           </button>
+          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
           <button
             type="button"
             onClick={saveChartSvg}

@@ -9,6 +9,7 @@ import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
+import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 
 const SELECT =
@@ -44,6 +45,7 @@ export default function ChannelExplorer({
   stem: string;
 }) {
   const dark = useIsDark();
+  const [figureDark, toggleFigureDark] = useFigureDark();
   const chartRef = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(channels.map((c) => [c.key, c])), [channels]);
 
@@ -154,7 +156,7 @@ export default function ChannelExplorer({
       xLabel: xUnit ? `${xName} (${xUnit})` : xName,
       leftLabel: leftUnit ?? '',
       rightLabel: rightUnit,
-      dark,
+      dark: figureDark,
     });
     download(new Blob([svg], { type: 'image/svg+xml' }), `${stem}-explore.svg`);
   };
@@ -248,6 +250,7 @@ export default function ChannelExplorer({
         <button type="button" onClick={savePng} title="Save the current plot as a PNG" className={ACTION_BTN}>
           Save .png
         </button>
+        <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
         <button
           type="button"
           onClick={saveSvg}
