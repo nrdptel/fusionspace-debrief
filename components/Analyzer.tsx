@@ -243,6 +243,7 @@ export default function Analyzer() {
           headers: table.headers,
           dataRows: table.dataRows,
           mappings,
+          reported: table.reported,
         });
         set({ phase: 'loading' });
         const analysis = await analyzeAsync(flight);

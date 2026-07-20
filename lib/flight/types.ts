@@ -26,6 +26,19 @@ export interface Channel {
   values: Float64Array;
 }
 
+/** A headline figure the logger computed and wrote into the file itself — its own
+ *  apogee, max velocity, and so on. Kept as first-class, provenance-labelled data
+ *  so it can be shown beside Debrief's independent read as a cross-check, never
+ *  blended into it. `metric` names the analysis field it lines up against. */
+export interface ReportedValue {
+  metric: 'apogeeAltitude' | 'maxVelocity' | 'maxAcceleration';
+  /** Human label as Debrief presents it, e.g. "Apogee". */
+  label: string;
+  /** The value in canonical SI (m, m/s, m/s²), converted from the file's unit. */
+  value: number;
+  source: 'device';
+}
+
 export interface RawFlight {
   /** Source file name. */
   source: string;
@@ -40,6 +53,10 @@ export interface RawFlight {
   meta: Record<string, string | number>;
   /** Anything the parser wants the reader to know (carried-forward rows, etc). */
   notes: string[];
+  /** Headline figures the logger computed and wrote into the file — kept for a
+   *  side-by-side cross-check against Debrief's own read. Absent when the file
+   *  carries no such summary. */
+  reported?: ReportedValue[];
 }
 
 export function getChannel(flight: RawFlight, kind: ChannelKind): Channel | undefined {

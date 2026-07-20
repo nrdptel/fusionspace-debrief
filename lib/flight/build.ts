@@ -2,7 +2,7 @@
 // is shared by the generic-CSV importer (mapping comes from the UI) and by named
 // parsers (mapping is fixed and known).
 
-import type { RawFlight, Channel, ChannelKind } from './types';
+import type { RawFlight, Channel, ChannelKind, ReportedValue } from './types';
 import type { ColumnRole } from './columns';
 import { resolveUnit, CANONICAL } from '../units';
 import { parseNumber } from '../csv';
@@ -47,6 +47,7 @@ export interface BuildOptions {
   mappings: ColumnMapping[];
   meta?: Record<string, string | number>;
   notes?: string[];
+  reported?: ReportedValue[];
 }
 
 function num(cell: string | undefined): number {
@@ -136,5 +137,6 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     channels,
     meta: opts.meta ?? {},
     notes,
+    ...(opts.reported?.length ? { reported: opts.reported } : {}),
   };
 }

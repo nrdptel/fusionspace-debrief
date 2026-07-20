@@ -5,6 +5,8 @@
 
 import { resolveUnit } from '../units';
 import { isNumeric, parseNumber } from '../csv';
+import { extractReportedSummary } from './reported';
+import type { ReportedValue } from './types';
 
 export type ColumnRole =
   | 'time'
@@ -189,6 +191,9 @@ export interface AnalyzedTable {
   headers: string[];
   dataRows: string[][];
   columns: ColumnGuess[];
+  /** Headline figures read from a summary block ahead of the data, if the file
+   *  carried one (e.g. an AltimeterCloud export) — for a device-vs-Debrief check. */
+  reported?: ReportedValue[];
 }
 
 /** Does a row read as a row of unit labels (s, ft, g, …) rather than names? */
@@ -263,5 +268,9 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
     };
   });
 
-  return { headerRow: namesRow, headers, dataRows, columns };
+  // Anything above the header is a metadata/summary block; read the device's own
+  // headline figures from it (a no-op unless the file carries a known summary).
+  const reported = extractReportedSummary(rows.slice(0, namesRow));
+
+  return { headerRow: namesRow, headers, dataRows, columns, ...(reported.length ? { reported } : {}) };
 }
