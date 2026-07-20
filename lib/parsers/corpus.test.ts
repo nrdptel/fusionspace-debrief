@@ -5,6 +5,7 @@ import { importFlight } from './index';
 import { analyzeFlight } from '../analyze';
 import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
+import { decodeBytes } from '../encoding';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -52,7 +53,11 @@ const metricSI: Record<string, (m: ReturnType<typeof analyzeFlight>['metrics']) 
 
 function runFixture(fx: Fixture) {
   const name = fx.file.split('/').pop() as string;
-  const text = readFileSync(CORPUS + fx.file, 'utf8');
+  // Decode from the raw bytes exactly as the app does (a file's bytes → decodeBytes),
+  // not as UTF-8 — otherwise a UTF-16 export (e.g. the RRC3 mDACS text file) would be
+  // tested as mojibake the real drop-a-file path never sees. Keeps the corpus faithful
+  // to production input.
+  const text = decodeBytes(new Uint8Array(readFileSync(CORPUS + fx.file)));
 
   if (fx.expect.kind === 'reject') {
     // Debrief declines these on purpose (e.g. a Blue Raven high-rate file with no altitude)
