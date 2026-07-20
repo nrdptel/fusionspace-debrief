@@ -12,6 +12,12 @@ export interface SvgSeries {
   values: Float64Array | number[];
 }
 
+export interface SvgMarker {
+  x: number;
+  label: string;
+  color: string;
+}
+
 export interface SvgChartOpts {
   x: Float64Array | number[];
   series: SvgSeries[];
@@ -19,6 +25,8 @@ export interface SvgChartOpts {
   leftLabel: string;
   rightLabel?: string;
   title?: string;
+  /** Event markers (liftoff, apogee, …) drawn as labelled vertical rules. */
+  markers?: SvgMarker[];
   width?: number;
   height?: number;
   dark?: boolean;
@@ -132,6 +140,14 @@ export function plotSvg(opts: SvgChartOpts): string {
     parts.push(`<text x="${x.toFixed(1)}" y="${plotT + plotH + 18}" font-size="11" text-anchor="middle" fill="${sub}">${fmt(t, xStep)}</text>`);
   }
   parts.push(`<rect x="${plotL}" y="${plotT}" width="${plotW}" height="${plotH}" fill="none" stroke="${ink}" stroke-width="1"/>`);
+
+  // Event markers — labelled vertical rules, drawn under the series lines.
+  for (const m of opts.markers ?? []) {
+    if (!Number.isFinite(m.x) || m.x < xMin || m.x > xMax) continue;
+    const mx = sx(m.x);
+    parts.push(`<line x1="${mx.toFixed(1)}" y1="${plotT}" x2="${mx.toFixed(1)}" y2="${plotT + plotH}" stroke="${m.color}" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>`);
+    parts.push(`<text x="${(mx + 3).toFixed(1)}" y="${plotT + 11}" font-size="10" fill="${m.color}">${xmlEscape(m.label)}</text>`);
+  }
 
   // Axis labels.
   parts.push(`<text x="${plotL + plotW / 2}" y="${height - 8}" font-size="12" text-anchor="middle" fill="${ink}">${xmlEscape(opts.xLabel)}</text>`);

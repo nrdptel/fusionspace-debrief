@@ -39,6 +39,22 @@ describe('plotSvg', () => {
     expect((path.match(/M/g) ?? []).length).toBeGreaterThanOrEqual(2); // pen lifts and restarts
   });
 
+  it('draws labelled event markers inside the x-range and skips ones outside it', () => {
+    const s = plotSvg({
+      x,
+      series: [{ label: 'alt', color: '#000', axis: 'left', values: altitude }],
+      xLabel: 't',
+      leftLabel: 'ft',
+      markers: [
+        { x: 1.2, label: 'apogee', color: '#22c55e' },
+        { x: 999, label: 'off-range', color: '#f00' },
+      ],
+    });
+    expect(s).toContain('stroke-dasharray="3 3"'); // the marker rule
+    expect(s).toContain('>apogee<');
+    expect(s).not.toContain('>off-range<'); // outside the x-range, skipped
+  });
+
   it('escapes labels and returns a bare frame when there is no finite data', () => {
     const s = plotSvg({ x: [0, 1], series: [{ label: 'x', color: '#000', axis: 'left', values: [NaN, NaN] }], xLabel: 'a & b', leftLabel: '' });
     expect(s).toContain('<svg');

@@ -13,6 +13,7 @@ import { buildPlotChannels } from '@/lib/explore';
 import { canMeasureDrag } from '@/lib/drag';
 import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { download } from '@/lib/download';
+import { plotSvg } from '@/lib/svgChart';
 import { useIsDark } from './useIsDark';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
@@ -183,6 +184,27 @@ export default function FlightReport({
     out.toBlob((blob) => blob && download(blob, `${stem}-altitude.png`));
   }
 
+  // Vector version of the headline altitude chart, events marked — the figure most
+  // reports use, crisp at any size.
+  function saveChartSvg() {
+    const svg = plotSvg({
+      x: series.time,
+      series: [
+        {
+          label: `Altitude (${UNIT_LABEL[sys].length} AGL)`,
+          color: '#6366f1',
+          axis: 'left',
+          values: Array.from(series.altitude, (m) => lengthIn(m, sys)),
+        },
+      ],
+      xLabel: 'Time (s)',
+      leftLabel: `${UNIT_LABEL[sys].length} AGL`,
+      markers: events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] })),
+      dark,
+    });
+    download(new Blob([svg], { type: 'image/svg+xml' }), `${stem}-altitude.svg`);
+  }
+
   // Memoized so an unrelated re-render (e.g. clicking Copy summary / Share link,
   // which only flips `copied`/`shareMsg`) doesn't change these prop identities
   // and tear down + rebuild the charts, which would reset any zoom the user set.
@@ -291,6 +313,14 @@ export default function FlightReport({
             className={ACTION_BTN}
           >
             Save .csv
+          </button>
+          <button
+            type="button"
+            onClick={saveChartSvg}
+            title="Save the altitude chart as a vector SVG (events marked) — crisp at any size for a report"
+            className={ACTION_BTN}
+          >
+            Save .svg
           </button>
           <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={ACTION_BTN}>
             Save .png

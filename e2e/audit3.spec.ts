@@ -426,6 +426,17 @@ test('the explorer exports the current plot as a PNG', async ({ page }) => {
   expect(dl.suggestedFilename()).toMatch(/-explore\.png$/);
 });
 
+test('the headline altitude chart exports as a vector SVG with events marked', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/Save the altitude chart as a vector SVG/).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/-altitude\.svg$/);
+});
+
 test('the explorer exports the current plot as a vector SVG', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
