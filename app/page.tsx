@@ -226,8 +226,9 @@ export default function Home() {
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS)
             and Entacore AIM files are recognized automatically; the generic-CSV mapper — which also
-            reads header-less exports and UTF-16 files (decoding them from their byte-order mark, as a
-            Windows export like the RRC3 mDACS text file needs) — covers everything else. Files are read
+            reads header-less exports (guessing the time and altitude columns from the data&apos;s own
+            shape) and UTF-16 files (decoding them from their byte-order mark, as a Windows export like
+            the RRC3 mDACS text file needs) — covers everything else. Files are read
             with the browser&apos;s own file API and never uploaded.
           </Method>
           <Method title="What Debrief isn't">

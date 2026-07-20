@@ -78,6 +78,76 @@ function roleOf(header: string): ColumnRole {
   return 'ignore';
 }
 
+/** The finite numeric values in one column, in row order. */
+function numericSeries(rows: string[][], index: number): number[] {
+  const out: number[] = [];
+  for (const row of rows) {
+    const cell = row[index];
+    if (cell !== undefined && cell !== '' && isNumeric(cell)) out.push(Number(cell));
+  }
+  return out;
+}
+
+/** A time base: numeric, essentially non-decreasing (a little GPS/clock jitter is
+ *  allowed), and rising overall from its start — the unmistakable shape of a clock. */
+function looksLikeTime(s: number[]): boolean {
+  if (s.length < 8) return false;
+  let back = 0;
+  for (let i = 1; i < s.length; i++) if (s[i] < s[i - 1] - 1e-9) back++;
+  return s[s.length - 1] > s[0] && back <= s.length * 0.02;
+}
+
+/** An altitude trace: a single interior peak the data rises to and then falls from
+ *  (boost/coast to apogee, then descent) — how altitude alone moves over a flight,
+ *  which tells it apart from a monotonic clock and a near-constant temp/voltage. */
+function looksLikeAltitude(s: number[]): boolean {
+  if (s.length < 16) return false;
+  // A real altitude swing is tens to thousands of feet/metres; this floor keeps a
+  // small-range channel (lat/lon degrees, temperature, voltage) from ever winning,
+  // even when its wander happens to peak in the middle.
+  if (Math.max(...s) - Math.min(...s) < 50) return false;
+  let peak = 0;
+  for (let i = 1; i < s.length; i++) if (s[i] > s[peak]) peak = i;
+  if (peak <= s.length * 0.02 || peak >= s.length * 0.98) return false; // peak must be interior
+  let up = 0;
+  for (let i = 1; i <= peak; i++) if (s[i] >= s[i - 1]) up++;
+  let down = 0;
+  for (let i = peak + 1; i < s.length; i++) if (s[i] <= s[i - 1]) down++;
+  return up / peak >= 0.6 && down / (s.length - 1 - peak) >= 0.6;
+}
+
+/** For a headerless table (columns are only "Column N"), guess the two roles that
+ *  are unambiguous from the data's shape alone — a time base and altitude — so a
+ *  flight is at least usable without the flyer labelling every column by hand. The
+ *  rest are left for them to set; nothing here overrides a name-based guess. */
+function inferHeaderlessRoles(dataRows: string[][], columns: ColumnGuess[]): void {
+  const series = columns.map((c) => (c.numericFraction >= 0.8 ? numericSeries(dataRows, c.index) : null));
+
+  let timeIdx = -1;
+  for (let i = 0; i < series.length; i++) {
+    if (series[i] && looksLikeTime(series[i]!)) {
+      timeIdx = i;
+      break;
+    }
+  }
+  if (timeIdx >= 0) columns[timeIdx].role = 'time';
+
+  // Altitude is the widest-swinging channel with a clean apogee shape; picking by
+  // range keeps a near-flat temperature or voltage column from ever winning.
+  let bestIdx = -1;
+  let bestRange = 0;
+  for (let i = 0; i < series.length; i++) {
+    if (i === timeIdx || !series[i] || !looksLikeAltitude(series[i]!)) continue;
+    const s = series[i]!;
+    const range = Math.max(...s) - Math.min(...s);
+    if (range > bestRange) {
+      bestRange = range;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx >= 0) columns[bestIdx].role = 'altitude';
+}
+
 /** What fraction of a column's data cells parse as finite numbers. */
 function numericFraction(rows: string[][], index: number): number {
   if (rows.length === 0) return 0;
@@ -143,6 +213,8 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
       unitFromHeader: false,
       numericFraction: numericFraction(dataRows, index),
     }));
+    // No names to read, so guess the essential roles from the data's shape.
+    inferHeaderlessRoles(dataRows, columns);
     return { headerRow: -1, headers, dataRows, columns };
   }
 

@@ -159,7 +159,10 @@ of parsing and analysis runs locally.
   track drives the recovery view.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units — including GPS latitude/longitude — and lets
-  you confirm them. Comma, tab, semicolon and pipe delimiters are auto-detected, along
+  you confirm them. With no header row at all it reads the roles from the data's own
+  shape — a monotonic time base and the single rise-and-fall of an altitude curve — so
+  even an unlabelled export (a headerless StratoLogger TSV, say) lands with its key
+  columns already picked. Comma, tab, semicolon and pipe delimiters are auto-detected, along
   with European-locale exports (semicolon-separated with comma decimals), Windows,
   Unix or classic-Mac line endings, and **UTF-16 files** — a byte-order mark is detected
   and decoded, so a Windows export like the Missile Works RRC3 mDACS text file or Excel's
