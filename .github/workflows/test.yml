@@ -17,6 +17,10 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install
         run: npm ci
+      - name: Fetch private fixtures corpus
+        run: npm run fetch-fixtures
+        env:
+          FIXTURES_TOKEN: ${{ secrets.FIXTURES_TOKEN }}
       - name: Test
         run: npm test
       - name: Build

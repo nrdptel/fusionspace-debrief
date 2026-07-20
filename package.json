@@ -9,7 +9,8 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "fetch-fixtures": "node scripts/fetch-fixtures.mjs"
   },
   "dependencies": {
     "geist": "^1.3.1",

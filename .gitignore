@@ -10,3 +10,6 @@ next-env.d.ts
 npm-debug.log*
 .vercel
 .env*.local
+
+# Private flight-log corpus fetched by scripts/fetch-fixtures.mjs (never committed).
+/lib/parsers/__corpus__/
