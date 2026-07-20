@@ -396,9 +396,12 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // boost peak. Baro-only: velocity peaks at burnout. Either way, reject a
   // "burnout" that lands on apogee (a coast-dominated read with no real boost).
   let burnoutIdx: number | null = null;
-  if (ascentPresent && accelerationSource === 'device') {
+  if (ascentPresent && accelerationSource === 'device' && !accelerationResultant) {
     // Burnout is a sign change on the axial trace (thrust → drag), so read the
-    // signed axis: the resultant magnitude never falls through zero.
+    // signed axis: the resultant magnitude never falls through zero. Only usable
+    // for a genuine signed axial channel — a multi-axis logger's noisy body axis
+    // can stay positive past burnout and cross zero only at ejection, so those
+    // fall through to the velocity-peak proxy below.
     const peak = argMax(signedAccel, liftoffRef, apogeeIdx + 1);
     for (let i = peak; i < apogeeIdx; i++) {
       if (signedAccel[i] <= 0) {
@@ -517,7 +520,10 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     events.push({ type, label, time: time[idx], index: idx, altitude: altClean[idx], provenance, peakAccel });
   };
   if (liftoffFound) push('liftoff', liftoffIdx, 'Liftoff', accelerationSource === 'device' ? 'measured' : 'derived');
-  if (ascentPresent) push('burnout', burnoutIdx, 'Burnout', accelerationSource === 'device' ? 'measured' : 'derived');
+  // Burnout is 'measured' only when it came from a genuine signed-axial thrust
+  // cut-off; a multi-axis logger's is taken from the velocity peak, so it's derived.
+  if (ascentPresent)
+    push('burnout', burnoutIdx, 'Burnout', accelerationSource === 'device' && !accelerationResultant ? 'measured' : 'derived');
   push('apogee', apogeeIdx, 'Apogee', 'derived');
   push('main', mainIdx, 'Main deploy', 'derived');
   if (landingFound) push('landing', landingIdx, 'Landing', 'derived');

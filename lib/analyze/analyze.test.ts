@@ -151,8 +151,6 @@ describe('accelerometer saturation', () => {
     // Resultant peak ≈ 1.25x the single-axis peak, and the chart series is ≥ 0.
     expect(a.metrics.maxAcceleration / single.metrics.maxAcceleration).toBeCloseTo(1.25, 1);
     expect(Math.min(...a.series.acceleration)).toBeGreaterThanOrEqual(0);
-    // Burnout still detected off the signed axis (a magnitude never crosses zero).
-    expect(a.metrics.burnTime).not.toBeNull();
   });
 
   it('does not cry saturation over a flat, near-zero (off-axis) channel', () => {
@@ -243,6 +241,33 @@ describe('thrust-to-weight off the pad', () => {
 
   it('omits it without a measured accelerometer', () => {
     expect(analyzeFlight(syntheticBaroFlight().flight).metrics.liftoffTWR).toBeNull();
+  });
+});
+
+describe('burnout on a multi-axis logger', () => {
+  it('uses the velocity peak, not a noisy body-axis crossing at ejection', () => {
+    // A multi-axis logger whose primary body axis stays positive through the
+    // coast and only dips negative at ejection near apogee — the signed
+    // zero-crossing would place "burnout" at ejection. With the resultant in
+    // play, burnout should track the velocity peak (~1 s) instead.
+    const base = coastFlight();
+    const n = base.time.length;
+    const axA = new Float64Array(n);
+    const axB = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      axA[i] = i <= 20 ? 40 : i >= 110 && i <= 116 ? -30 : 4; // boost, ejection dip, else small +
+      axB[i] = i <= 20 ? 20 : 2;
+    }
+    base.channels = [
+      ...base.channels,
+      { kind: 'accelAxial', label: 'accel_x', unit: 'm/s²', values: axA },
+      { kind: 'accelAxial', label: 'accel_y', unit: 'm/s²', values: axB },
+    ];
+    const a = analyzeFlight(base);
+    expect(a.series.accelerationResultant).toBe(true);
+    expect(a.metrics.burnTime).not.toBeNull();
+    expect(a.metrics.burnTime!).toBeLessThan(2); // ~1 s (velocity peak), not ~5.5 s (ejection)
+    expect(a.metrics.burnoutVelocity!).toBeGreaterThan(80); // near the 100 m/s peak, not ~0 at apogee
   });
 });
 
