@@ -57,6 +57,22 @@ describe('analyzeTable — headerless role inference from data shape', () => {
     expect(t.columns[1].role).toBe('altitude');
     expect(t.columns[2].role).toBe('voltage');
   });
+
+  it('tells a tilt angle from a roll angle (roll is a rate channel, tilt is its own)', () => {
+    const rows = [
+      ['Flight_Time_(s)', 'Baro_Altitude_AGL_(feet)', 'Tilt_Angle_(deg)', 'Roll_Angle_(deg)'],
+      ['0.0', '0', '0', '0'],
+      ['0.1', '15', '2', '30'],
+      ['0.2', '40', '5', '65'],
+      ['0.3', '20', '8', '90'],
+    ];
+    const t = analyzeTable(rows);
+    const by = (h: string) => t.columns.find((c) => c.header === h)!;
+    expect(by('Tilt_Angle_(deg)').role).toBe('tilt');
+    // "Roll_Angle" keys off "roll" as a rate channel, not stolen by the tilt test.
+    expect(by('Roll_Angle_(deg)').role).toBe('rollRate');
+    expect(by('Baro_Altitude_AGL_(feet)').role).toBe('altitude');
+  });
 });
 
 describe('analyzeTable — a multi-axis logger (per-axis accel + a total)', () => {

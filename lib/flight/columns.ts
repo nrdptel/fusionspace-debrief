@@ -17,6 +17,7 @@ export type ColumnRole =
   | 'accelTotal'
   | 'velocity'
   | 'rollRate'
+  | 'tilt'
   | 'voltage'
   | 'latitude'
   | 'longitude'
@@ -43,6 +44,9 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   // Roll/spin rate about the long axis. A bare "gyro" is left alone — that's three
   // axes and which one is roll is logger-specific — so it keys off "roll"/"spin".
   { role: 'rollRate', test: (h) => /\b(roll|spin)\b/.test(h) || /rollrate/.test(h) },
+  // Tilt / angle-off-vertical, when the logger computes an attitude. Keys off
+  // "tilt" so it never steals a roll-angle (handled above) or a bare "angle".
+  { role: 'tilt', test: (h) => /\btilt\b/.test(h) },
   // GPS — guarded against acceleration headers so "lat. x accel." isn't mistaken
   // for latitude.
   { role: 'latitude', test: (h) => /\b(latitude|lat)\b/.test(h) && !/acc/.test(h) },

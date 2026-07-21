@@ -94,7 +94,8 @@ function blueRavenAppLow(): string {
   const padAsl = 1000; // ft
   const header =
     'Year,Month,Day,Time,Flight_Time_(s),Sync,Temperature_(F),Baro_Press_(atm),' +
-    'Baro_Altitude_ASL_(feet),Baro_Altitude_AGL_(feet),Batt_Volts,Velocity_Up,Inertial_Altitude';
+    'Baro_Altitude_ASL_(feet),Baro_Altitude_AGL_(feet),Batt_Volts,Velocity_Up,Inertial_Altitude,' +
+    'Tilt_Angle_(deg),Tilt Exceeded 90deg';
   const lines = [header];
   let prev = 0;
   let sync = 0;
@@ -111,8 +112,9 @@ function blueRavenAppLow(): string {
     prev = h;
     sync = (sync + 20) % 250;
     const aglFt = h / 0.3048;
+    const tilt = ft <= 0 ? 0 : Math.min(85, 3 + ft * 2); // grows off vertical toward apogee
     lines.push(
-      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},70,0.95,${(padAsl + aglFt).toFixed(1)},${aglFt.toFixed(1)},9.3,${(v / 0.3048).toFixed(1)},${(aglFt * 1.1).toFixed(1)}`,
+      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},70,0.95,${(padAsl + aglFt).toFixed(1)},${aglFt.toFixed(1)},9.3,${(v / 0.3048).toFixed(1)},${(aglFt * 1.1).toFixed(1)},${tilt.toFixed(1)},0`,
     );
   }
   return lines.join('\n');
@@ -130,6 +132,18 @@ describe('Blue Raven phone-app export', () => {
     const apogeeFt = convert(a.metrics.apogeeAltitude, 'm', 'ft');
     expect(apogeeFt).toBeGreaterThan(750);
     expect(apogeeFt).toBeLessThan(1100);
+  });
+
+  it('surfaces the onboard tilt (angle off vertical) as an explorable channel', () => {
+    const result = importFlight({ name: 'tcf_TTV_018 LR.csv', text: blueRavenAppLow() });
+    if (result.kind !== 'flight') throw new Error('expected a flight');
+    const tilt = getChannel(result.flight, 'tilt');
+    expect(tilt, 'tilt channel present').toBeTruthy();
+    // Read as degrees, as-is (no conversion), and it's the angle column — not the
+    // boolean "Tilt Exceeded 90deg" flag next to it.
+    expect(tilt!.unit).toBe('°');
+    expect(tilt!.label.toLowerCase()).toContain('tilt_angle');
+    expect(tilt!.values.some((v) => v > 1 && v <= 85)).toBe(true);
   });
 
   it('points the user to the low-rate file for a high-rate app CSV', () => {

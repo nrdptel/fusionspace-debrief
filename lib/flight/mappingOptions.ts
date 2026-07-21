@@ -9,6 +9,7 @@ export const ROLE_OPTIONS: { value: ColumnRole; label: string }[] = [
   { value: 'accelAxial', label: 'Acceleration (axial)' },
   { value: 'accelTotal', label: 'Acceleration (total)' },
   { value: 'rollRate', label: 'Roll rate' },
+  { value: 'tilt', label: 'Tilt angle' },
   { value: 'temperature', label: 'Temperature' },
   { value: 'voltage', label: 'Voltage' },
   { value: 'latitude', label: 'GPS latitude' },

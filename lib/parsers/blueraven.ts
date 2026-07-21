@@ -101,6 +101,9 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   const velIdx = where((h) => h.includes('velocity_up') || (h.includes('velocity') && h.includes('up')));
   const battIdx = where((h) => h.includes('batt'));
   const tempIdx = where((h) => h.includes('temperature'));
+  // The onboard tilt (angle off vertical) — "Tilt_Angle_(deg)", not the boolean
+  // "Tilt Exceeded 90deg" flag — so a flyer can see how vertical the flight was.
+  const tiltIdx = where((h) => h.includes('tilt') && h.includes('angle'));
 
   if (altIdx < 0) throw new ParseGuidanceError(HR_HINT);
   if (timeIdx < 0) throw new Error('No flight-time column was found in this Blue Raven file.');
@@ -110,6 +113,7 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   if (velIdx >= 0) mappings.push({ index: velIdx, role: 'velocity', unit: 'ft/s' });
   if (battIdx >= 0) mappings.push({ index: battIdx, role: 'voltage', unit: 'V' });
   if (tempIdx >= 0) mappings.push({ index: tempIdx, role: 'temperature', unit: 'F' });
+  if (tiltIdx >= 0) mappings.push({ index: tiltIdx, role: 'tilt', unit: null });
 
   const inertial = altIdx === inertAltIdx && aglIdx < 0 && baroAltIdx < 0;
   const note = inertial

@@ -11,6 +11,7 @@ export type ChannelKind =
   | 'accelTotal' // magnitude of total acceleration, m/s²
   | 'velocity' // velocity as reported by the device, m/s
   | 'rollRate' // angular rate about the roll (long) axis, deg/s
+  | 'tilt' // angle of the long axis from vertical, degrees (0 = straight up)
   | 'voltage' // battery / pyro voltage, V
   | 'latitude' // GPS latitude, decimal degrees (+N)
   | 'longitude' // GPS longitude, decimal degrees (+E)

@@ -22,6 +22,7 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> 
   accelTotal: 'accelTotal',
   velocity: 'velocity',
   rollRate: 'rollRate',
+  tilt: 'tilt',
   voltage: 'voltage',
   latitude: 'latitude',
   longitude: 'longitude',
@@ -122,9 +123,9 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     return {
       kind,
       label: opts.headers[m.index] ?? kind,
-      // Voltage stays in volts and lat/lon in degrees; neither goes through the
-      // unit converter.
-      unit: kind === 'voltage' ? 'V' : kind === 'latitude' || kind === 'longitude' ? '°' : expected ? CANONICAL[expected] : '',
+      // Voltage stays in volts, and lat/lon and tilt in degrees; none of these go
+      // through the unit converter (tilt has no KIND_QUANTITY, so it's kept as-is).
+      unit: kind === 'voltage' ? 'V' : kind === 'latitude' || kind === 'longitude' || kind === 'tilt' ? '°' : expected ? CANONICAL[expected] : '',
       values,
     };
   });

@@ -88,7 +88,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   the ascent flew — the apogee's horizontal offset from the pad (weathercocking plus ascent drift),
   a lean that costs altitude to the cosine.
 - Opens up the full data — a channel explorer lets you plot anything the logger
-  recorded (battery voltage, temperature, raw pressure, per-axis acceleration, …)
+  recorded (battery voltage, temperature, raw pressure, per-axis acceleration,
+  onboard **tilt** / angle-off-vertical where the logger computes it, …)
   alongside Debrief's own derived channels — including **Mach number** and
   **dynamic pressure** (the transonic and max-Q curves a rocket is designed around) —
   against time, or one channel against another (e.g. velocity vs altitude), with a
