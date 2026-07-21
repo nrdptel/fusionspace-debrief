@@ -650,6 +650,16 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     }
   }
 
+  // Angle off vertical at burnout, read straight from a logger's attitude channel —
+  // how vertical the powered flight was. Taken at burnout (not the peak, which just
+  // catches the natural tip-over near apogee) so a low number means a straight boost.
+  let tiltAtBurnout: number | null = null;
+  const tiltCh = getChannel(flight, 'tilt');
+  if (tiltCh && burnoutIdx !== null && burnoutIdx >= 0 && burnoutIdx < tiltCh.values.length) {
+    const v = tiltCh.values[burnoutIdx];
+    if (Number.isFinite(v)) tiltAtBurnout = Math.abs(v);
+  }
+
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
@@ -688,6 +698,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     batteryMinV,
     peakRollRate,
     rollRevolutions,
+    tiltAtBurnout,
   };
 
   if (accelClipped) {

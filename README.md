@@ -31,6 +31,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   the peak rate about the long axis and the total revolutions the airframe turned through,
   so a fast spin (fin misalignment, a driver of coning) stands out. A bare three-axis gyro
   is left alone — which axis is roll is logger-specific — so it keys off a labelled roll column.
+- Reads **tilt at burnout** — when the logger solved for attitude (a Blue Raven, say), the
+  angle off vertical at the end of thrust: a low number is a straight boost, a large one flags
+  weathercocking. Taken at burnout, not the peak — the natural tip-over near apogee isn't a
+  quality signal — and read straight from the logger's own tilt, not derived.
 - Surfaces **battery voltage** — when the logger recorded it, the resting voltage and
   the lowest it sagged to, so a weak pack (a common cause of a charge that didn't fire)
   stands out.

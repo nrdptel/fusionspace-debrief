@@ -34,6 +34,7 @@ const base: FlightMetrics = {
   batteryMinV: 8.9,
   peakRollRate: null,
   rollRevolutions: null,
+  tiltAtBurnout: null,
 };
 
 describe('flightCardStats', () => {

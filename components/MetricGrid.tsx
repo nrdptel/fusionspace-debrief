@@ -105,6 +105,14 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
       sub: 'total roll',
     });
 
+  // How vertical the powered flight was, when the logger solved for attitude.
+  if (m.tiltAtBurnout != null)
+    out.push({
+      label: 'Tilt at burnout',
+      value: `${Math.round(m.tiltAtBurnout)}°`,
+      sub: 'off vertical',
+    });
+
   return out;
 }
 

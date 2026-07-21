@@ -215,6 +215,21 @@ describe('max deceleration honesty', () => {
   });
 });
 
+describe('tilt at burnout', () => {
+  it('reads the logger tilt at burnout when an attitude channel is present', () => {
+    const f = accelFlight(null); // has a device axial channel → a real burnout
+    const tilt = new Float64Array(f.time.length).fill(5); // 5° off vertical throughout
+    f.channels.push({ kind: 'tilt', label: 'Tilt', unit: '°', values: tilt });
+    const a = analyzeFlight(f);
+    expect(a.events.some((e) => e.type === 'burnout')).toBe(true);
+    expect(a.metrics.tiltAtBurnout).toBeCloseTo(5, 5);
+  });
+
+  it('is null without an attitude channel', () => {
+    expect(analyzeFlight(accelFlight(null)).metrics.tiltAtBurnout).toBeNull();
+  });
+});
+
 // A flight that climbs to a peak and back, carrying a constant roll-rate channel.
 function rollFlight(rateDps: number): RawFlight {
   const dt = 0.1;

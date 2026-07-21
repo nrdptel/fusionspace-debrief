@@ -57,6 +57,7 @@ function headlineRows(m: FlightAnalysis['metrics'], sys: UnitSystem): [string, s
   }
   if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime)]);
   if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
+  if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
   return rows;
 }
@@ -428,6 +429,7 @@ export function analysisJson(
       batteryMinV: m.batteryMinV != null ? round(m.batteryMinV, 2) : null,
       peakRollRate: m.peakRollRate != null ? round(m.peakRollRate, 0) : null,
       rollRevolutions: m.rollRevolutions != null ? round(m.rollRevolutions, 1) : null,
+      tiltAtBurnoutDeg: m.tiltAtBurnout != null ? round(m.tiltAtBurnout, 1) : null,
     },
     events: events.map((e) => ({
       type: e.type,

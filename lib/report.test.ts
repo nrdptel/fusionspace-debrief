@@ -108,6 +108,7 @@ describe('report exports', () => {
     expect(doc.metrics.apogee).toBeGreaterThan(900);
     // A metric the flight lacks is null, not absent or invented.
     expect(doc.metrics.peakRollRate).toBeNull();
+    expect(doc.metrics.tiltAtBurnoutDeg).toBeNull();
     // Events carry provenance so nothing reads as more certain than it is.
     expect(Array.isArray(doc.events)).toBe(true);
     expect(doc.events.some((e: { type: string }) => e.type === 'apogee')).toBe(true);

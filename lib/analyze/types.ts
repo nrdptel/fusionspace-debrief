@@ -75,6 +75,11 @@ export interface FlightMetrics {
    *  through over the flight. Both null when no roll-rate channel is present. */
   peakRollRate: number | null;
   rollRevolutions: number | null;
+  /** Angle off vertical at burnout (degrees), when the logger solved for attitude
+   *  and a burnout was found — how vertical the powered flight was (a low number is
+   *  a straight boost; a large one flags weathercocking). Read straight from the
+   *  logger's own tilt channel at burnout, not derived. Null without both. */
+  tiltAtBurnout: number | null;
 }
 
 export interface FlightSeries {

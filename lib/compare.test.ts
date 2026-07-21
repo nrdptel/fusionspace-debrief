@@ -55,6 +55,7 @@ const metrics = (apogee: number): FlightMetrics => ({
   batteryMinV: null,
   peakRollRate: null,
   rollRevolutions: null,
+  tiltAtBurnout: null,
 });
 
 // A flight whose liftoff is at `t0` on its own clock; altitude is a small ramp so
