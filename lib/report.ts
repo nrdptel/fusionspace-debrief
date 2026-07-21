@@ -218,50 +218,59 @@ export interface CompareMetricRow {
   cells: string[];
   /** Index of the flight to emphasize as best, or -1 for none. */
   best: number;
+  /** For a two-flight comparison only: the spread between the pair, |a−b| as a
+   *  percent of their mean — how closely two recordings of one flight agree, or how
+   *  much one flight differs from another. Null for ≠2 flights or a missing value. */
+  spreadPct: number | null;
 }
 
 /** The side-by-side comparison table as labelled rows — the single source both the
  *  on-screen table and the Markdown/CSV exports render, so they can't drift. A row's
- *  `best` marks the single highest finite value (only when ≥2 flights have one and
- *  there's no tie). Velocity/acceleration that mix device and baro sources across
- *  flights are tagged "(baro)" rather than crowned across methods that aren't
- *  directly comparable. */
+ *  `best` marks the single highest finite value (only for a metric where higher is
+ *  better, ≥2 flights have one, and there's no tie); `spreadPct` gives the pairwise
+ *  difference for a two-flight comparison. Velocity/acceleration that mix device and
+ *  baro sources across flights are tagged "(baro)" rather than crowned across methods
+ *  that aren't directly comparable. */
 export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): CompareMetricRow[] {
   const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
   const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
   const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
     mixed && source === 'baro' && finite ? ' (baro)' : '';
 
-  const specs: { label: string; get: (m: FlightMetrics) => string; value?: (m: FlightMetrics) => number }[] = [
-    { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), value: (m) => m.apogeeAltitude },
-    { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee) },
+  // Every row has a numeric value (for the pairwise spread); `rank` marks the rows
+  // where a single highest value is a meaningful "best" to emphasize.
+  const specs: { label: string; get: (m: FlightMetrics) => string; value: (m: FlightMetrics) => number; rank?: boolean }[] = [
+    { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), value: (m) => m.apogeeAltitude, rank: true },
+    { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee), value: (m) => m.timeToApogee },
     {
       label: 'Max velocity',
       get: (m) => fmtSpeed(m.maxVelocity, sys) + baroTag(velMixed, m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
       value: (m) => m.maxVelocity,
+      rank: true,
     },
-    { label: 'Max Mach', get: (m) => fmtMach(m.mach), value: (m) => m.mach ?? NaN },
+    { label: 'Max Mach', get: (m) => fmtMach(m.mach), value: (m) => m.mach ?? NaN, rank: true },
     {
       label: 'Max acceleration',
       get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)),
       value: (m) => m.maxAcceleration,
+      rank: true,
     },
-    { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), value: (m) => m.maxDynamicPressure ?? NaN },
-    { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—') },
-    { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—') },
-    { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—') },
-    { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—') },
-    { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—') },
+    { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), value: (m) => m.maxDynamicPressure ?? NaN, rank: true },
+    { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—'), value: (m) => m.burnTime ?? NaN },
+    { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—'), value: (m) => m.burnoutAltitude ?? NaN },
+    { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—'), value: (m) => m.drogueDescentRate ?? NaN },
+    { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—'), value: (m) => m.mainDescentRate ?? NaN },
+    { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—'), value: (m) => m.flightTime ?? NaN },
   ];
 
   return specs.map((s) => {
     let best = -1;
-    if (s.value) {
+    if (s.rank) {
       let bv = -Infinity;
       let finite = 0;
       let ties = 0;
       flights.forEach((f, i) => {
-        const v = s.value!(f.metrics);
+        const v = s.value(f.metrics);
         if (!Number.isFinite(v)) return;
         finite++;
         if (v > bv) {
@@ -274,7 +283,16 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
       });
       if (finite < 2 || ties !== 1) best = -1;
     }
-    return { label: s.label, cells: flights.map((f) => s.get(f.metrics)), best };
+
+    let spreadPct: number | null = null;
+    if (flights.length === 2) {
+      const a = s.value(flights[0].metrics);
+      const b = s.value(flights[1].metrics);
+      const mean = (a + b) / 2;
+      if (Number.isFinite(a) && Number.isFinite(b) && mean > 0) spreadPct = (Math.abs(a - b) / mean) * 100;
+    }
+
+    return { label: s.label, cells: flights.map((f) => s.get(f.metrics)), best, spreadPct };
   });
 }
 
@@ -314,12 +332,16 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
   }
 
   const rows = compareMetricRows(flights, sys);
+  // A two-flight comparison gets a Difference column: how far apart the pair is on
+  // each metric — the redundant-altimeter agreement, or the flight-to-flight change.
+  const pair = flights.length === 2;
   out.push('', '## Metrics', '');
-  out.push(`| Metric | ${flights.map((f) => cell(nameStem(f.name))).join(' | ')} |`);
-  out.push(`| --- | ${flights.map(() => '---').join(' | ')} |`);
+  out.push(`| Metric | ${flights.map((f) => cell(nameStem(f.name))).join(' | ')} |${pair ? ' Difference |' : ''}`);
+  out.push(`| --- | ${flights.map(() => '---').join(' | ')} |${pair ? ' --- |' : ''}`);
   for (const r of rows) {
     const cells = r.cells.map((c, i) => (i === r.best ? `**${cell(c)}**` : cell(c)));
-    out.push(`| ${cell(r.label)} | ${cells.join(' | ')} |`);
+    const diff = pair ? ` ${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'} |` : '';
+    out.push(`| ${cell(r.label)} | ${cells.join(' | ')} |${diff}`);
   }
 
   if (compareHasBaroMix(flights)) {

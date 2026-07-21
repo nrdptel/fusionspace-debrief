@@ -141,6 +141,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   reading how closely the flights' apogee and top speed agree, so redundant altimeters (or a
   booster and its sustainer bay) read as independent measurements: close agreement builds
   confidence, a wide gap is a flag worth chasing, never a single number to trust on faith.
+  Compare exactly two and the table adds a **Difference** column — the pairwise spread on
+  every metric, so two altimeters on one flight show how tightly they agree, and two
+  launches of one rocket show what changed.
   The overlay saves as a PNG, a **vector SVG** (crisp at any size for a report), or its
   exact data as CSV, alongside the metrics table — or **Save bundle** to take the whole
   comparison at once: a Markdown write-up carrying the cross-check and the metrics table,

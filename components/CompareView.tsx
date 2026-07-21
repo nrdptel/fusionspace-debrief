@@ -128,9 +128,14 @@ export default function CompareView({
     }));
     download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `compare-${metric}.csv`);
   };
+  const pair = flights.length === 2;
   const metricsCsv = (): string => {
-    const header = ['Metric', ...flights.map((f) => stem(f.name))];
-    const body = metricRows.map((r) => [r.label, ...r.cells]);
+    const header = ['Metric', ...flights.map((f) => stem(f.name)), ...(pair ? ['Difference (%)'] : [])];
+    const body = metricRows.map((r) => [
+      r.label,
+      ...r.cells,
+      ...(pair ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
+    ]);
     return toCsv([header, ...body]);
   };
   const saveMetricsCsv = () => {
@@ -289,6 +294,15 @@ export default function CompareView({
                   )}
                 </th>
               ))}
+              {pair && (
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-right align-bottom text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                  title="The spread between the two: |a − b| as a percent of their mean — how closely two recordings of one flight agree, or how much one flight differs from another."
+                >
+                  Diff
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -313,6 +327,11 @@ export default function CompareView({
                     {i === row.best && <span className="sr-only"> (highest)</span>}
                   </td>
                 ))}
+                {pair && (
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

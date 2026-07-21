@@ -62,6 +62,15 @@ test('compare two flights from the recents list', async ({ page }) => {
   await expect(page.getByRole('rowheader', { name: 'Max Mach', exact: true })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Max Q', exact: true })).toBeVisible();
 
+  // A two-flight comparison gets a Difference column — how far apart the pair is on
+  // each metric (redundant-altimeter agreement, or flight-to-flight change).
+  await expect(page.getByRole('columnheader', { name: 'Diff' })).toBeVisible();
+  // The apogee row shows a percentage difference between the two flights.
+  const apogeeRow = page
+    .getByRole('row')
+    .filter({ has: page.getByRole('rowheader', { name: 'Apogee', exact: true }) });
+  await expect(apogeeRow.getByText(/^\d+(\.\d)?%$/)).toBeVisible();
+
   // Switch which quantity is overlaid across the flights, including the derived
   // engineering channels (Mach, dynamic pressure).
   await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();

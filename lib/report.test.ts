@@ -151,24 +151,35 @@ describe('comparison report', () => {
   };
   const comparison = buildComparison([input('a', 300), input('b', 315)]);
 
-  it('compareMetricRows crowns the single best finite value with no tie', () => {
+  it('compareMetricRows crowns the single best finite value and gives a pairwise spread', () => {
     const rows = compareMetricRows(comparison.flights, 'metric');
     const apogee = rows.find((r) => r.label === 'Apogee')!;
     expect(apogee.cells).toHaveLength(2);
     expect(apogee.best).toBe(1); // flight 'b' peaks higher
+    // Apogees ~300 vs ~315 → spread ≈ 15/307.5 ≈ 4.9%.
+    expect(apogee.spreadPct).toBeGreaterThan(3);
+    expect(apogee.spreadPct).toBeLessThan(7);
   });
 
-  it('compareMarkdown carries the cross-check and a metrics table', () => {
+  it('reports no spread for a non-pair comparison', () => {
+    const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
+    expect(compareMetricRows(three.flights, 'metric')[0].spreadPct).toBeNull();
+  });
+
+  it('compareMarkdown carries the cross-check and a metrics table with a difference column', () => {
     const md = compareMarkdown(comparison, 'imperial');
     expect(md).toContain('# Debrief — flight comparison');
     expect(md).toContain('## Cross-check');
     expect(md).toMatch(/agree to within [\d.]+% on apogee/);
     expect(md).toContain('## Metrics');
-    // Header + every body row share the same column count (2 flights → 4 pipes).
+    expect(md).toContain('| Difference |');
+    // Header + every body row share the same column count (2 flights + Difference → 5 pipes).
     const bars = (s: string) => (s.match(/\|/g) ?? []).length;
     const tableRows = md.split('\n').filter((l) => l.startsWith('| ') && !l.includes('---'));
     expect(tableRows.length).toBeGreaterThan(3);
-    expect(tableRows.every((l) => bars(l) === 4)).toBe(true);
+    expect(tableRows.every((l) => bars(l) === 5)).toBe(true);
+    // The apogee row's difference is a percentage.
+    expect(md).toMatch(/\| Apogee \|[^\n]*\| \d+(\.\d)?% \|/);
     expect(md).toMatch(/Made with \[Debrief\]/);
   });
 
