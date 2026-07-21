@@ -167,6 +167,54 @@ describe('accelerometer saturation', () => {
   });
 });
 
+describe('max deceleration honesty', () => {
+  it('reports the coast deceleration as a negative value on a normal flight', () => {
+    const a = analyzeFlight(accelFlight(null));
+    // accelFlight coasts at −9.8 m/s² before apogee, so a real deceleration exists.
+    expect(Number.isFinite(a.metrics.maxDeceleration)).toBe(true);
+    expect(a.metrics.maxDeceleration).toBeLessThan(0);
+  });
+
+  it('reports no deceleration for a boost-only capture that ends under thrust', () => {
+    // The log ends while still accelerating (peak altitude at the last sample), so
+    // the axial trace never goes negative — there is no deceleration to report.
+    const dt = 0.02;
+    const n = 300;
+    const time = new Float64Array(n);
+    const alt = new Float64Array(n);
+    const acc = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i * dt;
+      time[i] = t;
+      if (t < 0.4) {
+        acc[i] = 0; // quiet pad
+        alt[i] = 0;
+      } else {
+        acc[i] = 120; // ~12 g, sustained thrust to the end of the capture
+        alt[i] = 30 * (t - 0.4) * (t - 0.4); // a monotonic climb, peak at the last sample
+      }
+    }
+    const flight: RawFlight = {
+      source: 'synthetic',
+      format: 'test',
+      formatLabel: 'Test',
+      time,
+      channels: [
+        { kind: 'altitude', label: 'alt', unit: 'm', values: alt },
+        { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc },
+      ],
+      meta: {},
+      notes: [],
+    };
+    const a = analyzeFlight(flight);
+    // The ascent was analyzed (a peak acceleration is read)…
+    expect(Number.isFinite(a.metrics.maxAcceleration)).toBe(true);
+    // …but there is no negative axial reading, so no deceleration is claimed —
+    // never a positive number dressed up as a "deceleration".
+    expect(Number.isNaN(a.metrics.maxDeceleration)).toBe(true);
+  });
+});
+
 // A flight that climbs to a peak and back, carrying a constant roll-rate channel.
 function rollFlight(rateDps: number): RawFlight {
   const dt = 0.1;

@@ -371,9 +371,12 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     const maxAccIdx = argMax(acceleration, liftoffRef, apogeeIdx + 1);
     maxAcceleration = maxAccIdx >= 0 ? acceleration[maxAccIdx] : NaN;
     // Deceleration is signed — read the most-negative axial value, not the
-    // (always-positive) resultant magnitude.
+    // (always-positive) resultant magnitude. A deceleration is a NEGATIVE reading;
+    // a boost-only capture (the log ends under thrust, before any coast) has no
+    // negative value in the window, so argMin returns the smallest positive boost
+    // reading — report no deceleration rather than a positive "deceleration".
     const maxDecIdx = argMin(signedAccel, liftoffRef, apogeeIdx + 1);
-    maxDeceleration = maxDecIdx >= 0 ? signedAccel[maxDecIdx] : NaN;
+    maxDeceleration = maxDecIdx >= 0 && signedAccel[maxDecIdx] < 0 ? signedAccel[maxDecIdx] : NaN;
 
     // Saturation: a device accelerometer that hit its full-scale limit reads a
     // flat top at its peak. A real boost rounds over its maximum (mass falls
