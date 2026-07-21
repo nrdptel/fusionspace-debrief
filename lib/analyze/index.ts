@@ -360,13 +360,30 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const liftoffRef = liftoffFound ? liftoffIdx : 0;
   const liftoffTime = time[liftoffRef];
 
+  // A large gap in the sampled ascent makes a baro-DERIVED velocity peak
+  // undeterminable: the true top speed may fall in the unrecorded stretch, and the
+  // smoothed derivative across the gap spikes to a nonsense speed (a gappy GPS log
+  // reading Mach 5 over a 3 km apogee). Where that happens, the ascent-velocity peaks
+  // are withheld below rather than fabricated. A device-logged velocity isn't
+  // differentiated, so it's immune; a gap in the descent leaves the ascent intact.
+  let ascentGapBreaksPeak = false;
+  if (velocitySource === 'baro') {
+    for (let i = Math.max(1, liftoffRef); i <= apogeeIdx && i < n; i++) {
+      const g = time[i] - time[i - 1];
+      if (Number.isFinite(g) && g > 1.5 && dt > 0 && g > 5 * dt) {
+        ascentGapBreaksPeak = true;
+        break;
+      }
+    }
+  }
+
   // --- Max velocity / acceleration (ascent) --------------------------------
   let maxVelocity = NaN;
   let maxAcceleration = NaN;
   let maxDeceleration = NaN;
   let maxVelIdx = -1;
   let accelClipped = false;
-  if (ascentPresent) {
+  if (ascentPresent && !ascentGapBreaksPeak) {
     maxVelIdx = argMax(velocity, liftoffRef, apogeeIdx + 1);
     maxVelocity = maxVelIdx >= 0 ? velocity[maxVelIdx] : NaN;
     const maxAccIdx = argMax(acceleration, liftoffRef, apogeeIdx + 1);
@@ -540,14 +557,18 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // the altitude it happened at (a real design point).
   let maxDynamicPressure: number | null = null;
   let maxQIdx = -1;
-  for (let i = 0; i < n; i++) {
-    const v = velocity[i];
-    const rho = airDensity[i];
-    if (!Number.isFinite(v) || !Number.isFinite(rho)) continue;
-    const q = 0.5 * rho * v * v;
-    if (maxDynamicPressure === null || q > maxDynamicPressure) {
-      maxDynamicPressure = q;
-      maxQIdx = i;
+  // Skip when an ascent gap has already made the velocity untrustworthy — q = ½ρv²
+  // would inherit the same spurious speed.
+  if (!ascentGapBreaksPeak) {
+    for (let i = 0; i < n; i++) {
+      const v = velocity[i];
+      const rho = airDensity[i];
+      if (!Number.isFinite(v) || !Number.isFinite(rho)) continue;
+      const q = 0.5 * rho * v * v;
+      if (maxDynamicPressure === null || q > maxDynamicPressure) {
+        maxDynamicPressure = q;
+        maxQIdx = i;
+      }
     }
   }
   const maxDynamicPressureAltitude = maxQIdx >= 0 ? altClean[maxQIdx] : null;
@@ -740,6 +761,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   if (maxGap > 1.5 && dt > 0 && maxGap > 5 * dt) {
     warnings.push(
       `The time base has gaps — up to ${maxGap.toFixed(1)} s with no samples recorded (a dropout or a paused logger). Any reading that spans a gap is interpolated across it, so treat those with care.`,
+    );
+  }
+  if (ascentGapBreaksPeak) {
+    warnings.push(
+      'A gap in the sampled ascent leaves the peak velocity undeterminable — the top speed may fall in the unrecorded stretch, and a derivative taken across the gap spikes to a spurious figure — so max velocity, Mach, max-Q and any transonic crossing are withheld rather than guessed across it.',
     );
   }
   if (altitudeSource === 'baro' && Number.isFinite(apogeeAlt) && apogeeAlt > TROPOSPHERE_LIMIT_M) {

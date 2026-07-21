@@ -185,6 +185,42 @@ describe('time-base gap warning', () => {
   });
 });
 
+describe('ascent-gap peak suppression', () => {
+  // Open one dropout-sized hole in the time base, either before or after apogee,
+  // keeping every altitude sample so only the clock changes.
+  function baroWithGap(where: 'ascent' | 'descent', seconds = 4): RawFlight {
+    const { flight } = syntheticBaroFlight();
+    const t = Float64Array.from(flight.time);
+    const alt = flight.channels[0].values;
+    let apIdx = 0;
+    for (let i = 1; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+    const gi = where === 'ascent' ? Math.max(1, Math.floor(apIdx * 0.5)) : apIdx + Math.floor((t.length - apIdx) * 0.3);
+    for (let i = gi; i < t.length; i++) t[i] += seconds;
+    return { ...flight, time: t };
+  }
+
+  it('withholds max velocity / Mach / max-Q when a gap breaks the sampled ascent', () => {
+    const a = analyzeFlight(baroWithGap('ascent'));
+    expect(a.metrics.maxVelocitySource).toBe('baro');
+    // The derived peak spans the gap, so it is withheld rather than a spurious spike.
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.mach).toBeNull();
+    expect(a.metrics.maxDynamicPressure).toBeNull();
+    expect(a.metrics.transonicTime).toBeNull();
+    expect(a.warnings.some((w) => /gap in the sampled ascent/.test(w))).toBe(true);
+    // Apogee is read from the altitude peak directly, so it survives the gap.
+    expect(Number.isFinite(a.metrics.apogeeAltitude)).toBe(true);
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+  });
+
+  it('leaves the ascent read intact when the gap falls in the descent', () => {
+    const a = analyzeFlight(baroWithGap('descent'));
+    // A descent gap can't touch the ascent peak, so max velocity stands.
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(true);
+    expect(a.warnings.some((w) => /gap in the sampled ascent/.test(w))).toBe(false);
+  });
+});
+
 describe('derived-kinematics provenance warnings', () => {
   it('flags both when velocity and acceleration both come from altitude', () => {
     const { flight } = syntheticBaroFlight();
