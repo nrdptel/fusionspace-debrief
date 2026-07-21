@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
 import { analyzeFlight } from '../analyze';
+import { buildFlight } from '../flight/build';
+import { compareReported } from '../flight/reported';
 import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
@@ -117,8 +119,38 @@ function runFixture(fx: Fixture) {
   expect(res.kind).toBe(fx.expect.kind);
 
   if (res.kind === 'mapping') {
-    const roles = res.table.columns.map((c) => c.role);
+    const t = res.table;
+    const roles = t.columns.map((c) => c.role);
     for (const r of fx.requireRoles ?? []) expect(roles, `role ${r}`).toContain(r);
+    // Exercise the full generic-mapper → build → analyze path on a real file. Mapping
+    // fixtures were only role-checked, so a regression in analysing a mapped flight —
+    // or in reconciling it against the device's own reported figures — was invisible.
+    // Only when the auto-mapping found the essentials and the read isn't a known issue.
+    const hasTime = roles.includes('time');
+    const hasAltitude = roles.includes('altitude') || roles.includes('pressure');
+    if (!fx.knownIssue && hasTime && hasAltitude) {
+      const mappings = t.columns.filter((c) => c.role !== 'ignore').map((c) => ({ index: c.index, role: c.role, unit: c.unit }));
+      const flight = buildFlight({
+        source: name,
+        format: 'generic',
+        formatLabel: 'Generic CSV',
+        headers: t.headers,
+        dataRows: t.dataRows,
+        mappings,
+        reported: t.reported,
+      });
+      const a = analyzeFlight(flight);
+      expect(Number.isFinite(a.metrics.apogeeAltitude), `${name} apogee finite`).toBe(true);
+      expect(a.metrics.apogeeAltitude, `${name} apogee > 0`).toBeGreaterThan(0);
+      assertInvariants(a, name);
+      // Where the file states the device's own apogee, Debrief's independent read must
+      // agree closely — a grounded guard that a real generic-CSV flight stays correct.
+      for (const c of compareReported(flight.reported ?? [], a.metrics)) {
+        if (c.reported.metric === 'apogeeAltitude' && c.hasComputed) {
+          expect(c.deltaPct!, `${name} apogee ${convert(c.computed, 'm', 'ft').toFixed(0)}ft vs device ${convert(c.reported.value, 'm', 'ft').toFixed(0)}ft`).toBeLessThan(5);
+        }
+      }
+    }
     return;
   }
   if (res.kind !== 'flight') return;
