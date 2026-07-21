@@ -42,6 +42,25 @@ describe('real files — PerfectFlite Pnut .pf2', () => {
     expect(ft).toBeGreaterThan(960);
     expect(ft).toBeLessThan(1080);
   });
+
+  it('keeps the device’s stated apogee as a cross-check against Debrief’s read', () => {
+    const { r } = apogeeFt(read('perfectflite-pnut.pf2'), 'flight.pf2');
+    if (r.kind !== 'flight') throw new Error('expected a flight');
+    const reported = r.flight.reported ?? [];
+    const apo = reported.find((v) => v.metric === 'apogeeAltitude');
+    expect(apo, 'device apogee captured').toBeTruthy();
+    expect(apo!.source).toBe('device');
+    // "Apogee: 1009' AGL" → ~307.5 m, read as the device's own figure.
+    expect(convert(apo!.value, 'm', 'ft')).toBeCloseTo(1009, 0);
+  });
+
+  it('skips a non-numeric stated apogee (a PWRLOSS power-loss flight)', () => {
+    const preamble = 'PerfectFlite Pnut\nApogee: PWRLOSS\nData: (Time, Altitude, Velocity)\n';
+    const rows = Array.from({ length: 40 }, (_, i) => `${(i * 0.05).toFixed(2)}, ${i < 20 ? i * 30 : (40 - i) * 30}, 0`).join('\n');
+    const { r } = apogeeFt(preamble + rows, 'pwrloss.pf2');
+    if (r.kind !== 'flight') throw new Error('expected a flight');
+    expect(r.flight.reported ?? []).toHaveLength(0);
+  });
 });
 
 describe('real files — Featherweight Raven (FIP)', () => {

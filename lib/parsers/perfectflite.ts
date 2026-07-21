@@ -8,8 +8,9 @@
 // missing trailing cell as a gap.
 
 import type { Parser, ParseInput } from './types';
-import type { RawFlight } from '../flight/types';
+import type { RawFlight, ReportedValue } from '../flight/types';
 import { splitLine } from '../csv';
+import { convert } from '../units';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 
 const COLUMNS: ColumnMapping[] = [
@@ -25,6 +26,17 @@ const MARKERS = ['perfectflite', 'stratologger', 'stratologgercf', 'pnut'];
 
 function isDataLine(line: string): boolean {
   return /^\s*-?\d/.test(line) && line.includes(',');
+}
+
+/** The device's own apogee, stated in the preamble as e.g. "Apogee: 1009' AGL".
+ *  Kept as a provenance-labelled cross-check against Debrief's independent read,
+ *  never to replace it. Non-numeric (a "PWRLOSS" power-loss flight) yields nothing. */
+function extractReported(text: string): ReportedValue[] {
+  const m = text.match(/^\s*Apogee:\s*([\d.]+)\s*'/im);
+  if (!m) return [];
+  const ft = Number(m[1]);
+  if (!Number.isFinite(ft) || ft <= 0) return [];
+  return [{ metric: 'apogeeAltitude', label: 'Apogee', value: convert(ft, 'ft', 'm'), source: 'device' }];
 }
 
 export const perfectFliteParser: Parser = {
@@ -69,6 +81,7 @@ export const perfectFliteParser: Parser = {
       dataRows,
       mappings,
       notes: ['Velocity is PerfectFlite’s own computed value; altitude is barometric.'],
+      reported: extractReported(input.text),
     });
   },
 };

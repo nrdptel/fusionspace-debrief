@@ -105,9 +105,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   the file: the logger's reported identity, sample rate, duration and recorded channels.
 - Cross-checks the logger against itself — when a file carries the device's own headline
   figures (an AltimeterCloud export writes its apogee, max velocity and peak acceleration
-  into the file), Debrief shows those beside its independent read as two measurements to
-  compare: close agreement builds confidence, a gap is flagged for a look — never averaged
-  together or hidden.
+  into the file; a PerfectFlite/StratoLogger preamble states its own `Apogee: … ' AGL`),
+  Debrief shows those beside its independent read as two measurements to compare: close
+  agreement builds confidence, a gap is flagged for a look — never averaged together or
+  hidden. (A power-loss flight that logs no apogee is left alone.)
 - Finds the *real* apogee — a short median filter removes the single-sample spike an
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.
