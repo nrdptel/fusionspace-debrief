@@ -707,10 +707,21 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       `The accelerometer reads a flat top at its peak (about ${(maxAcceleration / G0).toFixed(0)} g) — the signature of a sensor that hit its full-scale limit and saturated, so the true maximum could be higher.`,
     );
   }
-  if (velocitySource === 'baro' && accelerationSource === 'baro') {
-    warnings.push(
-      'Velocity and acceleration were derived from altitude, so they are smoothed estimates rather than direct measurements.',
-    );
+  // Provenance of the derived kinematics. A GPS flight is already covered by its own
+  // warning (velocity approximate, acceleration omitted), so don't double up here —
+  // and flag a baro-derived ACCELERATION even when the logger measured velocity (a
+  // Blue Raven low-rate, say): a second derivative of altitude is softer still, and
+  // it would otherwise read as measured.
+  if (altitudeSource !== 'gps') {
+    const velBaro = velocitySource === 'baro';
+    const accBaro = accelerationSource === 'baro';
+    if (velBaro && accBaro) {
+      warnings.push('Velocity and acceleration were derived from altitude, so they are smoothed estimates rather than direct measurements.');
+    } else if (accBaro) {
+      warnings.push('Acceleration was derived from altitude (no accelerometer channel was recorded), so it is a smoothed estimate rather than a direct measurement.');
+    } else if (velBaro) {
+      warnings.push('Velocity was derived from altitude, so it is a smoothed estimate rather than a direct measurement.');
+    }
   }
   if (sampleHz > 0 && sampleHz < 5 && velocitySource === 'baro') {
     warnings.push(

@@ -167,6 +167,40 @@ describe('accelerometer saturation', () => {
   });
 });
 
+describe('derived-kinematics provenance warnings', () => {
+  it('flags both when velocity and acceleration both come from altitude', () => {
+    const { flight } = syntheticBaroFlight();
+    const a = analyzeFlight(flight);
+    expect(a.metrics.maxVelocitySource).toBe('baro');
+    expect(a.metrics.accelerationSource).toBe('baro');
+    expect(a.warnings.some((w) => /Velocity and acceleration were derived from altitude/.test(w))).toBe(true);
+  });
+
+  it('flags acceleration alone when the logger measured velocity but not acceleration', () => {
+    // A Blue Raven low-rate logs velocity_up but no accelerometer, so acceleration is
+    // baro-derived even though velocity is measured — it must still be flagged.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    const vel = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++) vel[i] = (alt[i] - alt[i - 1]) / (flight.time[i] - flight.time[i - 1]);
+    flight.channels.push({ kind: 'velocity', label: 'v', unit: 'm/s', values: vel });
+    const a = analyzeFlight(flight);
+    expect(a.metrics.maxVelocitySource).toBe('device');
+    expect(a.metrics.accelerationSource).toBe('baro');
+    expect(a.warnings.some((w) => /Acceleration was derived from altitude/.test(w))).toBe(true);
+    expect(a.warnings.some((w) => /Velocity and acceleration were derived/.test(w))).toBe(false);
+  });
+
+  it('does not claim acceleration was derived on a GPS flight (it is omitted)', () => {
+    const { flight } = syntheticBaroFlight();
+    flight.meta = { altitudeSource: 'gps' };
+    const a = analyzeFlight(flight);
+    expect(a.series.altitudeSource).toBe('gps');
+    expect(a.warnings.some((w) => /from GPS/.test(w))).toBe(true);
+    expect(a.warnings.some((w) => /derived from altitude/.test(w))).toBe(false);
+  });
+});
+
 describe('max deceleration honesty', () => {
   it('reports the coast deceleration as a negative value on a normal flight', () => {
     const a = analyzeFlight(accelFlight(null));
