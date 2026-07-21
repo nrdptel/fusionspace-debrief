@@ -51,6 +51,53 @@ const metricSI: Record<string, (m: ReturnType<typeof analyzeFlight>['metrics']) 
   main: (m) => m.mainDescentRate,
 };
 
+/**
+ * Physical/logical invariants every real flight's analysis must satisfy, whatever
+ * the logger — a standing guard against a metric that contradicts itself (the kind
+ * of bug that a golden-value assert on one number can miss). Checked on every
+ * non-anomalous corpus flight, so a regression anywhere in the pipeline trips here.
+ */
+function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): void {
+  const m = a.metrics;
+  const apo = m.apogeeAltitude;
+  const ctx = (msg: string) => `${name}: ${msg}`;
+
+  // Deceleration is a deceleration — never a positive number dressed up as one.
+  if (Number.isFinite(m.maxDeceleration)) expect(m.maxDeceleration, ctx('maxDeceleration ≤ 0')).toBeLessThanOrEqual(0);
+  // Max acceleration and boost average are positive, and the average never exceeds the peak.
+  if (m.avgBoostAcceleration != null) {
+    expect(m.avgBoostAcceleration, ctx('avgBoost > 0')).toBeGreaterThan(0);
+    if (Number.isFinite(m.maxAcceleration)) expect(m.avgBoostAcceleration, ctx('avgBoost ≤ max')).toBeLessThanOrEqual(m.maxAcceleration + 0.5);
+  }
+  // Thrust-to-weight off the pad, when read, is a sane launch number.
+  if (m.liftoffTWR != null) {
+    expect(m.liftoffTWR, ctx('TWR ≥ 1')).toBeGreaterThanOrEqual(1);
+    expect(m.liftoffTWR, ctx('TWR < 100')).toBeLessThan(100);
+  }
+  // The design points all happen at or below apogee.
+  if (Number.isFinite(m.maxVelocity)) expect(m.maxVelocityAltitude, ctx('maxVelAlt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  if (m.maxDynamicPressureAltitude != null) expect(m.maxDynamicPressureAltitude, ctx('maxQ alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  if (m.transonicAltitude != null) expect(m.transonicAltitude, ctx('transonic alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  if (m.burnoutAltitude != null) expect(m.burnoutAltitude, ctx('burnout alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  // Descent rates are downward (positive); the main is the slow chute.
+  if (m.drogueDescentRate != null) expect(m.drogueDescentRate, ctx('drogue ≥ 0')).toBeGreaterThanOrEqual(0);
+  if (m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≥ 0')).toBeGreaterThanOrEqual(0);
+  if (m.drogueDescentRate != null && m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≤ drogue')).toBeLessThanOrEqual(m.drogueDescentRate + 0.5);
+  // The clock adds up: boost + coast = time to apogee; ascent + descent = flight.
+  if (m.burnTime != null && m.coastTime != null && Number.isFinite(m.timeToApogee))
+    expect(Math.abs(m.burnTime + m.coastTime - m.timeToApogee), ctx('burn + coast = timeToApogee')).toBeLessThanOrEqual(Math.max(0.5, m.timeToApogee * 0.1));
+  if (m.descentTime != null && m.flightTime != null && Number.isFinite(m.timeToApogee))
+    expect(Math.abs(m.timeToApogee + m.descentTime - m.flightTime), ctx('ascent + descent = flight')).toBeLessThanOrEqual(0.5);
+  // Battery only sags under load — the minimum never exceeds the resting start.
+  if (m.batteryStartV != null && m.batteryMinV != null) expect(m.batteryMinV, ctx('battMin ≤ battStart')).toBeLessThanOrEqual(m.batteryStartV + 0.05);
+  // Events are in flight order and none sits above apogee.
+  const order = ['liftoff', 'burnout', 'apogee', 'main', 'landing']
+    .map((t) => a.events.find((e) => e.type === t))
+    .filter(Boolean) as { time: number; altitude: number; type: string }[];
+  for (let i = 1; i < order.length; i++) expect(order[i].time, ctx(`${order[i - 1].type} before ${order[i].type}`)).toBeGreaterThanOrEqual(order[i - 1].time - 1e-6);
+  for (const e of order) expect(e.altitude, ctx(`${e.type} not above apogee`)).toBeLessThanOrEqual(apo + 1);
+}
+
 function runFixture(fx: Fixture) {
   const name = fx.file.split('/').pop() as string;
   // Decode from the raw bytes exactly as the app does (a file's bytes → decodeBytes),
@@ -82,11 +129,15 @@ function runFixture(fx: Fixture) {
   }
 
   // A documented mis-read or intentional anomaly: prove it still parses without throwing,
-  // but don't assert the (known-wrong / meaningless) numbers.
+  // but don't assert the (known-wrong / meaningless) numbers or the invariants.
   if (fx.knownIssue) return;
 
+  // Every real flight must satisfy the physical/logical invariants, whether or not
+  // it carries golden-value asserts.
+  const a = analyzeFlight(res.flight);
+  assertInvariants(a, name);
+
   if (fx.assert?.length) {
-    const a = analyzeFlight(res.flight);
     for (const as of fx.assert) {
       const si = metricSI[as.metric](a.metrics);
       expect(si, `${as.metric} present`).not.toBeNull();
