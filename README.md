@@ -214,6 +214,27 @@ More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it
 into the canonical flight model — the analysis never changes.
 
+## Data exports
+
+Every export is generated in the browser from the flight you loaded — nothing is uploaded,
+and re-running an export never re-reads the file. A single flight saves as a text or
+**Markdown** summary, a data `.csv` (the analysed series), vector `.svg` / `.png` figures,
+a structured `.json`, or a **`.zip` bundle** of the report-grade set; a comparison saves the
+same way, plus a metrics `.csv` and its own `.json`.
+
+The `.json` is Debrief's canonical read, meant to be machine-read:
+
+- **`debrief.flight/1`** — one flight: `units` (the system every value is expressed in),
+  `metrics` (the headline numbers), `events` (each with its `provenance` — `measured`,
+  `derived` or `estimated`), `warnings`, and a `loggerSummary` cross-check when the file
+  carried the device's own figures.
+- **`debrief.comparison/1`** — several flights: each flight's `metrics`, the `crossCheck`
+  spreads, and (for a pair) the per-metric `differences`.
+
+Numbers are in the units you chose (`ft`/`m`), a metric the flight doesn't have is `null`
+rather than absent or invented, and nothing reads as more certain than it is. The builders
+live in [`lib/report.ts`](lib/report.ts).
+
 ## Stack
 
 - [Next.js](https://nextjs.org) App Router, exported as a fully static site
