@@ -14,6 +14,7 @@ import { canMeasureDrag } from '@/lib/drag';
 import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
+import { zip, type ZipEntry } from '@/lib/zip';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
@@ -81,6 +82,7 @@ export default function FlightReport({
   const printingRef = useRef(false);
   const [copied, setCopied] = useState(false);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const [bundleMsg, setBundleMsg] = useState<string | null>(null);
 
   const stem = reportStem(flight.source);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
@@ -187,25 +189,79 @@ export default function FlightReport({
     out.toBlob((blob) => blob && download(blob, `${stem}-altitude.png`));
   }
 
-  // Vector version of the headline altitude chart, events marked — the figure most
-  // reports use, crisp at any size.
+  // The report's headline figures as standalone vector SVGs — altitude, and (when
+  // recorded) velocity and acceleration — events marked, crisp at any size. One
+  // definition feeds both the single Save .svg button and the bundle, so they can't
+  // drift. Built lazily on click, not on every render.
+  const figureSvgs = useCallback((): { name: string; svg: string }[] => {
+    const markerDefs = events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] }));
+    const figs: { name: string; svg: string }[] = [
+      {
+        name: `${stem}-altitude.svg`,
+        svg: plotSvg({
+          x: series.time,
+          series: [
+            { label: `Altitude (${UNIT_LABEL[sys].length} AGL)`, color: '#6366f1', axis: 'left', values: Array.from(series.altitude, (m) => lengthIn(m, sys)) },
+          ],
+          xLabel: 'Time (s)',
+          leftLabel: `${UNIT_LABEL[sys].length} AGL`,
+          markers: markerDefs,
+          dark: figureDark,
+        }),
+      },
+    ];
+    if (series.velocity.some((v) => Number.isFinite(v))) {
+      figs.push({
+        name: `${stem}-velocity.svg`,
+        svg: plotSvg({
+          x: series.time,
+          series: [{ label: `Velocity (${UNIT_LABEL[sys].speed})`, color: '#10b981', axis: 'left', values: Array.from(series.velocity, (v) => speedIn(v, sys)) }],
+          xLabel: 'Time (s)',
+          leftLabel: UNIT_LABEL[sys].speed,
+          markers: markerDefs,
+          dark: figureDark,
+        }),
+      });
+    }
+    if (series.acceleration.some((v) => Number.isFinite(v) && v !== 0)) {
+      figs.push({
+        name: `${stem}-acceleration.svg`,
+        svg: plotSvg({
+          x: series.time,
+          series: [{ label: `${series.accelerationResultant ? 'Total ' : ''}Acceleration (g)`, color: '#f59e0b', axis: 'left', values: Array.from(series.acceleration, (a) => accelInG(a)) }],
+          xLabel: 'Time (s)',
+          leftLabel: 'g',
+          markers: markerDefs,
+          dark: figureDark,
+        }),
+      });
+    }
+    return figs;
+  }, [series, events, sys, figureDark, stem]);
+
   function saveChartSvg() {
-    const svg = plotSvg({
-      x: series.time,
-      series: [
-        {
-          label: `Altitude (${UNIT_LABEL[sys].length} AGL)`,
-          color: '#6366f1',
-          axis: 'left',
-          values: Array.from(series.altitude, (m) => lengthIn(m, sys)),
-        },
-      ],
-      xLabel: 'Time (s)',
-      leftLabel: `${UNIT_LABEL[sys].length} AGL`,
-      markers: events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] })),
-      dark: figureDark,
-    });
-    download(new Blob([svg], { type: 'image/svg+xml' }), `${stem}-altitude.svg`);
+    const [alt] = figureSvgs();
+    download(new Blob([alt.svg], { type: 'image/svg+xml' }), alt.name);
+  }
+
+  // Package the report-grade artifacts a flyer needs — the Markdown write-up (with
+  // the logger's own cross-check), the analyzed series as CSV, and the headline
+  // figures as SVG — into one ZIP, so a cert doc or forum post is a single download
+  // rather than a handful of separate clicks. Zipped in the browser; nothing uploaded.
+  async function downloadBundle() {
+    setBundleMsg('Building bundle…');
+    try {
+      const entries: ZipEntry[] = [
+        { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt) },
+        { name: `${stem}-data.csv`, data: analyzedDataCsv(analysis, sys) },
+        ...figureSvgs().map((f) => ({ name: f.name, data: f.svg })),
+      ];
+      download(await zip(entries), `${stem}-debrief.zip`);
+      setBundleMsg('Bundle saved — summary, data and figures, all zipped locally.');
+      setTimeout(() => setBundleMsg(null), 4000);
+    } catch {
+      setBundleMsg('Couldn’t build the bundle in this browser — the individual Save buttons still work.');
+    }
   }
 
   // Memoized so an unrelated re-render (e.g. clicking Copy summary / Share link,
@@ -331,6 +387,14 @@ export default function FlightReport({
           </button>
           <button
             type="button"
+            onClick={downloadBundle}
+            title="Save one ZIP with the Markdown summary, the data CSV and the altitude/velocity/acceleration figures — the whole report, zipped in the browser"
+            className={ACTION_BTN}
+          >
+            Save bundle
+          </button>
+          <button
+            type="button"
             onClick={printCard}
             title="Print a clean flight card (or save it as a PDF) — numbers, events and charts on one page"
             className={ACTION_BTN}
@@ -362,6 +426,12 @@ export default function FlightReport({
       {shareMsg && (
         <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">
           {shareMsg}
+        </p>
+      )}
+
+      {bundleMsg && (
+        <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">
+          {bundleMsg}
         </p>
       )}
 

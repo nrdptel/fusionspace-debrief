@@ -122,7 +122,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   a PNG or a **vector SVG** with the events marked — crisp at any size for a report. The
   vector figure exports on a light background by default (what most reports and cert
   documents want, whatever theme the app is in) with a one-tap switch to dark for a slide
-  deck — the same choice on the explorer and comparison charts.
+  deck — the same choice on the explorer and comparison charts. Or take the lot in one
+  click: **Save bundle** packs the Markdown write-up, the data `.csv` and the altitude,
+  velocity and acceleration figures into a single `.zip` — the whole report as one
+  download, zipped in the browser, nothing uploaded.
 - Keeps a logbook — recent flights are remembered on your device for quick re-opening,
   sortable by date, apogee or top speed, with a ★ marking your best of the bunch. Add a
   note to any flight (motor, conditions, cert…) and it's kept as a logbook entry that

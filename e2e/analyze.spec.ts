@@ -1,5 +1,32 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
+
+// The filenames listed in a ZIP's central directory — enough to prove the bundle
+// packs what it should, without a ZIP library. Scans back for the end-of-central-
+// directory record, then walks the central headers.
+function zipEntryNames(buf: Buffer): string[] {
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('not a ZIP archive');
+  const count = buf.readUInt16LE(eocd + 8);
+  let p = buf.readUInt32LE(eocd + 16);
+  const names: string[] = [];
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) break;
+    const nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30);
+    const commentLen = buf.readUInt16LE(p + 32);
+    names.push(buf.toString('utf8', p + 46, p + 46 + nameLen));
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return names;
+}
 
 // The whole pipeline in a real browser: load a flight, parse + analyze it
 // client-side, and render the report with headline numbers.
@@ -99,6 +126,30 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
   expect(csv.suggestedFilename()).toMatch(/-explore\.csv$/);
 
   expect(errors).toEqual([]);
+});
+
+test('the report exports as one ZIP bundle of summary, data and figures', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+
+  const [bundle] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save bundle' }).click(),
+  ]);
+  expect(bundle.suggestedFilename()).toMatch(/-debrief\.zip$/);
+
+  const file = await bundle.path();
+  const names = zipEntryNames(await readFile(file));
+  // The write-up, the analyzed table, and the headline figures are all inside.
+  expect(names.some((n) => n.endsWith('-summary.md'))).toBe(true);
+  expect(names.some((n) => n.endsWith('-data.csv'))).toBe(true);
+  expect(names.some((n) => n.endsWith('-altitude.svg'))).toBe(true);
+  expect(names.some((n) => n.endsWith('-velocity.svg'))).toBe(true);
+  expect(names.some((n) => n.endsWith('-acceleration.svg'))).toBe(true);
+
+  // The status line confirms the archive was built locally.
+  await expect(page.getByText(/Bundle saved/)).toBeVisible();
 });
 
 test('the printed flight card keeps the numbers and drops the interactive chrome', async ({ page }) => {
