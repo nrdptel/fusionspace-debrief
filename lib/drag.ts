@@ -72,7 +72,10 @@ export function dragCoefficient(
 
   const burnout = events.find((e) => e.type === 'burnout')!;
   const apogee = events.find((e) => e.type === 'apogee')!;
-  const { velocity, acceleration, airDensity, speedOfSound, accelerationSource } = series;
+  // Drag acts along the airframe axis, so read the SIGNED axial trace (negative
+  // while decelerating), not `acceleration` — which is the always-positive resultant
+  // on a multi-axis logger and would make every coast sample fail the sign check.
+  const { velocity, axialAccel, airDensity, speedOfSound, accelerationSource } = series;
   const area = Math.PI * (diameterM / 2) ** 2;
 
   // Coast window: one sample past burnout (let the thrust transient settle) up to
@@ -93,7 +96,7 @@ export function dragCoefficient(
   let vHigh = -Infinity;
   for (let i = lo; i < hi; i++) {
     const v = velocity[i];
-    const a = acceleration[i];
+    const a = axialAccel[i];
     const rho = airDensity[i];
     if (!Number.isFinite(v) || !Number.isFinite(a) || !Number.isFinite(rho) || v < vFloor) continue;
     // Drag deceleration per unit mass. Device accel is specific force (just drag,

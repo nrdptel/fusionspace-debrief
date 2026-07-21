@@ -9,6 +9,7 @@ const series: FlightSeries = {
   altitudeRaw: Float64Array.from([0, 50, 100]),
   velocity: Float64Array.from([0, 40, 0]),
   acceleration: Float64Array.from([0, 9.80665, -9.80665]),
+  axialAccel: Float64Array.from([0, 9.80665, -9.80665]),
   velocitySource: 'baro',
   accelerationSource: 'baro',
   altitudeSource: 'baro',

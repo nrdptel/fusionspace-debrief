@@ -87,7 +87,12 @@ export interface FlightSeries {
   altitude: Float64Array; // m AGL (spike-cleaned — what the report shows)
   altitudeRaw: Float64Array; // m AGL before spike removal (keeps ejection spikes/noise)
   velocity: Float64Array; // m/s (best estimate, + = up)
-  acceleration: Float64Array; // m/s² (+ = up)
+  acceleration: Float64Array; // m/s² (+ = up) — the magnitude read (resultant on a multi-axis logger)
+  /** The signed axial specific force (m/s², + = up), a single signed trace even on a
+   *  multi-axis logger — negative while decelerating. The magnitude `acceleration`
+   *  can be the always-positive resultant, so the readings that need a sign (drag off
+   *  the coast, the deceleration peak) must use this, not `acceleration`. */
+  axialAccel: Float64Array;
   velocitySource: 'device' | 'baro';
   accelerationSource: 'device' | 'baro';
   /** True when `acceleration` is the resultant magnitude √(Σ aₖ²) of a multi-axis

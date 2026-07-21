@@ -303,6 +303,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     altitudeRaw,
     velocity,
     acceleration,
+    axialAccel: signedAccel,
     velocitySource,
     accelerationSource,
     accelerationResultant,

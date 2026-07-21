@@ -40,6 +40,7 @@ function coastFlight(opts: {
     altitudeRaw: zeros,
     velocity,
     acceleration,
+    axialAccel: acceleration, // single signed axial: magnitude and axial coincide
     velocitySource: device ? 'device' : 'baro',
     accelerationSource: device ? 'device' : 'baro',
     altitudeSource: 'baro',
@@ -80,6 +81,20 @@ describe('dragCoefficient', () => {
     const baroView = { ...series, accelerationSource: 'baro' as const };
     const r = dragCoefficient(baroView, events, m, d)!;
     expect(Math.abs(r.cd - 0.5)).toBeGreaterThan(0.02);
+  });
+
+  it('measures drag on a multi-axis logger from the signed axial, not the resultant', () => {
+    const { series, events } = coastFlight({ cd: 0.55, massKg: m, diameterM: d, rho: 1.2, device: true });
+    // A multi-axis logger reports `acceleration` as the always-positive resultant
+    // magnitude; the signed axial (negative while decelerating) lives in `axialAccel`.
+    const resultant = Float64Array.from(series.axialAccel, (x) => Math.abs(x));
+    const multi: FlightSeries = { ...series, acceleration: resultant, accelerationResultant: true };
+    const r = dragCoefficient(multi, events, m, d)!;
+    expect(r).not.toBeNull();
+    expect(r.cd).toBeCloseTo(0.55, 3);
+    // Guard: reading the resultant magnitude (all positive) instead would fail the
+    // "decelerating" sign check on every coast sample and return null.
+    expect(dragCoefficient({ ...multi, axialAccel: resultant }, events, m, d)).toBeNull();
   });
 
   it('returns null without a coast, bad inputs, or GPS altitude', () => {
