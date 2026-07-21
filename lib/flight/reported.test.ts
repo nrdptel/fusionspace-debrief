@@ -18,7 +18,17 @@ describe('extractReportedSummary', () => {
     expect(by('maxVelocity')!.value).toBeCloseTo(62.828, 3);
     // milli-g → m/s²: 31300.6 mG = 31.3006 g
     expect(by('maxAcceleration')!.value).toBeCloseTo((31300.6 * G0) / 1000, 3);
-    expect(r).toHaveLength(3);
+    // The grid also states the device's own burnout velocity — kept as a cross-check.
+    expect(by('burnoutVelocity')!.value).toBeCloseTo(59.83, 3);
+    expect(r).toHaveLength(4);
+  });
+
+  it('reads the device descent velocity as a downward magnitude', () => {
+    // The device writes descent velocity signed (downward-negative); compare magnitudes.
+    const r = extractReportedSummary([['Descent velocity (m/s)', '-5.625']]);
+    expect(r).toHaveLength(1);
+    expect(r[0].metric).toBe('mainDescentRate');
+    expect(r[0].value).toBeCloseTo(5.625, 3);
   });
 
   it('returns nothing for a file with no recognised summary', () => {

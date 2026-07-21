@@ -104,8 +104,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   exactly what spike-removal took out, and open *Log details* for the factual read of
   the file: the logger's reported identity, sample rate, duration and recorded channels.
 - Cross-checks the logger against itself — when a file carries the device's own headline
-  figures (an AltimeterCloud export writes its apogee, max velocity and peak acceleration
-  into the file; a PerfectFlite/StratoLogger preamble states its own `Apogee: … ' AGL`),
+  figures (an AltimeterCloud export writes its apogee, max and burnout velocity, descent
+  rate and peak acceleration into the file; a PerfectFlite/StratoLogger preamble states its
+  own `Apogee: … ' AGL`),
   Debrief shows those beside its independent read as two measurements to compare: close
   agreement builds confidence, a gap is flagged for a look — never averaged together or
   hidden. (A power-loss flight that logs no apogee is left alone.)

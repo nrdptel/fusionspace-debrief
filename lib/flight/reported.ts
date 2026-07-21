@@ -29,6 +29,10 @@ const KEYS: Record<string, KeyDef> = {
   'apogee meters': { metric: 'apogeeAltitude', label: 'Apogee', toSI: (v) => v },
   'max velocity up': { metric: 'maxVelocity', label: 'Max velocity', toSI: (v) => v },
   'max acc ascent (mg)': { metric: 'maxAcceleration', label: 'Max acceleration', toSI: (v) => (v * G0) / 1000 },
+  'burnout velocity (m/s)': { metric: 'burnoutVelocity', label: 'Burnout velocity', toSI: (v) => v },
+  // The device writes descent velocity as a signed (downward-negative) rate; Debrief's
+  // main descent rate is a downward speed, so compare magnitudes.
+  'descent velocity (m/s)': { metric: 'mainDescentRate', label: 'Descent velocity', toSI: (v) => Math.abs(v) },
 };
 
 /** Read a device's self-reported headline figures from a file's pre-data metadata
@@ -66,7 +70,9 @@ export interface ReportedComparison {
  *  the shared basis for the on-screen cross-check and the exported report. */
 export function compareReported(reported: ReportedValue[], metrics: FlightMetrics): ReportedComparison[] {
   return reported.map((r) => {
-    const computed = metrics[r.metric];
+    // Some analysis fields (burnout velocity, main descent) are null when the flight
+    // didn't have them; treat that as "nothing to compare" (NaN), not a zero.
+    const computed = metrics[r.metric] ?? NaN;
     const hasComputed = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
     const deltaPct = hasComputed ? Math.abs((computed - r.value) / r.value) * 100 : null;
     return { reported: r, computed, hasComputed, deltaPct, agree: deltaPct != null && deltaPct <= AGREE_FRACTION * 100 };

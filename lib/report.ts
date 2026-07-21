@@ -64,7 +64,7 @@ function headlineRows(m: FlightAnalysis['metrics'], sys: UnitSystem): [string, s
 
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitSystem): string {
   if (metric === 'apogeeAltitude') return fmtLength(si, sys);
-  if (metric === 'maxVelocity') return fmtSpeed(si, sys);
+  if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);
   return fmtAccel(si);
 }
 
