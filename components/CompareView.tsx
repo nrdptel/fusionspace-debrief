@@ -254,6 +254,13 @@ export default function CompareView({
                 </span>
               ))}
               . Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.
+              {agree.some((a) => a.mixedSource) && (
+                <>
+                  {' '}
+                  The max-speed figures mix a measured and an altitude-derived velocity; a derived peak
+                  reads softer, so read that agreement as the looser bound.
+                </>
+              )}
             </p>
           </div>
         );

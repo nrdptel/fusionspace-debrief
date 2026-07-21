@@ -24,6 +24,9 @@ test('a rocketeer compares two flights end to end', async ({ page, context }) =>
   // Mixed velocity sources → the baro flight is marked, with an explaining note.
   await expect(page.getByText(/\(baro\)/).first()).toBeVisible();
   await expect(page.getByText(/derived from altitude rather than logged/)).toBeVisible();
+  // …and the cross-check itself is honest that the max-speed agreement spans a
+  // measured and a derived velocity, so it's the looser bound.
+  await expect(page.getByText(/mix a measured and an altitude-derived velocity/)).toBeVisible();
 
   // Every overlay channel renders and titles itself correctly.
   const channel = async (button: string, heading: RegExp | string) => {
@@ -62,8 +65,10 @@ test('two device-velocity flights show no baro marking', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles([fx('altusmetrum-telemetrum.csv'), fx('featherweight-raven-fip.csv')]);
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
-  // Both log velocity on-device → no "(baro)" tag, no explaining note.
+  // Both log velocity on-device → no "(baro)" tag, no explaining note, and no
+  // mixed-source caveat on the cross-check.
   await expect(page.getByText(/derived from altitude rather than logged/)).toHaveCount(0);
+  await expect(page.getByText(/mix a measured and an altitude-derived velocity/)).toHaveCount(0);
 });
 
 test('dropping more than six flights caps at six with a note', async ({ page }) => {

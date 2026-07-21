@@ -21,6 +21,21 @@ describe('crossCheck', () => {
     expect(a.some((x) => x.key === 'apogee')).toBe(true);
     expect(a.some((x) => x.key === 'maxVelocity')).toBe(false);
   });
+
+  const srcFlight = (maxV: number, source: 'device' | 'baro'): CompareFlight =>
+    ({ metrics: { apogeeAltitude: 2000, maxVelocity: maxV, maxVelocitySource: source } as FlightMetrics }) as CompareFlight;
+
+  it('flags a max-speed cross-check that mixes a measured and a derived velocity', () => {
+    const a = crossCheck([srcFlight(300, 'device'), srcFlight(285, 'baro')]);
+    expect(a.find((x) => x.key === 'maxVelocity')!.mixedSource).toBe(true);
+    // Apogee shares no measured/derived split, so it is never flagged.
+    expect(a.find((x) => x.key === 'apogee')!.mixedSource).toBe(false);
+  });
+
+  it('does not flag when every velocity comes from the same source', () => {
+    const a = crossCheck([srcFlight(300, 'device'), srcFlight(305, 'device')]);
+    expect(a.find((x) => x.key === 'maxVelocity')!.mixedSource).toBe(false);
+  });
 });
 
 const metrics = (apogee: number): FlightMetrics => ({

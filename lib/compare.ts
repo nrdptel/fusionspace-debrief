@@ -159,6 +159,11 @@ export interface Agreement {
   /** Spread as a percentage of the mean — how far apart the readings are. */
   spreadPct: number;
   count: number;
+  /** True when the contributing flights don't all share one measurement source —
+   *  e.g. one max speed is device-measured and another is altitude-derived. A
+   *  derived peak reads softer, so some of the spread is method, not flight, and the
+   *  agreement should be read as the looser bound. */
+  mixedSource: boolean;
 }
 
 /**
@@ -170,20 +175,30 @@ export interface Agreement {
  * single blessed number. Only metrics with a finite value on two or more flights.
  */
 export function crossCheck(flights: CompareFlight[]): Agreement[] {
-  const specs: { key: string; label: string; get: (m: FlightMetrics) => number | null }[] = [
+  const specs: { key: string; label: string; get: (m: FlightMetrics) => number | null; source?: (m: FlightMetrics) => string }[] = [
+    // Apogee is altitude-sourced on every logger, so there's no measured/derived
+    // mix to flag — even a GPS-vs-baro apogee pair is independent corroboration.
     { key: 'apogee', label: 'apogee', get: (m) => m.apogeeAltitude },
-    { key: 'maxVelocity', label: 'max speed', get: (m) => m.maxVelocity },
+    // Velocity can be device-measured on one flight and altitude-derived on another;
+    // a derived peak reads softer, so a mixed cross-check is flagged (mixedSource).
+    { key: 'maxVelocity', label: 'max speed', get: (m) => m.maxVelocity, source: (m) => m.maxVelocitySource },
   ];
   const out: Agreement[] = [];
   for (const s of specs) {
-    const vals = flights
-      .map((f) => s.get(f.metrics))
-      .filter((v): v is number => v != null && Number.isFinite(v) && v > 0);
-    if (vals.length < 2) continue;
+    // Keep each contributing flight's value with its measurement source, so the
+    // spread and the mixed-source flag are read off exactly the same set.
+    const contrib = flights
+      .map((f) => ({ v: s.get(f.metrics), src: s.source?.(f.metrics) }))
+      .filter((c): c is { v: number; src: string | undefined } => c.v != null && Number.isFinite(c.v) && c.v > 0);
+    if (contrib.length < 2) continue;
+    const vals = contrib.map((c) => c.v);
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length });
+    // Only a genuine mix of differing, tracked sources counts (an untracked source
+    // is undefined and ignored).
+    const mixedSource = new Set(contrib.map((c) => c.src).filter((x): x is string => x != null)).size > 1;
+    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource });
   }
   return out;
 }

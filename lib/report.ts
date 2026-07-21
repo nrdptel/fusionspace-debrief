@@ -335,9 +335,12 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
     const phrase = agree
       .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
+    const mixed = agree.some((a) => a.mixedSource)
+      ? ' The max-speed figures mix a measured and an altitude-derived velocity; a derived peak reads softer, so read that agreement as the looser bound.'
+      : '';
     out.push('', '## Cross-check', '');
     out.push(
-      `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`,
+      `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}`,
     );
   }
 
@@ -504,7 +507,13 @@ export function compareJson(comparison: Comparison, sys: UnitSystem, note?: stri
     ...(note ? { note } : {}),
     units: jsonUnits(sys),
     flights: flights.map((f) => ({ name: f.name, format: f.formatLabel, metrics: jsonMetrics(f.metrics, sys) })),
-    crossCheck: crossCheck(flights).map((a) => ({ metric: a.key, label: a.label, spreadPct: round(a.spreadPct, 1), flights: a.count })),
+    crossCheck: crossCheck(flights).map((a) => ({
+      metric: a.key,
+      label: a.label,
+      spreadPct: round(a.spreadPct, 1),
+      flights: a.count,
+      ...(a.mixedSource ? { mixedSource: true } : {}),
+    })),
     disclaimer:
       'Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Parsed locally; nothing uploaded.',
   };
