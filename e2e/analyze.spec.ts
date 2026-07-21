@@ -141,15 +141,34 @@ test('the report exports as one ZIP bundle of summary, data and figures', async 
 
   const file = await bundle.path();
   const names = zipEntryNames(await readFile(file));
-  // The write-up, the analyzed table, and the headline figures are all inside.
+  // The write-up, the analyzed table, the structured JSON, and the headline figures.
   expect(names.some((n) => n.endsWith('-summary.md'))).toBe(true);
   expect(names.some((n) => n.endsWith('-data.csv'))).toBe(true);
+  expect(names.some((n) => n.endsWith('-debrief.json'))).toBe(true);
   expect(names.some((n) => n.endsWith('-altitude.svg'))).toBe(true);
   expect(names.some((n) => n.endsWith('-velocity.svg'))).toBe(true);
   expect(names.some((n) => n.endsWith('-acceleration.svg'))).toBe(true);
 
   // The status line confirms the archive was built locally.
   await expect(page.getByText(/Bundle saved/)).toBeVisible();
+
+  // The structured JSON export downloads on its own and parses to the canonical read.
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .json' }).click(),
+  ]);
+  expect(json.suggestedFilename()).toMatch(/-debrief\.json$/);
+  const stream = await json.createReadStream();
+  const text = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream!.on('error', reject);
+  });
+  const doc = JSON.parse(text);
+  expect(doc.schema).toBe('debrief.flight/1');
+  expect(typeof doc.metrics.apogee).toBe('number');
+  expect(doc.events.some((e: { type: string }) => e.type === 'apogee')).toBe(true);
 });
 
 test('the printed flight card keeps the numbers and drops the interactive chrome', async ({ page }) => {

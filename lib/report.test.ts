@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, compareMarkdown, compareMetricRows } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, analysisJson, compareMarkdown, compareMetricRows } from './report';
 import { buildComparison, type CompareInput } from './compare';
 
 function tinyFlight(): RawFlight {
@@ -95,6 +95,42 @@ describe('report exports', () => {
 
     // A flight with no reported summary omits the section entirely.
     expect(summaryMarkdown(flight, analysis, 'metric')).not.toContain('cross-check');
+  });
+
+  it('analysisJson is valid JSON carrying units, metrics, events and provenance', () => {
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000));
+    expect(doc.schema).toBe('debrief.flight/1');
+    expect(doc.analyzedAt).toBe(new Date(1_700_000_000_000).toISOString());
+    expect(doc.units.length).toBe('ft');
+    expect(doc.units.speed).toBe('ft/s');
+    // Apogee is ~300 m → ~984 ft, a finite number in the chosen units.
+    expect(typeof doc.metrics.apogee).toBe('number');
+    expect(doc.metrics.apogee).toBeGreaterThan(900);
+    // A metric the flight lacks is null, not absent or invented.
+    expect(doc.metrics.peakRollRate).toBeNull();
+    // Events carry provenance so nothing reads as more certain than it is.
+    expect(Array.isArray(doc.events)).toBe(true);
+    expect(doc.events.some((e: { type: string }) => e.type === 'apogee')).toBe(true);
+    expect(doc.events.every((e: { provenance?: string }) => typeof e.provenance === 'string')).toBe(true);
+    expect(doc.disclaimer).toMatch(/not gospel/i);
+    // No logger summary on this flight → the section is omitted.
+    expect(doc.loggerSummary).toBeUndefined();
+  });
+
+  it('analysisJson switches units and includes the logger cross-check when present', () => {
+    const metricDoc = JSON.parse(analysisJson(flight, analysis, 'metric'));
+    expect(metricDoc.units.length).toBe('m');
+    expect(metricDoc.analyzedAt).toBeNull(); // no timestamp passed
+
+    const withReported: RawFlight = {
+      ...flight,
+      reported: [{ metric: 'apogeeAltitude', label: 'Apogee', value: 300, source: 'device' }],
+    };
+    const doc = JSON.parse(analysisJson(withReported, analyzeFlight(withReported), 'metric'));
+    expect(Array.isArray(doc.loggerSummary)).toBe(true);
+    expect(doc.loggerSummary[0].metric).toBe('apogeeAltitude');
+    expect(doc.loggerSummary[0].logger).toBeCloseTo(300, 0);
+    expect(typeof doc.loggerSummary[0].agreementPct).toBe('number');
   });
 });
 

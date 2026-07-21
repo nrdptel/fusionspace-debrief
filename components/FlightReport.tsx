@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from '@/lib/display';
-import { summaryText, summaryMarkdown, analyzedDataCsv, reportStem, formatAnalyzedAt } from '@/lib/report';
+import { summaryText, summaryMarkdown, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
@@ -127,6 +127,13 @@ export default function FlightReport({
 
   function downloadData() {
     download(new Blob([analyzedDataCsv(analysis, sys)], { type: 'text/csv' }), `${stem}-debrief.csv`);
+  }
+
+  function downloadJson() {
+    download(
+      new Blob([analysisJson(flight, analysis, sys, analyzedAt)], { type: 'application/json' }),
+      `${stem}-debrief.json`,
+    );
   }
 
   // Print a clean flight card. Force a light theme first so the canvas charts
@@ -254,6 +261,7 @@ export default function FlightReport({
       const entries: ZipEntry[] = [
         { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt) },
         { name: `${stem}-data.csv`, data: analyzedDataCsv(analysis, sys) },
+        { name: `${stem}-debrief.json`, data: analysisJson(flight, analysis, sys, analyzedAt) },
         ...figureSvgs().map((f) => ({ name: f.name, data: f.svg })),
       ];
       download(await zip(entries), `${stem}-debrief.zip`);
@@ -372,6 +380,14 @@ export default function FlightReport({
             className={ACTION_BTN}
           >
             Save .csv
+          </button>
+          <button
+            type="button"
+            onClick={downloadJson}
+            title="Download the full analysis — metrics, events and provenance — as structured JSON, in the chosen units, for a script or another tool"
+            className={ACTION_BTN}
+          >
+            Save .json
           </button>
           <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
           <button

@@ -17,6 +17,7 @@ import {
   lengthIn,
   speedIn,
   accelInG,
+  tempIn,
   pressureIn,
   pressureUnit,
   UNIT_LABEL,
@@ -330,6 +331,109 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
     '_Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Made with [Debrief](https://debrief.fusionspace.co) — parsed locally, never uploaded._',
   );
   return out.join('\n');
+}
+
+/** The full analysis as structured JSON — Debrief's canonical read of a flight in
+ *  one machine-readable file, for a script, a spreadsheet import, another tool, or
+ *  an archive. Every number carries its unit (the chosen system) and its
+ *  provenance, so nothing downstream reads as more certain than it is; only the
+ *  metrics the flight actually has are non-null. Same values as the report. */
+export function analysisJson(
+  flight: RawFlight,
+  analysis: FlightAnalysis,
+  sys: UnitSystem,
+  analyzedAt?: number,
+): string {
+  const { metrics: m, events, warnings, series } = analysis;
+  const L = UNIT_LABEL[sys];
+  const round = (v: number, p: number): number | null =>
+    Number.isFinite(v) ? Number(v.toFixed(p)) : null;
+  const len = (v: number | null) => (v == null ? null : round(lengthIn(v, sys), 1));
+  const spd = (v: number | null) => (v == null ? null : round(speedIn(v, sys), 1));
+  const acc = (v: number | null) => (v == null ? null : round(accelInG(v), 2));
+  const sec = (v: number | null) => (v == null ? null : round(v, 2));
+  const prs = (v: number | null) => (v == null ? null : round(pressureIn(v, sys), 2));
+  const reportedNum = (metric: ReportedValue['metric'], si: number) =>
+    metric === 'apogeeAltitude' ? len(si) : metric === 'maxVelocity' ? spd(si) : acc(si);
+
+  const doc: Record<string, unknown> = {
+    schema: 'debrief.flight/1',
+    generatedBy: 'Debrief (debrief.fusionspace.co)',
+    source: flight.source,
+    format: flight.formatLabel,
+    analyzedAt: analyzedAt ? new Date(analyzedAt).toISOString() : null,
+    units: {
+      length: L.length,
+      speed: L.speed,
+      acceleration: L.accel,
+      temperature: L.temp,
+      pressure: pressureUnit(sys),
+      mach: 'ratio',
+      time: 's',
+      voltage: 'V',
+      angularRate: 'deg/s',
+    },
+    altitudeSource: series.altitudeSource,
+    metrics: {
+      apogee: len(m.apogeeAltitude),
+      timeToApogee: sec(m.timeToApogee),
+      maxVelocity: spd(m.maxVelocity),
+      maxVelocitySource: m.maxVelocitySource,
+      maxVelocityAltitude: len(m.maxVelocityAltitude),
+      maxMach: m.mach != null ? round(m.mach, 3) : null,
+      maxAcceleration: acc(m.maxAcceleration),
+      accelerationSource: m.accelerationSource,
+      accelerationClipped: m.accelClipped,
+      avgBoostAcceleration: acc(m.avgBoostAcceleration),
+      maxDeceleration: acc(m.maxDeceleration),
+      liftoffThrustToWeight: m.liftoffTWR != null ? round(m.liftoffTWR, 2) : null,
+      maxDynamicPressure: prs(m.maxDynamicPressure),
+      maxDynamicPressureAltitude: len(m.maxDynamicPressureAltitude),
+      transonicTime: sec(m.transonicTime),
+      transonicAltitude: len(m.transonicAltitude),
+      burnTime: sec(m.burnTime),
+      burnoutAltitude: len(m.burnoutAltitude),
+      burnoutVelocity: spd(m.burnoutVelocity),
+      coastTime: sec(m.coastTime),
+      coastEfficiency: m.coastEfficiency != null ? round(m.coastEfficiency, 3) : null,
+      dragLossAltitude: len(m.dragLossAltitude),
+      drogueDescentRate: spd(m.drogueDescentRate),
+      mainDescentRate: spd(m.mainDescentRate),
+      descentTime: sec(m.descentTime),
+      flightTime: sec(m.flightTime),
+      groundTemperature: m.groundTemperature != null ? round(tempIn(m.groundTemperature, sys), 1) : null,
+      batteryStartV: m.batteryStartV != null ? round(m.batteryStartV, 2) : null,
+      batteryMinV: m.batteryMinV != null ? round(m.batteryMinV, 2) : null,
+      peakRollRate: m.peakRollRate != null ? round(m.peakRollRate, 0) : null,
+      rollRevolutions: m.rollRevolutions != null ? round(m.rollRevolutions, 1) : null,
+    },
+    events: events.map((e) => ({
+      type: e.type,
+      label: e.label,
+      time: sec(e.time),
+      altitude: len(e.altitude),
+      speed: spd(series.velocity[e.index] ?? NaN),
+      provenance: e.provenance,
+      ...(e.peakAccel != null ? { peakAcceleration: acc(e.peakAccel) } : {}),
+    })),
+    warnings,
+    disclaimer:
+      'Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured. Parsed locally; nothing uploaded.',
+  };
+
+  // The logger's own reported summary and how Debrief's read compares — only when
+  // the file carried one.
+  if (flight.reported?.length) {
+    doc.loggerSummary = compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct }) => ({
+      label: r.label,
+      metric: r.metric,
+      logger: reportedNum(r.metric, r.value),
+      debrief: hasComputed ? reportedNum(r.metric, computed) : null,
+      agreementPct: deltaPct == null ? null : round(deltaPct, 1),
+    }));
+  }
+
+  return JSON.stringify(doc, null, 2);
 }
 
 /** A friendly "Jun 25, 2026, 10:37 AM" stamp, matching the family's style. */
