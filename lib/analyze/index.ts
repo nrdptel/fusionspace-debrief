@@ -728,6 +728,20 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       `The log samples at about ${sampleHz.toFixed(1)} Hz, which is coarse for a derived velocity — fast events may be softened.`,
     );
   }
+  // Gaps in the time base — a telemetry dropout or a paused logger — leave stretches
+  // with no samples. Anything read across a gap (a rate, a peak) is interpolated over
+  // it, and on a gappy GPS log that can throw the derived velocity right off, so say
+  // so. Only a genuine gap: much larger than the log's own cadence and over a second.
+  let maxGap = 0;
+  for (let i = 1; i < n; i++) {
+    const g = time[i] - time[i - 1];
+    if (Number.isFinite(g) && g > maxGap) maxGap = g;
+  }
+  if (maxGap > 1.5 && dt > 0 && maxGap > 5 * dt) {
+    warnings.push(
+      `The time base has gaps — up to ${maxGap.toFixed(1)} s with no samples recorded (a dropout or a paused logger). Any reading that spans a gap is interpolated across it, so treat those with care.`,
+    );
+  }
   if (altitudeSource === 'baro' && Number.isFinite(apogeeAlt) && apogeeAlt > TROPOSPHERE_LIMIT_M) {
     warnings.push(
       'Apogee is above ~36,000 ft (11 km), the top of the troposphere, where the standard-atmosphere model behind a barometric altitude breaks down — a pressure-derived reading increasingly under-reads that high, so treat this apogee as an approximate lower bound rather than an exact figure. A GPS or inertial altitude, if the flight logged one, is more trustworthy up here.',

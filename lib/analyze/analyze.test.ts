@@ -167,6 +167,24 @@ describe('accelerometer saturation', () => {
   });
 });
 
+describe('time-base gap warning', () => {
+  it('does not warn on a uniformly sampled flight', () => {
+    const { flight } = syntheticBaroFlight();
+    expect(analyzeFlight(flight).warnings.some((w) => /time base has gaps/.test(w))).toBe(false);
+  });
+
+  it('warns when the clock jumps a large gap (a dropout)', () => {
+    const { flight } = syntheticBaroFlight();
+    // Push every timestamp past a point forward by 3 s, opening one dropout-sized
+    // hole in the time base while keeping the samples aligned.
+    const t = Float64Array.from(flight.time);
+    const gi = Math.floor(t.length * 0.7);
+    for (let i = gi; i < t.length; i++) t[i] += 3;
+    const gapped: RawFlight = { ...flight, time: t };
+    expect(analyzeFlight(gapped).warnings.some((w) => /time base has gaps.*3\.\d s/.test(w))).toBe(true);
+  });
+});
+
 describe('derived-kinematics provenance warnings', () => {
   it('flags both when velocity and acceleration both come from altitude', () => {
     const { flight } = syntheticBaroFlight();
