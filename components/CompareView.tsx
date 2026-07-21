@@ -3,26 +3,14 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
 import { crossCheck } from '@/lib/compare';
-import type { FlightMetrics } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
+import { zip, type ZipEntry } from '@/lib/zip';
+import { compareMarkdown, compareMetricRows, compareHasBaroMix } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
-import {
-  lengthIn,
-  speedIn,
-  accelInG,
-  pressureIn,
-  pressureUnit,
-  UNIT_LABEL,
-  fmtLength,
-  fmtSpeed,
-  fmtAccel,
-  fmtTime,
-  fmtMach,
-  fmtPressure,
-} from '@/lib/display';
+import { lengthIn, speedIn, accelInG, pressureIn, pressureUnit, UNIT_LABEL } from '@/lib/display';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
@@ -57,14 +45,6 @@ function stem(name: string): string {
   return name.replace(/\.[^.]+$/, '');
 }
 
-interface Row {
-  label: string;
-  get: (m: FlightMetrics) => string;
-  /** When 'max', the largest finite value across flights is emphasized. */
-  best?: 'max';
-  value?: (m: FlightMetrics) => number;
-}
-
 export default function CompareView({
   comparison,
   note,
@@ -85,64 +65,11 @@ export default function CompareView({
   const [metric, setMetric] = useState<MetricKey>('altitude');
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // Velocity and acceleration can be device-logged on one flight and derived from
-  // the barometer on another; a derived curve under-reads at peak speed, so when
-  // the compared flights MIX sources we mark the baro ones rather than silently
-  // crowning a "best" across methods that aren't directly comparable. (When every
-  // flight shares a source, the comparison is fair and the marks would be noise.)
-  const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
-  const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
-  const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
-    mixed && source === 'baro' && finite ? ' (baro)' : '';
-
-  const rows: Row[] = [
-    { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), best: 'max', value: (m) => m.apogeeAltitude },
-    { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee) },
-    {
-      label: 'Max velocity',
-      get: (m) => fmtSpeed(m.maxVelocity, sys) + baroTag(velMixed, m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
-      best: 'max',
-      value: (m) => m.maxVelocity,
-    },
-    { label: 'Max Mach', get: (m) => fmtMach(m.mach), best: 'max', value: (m) => m.mach ?? NaN },
-    {
-      label: 'Max acceleration',
-      get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)),
-      best: 'max',
-      value: (m) => m.maxAcceleration,
-    },
-    { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), best: 'max', value: (m) => m.maxDynamicPressure ?? NaN },
-    { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—') },
-    { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—') },
-    { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—') },
-    { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—') },
-    { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—') },
-  ];
-
-  // Index of the flight holding the best (max) value per emphasized row. Only
-  // emphasize when at least two flights have a finite value — "best of one" isn't
-  // a comparison.
-  const bestIdx = (row: Row): number => {
-    if (row.best !== 'max' || !row.value) return -1;
-    let bi = -1;
-    let bv = -Infinity;
-    let finite = 0;
-    let ties = 0;
-    flights.forEach((f, i) => {
-      const v = row.value!(f.metrics);
-      if (!Number.isFinite(v)) return;
-      finite++;
-      if (v > bv) {
-        bv = v;
-        bi = i;
-        ties = 1;
-      } else if (v === bv) {
-        ties++;
-      }
-    });
-    // Only crown a single winner: needs ≥2 flights with a value, and no tie for top.
-    return finite >= 2 && ties === 1 ? bi : -1;
-  };
+  // The side-by-side rows (with best-of emphasis and the mixed-source "(baro)"
+  // tagging) come from one shared builder, so the on-screen table, the metrics CSV
+  // and the Markdown bundle can't drift.
+  const metricRows = compareMetricRows(flights, sys);
+  const baroMix = compareHasBaroMix(flights);
 
   // Memoized so an Analyzer re-render (e.g. a background recents refresh) doesn't
   // change these prop identities and rebuild the chart, resetting any zoom.
@@ -201,10 +128,13 @@ export default function CompareView({
     }));
     download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `compare-${metric}.csv`);
   };
-  const saveMetricsCsv = () => {
+  const metricsCsv = (): string => {
     const header = ['Metric', ...flights.map((f) => stem(f.name))];
-    const body = rows.map((r) => [r.label, ...flights.map((f) => r.get(f.metrics))]);
-    download(new Blob([toCsv([header, ...body])], { type: 'text/csv' }), 'compare-metrics.csv');
+    const body = metricRows.map((r) => [r.label, ...r.cells]);
+    return toCsv([header, ...body]);
+  };
+  const saveMetricsCsv = () => {
+    download(new Blob([metricsCsv()], { type: 'text/csv' }), 'compare-metrics.csv');
   };
   const savePng = () => {
     const canvas = chartRef.current?.querySelector('canvas');
@@ -219,23 +149,47 @@ export default function CompareView({
     ctx.drawImage(canvas, 0, 0);
     out.toBlob((blob) => blob && download(blob, `compare-${metric}.png`));
   };
-  // Vector version of the overlay — every flight's curve on the liftoff-aligned grid,
-  // crisp at any size for a report or cert document (and recolourable there).
-  const saveChartSvg = () => {
-    const svg = plotSvg({
+  // Vector version of an overlay — every flight's curve for one channel on the
+  // liftoff-aligned grid, crisp at any size for a report (and recolourable there).
+  type MetricDef = (typeof metrics)[number];
+  const overlaySvg = (m: MetricDef): string =>
+    plotSvg({
       x: time,
       series: flights.map((f) => ({
         label: stem(f.name),
         color: f.color,
         axis: 'left' as const,
-        values: Array.from(active.get(f), (v) => active.toDisplay(v)),
+        values: Array.from(m.get(f), (v) => m.toDisplay(v)),
       })),
       xLabel: 'Time after liftoff (s)',
-      leftLabel: active.unit ? `${active.label} (${active.unit})` : active.label,
-      markers: liftoffMarker.map((m) => ({ x: m.x, label: m.label, color: m.color })),
+      leftLabel: m.unit ? `${m.label} (${m.unit})` : m.label,
+      markers: liftoffMarker.map((mk) => ({ x: mk.x, label: mk.label, color: mk.color })),
       dark: figureDark,
     });
-    download(new Blob([svg], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
+  const saveChartSvg = () => {
+    download(new Blob([overlaySvg(active)], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
+  };
+
+  // The comparison as one report-grade ZIP: the Markdown write-up (cross-check +
+  // metrics table), the metrics CSV, and the altitude/velocity/acceleration overlay
+  // figures — a redundant-altimeter or stage assembly check as a single download.
+  // Zipped in the browser; nothing uploaded.
+  const [bundleMsg, setBundleMsg] = useState<string | null>(null);
+  const saveBundle = async () => {
+    setBundleMsg('Building bundle…');
+    try {
+      const figureKeys: MetricKey[] = ['altitude', 'velocity', 'acceleration'];
+      const entries: ZipEntry[] = [
+        { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note) },
+        { name: 'compare-metrics.csv', data: metricsCsv() },
+        ...figureKeys.map((k) => ({ name: `compare-${k}.svg`, data: overlaySvg(metrics.find((m) => m.key === k)!) })),
+      ];
+      download(await zip(entries), 'compare-debrief.zip');
+      setBundleMsg('Bundle saved — cross-check, metrics and figures, all zipped locally.');
+      setTimeout(() => setBundleMsg(null), 4000);
+    } catch {
+      setBundleMsg('Couldn’t build the bundle in this browser — the individual Save buttons still work.');
+    }
   };
 
   return (
@@ -338,37 +292,34 @@ export default function CompareView({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
-              const bi = bestIdx(row);
-              return (
-                <tr key={row.label} className="border-t border-zinc-100 dark:border-zinc-900">
-                  <th
-                    scope="row"
-                    className="sticky left-0 bg-white py-2 pr-4 text-left font-medium text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
+            {metricRows.map((row) => (
+              <tr key={row.label} className="border-t border-zinc-100 dark:border-zinc-900">
+                <th
+                  scope="row"
+                  className="sticky left-0 bg-white py-2 pr-4 text-left font-medium text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
+                >
+                  {row.label}
+                </th>
+                {flights.map((f, i) => (
+                  <td
+                    key={f.id}
+                    className={`px-3 py-2 text-right font-mono tabular-nums ${
+                      i === row.best
+                        ? 'font-semibold text-indigo-600 dark:text-indigo-400'
+                        : 'text-zinc-800 dark:text-zinc-200'
+                    }`}
                   >
-                    {row.label}
-                  </th>
-                  {flights.map((f, i) => (
-                    <td
-                      key={f.id}
-                      className={`px-3 py-2 text-right font-mono tabular-nums ${
-                        i === bi
-                          ? 'font-semibold text-indigo-600 dark:text-indigo-400'
-                          : 'text-zinc-800 dark:text-zinc-200'
-                      }`}
-                    >
-                      {row.get(f.metrics)}
-                      {i === bi && <span className="sr-only"> (highest)</span>}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+                    {row.cells[i]}
+                    {i === row.best && <span className="sr-only"> (highest)</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {(velMixed || accMixed) && (
+      {baroMix && (
         <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
           <span className="font-mono">(baro)</span> — derived from altitude rather than logged by the
           device, so it reads softer at peak speed; compare those values with that in mind.
@@ -422,7 +373,20 @@ export default function CompareView({
           >
             Save metrics
           </button>
+          <button
+            type="button"
+            onClick={saveBundle}
+            title="Save one ZIP with the Markdown cross-check write-up, the metrics CSV and the altitude/velocity/acceleration overlay figures — the whole comparison, zipped in the browser"
+            className={ACTION_BTN}
+          >
+            Save bundle
+          </button>
         </div>
+        {bundleMsg && (
+          <p role="status" aria-live="polite" className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+            {bundleMsg}
+          </p>
+        )}
 
         <ChartBlock title={active.unit ? `${active.label} (${active.unit})` : active.label}>
           <div ref={chartRef}>

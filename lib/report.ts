@@ -2,9 +2,10 @@
 // into a forum post or save next to the log. Mirrors what the report shows.
 
 import type { RawFlight, ReportedValue } from './flight/types';
-import type { FlightAnalysis } from './analyze/types';
+import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 import type { UnitSystem } from './display';
 import { compareReported } from './flight/reported';
+import { crossCheck, type Comparison, type CompareFlight } from './compare';
 import {
   fmtLength,
   fmtSpeed,
@@ -201,6 +202,134 @@ export function analyzedDataCsv(analysis: FlightAnalysis, sys: UnitSystem): stri
     );
   }
   return rows.join('\n');
+}
+
+// --- Comparison / cross-check report -------------------------------------
+
+/** Strip a file extension for a tidy display/column label. */
+function nameStem(name: string): string {
+  return name.replace(/\.[^.]+$/, '');
+}
+
+export interface CompareMetricRow {
+  label: string;
+  /** One formatted string per flight, in flight order. */
+  cells: string[];
+  /** Index of the flight to emphasize as best, or -1 for none. */
+  best: number;
+}
+
+/** The side-by-side comparison table as labelled rows — the single source both the
+ *  on-screen table and the Markdown/CSV exports render, so they can't drift. A row's
+ *  `best` marks the single highest finite value (only when ≥2 flights have one and
+ *  there's no tie). Velocity/acceleration that mix device and baro sources across
+ *  flights are tagged "(baro)" rather than crowned across methods that aren't
+ *  directly comparable. */
+export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): CompareMetricRow[] {
+  const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
+  const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
+  const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
+    mixed && source === 'baro' && finite ? ' (baro)' : '';
+
+  const specs: { label: string; get: (m: FlightMetrics) => string; value?: (m: FlightMetrics) => number }[] = [
+    { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), value: (m) => m.apogeeAltitude },
+    { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee) },
+    {
+      label: 'Max velocity',
+      get: (m) => fmtSpeed(m.maxVelocity, sys) + baroTag(velMixed, m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
+      value: (m) => m.maxVelocity,
+    },
+    { label: 'Max Mach', get: (m) => fmtMach(m.mach), value: (m) => m.mach ?? NaN },
+    {
+      label: 'Max acceleration',
+      get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)),
+      value: (m) => m.maxAcceleration,
+    },
+    { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), value: (m) => m.maxDynamicPressure ?? NaN },
+    { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—') },
+    { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—') },
+    { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—') },
+    { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—') },
+    { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—') },
+  ];
+
+  return specs.map((s) => {
+    let best = -1;
+    if (s.value) {
+      let bv = -Infinity;
+      let finite = 0;
+      let ties = 0;
+      flights.forEach((f, i) => {
+        const v = s.value!(f.metrics);
+        if (!Number.isFinite(v)) return;
+        finite++;
+        if (v > bv) {
+          bv = v;
+          best = i;
+          ties = 1;
+        } else if (v === bv) {
+          ties++;
+        }
+      });
+      if (finite < 2 || ties !== 1) best = -1;
+    }
+    return { label: s.label, cells: flights.map((f) => s.get(f.metrics)), best };
+  });
+}
+
+/** Whether any compared flight tags a metric "(baro)" — i.e. the flights mix a
+ *  device-logged and a baro-derived source, so a footnote is warranted. */
+export function compareHasBaroMix(flights: CompareFlight[]): boolean {
+  return (
+    new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1 ||
+    new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1
+  );
+}
+
+/** A report-grade Markdown comparison — the cross-check narrative (how closely the
+ *  recordings agree) and the side-by-side metrics table — to document a redundant-
+ *  altimeter check or a stage-by-stage assembly in a cert package or a forum post.
+ *  Same numbers as the compare view, in the chosen units. */
+export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: string): string {
+  const cell = (s: string) => s.replace(/\|/g, '\\|');
+  const { flights } = comparison;
+  const out: string[] = [];
+  out.push('# Debrief — flight comparison');
+  out.push('');
+  out.push(`Comparing **${flights.length}** flight${flights.length === 1 ? '' : 's'}, aligned at liftoff (t = 0).`);
+  out.push('');
+  out.push(...flights.map((f) => `- **${cell(nameStem(f.name))}** · ${cell(f.formatLabel)}`));
+  if (note) out.push('', `> ${cell(note)}`);
+
+  const agree = crossCheck(flights);
+  if (agree.length) {
+    const phrase = agree
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}`)
+      .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
+    out.push('', '## Cross-check', '');
+    out.push(
+      `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`,
+    );
+  }
+
+  const rows = compareMetricRows(flights, sys);
+  out.push('', '## Metrics', '');
+  out.push(`| Metric | ${flights.map((f) => cell(nameStem(f.name))).join(' | ')} |`);
+  out.push(`| --- | ${flights.map(() => '---').join(' | ')} |`);
+  for (const r of rows) {
+    const cells = r.cells.map((c, i) => (i === r.best ? `**${cell(c)}**` : cell(c)));
+    out.push(`| ${cell(r.label)} | ${cells.join(' | ')} |`);
+  }
+
+  if (compareHasBaroMix(flights)) {
+    out.push('', '_(baro) — derived from altitude rather than logged by the device, so it reads softer at peak speed._');
+  }
+
+  out.push('');
+  out.push(
+    '_Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Made with [Debrief](https://debrief.fusionspace.co) — parsed locally, never uploaded._',
+  );
+  return out.join('\n');
 }
 
 /** A friendly "Jun 25, 2026, 10:37 AM" stamp, matching the family's style. */

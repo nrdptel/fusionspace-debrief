@@ -1,9 +1,35 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 const fixture = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
+
+// The filenames listed in a ZIP's central directory — enough to prove a bundle
+// packs what it should, without a ZIP library.
+function zipEntryNames(buf: Buffer): string[] {
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('not a ZIP archive');
+  const count = buf.readUInt16LE(eocd + 8);
+  let p = buf.readUInt32LE(eocd + 16);
+  const names: string[] = [];
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) break;
+    const nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30);
+    const commentLen = buf.readUInt16LE(p + 32);
+    names.push(buf.toString('utf8', p + 46, p + 46 + nameLen));
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return names;
+}
 
 // Load two different real flights, then compare them from the recents list. This
 // exercises the full multi-flight path: re-parse + re-analyze each saved file,
@@ -87,6 +113,21 @@ test('compare two flights from the recents list', async ({ page }) => {
   await page.getByRole('button', { name: /Exported figure background/ }).click();
   const darkBody = await exportSvg();
   expect(darkBody).toContain('fill="#09090b"');
+
+  // The whole comparison as one ZIP: the cross-check write-up, the metrics table,
+  // and the overlay figures — a single download instead of a handful of clicks.
+  const [bundle] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save bundle' }).click(),
+  ]);
+  expect(bundle.suggestedFilename()).toBe('compare-debrief.zip');
+  const names = zipEntryNames(await readFile(await bundle.path()));
+  expect(names).toContain('compare-summary.md');
+  expect(names).toContain('compare-metrics.csv');
+  expect(names).toContain('compare-altitude.svg');
+  expect(names).toContain('compare-velocity.svg');
+  expect(names).toContain('compare-acceleration.svg');
+  await expect(page.getByText(/Bundle saved/)).toBeVisible();
 
   // The compare view should be accessible too.
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();

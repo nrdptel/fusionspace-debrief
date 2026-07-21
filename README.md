@@ -140,7 +140,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   booster and its sustainer bay) read as independent measurements: close agreement builds
   confidence, a wide gap is a flag worth chasing, never a single number to trust on faith.
   The overlay saves as a PNG, a **vector SVG** (crisp at any size for a report), or its
-  exact data as CSV, alongside the metrics table.
+  exact data as CSV, alongside the metrics table — or **Save bundle** to take the whole
+  comparison at once: a Markdown write-up carrying the cross-check and the metrics table,
+  the metrics CSV and the altitude, velocity and acceleration overlay figures, zipped in
+  the browser into one `.zip` to drop into a certification package.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 - Makes a **flight card** — a clean, branded image of the headline numbers and the

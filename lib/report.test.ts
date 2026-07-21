@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, compareMarkdown, compareMetricRows } from './report';
+import { buildComparison, type CompareInput } from './compare';
 
 function tinyFlight(): RawFlight {
   const dt = 0.05;
@@ -94,5 +95,50 @@ describe('report exports', () => {
 
     // A flight with no reported summary omits the section entirely.
     expect(summaryMarkdown(flight, analysis, 'metric')).not.toContain('cross-check');
+  });
+});
+
+describe('comparison report', () => {
+  // Two flights of the same rocket, real ascents with slightly different apogees —
+  // the redundant-altimeter case the cross-check is written for.
+  const input = (id: string, peak: number): CompareInput => {
+    const f = tinyFlight();
+    f.source = `${id}.csv`;
+    // Scale the ramp to a distinct apogee so the two disagree a little.
+    const alt = Float64Array.from(f.channels[0].values, (h) => (h * peak) / 300);
+    return {
+      id,
+      name: `${id}.csv`,
+      formatLabel: 'Test',
+      analysis: analyzeFlight({ ...f, channels: [{ ...f.channels[0], values: alt }] }),
+    };
+  };
+  const comparison = buildComparison([input('a', 300), input('b', 315)]);
+
+  it('compareMetricRows crowns the single best finite value with no tie', () => {
+    const rows = compareMetricRows(comparison.flights, 'metric');
+    const apogee = rows.find((r) => r.label === 'Apogee')!;
+    expect(apogee.cells).toHaveLength(2);
+    expect(apogee.best).toBe(1); // flight 'b' peaks higher
+  });
+
+  it('compareMarkdown carries the cross-check and a metrics table', () => {
+    const md = compareMarkdown(comparison, 'imperial');
+    expect(md).toContain('# Debrief — flight comparison');
+    expect(md).toContain('## Cross-check');
+    expect(md).toMatch(/agree to within [\d.]+% on apogee/);
+    expect(md).toContain('## Metrics');
+    // Header + every body row share the same column count (2 flights → 4 pipes).
+    const bars = (s: string) => (s.match(/\|/g) ?? []).length;
+    const tableRows = md.split('\n').filter((l) => l.startsWith('| ') && !l.includes('---'));
+    expect(tableRows.length).toBeGreaterThan(3);
+    expect(tableRows.every((l) => bars(l) === 4)).toBe(true);
+    expect(md).toMatch(/Made with \[Debrief\]/);
+  });
+
+  it('emphasizes the best flight in the Markdown table', () => {
+    const md = compareMarkdown(comparison, 'metric');
+    // The higher apogee is bolded; the lower is not.
+    expect(md).toMatch(/\| Apogee \|[^|]*\| \*\*[^*]+\*\* \|/);
   });
 });
