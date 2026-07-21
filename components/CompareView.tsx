@@ -8,7 +8,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareMetricRows, compareHasBaroMix } from '@/lib/report';
+import { compareMarkdown, compareJson, compareMetricRows, compareHasBaroMix } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import { lengthIn, speedIn, accelInG, pressureIn, pressureUnit, UNIT_LABEL } from '@/lib/display';
 import { useIsDark } from './useIsDark';
@@ -187,6 +187,7 @@ export default function CompareView({
       const entries: ZipEntry[] = [
         { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note) },
         { name: 'compare-metrics.csv', data: metricsCsv() },
+        { name: 'compare.json', data: compareJson(comparison, sys, note) },
         ...figureKeys.map((k) => ({ name: `compare-${k}.svg`, data: overlaySvg(metrics.find((m) => m.key === k)!) })),
       ];
       download(await zip(entries), 'compare-debrief.zip');

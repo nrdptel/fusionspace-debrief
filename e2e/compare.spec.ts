@@ -133,6 +133,7 @@ test('compare two flights from the recents list', async ({ page }) => {
   const names = zipEntryNames(await readFile(await bundle.path()));
   expect(names).toContain('compare-summary.md');
   expect(names).toContain('compare-metrics.csv');
+  expect(names).toContain('compare.json');
   expect(names).toContain('compare-altitude.svg');
   expect(names).toContain('compare-velocity.svg');
   expect(names).toContain('compare-acceleration.svg');

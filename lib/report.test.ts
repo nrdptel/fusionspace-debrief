@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, analysisJson, compareMarkdown, compareMetricRows } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, analysisJson, compareMarkdown, compareJson, compareMetricRows } from './report';
 import { buildComparison, type CompareInput } from './compare';
 
 function tinyFlight(): RawFlight {
@@ -188,5 +188,22 @@ describe('comparison report', () => {
     const md = compareMarkdown(comparison, 'metric');
     // The higher apogee is bolded; the lower is not.
     expect(md).toMatch(/\| Apogee \|[^|]*\| \*\*[^*]+\*\* \|/);
+  });
+
+  it('compareJson carries each flight, the cross-check and the pairwise differences', () => {
+    const doc = JSON.parse(compareJson(comparison, 'imperial'));
+    expect(doc.schema).toBe('debrief.comparison/1');
+    expect(doc.units.length).toBe('ft');
+    expect(doc.flights).toHaveLength(2);
+    expect(typeof doc.flights[0].metrics.apogee).toBe('number');
+    expect(doc.crossCheck.some((c: { metric: string }) => c.metric === 'apogee')).toBe(true);
+    // A two-flight comparison carries per-metric spreads.
+    const apoDiff = doc.differences.find((d: { metric: string }) => d.metric === 'Apogee');
+    expect(apoDiff.spreadPct).toBeGreaterThan(0);
+  });
+
+  it('compareJson omits pairwise differences for a non-pair comparison', () => {
+    const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
+    expect(JSON.parse(compareJson(three, 'metric')).differences).toBeUndefined();
   });
 });

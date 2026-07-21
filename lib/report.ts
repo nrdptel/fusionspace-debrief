@@ -263,6 +263,15 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
     { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—'), value: (m) => m.mainDescentRate ?? NaN },
     { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—'), value: (m) => m.flightTime ?? NaN },
   ];
+  // Tilt at burnout only when at least one flight carried an attitude solution —
+  // otherwise the row would be all "—" for the (common) loggers without one.
+  if (flights.some((f) => f.metrics.tiltAtBurnout != null)) {
+    specs.push({
+      label: 'Tilt at burnout',
+      get: (m) => (m.tiltAtBurnout != null ? `${Math.round(m.tiltAtBurnout)}°` : '—'),
+      value: (m) => m.tiltAtBurnout ?? NaN,
+    });
+  }
 
   return specs.map((s) => {
     let best = -1;
@@ -356,6 +365,77 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
   return out.join('\n');
 }
 
+/** Unit-conversion helpers for the JSON exports, bound to a system, so every
+ *  structured export rounds and converts identically. */
+function jsonConv(sys: UnitSystem) {
+  const round = (v: number, p: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(p)) : null);
+  return {
+    round,
+    len: (v: number | null) => (v == null ? null : round(lengthIn(v, sys), 1)),
+    spd: (v: number | null) => (v == null ? null : round(speedIn(v, sys), 1)),
+    acc: (v: number | null) => (v == null ? null : round(accelInG(v), 2)),
+    sec: (v: number | null) => (v == null ? null : round(v, 2)),
+    prs: (v: number | null) => (v == null ? null : round(pressureIn(v, sys), 2)),
+  };
+}
+
+/** The units every JSON metric is expressed in, for the chosen system. */
+function jsonUnits(sys: UnitSystem) {
+  const L = UNIT_LABEL[sys];
+  return {
+    length: L.length,
+    speed: L.speed,
+    acceleration: L.accel,
+    temperature: L.temp,
+    pressure: pressureUnit(sys),
+    mach: 'ratio',
+    time: 's',
+    voltage: 'V',
+    angularRate: 'deg/s',
+    angle: '°',
+  };
+}
+
+/** One flight's metrics as a JSON object, in the chosen units — the single builder
+ *  behind both the single-flight and the comparison exports, so they can't drift. */
+function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitSystem): Record<string, number | string | boolean | null> {
+  const { round, len, spd, acc, sec, prs } = jsonConv(sys);
+  return {
+    apogee: len(m.apogeeAltitude),
+    timeToApogee: sec(m.timeToApogee),
+    maxVelocity: spd(m.maxVelocity),
+    maxVelocitySource: m.maxVelocitySource,
+    maxVelocityAltitude: len(m.maxVelocityAltitude),
+    maxMach: m.mach != null ? round(m.mach, 3) : null,
+    maxAcceleration: acc(m.maxAcceleration),
+    accelerationSource: m.accelerationSource,
+    accelerationClipped: m.accelClipped,
+    avgBoostAcceleration: acc(m.avgBoostAcceleration),
+    maxDeceleration: acc(m.maxDeceleration),
+    liftoffThrustToWeight: m.liftoffTWR != null ? round(m.liftoffTWR, 2) : null,
+    maxDynamicPressure: prs(m.maxDynamicPressure),
+    maxDynamicPressureAltitude: len(m.maxDynamicPressureAltitude),
+    transonicTime: sec(m.transonicTime),
+    transonicAltitude: len(m.transonicAltitude),
+    burnTime: sec(m.burnTime),
+    burnoutAltitude: len(m.burnoutAltitude),
+    burnoutVelocity: spd(m.burnoutVelocity),
+    coastTime: sec(m.coastTime),
+    coastEfficiency: m.coastEfficiency != null ? round(m.coastEfficiency, 3) : null,
+    dragLossAltitude: len(m.dragLossAltitude),
+    drogueDescentRate: spd(m.drogueDescentRate),
+    mainDescentRate: spd(m.mainDescentRate),
+    descentTime: sec(m.descentTime),
+    flightTime: sec(m.flightTime),
+    groundTemperature: m.groundTemperature != null ? round(tempIn(m.groundTemperature, sys), 1) : null,
+    batteryStartV: m.batteryStartV != null ? round(m.batteryStartV, 2) : null,
+    batteryMinV: m.batteryMinV != null ? round(m.batteryMinV, 2) : null,
+    peakRollRate: m.peakRollRate != null ? round(m.peakRollRate, 0) : null,
+    rollRevolutions: m.rollRevolutions != null ? round(m.rollRevolutions, 1) : null,
+    tiltAtBurnoutDeg: m.tiltAtBurnout != null ? round(m.tiltAtBurnout, 1) : null,
+  };
+}
+
 /** The full analysis as structured JSON — Debrief's canonical read of a flight in
  *  one machine-readable file, for a script, a spreadsheet import, another tool, or
  *  an archive. Every number carries its unit (the chosen system) and its
@@ -368,14 +448,7 @@ export function analysisJson(
   analyzedAt?: number,
 ): string {
   const { metrics: m, events, warnings, series } = analysis;
-  const L = UNIT_LABEL[sys];
-  const round = (v: number, p: number): number | null =>
-    Number.isFinite(v) ? Number(v.toFixed(p)) : null;
-  const len = (v: number | null) => (v == null ? null : round(lengthIn(v, sys), 1));
-  const spd = (v: number | null) => (v == null ? null : round(speedIn(v, sys), 1));
-  const acc = (v: number | null) => (v == null ? null : round(accelInG(v), 2));
-  const sec = (v: number | null) => (v == null ? null : round(v, 2));
-  const prs = (v: number | null) => (v == null ? null : round(pressureIn(v, sys), 2));
+  const { round, len, spd, acc, sec } = jsonConv(sys);
   const reportedNum = (metric: ReportedValue['metric'], si: number) =>
     metric === 'apogeeAltitude' ? len(si) : metric === 'maxVelocity' ? spd(si) : acc(si);
 
@@ -385,52 +458,9 @@ export function analysisJson(
     source: flight.source,
     format: flight.formatLabel,
     analyzedAt: analyzedAt ? new Date(analyzedAt).toISOString() : null,
-    units: {
-      length: L.length,
-      speed: L.speed,
-      acceleration: L.accel,
-      temperature: L.temp,
-      pressure: pressureUnit(sys),
-      mach: 'ratio',
-      time: 's',
-      voltage: 'V',
-      angularRate: 'deg/s',
-    },
+    units: jsonUnits(sys),
     altitudeSource: series.altitudeSource,
-    metrics: {
-      apogee: len(m.apogeeAltitude),
-      timeToApogee: sec(m.timeToApogee),
-      maxVelocity: spd(m.maxVelocity),
-      maxVelocitySource: m.maxVelocitySource,
-      maxVelocityAltitude: len(m.maxVelocityAltitude),
-      maxMach: m.mach != null ? round(m.mach, 3) : null,
-      maxAcceleration: acc(m.maxAcceleration),
-      accelerationSource: m.accelerationSource,
-      accelerationClipped: m.accelClipped,
-      avgBoostAcceleration: acc(m.avgBoostAcceleration),
-      maxDeceleration: acc(m.maxDeceleration),
-      liftoffThrustToWeight: m.liftoffTWR != null ? round(m.liftoffTWR, 2) : null,
-      maxDynamicPressure: prs(m.maxDynamicPressure),
-      maxDynamicPressureAltitude: len(m.maxDynamicPressureAltitude),
-      transonicTime: sec(m.transonicTime),
-      transonicAltitude: len(m.transonicAltitude),
-      burnTime: sec(m.burnTime),
-      burnoutAltitude: len(m.burnoutAltitude),
-      burnoutVelocity: spd(m.burnoutVelocity),
-      coastTime: sec(m.coastTime),
-      coastEfficiency: m.coastEfficiency != null ? round(m.coastEfficiency, 3) : null,
-      dragLossAltitude: len(m.dragLossAltitude),
-      drogueDescentRate: spd(m.drogueDescentRate),
-      mainDescentRate: spd(m.mainDescentRate),
-      descentTime: sec(m.descentTime),
-      flightTime: sec(m.flightTime),
-      groundTemperature: m.groundTemperature != null ? round(tempIn(m.groundTemperature, sys), 1) : null,
-      batteryStartV: m.batteryStartV != null ? round(m.batteryStartV, 2) : null,
-      batteryMinV: m.batteryMinV != null ? round(m.batteryMinV, 2) : null,
-      peakRollRate: m.peakRollRate != null ? round(m.peakRollRate, 0) : null,
-      rollRevolutions: m.rollRevolutions != null ? round(m.rollRevolutions, 1) : null,
-      tiltAtBurnoutDeg: m.tiltAtBurnout != null ? round(m.tiltAtBurnout, 1) : null,
-    },
+    metrics: jsonMetrics(m, sys),
     events: events.map((e) => ({
       type: e.type,
       label: e.label,
@@ -457,6 +487,32 @@ export function analysisJson(
     }));
   }
 
+  return JSON.stringify(doc, null, 2);
+}
+
+/** A comparison as structured JSON — each flight's metrics, the cross-check spreads,
+ *  and (for a pair) the per-metric difference — the machine-readable companion to the
+ *  comparison Markdown, for a script reconciling redundant altimeters or tracking a
+ *  rocket across launches. Same numbers as the compare view, in the chosen units. */
+export function compareJson(comparison: Comparison, sys: UnitSystem, note?: string): string {
+  const { flights } = comparison;
+  const { round } = jsonConv(sys);
+  const doc: Record<string, unknown> = {
+    schema: 'debrief.comparison/1',
+    generatedBy: 'Debrief (debrief.fusionspace.co)',
+    alignment: 'liftoff',
+    ...(note ? { note } : {}),
+    units: jsonUnits(sys),
+    flights: flights.map((f) => ({ name: f.name, format: f.formatLabel, metrics: jsonMetrics(f.metrics, sys) })),
+    crossCheck: crossCheck(flights).map((a) => ({ metric: a.key, label: a.label, spreadPct: round(a.spreadPct, 1), flights: a.count })),
+    disclaimer:
+      'Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Parsed locally; nothing uploaded.',
+  };
+  if (flights.length === 2) {
+    doc.differences = compareMetricRows(flights, sys)
+      .filter((r) => r.spreadPct != null)
+      .map((r) => ({ metric: r.label, spreadPct: round(r.spreadPct as number, 1) }));
+  }
   return JSON.stringify(doc, null, 2);
 }
 
