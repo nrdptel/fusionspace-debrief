@@ -24,12 +24,12 @@ export default function DeviceSummary({
   metrics: FlightMetrics;
   sys: UnitSystem;
 }) {
-  const rows = compareReported(reported, metrics).map(({ reported: r, computed, hasComputed: has, deltaPct, agree }) => ({
+  const rows = compareReported(reported, metrics).map(({ reported: r, computed, hasComputed: has, deltaPct, status }) => ({
     r,
     computed,
     has,
     deltaPct,
-    agree,
+    status,
   }));
 
   return (
@@ -55,7 +55,7 @@ export default function DeviceSummary({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ r, computed, has, deltaPct, agree }) => (
+            {rows.map(({ r, computed, has, deltaPct, status }) => (
               <tr key={r.metric} className="border-t border-zinc-200 dark:border-zinc-800">
                 <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{r.label}</td>
                 <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">{fmt(r.metric, r.value, sys)}</td>
@@ -63,15 +63,22 @@ export default function DeviceSummary({
                   {has ? fmt(r.metric, computed, sys) : '—'}
                 </td>
                 <td className="py-1.5">
-                  {deltaPct == null ? (
+                  {status == null ? (
                     <span className="text-zinc-500 dark:text-zinc-400">not computed</span>
-                  ) : agree ? (
+                  ) : status === 'agree' ? (
                     <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                      agree · {deltaPct < 0.05 ? '≈0' : deltaPct.toFixed(1)}%
+                      agree · {deltaPct! < 0.05 ? '≈0' : deltaPct!.toFixed(1)}%
+                    </span>
+                  ) : status === 'consistent' ? (
+                    <span
+                      title="A descent rate is a windowed average of an unsteady descent, not a single instant, so two independent reads are expected to differ by more than a peak would — this is consistent, not a discrepancy."
+                      className="inline-flex items-center rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                    >
+                      consistent · {deltaPct!.toFixed(0)}%
                     </span>
                   ) : (
                     <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                      differ · {deltaPct.toFixed(0)}%
+                      differ · {deltaPct!.toFixed(0)}%
                     </span>
                   )}
                 </td>

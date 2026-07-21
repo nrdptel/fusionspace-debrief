@@ -109,7 +109,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   own `Apogee: … ' AGL`),
   Debrief shows those beside its independent read as two measurements to compare: close
   agreement builds confidence, a gap is flagged for a look — never averaged together or
-  hidden. (A power-loss flight that logs no apogee is left alone.)
+  hidden. A sharply-defined peak (apogee, a velocity at one instant) is held to a tight
+  bar, but a windowed figure like a descent rate is judged more loosely — the same device
+  can report its own descent and landing velocities ~25% apart, so a modest gap there reads
+  as *consistent*, not a discrepancy. (A power-loss flight that logs no apogee is left alone.)
 - Finds the *real* apogee — a short median filter removes the single-sample spike an
   ejection charge punches into a barometric trace, so a deployment pop can't fake a
   higher reading.

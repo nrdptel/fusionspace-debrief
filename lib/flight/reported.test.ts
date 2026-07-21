@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { extractReportedSummary } from './reported';
+import { extractReportedSummary, compareReported } from './reported';
+import type { ReportedValue } from './types';
+import type { FlightMetrics } from '../analyze/types';
 
 const G0 = 9.80665;
 
@@ -47,5 +49,41 @@ describe('extractReportedSummary', () => {
     ]);
     expect(r).toHaveLength(1);
     expect(r[0].value).toBe(100);
+  });
+});
+
+describe('compareReported', () => {
+  const rep = (metric: ReportedValue['metric'], value: number): ReportedValue => ({ metric, label: metric, value, source: 'device' });
+  const withMetric = (metric: string, value: number) => ({ [metric]: value }) as unknown as FlightMetrics;
+
+  it('calls a tight peak match "agree"', () => {
+    const [c] = compareReported([rep('apogeeAltitude', 100)], withMetric('apogeeAltitude', 102));
+    expect(c.status).toBe('agree'); // 2% on a peak
+    expect(c.agree).toBe(true);
+  });
+
+  it('flags a peak past the tight bound as "differ" — no wider band for a peak', () => {
+    const [c] = compareReported([rep('apogeeAltitude', 100)], withMetric('apogeeAltitude', 112));
+    expect(c.status).toBe('differ'); // 12% on a peak is a real gap
+    expect(c.agree).toBe(false);
+  });
+
+  it('treats a modest descent-rate gap as "consistent", not a discrepancy', () => {
+    // A windowed figure like a descent rate is expected to vary between two reads by
+    // more than a peak would, so 15% is consistent — not flagged as differing.
+    const [c] = compareReported([rep('mainDescentRate', 6)], withMetric('mainDescentRate', 5.1)); // 15%
+    expect(c.status).toBe('consistent');
+    expect(c.agree).toBe(false);
+  });
+
+  it('still flags a descent rate beyond the wider windowed band as "differ"', () => {
+    const [c] = compareReported([rep('mainDescentRate', 6)], withMetric('mainDescentRate', 9)); // 50%
+    expect(c.status).toBe('differ');
+  });
+
+  it('has no status when there is nothing to compare', () => {
+    const [c] = compareReported([rep('mainDescentRate', 6)], withMetric('apogeeAltitude', 100));
+    expect(c.status).toBeNull();
+    expect(c.hasComputed).toBe(false);
   });
 });

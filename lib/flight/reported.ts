@@ -53,8 +53,25 @@ export function extractReportedSummary(metadataRows: string[][]): ReportedValue[
   return out;
 }
 
-/** Within this fraction the device's figure and Debrief's read are called "agree". */
+/** Within this fraction the device's figure and Debrief's read agree tightly — the
+ *  right bar for a well-defined peak (apogee, or a velocity read at one instant). */
 export const AGREE_FRACTION = 0.05;
+
+/** A descent rate isn't an instant — it's a windowed average of an unsteady descent,
+ *  and the definition of the window matters. This very device reports its own
+ *  "descent velocity" and "landing velocity" ~25% apart, so two independent reads of
+ *  "the descent rate" are expected to differ by more than a peak would. Within this
+ *  wider band a windowed figure is called "consistent" rather than a discrepancy;
+ *  only beyond it is it a genuine flag. Peaks fall back to the tight AGREE_FRACTION. */
+const CONSISTENT_FRACTION = 0.2;
+const WIDE_TOLERANCE: Partial<Record<ReportedValue['metric'], number>> = {
+  mainDescentRate: CONSISTENT_FRACTION,
+};
+
+/** How a device figure and Debrief's independent read line up: a tight `agree`, a
+ *  `consistent` (within the wider band a windowed figure like a descent rate is
+ *  expected to vary by), or a genuine `differ`. */
+export type AgreementStatus = 'agree' | 'consistent' | 'differ';
 
 export interface ReportedComparison {
   reported: ReportedValue;
@@ -63,7 +80,10 @@ export interface ReportedComparison {
   hasComputed: boolean;
   /** |computed − device| / |device|, as a percentage; null when not comparable. */
   deltaPct: number | null;
+  /** True only for a tight (≤ AGREE_FRACTION) match — kept for the simple green split. */
   agree: boolean;
+  /** Three-way read of the agreement; null when there's nothing to compare. */
+  status: AgreementStatus | null;
 }
 
 /** Pair each device-reported figure with Debrief's own read of the same metric —
@@ -75,6 +95,10 @@ export function compareReported(reported: ReportedValue[], metrics: FlightMetric
     const computed = metrics[r.metric] ?? NaN;
     const hasComputed = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
     const deltaPct = hasComputed ? Math.abs((computed - r.value) / r.value) * 100 : null;
-    return { reported: r, computed, hasComputed, deltaPct, agree: deltaPct != null && deltaPct <= AGREE_FRACTION * 100 };
+    const agree = deltaPct != null && deltaPct <= AGREE_FRACTION * 100;
+    const wide = (WIDE_TOLERANCE[r.metric] ?? AGREE_FRACTION) * 100;
+    const status: AgreementStatus | null =
+      deltaPct == null ? null : agree ? 'agree' : deltaPct <= wide ? 'consistent' : 'differ';
+    return { reported: r, computed, hasComputed, deltaPct, agree, status };
   });
 }

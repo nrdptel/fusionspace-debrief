@@ -72,9 +72,16 @@ function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitSyste
  *  read, and how closely they agree. Empty when the file carried no summary. */
 function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: UnitSystem): [string, string, string, string][] {
   if (!flight.reported?.length) return [];
-  return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct }) => {
+  return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status }) => {
+    const pct = deltaPct == null ? '' : deltaPct < 0.05 ? '≈0' : `${deltaPct.toFixed(deltaPct < 10 ? 1 : 0)}%`;
     const agreement =
-      deltaPct == null ? 'not computed' : deltaPct <= 5 ? `agree (${deltaPct < 0.05 ? '≈0' : deltaPct.toFixed(1)}%)` : `differ (${deltaPct.toFixed(0)}%)`;
+      status == null
+        ? 'not computed'
+        : status === 'agree'
+          ? `agree (${pct})`
+          : status === 'consistent'
+            ? `consistent (${pct})`
+            : `differ (${pct})`;
     return [r.label, fmtReported(r.metric, r.value, sys), hasComputed ? fmtReported(r.metric, computed, sys) : '—', agreement];
   });
 }
@@ -481,12 +488,13 @@ export function analysisJson(
   // The logger's own reported summary and how Debrief's read compares — only when
   // the file carried one.
   if (flight.reported?.length) {
-    doc.loggerSummary = compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct }) => ({
+    doc.loggerSummary = compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status }) => ({
       label: r.label,
       metric: r.metric,
       logger: reportedNum(r.metric, r.value),
       debrief: hasComputed ? reportedNum(r.metric, computed) : null,
       agreementPct: deltaPct == null ? null : round(deltaPct, 1),
+      agreement: status,
     }));
   }
 
