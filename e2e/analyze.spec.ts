@@ -44,6 +44,11 @@ test('the sample flight analyzes into a report', async ({ page }) => {
   await expect(page.getByText('Max Q', { exact: true })).toBeVisible();
   await expect(page.getByText(/^at /).first()).toBeVisible(); // e.g. "at 1,420 ft"
 
+  // The Max velocity tile carries its provenance, like Max acceleration — the
+  // sample logs its own velocity, so it reads "measured", never an unlabelled peak.
+  const maxVelTile = page.getByText('Max velocity', { exact: true }).locator('xpath=..');
+  await expect(maxVelTile).toContainText(/measured|derived/);
+
   // The flight timeline breaks the flight into its phases (the chips are list
   // items, distinct from the "Boost" zoom-preset button).
   await expect(page.getByRole('heading', { name: 'Flight timeline' })).toBeVisible();

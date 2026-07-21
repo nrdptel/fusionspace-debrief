@@ -9,13 +9,18 @@ interface Tile {
   primary?: boolean;
 }
 
-/** Mach (when known) and the altitude the peak speed was reached at. */
+/** Mach (when known), the altitude the peak speed was reached at, and its
+ *  provenance — measured off a logged/inertial velocity, or derived from the
+ *  barometric altitude (softer at peak). Provenance is shown for the peak the way
+ *  the max-acceleration tile shows it, so a headline number never reads as more
+ *  direct than it is. */
 function maxVelocitySub(m: FlightMetrics, sys: UnitSystem): string | undefined {
+  if (!Number.isFinite(m.maxVelocity)) return 'not in this log';
   const parts: string[] = [];
   if (m.mach) parts.push(fmtMach(m.mach));
   if (Number.isFinite(m.maxVelocityAltitude)) parts.push(`at ${fmtLength(m.maxVelocityAltitude, sys)}`);
-  if (parts.length) return parts.join(' · ');
-  return Number.isFinite(m.maxVelocity) ? undefined : 'not in this log';
+  parts.push(m.maxVelocitySource === 'device' ? 'measured' : 'derived');
+  return parts.join(' · ');
 }
 
 function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
