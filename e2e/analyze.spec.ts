@@ -176,6 +176,37 @@ test('the report exports as one ZIP bundle of summary, data and figures', async 
   expect(doc.events.some((e: { type: string }) => e.type === 'apogee')).toBe(true);
 });
 
+test('an optional report label and notes reflect on-screen and ride into the exports', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  // Open the optional caption disclosure and fill it.
+  await page.getByText('Label this report (optional)').click();
+  await page.getByLabel('Label', { exact: true }).fill('Nimbus IV · J450 · Flight 3');
+  await page.getByLabel('Notes', { exact: true }).fill('Gusty crosswind; drogue at apogee.');
+
+  // It reflects in the report itself (the heading and a notes paragraph, distinct from
+  // the textarea that still holds the same text).
+  await expect(page.getByRole('heading', { name: 'Nimbus IV · J450 · Flight 3' })).toBeVisible();
+  await expect(page.getByRole('paragraph').filter({ hasText: 'Gusty crosswind; drogue at apogee.' })).toBeVisible();
+
+  // …and rides into the Markdown export.
+  const [md] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .md' }).click(),
+  ]);
+  const stream = await md.createReadStream();
+  const text = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream!.on('error', reject);
+  });
+  expect(text).toContain('## Nimbus IV · J450 · Flight 3');
+  expect(text).toContain('Gusty crosswind');
+});
+
 test('the printed flight card keeps the numbers and drops the interactive chrome', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

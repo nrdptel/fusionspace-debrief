@@ -87,6 +87,18 @@ export default function FlightReport({
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [bundleMsg, setBundleMsg] = useState<string | null>(null);
 
+  // An optional label (rocket, motor, flight number) and free-text notes the flyer
+  // adds to make an exported report their own — for a cert document, a project, or a
+  // forum post. They ride into every text/Markdown/JSON export and the printed card,
+  // and belong to the flight in view, so a new flight clears them.
+  const [reportLabel, setReportLabel] = useState('');
+  const [reportNotes, setReportNotes] = useState('');
+  useEffect(() => {
+    setReportLabel('');
+    setReportNotes('');
+  }, [flight.source]);
+  const reportMeta = useMemo(() => ({ label: reportLabel, notes: reportNotes }), [reportLabel, reportNotes]);
+
   const stem = reportStem(flight.source);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
   const gpsLat = getChannel(flight, 'latitude');
@@ -110,7 +122,7 @@ export default function FlightReport({
   }
 
   async function copySummary() {
-    const text = summaryText(flight, analysis, sys, analyzedAt);
+    const text = summaryText(flight, analysis, sys, analyzedAt, reportMeta);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -121,11 +133,11 @@ export default function FlightReport({
   }
 
   function downloadSummary() {
-    download(new Blob([summaryText(flight, analysis, sys, analyzedAt)], { type: 'text/plain' }), `${stem}-debrief.txt`);
+    download(new Blob([summaryText(flight, analysis, sys, analyzedAt, reportMeta)], { type: 'text/plain' }), `${stem}-debrief.txt`);
   }
 
   function downloadMarkdown() {
-    download(new Blob([summaryMarkdown(flight, analysis, sys, analyzedAt)], { type: 'text/markdown' }), `${stem}-debrief.md`);
+    download(new Blob([summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta)], { type: 'text/markdown' }), `${stem}-debrief.md`);
   }
 
   function downloadData() {
@@ -134,7 +146,7 @@ export default function FlightReport({
 
   function downloadJson() {
     download(
-      new Blob([analysisJson(flight, analysis, sys, analyzedAt)], { type: 'application/json' }),
+      new Blob([analysisJson(flight, analysis, sys, analyzedAt, reportMeta)], { type: 'application/json' }),
       `${stem}-debrief.json`,
     );
   }
@@ -262,9 +274,9 @@ export default function FlightReport({
     setBundleMsg('Building bundle…');
     try {
       const entries: ZipEntry[] = [
-        { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt) },
+        { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta) },
         { name: `${stem}-data.csv`, data: analyzedDataCsv(analysis, sys) },
-        { name: `${stem}-debrief.json`, data: analysisJson(flight, analysis, sys, analyzedAt) },
+        { name: `${stem}-debrief.json`, data: analysisJson(flight, analysis, sys, analyzedAt, reportMeta) },
         ...figureSvgs().map((f) => ({ name: f.name, data: f.svg })),
       ];
       download(await zip(entries), `${stem}-debrief.zip`);
@@ -350,6 +362,22 @@ export default function FlightReport({
       <div className="hidden print:block">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Debrief · Flight Report</p>
       </div>
+      {/* The flyer's own caption, once set — shown here on screen and on the printed
+          card, and carried into the exports. */}
+      {(reportLabel.trim() || reportNotes.trim()) && (
+        <div className="space-y-1">
+          {reportLabel.trim() && (
+            <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              {reportLabel.trim()}
+            </h3>
+          )}
+          {reportNotes.trim() && (
+            <p className="max-w-2xl whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-400">
+              {reportNotes.trim()}
+            </p>
+          )}
+        </div>
+      )}
       {/* File / format line */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
@@ -451,6 +479,47 @@ export default function FlightReport({
           </span>
         </div>
       </div>
+
+      {/* Optional caption the flyer adds to make the export their own — a rocket/motor
+          label and free-text notes that ride into every text/Markdown/JSON export and
+          the printed card. Tucked in a disclosure so it never clutters the common read. */}
+      <details className="rounded-md border border-zinc-200 bg-zinc-50/60 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/30 print:hidden">
+        <summary className="cursor-pointer select-none text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          Label this report{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div>
+            <label htmlFor="report-label" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Label
+            </label>
+            <input
+              id="report-label"
+              type="text"
+              value={reportLabel}
+              onChange={(e) => setReportLabel(e.target.value)}
+              placeholder="e.g. Nimbus IV · J450 · Flight 3"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="report-notes" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Notes
+            </label>
+            <textarea
+              id="report-notes"
+              value={reportNotes}
+              onChange={(e) => setReportNotes(e.target.value)}
+              rows={3}
+              placeholder="Conditions, motor, anomalies — anything you'd add to a write-up."
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            />
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Appears at the top of the text, Markdown and JSON exports and the printed card. Kept on
+            your device; a new flight clears it.
+          </p>
+        </div>
+      </details>
 
       {shareMsg && (
         <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">

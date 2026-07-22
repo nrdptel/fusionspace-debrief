@@ -23,6 +23,22 @@ import {
   UNIT_LABEL,
 } from './display';
 
+/** Optional, user-supplied context for a report — a label (rocket, motor, flight
+ *  number) and free-text notes — that a flyer adds to make an exported report their
+ *  own for a cert document, a project, or a forum post. Both are plain text the flyer
+ *  typed; empty/whitespace values are treated as absent. */
+export interface ReportMeta {
+  label?: string;
+  notes?: string;
+}
+
+/** Trim a user string, returning undefined when it's empty — so an untouched field
+ *  never adds an empty line to an export. */
+function clean(s: string | undefined): string | undefined {
+  const t = s?.trim();
+  return t ? t : undefined;
+}
+
 function row(label: string, value: string): string {
   return `${label.padEnd(18)}${value}`;
 }
@@ -91,11 +107,19 @@ export function summaryText(
   analysis: FlightAnalysis,
   sys: UnitSystem,
   analyzedAt?: number,
+  meta?: ReportMeta,
 ): string {
+  const label = clean(meta?.label);
+  const notes = clean(meta?.notes);
   const lines: string[] = [];
   lines.push('Debrief — flight report');
+  if (label) lines.push(label);
   lines.push(`${flight.source} · ${flight.formatLabel}`);
   if (analyzedAt) lines.push(`Analyzed ${formatAnalyzedAt(analyzedAt)}`);
+  if (notes) {
+    lines.push('');
+    lines.push(notes);
+  }
   lines.push('');
 
   for (const [label, value] of headlineRows(analysis.metrics, sys)) lines.push(row(label, value));
@@ -142,14 +166,23 @@ export function summaryMarkdown(
   analysis: FlightAnalysis,
   sys: UnitSystem,
   analyzedAt?: number,
+  meta?: ReportMeta,
 ): string {
   const cell = (s: string) => s.replace(/\|/g, '\\|'); // a stray pipe would split the table cell
+  const label = clean(meta?.label);
+  const notes = clean(meta?.notes);
   const out: string[] = [];
   out.push('# Debrief — flight report');
   out.push('');
+  if (label) out.push(`## ${cell(label)}`, '');
   const stamp = analyzedAt ? ` · Analyzed ${formatAnalyzedAt(analyzedAt)}` : '';
   out.push(`**${cell(flight.source)}** · ${cell(flight.formatLabel)}${stamp}`);
   out.push('');
+  if (notes) {
+    // A blockquote keeps the flyer's own words distinct from the read; each line
+    // carries the marker so a multi-line note stays one quote.
+    out.push(notes.split('\n').map((l) => `> ${l}`).join('\n'), '');
+  }
 
   out.push('| Metric | Value |');
   out.push('| --- | --- |');
@@ -456,17 +489,22 @@ export function analysisJson(
   analysis: FlightAnalysis,
   sys: UnitSystem,
   analyzedAt?: number,
+  meta?: ReportMeta,
 ): string {
   const { metrics: m, events, warnings, series } = analysis;
   const { round, len, spd, acc, sec } = jsonConv(sys);
   const reportedNum = (metric: ReportedValue['metric'], si: number) =>
     metric === 'apogeeAltitude' ? len(si) : metric === 'maxVelocity' ? spd(si) : acc(si);
+  const label = clean(meta?.label);
+  const notes = clean(meta?.notes);
 
   const doc: Record<string, unknown> = {
     schema: 'debrief.flight/1',
     generatedBy: 'Debrief (debrief.fusionspace.co)',
     source: flight.source,
     format: flight.formatLabel,
+    ...(label ? { label } : {}),
+    ...(notes ? { notes } : {}),
     analyzedAt: analyzedAt ? new Date(analyzedAt).toISOString() : null,
     units: jsonUnits(sys),
     altitudeSource: series.altitudeSource,

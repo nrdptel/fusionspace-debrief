@@ -133,6 +133,31 @@ describe('report exports', () => {
     expect(doc.loggerSummary[0].logger).toBeCloseTo(300, 0);
     expect(typeof doc.loggerSummary[0].agreementPct).toBe('number');
   });
+
+  it('carries an optional report label and notes into the text, Markdown and JSON exports', () => {
+    const meta = { label: 'Nimbus IV · J450 · Flight 3', notes: 'Gusty; drogue at apogee.\nMain a touch low.' };
+    const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, meta);
+    expect(txt).toContain('Nimbus IV · J450 · Flight 3');
+    expect(txt).toContain('Gusty; drogue at apogee.');
+
+    const md = summaryMarkdown(flight, analysis, 'imperial', 1_700_000_000_000, meta);
+    expect(md).toContain('## Nimbus IV · J450 · Flight 3');
+    expect(md).toContain('> Gusty; drogue at apogee.'); // notes render as a blockquote
+    expect(md).toContain('> Main a touch low.'); // a multi-line note stays one quote
+
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000, meta));
+    expect(doc.label).toBe('Nimbus IV · J450 · Flight 3');
+    expect(doc.notes).toContain('Gusty');
+  });
+
+  it('adds nothing when the label and notes are blank or whitespace', () => {
+    const blank = { label: '   ', notes: '' };
+    expect(summaryText(flight, analysis, 'imperial', 1, blank)).toBe(summaryText(flight, analysis, 'imperial', 1));
+    expect(summaryMarkdown(flight, analysis, 'imperial', 1, blank)).toBe(summaryMarkdown(flight, analysis, 'imperial', 1));
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1, blank));
+    expect(doc.label).toBeUndefined();
+    expect(doc.notes).toBeUndefined();
+  });
 });
 
 describe('comparison report', () => {
