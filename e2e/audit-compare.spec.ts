@@ -61,6 +61,25 @@ test('a rocketeer compares two flights end to end', async ({ page, context }) =>
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
 });
 
+test('an optional comparison label reflects on-screen and rides into the bundle', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([fx('altusmetrum-telemetrum.csv'), fx('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  await page.getByText('Label this comparison (optional)').click();
+  await page.getByLabel('Label', { exact: true }).fill('Nimbus IV — booster vs sustainer');
+  await page.getByLabel('Notes', { exact: true }).fill('Two bays, one flight.');
+  // It reflects at the top of the comparison.
+  await expect(page.getByRole('heading', { name: 'Nimbus IV — booster vs sustainer' })).toBeVisible();
+
+  // …and the bundle (which carries it in the Markdown/JSON) still builds.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save bundle' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/compare-debrief\.zip$/);
+});
+
 test('two device-velocity flights show no baro marking', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles([fx('altusmetrum-telemetrum.csv'), fx('featherweight-raven-fip.csv')]);

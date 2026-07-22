@@ -215,6 +215,20 @@ describe('comparison report', () => {
     expect(md).toMatch(/\| Apogee \|[^|]*\| \*\*[^*]+\*\* \|/);
   });
 
+  it('carries an optional label and notes into the comparison Markdown and JSON', () => {
+    const meta = { label: 'Nimbus IV — booster vs sustainer', notes: 'Two bays, one flight.' };
+    const md = compareMarkdown(comparison, 'imperial', undefined, meta);
+    expect(md).toContain('## Nimbus IV — booster vs sustainer');
+    expect(md).toContain('> Two bays, one flight.');
+    const doc = JSON.parse(compareJson(comparison, 'imperial', undefined, meta));
+    expect(doc.label).toBe('Nimbus IV — booster vs sustainer');
+    expect(doc.notes).toBe('Two bays, one flight.');
+    // Blank meta leaves both exports byte-for-byte as they were.
+    const blank = { label: ' ', notes: '' };
+    expect(compareMarkdown(comparison, 'imperial', undefined, blank)).toBe(compareMarkdown(comparison, 'imperial'));
+    expect(JSON.parse(compareJson(comparison, 'imperial', undefined, blank)).label).toBeUndefined();
+  });
+
   it('compareJson carries each flight, the cross-check and the pairwise differences', () => {
     const doc = JSON.parse(compareJson(comparison, 'imperial'));
     expect(doc.schema).toBe('debrief.comparison/1');

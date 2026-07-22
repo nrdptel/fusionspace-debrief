@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
 import { crossCheck } from '@/lib/compare';
 import type { UnitSystem } from '@/lib/display';
@@ -8,7 +8,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareJson, compareMetricRows, compareHasBaroMix } from '@/lib/report';
+import { compareMarkdown, compareJson, compareMetricRows, compareHasBaroMix, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import { lengthIn, speedIn, accelInG, pressureIn, pressureUnit, UNIT_LABEL } from '@/lib/display';
 import { useIsDark } from './useIsDark';
@@ -64,6 +64,17 @@ export default function CompareView({
   const syncKey = useMemo(() => `compare-${flights.map((f) => f.id).join('-')}`, [flights]);
   const [metric, setMetric] = useState<MetricKey>('altitude');
   const chartRef = useRef<HTMLDivElement>(null);
+
+  // An optional caption for the comparison — for a redundant-altimeter or staged-flight
+  // write-up. It rides into the exported bundle's Markdown and JSON, and belongs to the
+  // set in view, so a different comparison clears it.
+  const [reportLabel, setReportLabel] = useState('');
+  const [reportNotes, setReportNotes] = useState('');
+  useEffect(() => {
+    setReportLabel('');
+    setReportNotes('');
+  }, [syncKey]);
+  const reportMeta = useMemo<ReportMeta>(() => ({ label: reportLabel, notes: reportNotes }), [reportLabel, reportNotes]);
 
   // The side-by-side rows (with best-of emphasis and the mixed-source "(baro)"
   // tagging) come from one shared builder, so the on-screen table, the metrics CSV
@@ -185,9 +196,9 @@ export default function CompareView({
     try {
       const figureKeys: MetricKey[] = ['altitude', 'velocity', 'acceleration'];
       const entries: ZipEntry[] = [
-        { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note) },
+        { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note, reportMeta) },
         { name: 'compare-metrics.csv', data: metricsCsv() },
-        { name: 'compare.json', data: compareJson(comparison, sys, note) },
+        { name: 'compare.json', data: compareJson(comparison, sys, note, reportMeta) },
         ...figureKeys.map((k) => ({ name: `compare-${k}.svg`, data: overlaySvg(metrics.find((m) => m.key === k)!) })),
       ];
       download(await zip(entries), 'compare-debrief.zip');
@@ -234,7 +245,62 @@ export default function CompareView({
             {note}
           </p>
         )}
+        {/* The flyer's own caption for this comparison, once set. */}
+        {(reportLabel.trim() || reportNotes.trim()) && (
+          <div className="mt-3 space-y-1">
+            {reportLabel.trim() && (
+              <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                {reportLabel.trim()}
+              </h3>
+            )}
+            {reportNotes.trim() && (
+              <p className="max-w-2xl whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-400">
+                {reportNotes.trim()}
+              </p>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Optional caption for a redundant-altimeter or staged-flight write-up; rides into
+          the exported bundle's Markdown and JSON. Tucked away so it never clutters the read. */}
+      <details className="rounded-md border border-zinc-200 bg-zinc-50/60 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
+        <summary className="cursor-pointer select-none text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          Label this comparison{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div>
+            <label htmlFor="compare-label" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Label
+            </label>
+            <input
+              id="compare-label"
+              type="text"
+              value={reportLabel}
+              onChange={(e) => setReportLabel(e.target.value)}
+              placeholder="e.g. Nimbus IV — booster vs sustainer"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="compare-notes" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Notes
+            </label>
+            <textarea
+              id="compare-notes"
+              value={reportNotes}
+              onChange={(e) => setReportNotes(e.target.value)}
+              rows={3}
+              placeholder="What these recordings are, conditions — anything you'd add to a write-up."
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            />
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Rides into the exported bundle&apos;s Markdown and JSON. Kept on your device; a new
+            comparison clears it.
+          </p>
+        </div>
+      </details>
 
       {/* Cross-check: how closely the readings agree, as independent measurements. */}
       {(() => {

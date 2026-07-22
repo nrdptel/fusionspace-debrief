@@ -359,15 +359,19 @@ export function compareHasBaroMix(flights: CompareFlight[]): boolean {
  *  recordings agree) and the side-by-side metrics table — to document a redundant-
  *  altimeter check or a stage-by-stage assembly in a cert package or a forum post.
  *  Same numbers as the compare view, in the chosen units. */
-export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: string): string {
+export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: string, meta?: ReportMeta): string {
   const cell = (s: string) => s.replace(/\|/g, '\\|');
+  const label = clean(meta?.label);
+  const userNotes = clean(meta?.notes);
   const { flights } = comparison;
   const out: string[] = [];
   out.push('# Debrief — flight comparison');
   out.push('');
+  if (label) out.push(`## ${cell(label)}`, '');
   out.push(`Comparing **${flights.length}** flight${flights.length === 1 ? '' : 's'}, aligned at liftoff (t = 0).`);
   out.push('');
   out.push(...flights.map((f) => `- **${cell(nameStem(f.name))}** · ${cell(f.formatLabel)}`));
+  if (userNotes) out.push('', userNotes.split('\n').map((l) => `> ${l}`).join('\n'));
   if (note) out.push('', `> ${cell(note)}`);
 
   const agree = crossCheck(flights);
@@ -543,13 +547,17 @@ export function analysisJson(
  *  and (for a pair) the per-metric difference — the machine-readable companion to the
  *  comparison Markdown, for a script reconciling redundant altimeters or tracking a
  *  rocket across launches. Same numbers as the compare view, in the chosen units. */
-export function compareJson(comparison: Comparison, sys: UnitSystem, note?: string): string {
+export function compareJson(comparison: Comparison, sys: UnitSystem, note?: string, meta?: ReportMeta): string {
   const { flights } = comparison;
   const { round } = jsonConv(sys);
+  const label = clean(meta?.label);
+  const userNotes = clean(meta?.notes);
   const doc: Record<string, unknown> = {
     schema: 'debrief.comparison/1',
     generatedBy: 'Debrief (debrief.fusionspace.co)',
     alignment: 'liftoff',
+    ...(label ? { label } : {}),
+    ...(userNotes ? { notes: userNotes } : {}),
     ...(note ? { note } : {}),
     units: jsonUnits(sys),
     flights: flights.map((f) => ({ name: f.name, format: f.formatLabel, metrics: jsonMetrics(f.metrics, sys) })),
