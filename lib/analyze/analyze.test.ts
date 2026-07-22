@@ -153,6 +153,23 @@ describe('accelerometer saturation', () => {
     expect(Math.min(...a.series.acceleration)).toBeGreaterThanOrEqual(0);
   });
 
+  it('normalizes a single-axis logger that reads boost as negative (aft-mounted axis)', () => {
+    // Same flight, but the accelerometer is mounted pointing aft, so it logs the boost
+    // as a large NEGATIVE specific force (as some hobby "Acc (g)" exports do). Max
+    // acceleration must come out the same positive peak, not a small positive bump, and
+    // the deceleration must read as the coast, not the (flipped) boost.
+    const up = analyzeFlight(accelFlight(null));
+    const flipped = accelFlight(null);
+    const acc = flipped.channels.find((c) => c.kind === 'accelAxial')!.values;
+    for (let i = 0; i < acc.length; i++) acc[i] = -acc[i];
+    const a = analyzeFlight(flipped);
+    expect(a.metrics.accelerationSource).toBe('device');
+    // The boost peak is recovered with its magnitude and a positive sign.
+    expect(a.metrics.maxAcceleration).toBeCloseTo(up.metrics.maxAcceleration, 5);
+    // Deceleration stays a deceleration (≤ 0), not the boost re-signed.
+    expect(a.metrics.maxDeceleration).toBeLessThanOrEqual(0);
+  });
+
   it('does not cry saturation over a flat, near-zero (off-axis) channel', () => {
     // A multi-axis logger's lateral component: quiet through the whole flight,
     // so it sits flat near 0 g. That is not a railed sensor — clamping the flat

@@ -121,7 +121,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   (separate accel_x/y/z body axes) it reports the **resultant magnitude** √(x²+y²+z²) —
   the true peak the airframe felt, and what the device's own summary reports — rather
   than a single body axis, which under-reads it whenever the airframe isn't perfectly
-  aligned to one axis. Flags a **saturated accelerometer** — when the trace flat-tops at
+  aligned to one axis. Reads the **axis sign** from the flight itself — an accelerometer
+  mounted pointing aft logs the boost as a negative specific force, so Debrief flips a
+  single-axis trace whose dominant ascent excursion is negative, and boost, burnout and
+  deceleration come out with the right sign. Flags a **saturated accelerometer** — when the trace flat-tops at
   its peak (the sign a sensor hit its full-scale limit), the max acceleration is marked
   as possibly clipped rather than read as the true maximum.
 - Exports a flight: copy a text summary, save it as `.txt` or a report-grade **Markdown**

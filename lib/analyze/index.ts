@@ -226,6 +226,10 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const altClean = hampelFilter(altitude, windowFor(dt, 0.3));
   const altSmooth = movingAverage(medianFilter(altClean, windowFor(dt, 0.1)), windowFor(dt, 0.1));
 
+  // The apogee sample (peak altitude) — needed early to identify the ascent for the
+  // axial-sign check below; recomputed canonically once the series is built.
+  const apogeeIdxForSign = Math.max(0, argMax(altClean));
+
   // --- Velocity -------------------------------------------------------------
   let velocity: Float64Array;
   let velocitySource: 'device' | 'baro';
@@ -273,6 +277,19 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     );
   } else if (accCh) {
     signedAccel = accCh.values.slice();
+    // Normalize the axial sign convention. A single-axis accelerometer can be mounted
+    // pointing aft, so it logs boost as a large NEGATIVE specific force (e.g. a common
+    // hobby "Acc (g)" export reads −26 g through the burn). Every downstream reading —
+    // the liftoff ignition spike, max acceleration, the burnout sign-change, the coast
+    // deceleration — assumes boost is positive, so if the ascent's dominant excursion is
+    // negative, flip the trace. The largest |a| before apogee is the boost (deployment
+    // shocks come at/after apogee), so its sign identifies the convention.
+    let ext = 0;
+    for (let i = 0; i <= apogeeIdxForSign && i < signedAccel.length; i++) {
+      const v = signedAccel[i];
+      if (Number.isFinite(v) && Math.abs(v) > Math.abs(ext)) ext = v;
+    }
+    if (ext < 0) for (let i = 0; i < signedAccel.length; i++) signedAccel[i] = -signedAccel[i];
     if (resultant) {
       acceleration = resultant; // ≥2 body axes → report the resultant magnitude
       accelerationResultant = true;

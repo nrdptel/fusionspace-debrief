@@ -150,3 +150,31 @@ describe('analyzeTable — compact "AltiM"/"AltiF" altitude headers', () => {
     expect(b.columns[2].unit).toBeNull();
   });
 });
+
+describe('analyzeTable — the bare "Acc" acceleration abbreviation', () => {
+  // A very common single-accel-column layout ("Time (s), Acc (g), Alt AGL (ft), …").
+  // The plain \baccel\b test misses "Acc", so the real logged acceleration was ignored
+  // and a noisy pressure-derived one used in its place.
+  const t = analyzeTable([
+    ['Time (s)', 'Acc (g)', 'Alt AGL (ft)', 'Temp (F)'],
+    ['0', '-25.8', '43', '79'],
+    ['1', '-12.0', '400', '79'],
+    ['2', '2.0', '900', '78'],
+  ]);
+  const by = (h: string) => t.columns.find((c) => c.header === h)!;
+
+  it('recognizes "Acc" as an acceleration column, with its g unit', () => {
+    expect(by('Acc (g)').role).toBe('accelAxial');
+    expect(by('Acc (g)').unit).toBe('g');
+  });
+
+  it('does not steal a GPS accuracy column ("hAcc"/"vAcc")', () => {
+    const g = analyzeTable([
+      ['Time', 'hAcc', 'vAcc', 'Alt'],
+      ['0', '2.5', '3.1', '10'],
+      ['1', '2.4', '3.0', '20'],
+    ]);
+    expect(g.columns[1].role).not.toBe('accelAxial');
+    expect(g.columns[2].role).not.toBe('accelAxial');
+  });
+});

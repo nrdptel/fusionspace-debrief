@@ -39,7 +39,10 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   { role: 'accelTotal', test: (h) => /(total.?acc|acc.?total|net.?acc|accel.?mag|gforce|g.?force)/.test(h) || (/acc/.test(h) && /\b(total|net|resultant|magnitude)\b/.test(h)) },
   // Deliberately does NOT match a bare "g" — that steals GPS/geoid columns; rely
   // on an explicit accel word, with the unit (g) read separately from the header.
-  { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz])\b/.test(h) },
+  // Includes the bare "acc" abbreviation (a very common single-accel-column header,
+  // e.g. "Acc (g)"). A GPS accuracy column is written "hAcc"/"vAcc" — one token, no
+  // boundary before "acc" — so \bacc\b leaves it alone.
+  { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz]|acc)\b/.test(h) },
   { role: 'velocity', test: (h) => /\b(velocity|speed|veloc|vel)\b/.test(h) },
   // Roll/spin rate about the long axis. A bare "gyro" is left alone — that's three
   // axes and which one is roll is logger-specific — so it keys off "roll"/"spin".
