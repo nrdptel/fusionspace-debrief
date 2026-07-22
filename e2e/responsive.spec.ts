@@ -29,6 +29,20 @@ test('the flight report fits the viewport', async ({ page }) => {
   expect(await pageSpills(page)).toBe(false);
 });
 
+test('the report toolbar keeps the primary actions in view on a phone', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  // Copy / Share / Print / Units stay directly in view; the many file-format saves move
+  // into their own labelled strip (which scrolls aside) instead of stacking four rows
+  // deep and burying the flight's own numbers.
+  await expect(page.getByRole('button', { name: 'Copy summary' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Share link' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
+  await expect(page.getByText('Save a file:')).toBeVisible();
+  expect(await pageSpills(page)).toBe(false);
+});
+
 test('the column mapper fits the viewport (wide table scrolls in its box)', async ({ page }) => {
   await page.goto('/');
   const csv =

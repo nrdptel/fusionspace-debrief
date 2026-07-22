@@ -35,6 +35,9 @@ import GroundTrack from './GroundTrack';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+// Same button, but it never compresses inside the horizontally-scrolling "Save a file"
+// strip on a phone — a shrunk button would clip its label.
+const SAVE_BTN = `${ACTION_BTN} shrink-0`;
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -358,81 +361,91 @@ export default function FlightReport({
           </span>
           <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <button type="button" onClick={copySummary} title="Copy a text summary to the clipboard" className={ACTION_BTN}>
-            {copied ? 'Copied ✓' : 'Copy summary'}
-          </button>
-          <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={ACTION_BTN}>
-            Save .txt
-          </button>
-          <button
-            type="button"
-            onClick={downloadMarkdown}
-            title="Download a Markdown report — metrics and events as tables, ready for a write-up or a forum post"
-            className={ACTION_BTN}
-          >
-            Save .md
-          </button>
-          <button
-            type="button"
-            onClick={downloadData}
-            title="Download the analyzed series (time, altitude, velocity, acceleration) as CSV"
-            className={ACTION_BTN}
-          >
-            Save .csv
-          </button>
-          <button
-            type="button"
-            onClick={downloadJson}
-            title="Download the full analysis — metrics, events and provenance — as structured JSON, in the chosen units, for a script or another tool"
-            className={ACTION_BTN}
-          >
-            Save .json
-          </button>
-          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
-          <button
-            type="button"
-            onClick={saveChartSvg}
-            title="Save the altitude chart as a vector SVG (events marked) — crisp at any size for a report"
-            className={ACTION_BTN}
-          >
-            Save .svg
-          </button>
-          <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={ACTION_BTN}>
-            Save .png
-          </button>
-          <button
-            type="button"
-            onClick={downloadBundle}
-            title="Save one ZIP with the Markdown summary, the data CSV and the altitude/velocity/acceleration figures — the whole report, zipped in the browser"
-            className={ACTION_BTN}
-          >
-            Save bundle
-          </button>
-          <button
-            type="button"
-            onClick={printCard}
-            title="Print a clean flight card (or save it as a PDF) — numbers, events and charts on one page"
-            className={ACTION_BTN}
-          >
-            Print
-          </button>
-          <button
-            type="button"
-            onClick={shareLink}
-            title="Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded"
-            className={ACTION_BTN}
-          >
-            Share link
-          </button>
-          <button
-            type="button"
-            onClick={onToggleUnits}
-            aria-label={`Units: ${sys === 'imperial' ? 'feet' : 'meters'}. Switch to ${sys === 'imperial' ? 'meters' : 'feet'}.`}
-            className={ACTION_BTN}
-          >
-            Units: {sys === 'imperial' ? 'feet' : 'meters'}
-          </button>
+        <div className="flex flex-col gap-2 print:hidden">
+          {/* Primary actions — what you do with the flight — stay in view even on a
+              phone, where the file-format saves below scroll aside instead of stacking
+              into four rows that push the numbers down. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={copySummary} title="Copy a text summary to the clipboard" className={ACTION_BTN}>
+              {copied ? 'Copied ✓' : 'Copy summary'}
+            </button>
+            <button
+              type="button"
+              onClick={shareLink}
+              title="Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded"
+              className={ACTION_BTN}
+            >
+              Share link
+            </button>
+            <button
+              type="button"
+              onClick={printCard}
+              title="Print a clean flight card (or save it as a PDF) — numbers, events and charts on one page"
+              className={ACTION_BTN}
+            >
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={onToggleUnits}
+              aria-label={`Units: ${sys === 'imperial' ? 'feet' : 'meters'}. Switch to ${sys === 'imperial' ? 'meters' : 'feet'}.`}
+              className={ACTION_BTN}
+            >
+              Units: {sys === 'imperial' ? 'feet' : 'meters'}
+            </button>
+          </div>
+          {/* File exports — one saved file each. A single horizontal strip on a phone
+              (so the flight rises up), wrapping inline on a wider screen. */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">Save a file:</span>
+            <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={SAVE_BTN}>
+              Save .txt
+            </button>
+            <button
+              type="button"
+              onClick={downloadMarkdown}
+              title="Download a Markdown report — metrics and events as tables, ready for a write-up or a forum post"
+              className={SAVE_BTN}
+            >
+              Save .md
+            </button>
+            <button
+              type="button"
+              onClick={downloadData}
+              title="Download the analyzed series (time, altitude, velocity, acceleration) as CSV"
+              className={SAVE_BTN}
+            >
+              Save .csv
+            </button>
+            <button
+              type="button"
+              onClick={downloadJson}
+              title="Download the full analysis — metrics, events and provenance — as structured JSON, in the chosen units, for a script or another tool"
+              className={SAVE_BTN}
+            >
+              Save .json
+            </button>
+            <button
+              type="button"
+              onClick={saveChartSvg}
+              title="Save the altitude chart as a vector SVG (events marked) — crisp at any size for a report"
+              className={SAVE_BTN}
+            >
+              Save .svg
+            </button>
+            <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={SAVE_BTN}>
+              Save .png
+            </button>
+            <button
+              type="button"
+              onClick={downloadBundle}
+              title="Save one ZIP with the Markdown summary, the data CSV and the altitude/velocity/acceleration figures — the whole report, zipped in the browser"
+              className={SAVE_BTN}
+            >
+              Save bundle
+            </button>
+            <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={SAVE_BTN} />
+          </div>
           <span className="sr-only" role="status" aria-live="polite">
             {copied ? 'Summary copied to the clipboard.' : ''}
           </span>
