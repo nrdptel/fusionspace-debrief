@@ -24,6 +24,12 @@ export default function SiteFooter() {
           <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
             ·
           </span>
+          <Link href="/methods" className="hover:text-zinc-800 dark:hover:text-zinc-200">
+            Methods
+          </Link>
+          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+            ·
+          </span>
           <Link href="/privacy" className="hover:text-zinc-800 dark:hover:text-zinc-200">
             Privacy
           </Link>

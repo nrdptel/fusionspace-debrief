@@ -32,3 +32,24 @@ test('privacy page is reachable from the footer', async ({ page }) => {
   await expect(page).toHaveURL(/\/privacy\/?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Privacy' })).toBeVisible();
 });
+
+// The methods write-up lives on its own route, reachable from the home callout and
+// the footer, and carries the calculation detail that used to sit on the home page.
+test('methods page is its own route with the calculation detail', async ({ page }) => {
+  await page.goto('/');
+  // The home page points to it rather than inlining the whole write-up.
+  await page.getByRole('link', { name: /Read the methods/ }).click();
+  await expect(page).toHaveURL(/\/methods\/?$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();
+  // A representative method section survived the move.
+  await expect(page.getByRole('heading', { name: 'Drag coefficient' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "What Debrief isn't" })).toBeVisible();
+  // Back to the analyzer.
+  await page.getByRole('link', { name: /Back to Debrief/ }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
+
+  // And it's reachable from the footer too.
+  await page.getByRole('link', { name: 'Methods', exact: true }).click();
+  await expect(page).toHaveURL(/\/methods\/?$/);
+});
