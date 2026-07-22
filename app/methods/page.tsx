@@ -23,7 +23,15 @@ export default function MethodsPage() {
         <p className="mt-3 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
           Every logger is different, so Debrief reads each file into one common shape — a time base
           plus named channels in SI units — and runs the same analysis on all of them. Here is how
-          each number is worked out, and where it can be wrong.
+          each number is worked out, and where it can be wrong. For how these reads are checked
+          against real flights, see{' '}
+          <Link
+            href="/validation"
+            className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100"
+          >
+            how Debrief is validated
+          </Link>
+          .
         </p>
 
         <div className="mt-6 grid gap-x-8 gap-y-5 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">

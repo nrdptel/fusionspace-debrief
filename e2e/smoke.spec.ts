@@ -53,3 +53,17 @@ test('methods page is its own route with the calculation detail', async ({ page 
   await page.getByRole('link', { name: 'Methods', exact: true }).click();
   await expect(page).toHaveURL(/\/methods\/?$/);
 });
+
+// The validation page is its own route, reachable from the footer, and states both
+// how the reads are checked and where they're known to be weak.
+test('validation page is its own route with the accuracy account', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Validation', exact: true }).click();
+  await expect(page).toHaveURL(/\/validation\/?$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'How Debrief is validated' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Real flights, checked against real ground truth/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Where it is known to be weak/ })).toBeVisible();
+  // Cross-linked with the methods write-up.
+  await page.getByRole('link', { name: /where the numbers come from/ }).click();
+  await expect(page).toHaveURL(/\/methods\/?$/);
+});
