@@ -195,9 +195,17 @@ describe('analyzeTable — a unit the values carry in-cell', () => {
     expect(by('Press').unit).toBe('hpa'); // pressure unit, so a derived altitude is right
   });
 
-  it('invents no unit for a column of plain numbers', () => {
-    expect(by('Alt').unit).toBeNull();
-    expect(by('Time').unit).toBeNull();
+  it('invents no unit for plain numbers when the file gives no unit at all', () => {
+    // No foot/metre/°F/°C signal anywhere, so nothing is inferred either.
+    const p = analyzeTable([
+      ['Time', 'Speed', 'Alt'],
+      ['0', '5', '10'],
+      ['1', '30', '20'],
+      ['2', '42', '35'],
+    ]);
+    expect(p.columns[0].unit).toBeNull();
+    expect(p.columns[1].unit).toBeNull();
+    expect(p.columns[2].unit).toBeNull();
   });
 
   it('does not mistake a date/time cell for a value-plus-unit', () => {
@@ -209,5 +217,45 @@ describe('analyzeTable — a unit the values carry in-cell', () => {
     ]);
     // The clock column carries digits after the number, so it's never read as a unit.
     expect(d.columns[1].unit).toBeNull();
+  });
+});
+
+describe('analyzeTable — infers the file-wide unit system for unlabelled columns', () => {
+  it('reads a bare velocity as ft/s when the altitude is in feet (an imperial file)', () => {
+    const t = analyzeTable([
+      ['Time', 'Altitude (ft)', 'Velocity_Up'],
+      ['0', '0', '0'],
+      ['1', '500', '300'],
+      ['2', '1200', '250'],
+    ]);
+    const by = (h: string) => t.columns.find((c) => c.header === h)!;
+    expect(by('Velocity_Up').role).toBe('velocity');
+    // Without the inference this bare velocity would fall to the m/s default and read ~3.3× high.
+    expect(by('Velocity_Up').unit).toBe('ft/s');
+  });
+
+  it('reads a bare altitude as metres when a Celsius temperature marks a metric file', () => {
+    const t = analyzeTable([
+      ['Time', 'Alt', 'Temp'],
+      ['0', '0', '15C'],
+      ['1', '500', '14C'],
+      ['2', '1200', '13C'],
+    ]);
+    const by = (h: string) => t.columns.find((c) => c.header === h)!;
+    // Feet is the fixed altitude default; the °C signal corrects it to metres for this file.
+    expect(by('Alt').unit).toBe('m');
+  });
+
+  it('leaves defaults alone when the file mixes unit systems', () => {
+    const t = analyzeTable([
+      ['Time', 'Altitude (ft)', 'Temp (C)', 'Velocity_Up'],
+      ['0', '0', '15', '0'],
+      ['1', '500', '14', '150'],
+      ['2', '1200', '13', '120'],
+    ]);
+    // Feet (imperial) and °C (metric) both present → ambiguous → the bare velocity keeps
+    // null (falls to the mapper default) rather than guessing a system.
+    const by = (h: string) => t.columns.find((c) => c.header === h)!;
+    expect(by('Velocity_Up').unit).toBeNull();
   });
 });

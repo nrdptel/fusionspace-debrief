@@ -318,9 +318,41 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
     };
   });
 
+  fillUnitSystem(columns);
+
   // Anything above the header is a metadata/summary block; read the device's own
   // headline figures from it (a no-op unless the file carries a known summary).
   const reported = extractReportedSummary(rows.slice(0, namesRow));
 
   return { headerRow: namesRow, headers, dataRows, columns, ...(reported.length ? { reported } : {}) };
+}
+
+/** A logger uses one unit system across a file — it won't record altitude in feet and
+ *  velocity in metres per second. So once any column reveals the system (a labelled or
+ *  in-cell foot/metre altitude, a Fahrenheit/Celsius temperature, an imperial/metric
+ *  speed), fill it in for an unlabelled altitude or velocity. Without this each falls to
+ *  a fixed per-role default, and those disagree — altitude defaults to feet, velocity to
+ *  m/s — so one of them is always wrong for a given file. Left untouched when the file
+ *  is genuinely mixed or gives no unit at all. */
+function fillUnitSystem(columns: ColumnGuess[]): void {
+  const imperial = columns.some(
+    (c) =>
+      (c.role === 'altitude' && c.unit === 'ft') ||
+      (c.role === 'temperature' && c.unit === 'f') ||
+      (c.role === 'velocity' && (c.unit === 'ft/s' || c.unit === 'mph')),
+  );
+  const metric = columns.some(
+    (c) =>
+      (c.role === 'altitude' && c.unit === 'm') ||
+      (c.role === 'temperature' && c.unit === 'c') ||
+      (c.role === 'velocity' && (c.unit === 'm/s' || c.unit === 'km/h')),
+  );
+  if (imperial === metric) return; // no signal, or a genuinely mixed file — leave defaults
+  const altU = imperial ? 'ft' : 'm';
+  const velU = imperial ? 'ft/s' : 'm/s';
+  for (const c of columns) {
+    if (c.unit !== null) continue;
+    if (c.role === 'altitude') c.unit = altU;
+    else if (c.role === 'velocity') c.unit = velU;
+  }
 }

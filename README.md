@@ -208,7 +208,10 @@ of parsing and analysis runs locally.
   columns already picked. Values that carry their unit in the cell — `100.5F`, `9.1V`,
   `1013hPa` — are read too, as is an altitude whose unit is fused onto the header the way
   several SRAD/Arduino flight computers write it (`AltiM` in metres, `AltiF` in feet),
-  while a date or time (`2023-08-09`, `16:24:04`) is left alone. Comma, tab, semicolon and pipe delimiters are auto-detected, along
+  while a date or time (`2023-08-09`, `16:24:04`) is left alone. When one column names its
+  unit and another doesn't, the file's unit system carries over — a feet altitude (or a
+  Fahrenheit temperature) means a bare velocity column is read as ft/s, not the metric
+  default. Comma, tab, semicolon and pipe delimiters are auto-detected, along
   with European-locale exports (semicolon-separated with comma decimals), Windows,
   Unix or classic-Mac line endings, and **UTF-16 files** — a byte-order mark is detected
   and decoded, so a Windows export like the Missile Works RRC3 mDACS text file or Excel's
