@@ -102,3 +102,51 @@ describe('analyzeTable — a multi-axis logger (per-axis accel + a total)', () =
     expect(by('acceleration_total(mG)').unit).toBe('mg');
   });
 });
+
+describe('analyzeTable — compact "AltiM"/"AltiF" altitude headers', () => {
+  // Several SRAD/Arduino flight computers write altitude with the unit fused onto the
+  // name — "AltiM" (metres), "AltiF" (feet) — with no bracket or separator. "altif"
+  // has no word boundary after "alt", so the plain \balt\b test misses it entirely and
+  // the column reads as nothing, dropping the flyer onto a pressure-derived altitude.
+  const rows = [
+    ['Time', 'Baro', 'AltiM', 'AltiF', 'AccelX'],
+    ['0', '900', '100', '328', '0'],
+    ['1', '880', '160', '525', '2'],
+    ['2', '870', '190', '623', '1'],
+  ];
+  const t = analyzeTable(rows);
+  const by = (h: string) => t.columns.find((c) => c.header === h)!;
+
+  it('recognizes AltiM as an altitude column and reads its fused "M" as metres', () => {
+    expect(by('AltiM').role).toBe('altitude');
+    // Without this the metres column would fall to the mapper's feet default and read ~3.3× off.
+    expect(by('AltiM').unit).toBe('m');
+  });
+
+  it('leaves the second altitude column (AltiF) for the flyer, one altitude role auto-assigned', () => {
+    expect(by('AltiF').role).toBe('ignore');
+  });
+
+  it('reads AltiF as feet when it is the only altitude column', () => {
+    const b = analyzeTable([
+      ['Time', 'Baro', 'AltiF', 'AccelX'],
+      ['0', '900', '328', '0'],
+      ['1', '880', '525', '2'],
+      ['2', '870', '623', '1'],
+    ]);
+    expect(b.columns[2].role).toBe('altitude');
+    expect(b.columns[2].unit).toBe('ft');
+  });
+
+  it('still reads a plain "Altitude (ft)" the bracketed way, and leaves "altitude" unit-less', () => {
+    const b = analyzeTable([
+      ['t', 'Altitude (ft)', 'Altitude'],
+      ['0', '10', '3'],
+      ['1', '20', '6'],
+    ]);
+    expect(b.columns[1].role).toBe('altitude');
+    expect(b.columns[1].unit).toBe('ft'); // from the bracket, not the suffix reader
+    // A bare "Altitude" carries no fused unit, so none is invented (defaults live in the mapper).
+    expect(b.columns[2].unit).toBeNull();
+  });
+});

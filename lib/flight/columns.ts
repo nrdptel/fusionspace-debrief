@@ -51,7 +51,11 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   // for latitude.
   { role: 'latitude', test: (h) => /\b(latitude|lat)\b/.test(h) && !/acc/.test(h) },
   { role: 'longitude', test: (h) => /\b(longitude|long|lng|lon)\b/.test(h) && !/acc/.test(h) },
-  { role: 'altitude', test: (h) => /\b(altitude|alt|height|agl|baroalt|apogee|elevation)\b/.test(h) },
+  // Plain altitude words, plus the compact "AltiM"/"AltiF"/"AltFt" forms (an
+  // altitude with its unit fused onto the name) that several SRAD/Arduino flight
+  // computers write — "altif"/"altim" have no word boundary after "alt", so the
+  // \balt\b test alone misses them and the column looks like nothing.
+  { role: 'altitude', test: (h) => /\b(altitude|alt|height|agl|baroalt|apogee|elevation)\b/.test(h) || /^alti?(tude)?(m|f|ft|msl|agl|feet|met(er|re)s?)?\b/.test(h) },
   { role: 'pressure', test: (h) => /\b(pressure|press|baro|barometric|hpa|mbar|kpa)\b/.test(h) },
   { role: 'temperature', test: (h) => /\b(temp|temperature|degc|degf)\b/.test(h) },
   { role: 'voltage', test: (h) => /\b(voltage|volt|vbat|vbatt|batt|battery|vcc)\b/.test(h) },
@@ -73,6 +77,17 @@ export function unitFromHeader(header: string): string | null {
     const r = resolveUnit(tokens[i]);
     if (r) return r.unit;
   }
+  return null;
+}
+
+/** A compact altitude header can fuse its unit onto the name — "AltM"/"AltiM" for
+ *  metres, "AltF"/"AltiF"/"AltFt" for feet — a convention several SRAD/Arduino flight
+ *  computers use, where the bracket/underscore forms `unitFromHeader` looks for aren't
+ *  present. Read that trailing letter as the unit; without it a metres column would be
+ *  taken for the (feet) default and read ~3.3× off. Only meaningful on an altitude column. */
+function altitudeUnitFromHeader(normalized: string): string | null {
+  if (/^alti?(tude)?\s*(m|met(er|re)s?)$/.test(normalized)) return 'm';
+  if (/^alti?(tude)?\s*(f|ft|feet)$/.test(normalized)) return 'ft';
   return null;
 }
 
@@ -258,10 +273,11 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
     // second match is left for the user to sort out rather than guessed wrongly.
     if (role !== 'ignore' && role !== 'accelAxial' && used.has(role)) role = 'ignore';
     if (role !== 'ignore') used.add(role);
-    // Unit: prefer one embedded in the name, else a separate units row.
+    // Unit: prefer one embedded in the name, else a separate units row, else — for a
+    // compact altitude header — the metre/feet letter fused onto the name.
     const headerUnit = unitFromHeader(header);
     const rowUnit = units && units[index] ? resolveUnit(units[index])?.unit ?? null : null;
-    const unit = headerUnit ?? rowUnit;
+    const unit = headerUnit ?? rowUnit ?? (role === 'altitude' ? altitudeUnitFromHeader(normalize(header)) : null);
     return {
       index,
       header,

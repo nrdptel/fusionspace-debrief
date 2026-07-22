@@ -203,7 +203,9 @@ of parsing and analysis runs locally.
   shape — a monotonic time base and the single rise-and-fall of an altitude curve — so
   even an unlabelled export (a headerless StratoLogger TSV, say) lands with its key
   columns already picked. Values that carry their unit in the cell — `100.5F`, `9.1V`,
-  `1013hPa` — are read too, while a date or time (`2023-08-09`, `16:24:04`) is left alone. Comma, tab, semicolon and pipe delimiters are auto-detected, along
+  `1013hPa` — are read too, as is an altitude whose unit is fused onto the header the way
+  several SRAD/Arduino flight computers write it (`AltiM` in metres, `AltiF` in feet),
+  while a date or time (`2023-08-09`, `16:24:04`) is left alone. Comma, tab, semicolon and pipe delimiters are auto-detected, along
   with European-locale exports (semicolon-separated with comma decimals), Windows,
   Unix or classic-Mac line endings, and **UTF-16 files** — a byte-order mark is detected
   and decoded, so a Windows export like the Missile Works RRC3 mDACS text file or Excel's
