@@ -250,6 +250,7 @@ export default function CompareView({
                   {i > 0 && (i === agree.length - 1 ? ' and ' : ', ')}
                   <span className={a.spreadPct > 10 ? 'font-medium text-amber-700 dark:text-amber-400' : 'font-medium text-emerald-700 dark:text-emerald-400'}>
                     {a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on {a.label}
+                    {a.mixedSource ? '*' : ''}
                   </span>
                 </span>
               ))}
@@ -257,8 +258,10 @@ export default function CompareView({
               {agree.some((a) => a.mixedSource) && (
                 <>
                   {' '}
-                  The max-speed figures mix a measured and an altitude-derived velocity; a derived peak
-                  reads softer, so read that agreement as the looser bound.
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    *the recordings mix a measured value with one derived from altitude, which reads
+                    softer at the peak — so read that agreement as the looser bound.
+                  </span>
                 </>
               )}
             </p>

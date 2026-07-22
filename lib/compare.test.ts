@@ -36,6 +36,26 @@ describe('crossCheck', () => {
     const a = crossCheck([srcFlight(300, 'device'), srcFlight(305, 'device')]);
     expect(a.find((x) => x.key === 'maxVelocity')!.mixedSource).toBe(false);
   });
+
+  const accelFlight = (maxA: number, source: 'device' | 'baro'): CompareFlight =>
+    ({ metrics: { apogeeAltitude: 2000, maxVelocity: 300, maxAcceleration: maxA, accelerationSource: source } as FlightMetrics }) as CompareFlight;
+
+  it('cross-checks max acceleration when two recordings both carry it', () => {
+    const a = crossCheck([accelFlight(180, 'device'), accelFlight(172, 'device')]);
+    const acc = a.find((x) => x.key === 'maxAcceleration')!;
+    expect(acc.count).toBe(2);
+    expect(acc.min).toBe(172);
+    expect(acc.max).toBe(180);
+    expect(acc.mixedSource).toBe(false);
+  });
+
+  it('flags a mixed measured/derived max-acceleration cross-check, and skips it when a flight lacks accel', () => {
+    const mixed = crossCheck([accelFlight(180, 'device'), accelFlight(150, 'baro')]);
+    expect(mixed.find((x) => x.key === 'maxAcceleration')!.mixedSource).toBe(true);
+    // A baro-only flight (NaN acceleration) leaves fewer than two, so no accel cross-check.
+    const partial = crossCheck([accelFlight(180, 'device'), srcFlight(300, 'baro')]);
+    expect(partial.some((x) => x.key === 'maxAcceleration')).toBe(false);
+  });
 });
 
 const metrics = (apogee: number): FlightMetrics => ({

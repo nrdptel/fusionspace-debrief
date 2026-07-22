@@ -340,10 +340,10 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
   const agree = crossCheck(flights);
   if (agree.length) {
     const phrase = agree
-      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}`)
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const mixed = agree.some((a) => a.mixedSource)
-      ? ' The max-speed figures mix a measured and an altitude-derived velocity; a derived peak reads softer, so read that agreement as the looser bound.'
+      ? ' \\*The recordings mix a measured value with one derived from altitude, which reads softer at the peak — so read that agreement as the looser bound.'
       : '';
     out.push('', '## Cross-check', '');
     out.push(

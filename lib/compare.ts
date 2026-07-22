@@ -182,6 +182,15 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // Velocity can be device-measured on one flight and altitude-derived on another;
     // a derived peak reads softer, so a mixed cross-check is flagged (mixedSource).
     { key: 'maxVelocity', label: 'max speed', get: (m) => m.maxVelocity, source: (m) => m.maxVelocitySource },
+    // Peak acceleration, when two recordings both carry it — a redundant-altimeter
+    // check on the g the airframe felt. Baro-derived acceleration is a soft second
+    // derivative, so a measured-vs-derived pair is flagged like max speed.
+    {
+      key: 'maxAcceleration',
+      label: 'max acceleration',
+      get: (m) => (Number.isFinite(m.maxAcceleration) ? m.maxAcceleration : null),
+      source: (m) => m.accelerationSource,
+    },
   ];
   const out: Agreement[] = [];
   for (const s of specs) {
