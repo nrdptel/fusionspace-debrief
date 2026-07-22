@@ -94,6 +94,28 @@ function altitudeUnitFromHeader(normalized: string): string | null {
   return null;
 }
 
+/** A unit a logger appends to the values themselves rather than the header — a column
+ *  of "58.7F", "9.1V" or "1013hPa" cells. Read it only when the header gave none: sample
+ *  the data, and take a unit a clear majority of cells agree on and `resolveUnit` knows.
+ *  A cell whose trailing text carries a digit (a date/time/version) is never a unit. */
+function unitFromCells(dataRows: string[][], index: number): string | null {
+  const counts = new Map<string, number>();
+  let sampled = 0;
+  for (const row of dataRows) {
+    const cell = row[index];
+    if (!cell) continue;
+    const m = cell.trim().match(/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*([^\d\s].*)$/);
+    if (!m || /\d/.test(m[1])) continue;
+    sampled++;
+    const resolved = resolveUnit(m[1].trim());
+    if (resolved) counts.set(resolved.unit, (counts.get(resolved.unit) ?? 0) + 1);
+    if (sampled >= 50) break;
+  }
+  if (sampled === 0) return null;
+  for (const [unit, c] of counts) if (c / sampled >= 0.6) return unit;
+  return null;
+}
+
 function roleOf(header: string): ColumnRole {
   const h = normalize(header);
   for (const { role, test } of ROLE_TESTS) {
@@ -276,11 +298,16 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
     // second match is left for the user to sort out rather than guessed wrongly.
     if (role !== 'ignore' && role !== 'accelAxial' && used.has(role)) role = 'ignore';
     if (role !== 'ignore') used.add(role);
-    // Unit: prefer one embedded in the name, else a separate units row, else — for a
-    // compact altitude header — the metre/feet letter fused onto the name.
+    // Unit: prefer one embedded in the name, else a separate units row, else one the
+    // values carry in-cell ("58.7F"), else — for a compact altitude header — the
+    // metre/feet letter fused onto the name.
     const headerUnit = unitFromHeader(header);
     const rowUnit = units && units[index] ? resolveUnit(units[index])?.unit ?? null : null;
-    const unit = headerUnit ?? rowUnit ?? (role === 'altitude' ? altitudeUnitFromHeader(normalize(header)) : null);
+    const unit =
+      headerUnit ??
+      rowUnit ??
+      (role !== 'ignore' ? unitFromCells(dataRows, index) : null) ??
+      (role === 'altitude' ? altitudeUnitFromHeader(normalize(header)) : null);
     return {
       index,
       header,

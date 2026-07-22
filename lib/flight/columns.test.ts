@@ -178,3 +178,36 @@ describe('analyzeTable — the bare "Acc" acceleration abbreviation', () => {
     expect(g.columns[2].role).not.toBe('accelAxial');
   });
 });
+
+describe('analyzeTable — a unit the values carry in-cell', () => {
+  // Some loggers append the unit to the value rather than the header ("58.7F"), e.g. a
+  // PerfectFlite StratoLogger export. The value was already read; now the unit is too.
+  const t = analyzeTable([
+    ['Time', 'Temp.', 'Press', 'Alt'],
+    ['0', '58.7F', '1013hPa', '10'],
+    ['1', '58.8F', '1000hPa', '20'],
+    ['2', '59.0F', '990hPa', '35'],
+  ]);
+  const by = (h: string) => t.columns.find((c) => c.header === h)!;
+
+  it('reads a trailing unit from the data when the header gives none', () => {
+    expect(by('Temp.').unit).toBe('f'); // Fahrenheit, so ground temp → speed of sound is right
+    expect(by('Press').unit).toBe('hpa'); // pressure unit, so a derived altitude is right
+  });
+
+  it('invents no unit for a column of plain numbers', () => {
+    expect(by('Alt').unit).toBeNull();
+    expect(by('Time').unit).toBeNull();
+  });
+
+  it('does not mistake a date/time cell for a value-plus-unit', () => {
+    const d = analyzeTable([
+      ['Time', 'Clock', 'Alt'],
+      ['0', '16:24:04', '10'],
+      ['1', '16:24:05', '20'],
+      ['2', '16:24:06', '35'],
+    ]);
+    // The clock column carries digits after the number, so it's never read as a unit.
+    expect(d.columns[1].unit).toBeNull();
+  });
+});
