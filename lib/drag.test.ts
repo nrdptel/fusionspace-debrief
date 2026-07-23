@@ -45,6 +45,7 @@ function coastFlight(opts: {
     accelerationSource: device ? 'device' : 'baro',
     altitudeSource: 'baro',
     speedOfSound: 340,
+    speedOfSoundProfile: new Float64Array(n).fill(340),
     airDensity,
   };
   const events: FlightEvent[] = [

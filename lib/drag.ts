@@ -75,7 +75,7 @@ export function dragCoefficient(
   // Drag acts along the airframe axis, so read the SIGNED axial trace (negative
   // while decelerating), not `acceleration` — which is the always-positive resultant
   // on a multi-axis logger and would make every coast sample fail the sign check.
-  const { velocity, axialAccel, airDensity, speedOfSound, accelerationSource } = series;
+  const { velocity, axialAccel, airDensity, speedOfSoundProfile, accelerationSource } = series;
   const area = Math.PI * (diameterM / 2) ** 2;
 
   // Coast window: one sample past burnout (let the thrust transient settle) up to
@@ -94,6 +94,10 @@ export function dragCoefficient(
   const cdAs: number[] = [];
   let vLow = Infinity;
   let vHigh = -Infinity;
+  // The local speed of sound at the slow/fast ends of the window, so the reported Mach
+  // range matches the altitude-varying Mach the rest of the analysis reads.
+  let sosLow = NaN;
+  let sosHigh = NaN;
   for (let i = lo; i < hi; i++) {
     const v = velocity[i];
     const a = axialAccel[i];
@@ -109,8 +113,14 @@ export function dragCoefficient(
     if (!(cd > 0) || cd > 3) continue; // reject noise / off-axis transients
     cds.push(cd);
     cdAs.push(cdA);
-    if (v < vLow) vLow = v;
-    if (v > vHigh) vHigh = v;
+    if (v < vLow) {
+      vLow = v;
+      sosLow = speedOfSoundProfile[i];
+    }
+    if (v > vHigh) {
+      vHigh = v;
+      sosHigh = speedOfSoundProfile[i];
+    }
   }
   if (cds.length < 5) return null;
 
@@ -119,8 +129,8 @@ export function dragCoefficient(
     cdA: median(cdAs),
     vLow,
     vHigh,
-    machLow: speedOfSound > 0 ? vLow / speedOfSound : null,
-    machHigh: speedOfSound > 0 ? vHigh / speedOfSound : null,
+    machLow: Number.isFinite(sosLow) && sosLow > 0 ? vLow / sosLow : null,
+    machHigh: Number.isFinite(sosHigh) && sosHigh > 0 ? vHigh / sosHigh : null,
     samples: cds.length,
     approximate: series.velocitySource !== 'device' || series.accelerationSource !== 'device',
   };
