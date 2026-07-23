@@ -22,6 +22,33 @@ describe('analyzeTable — headerless role inference from data shape', () => {
     expect(t.columns[2].role).toBe('ignore'); // flat voltage — never mistaken for altitude
   });
 
+  it('reads an in-cell °F temperature in a headerless file and infers feet for the altitude', () => {
+    // A headerless StratoLogger-style TSV: time, altitude in feet, a Fahrenheit
+    // temperature carried in-cell, a flat voltage. The °F is the only unit signal, and
+    // it must pin the whole file imperial — otherwise the feet altitude falls to the
+    // metres default and the apogee reads ~3.3x high.
+    const rows: string[][] = [];
+    for (let i = 0; i < 60; i++) {
+      const t = (i * 0.1).toFixed(2);
+      const alt = i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25);
+      rows.push([t, String(alt), `${(100.5 - i * 0.01).toFixed(1)}F`, (9.1).toFixed(1)]);
+    }
+    const parsed = analyzeTable(rows);
+    expect(parsed.columns[0].role).toBe('time');
+    expect(parsed.columns[1].role).toBe('altitude');
+    expect(parsed.columns[1].unit).toBe('ft'); // inferred imperial from the °F column
+    expect(parsed.columns[2].role).toBe('temperature'); // a whole column of °F cells
+    expect(parsed.columns[2].unit).toBe('f');
+  });
+
+  it('leaves a headerless altitude unit-less when the file carries no unit signal at all', () => {
+    // No in-cell unit anywhere → nothing to infer from, so altitude stays unlabelled
+    // (the neutral default) rather than a guessed foot/metre.
+    const parsed = analyzeTable(headerlessRows());
+    expect(parsed.columns[1].role).toBe('altitude');
+    expect(parsed.columns[1].unit).toBeNull();
+  });
+
   it('infers time but not altitude when nothing has an apogee shape', () => {
     const rows: string[][] = [];
     for (let i = 0; i < 60; i++) rows.push([(i * 0.1).toFixed(2), '9.1', '25.0']); // clock + two flats

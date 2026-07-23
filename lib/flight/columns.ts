@@ -197,6 +197,29 @@ function inferHeaderlessRoles(dataRows: string[][], columns: ColumnGuess[]): voi
   if (bestIdx >= 0) columns[bestIdx].role = 'altitude';
 }
 
+/** A headerless file names no unit, but a column can still carry one in-cell ("100.5F",
+ *  "9.1V"). Read those: promote a whole column of Fahrenheit/Celsius cells to temperature
+ *  — the one role a bare column reveals unambiguously — and pin an in-cell unit on any
+ *  already-identified column. That signal then drives the unit-system inference, so a US
+ *  logger's unlabelled feet altitude isn't left to fall to the metres default and read
+ *  ~3.3x high (a headerless StratoLogger TSV: time, altitude in feet, a °F temperature). */
+function inferHeaderlessUnits(dataRows: string[][], columns: ColumnGuess[]): void {
+  for (const c of columns) {
+    if (c.numericFraction < 0.5) continue;
+    const cellUnit = unitFromCells(dataRows, c.index);
+    if (!cellUnit) continue;
+    if ((cellUnit === 'f' || cellUnit === 'c') && c.role === 'ignore') {
+      c.role = 'temperature';
+      c.unit = cellUnit;
+      c.unitFromHeader = true;
+    } else if (c.role !== 'ignore' && c.unit === null) {
+      c.unit = cellUnit;
+      c.unitFromHeader = true;
+    }
+  }
+  fillUnitSystem(columns);
+}
+
 /** What fraction of a column's data cells parse as finite numbers. */
 function numericFraction(rows: string[][], index: number): number {
   if (rows.length === 0) return 0;
@@ -265,8 +288,10 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
       unitFromHeader: false,
       numericFraction: numericFraction(dataRows, index),
     }));
-    // No names to read, so guess the essential roles from the data's shape.
+    // No names to read, so guess the essential roles from the data's shape, then read
+    // any unit the values carry in-cell to settle feet-vs-metres and °F-vs-°C.
     inferHeaderlessRoles(dataRows, columns);
+    inferHeaderlessUnits(dataRows, columns);
     return { headerRow: -1, headers, dataRows, columns };
   }
 
