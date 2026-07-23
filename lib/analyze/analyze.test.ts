@@ -238,6 +238,39 @@ describe('ascent-gap peak suppression', () => {
   });
 });
 
+describe('implausible velocity guard', () => {
+  // A device velocity channel whose ascent peak is `peak` m/s (a triangle that peaks
+  // mid-ascent, so max velocity reads `peak`).
+  function withDeviceVelocity(peak: number): RawFlight {
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    let apIdx = 0;
+    for (let i = 1; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+    const at = Math.max(1, Math.floor(apIdx * 0.5)); // safely within the ascent
+    const vel = new Float64Array(flight.time.length);
+    for (let i = 0; i < vel.length; i++) vel[i] = peak * Math.max(0, 1 - Math.abs(i - at) / at);
+    return { ...flight, channels: [...flight.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: vel }] };
+  }
+
+  it('withholds a velocity beyond any rocket, with the figures derived from it, and says why', () => {
+    const a = analyzeFlight(withDeviceVelocity(50000)); // a raw sensor count read as a speed
+    expect(a.metrics.maxVelocitySource).toBe('device');
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.mach).toBeNull();
+    expect(a.metrics.maxDynamicPressure).toBeNull();
+    expect(a.metrics.transonicTime).toBeNull();
+    expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(true);
+    // Apogee, read from the altitude, is unaffected.
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+  });
+
+  it('keeps a fast but physically-plausible flight (a ~Mach-5 space shot)', () => {
+    const a = analyzeFlight(withDeviceVelocity(1800));
+    expect(a.metrics.maxVelocity).toBeGreaterThan(1000);
+    expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(false);
+  });
+});
+
 describe('derived-kinematics provenance warnings', () => {
   it('flags both when velocity and acceleration both come from altitude', () => {
     const { flight } = syntheticBaroFlight();

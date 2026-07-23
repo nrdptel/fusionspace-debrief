@@ -54,7 +54,10 @@ export default function MethodsPage() {
             Used straight from the device when it logged a velocity (an accelerometer-integrated speed
             is best through the fast boost); otherwise it&apos;s the time-derivative of the cleaned
             altitude, smoothed to the file&apos;s own sample rate. Derived velocity is softer at peak
-            speed, and labelled wherever it appears.
+            speed, and labelled wherever it appears. A peak beyond any rocket — the fastest amateur
+            flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled or misidentified velocity
+            column (a raw sensor count read as a speed); such a reading is withheld, along with the
+            Mach and max-Q derived from it, rather than reported as an impossible number.
           </Method>
           <Method title="Acceleration">
             Used directly from the accelerometer when present, otherwise derived from velocity. Max

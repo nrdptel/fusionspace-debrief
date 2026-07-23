@@ -133,6 +133,13 @@ const ISA_SEA_LEVEL_PRESSURE = 101325; // Pa
  *  so a baro apogee this high is flagged as an approximate lower bound. */
 const TROPOSPHERE_LIMIT_M = 11000;
 
+/** A hard ceiling on a plausible flight velocity (m/s). The fastest amateur rockets
+ *  — record space shots — reach ~Mach 6 (~2 km/s); this sits at roughly twice that, so
+ *  a peak above it is not a rocket at all but a mis-scaled or misidentified velocity
+ *  column, or corrupt data. Debrief withholds such a reading rather than report an
+ *  impossible headline. */
+const IMPLAUSIBLE_VELOCITY = 4000;
+
 /** Launch-pad ambient pressure (Pa) for the density model: the mean of any
  *  pressure channel over the quiet pad window, falling back to standard sea-level
  *  pressure when the logger records no pressure (so density is still defined). */
@@ -429,6 +436,18 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     }
   }
 
+  // A velocity beyond any rocket — a mis-scaled or misidentified velocity column (a
+  // generic export whose "velocity" is a raw sensor count), or corrupt data — must never
+  // become a headline. A peak past the hard physical ceiling is withheld, along with the
+  // figures derived from it (Mach, max-Q, the transonic crossing), rather than reported
+  // as an impossible number; the warning below says why.
+  let velocityImplausible = false;
+  if (Number.isFinite(maxVelocity) && maxVelocity > IMPLAUSIBLE_VELOCITY) {
+    velocityImplausible = true;
+    maxVelocity = NaN;
+    maxVelIdx = -1;
+  }
+
   // --- Burnout --------------------------------------------------------------
   // With accel: thrust end — acceleration first falls through zero after the
   // boost peak. Baro-only: velocity peaks at burnout. Either way, reject a
@@ -574,9 +593,9 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // the altitude it happened at (a real design point).
   let maxDynamicPressure: number | null = null;
   let maxQIdx = -1;
-  // Skip when an ascent gap has already made the velocity untrustworthy — q = ½ρv²
-  // would inherit the same spurious speed.
-  if (!ascentGapBreaksPeak) {
+  // Skip when an ascent gap has already made the velocity untrustworthy, or the peak
+  // was physically impossible — q = ½ρv² would inherit the same spurious speed.
+  if (!ascentGapBreaksPeak && !velocityImplausible) {
     for (let i = 0; i < n; i++) {
       const v = velocity[i];
       const rho = airDensity[i];
@@ -783,6 +802,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   if (ascentGapBreaksPeak) {
     warnings.push(
       'A gap in the sampled ascent leaves the peak velocity undeterminable — the top speed may fall in the unrecorded stretch, and a derivative taken across the gap spikes to a spurious figure — so max velocity, Mach, max-Q and any transonic crossing are withheld rather than guessed across it.',
+    );
+  }
+  if (velocityImplausible) {
+    warnings.push(
+      'The velocity channel reads implausibly fast — a peak beyond any rocket, so its column or unit is almost certainly misidentified (a raw sensor count read as a speed), or the data is corrupt. Max velocity, Mach and max-Q are withheld rather than reported as an impossible figure; if this is a generic CSV, check the velocity column and its unit in the mapping.',
     );
   }
   if (altitudeSource === 'baro' && Number.isFinite(apogeeAlt) && apogeeAlt > TROPOSPHERE_LIMIT_M) {
