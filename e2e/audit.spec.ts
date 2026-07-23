@@ -112,13 +112,13 @@ test('the report export buttons work (txt, csv, png) and copy confirms', async (
   // Scope by title — the report toolbar and the explorer both have "Save .csv"/
   // "Save .png" buttons; the titles are unique to the report's.
   for (const [title, ext] of [
-    ['Download the summary as a text file', /\.txt$/],
-    ['Download the analyzed series (time, altitude, velocity, acceleration) as CSV', /-debrief\.csv$/],
-    ['Save the altitude chart as a PNG', /-altitude\.png$/],
+    [/Download the summary as a text file/, /\.txt$/],
+    [/Download the whole flight as CSV/, /-debrief\.csv$/],
+    [/Save the altitude chart as a PNG/, /-altitude\.png$/],
   ] as const) {
     const [dl] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByTitle(title, { exact: true }).click(),
+      page.getByTitle(title).click(),
     ]);
     expect(dl.suggestedFilename()).toMatch(ext);
   }
