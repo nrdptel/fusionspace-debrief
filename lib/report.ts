@@ -133,7 +133,10 @@ export function summaryText(
       const prov = e.provenance !== 'measured' ? `  (${e.provenance})` : '';
       const v = analysis.series.velocity[e.index];
       const speed = Number.isFinite(v) ? `   ${fmtSpeed(v, sys)}` : '';
-      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${speed}${prov}`);
+      // The snatch force a deployment charge put through the airframe — the recovery
+      // hardware's load case, so it belongs in the report, not just the on-screen timeline.
+      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? `   ${fmtAccel(e.peakAccel)} shock` : '';
+      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${speed}${shock}${prov}`);
     }
   }
 
@@ -191,12 +194,14 @@ export function summaryMarkdown(
   for (const [label, value] of headlineRows(analysis.metrics, sys)) out.push(`| ${cell(label)} | ${cell(value)} |`);
 
   if (analysis.events.length) {
-    out.push('', '## Events', '', '| Event | Time | Altitude | Speed |', '| --- | --- | --- | --- |');
+    out.push('', '## Events', '', '| Event | Time | Altitude | Speed | Shock |', '| --- | --- | --- | --- | --- |');
     for (const e of analysis.events) {
       const label = e.provenance !== 'measured' ? `${e.label} (${e.provenance})` : e.label;
       const v = analysis.series.velocity[e.index];
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
-      out.push(`| ${cell(label)} | ${fmtTime(e.time)} | ${cell(fmtLength(e.altitude, sys))} | ${cell(speed)} |`);
+      // The deployment snatch force — the recovery hardware's load case — where measured.
+      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel) : '—';
+      out.push(`| ${cell(label)} | ${fmtTime(e.time)} | ${cell(fmtLength(e.altitude, sys))} | ${cell(speed)} | ${cell(shock)} |`);
     }
   }
 

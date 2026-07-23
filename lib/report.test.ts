@@ -88,17 +88,31 @@ describe('report exports', () => {
     expect(md).toContain('| Metric | Value |');
     expect(md).toMatch(/\| Apogee \| [\d,]+ ft \|/);
     expect(md).toContain('## Events');
-    expect(md).toContain('| Event | Time | Altitude | Speed |');
+    expect(md).toContain('| Event | Time | Altitude | Speed | Shock |');
     expect(md).toMatch(/Made with \[Debrief\]\(https:\/\/debrief\.fusionspace\.co\)/);
-    // Every metric row has the same column count as its header (a broken table
-    // would have a stray or missing pipe).
+    // Every table row has the same column count as its header (a broken table would
+    // have a stray or missing pipe): the metric table is 2-wide, the events table 5-wide.
     const bars = (s: string) => (s.match(/\|/g) ?? []).length;
     const rows = md.split('\n');
-    const metricRows = rows.filter((l) => l.startsWith('| ') && !l.includes('---'));
-    expect(metricRows.length).toBeGreaterThan(3);
-    expect(metricRows.every((l) => bars(l) === bars('| Metric | Value |') || bars(l) === bars('| a | b | c | d |'))).toBe(
-      true,
-    );
+    const tableRows = rows.filter((l) => l.startsWith('| ') && !l.includes('---'));
+    expect(tableRows.length).toBeGreaterThan(3);
+    expect(tableRows.every((l) => bars(l) === bars('| a | b |') || bars(l) === bars('| a | b | c | d | e |'))).toBe(true);
+  });
+
+  it('carries the deployment shock in the exported summary', () => {
+    // The analysis puts the deployment snatch force on the apogee/main events; a report a
+    // flyer hands in should show it (it sizes the recovery hardware), not just the screen.
+    const base = analyzeFlight(flight);
+    const withShock = {
+      ...base,
+      events: base.events.map((e) => (e.type === 'apogee' ? { ...e, peakAccel: 400 } : e)), // ~41 g
+    };
+    const txt = summaryText(flight, withShock, 'imperial', 1_700_000_000_000);
+    expect(txt).toMatch(/\d+ g shock/);
+    const md = summaryMarkdown(flight, withShock, 'imperial', 1_700_000_000_000);
+    // The five-column events row (label carries "(derived)") ends with the shock cell.
+    const apogeeEventRow = md.split('\n').find((l) => /^\| Apogee[^|]*\|.*\| [\d.]+ g \|$/.test(l));
+    expect(apogeeEventRow).toBeTruthy();
   });
 
   it('includes a device cross-check section when the file carried its own summary', () => {
