@@ -10,6 +10,7 @@ import { buildPlotChannels } from './explore';
 import { formulaGuard } from './csv';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import { deployCheck } from './deploy';
+import { delayCheck } from './ejection';
 import {
   fmtLength,
   fmtSpeed,
@@ -37,6 +38,9 @@ export interface RecoveryFigures {
   /** The main-deploy altitude the flyer set, and the altitude Debrief measured it firing at
    *  (both metres AGL) — for the "did the main fire where I told it to" check. */
   mainDeploy?: { setM: number; actualM: number };
+  /** The printed motor delay the flyer flew (s) and the flight's coast time (the ideal
+   *  delay, s) — for the "did the ejection fire near apogee" check on a motor-ejection flight. */
+  ejectionDelay?: { printedS: number; coastS: number };
 }
 
 /** The landing-energy summary row, when a descending mass was entered and the flight has
@@ -72,6 +76,22 @@ function mainDeployRow(sys: UnitSystem, recovery: RecoveryFigures | undefined): 
         ? `${fmtLength(offsetM, sys)} high`
         : `${fmtLength(-offsetM, sys)} low`;
   return ['Main deploy check', `fired at ${fmtLength(actualM, sys)}, set ${fmtLength(setM, sys)} — ${side}`];
+}
+
+/** The ejection-delay verification row, when the flyer entered the motor delay they flew:
+ *  how it landed relative to apogee (at / after / before) — a delay that fires well before
+ *  apogee deploys into a fast airstream, the riskiest case for the recovery gear. */
+function ejectionDelayRow(recovery: RecoveryFigures | undefined): [string, string] | null {
+  if (!recovery?.ejectionDelay) return null;
+  const { printedS, coastS } = recovery.ejectionDelay;
+  const { offsetS, when } = delayCheck(printedS, coastS);
+  const side =
+    when === 'at'
+      ? 'near apogee'
+      : when === 'after'
+        ? `${offsetS.toFixed(1)} s after apogee`
+        : `${(-offsetS).toFixed(1)} s before apogee`;
+  return ['Ejection check', `flew ${printedS} s, ideal ${coastS.toFixed(1)} s — fires ${side}`];
 }
 
 /** Optional, user-supplied context for a report — a label (rocket, motor, flight
@@ -131,6 +151,8 @@ function headlineRows(
   if (landing) rows.push(landing);
   const deploy = mainDeployRow(sys, recovery);
   if (deploy) rows.push(deploy);
+  const ejection = ejectionDelayRow(recovery);
+  if (ejection) rows.push(ejection);
   if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
   if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
@@ -663,6 +685,11 @@ export function analysisJson(
       const { setM, actualM } = recovery.mainDeploy;
       const chk = deployCheck(actualM, setM);
       rec.mainDeploy = { setAltitude: len(setM), actualAltitude: len(actualM), offset: len(chk.offsetM), verdict: chk.when };
+    }
+    if (recovery.ejectionDelay) {
+      const { printedS, coastS } = recovery.ejectionDelay;
+      const chk = delayCheck(printedS, coastS);
+      rec.ejectionDelay = { flownSeconds: round(printedS, 1), idealSeconds: round(coastS, 1), offsetSeconds: round(chk.offsetS, 1), verdict: chk.when };
     }
     if (Object.keys(rec).length) doc.recovery = rec;
   }

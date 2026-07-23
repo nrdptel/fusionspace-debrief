@@ -154,6 +154,16 @@ describe('report exports', () => {
     expect(low).toMatch(/Main deploy check\s+.*— [\d,]+ ft low/);
   });
 
+  it('carries the ejection-delay verification into the exports when a flown delay is supplied', () => {
+    // Ideal coast 4.2 s; flew a 3 s delay → fires ~1.2 s before apogee (the riskier side).
+    const recovery = { ejectionDelay: { printedS: 3, coastS: 4.2 } };
+    const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery);
+    expect(txt).toMatch(/Ejection check\s+flew 3 s, ideal 4\.2 s — fires 1\.2 s before apogee/);
+
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery));
+    expect(doc.recovery.ejectionDelay).toMatchObject({ flownSeconds: 3, idealSeconds: 4.2, verdict: 'before' });
+  });
+
   it('includes a device cross-check section when the file carried its own summary', () => {
     const withReported: RawFlight = {
       ...flight,

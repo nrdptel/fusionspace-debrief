@@ -13,6 +13,7 @@ import { buildPlotChannels } from '@/lib/explore';
 import { canMeasureDrag } from '@/lib/drag';
 import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
+import { MAX_REASONABLE_DELAY_S } from '@/lib/ejection';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import { zip, type ZipEntry } from '@/lib/zip';
@@ -99,6 +100,23 @@ export default function FlightReport({
       /* ignore */
     }
   }, []);
+
+  // The printed motor delay the flyer flew — owned here (like the mass and set altitude) so
+  // the ejection-delay check rides into the exported report, not just the panel.
+  const [delayS, setDelaySState] = useState<number | null>(null);
+  useEffect(() => {
+    const v = Number(window.localStorage.getItem('debrief.delay.s'));
+    setDelaySState(Number.isFinite(v) && v > 0 && v <= MAX_REASONABLE_DELAY_S ? v : null);
+  }, []);
+  const setDelayS = useCallback((s: number | null) => {
+    setDelaySState(s);
+    try {
+      if (s == null) window.localStorage.removeItem('debrief.delay.s');
+      else window.localStorage.setItem('debrief.delay.s', String(s));
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const altChartRef = useRef<HTMLDivElement>(null);
   const printingRef = useRef(false);
   const [copied, setCopied] = useState(false);
@@ -122,9 +140,15 @@ export default function FlightReport({
   const recovery = useMemo<RecoveryFigures | undefined>(() => {
     const mainEvt = events.find((e) => e.type === 'main');
     const mainDeploy = setMainDeployM != null && mainEvt ? { setM: setMainDeployM, actualM: mainEvt.altitude } : undefined;
-    if (massKg == null && !mainDeploy) return undefined;
-    return { ...(massKg != null ? { descendingMassKg: massKg } : {}), ...(mainDeploy ? { mainDeploy } : {}) };
-  }, [massKg, setMainDeployM, events]);
+    const ejectionDelay =
+      delayS != null && metrics.coastTime != null ? { printedS: delayS, coastS: metrics.coastTime } : undefined;
+    if (massKg == null && !mainDeploy && !ejectionDelay) return undefined;
+    return {
+      ...(massKg != null ? { descendingMassKg: massKg } : {}),
+      ...(mainDeploy ? { mainDeploy } : {}),
+      ...(ejectionDelay ? { ejectionDelay } : {}),
+    };
+  }, [massKg, setMainDeployM, delayS, events, metrics.coastTime]);
 
   const stem = reportStem(flight.source);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
@@ -616,7 +640,7 @@ export default function FlightReport({
       {/* Ejection-delay check — the coast time IS the ideal motor delay, so a
           motor-eject flier can check the delay they flew against apogee. Shown
           whenever a coast (burnout → apogee) was measured. */}
-      {metrics.coastTime != null && <EjectionDelay coastTimeS={metrics.coastTime} />}
+      {metrics.coastTime != null && <EjectionDelay coastTimeS={metrics.coastTime} delayS={delayS} onDelayS={setDelayS} />}
 
       {/* Charts */}
       {zoomPresets.length > 1 && (

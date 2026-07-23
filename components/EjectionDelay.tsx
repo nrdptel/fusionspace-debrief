@@ -1,52 +1,35 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { delayCheck, MAX_REASONABLE_DELAY_S, APOGEE_SLOP_S } from '@/lib/ejection';
 import { fmtTime } from '@/lib/display';
-
-const DELAY_KEY = 'debrief.delay.s';
-
-function readNum(key: string, max: number): number | null {
-  if (typeof window === 'undefined') return null;
-  const v = Number(window.localStorage.getItem(key));
-  return Number.isFinite(v) && v > 0 && v <= max ? v : null;
-}
-
-function store(key: string, v: number | null) {
-  try {
-    if (v == null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, String(v));
-  } catch {
-    /* ignore */
-  }
-}
 
 /**
  * Ejection-delay check — for a motor-ejection flight, the ideal motor delay is
  * the coast time (burnout → apogee), the interval the rocket spends slowing to a
  * stop. Debrief already measures that; this frames it as the delay to load and
  * lets you check the printed delay you actually flew against it. A reading of the
- * flown flight, not a prediction: "was my delay right, and by how much."
+ * flown flight, not a prediction: "was my delay right, and by how much." The delay
+ * is owned by the report (so it can ride into the exports); this is controlled.
  */
-export default function EjectionDelay({ coastTimeS }: { coastTimeS: number }) {
-  const [delayS, setDelayS] = useState<number | null>(null);
-
-  useEffect(() => {
-    setDelayS(readNum(DELAY_KEY, MAX_REASONABLE_DELAY_S));
-  }, []);
-
+export default function EjectionDelay({
+  coastTimeS,
+  delayS,
+  onDelayS,
+}: {
+  coastTimeS: number;
+  delayS: number | null;
+  onDelayS: (s: number | null) => void;
+}) {
   const delayField = delayS == null ? '' : String(delayS);
 
   const onDelay = (raw: string) => {
     const n = Number(raw);
     if (raw.trim() === '' || !Number.isFinite(n) || n <= 0) {
-      setDelayS(null);
-      store(DELAY_KEY, null);
+      onDelayS(null);
       return;
     }
-    const s = Math.min(n, MAX_REASONABLE_DELAY_S);
-    setDelayS(s);
-    store(DELAY_KEY, s);
+    onDelayS(Math.min(n, MAX_REASONABLE_DELAY_S));
   };
 
   const check = useMemo(() => (delayS != null ? delayCheck(delayS, coastTimeS) : null), [delayS, coastTimeS]);
