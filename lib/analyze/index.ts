@@ -438,9 +438,10 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
 
   // A velocity beyond any rocket — a mis-scaled or misidentified velocity column (a
   // generic export whose "velocity" is a raw sensor count), or corrupt data — must never
-  // become a headline. A peak past the hard physical ceiling is withheld, along with the
-  // figures derived from it (Mach, max-Q, the transonic crossing), rather than reported
-  // as an impossible number; the warning below says why.
+  // become a headline. A peak past the hard physical ceiling is withheld, along with every
+  // figure derived from it (Mach, max-Q, the transonic crossing, burnout velocity, coast
+  // efficiency), rather than reported as an impossible number; the warning below says why.
+  // The flag is read where each of those is computed below.
   let velocityImplausible = false;
   if (Number.isFinite(maxVelocity) && maxVelocity > IMPLAUSIBLE_VELOCITY) {
     velocityImplausible = true;
@@ -670,7 +671,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // the vacuum coast, which is unphysical) or there's no real coast.
   let coastEfficiency: number | null = null;
   let dragLossAltitude: number | null = null;
-  if (burnoutIdx !== null) {
+  if (burnoutIdx !== null && !velocityImplausible) {
     const vBo = velocity[burnoutIdx];
     const vacuumGain = Number.isFinite(vBo) ? (vBo * vBo) / (2 * G0) : NaN;
     const actualGain = apogeeAlt - altClean[burnoutIdx];
@@ -743,7 +744,9 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     liftoffTWR,
     burnTime: burnoutIdx !== null && liftoffFound ? time[burnoutIdx] - liftoffTime : null,
     burnoutAltitude: burnoutIdx !== null ? altClean[burnoutIdx] : null,
-    burnoutVelocity: burnoutIdx !== null ? velocity[burnoutIdx] : null,
+    // Reads the velocity trace directly, so it inherits an impossible velocity even
+    // when burnout was pinned off the accelerometer — withheld with the rest.
+    burnoutVelocity: burnoutIdx !== null && !velocityImplausible ? velocity[burnoutIdx] : null,
     coastTime: burnoutIdx !== null ? apogeeTime - time[burnoutIdx] : null,
     coastEfficiency,
     dragLossAltitude,
@@ -806,7 +809,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   }
   if (velocityImplausible) {
     warnings.push(
-      'The velocity channel reads implausibly fast — a peak beyond any rocket, so its column or unit is almost certainly misidentified (a raw sensor count read as a speed), or the data is corrupt. Max velocity, Mach and max-Q are withheld rather than reported as an impossible figure; if this is a generic CSV, check the velocity column and its unit in the mapping.',
+      'The velocity channel reads implausibly fast — a peak beyond any rocket, so its column or unit is almost certainly misidentified (a raw sensor count read as a speed), or the data is corrupt. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported as impossible numbers; if this is a generic CSV, check the velocity column and its unit in the mapping.',
     );
   }
   if (altitudeSource === 'baro' && Number.isFinite(apogeeAlt) && apogeeAlt > TROPOSPHERE_LIMIT_M) {

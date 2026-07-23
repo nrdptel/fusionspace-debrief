@@ -56,8 +56,9 @@ export default function MethodsPage() {
             altitude, smoothed to the file&apos;s own sample rate. Derived velocity is softer at peak
             speed, and labelled wherever it appears. A peak beyond any rocket — the fastest amateur
             flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled or misidentified velocity
-            column (a raw sensor count read as a speed); such a reading is withheld, along with the
-            Mach and max-Q derived from it, rather than reported as an impossible number.
+            column (a raw sensor count read as a speed); such a reading is withheld, along with
+            everything derived from it — Mach, max-Q, the burnout velocity and the coast efficiency —
+            rather than reported as an impossible number.
           </Method>
           <Method title="Acceleration">
             Used directly from the accelerometer when present, otherwise derived from velocity. Max

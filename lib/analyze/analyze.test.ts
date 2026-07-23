@@ -269,6 +269,33 @@ describe('implausible velocity guard', () => {
     expect(a.metrics.maxVelocity).toBeGreaterThan(1000);
     expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(false);
   });
+
+  it('also withholds the velocity-derived figures when burnout is pinned off the accelerometer', () => {
+    // A real accelerometer finds burnout from its own sign change, so burnout velocity
+    // and coast efficiency read the (garbage) velocity trace directly — they must be
+    // withheld with the peak, not leaked as an impossible number.
+    const base = accelFlight(null);
+    const alt = base.channels.find((c) => c.kind === 'altitude')!.values;
+    let apIdx = 0;
+    for (let i = 1; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+    const at = Math.max(1, Math.floor(apIdx * 0.5));
+    const vel = new Float64Array(base.time.length);
+    for (let i = 0; i < vel.length; i++) vel[i] = 50000 * Math.max(0, 1 - Math.abs(i - at) / at);
+    base.channels = [...base.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: vel }];
+
+    const a = analyzeFlight(base);
+    expect(a.metrics.maxVelocitySource).toBe('device');
+    // Burnout itself is still found (off the accelerometer)…
+    expect(a.metrics.burnTime).not.toBeNull();
+    // …but nothing read from the impossible velocity survives.
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.burnoutVelocity).toBeNull();
+    expect(a.metrics.coastEfficiency).toBeNull();
+    expect(a.metrics.dragLossAltitude).toBeNull();
+    expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(true);
+    // Acceleration, measured independently, is untouched.
+    expect(a.metrics.maxAcceleration).toBeGreaterThan(0);
+  });
 });
 
 describe('derived-kinematics provenance warnings', () => {
