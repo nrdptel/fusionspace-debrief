@@ -191,6 +191,10 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // Apogee is altitude-sourced on every logger, so there's no measured/derived
     // mix to flag — even a GPS-vs-baro apogee pair is independent corroboration.
     { key: 'apogee', label: 'apogee', get: (m) => m.apogeeAltitude },
+    // Time to apogee is a pure timing (liftoff → apogee) — a temporal cross-check that
+    // corroborates the spatial apogee agreement and shares no measurement source with it.
+    // Two recordings of one flight saw the same climb, so it should match tightly.
+    { key: 'timeToApogee', label: 'time to apogee', get: (m) => (Number.isFinite(m.timeToApogee) ? m.timeToApogee : null) },
     // Velocity can be device-measured on one flight and altitude-derived on another;
     // a derived peak reads softer, so a mixed cross-check is flagged (mixedSource).
     { key: 'maxVelocity', label: 'max speed', get: (m) => m.maxVelocity, source: (m) => m.maxVelocitySource },

@@ -22,6 +22,21 @@ describe('crossCheck', () => {
     expect(a.some((x) => x.key === 'maxVelocity')).toBe(false);
   });
 
+  const timedFlight = (apogee: number, tToApogee: number): CompareFlight =>
+    ({ metrics: { apogeeAltitude: apogee, timeToApogee: tToApogee } as FlightMetrics }) as CompareFlight;
+
+  it('cross-checks time to apogee as an independent temporal corroboration', () => {
+    const a = crossCheck([timedFlight(2440, 14.8), timedFlight(2465, 15.1)]);
+    const t = a.find((x) => x.key === 'timeToApogee')!;
+    expect(t.count).toBe(2);
+    expect(t.spreadPct).toBeCloseTo((0.3 / 14.95) * 100, 1);
+    // It carries no measurement source, so it's never a measured/derived mix.
+    expect(t.mixedSource).toBe(false);
+    // A flight with no detected liftoff (NaN time to apogee) drops out of the check.
+    const partial = crossCheck([timedFlight(2440, 14.8), timedFlight(2465, NaN)]);
+    expect(partial.some((x) => x.key === 'timeToApogee')).toBe(false);
+  });
+
   const srcFlight = (maxV: number, source: 'device' | 'baro'): CompareFlight =>
     ({ metrics: { apogeeAltitude: 2000, maxVelocity: maxV, maxVelocitySource: source } as FlightMetrics }) as CompareFlight;
 
