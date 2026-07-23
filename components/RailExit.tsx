@@ -23,14 +23,23 @@ function readInitialRail(): number {
 
 /**
  * Rail-exit (rail-departure) velocity — how fast the rocket was actually moving
- * when it cleared the launch rail. Read straight from the flown record at the
- * height one rail-length above the pad; nothing is predicted or modelled.
+ * when it cleared the launch rail. Read straight from the flown record by integrating
+ * velocity from liftoff to one rail-length of travel; nothing is predicted or modelled.
  *
- * Only meaningful with barometric altitude: rail clearance happens in the first
- * couple of metres, far finer than a GPS fix can resolve, so the caller omits
- * this for GPS-only flights.
+ * Needs a logged (device/inertial) velocity: rail clearance happens in the first metre
+ * or two, where a barometric velocity is far too soft and noisy to read reliably (and a
+ * GPS fix can't resolve it at all), so this is withheld for a baro-derived velocity — a
+ * wrong figure this low would be worse than none, and could false-flag a healthy boost.
  */
-export default function RailExit({ series, sys }: { series: FlightSeries; sys: UnitSystem }) {
+export default function RailExit({
+  series,
+  sys,
+  liftoffIndex,
+}: {
+  series: FlightSeries;
+  sys: UnitSystem;
+  liftoffIndex: number | null;
+}) {
   const [railM, setRailM] = useState<number>(DEFAULT_RAIL_M);
 
   useEffect(() => {
@@ -46,10 +55,14 @@ export default function RailExit({ series, sys }: { series: FlightSeries; sys: U
     }
   };
 
-  const v = useMemo(() => railExitVelocity(series.altitude, series.velocity, railM), [series, railM]);
+  // Only a logged velocity is trustworthy this low; a baro-derived one is withheld.
+  const measurable = series.velocitySource === 'device' && liftoffIndex != null && liftoffIndex >= 0;
+  const v = useMemo(
+    () => (measurable ? railExitVelocity(series.time, series.velocity, railM, liftoffIndex as number) : null),
+    [series, railM, measurable, liftoffIndex],
+  );
   const mach = v != null && series.speedOfSound > 0 ? v / series.speedOfSound : null;
   const marginal = v != null && v < MARGINAL_RAIL_VELOCITY;
-  const approx = series.velocitySource !== 'device';
 
   return (
     <section
@@ -89,15 +102,18 @@ export default function RailExit({ series, sys }: { series: FlightSeries; sys: U
         {mach != null && Math.abs(mach) >= 0.8 && (
           <span className="text-xs text-zinc-500 dark:text-zinc-400">{fmtMach(mach)}</span>
         )}
-        {v != null && approx && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">approximate — velocity derived from altitude</span>
-        )}
       </div>
 
-      {v == null && (
+      {!measurable && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          The log doesn’t reach {railLabel(railM)} above the pad with a readable velocity, so there’s nothing to
-          measure here.
+          Rail clearance happens in the first metre or two, where a velocity derived from barometric altitude is too
+          soft to read reliably — this needs a logged (accelerometer) velocity, which this flight doesn’t have.
+        </p>
+      )}
+      {measurable && v == null && (
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          The log doesn’t cover {railLabel(railM)} of travel with a readable velocity, so there’s nothing to measure
+          here.
         </p>
       )}
       {marginal && (

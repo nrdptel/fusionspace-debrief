@@ -573,8 +573,11 @@ export default function FlightReport({
       <MetricGrid metrics={metrics} sys={sys} />
 
       {/* Rail-exit velocity is a fine-grained reading of the first couple of metres,
-          so it only makes sense with barometric altitude — GPS is far too coarse. */}
-      {series.altitudeSource !== 'gps' && <RailExit series={series} sys={sys} />}
+          so it only makes sense with barometric altitude — GPS is far too coarse. It's
+          read by integrating the logged velocity from liftoff to one rail-length of travel. */}
+      {series.altitudeSource !== 'gps' && (
+        <RailExit series={series} sys={sys} liftoffIndex={events.find((e) => e.type === 'liftoff')?.index ?? null} />
+      )}
 
       {/* Measured drag coefficient — read from the coast deceleration, so it needs a
           real coast between burnout and apogee (and an accelerometer or baro trace). */}

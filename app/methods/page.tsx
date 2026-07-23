@@ -83,10 +83,13 @@ export default function MethodsPage() {
             speed turns over.
           </Method>
           <Method title="Rail-exit velocity">
-            How fast the rocket was moving when it cleared the rail, read from the flown velocity at
-            the height one rail-length above the pad (you pick the rail length). It&apos;s a
-            measurement, not a prediction; on a logger without its own velocity it rides on the derived
-            velocity and is labelled approximate.
+            How fast the rocket was moving when it cleared the rail (you pick the rail length) — found by
+            integrating the flown velocity from liftoff until the rocket has covered one rail-length of
+            travel, and reading the velocity there. It&apos;s a measurement, not a prediction. Rail
+            clearance happens in the first metre or two, where a barometric altitude is coarsest and a
+            barometric velocity is far too soft to read — so this needs a logged (accelerometer) velocity,
+            and is withheld on a baro-only or GPS log rather than shown as a number that low can&apos;t
+            support.
           </Method>
           <Method title="Coast efficiency">
             After burnout the rocket coasts on the energy it has; with no drag it would trade all of

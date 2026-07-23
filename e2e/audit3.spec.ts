@@ -269,8 +269,10 @@ test('measures the drag coefficient from the coast, and remembers the inputs', a
   await expect(page.getByLabel(/Body diameter/)).toHaveValue('2.1');
 });
 
-test('reports rail-exit velocity for a barometric flight, and remembers the rail', async ({ page }) => {
+test('reports rail-exit velocity from a logged velocity, and remembers the rail', async ({ page }) => {
   await page.goto('/');
+  // The bundled sample is a TeleMetrum flight — it logs its own velocity, so rail exit
+  // (integrated from that velocity, over one rail-length of travel) is measurable.
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
 
   const rail = page.getByRole('region', { name: 'Rail-exit velocity' });
