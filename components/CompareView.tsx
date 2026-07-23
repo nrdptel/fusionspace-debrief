@@ -128,17 +128,25 @@ export default function CompareView({
   );
   const chartLabel = `${active.label} against time after liftoff for ${flights.length} flights.`;
 
-  // Export the comparison — all on-device, like the rest. The overlay CSV is the
-  // currently selected channel for every flight on the shared (liftoff-aligned)
-  // grid; the metrics CSV is the side-by-side table; the PNG is the chart.
-  const saveOverlayCsv = () => {
+  // Export the comparison — all on-device, like the rest. The overlay CSV is every
+  // channel for every flight on the shared (liftoff-aligned) grid; the metrics CSV is
+  // the side-by-side table; the PNG is the chart.
+  // Every overlaid channel for every flight, grouped by channel so a reader can line one
+  // quantity up across the recordings — the whole reconciliation in one file, not just the
+  // curve currently on screen. All on the shared, liftoff-aligned grid.
+  const overlayCsv = (): string => {
     const x = { label: 'time after liftoff', unit: 's', values: time };
-    const ys = flights.map((f) => ({
-      label: stem(f.name),
-      unit: active.unit,
-      values: Float64Array.from(active.get(f), (v) => active.toDisplay(v)),
-    }));
-    download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `compare-${metric}.csv`);
+    const ys = metrics.flatMap((m) =>
+      flights.map((f) => ({
+        label: `${stem(f.name)} — ${m.label}`,
+        unit: m.unit,
+        values: Float64Array.from(m.get(f), (v) => m.toDisplay(v)),
+      })),
+    );
+    return exploreCsv(x, ys);
+  };
+  const saveOverlayCsv = () => {
+    download(new Blob([overlayCsv()], { type: 'text/csv' }), 'compare-data.csv');
   };
   const pair = flights.length === 2;
   const metricsCsv = (): string => {
@@ -199,6 +207,7 @@ export default function CompareView({
       const entries: ZipEntry[] = [
         { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note, reportMeta) },
         { name: 'compare-metrics.csv', data: metricsCsv() },
+        { name: 'compare-data.csv', data: overlayCsv() },
         { name: 'compare.json', data: compareJson(comparison, sys, note, reportMeta) },
         ...figureKeys.map((k) => ({ name: `compare-${k}.svg`, data: overlaySvg(metrics.find((m) => m.key === k)!) })),
       ];
@@ -475,7 +484,7 @@ export default function CompareView({
           <button
             type="button"
             onClick={saveOverlayCsv}
-            title={`Save the overlaid ${active.label.toLowerCase()} curves (one column per flight) as CSV`}
+            title="Save every overlaid channel — altitude, velocity, acceleration, Mach and dynamic pressure — for all flights, on the shared liftoff-aligned timeline, as one CSV"
             className={ACTION_BTN}
           >
             Save chart data

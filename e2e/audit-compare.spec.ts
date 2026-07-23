@@ -56,6 +56,22 @@ test('a rocketeer compares two flights end to end', async ({ page, context }) =>
     expect(dl.suggestedFilename()).toMatch(re);
   }
 
+  // The chart-data CSV is complete — every overlaid channel for every flight, not just
+  // the one on screen — so its header carries Altitude AND Velocity AND Mach columns.
+  const [dataDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save chart data', exact: true }).click(),
+  ]);
+  const stream = await dataDl.createReadStream();
+  const header = (await new Promise<string>((resolve) => {
+    let buf = '';
+    stream!.on('data', (c) => (buf += c));
+    stream!.on('end', () => resolve(buf.split('\n')[0]));
+  }));
+  expect(header).toMatch(/Altitude/);
+  expect(header).toMatch(/Velocity/);
+  expect(header).toMatch(/Mach/);
+
   // Back returns to the start.
   await page.getByRole('button', { name: /Back to a single flight/ }).click();
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
