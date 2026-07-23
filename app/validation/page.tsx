@@ -123,7 +123,14 @@ export default function ValidationPage() {
               A <strong>saturated accelerometer</strong> (a trace that flat-tops at its full-scale
               limit) is flagged as possibly clipped; a <strong>coarse sample rate</strong>
               undersamples fast events like a deployment shock, so those read as a floor, not a
-              ceiling.
+              ceiling. Where two recordings are compared, a clipped peak is marked and not crowned —
+              which flight pulled the most g can&apos;t be settled from a floor.
+            </li>
+            <li>
+              A <strong>physically impossible reading</strong> — a velocity faster than any rocket,
+              the signature of a mis-scaled or misidentified column — is withheld rather than
+              reported, along with the Mach and max-Q derived from it; the summary says why and where
+              to check the mapping.
             </li>
             <li>
               A <strong>single-source flight</strong> has nothing to cross-check against, so its read
