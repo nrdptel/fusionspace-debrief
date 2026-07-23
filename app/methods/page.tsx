@@ -186,11 +186,15 @@ export default function MethodsPage() {
             battery, so it&apos;s reported plainly, not judged.
           </Method>
           <Method title="Mach & dynamic pressure">
-            The speed of sound comes from the ground temperature where the logger records it, else a
-            15&nbsp;°C standard day; Mach is velocity over that. The explorer also derives a
-            dynamic-pressure channel (½&nbsp;ρv²), with air density anchored to the pad&apos;s own
-            conditions — so a high-elevation launch reads its real, thinner air. Both ride on the
-            derived velocity, so they soften near peak speed.
+            The speed of sound comes from the air temperature, which falls with altitude on the
+            standard-atmosphere lapse rate — anchored to the ground temperature the logger records
+            (else a 15&nbsp;°C standard day) and levelling off at the tropopause (~11&nbsp;km). Mach
+            is velocity over that <em>local</em> speed of sound, so a peak reached a few thousand feet
+            up is read against the colder, slower air it was actually in, not the ground value (a
+            touch higher than a ground-temperature divisor, and more so with height). Dynamic pressure
+            (½&nbsp;ρv²) uses air density from the same lapse, anchored to the pad&apos;s own conditions
+            — so a high-elevation launch reads its real, thinner air. Both ride on the velocity, so
+            they soften near peak speed.
           </Method>
           <Method title="Logbook & backup">
             Flights you open are remembered in this browser (IndexedDB) for quick re-opening,

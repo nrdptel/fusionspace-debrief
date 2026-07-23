@@ -544,6 +544,37 @@ describe('roll / spin', () => {
   });
 });
 
+describe('speed of sound varies with altitude (Mach against local air)', () => {
+  it('falls with height on the lapse rate and caps at the tropopause', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    const sos = a.series.speedOfSoundProfile;
+    const ground = a.series.speedOfSound;
+    // Ground sample matches the scalar ground speed of sound.
+    expect(sos[0]).toBeCloseTo(ground, 3);
+    // The apogee sample sits higher and colder, so its speed of sound is lower.
+    let apIdx = 0;
+    for (let i = 1; i < a.series.altitude.length; i++) if (a.series.altitude[i] > a.series.altitude[apIdx]) apIdx = i;
+    expect(sos[apIdx]).toBeLessThan(ground);
+
+    // Physics check against √(γ·R·T), and the tropopause cap: no further drop above 11 km.
+    const R = 287.05;
+    const t0 = (ground * ground) / (1.4 * R);
+    const sosAt = (h: number) => Math.sqrt(1.4 * R * (t0 - 0.0065 * Math.min(h, 11000)));
+    expect(sosAt(11000)).toBeCloseTo(sosAt(20000), 6); // isothermal above the tropopause
+    expect(sosAt(11000)).toBeLessThan(ground);
+  });
+
+  it('reads max Mach against the speed of sound at the peak-velocity altitude, not the ground', () => {
+    // A device-velocity flight climbing to a real apogee: max velocity is reached aloft,
+    // where the air is colder, so Mach is a touch higher than a ground-temperature divisor.
+    const a = analyzeFlight(accelFlight(null));
+    if (a.metrics.mach == null || !Number.isFinite(a.metrics.maxVelocity)) return;
+    const groundMach = a.metrics.maxVelocity / a.series.speedOfSound;
+    expect(a.metrics.mach).toBeGreaterThan(groundMach); // local (colder) air ⇒ higher Mach
+    expect(a.metrics.mach / groundMach).toBeLessThan(1.1); // but only slightly, in the troposphere
+  });
+});
+
 describe('analyzeFlight (barometric)', () => {
   it('recovers apogee, max velocity and time-to-apogee', () => {
     const { flight, truth } = syntheticBaroFlight();

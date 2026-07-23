@@ -263,7 +263,7 @@ export function summaryMarkdown(
 /** The analyzed series as a tidy CSV in the chosen units — the cleaned data a
  *  spreadsheet user would otherwise have to derive by hand. */
 export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys: UnitSystem): string {
-  const { time, altitude, velocity, acceleration, speedOfSound, airDensity } = analysis.series;
+  const { time, altitude, velocity, acceleration, speedOfSoundProfile, airDensity } = analysis.series;
   const L = UNIT_LABEL[sys];
   const pUnit = pressureUnit(sys);
   const cell = (v: number) => (Number.isFinite(v) ? v : '');
@@ -288,7 +288,8 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   const rows = [header];
   for (let i = 0; i < time.length; i++) {
     const v = velocity[i];
-    const mach = speedOfSound > 0 ? v / speedOfSound : NaN;
+    const sos = speedOfSoundProfile[i];
+    const mach = Number.isFinite(sos) && sos > 0 ? v / sos : NaN;
     const q = 0.5 * airDensity[i] * v * v;
     rows.push(
       [

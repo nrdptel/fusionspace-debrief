@@ -14,6 +14,7 @@ const series: FlightSeries = {
   accelerationSource: 'baro',
   altitudeSource: 'baro',
   speedOfSound: 340,
+  speedOfSoundProfile: Float64Array.from([340, 339, 338]),
   airDensity: Float64Array.from([1.2, 1.2, 1.2]),
 };
 
@@ -49,10 +50,11 @@ describe('buildPlotChannels', () => {
     expect(channels.some((c) => c.label === 'Empty')).toBe(false);
   });
 
-  it('derives Mach (velocity ÷ speed of sound) and dynamic pressure (½ρv²)', () => {
+  it('derives Mach (velocity ÷ the local speed of sound) and dynamic pressure (½ρv²)', () => {
     const mach = channels.find((c) => c.key === 'd-mach')!;
     expect(mach.group).toBe('Debrief');
-    expect(Array.from(mach.values)).toEqual([0, 40 / 340, 0]);
+    // Against the per-sample speed of sound (340, 339, 338), not a single ground value.
+    expect(Array.from(mach.values)).toEqual([0 / 340, 40 / 339, 0 / 338]);
     expect(mach.unitLabel('imperial')).toBe(''); // unitless
 
     const q = channels.find((c) => c.key === 'd-q')!;

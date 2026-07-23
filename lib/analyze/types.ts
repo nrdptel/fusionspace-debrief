@@ -102,9 +102,13 @@ export interface FlightSeries {
   /** Where altitude came from. 'gps' is coarse: velocity off it is rough and
    *  acceleration (a second derivative) isn't meaningful, so it's omitted. */
   altitudeSource: 'baro' | 'gps';
-  /** Speed of sound for this flight (m/s), from the ground temperature — the
-   *  divisor behind the Mach channel. */
+  /** Ground speed of sound (m/s), from the pad temperature — for near-pad reads like
+   *  rail exit. Mach uses the altitude-varying profile below. */
   speedOfSound: number;
+  /** Speed of sound at each sample (m/s), falling with altitude on the standard-atmosphere
+   *  lapse (capped at the tropopause) — the divisor behind the Mach channel, so Mach is
+   *  read against the colder, slower air aloft rather than the ground value. */
+  speedOfSoundProfile: Float64Array;
   /** Air density at each sample (kg/m³), from a ground-anchored standard
    *  atmosphere — the ρ behind the dynamic-pressure channel. */
   airDensity: Float64Array;

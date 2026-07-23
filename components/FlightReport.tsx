@@ -319,7 +319,8 @@ export default function FlightReport({
   const eventSpeed = (index: number): string => {
     const v = series.velocity[index];
     if (!Number.isFinite(v)) return '';
-    const m = series.speedOfSound > 0 ? v / series.speedOfSound : NaN;
+    const sos = series.speedOfSoundProfile[index]; // local speed of sound at the event's altitude
+    const m = Number.isFinite(sos) && sos > 0 ? v / sos : NaN;
     return Number.isFinite(m) && Math.abs(m) >= 0.8 ? `${fmtSpeed(v, sys)} · ${fmtMach(m)}` : fmtSpeed(v, sys);
   };
 

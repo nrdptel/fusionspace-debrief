@@ -172,6 +172,26 @@ function standardAtmosphereDensity(altAgl: Float64Array, groundTempK: number, gr
   return out;
 }
 
+/** Speed of sound (m/s) at each AGL altitude: a = √(γ·R·T), with the air temperature
+ *  falling on the same standard-atmosphere lapse the density uses, anchored to the pad —
+ *  so Mach is read against the colder, slower air the rocket was actually in, not the
+ *  ground value (a peak at a few thousand feet reads ~1–2 % higher Mach; the gap grows
+ *  with height). The temperature stops falling at the tropopause (≈11 km), where the
+ *  standard atmosphere goes isothermal, so a very high flight doesn't over-cool. */
+function speedOfSoundProfile(altAgl: Float64Array, groundTempK: number): Float64Array {
+  const out = new Float64Array(altAgl.length);
+  for (let i = 0; i < altAgl.length; i++) {
+    const h = altAgl[i];
+    if (!Number.isFinite(h)) {
+      out[i] = NaN;
+      continue;
+    }
+    const t = groundTempK + LAPSE * Math.min(h, TROPOSPHERE_LIMIT_M);
+    out[i] = t > 0 ? Math.sqrt(1.4 * R_AIR * t) : NaN;
+  }
+  return out;
+}
+
 export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
@@ -318,7 +338,8 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   const tempCh = getChannel(flight, 'temperature');
   const groundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseEnd) : null;
   const groundTempK = (groundTemperature ?? 15) + 273.15;
-  const speedOfSound = Math.sqrt(1.4 * 287.05 * groundTempK);
+  const speedOfSound = Math.sqrt(1.4 * 287.05 * groundTempK); // ground value (near-pad reads, e.g. rail exit)
+  const sosProfile = speedOfSoundProfile(altClean, groundTempK); // altitude-varying, for Mach
   const airDensity = standardAtmosphereDensity(altClean, groundTempK, padPressure(flight, baseEnd, padDataLikely));
 
   const series: FlightSeries = {
@@ -333,6 +354,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     accelerationResultant,
     altitudeSource,
     speedOfSound,
+    speedOfSoundProfile: sosProfile,
     airDensity,
   };
 
@@ -592,7 +614,10 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // --- Mach & max-Q ---------------------------------------------------------
   // (Speed of sound, ground temperature and air density were computed with the
   // atmosphere above.)
-  const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / speedOfSound : null;
+  // Mach at the altitude the peak speed was reached (colder, slower air than the pad),
+  // falling back to the ground value only if that index is somehow unreadable.
+  const maxVelSoS = maxVelIdx >= 0 && Number.isFinite(sosProfile[maxVelIdx]) ? sosProfile[maxVelIdx] : speedOfSound;
+  const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / maxVelSoS : null;
   // Peak dynamic pressure (½ρv²) over the flight — the structural load case — and
   // the altitude it happened at (a real design point).
   let maxDynamicPressure: number | null = null;
@@ -618,10 +643,13 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // engineering point (the transonic region) and a bragging right.
   let transonicTime: number | null = null;
   let transonicAltitude: number | null = null;
-  if (mach !== null && mach >= 1 && speedOfSound > 0) {
+  if (mach !== null && mach >= 1) {
     const end = ascentPresent ? apogeeIdx + 1 : n;
     for (let i = liftoffRef; i < end; i++) {
-      if (Number.isFinite(velocity[i]) && velocity[i] / speedOfSound >= 1) {
+      // Against the local speed of sound at each height — so the crossing is placed
+      // where the rocket truly reached Mach 1, not where it would at ground temperature.
+      const sos = sosProfile[i];
+      if (Number.isFinite(velocity[i]) && Number.isFinite(sos) && sos > 0 && velocity[i] / sos >= 1) {
         transonicTime = liftoffFound ? time[i] - liftoffTime : time[i];
         transonicAltitude = altClean[i];
         break;

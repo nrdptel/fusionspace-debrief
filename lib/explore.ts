@@ -139,7 +139,8 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
   const velUsable = !series.velocityImplausible;
   if (velUsable && Number.isFinite(series.speedOfSound) && series.speedOfSound > 0) {
     const mach = new Float64Array(series.velocity.length);
-    for (let i = 0; i < mach.length; i++) mach[i] = series.velocity[i] / series.speedOfSound;
+    // Against the local speed of sound at each height (colder, slower aloft), like the report.
+    for (let i = 0; i < mach.length; i++) mach[i] = series.velocity[i] / series.speedOfSoundProfile[i];
     // Unitless, so it sits on its own axis cleanly and reads straight off as Mach.
     out.push({ key: 'd-mach', label: 'Mach', group: 'Debrief', values: mach, ...display('') });
   }
