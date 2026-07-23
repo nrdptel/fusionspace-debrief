@@ -262,6 +262,9 @@ describe('implausible velocity guard', () => {
     expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(true);
     // Apogee, read from the altitude, is unaffected.
     expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+    // The judgement rides on the series so the explorer/overlay withhold the derived
+    // Mach and dynamic-pressure curves too.
+    expect(a.series.velocityImplausible).toBe(true);
   });
 
   it('keeps a fast but physically-plausible flight (a ~Mach-5 space shot)', () => {

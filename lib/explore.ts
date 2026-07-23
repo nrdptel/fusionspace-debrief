@@ -131,15 +131,19 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
   ];
 
   // Mach number and dynamic pressure — the quantities a rocket is designed
-  // around (transonic region, max-Q). Both ride on the derived velocity and the
-  // flight's atmosphere, so they're only as good as it; offered when defined.
-  if (Number.isFinite(series.speedOfSound) && series.speedOfSound > 0) {
+  // around (transonic region, max-Q). Both ride on the velocity and the flight's
+  // atmosphere, so they're only as good as it; offered when defined — but not when
+  // the velocity was judged physically impossible, since the analysis already
+  // withheld the Mach and max-Q headlines derived from it (the velocity trace itself
+  // stays, so a mis-scaled column can still be seen and diagnosed).
+  const velUsable = !series.velocityImplausible;
+  if (velUsable && Number.isFinite(series.speedOfSound) && series.speedOfSound > 0) {
     const mach = new Float64Array(series.velocity.length);
     for (let i = 0; i < mach.length; i++) mach[i] = series.velocity[i] / series.speedOfSound;
     // Unitless, so it sits on its own axis cleanly and reads straight off as Mach.
     out.push({ key: 'd-mach', label: 'Mach', group: 'Debrief', values: mach, ...display('') });
   }
-  if (hasData(series.airDensity)) {
+  if (velUsable && hasData(series.airDensity)) {
     const q = new Float64Array(series.velocity.length);
     for (let i = 0; i < q.length; i++) {
       const v = series.velocity[i];

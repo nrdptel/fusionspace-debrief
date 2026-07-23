@@ -108,6 +108,12 @@ export interface FlightSeries {
   /** Air density at each sample (kg/m³), from a ground-anchored standard
    *  atmosphere — the ρ behind the dynamic-pressure channel. */
   airDensity: Float64Array;
+  /** True when the velocity peak was physically impossible (a mis-scaled or
+   *  misidentified column, or corrupt data), so the headline max velocity, Mach and
+   *  max-Q were withheld. The velocity trace is still exposed for diagnosis, but the
+   *  Mach and dynamic-pressure DERIVED from it are not — plotting them would present a
+   *  curve the analysis has already judged impossible. */
+  velocityImplausible?: boolean;
 }
 
 export interface FlightAnalysis {

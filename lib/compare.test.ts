@@ -232,6 +232,19 @@ describe('buildComparison', () => {
     expect(f.dynamicPressure[k]).toBeLessThan(3950);
   });
 
+  it('withholds the Mach and dynamic-pressure overlay curves for an impossible velocity', () => {
+    const bad = input('bad', 2, 100);
+    bad.analysis = { ...bad.analysis, series: { ...bad.analysis.series, velocityImplausible: true } };
+    const cmp = buildComparison([bad, input('ok', 2, 200)]);
+    // The flagged flight draws no Mach or dynamic-pressure curve…
+    expect(cmp.flights[0].mach.every((v) => Number.isNaN(v))).toBe(true);
+    expect(cmp.flights[0].dynamicPressure.every((v) => Number.isNaN(v))).toBe(true);
+    // …but its velocity line still overlays (the recorded trace stays visible), and the
+    // healthy flight's derived curves are untouched.
+    expect(cmp.flights[0].velocity.some((v) => Number.isFinite(v))).toBe(true);
+    expect(cmp.flights[1].mach.some((v) => Number.isFinite(v))).toBe(true);
+  });
+
   it('caps the number of flights at MAX_COMPARE', () => {
     const many = Array.from({ length: MAX_COMPARE + 3 }, (_, i) => input(`f${i}`, 2, 100 + i));
     expect(buildComparison(many).flights).toHaveLength(MAX_COMPARE);

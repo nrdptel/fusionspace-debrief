@@ -127,10 +127,13 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
     const mach = new Float64Array(series.velocity.length);
     const q = new Float64Array(series.velocity.length);
     const sos = series.speedOfSound;
+    // A velocity judged impossible had its Mach and max-Q headlines withheld; don't
+    // draw the overlay curves derived from it either (the velocity line still shows).
+    const velUsable = !series.velocityImplausible;
     for (let i = 0; i < mach.length; i++) {
       const v = series.velocity[i];
-      mach[i] = sos > 0 ? v / sos : NaN;
-      q[i] = i < n ? 0.5 * series.airDensity[i] * v * v : NaN;
+      mach[i] = velUsable && sos > 0 ? v / sos : NaN;
+      q[i] = velUsable && i < n ? 0.5 * series.airDensity[i] * v * v : NaN;
     }
     return {
       id: it.id,

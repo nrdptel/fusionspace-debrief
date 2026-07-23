@@ -62,6 +62,16 @@ describe('buildPlotChannels', () => {
     expect(q.toDisplay(1000, 'metric')).toBeCloseTo(1, 6); // 1000 Pa → 1 kPa
   });
 
+  it('withholds the Mach and dynamic-pressure curves when the velocity was impossible', () => {
+    // Same flight, but the analysis judged the velocity physically impossible: the
+    // velocity trace still shows for diagnosis, but Debrief won't derive Mach or max-Q
+    // curves from it — matching the withheld headlines.
+    const flagged = buildPlotChannels(flight, { ...series, velocityImplausible: true });
+    expect(flagged.some((c) => c.key === 'd-velocity')).toBe(true);
+    expect(flagged.some((c) => c.key === 'd-mach')).toBe(false);
+    expect(flagged.some((c) => c.key === 'd-q')).toBe(false);
+  });
+
   it('converts known units by the unit system and leaves native units alone', () => {
     const alt = channels.find((c) => c.key === 'd-altitude')!;
     expect(alt.toDisplay(100, 'imperial')).toBeCloseTo(328.084, 1);

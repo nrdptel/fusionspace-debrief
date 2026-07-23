@@ -448,6 +448,9 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxVelocity = NaN;
     maxVelIdx = -1;
   }
+  // Let the explorer and the comparison overlay see the same judgement, so they can
+  // withhold the Mach and dynamic-pressure curves derived from an impossible velocity.
+  series.velocityImplausible = velocityImplausible;
 
   // --- Burnout --------------------------------------------------------------
   // With accel: thrust end — acceleration first falls through zero after the
