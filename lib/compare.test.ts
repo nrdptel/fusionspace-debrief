@@ -56,6 +56,23 @@ describe('crossCheck', () => {
     const partial = crossCheck([accelFlight(180, 'device'), srcFlight(300, 'baro')]);
     expect(partial.some((x) => x.key === 'maxAcceleration')).toBe(false);
   });
+
+  const clippedAccelFlight = (maxA: number, clipped: boolean): CompareFlight =>
+    ({ metrics: { apogeeAltitude: 2000, maxVelocity: 300, maxAcceleration: maxA, accelerationSource: 'device', accelClipped: clipped } as FlightMetrics }) as CompareFlight;
+
+  it('flags a max-acceleration cross-check when one recording’s sensor saturated (its peak is a floor)', () => {
+    // A saturated 16 g floor beside a real 31 g would otherwise read as a ~64% flight
+    // difference; it's a sensor limit, so the spread must be flagged, not blessed.
+    const a = crossCheck([clippedAccelFlight(157, true), clippedAccelFlight(304, false)]);
+    const acc = a.find((x) => x.key === 'maxAcceleration')!;
+    expect(acc.saturated).toBe(true);
+    // Both are device-measured, so the measured/derived mix flag stays off — saturation
+    // is a distinct reason the spread is misleading.
+    expect(acc.mixedSource).toBe(false);
+    // With neither sensor clipped, nothing is flagged.
+    const clean = crossCheck([clippedAccelFlight(180, false), clippedAccelFlight(172, false)]);
+    expect(clean.find((x) => x.key === 'maxAcceleration')!.saturated).toBe(false);
+  });
 });
 
 const metrics = (apogee: number): FlightMetrics => ({

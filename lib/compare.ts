@@ -164,6 +164,11 @@ export interface Agreement {
    *  derived peak reads softer, so some of the spread is method, not flight, and the
    *  agreement should be read as the looser bound. */
   mixedSource: boolean;
+  /** True when at least one contributing value is a floor rather than the true peak —
+   *  today an accelerometer that saturated at its full-scale limit. Its real peak is
+   *  higher than logged, so the spread shown is misleading (it may be smaller than it
+   *  looks): flagged so the cross-check doesn't read a sensor limit as a flight gap. */
+  saturated: boolean;
 }
 
 /**
@@ -175,7 +180,14 @@ export interface Agreement {
  * single blessed number. Only metrics with a finite value on two or more flights.
  */
 export function crossCheck(flights: CompareFlight[]): Agreement[] {
-  const specs: { key: string; label: string; get: (m: FlightMetrics) => number | null; source?: (m: FlightMetrics) => string }[] = [
+  const specs: {
+    key: string;
+    label: string;
+    get: (m: FlightMetrics) => number | null;
+    source?: (m: FlightMetrics) => string;
+    /** Marks a contributing value as a floor rather than a true peak (a saturated sensor). */
+    soft?: (m: FlightMetrics) => boolean;
+  }[] = [
     // Apogee is altitude-sourced on every logger, so there's no measured/derived
     // mix to flag — even a GPS-vs-baro apogee pair is independent corroboration.
     { key: 'apogee', label: 'apogee', get: (m) => m.apogeeAltitude },
@@ -190,6 +202,9 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
       label: 'max acceleration',
       get: (m) => (Number.isFinite(m.maxAcceleration) ? m.maxAcceleration : null),
       source: (m) => m.accelerationSource,
+      // A clipped peak is a floor, not the truth — flag the spread rather than read a
+      // sensor's full-scale limit as a difference between the flights.
+      soft: (m) => m.accelClipped === true,
     },
   ];
   const out: Agreement[] = [];
@@ -197,8 +212,8 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // Keep each contributing flight's value with its measurement source, so the
     // spread and the mixed-source flag are read off exactly the same set.
     const contrib = flights
-      .map((f) => ({ v: s.get(f.metrics), src: s.source?.(f.metrics) }))
-      .filter((c): c is { v: number; src: string | undefined } => c.v != null && Number.isFinite(c.v) && c.v > 0);
+      .map((f) => ({ v: s.get(f.metrics), src: s.source?.(f.metrics), soft: s.soft?.(f.metrics) ?? false }))
+      .filter((c): c is { v: number; src: string | undefined; soft: boolean } => c.v != null && Number.isFinite(c.v) && c.v > 0);
     if (contrib.length < 2) continue;
     const vals = contrib.map((c) => c.v);
     const min = Math.min(...vals);
@@ -207,7 +222,8 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // Only a genuine mix of differing, tracked sources counts (an untracked source
     // is undefined and ignored).
     const mixedSource = new Set(contrib.map((c) => c.src).filter((x): x is string => x != null)).size > 1;
-    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource });
+    const saturated = contrib.some((c) => c.soft);
+    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource, saturated });
   }
   return out;
 }

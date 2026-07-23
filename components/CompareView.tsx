@@ -317,6 +317,7 @@ export default function CompareView({
                   <span className={a.spreadPct > 10 ? 'font-medium text-amber-700 dark:text-amber-400' : 'font-medium text-emerald-700 dark:text-emerald-400'}>
                     {a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on {a.label}
                     {a.mixedSource ? '*' : ''}
+                    {a.saturated ? '†' : ''}
                   </span>
                 </span>
               ))}
@@ -327,6 +328,15 @@ export default function CompareView({
                   <span className="text-zinc-500 dark:text-zinc-400">
                     *the recordings mix a measured value with one derived from altitude, which reads
                     softer at the peak — so read that agreement as the looser bound.
+                  </span>
+                </>
+              )}
+              {agree.some((a) => a.saturated) && (
+                <>
+                  {' '}
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    †one recording&apos;s accelerometer saturated at its full-scale limit, so its peak
+                    is a floor, not the truth — the real spread may be smaller than shown.
                   </span>
                 </>
               )}

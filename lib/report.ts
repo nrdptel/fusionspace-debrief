@@ -377,14 +377,17 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
   const agree = crossCheck(flights);
   if (agree.length) {
     const phrase = agree
-      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}`)
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const mixed = agree.some((a) => a.mixedSource)
       ? ' \\*The recordings mix a measured value with one derived from altitude, which reads softer at the peak — so read that agreement as the looser bound.'
       : '';
+    const sat = agree.some((a) => a.saturated)
+      ? ' †One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
+      : '';
     out.push('', '## Cross-check', '');
     out.push(
-      `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}`,
+      `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
     );
   }
 
@@ -567,6 +570,7 @@ export function compareJson(comparison: Comparison, sys: UnitSystem, note?: stri
       spreadPct: round(a.spreadPct, 1),
       flights: a.count,
       ...(a.mixedSource ? { mixedSource: true } : {}),
+      ...(a.saturated ? { saturated: true } : {}),
     })),
     disclaimer:
       'Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Parsed locally; nothing uploaded.',
