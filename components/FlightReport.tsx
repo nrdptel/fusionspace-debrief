@@ -5,13 +5,14 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from '@/lib/display';
-import { summaryText, summaryMarkdown, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt } from '@/lib/report';
+import { summaryText, summaryMarkdown, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, type RecoveryFigures } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
 import { buildPlotChannels } from '@/lib/explore';
 import { canMeasureDrag } from '@/lib/drag';
 import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
+import { MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import { zip, type ZipEntry } from '@/lib/zip';
@@ -81,6 +82,23 @@ export default function FlightReport({
       /* ignore */
     }
   }, []);
+
+  // The main-deploy altitude the flyer set on the altimeter — owned here (like the mass) so
+  // the main-deploy verification can ride into the exported report, not just the panel.
+  const [setMainDeployM, setSetMainDeployMState] = useState<number | null>(null);
+  useEffect(() => {
+    const v = Number(window.localStorage.getItem('debrief.maindeploy.m'));
+    setSetMainDeployMState(Number.isFinite(v) && v > 0 && v <= MAX_REASONABLE_DEPLOY_M ? v : null);
+  }, []);
+  const setMainDeploy = useCallback((m: number | null) => {
+    setSetMainDeployMState(m);
+    try {
+      if (m == null) window.localStorage.removeItem('debrief.maindeploy.m');
+      else window.localStorage.setItem('debrief.maindeploy.m', String(m));
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const altChartRef = useRef<HTMLDivElement>(null);
   const printingRef = useRef(false);
   const [copied, setCopied] = useState(false);
@@ -98,9 +116,15 @@ export default function FlightReport({
     setReportNotes('');
   }, [flight.source]);
   const reportMeta = useMemo(() => ({ label: reportLabel, notes: reportNotes }), [reportLabel, reportNotes]);
-  // The descending mass a flyer entered (for landing energy / Cd) rides into the exported
-  // report too, so the cert-card landing-energy figure isn't left behind on screen.
-  const recovery = useMemo(() => (massKg != null ? { descendingMassKg: massKg } : undefined), [massKg]);
+  // The recovery figures a flyer entered — the descending mass (landing energy) and the
+  // set main-deploy altitude (the fired-where-set check) — ride into the exported report
+  // too, so what's on screen isn't left behind when they hand the report in.
+  const recovery = useMemo<RecoveryFigures | undefined>(() => {
+    const mainEvt = events.find((e) => e.type === 'main');
+    const mainDeploy = setMainDeployM != null && mainEvt ? { setM: setMainDeployM, actualM: mainEvt.altitude } : undefined;
+    if (massKg == null && !mainDeploy) return undefined;
+    return { ...(massKg != null ? { descendingMassKg: massKg } : {}), ...(mainDeploy ? { mainDeploy } : {}) };
+  }, [massKg, setMainDeployM, events]);
 
   const stem = reportStem(flight.source);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
@@ -719,7 +743,13 @@ export default function FlightReport({
       {(() => {
         const main = events.find((e) => e.type === 'main');
         return main ? (
-          <DeployAltitude mainAltitudeM={main.altitude} apogeeAltitudeM={metrics.apogeeAltitude} sys={sys} />
+          <DeployAltitude
+            mainAltitudeM={main.altitude}
+            apogeeAltitudeM={metrics.apogeeAltitude}
+            sys={sys}
+            setM={setMainDeployM}
+            onSetM={setMainDeploy}
+          />
         ) : null;
       })()}
 

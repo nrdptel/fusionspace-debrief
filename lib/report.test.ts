@@ -140,6 +140,20 @@ describe('report exports', () => {
     expect(doc.recovery).toBeUndefined();
   });
 
+  it('carries the main-deploy verification into the exports when a set altitude is supplied', () => {
+    // Measured firing 492 ft AGL (150 m); flyer set 500 ft (152.4 m) → within slop, on the mark.
+    const recovery = { mainDeploy: { setM: 152.4, actualM: 150 } };
+    const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery);
+    expect(txt).toMatch(/Main deploy check\s+fired at [\d,]+ ft, set [\d,]+ ft — on the mark/);
+
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery));
+    expect(doc.recovery.mainDeploy).toMatchObject({ setAltitude: 500, verdict: 'on' });
+
+    // A firing well below the set altitude reads "low" (the hard-landing side).
+    const low = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, undefined, { mainDeploy: { setM: 300, actualM: 150 } });
+    expect(low).toMatch(/Main deploy check\s+.*— [\d,]+ ft low/);
+  });
+
   it('includes a device cross-check section when the file carried its own summary', () => {
     const withReported: RawFlight = {
       ...flight,

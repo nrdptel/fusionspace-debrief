@@ -1,31 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { convert } from '@/lib/units';
 import { UNIT_LABEL, lengthIn, fmtLength } from '@/lib/display';
 import type { UnitSystem } from '@/lib/display';
 import { deployCheck, DEPLOY_SLOP_M, MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
 
-const SET_KEY = 'debrief.maindeploy.m';
-
 function plain(v: number, places: number): string {
   const f = Math.pow(10, places);
   return String(Math.round(v * f) / f);
-}
-
-function readNum(key: string, max: number): number | null {
-  if (typeof window === 'undefined') return null;
-  const v = Number(window.localStorage.getItem(key));
-  return Number.isFinite(v) && v > 0 && v <= max ? v : null;
-}
-
-function store(key: string, v: number | null) {
-  try {
-    if (v == null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, String(v));
-  } catch {
-    /* ignore */
-  }
 }
 
 /**
@@ -33,36 +16,32 @@ function store(key: string, v: number | null) {
  * main at a set altitude. Debrief measured the altitude it actually fired at, so
  * it shows that and, given the altitude you set, reads off how close the two were
  * (and how far the rocket fell under drogue first). A reading of the flown flight,
- * the answer to "did my main fire where I told it to."
+ * the answer to "did my main fire where I told it to." The set altitude is owned by
+ * the report (so it can ride into the exports); this component is controlled.
  */
 export default function DeployAltitude({
   mainAltitudeM,
   apogeeAltitudeM,
   sys,
+  setM,
+  onSetM,
 }: {
   mainAltitudeM: number;
   apogeeAltitudeM: number;
   sys: UnitSystem;
+  setM: number | null;
+  onSetM: (m: number | null) => void;
 }) {
-  const [setM, setSetM] = useState<number | null>(null);
-
-  useEffect(() => {
-    setSetM(readNum(SET_KEY, MAX_REASONABLE_DEPLOY_M));
-  }, []);
-
   const unit = UNIT_LABEL[sys].length;
   const setField = setM == null ? '' : plain(lengthIn(setM, sys), 0);
 
   const onSet = (raw: string) => {
     const n = Number(raw);
     if (raw.trim() === '' || !Number.isFinite(n) || n <= 0) {
-      setSetM(null);
-      store(SET_KEY, null);
+      onSetM(null);
       return;
     }
-    const m = Math.min(convert(n, unit, 'm'), MAX_REASONABLE_DEPLOY_M);
-    setSetM(m);
-    store(SET_KEY, m);
+    onSetM(Math.min(convert(n, unit, 'm'), MAX_REASONABLE_DEPLOY_M));
   };
 
   const check = useMemo(() => (setM != null ? deployCheck(mainAltitudeM, setM) : null), [setM, mainAltitudeM]);

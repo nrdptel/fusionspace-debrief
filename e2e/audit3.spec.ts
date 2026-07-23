@@ -341,6 +341,20 @@ test('reads the main deploy altitude and checks it against a set value', async (
   await panel.getByLabel(/Set main deploy altitude/).fill('500');
   await expect(panel.getByText(/fired about .* higher/)).toBeVisible();
 
+  // The verification rides into the exported report — a cert reviewer sees it, not just
+  // the flyer on screen. Download the Markdown and read the check back.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/^Download a Markdown report/).click(),
+  ]);
+  const stream = await dl.createReadStream();
+  const md = await new Promise<string>((resolve) => {
+    let buf = '';
+    stream!.on('data', (c) => (buf += c));
+    stream!.on('end', () => resolve(buf));
+  });
+  expect(md).toMatch(/Main deploy check \| fired at [\d,]+ ft, set 500 ft —/);
+
   // The set altitude sticks across a reload (localStorage).
   await page.reload();
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

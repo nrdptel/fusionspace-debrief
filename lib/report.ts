@@ -9,6 +9,7 @@ import { crossCheck, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
 import { formulaGuard } from './csv';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
+import { deployCheck } from './deploy';
 import {
   fmtLength,
   fmtSpeed,
@@ -26,11 +27,16 @@ import {
   UNIT_LABEL,
 } from './display';
 
-/** Recovery figures a flyer supplied on-screen that a report should carry — today the
- *  descending mass, from which the landing energy (½·m·v², the number a cert card and
- *  many club waivers ask for) is read against the measured landing descent rate. */
+/** Recovery figures a flyer supplied on-screen that a report should carry: the descending
+ *  mass (for landing energy — the ½·m·v² a cert card and many club waivers ask for), and the
+ *  main-deploy altitude they set on the altimeter (to verify, against the measured firing,
+ *  that the main fired where told — a main firing too low is a hard-landing hazard). Each is
+ *  optional; a field only appears in the export once the flyer has entered it. */
 export interface RecoveryFigures {
-  descendingMassKg: number;
+  descendingMassKg?: number;
+  /** The main-deploy altitude the flyer set, and the altitude Debrief measured it firing at
+   *  (both metres AGL) — for the "did the main fire where I told it to" check. */
+  mainDeploy?: { setM: number; actualM: number };
 }
 
 /** The landing-energy summary row, when a descending mass was entered and the flight has
@@ -40,7 +46,7 @@ function landingEnergyRow(
   sys: UnitSystem,
   recovery: RecoveryFigures | undefined,
 ): [string, string] | null {
-  if (!recovery) return null;
+  if (recovery?.descendingMassKg == null) return null;
   const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null);
   if (joules == null) return null;
   const massUnit = sys === 'metric' ? 'g' : 'oz';
@@ -50,6 +56,22 @@ function landingEnergyRow(
       ? `${Math.round(joules)} J`
       : `${joulesToFtLbf(joules).toFixed(joulesToFtLbf(joules) < 100 ? 1 : 0)} ft·lbf`;
   return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)`];
+}
+
+/** The main-deploy verification row, when the flyer entered the altitude they set: how the
+ *  measured firing compared to it (on the mark / high / low), the check a cert flight and a
+ *  careful flyer both want. */
+function mainDeployRow(sys: UnitSystem, recovery: RecoveryFigures | undefined): [string, string] | null {
+  if (!recovery?.mainDeploy) return null;
+  const { setM, actualM } = recovery.mainDeploy;
+  const { offsetM, when } = deployCheck(actualM, setM);
+  const side =
+    when === 'on'
+      ? 'on the mark'
+      : when === 'high'
+        ? `${fmtLength(offsetM, sys)} high`
+        : `${fmtLength(-offsetM, sys)} low`;
+  return ['Main deploy check', `fired at ${fmtLength(actualM, sys)}, set ${fmtLength(setM, sys)} — ${side}`];
 }
 
 /** Optional, user-supplied context for a report — a label (rocket, motor, flight
@@ -107,6 +129,8 @@ function headlineRows(
   if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime)]);
   const landing = landingEnergyRow(m, sys, recovery);
   if (landing) rows.push(landing);
+  const deploy = mainDeployRow(sys, recovery);
+  if (deploy) rows.push(deploy);
   if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
   if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
@@ -623,18 +647,24 @@ export function analysisJson(
     }));
   }
 
-  // Landing energy from the descending mass a flyer supplied (½·m·v² off the measured
-  // descent rate) — the cert-card figure — only when a mass was entered and it computes.
+  // Figures a flyer supplied on-screen: landing energy (½·m·v² off the measured descent
+  // rate — the cert-card number) and the main-deploy verification (measured vs set). Only
+  // the ones actually entered are included.
   if (recovery) {
-    const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null);
-    if (joules != null) {
+    const rec: Record<string, unknown> = {};
+    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null) : null;
+    if (joules != null && recovery.descendingMassKg != null) {
       const massUnit = sys === 'metric' ? 'g' : 'oz';
-      doc.recovery = {
-        descendingMass: { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit },
-        landingEnergyJoules: round(joules, 1),
-        landingEnergyFtLbf: round(joulesToFtLbf(joules), 1),
-      };
+      rec.descendingMass = { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit };
+      rec.landingEnergyJoules = round(joules, 1);
+      rec.landingEnergyFtLbf = round(joulesToFtLbf(joules), 1);
     }
+    if (recovery.mainDeploy) {
+      const { setM, actualM } = recovery.mainDeploy;
+      const chk = deployCheck(actualM, setM);
+      rec.mainDeploy = { setAltitude: len(setM), actualAltitude: len(actualM), offset: len(chk.offsetM), verdict: chk.when };
+    }
+    if (Object.keys(rec).length) doc.recovery = rec;
   }
 
   return JSON.stringify(doc, null, 2);
