@@ -141,7 +141,7 @@ export default function FlightReport({
   }
 
   function downloadData() {
-    download(new Blob([analyzedDataCsv(analysis, sys)], { type: 'text/csv' }), `${stem}-debrief.csv`);
+    download(new Blob([analyzedDataCsv(flight, analysis, sys)], { type: 'text/csv' }), `${stem}-debrief.csv`);
   }
 
   function downloadJson() {
@@ -275,7 +275,7 @@ export default function FlightReport({
     try {
       const entries: ZipEntry[] = [
         { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta) },
-        { name: `${stem}-data.csv`, data: analyzedDataCsv(analysis, sys) },
+        { name: `${stem}-data.csv`, data: analyzedDataCsv(flight, analysis, sys) },
         { name: `${stem}-debrief.json`, data: analysisJson(flight, analysis, sys, analyzedAt, reportMeta) },
         ...figureSvgs().map((f) => ({ name: f.name, data: f.svg })),
       ];
@@ -440,7 +440,7 @@ export default function FlightReport({
             <button
               type="button"
               onClick={downloadData}
-              title="Download the analyzed series (time, altitude, velocity, acceleration) as CSV"
+              title="Download the whole flight as CSV — Debrief's derived series (altitude, velocity, acceleration, Mach, dynamic pressure) plus every channel the logger recorded (battery, temperature, GPS, tilt …)"
               className={SAVE_BTN}
             >
               Save .csv

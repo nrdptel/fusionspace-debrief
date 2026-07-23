@@ -32,21 +32,47 @@ describe('report exports', () => {
   const flight = tinyFlight();
   const analysis = analyzeFlight(flight);
 
-  it('analyzedDataCsv has a unit header and one row per sample', () => {
-    const csv = analyzedDataCsv(analysis, 'imperial');
+  it('analyzedDataCsv leads with the six derived columns and one row per sample', () => {
+    const csv = analyzedDataCsv(flight, analysis, 'imperial');
     const lines = csv.split('\n');
-    expect(lines[0]).toBe(
-      'time (s),altitude (ft AGL),velocity (ft/s),acceleration (g),mach,dynamic pressure (psi)',
+    expect(lines[0]).toMatch(
+      /^time \(s\),altitude \(ft AGL\),velocity \(ft\/s\),acceleration \(g\),mach,dynamic pressure \(psi\)/,
     );
     expect(lines.length).toBe(flight.time.length + 1);
     expect(lines[1].split(',')[0]).toBe('0.000');
-    expect(lines[1].split(',')).toHaveLength(6); // every column present, even at t=0
+    // Six derived columns, then one per recorded channel (this flight logged altitude).
+    expect(lines[1].split(',').length).toBeGreaterThanOrEqual(6);
   });
 
   it('switches CSV units with the system', () => {
-    const header = analyzedDataCsv(analysis, 'metric').split('\n')[0];
+    const header = analyzedDataCsv(flight, analysis, 'metric').split('\n')[0];
     expect(header).toContain('altitude (m AGL)');
     expect(header).toContain('dynamic pressure (kPa)');
+  });
+
+  it('carries every recorded channel the logger captured, not just the derived curves', () => {
+    // A flight that also logged battery voltage and temperature: both must ride into the
+    // data export as their own columns, in the displayed units, alongside the derived six.
+    const n = flight.time.length;
+    const volts = Float64Array.from({ length: n }, (_, i) => 9.1 - i * 0.0002);
+    const tempC = Float64Array.from({ length: n }, () => 20);
+    const rich = {
+      ...flight,
+      channels: [
+        ...flight.channels,
+        { kind: 'voltage' as const, label: 'Battery', unit: 'V', values: volts },
+        { kind: 'temperature' as const, label: 'Temp', unit: '°C', values: tempC },
+      ],
+    };
+    const csv = analyzedDataCsv(rich, analyzeFlight(rich), 'imperial');
+    const header = csv.split('\n')[0];
+    expect(header).toContain('Battery (V)');
+    expect(header).toContain('Temp (°F)'); // temperature converts to the imperial system
+    // The battery column carries real values, not blanks.
+    const cols = header.split(',');
+    const battCol = cols.findIndex((c) => c.includes('Battery'));
+    const firstRow = csv.split('\n')[1].split(',');
+    expect(Number(firstRow[battCol])).toBeGreaterThan(9);
   });
 
   it('summaryText carries provenance and a hedge', () => {

@@ -6,6 +6,8 @@ import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 import type { UnitSystem } from './display';
 import { compareReported } from './flight/reported';
 import { crossCheck, type Comparison, type CompareFlight } from './compare';
+import { buildPlotChannels } from './explore';
+import { formulaGuard } from './csv';
 import {
   fmtLength,
   fmtSpeed,
@@ -220,14 +222,30 @@ export function summaryMarkdown(
 
 /** The analyzed series as a tidy CSV in the chosen units — the cleaned data a
  *  spreadsheet user would otherwise have to derive by hand. */
-export function analyzedDataCsv(analysis: FlightAnalysis, sys: UnitSystem): string {
+export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys: UnitSystem): string {
   const { time, altitude, velocity, acceleration, speedOfSound, airDensity } = analysis.series;
   const L = UNIT_LABEL[sys];
   const pUnit = pressureUnit(sys);
   const cell = (v: number) => (Number.isFinite(v) ? v : '');
-  const rows = [
-    `time (s),altitude (${L.length} AGL),velocity (${L.speed}),acceleration (g),mach,dynamic pressure (${pUnit})`,
-  ];
+  // Past Debrief's six derived curves, carry every channel the logger actually recorded
+  // (battery, temperature, tilt, roll, GPS, raw pressure, per-axis acceleration …), in
+  // its displayed unit, so one data export is the whole flight rather than the headline
+  // curves alone — the "expose everything the logger recorded" promise, in a single file.
+  const recorded = buildPlotChannels(flight, analysis.series).filter((c) => c.group === 'Recorded');
+  const sig6 = (v: number) => (Number.isFinite(v) ? Number(v.toPrecision(6)) : '');
+  // Recorded labels are logger-derived, so quote and defang them (a stray comma or a
+  // spreadsheet-formula prefix would otherwise break or hijack the CSV).
+  const quoted = (s: string) => `"${formulaGuard(s).replace(/"/g, '""')}"`;
+  const header = [
+    'time (s)',
+    `altitude (${L.length} AGL)`,
+    `velocity (${L.speed})`,
+    'acceleration (g)',
+    'mach',
+    `dynamic pressure (${pUnit})`,
+    ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
+  ].join(',');
+  const rows = [header];
   for (let i = 0; i < time.length; i++) {
     const v = velocity[i];
     const mach = speedOfSound > 0 ? v / speedOfSound : NaN;
@@ -240,6 +258,7 @@ export function analyzedDataCsv(analysis: FlightAnalysis, sys: UnitSystem): stri
         cell(Number(accelInG(acceleration[i]).toFixed(2))),
         cell(Number(mach.toFixed(3))),
         cell(Number(pressureIn(q, sys).toFixed(2))),
+        ...recorded.map((c) => sig6(c.toDisplay(c.values[i], sys))),
       ].join(','),
     );
   }
