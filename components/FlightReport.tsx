@@ -98,6 +98,9 @@ export default function FlightReport({
     setReportNotes('');
   }, [flight.source]);
   const reportMeta = useMemo(() => ({ label: reportLabel, notes: reportNotes }), [reportLabel, reportNotes]);
+  // The descending mass a flyer entered (for landing energy / Cd) rides into the exported
+  // report too, so the cert-card landing-energy figure isn't left behind on screen.
+  const recovery = useMemo(() => (massKg != null ? { descendingMassKg: massKg } : undefined), [massKg]);
 
   const stem = reportStem(flight.source);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
@@ -122,7 +125,7 @@ export default function FlightReport({
   }
 
   async function copySummary() {
-    const text = summaryText(flight, analysis, sys, analyzedAt, reportMeta);
+    const text = summaryText(flight, analysis, sys, analyzedAt, reportMeta, recovery);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -133,11 +136,11 @@ export default function FlightReport({
   }
 
   function downloadSummary() {
-    download(new Blob([summaryText(flight, analysis, sys, analyzedAt, reportMeta)], { type: 'text/plain' }), `${stem}-debrief.txt`);
+    download(new Blob([summaryText(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'text/plain' }), `${stem}-debrief.txt`);
   }
 
   function downloadMarkdown() {
-    download(new Blob([summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta)], { type: 'text/markdown' }), `${stem}-debrief.md`);
+    download(new Blob([summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'text/markdown' }), `${stem}-debrief.md`);
   }
 
   function downloadData() {
@@ -146,7 +149,7 @@ export default function FlightReport({
 
   function downloadJson() {
     download(
-      new Blob([analysisJson(flight, analysis, sys, analyzedAt, reportMeta)], { type: 'application/json' }),
+      new Blob([analysisJson(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'application/json' }),
       `${stem}-debrief.json`,
     );
   }
@@ -274,9 +277,9 @@ export default function FlightReport({
     setBundleMsg('Building bundle…');
     try {
       const entries: ZipEntry[] = [
-        { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta) },
+        { name: `${stem}-summary.md`, data: summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta, recovery) },
         { name: `${stem}-data.csv`, data: analyzedDataCsv(flight, analysis, sys) },
-        { name: `${stem}-debrief.json`, data: analysisJson(flight, analysis, sys, analyzedAt, reportMeta) },
+        { name: `${stem}-debrief.json`, data: analysisJson(flight, analysis, sys, analyzedAt, reportMeta, recovery) },
         ...figureSvgs().map((f) => ({ name: f.name, data: f.svg })),
       ];
       download(await zip(entries), `${stem}-debrief.zip`);

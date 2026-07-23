@@ -8,6 +8,7 @@ import { compareReported } from './flight/reported';
 import { crossCheck, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
 import { formulaGuard } from './csv';
+import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import {
   fmtLength,
   fmtSpeed,
@@ -24,6 +25,32 @@ import {
   pressureUnit,
   UNIT_LABEL,
 } from './display';
+
+/** Recovery figures a flyer supplied on-screen that a report should carry — today the
+ *  descending mass, from which the landing energy (½·m·v², the number a cert card and
+ *  many club waivers ask for) is read against the measured landing descent rate. */
+export interface RecoveryFigures {
+  descendingMassKg: number;
+}
+
+/** The landing-energy summary row, when a descending mass was entered and the flight has
+ *  a landing descent rate — in the cert unit (ft·lbf imperial, J metric), noting the mass. */
+function landingEnergyRow(
+  m: FlightAnalysis['metrics'],
+  sys: UnitSystem,
+  recovery: RecoveryFigures | undefined,
+): [string, string] | null {
+  if (!recovery) return null;
+  const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null);
+  if (joules == null) return null;
+  const massUnit = sys === 'metric' ? 'g' : 'oz';
+  const massDisp = (recovery.descendingMassKg / MASS_TO_KG[massUnit]).toFixed(massUnit === 'oz' ? 1 : 0);
+  const value =
+    sys === 'metric'
+      ? `${Math.round(joules)} J`
+      : `${joulesToFtLbf(joules).toFixed(joulesToFtLbf(joules) < 100 ? 1 : 0)} ft·lbf`;
+  return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)`];
+}
 
 /** Optional, user-supplied context for a report — a label (rocket, motor, flight
  *  number) and free-text notes — that a flyer adds to make an exported report their
@@ -48,7 +75,11 @@ function row(label: string, value: string): string {
 /** The headline metrics as [label, value] pairs in report order — the single
  *  source both the text and the Markdown export render, so they never drift. Only
  *  the metrics the flight actually has are included. */
-function headlineRows(m: FlightAnalysis['metrics'], sys: UnitSystem): [string, string][] {
+function headlineRows(
+  m: FlightAnalysis['metrics'],
+  sys: UnitSystem,
+  recovery?: RecoveryFigures,
+): [string, string][] {
   const rows: [string, string][] = [];
   rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys)]);
   if (Number.isFinite(m.timeToApogee)) rows.push(['Time to apogee', fmtTime(m.timeToApogee)]);
@@ -74,6 +105,8 @@ function headlineRows(m: FlightAnalysis['metrics'], sys: UnitSystem): [string, s
     rows.push([m.drogueDescentRate != null ? 'Main descent' : 'Descent rate', fmtSpeed(m.mainDescentRate, sys)]);
   }
   if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime)]);
+  const landing = landingEnergyRow(m, sys, recovery);
+  if (landing) rows.push(landing);
   if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
   if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
@@ -110,6 +143,7 @@ export function summaryText(
   sys: UnitSystem,
   analyzedAt?: number,
   meta?: ReportMeta,
+  recovery?: RecoveryFigures,
 ): string {
   const label = clean(meta?.label);
   const notes = clean(meta?.notes);
@@ -124,7 +158,7 @@ export function summaryText(
   }
   lines.push('');
 
-  for (const [label, value] of headlineRows(analysis.metrics, sys)) lines.push(row(label, value));
+  for (const [label, value] of headlineRows(analysis.metrics, sys, recovery)) lines.push(row(label, value));
 
   if (analysis.events.length) {
     lines.push('');
@@ -172,6 +206,7 @@ export function summaryMarkdown(
   sys: UnitSystem,
   analyzedAt?: number,
   meta?: ReportMeta,
+  recovery?: RecoveryFigures,
 ): string {
   const cell = (s: string) => s.replace(/\|/g, '\\|'); // a stray pipe would split the table cell
   const label = clean(meta?.label);
@@ -191,7 +226,7 @@ export function summaryMarkdown(
 
   out.push('| Metric | Value |');
   out.push('| --- | --- |');
-  for (const [label, value] of headlineRows(analysis.metrics, sys)) out.push(`| ${cell(label)} | ${cell(value)} |`);
+  for (const [label, value] of headlineRows(analysis.metrics, sys, recovery)) out.push(`| ${cell(label)} | ${cell(value)} |`);
 
   if (analysis.events.length) {
     out.push('', '## Events', '', '| Event | Time | Altitude | Speed | Shock |', '| --- | --- | --- | --- | --- |');
@@ -540,6 +575,7 @@ export function analysisJson(
   sys: UnitSystem,
   analyzedAt?: number,
   meta?: ReportMeta,
+  recovery?: RecoveryFigures,
 ): string {
   const { metrics: m, events, warnings, series } = analysis;
   const { round, len, spd, acc, sec } = jsonConv(sys);
@@ -584,6 +620,20 @@ export function analysisJson(
       agreementPct: deltaPct == null ? null : round(deltaPct, 1),
       agreement: status,
     }));
+  }
+
+  // Landing energy from the descending mass a flyer supplied (½·m·v² off the measured
+  // descent rate) — the cert-card figure — only when a mass was entered and it computes.
+  if (recovery) {
+    const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null);
+    if (joules != null) {
+      const massUnit = sys === 'metric' ? 'g' : 'oz';
+      doc.recovery = {
+        descendingMass: { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit },
+        landingEnergyJoules: round(joules, 1),
+        landingEnergyFtLbf: round(joulesToFtLbf(joules), 1),
+      };
+    }
   }
 
   return JSON.stringify(doc, null, 2);

@@ -115,6 +115,31 @@ describe('report exports', () => {
     expect(apogeeEventRow).toBeTruthy();
   });
 
+  it('carries landing energy into the exports when a descending mass is supplied', () => {
+    // ½·m·v² off the measured landing descent rate — the cert-card figure. 1.2 kg.
+    const recovery = { descendingMassKg: 1.2 };
+    const rate = analysis.metrics.mainDescentRate!;
+    const expectedJ = 0.5 * 1.2 * rate * rate;
+
+    const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery);
+    expect(txt).toMatch(/Landing energy\s+[\d.]+ ft·lbf \(at [\d.]+ oz descending\)/);
+
+    const md = summaryMarkdown(flight, analysis, 'metric', 1_700_000_000_000, undefined, recovery);
+    expect(md).toMatch(/\| Landing energy \| \d+ J \(at \d+ g descending\) \|/);
+
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery));
+    expect(doc.recovery.landingEnergyJoules).toBeCloseTo(expectedJ, 0);
+    expect(doc.recovery.landingEnergyFtLbf).toBeCloseTo(expectedJ / 1.3558179483, 0);
+    expect(doc.recovery.descendingMass).toEqual({ value: expect.any(Number), unit: 'oz' });
+  });
+
+  it('omits landing energy when no descending mass is given', () => {
+    const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000);
+    expect(txt).not.toMatch(/Landing energy/);
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000));
+    expect(doc.recovery).toBeUndefined();
+  });
+
   it('includes a device cross-check section when the file carried its own summary', () => {
     const withReported: RawFlight = {
       ...flight,

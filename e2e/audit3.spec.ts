@@ -303,6 +303,20 @@ test('computes landing energy from a supplied descending mass, and remembers it'
   // ½·m·v² in ft·lbf (imperial default) — e.g. "11 ft·lbf".
   await expect(panel.getByText(/\d+(\.\d+)?\s*ft·lbf/)).toBeVisible();
 
+  // The entered mass rides into the exported report — the landing energy a cert card
+  // asks for shouldn't be left behind on screen. Download the Markdown and read it back.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/^Download a Markdown report/).click(),
+  ]);
+  const stream = await dl.createReadStream();
+  const md = await new Promise<string>((resolve) => {
+    let buf = '';
+    stream!.on('data', (c) => (buf += c));
+    stream!.on('end', () => resolve(buf));
+  });
+  expect(md).toMatch(/Landing energy \| [\d.]+ ft·lbf \(at [\d.]+ oz descending\)/);
+
   // The mass sticks across a reload (localStorage).
   await page.reload();
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
