@@ -140,6 +140,17 @@ const TROPOSPHERE_LIMIT_M = 11000;
  *  impossible headline. */
 const IMPLAUSIBLE_VELOCITY = 4000;
 
+/** The range of ambient air temperatures (°C) a rocket is actually launched into on
+ *  Earth's surface — from a bitter high-altitude winter pad to the hottest desert
+ *  playa, with generous margin. A pad reading outside this isn't a credible ambient
+ *  temperature but a mis-scaled column (e.g. a "bmp_temp(x100)" field read as whole
+ *  degrees), a misdetected channel, or raw sensor counts. Rather than let it drive a
+ *  3×-wrong speed of sound — and air density, and every Mach number off them — Debrief
+ *  discards it and falls back to the standard day, exactly as a flight with no
+ *  temperature channel does. */
+const MIN_AMBIENT_C = -90;
+const MAX_AMBIENT_C = 65;
+
 /** Launch-pad ambient pressure (Pa) for the density model: the mean of any
  *  pressure channel over the quiet pad window, falling back to standard sea-level
  *  pressure when the logger records no pressure (so density is still defined). */
@@ -336,7 +347,14 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // anchored to the pad's own conditions — so a high-desert launch isn't read as
   // sea level. These drive the Mach and dynamic-pressure channels in the explorer.
   const tempCh = getChannel(flight, 'temperature');
-  const groundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseEnd) : null;
+  const rawGroundTemperature = tempCh && padDataLikely ? mean(tempCh.values, 0, baseEnd) : null;
+  // Only trust a physically credible ambient reading; otherwise treat it as no
+  // temperature at all so Mach, air density and the reported ground temperature
+  // all fall back to the standard day rather than propagate a garbage value.
+  const groundTemperature =
+    rawGroundTemperature != null && rawGroundTemperature >= MIN_AMBIENT_C && rawGroundTemperature <= MAX_AMBIENT_C
+      ? rawGroundTemperature
+      : null;
   const groundTempK = (groundTemperature ?? 15) + 273.15;
   const speedOfSound = Math.sqrt(1.4 * 287.05 * groundTempK); // ground value (near-pad reads, e.g. rail exit)
   const sosProfile = speedOfSoundProfile(altClean, groundTempK); // altitude-varying, for Mach

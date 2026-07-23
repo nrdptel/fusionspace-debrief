@@ -188,7 +188,9 @@ export default function MethodsPage() {
           <Method title="Mach & dynamic pressure">
             The speed of sound comes from the air temperature, which falls with altitude on the
             standard-atmosphere lapse rate — anchored to the ground temperature the logger records
-            (else a 15&nbsp;°C standard day) and levelling off at the tropopause (~11&nbsp;km). Mach
+            (else a 15&nbsp;°C standard day, and likewise when a recorded pad temperature falls outside
+            the range Earth&apos;s surface actually reaches, e.g. a mis-scaled sensor column) and
+            levelling off at the tropopause (~11&nbsp;km). Mach
             is velocity over that <em>local</em> speed of sound, so a peak reached a few thousand feet
             up is read against the colder, slower air it was actually in, not the ground value (a
             touch higher than a ground-temperature divisor, and more so with height). Dynamic pressure

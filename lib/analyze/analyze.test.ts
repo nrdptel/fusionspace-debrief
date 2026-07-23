@@ -678,4 +678,33 @@ describe('analyzeFlight (barometric)', () => {
     const apIdx = a.series.altitude.indexOf(Math.max(...a.series.altitude));
     expect(a.series.airDensity[apIdx]).toBeLessThan(a.series.airDensity[0]);
   });
+
+  it('discards a physically-impossible ground temperature instead of computing Mach off it', () => {
+    // A real Mercury AltimeterCloud telemetry file writes "bmp_temp(x100)": 27 °C is
+    // stored as 2700. Read as whole degrees it would make a ~2973 K pad and a ~1090 m/s
+    // speed of sound — understating every Mach number ~3×. The guard must reject it and
+    // fall back to the standard day.
+    const { flight } = syntheticBaroFlight();
+    const packed = new Float64Array(flight.time.length).fill(2710); // 27.1 °C, ×100-packed
+    const withBadTemp: RawFlight = {
+      ...flight,
+      channels: [...flight.channels, { kind: 'temperature', label: 'bmp_temp(x100)', unit: 'c', values: packed }],
+    };
+    const a = analyzeFlight(withBadTemp);
+    // Not trusted → reported as no reading, and the atmosphere is the standard 15 °C day.
+    expect(a.metrics.groundTemperature).toBeNull();
+    expect(a.series.speedOfSound).toBeGreaterThan(335);
+    expect(a.series.speedOfSound).toBeLessThan(345);
+
+    // A credible pad temperature, by contrast, is used as-is.
+    const warm = new Float64Array(flight.time.length).fill(30); // 30 °C desert pad
+    const withWarmTemp: RawFlight = {
+      ...flight,
+      channels: [...flight.channels, { kind: 'temperature', label: 'temp', unit: 'c', values: warm }],
+    };
+    const b = analyzeFlight(withWarmTemp);
+    expect(b.metrics.groundTemperature).toBeGreaterThan(29);
+    expect(b.metrics.groundTemperature).toBeLessThan(31);
+    expect(b.series.speedOfSound).toBeGreaterThan(345); // warmer air → faster sound than the 15 °C day
+  });
 });
