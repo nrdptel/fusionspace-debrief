@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, analysisJson, compareMarkdown, compareJson, compareMetricRows } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, analysisJson, compareMarkdown, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
 import { buildComparison, type CompareInput } from './compare';
 
 function tinyFlight(): RawFlight {
@@ -190,6 +190,25 @@ describe('comparison report', () => {
   it('reports no spread for a non-pair comparison', () => {
     const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
     expect(compareMetricRows(three.flights, 'metric')[0].spreadPct).toBeNull();
+  });
+
+  it('tags a clipped max acceleration and withholds the highest-g crown', () => {
+    const [a, b] = comparison.flights;
+    const clip = (f: typeof a, maxA: number, clipped: boolean) =>
+      ({ ...f, metrics: { ...f.metrics, maxAcceleration: maxA, accelerationSource: 'device' as const, accelClipped: clipped } }) as typeof a;
+    const flights = [clip(a, 157, true), clip(b, 304, false)];
+    expect(compareHasClippedAccel(flights)).toBe(true);
+    const acc = compareMetricRows(flights, 'metric').find((r) => r.label === 'Max acceleration')!;
+    // The saturated cell is tagged; the clean one isn't…
+    expect(acc.cells[0]).toMatch(/\(clipped\)/);
+    expect(acc.cells[1]).not.toMatch(/\(clipped\)/);
+    // …and no flight is crowned "highest", because a floor can't settle which pulled most g.
+    expect(acc.best).toBe(-1);
+
+    // With neither clipped, the higher value is crowned as usual.
+    const clean = [clip(a, 157, false), clip(b, 304, false)];
+    expect(compareHasClippedAccel(clean)).toBe(false);
+    expect(compareMetricRows(clean, 'metric').find((r) => r.label === 'Max acceleration')!.best).toBe(1);
   });
 
   it('compareMarkdown carries the cross-check and a metrics table with a difference column', () => {

@@ -8,7 +8,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareJson, compareMetricRows, compareHasBaroMix, type ReportMeta } from '@/lib/report';
+import { compareMarkdown, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import { lengthIn, speedIn, accelInG, pressureIn, pressureUnit, UNIT_LABEL } from '@/lib/display';
 import { useIsDark } from './useIsDark';
@@ -81,6 +81,7 @@ export default function CompareView({
   // and the Markdown bundle can't drift.
   const metricRows = compareMetricRows(flights, sys);
   const baroMix = compareHasBaroMix(flights);
+  const clippedAccel = compareHasClippedAccel(flights);
 
   // Memoized so an Analyzer re-render (e.g. a background recents refresh) doesn't
   // change these prop identities and rebuild the chart, resetting any zoom.
@@ -429,6 +430,14 @@ export default function CompareView({
         <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
           <span className="font-mono">(baro)</span> — derived from altitude rather than logged by the
           device, so it reads softer at peak speed; compare those values with that in mind.
+        </p>
+      )}
+
+      {clippedAccel && (
+        <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-mono">(clipped)</span> — the accelerometer saturated at its full-scale
+          limit, so its peak is a floor, not the true maximum; the highest-acceleration mark is withheld
+          because the comparison can&apos;t settle which flight actually pulled the most g.
         </p>
       )}
 

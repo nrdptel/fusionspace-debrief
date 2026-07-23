@@ -277,10 +277,16 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
   const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
   const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
     mixed && source === 'baro' && finite ? ' (baro)' : '';
+  // A saturated peak is a floor, so a clipped cell is tagged and — since the true
+  // maximum is unknown — the row's "highest" crown is withheld: which flight actually
+  // pulled the most g can't be settled when one reading railed at its limit.
+  const anyClipped = flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
+  const clipTag = (m: FlightMetrics) => (m.accelClipped && Number.isFinite(m.maxAcceleration) ? ' (clipped)' : '');
 
   // Every row has a numeric value (for the pairwise spread); `rank` marks the rows
-  // where a single highest value is a meaningful "best" to emphasize.
-  const specs: { label: string; get: (m: FlightMetrics) => string; value: (m: FlightMetrics) => number; rank?: boolean }[] = [
+  // where a single highest value is a meaningful "best" to emphasize. `rankBlocked`
+  // withholds that crown even on a rankable row when the comparison can't settle it.
+  const specs: { label: string; get: (m: FlightMetrics) => string; value: (m: FlightMetrics) => number; rank?: boolean; rankBlocked?: boolean }[] = [
     { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), value: (m) => m.apogeeAltitude, rank: true },
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee), value: (m) => m.timeToApogee },
     {
@@ -292,9 +298,10 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
     { label: 'Max Mach', get: (m) => fmtMach(m.mach), value: (m) => m.mach ?? NaN, rank: true },
     {
       label: 'Max acceleration',
-      get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)),
+      get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)) + clipTag(m),
       value: (m) => m.maxAcceleration,
       rank: true,
+      rankBlocked: anyClipped,
     },
     { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), value: (m) => m.maxDynamicPressure ?? NaN, rank: true },
     { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—'), value: (m) => m.burnTime ?? NaN },
@@ -315,7 +322,7 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
 
   return specs.map((s) => {
     let best = -1;
-    if (s.rank) {
+    if (s.rank && !s.rankBlocked) {
       let bv = -Infinity;
       let finite = 0;
       let ties = 0;
@@ -353,6 +360,12 @@ export function compareHasBaroMix(flights: CompareFlight[]): boolean {
     new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1 ||
     new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1
   );
+}
+
+/** Whether any compared flight tags its max acceleration "(clipped)" — a saturated
+ *  reading, so a footnote is warranted and the "highest" crown was withheld. */
+export function compareHasClippedAccel(flights: CompareFlight[]): boolean {
+  return flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
 }
 
 /** A report-grade Markdown comparison — the cross-check narrative (how closely the
@@ -406,6 +419,12 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
 
   if (compareHasBaroMix(flights)) {
     out.push('', '_(baro) — derived from altitude rather than logged by the device, so it reads softer at peak speed._');
+  }
+  if (compareHasClippedAccel(flights)) {
+    out.push(
+      '',
+      '_(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor, not the true maximum; the highest-acceleration mark is withheld because which flight pulled the most g can’t be settled._',
+    );
   }
 
   out.push('');
