@@ -151,6 +151,17 @@ const IMPLAUSIBLE_VELOCITY = 4000;
 const MIN_AMBIENT_C = -90;
 const MAX_AMBIENT_C = 65;
 
+/** The transonic band (Mach) where a barometric speed can't be trusted to tell subsonic
+ *  from supersonic. Approaching Mach 1 the airflow over the static port goes locally
+ *  supersonic and a shock sits on it, so the sensed pressure — and the speed and Mach
+ *  derived from it — spikes right where the reading matters most: a corpus baro flight
+ *  read Mach 1.19 where its accelerometer-equipped partner measured 0.93. A baro peak in
+ *  this band is flagged (not withheld) so a near-Mach-1 reading isn't taken as proof the
+ *  rocket went supersonic. Above it the flight is unambiguously supersonic (baro only
+ *  under-reads the peak, already caveated); below it there's no shock to distort it. */
+const TRANSONIC_BARO_LOW = 0.9;
+const TRANSONIC_BARO_HIGH = 1.3;
+
 /** Launch-pad ambient pressure (Pa) for the density model: the mean of any
  *  pressure channel over the quiet pad window, falling back to standard sea-level
  *  pressure when the logger records no pressure (so density is still defined). */
@@ -845,6 +856,14 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       warnings.push('Acceleration was derived from altitude (no accelerometer channel was recorded), so the curve is a smoothed estimate and peak acceleration isn’t reported — a barometer can’t resolve it.');
     } else if (velBaro) {
       warnings.push('Velocity was derived from altitude, so it is a smoothed estimate rather than a direct measurement.');
+    }
+    // A barometric speed can't be trusted right around Mach 1 — the shock over the static
+    // port spikes the reading — so a baro peak in the transonic band isn't proof of a
+    // supersonic flight, even though the number lands past Mach 1.
+    if (velBaro && mach !== null && mach >= TRANSONIC_BARO_LOW && mach <= TRANSONIC_BARO_HIGH) {
+      warnings.push(
+        `The peak speed (about Mach ${mach.toFixed(2)}) is in the transonic region, where a barometric speed is unreliable — the shock wave over the pressure port near Mach 1 inflates the reading, so this can’t confirm the rocket actually went supersonic. An accelerometer or GPS would settle it.`,
+      );
     }
   }
   if (sampleHz > 0 && sampleHz < 5 && velocitySource === 'baro') {

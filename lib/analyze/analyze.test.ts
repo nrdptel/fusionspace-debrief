@@ -678,6 +678,54 @@ describe('analyzeFlight (barometric)', () => {
     expect(analyzeFlight(syntheticBaroFlight().flight).metrics.transonicTime).toBeNull();
   });
 
+  it('caveats a barometric speed that peaks in the transonic band, but not a measured one', () => {
+    // A fast flight whose speed peaks near Mach 1 (~360 m/s at burnout) — the region a
+    // barometer can't read reliably. Build it once, then analyse it two ways.
+    const dt = 0.05;
+    const padT = 2;
+    const aBoost = 180; // m/s² → ~360 m/s burnout, ~Mach 1.06
+    const tBurn = 2;
+    const vB = aBoost * tBurn;
+    const hB = 0.5 * aBoost * tBurn * tBurn;
+    const coastT = vB / G0;
+    const total = padT + tBurn + coastT + 40;
+    const time: number[] = [];
+    const alt: number[] = [];
+    const vel: number[] = [];
+    for (let t = 0; t <= total; t += dt) {
+      const ft = t - padT;
+      let h: number;
+      let v: number;
+      if (ft <= 0) ((h = 0), (v = 0));
+      else if (ft <= tBurn) ((h = 0.5 * aBoost * ft * ft), (v = aBoost * ft));
+      else {
+        const c = ft - tBurn;
+        h = Math.max(0, hB + vB * c - 0.5 * G0 * c * c);
+        v = Math.max(0, vB - G0 * c);
+      }
+      time.push(t);
+      alt.push(h);
+      vel.push(v);
+    }
+    const baseFlight: RawFlight = {
+      source: 'x', format: 'test', formatLabel: 'Test', time: Float64Array.from(time),
+      channels: [{ kind: 'altitude', label: 'alt', unit: 'm', values: Float64Array.from(alt) }], meta: {}, notes: [],
+    };
+    const baro = analyzeFlight(baseFlight);
+    expect(baro.series.velocitySource).toBe('baro');
+    expect(baro.metrics.mach!).toBeGreaterThan(0.9);
+    expect(baro.warnings.some((w) => /transonic/i.test(w))).toBe(true);
+
+    // Same flight with a measured velocity channel: the reading is trustworthy, so no
+    // transonic caveat even at the same Mach.
+    const measured = analyzeFlight({
+      ...baseFlight,
+      channels: [...baseFlight.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: Float64Array.from(vel) }],
+    });
+    expect(measured.series.velocitySource).toBe('device');
+    expect(measured.warnings.some((w) => /transonic/i.test(w))).toBe(false);
+  });
+
   it('builds an atmosphere for the Mach & dynamic-pressure channels', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     // No temperature channel → a standard 15 °C day → ~340 m/s.

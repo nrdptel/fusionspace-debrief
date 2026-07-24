@@ -58,7 +58,12 @@ export default function MethodsPage() {
             flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled or misidentified velocity
             column (a raw sensor count read as a speed); such a reading is withheld, along with
             everything derived from it — Mach, max-Q, the burnout velocity and the coast efficiency —
-            rather than reported as an impossible number.
+            rather than reported as an impossible number. A derived speed that peaks in the transonic
+            region (about Mach&nbsp;0.9–1.3) carries a further caveat: approaching Mach&nbsp;1 the airflow
+            over a barometric pressure port goes locally supersonic and a shock sits on it, inflating the
+            sensed pressure and the speed read from it — so a baro-only reading right around Mach&nbsp;1
+            can&apos;t confirm the rocket truly went supersonic. It&apos;s flagged, not withheld; an
+            accelerometer or GPS settles it.
           </Method>
           <Method title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
