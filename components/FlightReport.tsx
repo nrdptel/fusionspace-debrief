@@ -296,7 +296,7 @@ export default function FlightReport({
         }),
       });
     }
-    if (series.acceleration.some((v) => Number.isFinite(v) && v !== 0)) {
+    if (series.accelerationSource === 'device' && series.acceleration.some((v) => Number.isFinite(v) && v !== 0)) {
       figs.push({
         name: `${stem}-acceleration.svg`,
         svg: plotSvg({
@@ -346,7 +346,11 @@ export default function FlightReport({
     [events],
   );
 
-  const hasAccel = series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
+  // Only a measured acceleration is charted. A baro-derived acceleration is a
+  // noise-dominated second derivative whose peak is already withheld (a real trace swings
+  // hundreds of g), so it isn't plotted or exported either — the velocity chart carries
+  // the derived kinematics instead.
+  const hasAccel = series.accelerationSource === 'device' && series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
 
   // Air density over the drogue phase (apogee → main) — higher and thinner than the
   // ground, the right ρ for the drogue Cd. Median over the phase so noise averages out.

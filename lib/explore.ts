@@ -127,8 +127,15 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
     // what spike-removal took out (e.g. an ejection charge's pressure pop).
     { key: 'd-altitude-raw', label: 'Altitude (raw)', group: 'Debrief', values: series.altitudeRaw, ...display('m') },
     { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s') },
-    { key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2') },
   ];
+  // Acceleration is offered only when it was measured. A baro-derived acceleration is the
+  // second derivative of a coarse altitude and is pure differentiation noise — a real
+  // corpus flight's trace swings ±450 g (and one mis-sampled file ±270,000 g), which
+  // would just wreck the axis. Its peak is already withheld for the same reason, so the
+  // trace isn't presented either; the velocity trace (a usable first derivative) stays.
+  if (series.accelerationSource === 'device') {
+    out.push({ key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2') });
+  }
 
   // Mach number and dynamic pressure — the quantities a rocket is designed
   // around (transonic region, max-Q). Both ride on the velocity and the flight's

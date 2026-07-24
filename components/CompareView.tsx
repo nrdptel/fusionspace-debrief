@@ -89,7 +89,7 @@ export default function CompareView({
 
   // Pick which quantity to overlay across flights. All three are derived for
   // every analyzed flight, so they overlay cleanly regardless of logger.
-  const metrics: {
+  const allMetrics: {
     key: MetricKey;
     label: string;
     unit: string;
@@ -102,6 +102,10 @@ export default function CompareView({
     { key: 'mach', label: 'Mach', unit: '', get: (f) => f.mach, toDisplay: (v) => v },
     { key: 'dynamicPressure', label: 'Dynamic pressure', unit: pressureUnit(sys), get: (f) => f.dynamicPressure, toDisplay: (v) => pressureIn(v, sys) },
   ];
+  // Acceleration overlays only when at least one flight measured it; a baro-derived
+  // acceleration is left out at build time, so an all-barometric comparison drops the
+  // option entirely rather than offer an empty chart.
+  const metrics = allMetrics.filter((m) => m.key !== 'acceleration' || flights.some((f) => f.acceleration.some((v) => Number.isFinite(v))));
   const active = metrics.find((m) => m.key === metric) ?? metrics[0];
   const metricSeries = useMemo(
     () => flights.map((f) => ({ label: stem(f.name), values: f[metric], stroke: f.color, width: 2 })),
@@ -203,7 +207,9 @@ export default function CompareView({
   const saveBundle = async () => {
     setBundleMsg('Building bundle…');
     try {
-      const figureKeys: MetricKey[] = ['altitude', 'velocity', 'acceleration'];
+      // Only figures for metrics actually offered (acceleration drops out of an
+      // all-barometric comparison), so the bundle never holds an empty acceleration plot.
+      const figureKeys = (['altitude', 'velocity', 'acceleration'] as MetricKey[]).filter((k) => metrics.some((m) => m.key === k));
       const entries: ZipEntry[] = [
         { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note, reportMeta) },
         { name: 'compare-metrics.csv', data: metricsCsv() },

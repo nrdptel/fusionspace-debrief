@@ -11,7 +11,7 @@ const series: FlightSeries = {
   acceleration: Float64Array.from([0, 9.80665, -9.80665]),
   axialAccel: Float64Array.from([0, 9.80665, -9.80665]),
   velocitySource: 'baro',
-  accelerationSource: 'baro',
+  accelerationSource: 'device',
   altitudeSource: 'baro',
   speedOfSound: 340,
   speedOfSoundProfile: Float64Array.from([340, 339, 338]),
@@ -48,6 +48,14 @@ describe('buildPlotChannels', () => {
 
   it('skips a channel the file declared but never filled', () => {
     expect(channels.some((c) => c.label === 'Empty')).toBe(false);
+  });
+
+  it('offers the acceleration channel only when it was measured, not derived from baro', () => {
+    // A baro-derived acceleration is a noise-dominated second derivative (its peak is
+    // withheld too), so the trace isn't offered — the velocity channel still is.
+    const baro = buildPlotChannels(flight, { ...series, accelerationSource: 'baro' });
+    expect(baro.some((c) => c.key === 'd-acceleration')).toBe(false);
+    expect(baro.some((c) => c.key === 'd-velocity')).toBe(true);
   });
 
   it('derives Mach (velocity ÷ the local speed of sound) and dynamic pressure (½ρv²)', () => {

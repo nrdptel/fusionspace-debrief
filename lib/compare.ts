@@ -142,7 +142,14 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       color: COMPARE_PALETTE[idx % COMPARE_PALETTE.length],
       altitude: resample(rels[idx], series.altitude, grid),
       velocity: resample(rels[idx], series.velocity, grid),
-      acceleration: resample(rels[idx], series.acceleration, grid),
+      // Only a measured acceleration overlays — a baro-derived one is differentiation
+      // noise (a real trace swings hundreds of g) whose peak is already withheld, so its
+      // curve isn't drawn either; an empty series leaves the overlay to the flights that
+      // measured it.
+      acceleration:
+        series.accelerationSource === 'device'
+          ? resample(rels[idx], series.acceleration, grid)
+          : new Float64Array(grid.length).fill(NaN),
       mach: resample(rels[idx], mach, grid),
       dynamicPressure: resample(rels[idx], q, grid),
       liftoffDetected: it.analysis.events.some((e) => e.type === 'liftoff'),

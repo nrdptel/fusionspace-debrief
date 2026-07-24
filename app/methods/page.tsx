@@ -73,8 +73,9 @@ export default function MethodsPage() {
             be higher. With no accelerometer, acceleration is a second derivative of the barometric
             altitude, and the coarse, quantised baro trace makes its <em>peak</em> (and even its boost
             average) noise, not a measurement — a real flight can read hundreds of g off a single
-            altitude step — so those numbers are withheld. The derived acceleration curve is still
-            plotted, labelled as an estimate, for its shape.
+            altitude step — so those numbers are withheld, and the acceleration trace isn&apos;t charted
+            or offered in the explorer or comparison either (its shape is the same noise). The velocity —
+            a first derivative, and usable — still is, labelled as derived.
           </Method>
           <Method title="Thrust-to-weight (off the pad)">
             The accelerometer&apos;s reading in g right at liftoff is the thrust-to-weight ratio —
