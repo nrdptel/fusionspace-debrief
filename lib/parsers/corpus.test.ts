@@ -8,6 +8,7 @@ import { compareReported } from '../flight/reported';
 import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
+import { buildComparison, crossCheck, type CompareInput } from '../compare';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -204,5 +205,81 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
   }
   for (const fx of byFile.values()) {
     it(`${fx.file}${fx.knownIssue ? ' [known issue: parse-only]' : ''}`, () => runFixture(fx));
+  }
+});
+
+/** Load one corpus file to an analysed flight (named parser, else the generic mapper),
+ *  or null if it isn't present or can't be read/mapped. */
+function loadForCompare(file: string): CompareInput | null {
+  const path = CORPUS + file;
+  if (!existsSync(path)) return null;
+  const text = decodeBytes(new Uint8Array(readFileSync(path)));
+  const res = importFlight({ name: file.split('/').pop() as string, text });
+  let flight;
+  if (res.kind === 'flight') flight = res.flight;
+  else if (res.kind === 'mapping') {
+    const roles = res.table.columns.map((c) => c.role);
+    if (!(roles.includes('time') && (roles.includes('altitude') || roles.includes('pressure')))) return null;
+    const mappings = res.table.columns.filter((c) => c.role !== 'ignore').map((c) => ({ index: c.index, role: c.role, unit: c.unit }));
+    flight = buildFlight({ source: file, format: 'generic', formatLabel: 'Generic CSV', headers: res.table.headers, dataRows: res.table.dataRows, mappings, reported: res.table.reported });
+  } else return null;
+  return { id: file, name: file, formatLabel: 'x', analysis: analyzeFlight(flight) };
+}
+
+// Independent recordings of ONE flight, same stage (redundant altimeters), that must
+// agree closely — the reconciliation North Star under regression. This is what would
+// have caught a baro second-derivative 'acceleration' reading ~300,000 m/s² next to its
+// device partner's real ~180 m/s² peak: an apogee that agrees to a fraction of a percent
+// beside an acceleration cross-check off by four orders of magnitude.
+const RECON_GROUPS: { name: string; files: string[]; apogeeTolPct: number }[] = [
+  {
+    name: 'iss-endurance: TeleMetrum + StratoLogger',
+    apogeeTolPct: 3,
+    files: [
+      'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv',
+      'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv',
+    ],
+  },
+  {
+    name: 'iss-irec2023: EasyMega + TeleMega',
+    apogeeTolPct: 3,
+    files: [
+      'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv',
+      'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv',
+    ],
+  },
+  {
+    name: 'euroc-stacarl2: RRC3 + Eggtimer',
+    apogeeTolPct: 4,
+    files: [
+      'missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv',
+      'eggtimer/eggtimer__euroc-stacarl2-semicolon__sta-carl2-eggtimer.csv',
+    ],
+  },
+];
+
+describe('same-flight reconciliation (redundant recordings agree)', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  for (const g of RECON_GROUPS) {
+    it(g.name, () => {
+      const inputs = g.files.map(loadForCompare).filter((x): x is CompareInput => x != null);
+      expect(inputs.length, `${g.name}: both recordings parse`).toBeGreaterThanOrEqual(2);
+      const agree = crossCheck(buildComparison(inputs).flights);
+
+      // Two recordings of one flight see the same apogee — corroboration, tight.
+      const apo = agree.find((a) => a.key === 'apogee');
+      expect(apo, `${g.name}: apogee cross-check present`).toBeTruthy();
+      expect(apo!.spreadPct, `${g.name}: apogee spread ${apo!.spreadPct.toFixed(1)}%`).toBeLessThan(g.apogeeTolPct);
+
+      // No cross-check figure may be a physically impossible noise spike — the guard
+      // that keeps a derived-signal artefact from ever being reported as agreement.
+      const acc = agree.find((a) => a.key === 'maxAcceleration');
+      if (acc) expect(acc.max / G0, `${g.name}: max acceleration ${(acc.max / G0).toFixed(0)} g is sane`).toBeLessThan(200);
+      const vel = agree.find((a) => a.key === 'maxVelocity');
+      if (vel) expect(vel.max, `${g.name}: max speed ${vel.max.toFixed(0)} m/s is sane`).toBeLessThan(4000);
+    });
   }
 });

@@ -43,9 +43,12 @@ export default function ValidationPage() {
             reads each log and its headline numbers — apogee, max velocity, max acceleration, descent
             rates — are compared against that ground truth within a tolerance. The whole corpus is
             re-run on every change; a read that drifts out of tolerance fails the build before it can
-            ship. Logs Debrief is known to still mis-read are kept in the corpus and parsed without
-            asserting the wrong number, so the gap is documented rather than quietly locked in as
-            correct.
+            ship. Where a flight was recorded by more than one device, the two independent reads are
+            also reconciled against <em>each other</em> — apogee has to agree to within a few percent,
+            and no cross-check figure may be a physically impossible noise spike — so a drift shows up
+            as recordings that stop agreeing. Logs Debrief is known to still mis-read are kept in the
+            corpus and parsed without asserting the wrong number, so the gap is documented rather than
+            quietly locked in as correct.
           </p>
         </section>
 
