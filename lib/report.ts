@@ -136,7 +136,11 @@ function headlineRows(
   }
   if (m.transonicTime != null) {
     const at = m.transonicAltitude != null ? ` at ${fmtLength(m.transonicAltitude, sys)}` : '';
-    rows.push(['Supersonic', `crossed Mach 1${at}, ${fmtTime(m.transonicTime)} after liftoff`]);
+    rows.push(
+      m.transonicUnconfirmed
+        ? ['Transonic', `barometric speed crosses Mach 1${at} — unconfirmed (a barometer can’t confirm supersonic near Mach 1)`]
+        : ['Supersonic', `crossed Mach 1${at}, ${fmtTime(m.transonicTime)} after liftoff`],
+    );
   }
   if (m.burnTime != null) rows.push(['Burn time', fmtTime(m.burnTime)]);
   if (m.burnoutAltitude != null) rows.push(['Burnout altitude', fmtLength(m.burnoutAltitude, sys)]);
@@ -592,6 +596,7 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitSystem): Record<stri
     maxDynamicPressureAltitude: len(m.maxDynamicPressureAltitude),
     transonicTime: sec(m.transonicTime),
     transonicAltitude: len(m.transonicAltitude),
+    ...(m.transonicTime != null ? { transonicUnconfirmed: m.transonicUnconfirmed } : {}),
     burnTime: sec(m.burnTime),
     burnoutAltitude: len(m.burnoutAltitude),
     burnoutVelocity: spd(m.burnoutVelocity),

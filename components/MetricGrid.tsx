@@ -162,13 +162,21 @@ export default function MetricGrid({ metrics, sys }: { metrics: FlightMetrics; s
           ))}
         </div>
       )}
-      {metrics.transonicTime != null && (
-        <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-          Went supersonic — crossed Mach 1
-          {metrics.transonicAltitude != null ? ` at ${fmtLength(metrics.transonicAltitude, sys)}` : ''},{' '}
-          {fmtTime(metrics.transonicTime)} after liftoff.
-        </p>
-      )}
+      {metrics.transonicTime != null &&
+        (metrics.transonicUnconfirmed ? (
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+            Reads transonic — the barometric speed crosses Mach 1
+            {metrics.transonicAltitude != null ? ` around ${fmtLength(metrics.transonicAltitude, sys)}` : ''}, but a
+            barometer can&apos;t confirm supersonic flight here (shock over the pressure port near Mach 1 inflates the
+            reading). An accelerometer or GPS would settle it.
+          </p>
+        ) : (
+          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+            Went supersonic — crossed Mach 1
+            {metrics.transonicAltitude != null ? ` at ${fmtLength(metrics.transonicAltitude, sys)}` : ''},{' '}
+            {fmtTime(metrics.transonicTime)} after liftoff.
+          </p>
+        ))}
     </div>
   );
 }

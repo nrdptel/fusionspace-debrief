@@ -715,6 +715,9 @@ describe('analyzeFlight (barometric)', () => {
     expect(baro.series.velocitySource).toBe('baro');
     expect(baro.metrics.mach!).toBeGreaterThan(0.9);
     expect(baro.warnings.some((w) => /transonic/i.test(w))).toBe(true);
+    // A Mach-1 crossing read off this baro speed is flagged unconfirmed, so the headline
+    // and exports soften "went supersonic" rather than assert it.
+    if (baro.metrics.transonicTime != null) expect(baro.metrics.transonicUnconfirmed).toBe(true);
 
     // Same flight with a measured velocity channel: the reading is trustworthy, so no
     // transonic caveat even at the same Mach.
@@ -724,6 +727,7 @@ describe('analyzeFlight (barometric)', () => {
     });
     expect(measured.series.velocitySource).toBe('device');
     expect(measured.warnings.some((w) => /transonic/i.test(w))).toBe(false);
+    expect(measured.metrics.transonicUnconfirmed).toBe(false);
   });
 
   it('builds an atmosphere for the Mach & dynamic-pressure channels', () => {

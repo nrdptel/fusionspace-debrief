@@ -32,6 +32,11 @@ export interface FlightMetrics {
    *  or null for a subsonic flight. */
   transonicTime: number | null;
   transonicAltitude: number | null;
+  /** True when that Mach-1 crossing was read from a barometric speed in the transonic
+   *  band, where the shock over the pressure port inflates the reading — so it can't be
+   *  taken as confirmation the rocket actually went supersonic. The UI and exports soften
+   *  the claim accordingly rather than dropping it. */
+  transonicUnconfirmed: boolean;
   maxAcceleration: number; // m/s²
   /** Mean acceleration over the boost (liftoff → burnout) — a standard altimeter
    *  reading alongside the peak. null without a burnout or an acceleration trace. */

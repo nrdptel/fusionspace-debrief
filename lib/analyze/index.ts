@@ -697,6 +697,14 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       }
     }
   }
+  // A Mach-1 crossing read off a barometric speed in the transonic band is not a
+  // confirmed supersonic flight — the shock over the pressure port near Mach 1 inflates
+  // the reading (a corpus baro flight read Mach 1.19 where its accelerometer measured
+  // 0.93). Flagged so the headline and exports soften "went supersonic" instead of
+  // asserting it. Above the band a baro peak is unambiguously supersonic (baro only
+  // under-reads there), so it stays a confident crossing.
+  const transonicUnconfirmed =
+    transonicTime !== null && velocitySource === 'baro' && mach !== null && mach <= TRANSONIC_BARO_HIGH;
 
   // --- Battery (when the logger recorded it) -------------------------------
   // Resting voltage at the start and the lowest it sagged to. A pack that droops
@@ -802,6 +810,7 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     maxDynamicPressureAltitude,
     transonicTime,
     transonicAltitude,
+    transonicUnconfirmed,
     maxAcceleration,
     // Measured trace only — a baro-derived acceleration is too noisy even in the mean
     // to be honest (a real corpus baro flight averages higher over the boost than the
