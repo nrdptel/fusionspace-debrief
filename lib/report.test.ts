@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
 import { buildComparison, type CompareInput } from './compare';
 
 function tinyFlight(): RawFlight {
@@ -352,6 +352,22 @@ describe('comparison report', () => {
     const md = compareMarkdown(comparison, 'metric');
     // The higher apogee is bolded; the lower is not.
     expect(md).toMatch(/\| Apogee \|[^|]*\| \*\*[^*]+\*\* \|/);
+  });
+
+  it('compareHtml is a self-contained comparison report with the cross-check, metrics and inline charts', () => {
+    const html = compareHtml(comparison, 'imperial', undefined, { label: 'Booster vs sustainer' }, [
+      { title: 'Altitude', svg: '<svg data-fig="alt"></svg>' },
+    ]);
+    expect(html.startsWith('<!doctype html>')).toBe(true);
+    expect(html).toContain('Booster vs sustainer');
+    expect(html).toContain('Cross-check');
+    expect(html).toMatch(/agree to within [\d.]+% on apogee/);
+    expect(html).toContain('<th>Difference</th>'); // two-flight comparison
+    expect(html).toContain('<svg data-fig="alt"></svg>'); // the overlay figure inline
+    // Self-contained and privacy-safe.
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/<link/i);
+    expect(html).not.toMatch(/(src|href)="http(?!s:\/\/debrief\.fusionspace\.co)/i);
   });
 
   it('carries an optional label and notes into the comparison Markdown and JSON', () => {

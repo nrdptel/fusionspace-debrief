@@ -162,7 +162,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   every metric, so two altimeters on one flight show how tightly they agree, and two
   launches of one rocket show what changed.
   The overlay saves as a PNG, a **vector SVG** (crisp at any size for a report), or its
-  exact data as CSV, alongside the metrics table — or **Save bundle** to take the whole
+  exact data as CSV, alongside the metrics table; the whole comparison also saves as a
+  self-contained **HTML report** — the cross-check, the side-by-side metrics and the overlay
+  charts inline, in one portable file — or **Save bundle** to take the whole
   comparison at once: a Markdown write-up carrying the cross-check and the metrics table,
   the metrics CSV, a structured `.json` (each flight's metrics, the cross-check and the
   pairwise differences) and the altitude, velocity and acceleration overlay figures, zipped

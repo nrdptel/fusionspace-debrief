@@ -93,6 +93,25 @@ test('compare two flights from the recents list', async ({ page }) => {
   ]);
   expect(metricsCsv.suggestedFilename()).toBe('compare-metrics.csv');
 
+  // …and as a single self-contained HTML comparison report: the cross-check, the metrics
+  // matrix and the overlay charts inline, in one portable file.
+  const [htmlDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  expect(htmlDl.suggestedFilename()).toBe('compare-debrief.html');
+  const htmlStream = await htmlDl.createReadStream();
+  const cmpHtml = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    htmlStream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    htmlStream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    htmlStream!.on('error', reject);
+  });
+  expect(cmpHtml.startsWith('<!doctype html>')).toBe(true);
+  expect(cmpHtml).toMatch(/agree to within/); // the cross-check narrative
+  expect(cmpHtml).toContain('<svg'); // overlay chart embedded inline
+  expect(cmpHtml).not.toMatch(/<script/i); // self-contained, no script or external asset
+
   // A vector (SVG) export of the overlay, for reports — one path per compared flight.
   // Overlay altitude first: both flights have a finite altitude curve, so the path
   // count is deterministic.

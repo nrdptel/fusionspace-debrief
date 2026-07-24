@@ -8,7 +8,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
+import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import { lengthIn, speedIn, accelInG, pressureIn, pressureUnit, UNIT_LABEL } from '@/lib/display';
 import { useIsDark } from './useIsDark';
@@ -197,6 +197,18 @@ export default function CompareView({
     });
   const saveChartSvg = () => {
     download(new Blob([overlaySvg(active)], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
+  };
+
+  // One self-contained HTML comparison report — the cross-check, the metrics matrix and the
+  // overlay charts inline — to document a redundant-altimeter or stage check as a single
+  // portable file. The overlay figures are those actually offered (acceleration only when a
+  // flight measured it).
+  const saveHtml = () => {
+    const figs = (['altitude', 'velocity', 'acceleration'] as MetricKey[])
+      .map((k) => metrics.find((m) => m.key === k))
+      .filter((m): m is MetricDef => !!m)
+      .map((m) => ({ title: m.label, svg: overlaySvg(m) }));
+    download(new Blob([compareHtml(comparison, sys, note, reportMeta, figs)], { type: 'text/html' }), 'compare-debrief.html');
   };
 
   // The comparison as one report-grade ZIP: the Markdown write-up (cross-check +
@@ -502,6 +514,14 @@ export default function CompareView({
             className={ACTION_BTN}
           >
             Save metrics
+          </button>
+          <button
+            type="button"
+            onClick={saveHtml}
+            title="Save a self-contained HTML comparison report — the cross-check, the side-by-side metrics and the overlay charts inline, in one file you can open, print, email or archive anywhere (nothing uploaded)"
+            className={ACTION_BTN}
+          >
+            Save .html
           </button>
           <button
             type="button"
