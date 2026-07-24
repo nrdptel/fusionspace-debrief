@@ -326,11 +326,16 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   // Recorded labels are logger-derived, so quote and defang them (a stray comma or a
   // spreadsheet-formula prefix would otherwise break or hijack the CSV).
   const quoted = (s: string) => `"${formulaGuard(s).replace(/"/g, '""')}"`;
+  // The acceleration column is exported only when it was measured — a baro-derived
+  // acceleration is differentiation noise (its peak is withheld and its trace isn't
+  // charted), so shipping a column of it into a data export would just hand a cert doc
+  // hundreds of g of garbage. The velocity column (a usable first derivative) stays.
+  const hasAccel = analysis.series.accelerationSource === 'device';
   const header = [
     'time (s)',
     `altitude (${L.length} AGL)`,
     `velocity (${L.speed})`,
-    'acceleration (g)',
+    ...(hasAccel ? ['acceleration (g)'] : []),
     'mach',
     `dynamic pressure (${pUnit})`,
     ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
@@ -346,7 +351,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
         time[i].toFixed(3),
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
         cell(Number(speedIn(velocity[i], sys).toFixed(1))),
-        cell(Number(accelInG(acceleration[i]).toFixed(2))),
+        ...(hasAccel ? [cell(Number(accelInG(acceleration[i]).toFixed(2)))] : []),
         cell(Number(mach.toFixed(3))),
         cell(Number(pressureIn(q, sys).toFixed(2))),
         ...recorded.map((c) => sig6(c.toDisplay(c.values[i], sys))),

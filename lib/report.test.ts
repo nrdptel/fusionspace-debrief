@@ -32,16 +32,25 @@ describe('report exports', () => {
   const flight = tinyFlight();
   const analysis = analyzeFlight(flight);
 
-  it('analyzedDataCsv leads with the six derived columns and one row per sample', () => {
+  it('analyzedDataCsv leads with the derived columns and one row per sample', () => {
     const csv = analyzedDataCsv(flight, analysis, 'imperial');
     const lines = csv.split('\n');
+    // This baro flight has no measured acceleration, so that column is omitted (its trace
+    // is differentiation noise) — the derived columns are altitude, velocity, mach, Q.
     expect(lines[0]).toMatch(
-      /^time \(s\),altitude \(ft AGL\),velocity \(ft\/s\),acceleration \(g\),mach,dynamic pressure \(psi\)/,
+      /^time \(s\),altitude \(ft AGL\),velocity \(ft\/s\),mach,dynamic pressure \(psi\)/,
     );
+    expect(lines[0]).not.toContain('acceleration (g)');
     expect(lines.length).toBe(flight.time.length + 1);
     expect(lines[1].split(',')[0]).toBe('0.000');
-    // Six derived columns, then one per recorded channel (this flight logged altitude).
-    expect(lines[1].split(',').length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('includes the acceleration column when the logger measured it', () => {
+    const n = flight.time.length;
+    const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 80 : 0)); // a boost pulse
+    const withAccel: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
+    const csv = analyzedDataCsv(withAccel, analyzeFlight(withAccel), 'imperial');
+    expect(csv.split('\n')[0]).toContain('acceleration (g)');
   });
 
   it('switches CSV units with the system', () => {
