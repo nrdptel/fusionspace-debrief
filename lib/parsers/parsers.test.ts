@@ -3,6 +3,7 @@ import { resolveUnit, convert } from '../units';
 import { detectDelimiter, splitLine } from '../csv';
 import { analyzeTable } from '../flight/columns';
 import { importFlight } from './index';
+import { analyzeFlight } from '../analyze';
 import { getChannel } from '../flight/types';
 
 describe('units', () => {
@@ -79,6 +80,54 @@ describe('BOM-prefixed Altus file still detects', () => {
       '5,1,1,N,0.1,0,0,0,1,boost,150,1000,110,10,40,5,20,7.4,0,0';
     const result = importFlight({ name: 'f.csv', text });
     expect(result.kind).toBe('flight');
+  });
+});
+
+describe('AltOS radio-telemetry CSV', () => {
+  // The telemetry log is keyed by tick/ptype (no state_name/pressure columns), with a
+  // dominant sensor packet type carrying height/speed in SI. It must parse as an Altus
+  // Metrum flight, not fall to the generic mapper (which would read the `v_apogee`
+  // voltage column as an altitude).
+  function telemetryCsv(): string {
+    const header = 'serial,tick,ptype,state,v_batt,v_apogee,ground_pres,acceleration,speed,height,crc';
+    const lines = [header];
+    // A modest flight to apogee ~230 m, ~20 Hz; a couple of interleaved ptype=8 GPS
+    // packets with stale height that must be filtered out.
+    let t = 40; // telemetry starts mid-pad-wait
+    let prev = 0;
+    const G = 9.80665;
+    const aBoost = 40;
+    const tBurn = 1.5;
+    const vB = aBoost * tBurn;
+    const hB = 0.5 * aBoost * tBurn * tBurn;
+    for (let i = 0; i < 400; i++, t += 0.05) {
+      const ft = t - 42;
+      let h: number;
+      if (ft <= 0) h = 0;
+      else if (ft <= tBurn) h = 0.5 * aBoost * ft * ft;
+      else {
+        const c = ft - tBurn;
+        h = Math.max(0, hB + vB * c - 0.5 * G * c * c);
+      }
+      const v = (h - prev) / 0.05;
+      prev = h;
+      lines.push(`7,${t.toFixed(2)},9,3,7.4,4.2,97000,${(v > 0 ? 20 : -5).toFixed(2)},${v.toFixed(2)},${h.toFixed(1)},T`);
+      if (i % 60 === 59) lines.push(`7,${t.toFixed(2)},8,3,7.4,4.2,97000,0,0,99999,T`); // GPS packet, stale height
+    }
+    return lines.join('\n');
+  }
+
+  it('parses the telemetry log as an Altus Metrum flight and reads metric height', () => {
+    const result = importFlight({ name: 'flight-Telemetry.csv', text: telemetryCsv() });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('altusmetrum');
+    const a = analyzeFlight(result.flight);
+    const apogeeM = a.metrics.apogeeAltitude;
+    // ~230 m. Crucially, the stale ptype=8 GPS rows (height 99999) were filtered out —
+    // otherwise apogee would read tens of thousands of metres.
+    expect(apogeeM).toBeGreaterThan(180);
+    expect(apogeeM).toBeLessThan(300);
   });
 });
 

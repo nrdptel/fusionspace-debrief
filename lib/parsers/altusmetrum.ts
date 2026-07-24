@@ -24,11 +24,80 @@ function isAltosHeader(toks: string[]): boolean {
   return toks.includes('state_name') && toks.includes('height') && toks.includes('pressure');
 }
 
-function findHeaderRow(rows: string[][]): number {
+// The AltOS *telemetry* CSV — the radio downlink log AltosUI saves — is a different
+// shape from the on-board flight-log CSV above: one row per received packet, keyed by
+// a "tick" clock and a numeric "ptype" packet type, with height/speed/acceleration in
+// SI. It carries no `state_name`/`pressure` columns, so the flight-log detector misses
+// it and it would otherwise fall to the generic mapper (which mis-reads voltage columns
+// named `v_apogee`/`v_main` as altitude). Radio telemetry is lossy — downsampled and
+// often cut off mid-descent when the signal drops — so it's a cross-check, not a
+// substitute for the on-board log.
+function isAltosTelemetryHeader(toks: string[]): boolean {
+  return toks.includes('tick') && toks.includes('ptype') && toks.includes('height') && toks.includes('speed');
+}
+
+function findHeaderRow(rows: string[][], test: (toks: string[]) => boolean): number {
   for (let i = 0; i < Math.min(rows.length, 60); i++) {
-    if (isAltosHeader(rows[i].map((c) => stripHash(c).toLowerCase()))) return i;
+    if (test(rows[i].map((c) => stripHash(c).toLowerCase()))) return i;
   }
   return -1;
+}
+
+/** The modal value of a column over the data rows — used to keep only the dominant
+ *  (sensor) telemetry packet type, so an interleaved GPS/config packet with stale or
+ *  blank height doesn't enter the trajectory. */
+function modalCell(dataRows: string[][], index: number): string | null {
+  const counts = new Map<string, number>();
+  for (const r of dataRows) {
+    const v = r[index];
+    if (v == null || v === '') continue;
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [v, n] of counts) if (n > bestN) ((best = v), (bestN = n));
+  return best;
+}
+
+/** Parse the AltOS radio-telemetry CSV (tick/ptype/height/speed/…, SI units). */
+function parseTelemetry(input: ParseInput, rows: string[][]): RawFlight {
+  const headerIdx = findHeaderRow(rows, isAltosTelemetryHeader);
+  const headers = rows[headerIdx].map(stripHash);
+  const lower = headers.map((h) => h.toLowerCase());
+  const col = (name: string) => lower.indexOf(name);
+
+  const tickIdx = col('tick');
+  const minCols = Math.min(headers.length, 6);
+  let dataRows = rows.slice(headerIdx + 1).filter((r) => r.length >= minCols && r[tickIdx] !== '' && Number.isFinite(Number(r[tickIdx])));
+  // Keep only the dominant (sensor) packet type; interleaved GPS/config packets carry
+  // no fresh trajectory and would otherwise inject stale samples.
+  const ptypeIdx = col('ptype');
+  if (ptypeIdx >= 0) {
+    const sensor = modalCell(dataRows, ptypeIdx);
+    if (sensor != null) dataRows = dataRows.filter((r) => r[ptypeIdx] === sensor);
+  }
+
+  const mappings: ColumnMapping[] = [];
+  const add = (index: number, role: ColumnMapping['role'], unit: string | null) => {
+    if (index >= 0) mappings.push({ index, role, unit });
+  };
+  add(tickIdx, 'time', 's');
+  add(col('height'), 'altitude', 'm');
+  add(col('speed'), 'velocity', 'm/s');
+  add(col('acceleration'), 'accelAxial', 'm/s²');
+  add(col('v_batt'), 'voltage', 'v');
+
+  return buildFlight({
+    source: input.name,
+    format: 'altusmetrum',
+    formatLabel: 'Altus Metrum (AltOS telemetry)',
+    headers,
+    dataRows,
+    mappings,
+    notes: [
+      'Read from the AltOS radio-telemetry log in AltOS’s native metric units. Telemetry is lossy — downsampled, and often cut off mid-descent when the signal drops — so treat it as a cross-check against the on-board flight log, not a complete record.',
+    ],
+  });
 }
 
 export const altusMetrumParser: Parser = {
@@ -39,14 +108,20 @@ export const altusMetrumParser: Parser = {
     for (const line of input.text.split(/\r?\n/).slice(0, 60)) {
       const toks = line.toLowerCase().split(',').map((s) => s.replace(/^#\s*/, '').trim());
       if (isAltosHeader(toks)) return 0.97;
+      if (isAltosTelemetryHeader(toks)) return 0.95;
     }
     return 0;
   },
 
   parse(input: ParseInput): RawFlight {
     const { rows } = parseTable(input.text, ',');
-    const headerIdx = findHeaderRow(rows);
-    if (headerIdx < 0) throw new Error('Could not find the AltOS header line.');
+    const headerIdx = findHeaderRow(rows, isAltosHeader);
+    // The on-board flight-log CSV is the primary format; fall back to the radio-telemetry
+    // shape (tick/ptype/…) only when the flight-log header isn't present.
+    if (headerIdx < 0) {
+      if (findHeaderRow(rows, isAltosTelemetryHeader) >= 0) return parseTelemetry(input, rows);
+      throw new Error('Could not find the AltOS header line.');
+    }
 
     const headers = rows[headerIdx].map(stripHash);
     const lower = headers.map((h) => h.toLowerCase());

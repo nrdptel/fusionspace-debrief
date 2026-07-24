@@ -76,6 +76,26 @@
       ],
       "note": "Eggtimer EUROPEAN semicolon export (ARIS EULER explosion flight); feet via delimiter-aware parser (was mapper metres). Apogee ~958 ft vs device summary ~976 ft. Pending debrief-fixtures re-cut.",
       "knownIssue": "ARIS Euler explosion flight \u2014 the in-air breakup corrupts the descent phase (a negative \"main\" rate), so it is parsed but not invariant-asserted. With the delimiter-aware Eggtimer parser its apogee now reads ~958 ft (feet) vs the device summary ~976 ft, instead of ~2808 ft via the generic mapper (metres)."
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altusmetrum"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 13268,
+          "unit": "ft",
+          "tolPct": 4
+        }
+      ],
+      "note": "AltOS radio-telemetry CSV (tick/ptype); lossy and truncated mid-descent, but apogee ~13268 ft matches the on-board flight-log read. Was mapping. Pending debrief-fixtures re-cut."
     }
   ]
 }

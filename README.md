@@ -182,7 +182,9 @@ of parsing and analysis runs locally.
 
 - **Altus Metrum (AltOS)** — TeleMetrum, TeleMega, EasyMega, EasyMini, etc.,
   auto-detected and parsed; GPS lat/lon (on the units that log it) feeds the recovery
-  view alongside the barometric altitude.
+  view alongside the barometric altitude. The radio-telemetry CSV (keyed by `tick` /
+  `ptype`) is read too — as a lossy cross-check, since it's downsampled and often cut
+  off mid-descent when the signal drops.
 - **PerfectFlite** — StratoLogger / StratoLoggerCF / Pnut (`.pf2` and CSV exports),
   auto-detected including the header-less native layout.
 - **Eggtimer** — Classic / Quantum / Apogee flight-detail CSV (`T,Alt,VRaw,VFilt`),
