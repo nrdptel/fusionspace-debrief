@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import type { UnitSystem } from '@/lib/display';
 import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from '@/lib/display';
-import { summaryText, summaryMarkdown, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, type RecoveryFigures } from '@/lib/report';
+import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, type RecoveryFigures } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
@@ -317,6 +317,20 @@ export default function FlightReport({
     download(new Blob([alt.svg], { type: 'image/svg+xml' }), alt.name);
   }
 
+  // One self-contained HTML file — the numbers, events, cross-check and caveats plus the
+  // charts inline as vector SVG — a flyer can save, email, print or archive without
+  // re-running Debrief. Report-grade output as a single portable document.
+  function downloadHtml() {
+    const figures = figureSvgs().map((f) => ({
+      title: f.name.replace(`${stem}-`, '').replace(/\.svg$/, '').replace(/^./, (c) => c.toUpperCase()),
+      svg: f.svg,
+    }));
+    download(
+      new Blob([summaryHtml(flight, analysis, sys, analyzedAt, reportMeta, recovery, figures)], { type: 'text/html' }),
+      `${stem}-debrief.html`,
+    );
+  }
+
   // Package the report-grade artifacts a flyer needs — the Markdown write-up (with
   // the logger's own cross-check), the analyzed series as CSV, and the headline
   // figures as SVG — into one ZIP, so a cert doc or forum post is a single download
@@ -492,6 +506,14 @@ export default function FlightReport({
               className={SAVE_BTN}
             >
               Save .md
+            </button>
+            <button
+              type="button"
+              onClick={downloadHtml}
+              title="Download a self-contained HTML report — numbers, events, the logger cross-check and the charts inline, in one file you can open, print, email or archive anywhere (nothing uploaded)"
+              className={SAVE_BTN}
+            >
+              Save .html
             </button>
             <button
               type="button"

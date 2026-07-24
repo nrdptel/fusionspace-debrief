@@ -310,6 +310,113 @@ export function summaryMarkdown(
   return out.join('\n');
 }
 
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'));
+}
+
+/** A self-contained HTML flight report — one file a flyer can save, email, print, or
+ *  archive: the same headline numbers, events, logger cross-check and caveats as the
+ *  Markdown summary, plus the charts inline as vector SVG, in a clean print-friendly
+ *  layout. All styling is inlined and no asset is fetched, so it opens anywhere offline
+ *  and never phones home — the report-grade "everything in one place" export. Figures
+ *  (already rendered as SVG strings by the caller) are embedded as given. */
+export function summaryHtml(
+  flight: RawFlight,
+  analysis: FlightAnalysis,
+  sys: UnitSystem,
+  analyzedAt?: number,
+  meta?: ReportMeta,
+  recovery?: RecoveryFigures,
+  figures?: { title: string; svg: string }[],
+): string {
+  const label = clean(meta?.label);
+  const notes = clean(meta?.notes);
+  const stamp = analyzedAt ? ` · Analyzed ${esc(formatAnalyzedAt(analyzedAt))}` : '';
+  const title = label ? `${label} — Debrief flight report` : `Debrief flight report — ${flight.source}`;
+
+  const metricRows = headlineRows(analysis.metrics, sys, recovery)
+    .map(([l, v]) => `<tr><th>${esc(l)}</th><td>${esc(v)}</td></tr>`)
+    .join('');
+
+  const eventRows = analysis.events
+    .map((e) => {
+      const lbl = e.provenance !== 'measured' ? `${e.label} (${e.provenance})` : e.label;
+      const v = analysis.series.velocity[e.index];
+      const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
+      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel) : '—';
+      return `<tr><td>${esc(lbl)}</td><td>${esc(fmtTime(e.time))}</td><td>${esc(fmtLength(e.altitude, sys))}</td><td>${esc(speed)}</td><td>${esc(shock)}</td></tr>`;
+    })
+    .join('');
+
+  const xrows = crossCheckRows(flight, analysis.metrics, sys);
+  const crossRows = xrows.map(([l, d, b, a]) => `<tr><td>${esc(l)}</td><td>${esc(d)}</td><td>${esc(b)}</td><td>${esc(a)}</td></tr>`).join('');
+
+  const figHtml = (figures ?? [])
+    .map((f) => `<figure><figcaption>${esc(f.title)}</figcaption><div class="chart">${f.svg}</div></figure>`)
+    .join('');
+
+  const notesHtml = notes ? `<blockquote>${esc(notes).replace(/\n/g, '<br>')}</blockquote>` : '';
+  const warnHtml = analysis.warnings.length
+    ? `<section><h2>Notes</h2><ul class="notes">${analysis.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></section>`
+    : '';
+
+  // All styling inlined; no external asset, script or font — the file opens anywhere,
+  // offline, and stays a static document. Light theme, tuned for reading and printing.
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f4f5; color: #18181b; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 32px 20px 56px; }
+  header { border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .src { color: #52525b; font-size: 13px; }
+  blockquote { margin: 14px 0 0; padding: 8px 14px; border-left: 3px solid #d4d4d8; color: #3f3f46; background: #fafafa; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; color: #52525b; margin: 28px 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 10px; border-top: 1px solid #e4e4e7; }
+  .metrics th { width: 42%; font-weight: 600; color: #3f3f46; }
+  .metrics td { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  thead th { border-top: none; border-bottom: 1px solid #d4d4d8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: #71717a; }
+  figure { margin: 16px 0 0; }
+  figcaption { font-size: 13px; font-weight: 600; color: #3f3f46; margin-bottom: 4px; }
+  .chart { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 6px; overflow-x: auto; }
+  .chart svg { max-width: 100%; height: auto; display: block; }
+  ul.notes { margin: 0; padding-left: 18px; color: #3f3f46; }
+  ul.notes li { margin: 3px 0; }
+  footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #e4e4e7; font-size: 12px; color: #71717a; }
+  footer a { color: #6366f1; }
+  @media print { body { background: #fff; } .chart { border-color: #d4d4d8; } main { padding-top: 8px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>${esc(label || 'Debrief — flight report')}</h1>
+    <div class="src">${esc(flight.source)} · ${esc(flight.formatLabel)}${stamp}</div>
+    ${notesHtml}
+  </header>
+
+  <section><h2>Headline</h2><table class="metrics"><tbody>${metricRows}</tbody></table></section>
+  ${figHtml ? `<section><h2>Charts</h2>${figHtml}</section>` : ''}
+  ${eventRows ? `<section><h2>Events</h2><table><thead><tr><th>Event</th><th>Time</th><th>Altitude</th><th>Speed</th><th>Shock</th></tr></thead><tbody>${eventRows}</tbody></table></section>` : ''}
+  ${crossRows ? `<section><h2>Logger’s own summary (cross-check)</h2><table><thead><tr><th>Reading</th><th>Logger</th><th>Debrief</th><th>Agreement</th></tr></thead><tbody>${crossRows}</tbody></table></section>` : ''}
+  ${warnHtml}
+
+  <footer>
+    Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured.
+    Made with <a href="https://debrief.fusionspace.co">Debrief</a> — parsed locally in the browser, never uploaded.
+  </footer>
+</main>
+</body>
+</html>`;
+}
+
 /** The analyzed series as a tidy CSV in the chosen units — the cleaned data a
  *  spreadsheet user would otherwise have to derive by hand. */
 export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys: UnitSystem): string {

@@ -205,6 +205,25 @@ test('an optional report label and notes reflect on-screen and ride into the exp
   });
   expect(text).toContain('## Nimbus IV · J450 · Flight 3');
   expect(text).toContain('Gusty crosswind');
+
+  // …and the self-contained HTML report carries the same numbers, with the charts inline
+  // and nothing to fetch — one file to open, print or archive.
+  const [htmlDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  expect(htmlDl.suggestedFilename()).toMatch(/-debrief\.html$/);
+  const htmlStream = await htmlDl.createReadStream();
+  const html = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    htmlStream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    htmlStream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    htmlStream!.on('error', reject);
+  });
+  expect(html.startsWith('<!doctype html>')).toBe(true);
+  expect(html).toContain('Nimbus IV · J450 · Flight 3');
+  expect(html).toContain('<svg'); // charts embedded inline as vector
+  expect(html).not.toMatch(/<script/i); // self-contained, no script or external asset
 });
 
 test('the printed flight card keeps the numbers and drops the interactive chrome', async ({ page }) => {

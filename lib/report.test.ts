@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, analysisJson, compareMarkdown, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
 import { buildComparison, type CompareInput } from './compare';
 
 function tinyFlight(): RawFlight {
@@ -106,6 +106,28 @@ describe('report exports', () => {
     const tableRows = rows.filter((l) => l.startsWith('| ') && !l.includes('---'));
     expect(tableRows.length).toBeGreaterThan(3);
     expect(tableRows.every((l) => bars(l) === bars('| a | b |') || bars(l) === bars('| a | b | c | d | e |'))).toBe(true);
+  });
+
+  it('summaryHtml is a self-contained report — no external asset, script, or fetch', () => {
+    const html = summaryHtml(flight, analysis, 'imperial', 1_700_000_000_000, { label: 'My flight' }, undefined, [
+      { title: 'Altitude', svg: '<svg data-fig="alt"></svg>' },
+    ]);
+    // A complete, titled HTML document with the headline numbers.
+    expect(html.startsWith('<!doctype html>')).toBe(true);
+    expect(html).toContain('<title>');
+    expect(html).toMatch(/<th>Apogee<\/th><td>[\d,]+ ft<\/td>/);
+    expect(html).toContain('My flight');
+    // The passed figure is embedded inline.
+    expect(html).toContain('<svg data-fig="alt"></svg>');
+    // Self-contained and privacy-safe: no script, no external stylesheet/asset, no fetch;
+    // the only link is Debrief's own footer credit.
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/<link/i);
+    expect(html).not.toMatch(/(src|href)="http(?!s:\/\/debrief\.fusionspace\.co)/i);
+    // HTML-escapes user-controlled text so a rocket name can't inject markup.
+    const evil = summaryHtml({ ...flight, source: '<img src=x onerror=alert(1)>' }, analysis, 'imperial');
+    expect(evil).not.toContain('<img src=x');
+    expect(evil).toContain('&lt;img src=x');
   });
 
   it('carries the deployment shock in the exported summary', () => {

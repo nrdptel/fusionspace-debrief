@@ -130,7 +130,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Exports a flight: copy a text summary, save it as `.txt` or a report-grade **Markdown**
   file — the headline metrics and events as tables (and, when the file carried the logger's
   own summary, the device-vs-Debrief cross-check), ready to drop into a project write-up,
-  a certification document or a forum post — save the analyzed series (time, altitude,
+  a certification document or a forum post — save a self-contained **HTML report**: one
+  file with the numbers, events, the logger cross-check, the caveats and the charts inline
+  as vector SVG, styled to read and print, that opens anywhere offline and fetches nothing —
+  save the analyzed series (time, altitude,
   velocity, acceleration, Mach, dynamic pressure) as `.csv`, take the full analysis —
   metrics, events and their provenance — as structured **JSON** for a script or another
   tool, or save the altitude chart as
