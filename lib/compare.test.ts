@@ -72,6 +72,24 @@ describe('crossCheck', () => {
     expect(partial.some((x) => x.key === 'maxAcceleration')).toBe(false);
   });
 
+  const descentFlight = (drogue: number | null, main: number | null): CompareFlight =>
+    ({ metrics: { apogeeAltitude: 2000, drogueDescentRate: drogue, mainDescentRate: main } as FlightMetrics }) as CompareFlight;
+
+  it('cross-checks the descent rates when two recordings both caught recovery', () => {
+    const a = crossCheck([descentFlight(22, 6.1), descentFlight(19, 5.8)]);
+    const main = a.find((x) => x.key === 'mainDescentRate')!;
+    expect(main.count).toBe(2);
+    expect(main.min).toBe(5.8);
+    expect(main.max).toBe(6.1);
+    // Altitude-derived on every logger, so it never reads as a measured/derived mix.
+    expect(main.mixedSource).toBe(false);
+    expect(a.find((x) => x.key === 'drogueDescentRate')!.count).toBe(2);
+    // Only one recording reached main → too few to corroborate, so it's skipped.
+    const partial = crossCheck([descentFlight(22, 6.1), descentFlight(19, null)]);
+    expect(partial.some((x) => x.key === 'mainDescentRate')).toBe(false);
+    expect(partial.some((x) => x.key === 'drogueDescentRate')).toBe(true);
+  });
+
   const clippedAccelFlight = (maxA: number, clipped: boolean): CompareFlight =>
     ({ metrics: { apogeeAltitude: 2000, maxVelocity: 300, maxAcceleration: maxA, accelerationSource: 'device', accelClipped: clipped } as FlightMetrics }) as CompareFlight;
 

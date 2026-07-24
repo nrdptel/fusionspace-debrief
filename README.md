@@ -151,9 +151,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   flights) to overlay any of their altitude, velocity, acceleration, Mach or
   dynamic-pressure curves (aligned at liftoff) with a side-by-side metrics table that
   flags the best apogee, max velocity, Mach, acceleration and max Q — plus a **cross-check**
-  reading how closely the flights' apogee and top speed agree, so redundant altimeters (or a
-  booster and its sustainer bay) read as independent measurements: close agreement builds
-  confidence, a wide gap is a flag worth chasing, never a single number to trust on faith.
+  reading how closely the flights agree, from apogee and top speed through to the descent rate
+  under each canopy, so redundant altimeters (or a booster and its sustainer bay) read as
+  independent measurements: close agreement builds confidence, a wide gap is a flag worth
+  chasing, never a single number to trust on faith.
   Compare exactly two and the table adds a **Difference** column — the pairwise spread on
   every metric, so two altimeters on one flight show how tightly they agree, and two
   launches of one rocket show what changed.

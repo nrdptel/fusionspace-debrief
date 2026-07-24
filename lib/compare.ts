@@ -213,6 +213,14 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
       // sensor's full-scale limit as a difference between the flights.
       soft: (m) => m.accelClipped === true,
     },
+    // Recovery, when both recordings caught it — the terminal descent rate under each
+    // canopy is altitude-derived on every logger (no source mix), so two altimeters of
+    // one flight should see the same sink. It rounds the cross-check out past apogee into
+    // the descent, where recovery problems actually show up. It's a looser corroboration
+    // than the apogee — chute behaviour, wind and where the rate is sampled all vary — so
+    // read a modest gap as ordinary spread, not a fault.
+    { key: 'drogueDescentRate', label: 'drogue descent rate', get: (m) => m.drogueDescentRate },
+    { key: 'mainDescentRate', label: 'main descent rate', get: (m) => m.mainDescentRate },
   ];
   const out: Agreement[] = [];
   for (const s of specs) {
