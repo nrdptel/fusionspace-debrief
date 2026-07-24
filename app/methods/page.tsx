@@ -61,12 +61,15 @@ export default function MethodsPage() {
             rather than reported as an impossible number.
           </Method>
           <Method title="Acceleration">
-            Used directly from the accelerometer when present, otherwise derived from velocity. Max
-            acceleration is read over the boost, the average over the same boost (ignition to
-            burnout), and max deceleration over the ascent. If the trace
-            flat-tops at its peak — how a sensor reads once it hits its full-scale limit and
-            saturates — the maximum is flagged as <em>may be clipped</em>, since the real peak could
-            be higher.
+            Read from the accelerometer when the logger recorded one: max acceleration over the boost,
+            the average over the same boost (ignition to burnout), and max deceleration over the ascent.
+            If the trace flat-tops at its peak — how a sensor reads once it hits its full-scale limit
+            and saturates — the maximum is flagged as <em>may be clipped</em>, since the real peak could
+            be higher. With no accelerometer, acceleration is a second derivative of the barometric
+            altitude, and the coarse, quantised baro trace makes its <em>peak</em> (and even its boost
+            average) noise, not a measurement — a real flight can read hundreds of g off a single
+            altitude step — so those numbers are withheld. The derived acceleration curve is still
+            plotted, labelled as an estimate, for its shape.
           </Method>
           <Method title="Thrust-to-weight (off the pad)">
             The accelerometer&apos;s reading in g right at liftoff is the thrust-to-weight ratio —

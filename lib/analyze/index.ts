@@ -460,6 +460,18 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     const maxDecIdx = argMin(signedAccel, liftoffRef, apogeeIdx + 1);
     maxDeceleration = maxDecIdx >= 0 && signedAccel[maxDecIdx] < 0 ? signedAccel[maxDecIdx] : NaN;
 
+    // A baro-derived acceleration is the second derivative of a coarse, quantised
+    // altitude, so its PEAK is dominated by differentiation noise — a single 1 m/1 ft
+    // altitude step at 20 Hz throws hundreds of m/s² into one sample. The result is not
+    // an honest peak (real corpus baro flights spike to hundreds, even tens of thousands,
+    // of g), so the max/min acceleration is withheld when there's no accelerometer. The
+    // acceleration curve itself is still shown as a derived estimate; only the headline
+    // peak — which a barometer genuinely can't resolve — is not reported.
+    if (accelerationSource === 'baro') {
+      maxAcceleration = NaN;
+      maxDeceleration = NaN;
+    }
+
     // Saturation: a device accelerometer that hit its full-scale limit reads a
     // flat top at its peak. A real boost rounds over its maximum (mass falls
     // through the burn, so net accel is never held dead flat), so a sustained
@@ -780,8 +792,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     transonicTime,
     transonicAltitude,
     maxAcceleration,
+    // Measured trace only — a baro-derived acceleration is too noisy even in the mean
+    // to be honest (a real corpus baro flight averages higher over the boost than the
+    // same flight's device peak), so it's withheld like the peak and the liftoff TWR.
     avgBoostAcceleration:
-      ascentPresent && burnoutIdx !== null
+      ascentPresent && burnoutIdx !== null && accelerationSource === 'device'
         ? (() => {
             const m = mean(acceleration, liftoffRef, burnoutIdx + 1);
             return Number.isFinite(m) ? m : null;
@@ -825,9 +840,9 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     const velBaro = velocitySource === 'baro';
     const accBaro = accelerationSource === 'baro';
     if (velBaro && accBaro) {
-      warnings.push('Velocity and acceleration were derived from altitude, so they are smoothed estimates rather than direct measurements.');
+      warnings.push('Velocity and acceleration were derived from altitude, so they are smoothed estimates rather than direct measurements; peak acceleration isn’t reported, as a barometer can’t resolve it.');
     } else if (accBaro) {
-      warnings.push('Acceleration was derived from altitude (no accelerometer channel was recorded), so it is a smoothed estimate rather than a direct measurement.');
+      warnings.push('Acceleration was derived from altitude (no accelerometer channel was recorded), so the curve is a smoothed estimate and peak acceleration isn’t reported — a barometer can’t resolve it.');
     } else if (velBaro) {
       warnings.push('Velocity was derived from altitude, so it is a smoothed estimate rather than a direct measurement.');
     }

@@ -470,6 +470,13 @@ describe('thrust-to-weight off the pad', () => {
     expect(a.metrics.liftoffTWR!).toBeLessThan(a.metrics.maxAcceleration / G0);
   });
 
+  it('reports an average boost acceleration below the measured peak', () => {
+    const a = analyzeFlight(accelFlight(null));
+    expect(a.metrics.avgBoostAcceleration).not.toBeNull();
+    expect(a.metrics.avgBoostAcceleration!).toBeGreaterThan(0);
+    expect(a.metrics.avgBoostAcceleration!).toBeLessThanOrEqual(a.metrics.maxAcceleration);
+  });
+
   it('omits it without a measured accelerometer', () => {
     expect(analyzeFlight(syntheticBaroFlight().flight).metrics.liftoffTWR).toBeNull();
   });
@@ -637,13 +644,17 @@ describe('analyzeFlight (barometric)', () => {
     expect(t('apogee')).toBeLessThan(t('landing'));
   });
 
-  it('reports an average boost acceleration below the peak', () => {
+  it('withholds acceleration peaks on a baro-only flight — a barometer can’t resolve them', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
-    // Constant ~100 m/s² boost → the mean over the boost sits near it, and never
-    // above the peak.
-    expect(a.metrics.avgBoostAcceleration).not.toBeNull();
-    expect(a.metrics.avgBoostAcceleration!).toBeGreaterThan(60);
-    expect(a.metrics.avgBoostAcceleration!).toBeLessThanOrEqual(a.metrics.maxAcceleration);
+    expect(a.series.accelerationSource).toBe('baro');
+    // The second derivative of a coarse, quantised baro altitude is dominated by
+    // differentiation noise (real baro flights spike to hundreds of g), so the peak,
+    // the deceleration and the boost average are all withheld rather than reported.
+    expect(Number.isFinite(a.metrics.maxAcceleration)).toBe(false);
+    expect(Number.isFinite(a.metrics.maxDeceleration)).toBe(false);
+    expect(a.metrics.avgBoostAcceleration).toBeNull();
+    // …and a warning explains why the acceleration is only a curve, not a peak.
+    expect(a.warnings.some((w) => /acceleration/i.test(w) && /resolve|derived/i.test(w))).toBe(true);
   });
 
   it('reports a sensible descent rate', () => {
