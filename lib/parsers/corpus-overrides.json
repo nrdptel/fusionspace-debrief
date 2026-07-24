@@ -43,6 +43,39 @@
         }
       ],
       "note": "RRC3 mDACS metric (EUROPEAN semicolon + comma-decimal); altitude unit resolved from the barometric pressure column; ~9121 ft. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "eggtimer/eggtimer__euroc-stacarl2-semicolon__sta-carl2-eggtimer.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "eggtimer"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 9121,
+          "unit": "ft",
+          "tolPct": 4
+        }
+      ],
+      "note": "Eggtimer EUROPEAN semicolon export; feet read via the delimiter-aware parser (was mapper metres, 3.3x high). Cross-checks RRC3 same flight ~9121 ft. Velocity column is corrupt (withheld). Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "eggtimer/eggtimer__euroc-aris-euler-explosion__Eggtimer_data.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "eggtimer"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity"
+      ],
+      "note": "Eggtimer EUROPEAN semicolon export (ARIS EULER explosion flight); feet via delimiter-aware parser (was mapper metres). Apogee ~958 ft vs device summary ~976 ft. Pending debrief-fixtures re-cut.",
+      "knownIssue": "ARIS Euler explosion flight \u2014 the in-air breakup corrupts the descent phase (a negative \"main\" rate), so it is parsed but not invariant-asserted. With the delimiter-aware Eggtimer parser its apogee now reads ~958 ft (feet) vs the device summary ~976 ft, instead of ~2808 ft via the generic mapper (metres)."
     }
   ]
 }

@@ -12,11 +12,11 @@
 
 import type { Parser, ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
-import { parseTable } from '../csv';
+import { parseTable, detectDelimiter } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 
-function headerTokens(line: string): string[] {
-  return line.toLowerCase().split(',').map((s) => s.trim());
+function headerTokens(line: string, delimiter: string): string[] {
+  return line.toLowerCase().split(delimiter).map((s) => s.trim());
 }
 
 /** Is this row an Eggtimer header (Classic VRaw/VFilt or Quantum Veloc+events)? */
@@ -60,14 +60,22 @@ export const eggtimerParser: Parser = {
   label: 'Eggtimer',
 
   detect(input: ParseInput): number {
+    // A European-locale export is semicolon-delimited (with comma decimals); a US one
+    // is comma-delimited. Detect the delimiter so the header row is tokenised the same
+    // way it will be parsed — otherwise a semicolon file reads as one giant cell and
+    // slips through to the generic mapper, which defaults its unlabelled feet altitude
+    // to metres and reads ~3.3× high.
+    const delimiter = detectDelimiter(input.text);
     for (const line of input.text.split(/\r?\n/).slice(0, 15)) {
-      if (isEggtimerHeader(headerTokens(line))) return 0.95;
+      if (isEggtimerHeader(headerTokens(line, delimiter))) return 0.95;
     }
     return 0;
   },
 
   parse(input: ParseInput): RawFlight {
-    const { rows } = parseTable(input.text, ',');
+    // Auto-detect the delimiter (and, for a semicolon export, canonicalise comma
+    // decimals) so both the US and European flavours read.
+    const { rows } = parseTable(input.text);
     const headerIdx = findHeaderRow(rows);
     if (headerIdx < 0) throw new Error('Could not find the Eggtimer header row.');
 

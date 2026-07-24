@@ -102,6 +102,31 @@ describe('Eggtimer Quantum format (Veloc + event columns, seconds)', () => {
   });
 });
 
+// The same Quantum flight exported in the European locale: semicolon-delimited with
+// comma decimals, the way a metric-region Eggtimer writes it. Altitude is still in
+// feet (Eggtimer's default), so the read must match the comma export — not fall to
+// the generic mapper, which would default the unlabelled altitude to metres.
+function europeanQuantumCsv(): string {
+  return quantumCsv()
+    .split('\n')
+    .map((line) => line.split(',').map((c) => c.replace('.', ',')).join(';'))
+    .join('\n');
+}
+
+describe('Eggtimer European (semicolon) export', () => {
+  it('auto-detects a semicolon-delimited export and reads feet, not metres', () => {
+    const result = importFlight({ name: 'euro-flight.csv', text: europeanQuantumCsv() });
+    expect(result.kind).toBe('flight');
+    if (result.kind !== 'flight') return;
+    expect(result.parser.id).toBe('eggtimer');
+    const a = analyzeFlight(result.flight);
+    const apogeeFt = convert(a.metrics.apogeeAltitude, 'm', 'ft');
+    // ~1000–1500 ft read as feet; the generic-mapper metres default would put it ~3.3× high.
+    expect(apogeeFt).toBeGreaterThan(1000);
+    expect(apogeeFt).toBeLessThan(1500);
+  });
+});
+
 describe('Eggtimer parser', () => {
   const text = eggtimerCsv();
 

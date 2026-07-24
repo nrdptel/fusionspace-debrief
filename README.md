@@ -186,7 +186,8 @@ of parsing and analysis runs locally.
 - **PerfectFlite** — StratoLogger / StratoLoggerCF / Pnut (`.pf2` and CSV exports),
   auto-detected including the header-less native layout.
 - **Eggtimer** — Classic / Quantum / Apogee flight-detail CSV (`T,Alt,VRaw,VFilt`),
-  auto-detected; assumes the device's default feet.
+  auto-detected in both the US (comma-delimited) and European (semicolon-delimited,
+  comma decimals) locales; assumes the device's default feet.
 - **Featherweight Raven** — the Featherweight Interface Program (FIP) CSV export, whose
   per-channel time bases are resampled onto a common clock; altitude is from the
   barometric channel.
