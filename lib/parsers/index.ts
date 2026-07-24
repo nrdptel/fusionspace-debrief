@@ -15,6 +15,7 @@ import { blueRavenParser } from './blueraven';
 import { featherweightFipParser } from './featherweightFip';
 import { entacoreAimParser } from './entacoreAim';
 import { featherweightGpsParser } from './featherweightGps';
+import { missileworksRrc3Parser } from './missileworksRrc3';
 
 export type { ParseInput, Parser } from './types';
 export { ParseGuidanceError } from './types';
@@ -27,6 +28,7 @@ export const PARSERS: Parser[] = [
   featherweightFipParser,
   entacoreAimParser,
   featherweightGpsParser,
+  missileworksRrc3Parser,
 ];
 
 const AUTO_THRESHOLD = 0.6;

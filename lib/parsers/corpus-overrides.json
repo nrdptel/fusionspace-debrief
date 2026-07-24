@@ -1,0 +1,48 @@
+{
+  "_comment": "Committed corpus-contract overrides, merged over the fetched expected.json by `file`. The corpus ships as a separately-versioned release asset (see corpus.lock.json), so a parser fix in code lands before expected.json can be regenerated and re-released. This is the in-repo, CI-reachable home for a fixture's updated contract in that window \u2014 it carries the full expectation (kind, parser, asserts) so golden-value coverage isn't lost. Remove an entry once the debrief-fixtures corpus is re-cut to include it. An override only applies when its target file is present in the fetched corpus.",
+  "fixtures": [
+    {
+      "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Data.txt",
+      "expect": {
+        "kind": "flight",
+        "parser": "missileworks-rrc3"
+      },
+      "requireChannels": [
+        "altitude",
+        "pressure",
+        "velocity",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 13304,
+          "unit": "ft",
+          "tolPct": 4
+        }
+      ],
+      "note": "RRC3 mDACS imperial (UTF-16, TAB); altitude unit resolved from the barometric pressure column; ~13304 ft. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "missileworks-rrc3"
+      },
+      "requireChannels": [
+        "altitude",
+        "pressure",
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 9121,
+          "unit": "ft",
+          "tolPct": 3
+        }
+      ],
+      "note": "RRC3 mDACS metric (EUROPEAN semicolon + comma-decimal); altitude unit resolved from the barometric pressure column; ~9121 ft. Pending debrief-fixtures re-cut."
+    }
+  ]
+}

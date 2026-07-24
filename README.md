@@ -200,6 +200,12 @@ of parsing and analysis runs locally.
 - **Featherweight GPS** — the GPS tracker log (`UTCTIME,UNIXTIME,ALT,LAT,LON,…`),
   re-sorted onto a monotonic clock; altitude is the (coarser) GPS reading, and the lat/lon
   track drives the recovery view.
+- **MissileWorks RRC3** — the mDACS text export (`Time, Altitude, Pressure, Velocity,
+  Temperature, Events, Voltages`), in both the US flavour (tab-delimited, feet) and the
+  European one (semicolon-delimited, comma decimals, metric). The header names no unit, so
+  altitude is ambiguous between feet and metres; Debrief settles it from the file's own
+  barometric-pressure column, reading altitude in whichever unit matches the apogee the
+  pressure drop implies — no locale flag needed.
 - **Generic CSV** — any logger that can export a CSV (with or without a header row).
   Debrief guesses the columns and units — including GPS latitude/longitude — and lets
   you confirm them. With no header row at all it reads the roles from the data's own

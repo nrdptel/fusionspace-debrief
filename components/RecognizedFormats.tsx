@@ -8,6 +8,7 @@ const FORMATS = [
   'Eggtimer',
   'Featherweight (Raven · Blue Raven · GPS)',
   'Entacore AIM',
+  'MissileWorks RRC3 (mDACS)',
 ];
 
 export default function RecognizedFormats() {

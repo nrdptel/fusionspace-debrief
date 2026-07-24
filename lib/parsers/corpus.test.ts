@@ -24,6 +24,11 @@ import { decodeBytes } from '../encoding';
 
 const CORPUS = fileURLToPath(new URL('./__corpus__/', import.meta.url));
 const SPEC = `${CORPUS}expected.json`;
+// Committed contract overrides, versioned with the code rather than fetched with the
+// corpus — see corpus-overrides.json. Merged over the fetched spec by file, so a parser
+// fix and its updated expectation land together even though the corpus (and its
+// expected.json) is a separately-released asset that lags the code.
+const OVERRIDES = fileURLToPath(new URL('./corpus-overrides.json', import.meta.url));
 const present = existsSync(SPEC);
 
 const G0 = 9.80665;
@@ -189,7 +194,15 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     return;
   }
   const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
-  for (const fx of spec.fixtures) {
+  const byFile = new Map(spec.fixtures.map((f) => [f.file, f]));
+  // Apply a committed override only when its target file is actually in the fetched
+  // corpus — so an override for a not-yet-released (or renamed) file quietly no-ops
+  // rather than trying to read a missing file.
+  if (existsSync(OVERRIDES)) {
+    const overrides = (JSON.parse(readFileSync(OVERRIDES, 'utf8')) as { fixtures: Fixture[] }).fixtures ?? [];
+    for (const ov of overrides) if (existsSync(CORPUS + ov.file)) byFile.set(ov.file, ov);
+  }
+  for (const fx of byFile.values()) {
     it(`${fx.file}${fx.knownIssue ? ' [known issue: parse-only]' : ''}`, () => runFixture(fx));
   }
 });
