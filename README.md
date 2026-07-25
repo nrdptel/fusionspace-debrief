@@ -176,8 +176,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   tab-separated text everywhere else. No round trip through a saved file for something a
   spreadsheet has done since 1985.
 - Lets you **choose what's in the report** — every reading the file supports is worked out,
-  but which ones the report carries is yours to pick, once. The choice applies on screen and
-  to the `.txt`, `.md` and `.html` reports and the bundle, and is remembered on this device;
+  but which ones the report carries is yours to pick, once. One choice covers both surfaces:
+  turn a reading off on a flight report and it's off in the comparison too. It applies on
+  screen and to the `.txt`, `.md` and `.html` reports and the bundle, and is remembered on this device;
   the data exports (`.csv`, `.json`) always carry everything, because a report is a document
   and a data file is a record. Apogee can't be turned off — a flight report without one is a
   different document.

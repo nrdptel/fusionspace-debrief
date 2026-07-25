@@ -61,7 +61,9 @@ export default function Home() {
               a data file is a record. <em>Copy table</em> puts the readings straight on the clipboard
               — they land in cells in a spreadsheet or a document, and as tab-separated text
               anywhere else — so the club sheet or the cert package doesn&apos;t need a round trip
-              through a saved file. The comparison has the same button.
+              through a saved file. The comparison has the same button — and the same
+              chooser, working off the same choice, so what you care about is answered once
+              rather than once per screen.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch

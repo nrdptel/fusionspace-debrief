@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
-import { ALWAYS_SHOWN, visibleRows } from '@/lib/reportProfile';
+import { visibleRows } from '@/lib/reportProfile';
+import ReadingChooser from './ReadingChooser';
 import { fmtAccel, fmtLength, fmtMach, fmtPressure, fmtSpeed, fmtTemp, fmtTime, fmtVoltage } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 
@@ -139,10 +139,6 @@ export default function MetricGrid({
   const all = visibleRows(everything, (t) => t.label, hidden);
   const primary = all.filter((t) => t.primary);
   const rest = all.filter((t) => !t.primary);
-  const offCount = everything.length - all.length;
-  // The chooser repeats every reading's label, so it is mounted only while open: a closed
-  // one would otherwise put a second copy of "Max Q" in the page for anything reading it.
-  const [choosing, setChoosing] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -182,53 +178,14 @@ export default function MetricGrid({
       )}
       {/* A report is written for a purpose — a cert package, a drag study, a club post —
           so which readings it carries is the flyer's call, made once and followed by every
-          report export rather than per format. */}
+          report export and by the comparison. */}
       {onToggle && (
-        <details className="print:hidden" onToggle={(e) => setChoosing(e.currentTarget.open)}>
-          <summary className="inline-flex cursor-pointer select-none items-center rounded-md px-1 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
-            Choose what&apos;s in this report
-            {offCount > 0 && (
-              <span className="ml-1.5 rounded bg-indigo-500/10 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-300">
-                {offCount} off
-              </span>
-            )}
-          </summary>
-          {choosing && (
-          <div className="mt-2 rounded-lg border border-zinc-200 px-3 py-3 dark:border-zinc-800">
-            <p className="mb-2.5 text-xs text-zinc-500 dark:text-zinc-400">
-              Applies here and to the .txt, .md and .html reports and the bundle, and is remembered on
-              this device. The data exports (.csv, .json) always carry everything — a report is a
-              document, a data file is a record.
-            </p>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
-              {everything.map((t) => {
-                const locked = ALWAYS_SHOWN.includes(t.label);
-                const on = locked || !(hidden ?? []).includes(t.label);
-                return (
-                  <li key={t.label}>
-                    <label
-                      className={`flex min-h-11 items-center gap-2 text-xs sm:min-h-0 ${
-                        locked ? 'text-zinc-400 dark:text-zinc-500' : 'cursor-pointer text-zinc-700 dark:text-zinc-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        disabled={locked}
-                        onChange={() => onToggle(t.label)}
-                        className="h-4 w-4 shrink-0 accent-indigo-600 disabled:opacity-40"
-                      />
-                      <span className="truncate" title={locked ? 'Every flight report has an apogee' : t.label}>
-                        {t.label}
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          )}
-        </details>
+        <ReadingChooser
+          labels={everything.map((t) => t.label)}
+          hidden={hidden ?? []}
+          onToggle={onToggle}
+          where="Applies here and to the .txt, .md and .html reports and the bundle."
+        />
       )}
 
       {metrics.transonicTime != null &&

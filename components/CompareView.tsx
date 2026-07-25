@@ -9,6 +9,8 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
+import { loadHidden, saveHidden, toggleHidden } from '@/lib/reportProfile';
+import ReadingChooser from './ReadingChooser';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
@@ -138,12 +140,28 @@ export default function CompareView({
     setReportLabel('');
     setReportNotes('');
   }, [syncKey]);
-  const reportMeta = useMemo<ReportMeta>(() => ({ label: reportLabel, notes: reportNotes }), [reportLabel, reportNotes]);
+  // Which readings the flyer wants — the same stored choice the flight report uses, so
+  // "what I care about" is answered once rather than per surface.
+  const [hidden, setHidden] = useState<string[]>([]);
+  useEffect(() => setHidden(loadHidden()), []);
+  const toggleReading = useCallback((label: string) => {
+    setHidden((prev) => {
+      const next = toggleHidden(prev, label);
+      saveHidden(next);
+      return next;
+    });
+  }, []);
+
+  const reportMeta = useMemo<ReportMeta>(
+    () => ({ label: reportLabel, notes: reportNotes, hidden }),
+    [reportLabel, reportNotes, hidden],
+  );
 
   // The side-by-side rows (with best-of emphasis and the mixed-source "(baro)"
   // tagging) come from one shared builder, so the on-screen table, the metrics CSV
   // and the Markdown bundle can't drift.
-  const metricRows = compareMetricRows(flights, sys);
+  const allRows = useMemo(() => compareMetricRows(flights, sys), [flights, sys]);
+  const metricRows = useMemo(() => compareMetricRows(flights, sys, hidden), [flights, sys, hidden]);
   const baroMix = compareHasBaroMix(flights);
   const clippedAccel = compareHasClippedAccel(flights);
 
@@ -605,6 +623,15 @@ export default function CompareView({
           </tbody>
         </table>
       </div>
+
+      {/* The same chooser, and the same stored choice, as the flight report's — a flyer
+          answers "what do I care about?" once, not once per surface. */}
+      <ReadingChooser
+        labels={allRows.map((r) => r.label)}
+        hidden={hidden}
+        onToggle={toggleReading}
+        where="Applies to this table, the chart legend’s figures and the .md, .html and bundle exports."
+      />
 
       {baroMix && (
         <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">

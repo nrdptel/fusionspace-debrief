@@ -304,3 +304,41 @@ test('with no stated dates the cross-check keeps its conditional framing', async
   await expect(page.getByText(/If these are recordings of the same flight/)).toBeVisible();
   await expect(page.getByText('Flight to flight')).toHaveCount(0);
 });
+
+// One decision about which readings matter, not one per surface: the choice made on a
+// flight report is already made for the comparison, and the other way round.
+test('the reading chooser is one choice shared by both surfaces', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('aim-xtra.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: 'Burn time', exact: true })).toBeVisible();
+
+  const toggle = page.locator('summary', { hasText: "Choose what's in this report" });
+  await toggle.click();
+  await page.getByRole('checkbox', { name: 'Burn time' }).uncheck();
+  await expect(page.getByRole('rowheader', { name: 'Burn time', exact: true })).toHaveCount(0);
+  await toggle.click();
+
+  // …and the same reading is gone from a single flight's report, without being turned off
+  // a second time there.
+  await page.getByRole('button', { name: /Back to a single flight/ }).click();
+  await page.getByLabel('Choose a flight log file').setInputFiles(fixture('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect(page.getByText('Burn time', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('1 off')).toBeVisible();
+
+  // The Markdown of the comparison follows it too.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('aim-xtra.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save bundle' }).click(),
+  ]);
+  const names = zipEntryNames(await readFile(await dl.path()));
+  expect(names).toContain('compare-summary.md');
+});
