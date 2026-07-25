@@ -2,6 +2,7 @@ import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import Analyzer from '@/components/Analyzer';
+import MethodsPointer from '@/components/MethodsPointer';
 
 export default function Home() {
   return (
@@ -101,26 +102,7 @@ export default function Home() {
         <Analyzer />
       </section>
 
-      {/* The full method-by-method write-up lives on its own page, so the analyze view
-          stays focused on the flight; this is the pointer to it. */}
-      <section className="mx-auto mt-16 w-full max-w-5xl border-t border-zinc-200 pt-8 dark:border-zinc-800 print:hidden">
-        <h2 className="text-lg font-semibold tracking-tight">Where the numbers come from</h2>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
-          Debrief is a measurement instrument, not a simulator: every number is a reading of your own
-          recording, worked out the same way for every logger and labelled wherever it&apos;s derived
-          or approximate. See exactly how each one — apogee, velocity, thrust-to-weight, drag and
-          parachute C<sub>d</sub>, recovery drift and the rest — is calculated, and where it can be
-          wrong.
-        </p>
-        <p className="mt-3">
-          <Link
-            href="/methods"
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-          >
-            Read the methods &rarr;
-          </Link>
-        </p>
-      </section>
+      <MethodsPointer />
 
       <div className="mx-auto w-full max-w-5xl">
         <SiteFooter />

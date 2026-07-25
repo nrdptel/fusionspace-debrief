@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import CompareSurface from '@/components/CompareSurface';
+import MethodsPointer from '@/components/MethodsPointer';
 import { SITE_URL } from '@/lib/links';
 
 export const metadata: Metadata = {
@@ -23,6 +24,8 @@ export default function ComparePage() {
       <section className="mt-8">
         <CompareSurface />
       </section>
+
+      <MethodsPointer />
 
       <div className="mx-auto w-full max-w-5xl">
         <SiteFooter />

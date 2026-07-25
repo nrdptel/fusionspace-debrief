@@ -67,3 +67,26 @@ test('validation page is its own route with the accuracy account', async ({ page
   await page.getByRole('link', { name: /where the numbers come from/ }).click();
   await expect(page).toHaveURL(/\/methods\/?$/);
 });
+
+// Debrief reads flights that have already been flown, and the line between that and a
+// simulator is the basis on which its numbers can be trusted. Any surface that shows
+// figures has to say so — it isn't a home-page footnote.
+test('every surface that shows numbers says what Debrief is not', async ({ page }) => {
+  for (const path of ['/', '/compare']) {
+    await page.goto(path);
+    await expect(
+      page.getByText(/measurement instrument, not a simulator/),
+      `${path} must carry the disclaimer`,
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: /Read the methods/ })).toBeVisible();
+  }
+});
+
+// Two pages doing different jobs shouldn't introduce themselves with the same sentence.
+test('each surface describes itself', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText(/Drop in a flight log from any altimeter/)).toBeVisible();
+  await page.goto('/compare');
+  await expect(page.getByText(/Line up a launch day, a season/)).toBeVisible();
+  await expect(page.getByText(/Drop in a flight log from any altimeter/)).toHaveCount(0);
+});

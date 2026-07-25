@@ -500,9 +500,14 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   an address”**, since the dropped flights went into the logbook on the way in and
   `saveRecent` returns the id it stored them under. **Next in the same direction:** give the
   report & export builder its own route when it lands.
-- Two surfaces still share one description: the header tagline says "drop in a flight log…
-  and read the flight" on `/compare` too. Wrong-ish rather than wrong; it wants a per-surface
-  line once there are three of them.
+- **Done, and it turned up an invariant gap I had introduced myself.** Each surface now
+  describes itself in the header rather than both saying "drop in a flight log… and read the
+  flight" — but the real find was that `/compare`, a surface I added today that shows a table
+  full of figures, did **not** carry the "measurement instrument, not a simulator" statement.
+  That line is the basis on which every number here can be trusted, and it was living on the
+  home page as if it were a footnote. It is a shared component now, on both surfaces, with a
+  test that walks every surface showing numbers and requires it. Worth re-running that test's
+  logic by hand whenever a surface is added.
 - No report/export builder yet: a table & plot picker with unit/colour/theme control and
   multi-format export in one place (North Star #2).
 - Per-stage assembly (a staged flight logging each stage on its own device) isn't built;

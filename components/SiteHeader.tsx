@@ -14,6 +14,17 @@ const SURFACES = [
   { href: '/compare', key: 'compare', label: 'Compare', hint: 'Line up several side by side' },
 ] as const;
 
+/** What this surface is for, in its own words — two pages doing different jobs shouldn't
+ *  introduce themselves with the same sentence. */
+const TAGLINE: Record<string, string> = {
+  analyze:
+    'Drop in a flight log from any altimeter and read the flight — parsed in your browser, never uploaded.',
+  compare:
+    'Line up a launch day, a season, or several altimeters that flew the same rocket — read side by side in your browser, never uploaded.',
+};
+const TAGLINE_DEFAULT =
+  'Read the flight logs you have already flown — parsed in your browser, never uploaded.';
+
 export default function SiteHeader({
   current,
   brandAsHeading = true,
@@ -34,8 +45,7 @@ export default function SiteHeader({
           <FusionSpaceBadge className="mb-1.5" />
           <Brand className="text-2xl font-semibold tracking-tight">Debrief</Brand>
           <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
-            Drop in a flight log from any altimeter and read the flight — parsed in your
-            browser, never uploaded.
+            {(current && TAGLINE[current]) || TAGLINE_DEFAULT}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
