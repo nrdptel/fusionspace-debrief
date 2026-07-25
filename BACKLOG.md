@@ -46,9 +46,9 @@ memory, so a later pass doesn't have to rediscover them.
 
 - The comparison table sorts now, but doesn't filter, and columns can't be dragged into a
   deliberate order (booster/sustainer, or flight 1..n) — the next step for a launch day.
-- Footer and prose links stay 16–20 px tall on a phone (correctly — a 44 px link inside a
-  sentence would be wrong), but the footer nav in particular is a thumb target in practice.
-  Worth laying the footer links out as a real nav row on a coarse pointer.
+- Links inside prose stay 16–20 px tall on a phone, which is right — but check the few
+  that act as navigation without living in a `<nav>` (the "Read the methods →" call to
+  action, say) and move them into one.
 
 ## Feature depth
 

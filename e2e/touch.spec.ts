@@ -63,7 +63,8 @@ test('a two-finger pinch zooms the chart on a touch device', async ({ page }) =>
 // A pad check happens one-handed, on a phone, sometimes with gloves on. Every control
 // the flyer has to hit there needs a real touch target — 44 px, the floor Apple's HIG
 // and WCAG 2.5.5 set — while the pointer/desktop layout keeps its dense 26 px chips.
-// Text links inside prose are exempt (a 44 px-tall link mid-sentence would be wrong).
+// Links inside prose are exempt (a 44 px-tall link mid-sentence would be wrong), but a
+// nav link is a target like any other.
 test('every control on a phone is a thumb-sized target', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
@@ -72,7 +73,8 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
 
   const small = await page.evaluate(() => {
     const out: string[] = [];
-    const sel = 'button, select, summary, [role=button], input:not([type=checkbox]):not([type=radio]):not([type=range])';
+    const sel =
+      'button, select, summary, [role=button], nav a, input:not([type=checkbox]):not([type=radio]):not([type=range])';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue; // hidden (e.g. the sr-only file input)

@@ -49,6 +49,13 @@ html {
   [role='button'] {
     min-width: 44px;
   }
+  /* Navigation links are targets, not prose — the footer's Methods / Validation / Privacy
+     row and the brand eyebrow are all thumb-reachable on a phone. Padded rather than given
+     a height so they stay on one line with their separators. A link inside a paragraph is
+     left alone: 44 px tall mid-sentence would be wrong. */
+  nav a {
+    padding-block: 0.875rem;
+  }
   /* A summary is a block list-item, so a min-height would strand its label at the top
      of the taller box — and switching it to flex to centre that would drop the
      disclosure triangle. Pad it instead: the row grows to a thumb's worth and the whole
