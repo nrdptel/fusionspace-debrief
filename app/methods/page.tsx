@@ -232,7 +232,11 @@ export default function MethodsPage() {
             (decoding them from their byte-order mark, as a Windows RRC3 mDACS text export needs) and a
             header line a logger forgot to end (where its first record arrives fused onto the column
             names — the record is recovered and the names split back out, instead of showing you dozens
-            of columns named after numbers) — covers everything else. The RRC3 export names no units, so — like a metric-configured Eggtimer — its
+            of columns named after numbers) — covers everything else. A logger&apos;s <em>summary</em>
+            export (the key-and-value file Featherweight&apos;s app saves beside a Blue Raven or GPS log)
+            holds headline figures and no flight record, so Debrief names it, reads its figures back to
+            you, and points you at the log file that has the flight — where those same figures become
+            the device&apos;s side of the cross-check. The RRC3 export names no units, so — like a metric-configured Eggtimer — its
             altitude is ambiguous between feet and metres; Debrief settles it from physics, reading the
             altitude in whichever unit matches the apogee its own barometric-pressure column implies.
             Files are read with the browser&apos;s own file API and never uploaded.

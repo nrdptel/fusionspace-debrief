@@ -16,6 +16,7 @@ import { featherweightFipParser } from './featherweightFip';
 import { entacoreAimParser } from './entacoreAim';
 import { featherweightGpsParser } from './featherweightGps';
 import { missileworksRrc3Parser } from './missileworksRrc3';
+import { deviceSummaryParser } from './deviceSummary';
 
 export type { ParseInput, Parser } from './types';
 export { ParseGuidanceError } from './types';
@@ -29,6 +30,9 @@ export const PARSERS: Parser[] = [
   entacoreAimParser,
   featherweightGpsParser,
   missileworksRrc3Parser,
+  // Not a flight at all — a device's key,value summary export. Registered so it is
+  // recognised and explained rather than dropped into the column mapper.
+  deviceSummaryParser,
 ];
 
 const AUTO_THRESHOLD = 0.6;

@@ -1,6 +1,30 @@
 {
-  "_comment": "Committed corpus-contract overrides, merged over the fetched expected.json by `file`. The corpus ships as a separately-versioned release asset (see corpus.lock.json), so a parser fix in code lands before expected.json can be regenerated and re-released. This is the in-repo, CI-reachable home for a fixture's updated contract in that window \u2014 it carries the full expectation (kind, parser, asserts) so golden-value coverage isn't lost. Remove an entry once the debrief-fixtures corpus is re-cut to include it. An override only applies when its target file is present in the fetched corpus.",
+  "_comment": "Committed corpus-contract overrides, merged over the fetched expected.json by `file`. The corpus ships as a separately-versioned release asset (see corpus.lock.json), so a parser fix in code lands before expected.json can be regenerated and re-released. This is the in-repo, CI-reachable home for a fixture's updated contract in that window — it carries the full expectation (kind, parser, asserts) so golden-value coverage isn't lost. Remove an entry once the debrief-fixtures corpus is re-cut to include it. An override only applies when its target file is present in the fetched corpus.",
   "fixtures": [
+    {
+      "file": "blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm_summary_01-18-2026_10_48_41_.csv",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "summary file for “BlRv_159F1cm”"
+      },
+      "note": "Key-value device summary: no flight record in it, so it is recognised and explained (with the figures it carries) instead of dropped into the column mapper."
+    },
+    {
+      "file": "blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_summary_04-12-2025_12_45_49_.csv",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "summary file for “BlRv_SN1537”"
+      },
+      "note": "Key-value device summary — recognised and explained rather than mapped."
+    },
+    {
+      "file": "featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_summary_04-12-2025_12_45_50_.csv",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "summary file for “GPSTrk05305”"
+      },
+      "note": "Key-value Featherweight GPS summary — recognised and explained rather than mapped."
+    },
     {
       "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Data.txt",
       "expect": {
@@ -75,7 +99,7 @@
         "velocity"
       ],
       "note": "Eggtimer EUROPEAN semicolon export (ARIS EULER explosion flight); feet via delimiter-aware parser (was mapper metres). Apogee ~958 ft vs device summary ~976 ft. Pending debrief-fixtures re-cut.",
-      "knownIssue": "ARIS Euler explosion flight \u2014 the in-air breakup corrupts the descent phase (a negative \"main\" rate), so it is parsed but not invariant-asserted. With the delimiter-aware Eggtimer parser its apogee now reads ~958 ft (feet) vs the device summary ~976 ft, instead of ~2808 ft via the generic mapper (metres)."
+      "knownIssue": "ARIS Euler explosion flight — the in-air breakup corrupts the descent phase (a negative \"main\" rate), so it is parsed but not invariant-asserted. With the delimiter-aware Eggtimer parser its apogee now reads ~958 ft (feet) vs the device summary ~976 ft, instead of ~2808 ft via the generic mapper (metres)."
     },
     {
       "file": "altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv",

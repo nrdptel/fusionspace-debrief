@@ -29,9 +29,12 @@ memory, so a later pass doesn't have to rediscover them.
 - The Altus Metrum native `.eeprom` files (three in the corpus) reach the column mapper
   with no roles, so they analyze as nothing. A native AltOS eeprom reader would cover
   them — the paired CSV exports parse fine, so there's ground truth to check against.
-- The Blue Raven `_summary_` CSVs and the Featherweight GPS `_summary_` CSVs carry the
-  device's own headline figures but map to no roles; they'd be first-class cross-check
-  sources (reported values) rather than failed flights.
+- A device summary file is now recognised and explained, but its figures still aren't
+  *used*: dropping a summary and its log together should feed the summary's numbers into
+  the cross-check as the device's side. That needs multi-file association — the next real
+  step for reconciliation.
+- A binary or image file (a `.png` of a flight summary, say) reaches the column mapper and
+  is offered as a table. Recognise "this isn't text data" and say so.
 - `velocitySource: 'device'` still means "the file had a velocity column", which for a
   baro-only logger is barometric all the same. The alt-diff test catches the naive case;
   a device whose velocity column is a *filtered* baro derivative still reads as measured.
