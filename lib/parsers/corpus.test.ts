@@ -227,6 +227,10 @@ function runFixture(fx: Fixture) {
       expect(Number.isFinite(a.metrics.apogeeAltitude), `${name} apogee finite`).toBe(true);
       expect(a.metrics.apogeeAltitude, `${name} apogee > 0`).toBeGreaterThan(0);
       assertInvariants(a, name);
+      // A mapped flight can carry golden values like any other. The generic mapper is half
+      // of the "universal" promise, and a file that only ever role-checked could drift its
+      // numbers freely.
+      assertGolden(fx, a);
       // Where the file states the device's own apogee, Debrief's independent read must
       // agree closely — a grounded guard that a real generic-CSV flight stays correct.
       for (const c of compareReported(flight.reported ?? [], a.metrics)) {
@@ -253,17 +257,25 @@ function runFixture(fx: Fixture) {
   const a = analyzeFlight(res.flight);
   assertInvariants(a, name);
 
-  if (fx.assert?.length) {
-    for (const as of fx.assert) {
-      const si = metricSI[as.metric](a.metrics);
-      expect(si, `${as.metric} present`).not.toBeNull();
-      expect(Number.isNaN(si as number), `${as.metric} is NaN`).toBe(false);
-      const got = toStatedUnit(as.metric, si as number, as.unit);
-      const lo = as.value * (1 - as.tolPct / 100);
-      const hi = as.value * (1 + as.tolPct / 100);
-      expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeGreaterThanOrEqual(lo);
-      expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeLessThanOrEqual(hi);
-    }
+  assertGolden(fx, a);
+}
+
+/**
+ * The fixture's golden values against the analysis. Shared by both paths on purpose: a
+ * mapping fixture's `assert` block used to be read and never checked — the mapping branch
+ * returned before it — so a golden number written there looked armed and wasn't. Caught by
+ * writing one, deliberately setting it wrong, and watching the suite stay green.
+ */
+function assertGolden(fx: Fixture, a: ReturnType<typeof analyzeFlight>): void {
+  for (const as of fx.assert ?? []) {
+    const si = metricSI[as.metric](a.metrics);
+    expect(si, `${as.metric} present`).not.toBeNull();
+    expect(Number.isNaN(si as number), `${as.metric} is NaN`).toBe(false);
+    const got = toStatedUnit(as.metric, si as number, as.unit);
+    const lo = as.value * (1 - as.tolPct / 100);
+    const hi = as.value * (1 + as.tolPct / 100);
+    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeGreaterThanOrEqual(lo);
+    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeLessThanOrEqual(hi);
   }
 }
 

@@ -120,6 +120,28 @@
         }
       ],
       "note": "AltOS radio-telemetry CSV (tick/ptype); lossy and truncated mid-descent, but apogee ~13268 ft matches the on-board flight-log read. Was mapping. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "jollylogic/jollylogic__altimeterthree-official-sample__SampleRocketFlight.csv",
+      "expect": {
+        "kind": "mapping"
+      },
+      "requireRoles": [
+        "time",
+        "altitude",
+        "pressure",
+        "accelAxial",
+        "accelTotal"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 666,
+          "unit": "ft",
+          "tolPct": 1.5
+        }
+      ],
+      "note": "Jolly Logic AltimeterThree, the manufacturer's OWN official sample flight — the highest-authority ground truth in the corpus, and it asserted no number. Debrief reads 666 ft AGL where the device's Info tab says 681 ft, and the whole 15 ft is accounted for: 9 ft of pad baseline (the altitude column sits at ~8.6 ft mean over the 100 pre-liftoff samples, so 681 is not measured from the pad) and ~6 ft of a single-sample spike (the 681 sample at t=12.25 s has neighbours of 665 and 670 ft, in a trace whose sample-to-sample scatter is ~5 ft). Debrief's flight time, 48.8 s, matches the device's stated 49 s. Asserting the read Debrief can defend rather than the device's raw maximum. Pending debrief-fixtures re-cut."
     }
   ]
 }

@@ -6,6 +6,29 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A golden assert on a mapper fixture looked armed and wasn't — found by deliberately
+  writing a wrong one.** Added the corpus's first numeric assert for a generic-mapper file
+  and, checking it could fail, set the value to 750 ft against a 666 ft read. The suite
+  stayed green: `runFixture`'s mapping branch ran the pipeline, checked the invariants and
+  the device's own reported apogee, then `return`ed before the `fx.assert` loop, so every
+  `assert` block on a `kind: "mapping"` fixture was silently ignored. The generic mapper is
+  half of the "universal" promise and several corpus files go through it, so those flights
+  could drift their numbers freely. The assert loop is shared by both paths now, and re-
+  running the wrong value fails as it should.
+- **Checked Debrief's apogee against every corpus file's own raw maximum, and the answer is
+  a validation-page fact rather than a bug.** Across **40 flights**, Debrief lands within 1%
+  of the file's biggest altitude sample on **31**, and where it differs it is almost always
+  *lower* — by design, because it measures from the pad baseline the log establishes before
+  liftoff and rejects single-sample spikes. The worked example is now on the validation page:
+  **Jolly Logic's own official sample flight**, the manufacturer's published file, states 681
+  ft; Debrief reads 666 ft; and all 15 ft is accounted for — 9 ft of pad baseline (that column
+  averages 8.6 ft over its 100 pre-liftoff samples) and ~6 ft of spike (the 681 sample at
+  t=12.25 s sits between neighbours of 665 and 670 ft, in a trace scattering ~5 ft). Flight
+  time matches the device exactly (48.8 s vs 49 s). The corpus now asserts 666 ft — the read
+  the method can defend. **Not chased:** `missileworks-rrc3__xprs2015` reads 1.52% *above* its
+  own altitude column, the only meaningfully positive gap, because its altitude comes from
+  the pressure column rather than the stated one; worth a look if that parser is touched.
+
 - **Measured whether the readings could tell one flight from two, and they cannot — so the
   planned fix was refuted and the copy was fixed instead.** The open question below was
   whether a wrong device clock could produce a confident, wrong "these are different

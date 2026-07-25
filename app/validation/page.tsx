@@ -89,6 +89,42 @@ export default function ValidationPage() {
 
         <section>
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            Why Debrief&apos;s apogee is usually a little lower than the file&apos;s biggest number
+          </h2>
+          <p className="mt-2">
+            An easy check anyone can run: open the altitude column in a spreadsheet, take the
+            largest value, and compare. Across <strong>40 corpus flights</strong>, Debrief&apos;s
+            apogee lands within <strong>1% of the file&apos;s own raw maximum on 31 of them</strong> —
+            and where it differs it is nearly always <em>lower</em>, on purpose, for two reasons that
+            apply to every logger. It measures from the <strong>pad</strong>, subtracting the ground
+            baseline the log itself establishes before liftoff, so a barometer reading 9 ft on the
+            rail doesn&apos;t add 9 ft to the flight. And it <strong>rejects single-sample spikes</strong>,
+            because one sample standing well clear of both its neighbours is sensor noise, not a
+            height the rocket reached and came back from.
+          </p>
+          <p className="mt-2">
+            The clearest worked example is Jolly Logic&apos;s own published sample flight, which is
+            about as authoritative as ground truth gets. Its Info tab states{' '}
+            <strong>681 ft</strong>; Debrief reads <strong>666 ft</strong>, and all 15 ft of the
+            difference is accounted for. Nine of it is pad baseline — that altitude column averages
+            8.6 ft over its 100 pre-liftoff samples, so 681 was never measured from the ground. The
+            other six are a spike: the 681 sample sits at t = 12.25 s between neighbours of 665 and
+            670 ft, in a trace whose sample-to-sample scatter is about 5 ft. Debrief&apos;s flight
+            time for that same file, 48.8 s, matches the device&apos;s stated 49 s. The corpus asserts
+            666 ft, not 681 — the number the method can defend, with the difference explained rather
+            than split.
+          </p>
+          <p className="mt-2">
+            The point is not that the altimeter is wrong. It is that &ldquo;the biggest number in the
+            column&rdquo; and &ldquo;how high it flew&rdquo; are two different questions, and Debrief
+            answers the second one. Where the gap is bigger than this — the four largest in the
+            corpus run to 4.6% — it is a real barometric artefact in the file, and the read says so
+            on the report rather than here.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
             What the readings cannot settle: whether two files are one flight
           </h2>
           <p className="mt-2">
