@@ -30,6 +30,29 @@ const PRECACHE = [
   '/privacy/',
 ];
 
+/**
+ * Store a response only if its body actually arrived whole.
+ *
+ * `res.ok` says the HEADERS were fine; it says nothing about the body, and a fetch whose
+ * stream is cut short still yields an ok response carrying a partial document. Cached, that
+ * is worse than caching nothing: the page then loads offline with a complete <head> and a
+ * truncated <body> — the right title, `readyState: complete`, and half the content missing —
+ * and it stays that way until the cache is replaced. CI caught exactly that shape on a
+ * precached docs page (controlled: true, cached: true, complete, correct title, no <h1>),
+ * intermittently and never reproducibly, which is what a race on a response body looks like.
+ *
+ * Reading the body to the end forces the failure to happen HERE, where it can be caught, and
+ * comparing against Content-Length rejects a short read that didn't throw.
+ */
+async function cacheIfWhole(cache, key, res) {
+  if (!res || !res.ok || res.type === 'opaque') return false;
+  const body = await res.arrayBuffer();
+  const stated = res.headers.get('content-length');
+  if (stated && Number(stated) !== body.byteLength) return false;
+  await cache.put(key, new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers }));
+  return true;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
@@ -40,7 +63,7 @@ self.addEventListener('install', (event) => {
         PRECACHE.map(async (url) => {
           try {
             const res = await fetch(url, { cache: 'reload', credentials: 'same-origin' });
-            if (res.ok) await cache.put(url, res);
+            await cacheIfWhole(cache, url, res);
           } catch {
             /* offline at install — runtime caching and the page's warm-up pick it up */
           }
@@ -82,7 +105,7 @@ self.addEventListener('message', (event) => {
         wanted.map(async (href) => {
           try {
             const res = await fetch(href, { credentials: 'same-origin' });
-            if (res.ok) await cache.put(href, res);
+            await cacheIfWhole(cache, href, res);
           } catch {
             /* offline again, or gone — runtime caching will pick it up next time */
           }
@@ -112,12 +135,11 @@ self.addEventListener('activate', (event) => {
 const MATCH = { ignoreVary: true };
 
 async function putInCache(request, response) {
-  if (!response || !response.ok || response.type === 'opaque') return;
-  const cache = await caches.open(CACHE);
   try {
-    await cache.put(request, response);
+    const cache = await caches.open(CACHE);
+    await cacheIfWhole(cache, request, response);
   } catch {
-    /* quota or uncacheable request — ignore */
+    /* quota, a cut-off body, or an uncacheable request — leave the cache as it was */
   }
 }
 
@@ -128,13 +150,14 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return; // leave cross-origin alone
 
   // Navigations: serve the cached page immediately where there is one, and refresh it in
-  // the background. This used to try the network first and fall back on failure, which is
-  // fine only if "offline" means fetch() rejects promptly — and it doesn't always. A
-  // request made with no network can sit pending instead of failing, and then the page is
-  // stuck loading a document that was in the cache the whole time. CI caught exactly that:
-  // one precached doc page opened offline, the next one hung, with the wait for the worker
-  // to finish installing already ruled out. At the field, where every navigation is
-  // offline, waiting for the network to give up first was never the right order anyway.
+  // the background. This used to try the network first and fall back only when the fetch
+  // failed, which makes every offline navigation wait for a network attempt to give up
+  // before showing a page that was in the cache the whole time. At the field, where every
+  // navigation is offline, that was never the right order.
+  //
+  // (It was also once believed to be the cause of a CI failure on an offline docs page.
+  // It wasn't — the page turned out to be loading a *truncated* cached body, see
+  // `cacheIfWhole` — but cache-first is the right shape here on its own merits.)
   //
   // The freshness this gives up is one visit: the page loads from cache while the same
   // request goes to the network and updates it, and a deploy also brings a new worker whose

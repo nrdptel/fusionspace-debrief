@@ -325,7 +325,23 @@ memory, so a later pass doesn't have to rediscover them.
   piece of that was already covered; the journey was not, and the journey is the product. It
   is one test now, including that nothing in the report pushes past a 390 px viewport while
   doing it.
-- **Wrong diagnosis first, then the real one: the service worker was serving navigations
+- **Third diagnosis, and this one the test told me rather than my guessing: the worker was
+  caching a truncated response body.** The instrumentation added on the second attempt paid
+  for itself immediately — the next CI failure arrived reading
+  `/validation/ offline — {"controlled":true,"cached":true,"readyState":"complete","title":"How Debrief is validated — Debrief"}`.
+  Worker controlling, document cached, page *complete*, correct title, and no `<h1>`. That is
+  not a race on the worker or a hanging fetch: it is a cached copy with a whole `<head>` and
+  a cut-off `<body>`. `res.ok` describes the HEADERS; a fetch whose stream is cut short still
+  yields an ok response carrying a partial document, and `cache.put` will happily store it —
+  after which the page loads broken offline, for good, until the cache is replaced. Every
+  cache write now reads the body to the end (so the failure happens where it can be caught)
+  and rejects a short read against `Content-Length`. **Honest status:** this explains the
+  evidence exactly and is right regardless — caching a truncated document is worse than
+  caching nothing — but it has never reproduced locally, so watch the next few CI runs before
+  calling it closed. The two earlier theories (a worker still installing; a navigation
+  hanging on a dead network) were both wrong as *causes*; both fixes are worth keeping on
+  their own merits, and the wrong causal claim left in the navigation comment is corrected.
+- **Second diagnosis, also wrong as a cause: the service worker was serving navigations
   network-first.** After the precondition fix below, `/validation/` *still* failed to come up
   offline on CI — same assertion, same shape, and still never reproducible locally (three
   full CI-shaped runs, `--repeat-each` sweeps, and a check that the static server issues no
