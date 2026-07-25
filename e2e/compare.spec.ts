@@ -270,11 +270,14 @@ test('a comparison the files date apart is framed as flight-to-flight, not agree
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
 
   await expect(page.getByText('Flight to flight')).toBeVisible();
-  await expect(page.getByText(/These are different flights/)).toBeVisible();
-  // Named in the app's own date voice, not as raw stamps.
-  await expect(page.getByText(/30 Oct 2021/).first()).toBeVisible();
-  await expect(page.getByText(/11 May 2024/).first()).toBeVisible();
+  await expect(page.getByText(/The files date these on different days/)).toBeVisible();
+  // Named in the app's own date voice, not as raw stamps — and each day attributed to the
+  // file that states it, which is how a flyer finds a device carrying a wrong clock.
+  await expect(page.getByText(/30 Oct 2021 \(altusmetrum-telemetrum\)/).first()).toBeVisible();
+  await expect(page.getByText(/11 May 2024 \(blueraven-app-lr\)/).first()).toBeVisible();
   await expect(page.getByText(/If these are recordings of the same flight/)).toHaveCount(0);
+  // The reading rests on the dates alone, and says so where it is made.
+  await expect(page.getByText(/a device clock is wrong/)).toBeVisible();
 
   // …and the saved write-up says the same thing, not the opposite.
   const [dl] = await Promise.all([
@@ -289,7 +292,9 @@ test('a comparison the files date apart is framed as flight-to-flight, not agree
     stream!.on('error', reject);
   });
   expect(html).toContain('Flight to flight');
-  expect(html).toContain('These are different flights');
+  expect(html).toContain('The files date these on different days');
+  expect(html).toContain('30 Oct 2021 (altusmetrum-telemetrum)');
+  expect(html).toContain('a device clock is wrong');
   expect(html).not.toContain('If these are recordings of the same flight');
 });
 

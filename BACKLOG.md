@@ -6,6 +6,27 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Measured whether the readings could tell one flight from two, and they cannot — so the
+  planned fix was refuted and the copy was fixed instead.** The open question below was
+  whether a wrong device clock could produce a confident, wrong "these are different
+  flights", and the proposed shape was to let the measurements answer back: two recordings
+  agreeing on apogee, time-to-apogee and speed while their dates sit a decade apart is a
+  story about a broken clock. Swept it over the corpus first, and the corpus says no.
+  **Every pair of recordings of genuinely different flights, cross-checked: 8 of 154 agree on
+  apogee within 8%, the closest to 0.55% — tighter than 6 of the 17 pairs that really are one
+  flight, and tighter on time-to-apogee (0.55 s) than 4 of them.** `iss-endurance` against
+  `euroc-stacarl2` — different rockets, different continents, years apart — agrees to 0.55% on
+  apogee, 0.55 s on the climb and 5.6% on speed. A flight to 3,000 ft looks like another
+  flight to 3,000 ft. Building the counter-test would have shipped a confident wrong verdict
+  of the opposite kind. **What shipped instead**, on all four comparison surfaces: the panel
+  no longer asserts "These are different flights" as a fact — it says the files date them on
+  different days, **names which file states which day** (so the odd clock is findable rather
+  than merely rumoured), and carries one caveat naming the single thing that would make the
+  reading wrong. The validation page records the sweep with its numbers. `debrief.comparison/1`
+  gains `statedBy` and `caveat`, additively. **Still open:** nothing checks whether two
+  recordings *without* dates could be one flight, and on the evidence above the numbers can't
+  be what answers it.
+
 - **Swept the corpus for a "different flights" verdict a wrong device clock could have
   caused, and found none — but only by luck, so here is the evidence.** `differentFlightDays`
   refutes the same-flight hypothesis when two files state launch days more than 36 h apart,

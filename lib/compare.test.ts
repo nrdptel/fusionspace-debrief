@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, crossCheck, differentFlightDays, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
+import { resample, buildComparison, crossCheck, differentFlightDays, statedDaySplit, statedDaysPhrase, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
 import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
@@ -278,7 +278,8 @@ describe('differentFlightDays', () => {
   const at = (stamp: string): FlownAt => ({ stamp, zone: 'UTC' });
   const withDates = (...stamps: (string | null)[]): CompareFlight[] =>
     stamps.map(
-      (s) => ({ metrics: metrics(1000), ...(s ? { flownAt: at(s) } : {}) }) as CompareFlight,
+      (s, i) =>
+        ({ name: `rec-${i + 1}.csv`, metrics: metrics(1000), ...(s ? { flownAt: at(s) } : {}) }) as CompareFlight,
     );
 
   it('stays open when fewer than two files state a date', () => {
@@ -307,5 +308,47 @@ describe('differentFlightDays', () => {
     expect(
       differentFlightDays(withDates('2024-05-11T14:09', '2021-10-30T20:07', '2024-05-11T15:00')),
     ).toEqual(['2021-10-30', '2024-05-11']);
+  });
+});
+
+describe('statedDaySplit — the evidence, not just the verdict', () => {
+  const at = (stamp: string): FlownAt => ({ stamp, zone: 'UTC' });
+  const flight = (name: string, stamp?: string): CompareFlight =>
+    ({ name, metrics: metrics(1000), ...(stamp ? { flownAt: at(stamp) } : {}) }) as CompareFlight;
+
+  it('says which recording states which day, so an odd clock can be found', () => {
+    // Two devices agree on the day and a third is a decade out — the shape of a dead
+    // backup cell, and the only way a flyer spots it is being told which file said what.
+    expect(
+      statedDaySplit([
+        flight('BlRv_SN1537.csv', '2025-04-12T12:45'),
+        flight('GPSTrk05305.csv', '2025-04-12T12:45'),
+        flight('TeleMetrum.csv', '2013-04-27T18:00'),
+      ]),
+    ).toEqual([
+      { day: '2013-04-27', names: ['TeleMetrum.csv'] },
+      { day: '2025-04-12', names: ['BlRv_SN1537.csv', 'GPSTrk05305.csv'] },
+    ]);
+  });
+
+  it('reads as a phrase that names the files beside the days', () => {
+    const split = statedDaySplit([flight('a.csv', '2021-10-30T20:07'), flight('b.csv', '2024-05-11T14:09')])!;
+    expect(statedDaysPhrase(split, (n) => n.replace(/\.[^.]+$/, ''))).toBe(
+      '30 Oct 2021 (a), 11 May 2024 (b)',
+    );
+  });
+
+  it('agrees with differentFlightDays on when the question is open', () => {
+    // One function, two views of it — they can never disagree about the verdict itself.
+    for (const stamps of [
+      [null, null],
+      ['2025-04-12T12:45', null],
+      ['2025-04-12T12:45', '2025-04-12T16:45'],
+      ['2025-04-12T23:50', '2025-04-13T04:50'],
+      ['2021-10-30T20:07', '2024-05-11T14:09'],
+    ] as (string | null)[][]) {
+      const fs = stamps.map((s, i) => flight(`f${i}.csv`, s ?? undefined));
+      expect(!!statedDaySplit(fs)).toBe(!!differentFlightDays(fs));
+    }
   });
 });

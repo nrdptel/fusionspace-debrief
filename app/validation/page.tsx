@@ -89,6 +89,33 @@ export default function ValidationPage() {
 
         <section>
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            What the readings cannot settle: whether two files are one flight
+          </h2>
+          <p className="mt-2">
+            Debrief tells a comparison of one flight from a comparison of several by the{' '}
+            <strong>dates the files state</strong>, and by nothing else. It is fair to ask why the
+            numbers don&apos;t decide it — two recordings of one flight ought to agree — so this was
+            measured rather than assumed. Across the corpus, every pair of recordings of{' '}
+            <em>genuinely different</em> flights was cross-checked against every other:{' '}
+            <strong>8 of 154 different-flight pairs agree on apogee to within 8%</strong>, the
+            closest to <strong>0.55%</strong> — tighter than 6 of the 17 pairs that really are one
+            flight, and tighter on time-to-apogee than 4 of them. A flight to 3,000 ft looks like
+            another flight to 3,000 ft, because that is what those numbers measure.
+          </p>
+          <p className="mt-2">
+            So agreement cannot confirm one flight, and disagreement cannot refute it. What that
+            leaves is honest but narrow: where the files date two recordings more than about a day
+            and a half apart, they are read as different flights and the cross-check is introduced as
+            a flight-to-flight difference instead. That reading inherits whatever the devices&apos;
+            clocks say — one corpus TeleMetrum insists on 27 Apr 2013 for a flight flown in October
+            2023 — so the comparison names which file states which day, and says plainly that a
+            wrong clock is the one thing that would make it wrong. Debrief reports the day a file
+            states and never quietly corrects it.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
             Grounded in published sources
           </h2>
           <p className="mt-2">

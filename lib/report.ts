@@ -23,8 +23,16 @@ import {
 } from './display';
 import type { UnitChoice } from './display';
 import { compareReported } from './flight/reported';
-import { formatFlownAt, formatFlownDay } from './flight/flownAt';
-import { crossCheck, differentFlightDays, type Comparison, type CompareFlight } from './compare';
+import { formatFlownAt } from './flight/flownAt';
+import {
+  crossCheck,
+  differentFlightDays,
+  statedDaySplit,
+  statedDaysPhrase,
+  DIFFERENT_DAYS_CAVEAT,
+  type Comparison,
+  type CompareFlight,
+} from './compare';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -772,12 +780,13 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
       ? ' †One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
       : '';
     // Where the files themselves date the flights days apart, the same numbers are a
-    // flight-to-flight difference, not a failed reconciliation — so the write-up says so.
-    const otherDays = differentFlightDays(flights);
+    // flight-to-flight difference, not a failed reconciliation — so the write-up says so,
+    // naming which file states which day and what the reading rests on.
+    const otherDays = statedDaySplit(flights);
     out.push('', otherDays ? '## Flight to flight' : '## Cross-check', '');
     out.push(
       otherDays
-        ? `These are different flights — the files date them ${otherDays.map(formatFlownDay).join(', ')} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve.${mixed}${sat}`
+        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}`
         : `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
     );
   }
@@ -851,11 +860,11 @@ export function compareHtml(
       .filter(Boolean)
       .map((s) => `<p class="src">${esc(s)}</p>`)
       .join('');
-    const otherDays = differentFlightDays(flights);
+    const otherDays = statedDaySplit(flights);
     // `phrase` is already escaped label by label, so the lede is assembled from escaped
     // parts rather than escaped again — which would double-encode it.
     const lede = otherDays
-      ? `These are different flights — the files date them ${esc(otherDays.map(formatFlownDay).join(', '))} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve.`
+      ? `The files date these on different days — ${esc(statedDaysPhrase(otherDays, nameStem))} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${esc(DIFFERENT_DAYS_CAVEAT)}`
       : `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`;
     crossHtml = `<section><h2>${otherDays ? 'Flight to flight' : 'Cross-check'}</h2><p class="lede">${lede}</p>${foot}</section>`;
   }
@@ -1101,8 +1110,17 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
     // reports say, in a form a consumer can branch on. A reader that took `crossCheck` for
     // an agreement between recordings of one flight would be wrong wherever the files
     // themselves date them apart, and the numbers alone can't tell it so.
-    sameFlight: differentFlightDays(flights)
-      ? { verdict: 'different-flights', refutedBy: 'stated-dates', statedDays: differentFlightDays(flights) }
+    sameFlight: statedDaySplit(flights)
+      ? {
+          verdict: 'different-flights',
+          refutedBy: 'stated-dates',
+          statedDays: differentFlightDays(flights),
+          // Which recording states which day, so a consumer can find the odd clock rather
+          // than only learn that one exists — and the caveat the screen carries, verbatim,
+          // because a machine reader has even less chance of thinking of it unprompted.
+          statedBy: statedDaySplit(flights),
+          caveat: DIFFERENT_DAYS_CAVEAT,
+        }
       : { verdict: 'unknown' },
     crossCheck: crossCheck(flights).map((a) => ({
       metric: a.key,
@@ -1113,7 +1131,7 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
       ...(a.saturated ? { saturated: true } : {}),
     })),
     disclaimer: differentFlightDays(flights)
-      ? 'These are different flights — the files date them days apart — so the spread figures are how far apart the flights are, not how closely two recordings of one flight agree. Aligned at liftoff and resampled onto a shared time base. Parsed locally; nothing uploaded.'
+      ? 'The files date these on different days, so the spread figures are how far apart the flights are, not how closely two recordings of one flight agree — a reading of the stated dates alone, which a device clock that was never set will get wrong. Aligned at liftoff and resampled onto a shared time base. Parsed locally; nothing uploaded.'
       : 'Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Parsed locally; nothing uploaded.',
   };
   if (flights.length === 2) {

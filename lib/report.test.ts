@@ -450,12 +450,19 @@ describe('comparison report', () => {
       { ...input('b', 315), flownAt: { stamp: '2024-05-11T14:09', zone: 'logger' as const } },
     ]);
     const doc = JSON.parse(compareJson(dated, 'imperial'));
-    expect(doc.sameFlight).toEqual({
-      verdict: 'different-flights',
-      refutedBy: 'stated-dates',
-      statedDays: ['2021-10-30', '2024-05-11'],
-    });
-    expect(doc.disclaimer).toContain('These are different flights');
+    expect(doc.sameFlight.verdict).toBe('different-flights');
+    expect(doc.sameFlight.refutedBy).toBe('stated-dates');
+    expect(doc.sameFlight.statedDays).toEqual(['2021-10-30', '2024-05-11']);
+    // Which file states which day: the verdict rests on the dates alone, so a consumer
+    // needs to be able to find the device carrying a wrong clock, not just be told one
+    // might exist. The caveat rides along for the same reason.
+    // The raw file names, matching `flights[].name`, so a consumer can join the two.
+    expect(doc.sameFlight.statedBy).toEqual([
+      { day: '2021-10-30', names: ['a.csv'] },
+      { day: '2024-05-11', names: ['b.csv'] },
+    ]);
+    expect(doc.sameFlight.caveat).toContain('a device clock is wrong');
+    expect(doc.disclaimer).toContain('date these on different days');
     // The spreads are still there — correctly introduced, not withheld.
     expect(doc.crossCheck.length).toBeGreaterThan(0);
   });

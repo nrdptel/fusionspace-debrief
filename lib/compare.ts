@@ -4,7 +4,7 @@
 // a shared, uniform time grid. uPlot needs one x-array shared by all series, so
 // the resampling is what makes the overlay possible at all.
 
-import type { FlownAt } from './flight/flownAt';
+import { formatFlownDay, type FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
 // Distinct, colour-blind-friendly-ish strokes; one per flight, in order. Caps the
@@ -196,6 +196,15 @@ export interface Agreement {
  * measurement of the recordings, never a verdict — so it's stated as a range, not a
  * single blessed number. Only metrics with a finite value on two or more flights.
  */
+/** One stated launch day, and which recordings state it — the evidence behind a
+ *  different-days reading, in the form that lets a flyer find the odd clock. */
+export interface StatedDay {
+  /** `YYYY-MM-DD`, as the file states it. */
+  day: string;
+  /** The recordings whose files state that day, in comparison order. */
+  names: string[];
+}
+
 /**
  * Whether these recordings could be of one flight — the question the cross-check's whole
  * framing rests on. It is a hypothesis, and the files can refute it: where two of them
@@ -203,24 +212,60 @@ export interface Agreement {
  * redundant-altimeter agreement, and calling a 201% apogee gap an "agreement to within
  * 201%" would be dressing a comparison of different flights as a failed reconciliation.
  *
- * Returns the distinct days the files state when it is refuted, and null when the question
- * stays open — which is the honest answer whenever fewer than two files state a date.
+ * Returns the days the files state, each with the recordings stating it, when the
+ * hypothesis is refuted — and null when the question stays open, which is the honest
+ * answer whenever fewer than two files state a date.
  *
  * Deliberately generous: a day of slack, because one recording can stamp UTC while another
  * stamps a logger's own wall clock, and an evening launch straddles midnight between them.
  * Two flights on consecutive days of one launch weekend therefore keep the conditional
  * framing. This only fires where the record makes the hypothesis impossible, not unlikely.
+ *
+ * **What it rests on, and what it cannot do.** The evidence is the stated dates and nothing
+ * else, and a device clock can be wrong — one corpus TeleMetrum insists on 27 Apr 2013 for a
+ * flight flown in October 2023. The readings cannot arbitrate: swept over the corpus, 8 of
+ * 154 pairs of recordings of genuinely DIFFERENT flights agree on apogee to within 8%, the
+ * closest to 0.55% — tighter than 6 of the 17 pairs that really are one flight, and tighter
+ * on time-to-apogee than 4 of them. So "the numbers agree, so the clock must be wrong" is
+ * not a test this corpus supports, and every surface says the reading is the dates' alone.
  */
-export function differentFlightDays(flights: CompareFlight[]): string[] | null {
-  const days = flights
-    .map((f) => f.flownAt?.stamp.slice(0, 10))
-    .filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
-  if (days.length < 2) return null;
-  const ms = days.map((d) => Date.parse(`${d}T00:00:00Z`));
+export function statedDaySplit(flights: CompareFlight[]): StatedDay[] | null {
+  const stated = flights
+    .map((f) => ({ name: f.name, day: f.flownAt?.stamp.slice(0, 10) }))
+    .filter((s): s is { name: string; day: string } => !!s.day && /^\d{4}-\d{2}-\d{2}$/.test(s.day));
+  if (stated.length < 2) return null;
+  const ms = stated.map((s) => Date.parse(`${s.day}T00:00:00Z`));
   const span = Math.max(...ms) - Math.min(...ms);
   if (!(span > 36 * 3600 * 1000)) return null;
-  return [...new Set(days)].sort();
+  const byDay = new Map<string, string[]>();
+  for (const s of stated) byDay.set(s.day, [...(byDay.get(s.day) ?? []), s.name]);
+  return [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, names]) => ({ day, names }));
 }
+
+/** Just the distinct days, for the places that name them without naming the recordings. */
+export function differentFlightDays(flights: CompareFlight[]): string[] | null {
+  return statedDaySplit(flights)?.map((d) => d.day) ?? null;
+}
+
+/**
+ * The days with the recordings that state them — "30 Oct 2021 (TeleMetrum), 11 May 2024
+ * (BlRv_SN1537)". Naming the files is the point: a flyer who knows these WERE one flight
+ * can see at a glance which device is carrying the wrong clock, which a bare list of days
+ * cannot tell them. `label` shortens a file name in the surface's own voice.
+ */
+export function statedDaysPhrase(days: StatedDay[], label: (name: string) => string): string {
+  return days.map((d) => `${formatFlownDay(d.day)} (${d.names.map(label).join(', ')})`).join(', ');
+}
+
+/**
+ * The caveat that must sit beside every different-days reading, on every surface. The
+ * reading rests on the stated dates and nothing else, and a clock that was never set states
+ * a wrong day — so the one alternative explanation is named rather than left for the flyer
+ * to think of. It also says why the numbers can't break the tie: see `statedDaySplit`, where
+ * the corpus measurement behind that claim is recorded.
+ */
+export const DIFFERENT_DAYS_CAVEAT =
+  'That reads off the stated dates alone. If you flew these as one flight, a device clock is wrong — Debrief reports the day each file states and never corrects it, and the readings cannot settle it, because different flights can agree as closely as two recordings of one.';
 
 export function crossCheck(flights: CompareFlight[]): Agreement[] {
   const specs: {
