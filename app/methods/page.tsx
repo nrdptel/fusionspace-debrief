@@ -432,7 +432,11 @@ export default function MethodsPage() {
             highest first, again for lowest, a third time back to the order the flight was recorded
             in). Sorting a time series is not idle: sorting altitude descending is how you tell a
             real apogee from a one-sample spike — the top of the list either steps down gently or
-            starts with an outlier, and the second reading is the honest one.
+            starts with an outlier, and the second reading is the honest one. Each column also
+            copies on its own (the ⧉ beside its name): the whole set has always been a CSV away,
+            but a flyer who wants the descent rates in a club sheet wants one channel, not eleven.
+            What lands in the spreadsheet is what is on screen — the rows in this window, in the
+            order the table is showing them.
           </Method>
           <Method title="Named views">
             The explorer remembers how you last set it up, and you can also keep several plots under

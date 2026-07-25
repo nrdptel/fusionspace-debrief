@@ -699,7 +699,8 @@ test('the sample table sorts by any column, and returns to sample order', async 
   expect(Number(t1)).toBeGreaterThan(Number(t0));
 
   // Sort by the altitude column, descending: the top row must be the highest sample.
-  const altHeader = table.getByRole('button', { name: /Altitude/ });
+  // The sort control, not the column's copy button beside it.
+  const altHeader = table.getByRole('button', { name: /^Altitude/ });
   await altHeader.click();
   const top = Number(await secondCol().innerText());
   const next = Number(await table.locator('tbody tr').nth(1).locator('td').nth(1).innerText());
@@ -715,4 +716,28 @@ test('the sample table sorts by any column, and returns to sample order', async 
   await altHeader.click();
   await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'none');
   expect(await firstCell().innerText()).toBe(t0);
+});
+
+// The last thing this table couldn't do that a spreadsheet can: hand you one channel. The
+// whole set has always been a CSV away, but "save it, find it, open it, delete the other
+// columns" is the workflow the table exists to replace — a flyer wanting the descent rates
+// in a club sheet wants one column, not eleven.
+test('one channel copies out of the sample table on its own', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  await page.locator('summary', { hasText: 'Show the samples' }).click();
+
+  const table = page.locator('table').filter({ has: page.getByRole('button', { name: /^Time/ }) }).first();
+  await table.getByRole('button', { name: /Copy the Altitude .* column/ }).click();
+  await expect(page.getByText(/copied — [\d,]+ rows/)).toBeVisible();
+
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  const lines = text.trim().split('\n');
+  // One column: its own header, then a value per row — not the whole table.
+  expect(lines[0]).toMatch(/^Altitude/);
+  expect(lines.length).toBeGreaterThan(50);
+  expect(lines[1]).not.toContain('\t');
+  expect(Number(lines[1])).not.toBeNaN();
 });

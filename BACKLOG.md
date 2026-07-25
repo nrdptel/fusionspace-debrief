@@ -685,8 +685,12 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   7 ms for the largest analysable corpus file (36,701 rows) and 56 ms for 200,000. Not
   decoration on a time series: sorting altitude descending is the direct way to tell a real
   apogee from a one-sample spike, which is exactly the Jolly Logic case the validation page
-  now works through. **Still missing next to a spreadsheet:** cell and column selection —
-  only whole-row text selection works, so copying one channel out still means the CSV.
+  now works through. **And each column copies on its own** (the ⧉ beside its name), writing
+  the rows in the current window in the order the table is showing them — the whole set was
+  always a CSV away, but "save it, find it, open it, delete the other columns" is the
+  workflow this table exists to replace. **Still missing next to a spreadsheet:** selecting a
+  range of cells; the two granularities that exist are a whole row (text selection) and a
+  whole column.
 
 - Done: **named view presets.** Up to 8 views kept under names you choose, applied on any
   flight that has those channels (stored by channel label, so they survive moving between

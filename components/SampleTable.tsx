@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { copyTable } from '@/lib/copyTable';
 import type { PlotChannel } from '@/lib/explore';
 import type { UnitChoice } from '@/lib/display';
 import type { FlightEvent } from '@/lib/analyze/types';
@@ -34,10 +35,12 @@ function SortableHeader({
   label,
   state,
   onClick,
+  onCopy,
 }: {
   label: string;
   state: 'none' | 'ascending' | 'descending';
   onClick: () => void;
+  onCopy: () => void;
 }) {
   return (
     <th
@@ -45,19 +48,34 @@ function SortableHeader({
       aria-sort={state}
       className="px-0 py-0 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
     >
-      <button
-        type="button"
-        onClick={onClick}
-        title={`Sort by ${label}`}
-        className={`flex w-full items-center justify-end gap-1 px-3 py-1.5 uppercase tracking-wide transition hover:text-zinc-800 dark:hover:text-zinc-200 ${
-          state === 'none' ? '' : 'text-indigo-600 dark:text-indigo-400'
-        }`}
-      >
-        {label}
-        <span aria-hidden="true" className={state === 'none' ? 'opacity-0' : ''}>
-          {state === 'ascending' ? '▲' : '▼'}
-        </span>
-      </button>
+      <span className="flex items-center justify-end gap-0.5 pr-1">
+        <button
+          type="button"
+          onClick={onClick}
+          title={`Sort by ${label}`}
+          className={`flex items-center justify-end gap-1 py-1.5 pl-3 uppercase tracking-wide transition hover:text-zinc-800 dark:hover:text-zinc-200 ${
+            state === 'none' ? '' : 'text-indigo-600 dark:text-indigo-400'
+          }`}
+        >
+          {label}
+          <span aria-hidden="true" className={state === 'none' ? 'opacity-0' : ''}>
+            {state === 'ascending' ? '▲' : '▼'}
+          </span>
+        </button>
+        {/* One channel, straight to the clipboard. The whole set has always been a CSV
+            away, but "save it, find it, open it, delete the other columns" is the workflow
+            this table exists to replace — and a flyer wanting the descent rates in a
+            spreadsheet wants one column, not eleven. */}
+        <button
+          type="button"
+          onClick={onCopy}
+          aria-label={`Copy the ${label} column`}
+          title={`Copy the ${label} column — every row in this window, in view order`}
+          className="rounded px-1 py-1 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        >
+          <span aria-hidden="true">⧉</span>
+        </button>
+      </span>
     </th>
   );
 }
@@ -156,6 +174,22 @@ export default function SampleTable({
   const sortState = (col: number): 'none' | 'ascending' | 'descending' =>
     sort?.col !== col ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending';
 
+  const [copied, setCopied] = useState<string | null>(null);
+  /** Copy one channel — the column's own values for every row in this window, in the order
+   *  the table is showing them, so what lands in the spreadsheet is what is on screen. */
+  const copyColumn = async (col: number, label: string) => {
+    const src = col < 0 ? xVals : seriesData[col];
+    if (!src) return;
+    const out: string[][] = [];
+    for (let k = 0; k < to - from; k++) {
+      const i = order ? order[k] : from + k;
+      out.push([fmt(src[i])]);
+    }
+    const ok = await copyTable([label], out);
+    setCopied(ok ? `${label} copied — ${out.length.toLocaleString('en-US')} rows` : 'This browser wouldn’t let Debrief write to the clipboard.');
+    window.setTimeout(() => setCopied(null), 4000);
+  };
+
   /** The row a sample index is drawn at — its place in the sort, or its place in time. */
   const rowOf = (sampleIndex: number): number => {
     if (!order) return sampleIndex - from;
@@ -193,9 +227,15 @@ export default function SampleTable({
         </h4>
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
           {rows.toLocaleString('en-US')} {rows === 1 ? 'row' : 'rows'} · exact values, in your units ·
-          click a column to sort · select and copy, or use <em>Save .csv</em> for the whole set
+          click a column to sort, ⧉ to copy it · <em>Save .csv</em> for the whole set
         </p>
       </div>
+      {/* One element, always mounted, empty when there's nothing to say: a live region that
+          appears and disappears announces unreliably, and a second sr-only copy would put
+          the same message in the page twice. */}
+      <p role="status" aria-live="polite" className="mt-1 min-h-4 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+        {copied ?? ''}
+      </p>
       {jumpable.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -233,15 +273,20 @@ export default function SampleTable({
                 label={`${xName}${xUnit ? ` (${xUnit})` : ''}`}
                 state={sortState(-1)}
                 onClick={() => cycleSort(-1)}
+                onCopy={() => void copyColumn(-1, `${xName}${xUnit ? ` (${xUnit})` : ''}`)}
               />
-              {channels.map((c, ci) => (
-                <SortableHeader
-                  key={c.key}
-                  label={`${c.label}${c.unitLabel(sys) ? ` (${c.unitLabel(sys)})` : ''}`}
-                  state={sortState(ci)}
-                  onClick={() => cycleSort(ci)}
-                />
-              ))}
+              {channels.map((c, ci) => {
+                const label = `${c.label}${c.unitLabel(sys) ? ` (${c.unitLabel(sys)})` : ''}`;
+                return (
+                  <SortableHeader
+                    key={c.key}
+                    label={label}
+                    state={sortState(ci)}
+                    onClick={() => cycleSort(ci)}
+                    onCopy={() => void copyColumn(ci, label)}
+                  />
+                );
+              })}
             </tr>
           </thead>
           <tbody>
