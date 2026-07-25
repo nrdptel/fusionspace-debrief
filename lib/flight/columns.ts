@@ -42,7 +42,17 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   // Includes the bare "acc" abbreviation (a very common single-accel-column header,
   // e.g. "Acc (g)"). A GPS accuracy column is written "hAcc"/"vAcc" — one token, no
   // boundary before "acc" — so \bacc\b leaves it alone.
-  { role: 'accelAxial', test: (h) => /\b(accel|acceleration|accelz|accelx|axial|acc[xz]|acc)\b/.test(h) },
+  // Body axes, whichever way round the logger writes them: accel_x, AccelY, acc_z,
+  // Xacc, Zaccel, acceleration_y. Every axis must match — "accelx"/"accelz" alone once
+  // did, so a three-axis logger's Y was dropped and the resultant magnitude Debrief
+  // reports came out of two axes rather than three, under-reading the peak the airframe
+  // felt. A GPS accuracy column is written hAcc/vAcc, which no axis form claims.
+  {
+    role: 'accelAxial',
+    test: (h) =>
+      /\b(accel|acceleration|axial|acc)\b/.test(h) ||
+      /\b(acc(el(eration)?)?[xyz]|[xyz]acc(el(eration)?)?)\b/.test(h),
+  },
   { role: 'velocity', test: (h) => /\b(velocity|speed|veloc|vel)\b/.test(h) },
   // Roll/spin rate about the long axis. A bare "gyro" is left alone — that's three
   // axes and which one is roll is logger-specific — so it keys off "roll"/"spin".

@@ -324,3 +324,40 @@ describe('a first record fused onto the header line', () => {
     expect(t.dataRows.length).toBe(3);
   });
 });
+
+describe('body-axis acceleration columns', () => {
+  const rows = (headers: string[]) => [
+    headers,
+    ...Array.from({ length: 20 }, (_, i) => headers.map((_, c) => String(c === 0 ? i * 0.1 : i * (c + 1)))),
+  ];
+  const roleOfHeader = (headers: string[], h: string) =>
+    analyzeTable(rows(headers)).columns.find((c) => c.header === h)!.role;
+
+  it('maps every axis, whichever way round the logger writes it', () => {
+    // Y is the one that used to fall through, so a three-axis resultant came out of two
+    // axes and under-read the peak the airframe felt.
+    for (const set of [
+      ['Time', 'AccelX', 'AccelY', 'AccelZ'],
+      ['Time', 'accel_x', 'accel_y', 'accel_z'],
+      ['Time', 'Xacc_g', 'Yacc_g', 'Zacc_g'],
+      ['Time', 'acc_x', 'acc_y', 'acc_z'],
+      ['Time', 'acceleration_x', 'acceleration_y', 'acceleration_z'],
+      ['Time', 'Xaccel', 'Yaccel', 'Zaccel'],
+    ]) {
+      for (const h of set.slice(1)) expect(roleOfHeader(set, h), `${h} in ${set.join(',')}`).toBe('accelAxial');
+    }
+  });
+
+  it('still leaves a GPS accuracy column alone', () => {
+    const set = ['Time', 'hAcc', 'vAcc', 'AccelY'];
+    expect(roleOfHeader(set, 'hAcc')).toBe('ignore');
+    expect(roleOfHeader(set, 'vAcc')).toBe('ignore');
+    expect(roleOfHeader(set, 'AccelY')).toBe('accelAxial');
+  });
+
+  it('keeps a total/magnitude column distinct from the axes', () => {
+    const set = ['Time', 'Xacc_g', 'Yacc_g', 'Zacc_g', 'TotalAcc_g'];
+    expect(roleOfHeader(set, 'TotalAcc_g')).toBe('accelTotal');
+    expect(roleOfHeader(set, 'Yacc_g')).toBe('accelAxial');
+  });
+});
