@@ -74,7 +74,19 @@ export default function CompareView({
   // row can order the columns, and the order carries into the chart legend and every
   // export, because they all read the same array.
   const [sort, setSort] = useState<{ label: string; dir: 'desc' | 'asc' } | null>(null);
+  // …or put them in a deliberate order by hand. Ranking by a metric answers "which went
+  // highest"; a launch day also has orders that no metric produces — booster then sustainer,
+  // flight 1 to 6, the cert flight last. Moving a column is the flyer taking over, so it
+  // clears the metric sort, and clicking a metric hands it back.
+  const [manual, setManual] = useState<string[] | null>(null);
   const flights = useMemo(() => {
+    if (manual) {
+      const byId = new Map(loaded.map((f) => [f.id, f]));
+      const chosen = manual.map((id) => byId.get(id)).filter((f): f is (typeof loaded)[number] => !!f);
+      // Anything not in the remembered order (a flight added since) keeps its loaded place
+      // at the end rather than disappearing.
+      return [...chosen, ...loaded.filter((f) => !manual.includes(f.id))];
+    }
     if (!sort) return loaded;
     const row = compareMetricRows(loaded, sys).find((r) => r.label === sort.label);
     if (!row) return loaded;
@@ -93,10 +105,22 @@ export default function CompareView({
         return av === bv ? a.i - b.i : sign * (av - bv);
       })
       .map((x) => x.f);
-  }, [loaded, sort, sys]);
+  }, [loaded, manual, sort, sys]);
   // Third click on the same metric clears the sort, back to the order they loaded in.
-  const cycleSort = (label: string) =>
+  const cycleSort = (label: string) => {
+    setManual(null);
     setSort((s) => (s?.label !== label ? { label, dir: 'desc' } : s.dir === 'desc' ? { label, dir: 'asc' } : null));
+  };
+  /** Swap a flight one place left or right, and take over from any metric sort. */
+  const move = (id: string, delta: -1 | 1) => {
+    const order = flights.map((f) => f.id);
+    const i = order.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    setSort(null);
+    setManual(order);
+  };
   const chartRef = useRef<HTMLDivElement>(null);
 
   // An optional caption for the comparison — for a redundant-altimeter or staged-flight
@@ -414,19 +438,48 @@ export default function CompareView({
                 className="sticky left-0 bg-white py-2 pr-4 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
               >
                 Metric{' '}
-                {sort && (
+                {(sort || manual) && (
                   <button
                     type="button"
-                    onClick={() => setSort(null)}
+                    onClick={() => {
+                      setSort(null);
+                      setManual(null);
+                    }}
                     title="Back to the order the flights loaded in"
                     className="ml-2 font-medium normal-case tracking-normal text-indigo-600 hover:underline dark:text-indigo-400"
                   >
-                    clear sort
+                    {sort ? 'clear sort' : 'clear order'}
                   </button>
                 )}
               </th>
-              {flights.map((f) => (
+              {flights.map((f, i) => (
                 <th key={f.id} scope="col" className="px-3 py-2 text-right align-bottom">
+                  {flights.length > 1 && (
+                    <span className="mb-0.5 flex items-center justify-end gap-0.5 print:hidden">
+                      {/* Buttons, not drag handles: a thumb on a phone and a keyboard both
+                          reach these, and a drag target on a table header reaches neither. */}
+                      <button
+                        type="button"
+                        onClick={() => move(f.id, -1)}
+                        disabled={i === 0}
+                        aria-label={`Move ${stem(f.name)} left`}
+                        title="Move left"
+                        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                      >
+                        ◀
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => move(f.id, 1)}
+                        disabled={i === flights.length - 1}
+                        aria-label={`Move ${stem(f.name)} right`}
+                        title="Move right"
+                        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                      >
+                        ▶
+                      </button>
+                    </span>
+                  )}
                   <span className="flex items-center justify-end gap-1.5">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"

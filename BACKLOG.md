@@ -163,6 +163,14 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- Witnessed once and unexplained: a full e2e run failed 39 of 120 with `toBeVisible` timeouts,
+  with no code change between it and a 120/120 pass immediately before and after. No stray
+  server was running. Leading suspicion is contention against the single-threaded `serve` —
+  each fresh context now also triggers the service worker's cache warm-up (~18 worker-side
+  fetches within ~100 ms of load; measured: load 185 ms, cache complete 284 ms). Not acted on,
+  because a fix aimed at an unreproduced cause is a guess: what would settle it is Playwright
+  traces (`trace: 'retain-on-failure'`) so the next occurrence is diagnosable, and warming on
+  idle instead of immediately if it turns out to be the cause.
 - Fixed: a batch drop that yields exactly **one** readable flight now carries the note on the
   report itself ("Only one of those 3 files could be read as a flight… Left out: …"), not just
   in the comparison view. It prints with the report but deliberately stays out of the flight's
@@ -187,8 +195,12 @@ memory, so a later pass doesn't have to rediscover them.
   (`touch.spec.ts`, `compare.spec.ts`); the worker one was the flaky one, but the same
   pattern is a latent flake wherever the machine is slower than the number chosen.
 
-- The comparison table sorts now, but doesn't filter, and columns can't be dragged into a
-  deliberate order (booster/sustainer, or flight 1..n) — the next step for a launch day.
+- Columns can now be put in a deliberate order (◀ ▶ per column, buttons rather than drag
+  handles so a thumb and a keyboard both reach them); ordering by a metric and ordering by hand
+  take over from each other, and both feed the chart legend and every export. Filtering is
+  still absent and now looks like the wrong idea at this size: the comparison caps at six
+  flights, so there is nothing to filter — what a bigger set would need is picking WHICH six
+  from the logbook, which the logbook's own search now does.
 - Links inside prose stay 16–20 px tall on a phone, which is right — but check the few
   that act as navigation without living in a `<nav>` (the "Read the methods →" call to
   action, say) and move them into one.

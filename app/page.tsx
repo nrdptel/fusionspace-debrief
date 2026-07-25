@@ -28,7 +28,9 @@ export default function Home() {
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Compare</strong> — drop
               several files at once, or tick flights in your logbook, to overlay their curves and line
               up the numbers side by side. Click any metric in that table to order the flights by it —
-              highest first, then lowest — and the chart legend and every export follow the same order.
+              highest first, then lowest — or move a column with ◀ ▶ into an order no metric gives you
+              (booster then sustainer, flight 1 to 6). The chart legend and every export follow
+              whichever order you set.
               Anything in the drop Debrief couldn&apos;t read is named, with the reason — even when only
               one file survives and you get a single report instead. Drop a logger&apos;s summary file
               alongside its log and the device&apos;s own figures appear beside Debrief&apos;s read as

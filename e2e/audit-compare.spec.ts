@@ -217,3 +217,37 @@ test('a log dropped with its device summary reads as one flight plus a cross-che
   await expect(apogee).toContainText(/agree/);
   await expect(table.getByRole('row').filter({ hasText: 'Max velocity' })).toContainText('700 ft/s');
 });
+
+// Ranking by a metric answers "which went highest". A launch day also has orders no metric
+// produces — booster then sustainer, flight 1 to 6 — so a column can be moved by hand, and
+// the order carries into the chart legend and every export because they read one array.
+test('a comparison column can be moved into a deliberate order', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    fx('aim-xtra.csv'),
+    fx('altusmetrum-telemetrum.csv'),
+    fx('featherweight-raven-fip.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+
+  const names = () => page.locator('thead th').filter({ has: page.locator('span.font-mono') }).allInnerTexts();
+  const before = await names();
+  expect(before[0]).toContain('aim-xtra');
+
+  // Move the first flight one place right; the first two swap.
+  await page.getByRole('button', { name: 'Move aim-xtra left' }).isDisabled();
+  await page.getByRole('button', { name: 'Move aim-xtra right' }).click();
+  const after = await names();
+  expect(after[0]).toContain('altusmetrum-telemetrum');
+  expect(after[1]).toContain('aim-xtra');
+
+  // The chart legend follows the same order, since both read one array.
+  const legend = await page.locator('.u-legend').first().innerText();
+  expect(legend.indexOf('altusmetrum')).toBeLessThan(legend.indexOf('aim-xtra'));
+
+  // Ordering by a metric takes over, and the way back is offered.
+  await page.getByRole('button', { name: /^Apogee/ }).first().click();
+  await expect(page.getByRole('button', { name: 'clear sort' })).toBeVisible();
+  await page.getByRole('button', { name: 'clear sort' }).click();
+  expect((await names())[0]).toContain('aim-xtra');
+});
