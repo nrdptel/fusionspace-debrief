@@ -25,11 +25,10 @@ memory, so a later pass doesn't have to rediscover them.
   merged record put apogee 39.6 s after liftoff; it now reads 18.2 s against the GPS's 19.3 s.
   Still open in that group: trf-lemiv-l3's four recordings spread 23.6–28.2 s on time to
   apogee while agreeing to 1% on altitude — a liftoff-detection difference, worth a look.
-- The inertial altitude is now carried and plottable, but the withheld ascent read-offs
-  still aren't recovered from it. Reading burnout / speed-peak / Mach-1 / max-Q altitudes off
-  the inertial channel (labelled as such) when the baro contradicts itself would turn four
-  withheld figures into measured ones — the drift that keeps the analysis on the baro is a
-  whole-flight effect and is negligible in the first seconds.
+- The Blue Raven jan18 flight reports a burnout altitude of 2,542 ft, but its own burnout
+  speed (1,243 ft/s) and time put the rocket at most ~870 ft up by then — so either burnout
+  is detected late on that flight or the altitude is wrong. Its baro isn't contradicted, so
+  neither guard fires. Worth checking burnout detection on a device-velocity flight.
 - A Blue Raven also solves downrange/crossrange velocity and position (`Velocity_DR/CR`,
   `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
   dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the

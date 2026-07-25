@@ -171,8 +171,11 @@ export default function ValidationPage() {
               climbing rocket can do. It is the transonic barometric artefact, and it strikes exactly
               where burnout, the speed peak, the Mach-1 crossing and max-Q are read: one corpus trace
               reads 307&nbsp;ft below its pad there while the same device&apos;s inertial channel climbs
-              past 1,700&nbsp;ft. Sound flights are nowhere near the bar (within 72&nbsp;ft), so a good
-              reading is never withheld.
+              past 1,700&nbsp;ft. Where the file carries that second recording and it agrees with what the
+              barometer already established, the reading is taken from it rather than withheld — on
+              that flight a burnout altitude of &minus;307&nbsp;ft becomes 1,583&nbsp;ft, which checks
+              out against the flight&apos;s own burnout speed and time. Sound flights are nowhere near
+              the bar (within 72&nbsp;ft), so a good reading is never touched.
             </li>
             <li>
               A log that <strong>stops at apogee</strong> reports no descent rate at all rather than

@@ -543,6 +543,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // credible wander, the altitude at that instant is withheld rather than reported: the
   // record cannot say how high the rocket was there. The time, the speed and the event
   // itself are unaffected, and so is the altitude chart.
+  // A second altitude recording, where the logger solved for one (a Blue Raven writes its
+  // inertial altitude beside the barometric one). It drifts over a whole flight, which is
+  // why the analysis rides on the baro — but the drift accumulates with time, so in the
+  // first seconds, exactly where the transonic artefact strikes, it is the trustworthy
+  // one. Baselined the same way so it reads AGL like everything else.
+  const inertialCh = getChannel(flight, 'altitudeInertial');
+  let inertial: Float64Array | null = null;
+  if (inertialCh && inertialCh.values.length === n) {
+    const base = median(inertialCh.values, 0, baseEnd);
+    inertial = Float64Array.from(inertialCh.values, (v) => v - (Number.isFinite(base) ? base : 0));
+  }
+
   const ascentFloor = altClean.slice();
   {
     let run = -Infinity;
@@ -562,12 +574,22 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // mean anything — a TeleMega reads −542 ft at its Mach-1 crossing.
   const belowGroundBand = Math.max(15, apogeeAlt * 0.005);
   let withheldAnAltitude = false;
-  /** The altitude at an ascent instant, or NaN when the record contradicts it. Every
-   *  surface formats a non-finite length as "—", so it reads as unknown everywhere. */
+  let recoveredFromInertial = false;
+  /** The altitude at an ascent instant: the logger's inertial solution where the
+   *  barometric record contradicts itself and that solution is consistent with it,
+   *  otherwise NaN. Every surface formats a non-finite length as "—", so a figure with no
+   *  honest answer reads as unknown everywhere. */
   const altAt = (idx: number): number => {
     const h = altClean[idx];
     const onAscent = idx >= liftoffRef && idx <= apogeeIdx && Number.isFinite(h);
     if (onAscent && (h < -belowGroundBand || ascentFloor[idx] - h > contradictionBand)) {
+      // Only when the second recording agrees with what the first already established:
+      // at least the height the baro itself had reached, and no higher than the apogee.
+      const alt = inertial?.[idx];
+      if (alt != null && Number.isFinite(alt) && alt >= ascentFloor[idx] && alt <= apogeeAlt) {
+        recoveredFromInertial = true;
+        return alt;
+      }
       withheldAnAltitude = true;
       return NaN;
     }
@@ -1072,6 +1094,11 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   if (ascentGapBreaksPeak) {
     warnings.push(
       'A gap in the sampled ascent leaves the peak velocity undeterminable — the top speed may fall in the unrecorded stretch, and a derivative taken across the gap spikes to a spurious figure — so max velocity, Mach, max-Q and any transonic crossing are withheld rather than guessed across it.',
+    );
+  }
+  if (recoveredFromInertial) {
+    warnings.push(
+      'The altitude trace contradicts itself on the way up — dropping below the pad, or below a height the record had already reached, neither of which a climbing rocket can do. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure up. Where a reading lands in that stretch, its altitude is taken from the logger’s own inertial solution instead — a second recording in the same file, which doesn’t use the port — rather than off the distorted baro trace. The altitude chart still shows the barometric trace as recorded, and you can plot the inertial one against it in the explorer.',
     );
   }
   if (withheldAnAltitude) {

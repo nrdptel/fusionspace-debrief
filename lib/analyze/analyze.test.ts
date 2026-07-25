@@ -413,6 +413,33 @@ describe('an ascent altitude the record contradicts', () => {
     expect(a.metrics.maxVelocity).toBeGreaterThan(0);
   });
 
+  it('reads it from the logger\'s inertial recording when the file has one', () => {
+    // A Blue Raven solves an inertial altitude beside the barometric one. It doesn't use
+    // the static port, so it is unaffected by the shock that ruins the baro — and the
+    // drift that keeps the analysis on the baro is a whole-flight effect, negligible here.
+    const flight = transonicDip();
+    const truth = syntheticBaroFlight().flight.channels[0].values; // the undipped profile
+    flight.channels.push({ kind: 'altitudeInertial', label: 'Inertial_Altitude', unit: 'm', values: truth });
+
+    const a = analyzeFlight(flight);
+    // The figure comes back, and it is the inertial one, not the distorted baro sample.
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(true);
+    expect(a.metrics.maxVelocityAltitude).toBeGreaterThan(0);
+    expect(a.warnings.some((w) => /inertial solution instead/.test(w))).toBe(true);
+    expect(a.warnings.some((w) => /is withheld/.test(w))).toBe(false);
+  });
+
+  it('still withholds when the second recording disagrees with the first', () => {
+    // An inertial channel that reads *below* what the barometer had already established
+    // is no better than the dip — it can't settle the altitude either.
+    const flight = transonicDip();
+    const zeros = new Float64Array(flight.time.length);
+    flight.channels.push({ kind: 'altitudeInertial', label: 'Inertial_Altitude', unit: 'm', values: zeros });
+    const a = analyzeFlight(flight);
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(false);
+    expect(a.warnings.some((w) => /is withheld/.test(w))).toBe(true);
+  });
+
   it('leaves a sound trace alone', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(true);

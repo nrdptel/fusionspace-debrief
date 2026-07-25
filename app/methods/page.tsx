@@ -99,7 +99,13 @@ export default function MethodsPage() {
             drops to 307&nbsp;ft below its pad while the same device&apos;s inertial channel climbs past
             1,700&nbsp;ft, and another reads 1,095&nbsp;ft below a height it had already recorded. A
             climbing rocket can do neither. Where the record contradicts itself like that — below the
-            pad, or well below a height already passed — the altitude for that reading is withheld and
+            pad, or well below a height already passed — Debrief looks for a second altitude recording
+            in the same file: where the logger solved for an inertial altitude (a Blue Raven does) and
+            that solution agrees with what the barometer had already established, the reading is taken
+            from it instead. On that flight it turns a burnout altitude of &minus;307&nbsp;ft into
+            1,583&nbsp;ft, which checks out against the flight&apos;s own burnout speed and time
+            (v&nbsp;·&nbsp;t&nbsp;÷&nbsp;2&nbsp;&asymp;&nbsp;1,366&nbsp;ft, a lower bound since thrust
+            tapers). With no second recording to turn to, the altitude for that reading is withheld and
             shown as &ldquo;—&rdquo;, because the file cannot say how high the rocket was there. The
             time and the speed of the reading are unaffected, so are apogee and the descent, and the
             altitude chart still shows the trace exactly as recorded. Ordinary barometric wander is far
