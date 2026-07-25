@@ -325,8 +325,25 @@ memory, so a later pass doesn't have to rediscover them.
   piece of that was already covered; the journey was not, and the journey is the product. It
   is one test now, including that nothing in the report pushes past a 390 px viewport while
   doing it.
-- **Third diagnosis, and this one the test told me rather than my guessing: the worker was
-  caching a truncated response body.** The instrumentation added on the second attempt paid
+- **STILL RED, and the next pass should start here.** Three theories tried, three shipped
+  changes, all of them defensible on their own merits and none of them the cause: the offline
+  docs spec still fails on CI roughly one run in three, always on `/validation/`, always
+  after `/methods/` came up fine, and never reproducibly here (dozens of full CI-shaped runs,
+  `--repeat-each` sweeps, a check that the static server issues no redirects). The evidence
+  from the instrumented run is the thing to reason from:
+  `{"controlled":true,"cached":true,"readyState":"complete","title":"How Debrief is validated — Debrief"}`
+  — worker controlling, document cached, page complete, right title, no `<h1>`.
+  **The reading that fits and hasn't been tested yet:** hydration failing offline and Next's
+  route error boundary (`app/error.tsx`) replacing the content — its `<h1>` is "Something
+  went sideways", which the assertion wouldn't match while the `<title>` from the static
+  `<head>` survives untouched. That would mean the route's JS chunk wasn't in the cache when
+  the page was opened: only the HTML of these routes is precached, and the chunks arrive via
+  the page's warm-up, which a slower runner may not have finished. The diagnostic now
+  captures every `<h1>` on the page and the body length, so the next failure says outright
+  whether it is the error boundary — and if it is, the fix is to make these routes' JS reach
+  the cache before the network is cut, or to make a docs page survive without it.
+- **Third diagnosis, also not the cause on the evidence so far: the worker could cache a
+  truncated response body.** The instrumentation added on the second attempt paid
   for itself immediately — the next CI failure arrived reading
   `/validation/ offline — {"controlled":true,"cached":true,"readyState":"complete","title":"How Debrief is validated — Debrief"}`.
   Worker controlling, document cached, page *complete*, correct title, and no `<h1>`. That is

@@ -235,6 +235,12 @@ test('the methods and validation pages come up offline, as themselves', async ({
         cached,
         readyState: document.readyState,
         title: document.title,
+        // The h1s actually on the page. A cached document that loads with the right title
+        // and the WRONG h1 is the error boundary — hydration failed, most likely because
+        // this route's JS chunk wasn't cached — which looks nothing like a truncated body
+        // or a worker that hadn't settled, and the two are indistinguishable without this.
+        h1s: [...document.querySelectorAll('h1')].map((h) => h.textContent?.trim()),
+        bodyChars: document.body?.innerText.length ?? 0,
       };
     }, path);
     await expect(
