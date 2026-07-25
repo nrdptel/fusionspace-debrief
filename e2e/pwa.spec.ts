@@ -150,9 +150,13 @@ test('the compare surface works offline, with the logbook it can reach', async (
     .setInputFiles({ name: 'field.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 
-  // Wait for the route itself to be precached (stable URL, fetched on install).
+  // Wait for the install to FINISH, not just for this one URL to land — the precached URLs
+  // are fetched in parallel, and cutting the network while the rest are in flight interrupts
+  // an install that hasn't completed.
   await page.waitForFunction(
     async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg || reg.installing || reg.waiting || !reg.active) return false;
       for (const k of await caches.keys()) {
         const cache = await caches.open(k);
         if (await cache.match(new URL('/compare/', location.href).href, { ignoreVary: true })) return true;
@@ -181,13 +185,17 @@ test('the methods and validation pages come up offline, as themselves', async ({
     timeout: 20000,
   });
   // The static routes are precached on install (their URLs are stable across builds, unlike
-  // the hashed chunks), so wait for them to land rather than visiting them first — EVERY one
-  // this test then opens, not just the first. They are fetched in parallel, so /methods/
-  // arriving says nothing about /validation/: waiting on one and cutting the network was a
-  // race that passed locally and failed on CI, which is the same mistake in test-shaped form
-  // as cutting the network mid-warm-up.
+  // the hashed chunks), so wait for that rather than visiting them first. Waiting on the two
+  // URLs this test opens is NOT enough, and CI proved it: the install fetches every precached
+  // URL in parallel, so those two can land while the rest are still in flight, and cutting
+  // the network there interrupts an install that hasn't finished. The precondition this test
+  // actually needs is "the worker has finished installing" — which is what is waited for.
+  // (Adding a sixth precache URL widened the gap between the two conditions and turned an
+  // ever-green test red twice on CI while passing every local run.)
   await page.waitForFunction(
     async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg || reg.installing || reg.waiting || !reg.active) return false;
       for (const k of await caches.keys()) {
         const cache = await caches.open(k);
         const all = await Promise.all(

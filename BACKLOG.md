@@ -245,6 +245,18 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **CI went red twice on a test that had been green for a session, and the cause was a
+  precondition I had already fixed once in a weaker form.** The offline docs spec waits for
+  the routes it opens to be in the cache, then cuts the network — but the install fetches
+  every precached URL in parallel, so the two it checks can land while the rest are still in
+  flight. Adding `/compare/` as a sixth precache URL widened that gap, and `/validation/`
+  started failing to come up offline on CI (twice, including the retry) while passing every
+  local run and every isolated `--repeat-each` sweep. The precondition an offline test needs
+  is not “the URLs I open are cached” but **“the worker has finished installing”** — the
+  registration has no `installing` or `waiting` worker — which is what both offline specs now
+  wait for. Fourth instance of this shape of test bug; the rule is now stated in the spec
+  itself. Honest caveat: it never reproduced locally, so this is a closed gap that matches the
+  regression's timing exactly, not a proven repair — watch the next few CI runs.
 - **Measured the field claim rather than assuming it, and it holds — with one gap that
   didn't.** The largest analysable corpus file (11 MB, 36,701 rows, a Blue Raven low-rate
   log) goes from drop to full report in **1.2 s** unthrottled, **4.3 s** at 4× CPU throttle
