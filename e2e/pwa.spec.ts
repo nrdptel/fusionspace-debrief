@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, devices } from '@playwright/test';
+import path from 'node:path';
 
 // The launch-site case: install/open online once, then use it in the field with
 // no signal. The service worker should let the app come up fully offline.
@@ -245,4 +246,52 @@ test('the methods and validation pages come up offline, as themselves', async ({
   await open('/methods/', 'Where the numbers come from');
   await open('/validation/', 'How Debrief is validated');
   await context.setOffline(false);
+});
+
+// The whole field promise, end to end, in the state a flyer is actually in: a phone, no
+// signal at all, and a launch day already in the logbook from home. Each piece of this is
+// covered above; nothing covered the journey, and the journey is the product.
+test('a launch day reads and compares on a phone with no signal', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const fx = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
+  const ctx = await browser.newContext(devices['Pixel 7']);
+  const page = await ctx.newPage();
+
+  // At home, with signal: read two flights, so the logbook holds a launch day.
+  await page.goto('/');
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 20000 });
+  for (const f of ['altusmetrum-telemetrum.csv', 'featherweight-raven-fip.csv']) {
+    await page.getByLabel('Choose a flight log file').setInputFiles(fx(f));
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  // Visit the comparison surface once online, as a flyer would before leaving.
+  await page.goto('/compare');
+  await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  await ctx.setOffline(true);
+
+  // At the field: open the comparison surface cold and build a comparison with a thumb.
+  const field = await ctx.newPage();
+  await field.goto('/compare/');
+  await expect(field.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+  await field.getByLabel('Select altusmetrum-telemetrum.csv to compare').check();
+  await field.getByLabel('Select featherweight-raven-fip.csv to compare').check();
+  await field.getByRole('button', { name: /Compare 2 flights/ }).click();
+  await expect(field.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 30000 });
+  await expect(field.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
+
+  // …and read one of them on its own, from the same logbook, still with no signal.
+  const one = await ctx.newPage();
+  await one.goto('/');
+  await expect(one.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
+  await one.getByRole('button', { name: /altusmetrum-telemetrum\.csv/ }).first().click();
+  await expect(one.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 30000 });
+  // Nothing about the phone layout pushes past the viewport while doing it.
+  const overflow = await one.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, 'the report must not scroll sideways on a phone').toBeLessThanOrEqual(0);
+
+  await ctx.setOffline(false);
+  await ctx.close();
 });

@@ -289,6 +289,12 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Drove the field journey end to end and it holds — now asserted.** A phone, no signal at
+  all, and a launch day already in the logbook from home: open `/compare` cold, tick two
+  flights, get the comparison, then open one of them on its own from the same logbook. Every
+  piece of that was already covered; the journey was not, and the journey is the product. It
+  is one test now, including that nothing in the report pushes past a 390 px viewport while
+  doing it.
 - **Wrong diagnosis first, then the real one: the service worker was serving navigations
   network-first.** After the precondition fix below, `/validation/` *still* failed to come up
   offline on CI — same assertion, same shape, and still never reproducible locally (three
