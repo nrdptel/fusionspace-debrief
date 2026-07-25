@@ -97,10 +97,18 @@ memory, so a later pass doesn't have to rediscover them.
   be bracketed from both sides at once (see the jimheaney entry above) where an altitude at a
   single instant cannot. The distinction is worth keeping: bracket a quantity, don't threshold
   a discrepancy.
-- A Blue Raven also solves downrange/crossrange velocity and position (`Velocity_DR/CR`,
-  `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
-  dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the
-  same shape as the inertial-altitude one just added.
+- **Built the Blue Raven downrange/crossrange channels, measured them, and reverted.** The
+  roles and kinds went in cleanly (`velocityLateral` as a speed, `distanceLateral` as a
+  length, the same shape as the inertial altitude) and the columns mapped — but the data
+  isn't a clean speed or distance. `Inertial_DR_Position` reads 0 on the pad and a sane
+  −21…−53 ft around apogee, then rails past ±32000 on 51 of 2,843 samples (2%): int16
+  wraparound. `Velocity_DR` swings to −820 ft/s on a flight whose *vertical* peak is
+  698 ft/s. Surfacing those as measured downrange figures would have put a 32,750 ft
+  downrange position and a supersonic sideways speed in front of a flyer, so nothing shipped.
+  The honest way in is a rail guard — |value| at the int16 limit is a sensor limit, not a
+  distance, exactly the shape of the accelerometer-saturation guard that already ships —
+  withholding those samples and saying so. Worth doing; needs the care the guard deserves,
+  not the twenty minutes that were left.
 - Fixed: the intrepid3tf2 AL1 recording read a main descent of 2 ft/s against its AL0
   partner's 57 ft/s. Diagnosed by driving it — the log loses power at 1,876 ft, 1.3 s after
   its main fires at 1,877 ft, so the "rate" was 26 samples at the very end of a truncated
