@@ -493,6 +493,25 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Hardening
 
+- **The screen and the saved report can no longer disagree about which readings exist.**
+  Six readings — avg acceleration, thrust-to-weight, coast efficiency, peak roll rate,
+  revolutions, battery low — were on the page and in no export, and that was possible
+  only because the two lists (`MetricGrid`'s tiles and `report.ts`'s `headlineRows`) could
+  be compared solely by reading both side by side. The tile list now lives in `lib/readings`
+  as data, `headlineRows` is exported, and `lib/readings.test.ts` runs a flight carrying
+  *every* metric through both and fails on any label one has and the other doesn't. The
+  deliberate differences — time to apogee, the transonic/supersonic sentence, landing
+  energy, the deploy and ejection checks, all of them prose rather than a number under a
+  label — are an explicit allow-list, and a further test asserts each entry is still a row
+  the code really produces, so the exceptions can't quietly go stale. Also covered: no
+  duplicate labels in either list (the label is the key the show/hide choice is stored
+  under, so a repeat would make one reading control another), the same figure in both, and
+  a sparse GPS-only flight dropping the same readings from both.
+  **Not** the unification "The saved report was missing six readings the screen shows"
+  (Craft & product feel) asks for — the two lists still exist, because
+  merging them is a set of product decisions (does a report keep "Time to apogee" as its
+  own row when the tile already carries it as a sub-line?) rather than a refactor. This is
+  the guard that makes the drift impossible while those decisions wait.
 - **Swept the degenerate inputs and found nothing wrong — recording it so the next pass
   doesn't re-sweep.** A zero-byte file, a header row with no data, a binary file renamed
   `.csv`, and a note-to-self in a `.txt` each produce their own specific message ("That file

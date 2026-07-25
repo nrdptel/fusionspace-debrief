@@ -21,6 +21,11 @@ the browser.
   apogee/velocity/descent rates).
 - `lib/flight/`, `lib/units`, `lib/share`, `lib/report` — the canonical flight
   model, unit conversions, share-by-link, and text/CSV export.
+- `lib/readings` — the readings a single flight shows on screen, as data. It is a
+  sibling of `report`'s `headlineRows` on purpose: the page and the saved report
+  format a reading differently but must never disagree about which readings exist,
+  and `lib/readings.test.ts` holds the two lists side by side and fails when they
+  drift. Add a reading to both, or add it to one and say why in that test.
 
 ## Setup
 

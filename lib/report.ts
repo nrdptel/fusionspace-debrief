@@ -137,8 +137,12 @@ function row(label: string, value: string): string {
 
 /** The headline metrics as [label, value] pairs in report order — the single
  *  source both the text and the Markdown export render, so they never drift. Only
- *  the metrics the flight actually has are included. */
-function headlineRows(
+ *  the metrics the flight actually has are included.
+ *
+ *  Exported for the drift guard in lib/readings.test.ts, which holds this list against
+ *  the on-screen one and fails when a reading appears on the page and not in the saved
+ *  report — the way six of them once did. */
+export function headlineRows(
   m: FlightAnalysis['metrics'],
   sys: UnitChoice,
   recovery?: RecoveryFigures,

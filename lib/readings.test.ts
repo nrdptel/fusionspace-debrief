@@ -1,0 +1,164 @@
+import { describe, it, expect } from 'vitest';
+import { metricTiles } from './readings';
+import { headlineRows, type RecoveryFigures } from './report';
+import type { FlightMetrics } from './analyze/types';
+
+// A flight that has every reading Debrief can produce. Nothing here is a measurement —
+// the figures are only plausible enough to keep the formatters honest; what matters is
+// that no optional metric is null, so both lists are asked for everything they have.
+const EVERYTHING: FlightMetrics = {
+  apogeeAltitude: 2841,
+  timeToApogee: 24.6,
+  maxVelocity: 341,
+  maxVelocitySource: 'device',
+  maxVelocityAltitude: 620,
+  mach: 1.02,
+  maxDynamicPressure: 71_300,
+  maxDynamicPressureAltitude: 590,
+  transonicTime: 3.9,
+  transonicAltitude: 610,
+  transonicUnconfirmed: false,
+  maxAcceleration: 178,
+  avgBoostAcceleration: 96,
+  maxDeceleration: -64,
+  accelerationSource: 'device',
+  accelClipped: false,
+  liftoffTWR: 11.4,
+  burnTime: 3.4,
+  burnoutAltitude: 640,
+  burnoutVelocity: 338,
+  coastTime: 21.2,
+  coastEfficiency: 0.48,
+  dragLossAltitude: 2_640,
+  drogueDescentRate: 22.4,
+  mainDescentRate: 6.1,
+  descentTime: 186,
+  flightTime: 211,
+  groundTemperature: 24.5,
+  batteryStartV: 9.2,
+  batteryMinV: 8.4,
+  peakRollRate: 720,
+  rollRevolutions: 14.2,
+  tiltAtBurnout: 7,
+  gpsApogeeAltitude: 2_795,
+  gpsApogeeTime: 24.9,
+  gpsAscentFixes: 24,
+};
+
+const RECOVERY: RecoveryFigures = {
+  descendingMassKg: 4.2,
+  mainDeploy: { setM: 213, actualM: 226 },
+  ejectionDelay: { printedS: 10, coastS: 21.2 },
+};
+
+/**
+ * Readings the saved report carries and the grid deliberately has no tile for.
+ *
+ * Every one of these is a sentence rather than a number — a verification ("fired at
+ * 741 ft, set 700 ft — 41 ft high"), a claim with a caveat attached, or a figure that
+ * only exists once the flyer has typed their own numbers in. A tile is a big number and
+ * a three-word sub-line; these don't fit one, and cramming them into the grid would be a
+ * worse page rather than a more consistent one. The screen shows the transonic crossing
+ * and the deploy checks in their own places, in full sentences, for the same reason.
+ *
+ * This list is the deliberate half of the difference. Anything NOT on it that the report
+ * has and the grid doesn't — or the other way round — is drift, and the tests below fail.
+ */
+const REPORT_ONLY = [
+  'Time to apogee',
+  'Supersonic',
+  'Transonic',
+  'Landing energy',
+  'Main deploy check',
+  'Ejection check',
+];
+
+describe('the screen and the saved report agree on which readings exist', () => {
+  const gridLabels = metricTiles(EVERYTHING, 'imperial').map((t) => t.label);
+  const reportLabels = headlineRows(EVERYTHING, 'imperial', RECOVERY).map(([l]) => l);
+
+  it('puts every reading on the page into the report', () => {
+    // The failure this guards: avg acceleration, thrust-to-weight, coast efficiency, the
+    // roll pair and the battery low were all on screen and in no export, so a flyer who
+    // read a number off the page and saved a write-up got a document without it.
+    const missing = gridLabels.filter((l) => !reportLabels.includes(l));
+    expect(missing, `on screen but in no saved report: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  it('adds nothing to the report that the page does not show, beyond the documented rows', () => {
+    const extra = reportLabels.filter((l) => !gridLabels.includes(l) && !REPORT_ONLY.includes(l));
+    expect(extra, `in the report but on no tile: ${extra.join(', ')}`).toEqual([]);
+  });
+
+  it('keeps the documented exceptions live rather than stale', () => {
+    // An allow-list nothing matches is an allow-list that has quietly stopped describing
+    // the code — a renamed report row would then read as "deliberate" forever. Every
+    // entry has to be a row this fixture really produces.
+    for (const label of REPORT_ONLY.filter((l) => l !== 'Transonic')) {
+      expect(reportLabels, `${label} is allow-listed but no longer a report row`).toContain(label);
+    }
+    // 'Transonic' is the same row as 'Supersonic' on a flight where only the barometer
+    // saw the crossing, so it takes a second flight to reach it.
+    const unconfirmed = headlineRows({ ...EVERYTHING, transonicUnconfirmed: true }, 'imperial').map(([l]) => l);
+    expect(unconfirmed).toContain('Transonic');
+    expect(unconfirmed).not.toContain('Supersonic');
+  });
+
+  it('keeps both lists free of duplicate labels', () => {
+    // Labels are the join between the two lists and the key the flyer's show/hide choice
+    // is stored under, so a repeat would silently make one reading control another.
+    expect(new Set(gridLabels).size).toBe(gridLabels.length);
+    expect(new Set(reportLabels).size).toBe(reportLabels.length);
+  });
+
+  it('reads the same reading the same way in both', () => {
+    // Not a formatting check — the two are formatted differently on purpose — but the
+    // headline figure itself has to be the same number in both places.
+    const tile = metricTiles(EVERYTHING, 'imperial').find((t) => t.label === 'Apogee')!;
+    const rowValue = headlineRows(EVERYTHING, 'imperial').find(([l]) => l === 'Apogee')![1];
+    expect(rowValue).toBe(tile.value);
+  });
+
+  it('drops the same readings from both when the flight lacks them', () => {
+    // A GPS-only flight: no accelerometer, no burnout, no roll, no battery.
+    const sparse: FlightMetrics = {
+      ...EVERYTHING,
+      maxAcceleration: NaN,
+      avgBoostAcceleration: null,
+      liftoffTWR: null,
+      burnTime: null,
+      burnoutAltitude: null,
+      burnoutVelocity: null,
+      coastTime: null,
+      coastEfficiency: null,
+      dragLossAltitude: null,
+      maxDynamicPressure: null,
+      maxDynamicPressureAltitude: null,
+      transonicTime: null,
+      transonicAltitude: null,
+      batteryStartV: null,
+      batteryMinV: null,
+      peakRollRate: null,
+      rollRevolutions: null,
+      tiltAtBurnout: null,
+      groundTemperature: null,
+    };
+    const tiles = metricTiles(sparse, 'metric').map((t) => t.label);
+    const rows = headlineRows(sparse, 'metric').map(([l]) => l);
+    expect(tiles).not.toContain('Max acceleration');
+    expect(rows).not.toContain('Max acceleration');
+    expect(tiles.filter((l) => !rows.includes(l))).toEqual([]);
+    expect(rows.filter((l) => !tiles.includes(l) && !REPORT_ONLY.includes(l))).toEqual([]);
+  });
+
+  it('honours the flyer’s show/hide choice by the same label in both', () => {
+    // One stored list of hidden labels drives the page and every export; if the label a
+    // tile is keyed on differed from the report's, turning a reading off on screen would
+    // leave it in the document.
+    const hidden = ['Thrust-to-weight', 'Battery low'];
+    const rows = headlineRows(EVERYTHING, 'imperial', RECOVERY, hidden).map(([l]) => l);
+    expect(rows).not.toContain('Thrust-to-weight');
+    expect(rows).not.toContain('Battery low');
+    expect(rows).toContain('Apogee');
+  });
+});
