@@ -62,9 +62,9 @@ test('compare two flights from the recents list', async ({ page }) => {
   await expect(page.getByRole('rowheader', { name: 'Max Mach', exact: true })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Max Q', exact: true })).toBeVisible();
 
-  // A two-flight comparison gets a Difference column — how far apart the pair is on
-  // each metric (redundant-altimeter agreement, or flight-to-flight change).
-  await expect(page.getByRole('columnheader', { name: 'Diff' })).toBeVisible();
+  // The comparison gets a Spread column — how far apart the readings are on each metric
+  // (redundant-altimeter agreement, or flight-to-flight change).
+  await expect(page.getByRole('columnheader', { name: 'Spread' })).toBeVisible();
   // The apogee row shows a percentage difference between the two flights.
   const apogeeRow = page
     .getByRole('row')
@@ -90,7 +90,7 @@ test('compare two flights from the recents list', async ({ page }) => {
   const flightColumns = async () =>
     (await metricsTable.getByRole('columnheader').allInnerTexts())
       .map((t) => t.split('\n')[0].trim())
-      .filter((t) => t && !/^metric/i.test(t) && !/^diff$/i.test(t));
+      .filter((t) => t && !/^metric/i.test(t) && !/^spread$/i.test(t));
   const loadedOrder = await flightColumns();
   expect(loadedOrder).toHaveLength(2);
   const apogeeHeader = apogeeRow.getByRole('rowheader', { name: 'Apogee', exact: true });

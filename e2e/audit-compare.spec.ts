@@ -139,6 +139,13 @@ test('comparing three flights from the recents list', async ({ page }) => {
   await page.getByRole('button', { name: /Compare 3 flights/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
-  // Three flight columns + the metric label column = 4 column headers.
-  await expect(page.locator('thead th')).toHaveCount(4);
+  // Three flight columns + the metric label column + the spread = 5 column headers.
+  await expect(page.locator('thead th')).toHaveCount(5);
+  // The spread is the full range across all three, not a pairwise difference — the
+  // number that matters when a flyer flies triple redundancy.
+  await expect(page.getByRole('columnheader', { name: 'Spread' })).toBeVisible();
+  const apogeeRow = page
+    .getByRole('row')
+    .filter({ has: page.getByRole('rowheader', { name: 'Apogee', exact: true }) });
+  await expect(apogeeRow.getByText(/^\d+(\.\d)?%$/)).toBeVisible();
 });

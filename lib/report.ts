@@ -497,17 +497,17 @@ export interface CompareMetricRow {
   values: number[];
   /** Index of the flight to emphasize as best, or -1 for none. */
   best: number;
-  /** For a two-flight comparison only: the spread between the pair, |a−b| as a
-   *  percent of their mean — how closely two recordings of one flight agree, or how
-   *  much one flight differs from another. Null for ≠2 flights or a missing value. */
+  /** The spread across the flights that recorded this figure: (max − min) as a percent
+   *  of their mean — how closely several recordings of one flight agree, or how much the
+   *  flights differ from each other. Null when fewer than two of them have the value. */
   spreadPct: number | null;
 }
 
 /** The side-by-side comparison table as labelled rows — the single source both the
  *  on-screen table and the Markdown/CSV exports render, so they can't drift. A row's
  *  `best` marks the single highest finite value (only for a metric where higher is
- *  better, ≥2 flights have one, and there's no tie); `spreadPct` gives the pairwise
- *  difference for a two-flight comparison. Velocity/acceleration that mix device and
+ *  better, ≥2 flights have one, and there's no tie); `spreadPct` gives the spread across
+ *  the flights that recorded the figure. Velocity/acceleration that mix device and
  *  baro sources across flights are tagged "(baro)" rather than crowned across methods
  *  that aren't directly comparable. */
 export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): CompareMetricRow[] {
@@ -579,12 +579,18 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
       if (finite < 2 || ties !== 1) best = -1;
     }
 
+    // The spread across every flight that recorded this figure: (max − min) as a percent
+    // of their mean. For a pair that is |a − b| / mean, exactly as before; for three or
+    // more it is the full range, which is what a flyer flying triple redundancy needs —
+    // two altimeters agreeing means nothing if the third is 8% off. Flights missing the
+    // figure sit it out rather than dragging the range.
     let spreadPct: number | null = null;
-    if (flights.length === 2) {
-      const a = s.value(flights[0].metrics);
-      const b = s.value(flights[1].metrics);
-      const mean = (a + b) / 2;
-      if (Number.isFinite(a) && Number.isFinite(b) && mean > 0) spreadPct = (Math.abs(a - b) / mean) * 100;
+    const finite = flights.map((f) => s.value(f.metrics)).filter((v) => Number.isFinite(v));
+    if (finite.length >= 2) {
+      const lo = Math.min(...finite);
+      const hi = Math.max(...finite);
+      const mean = finite.reduce((a, b) => a + b, 0) / finite.length;
+      if (mean > 0) spreadPct = ((hi - lo) / mean) * 100;
     }
 
     return {
@@ -649,15 +655,15 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
   }
 
   const rows = compareMetricRows(flights, sys);
-  // A two-flight comparison gets a Difference column: how far apart the pair is on
+  // The comparison carries a Spread column: how far apart the recordings are on
   // each metric — the redundant-altimeter agreement, or the flight-to-flight change.
-  const pair = flights.length === 2;
+  const spread = flights.length >= 2;
   out.push('', '## Metrics', '');
-  out.push(`| Metric | ${flights.map((f) => cell(nameStem(f.name))).join(' | ')} |${pair ? ' Difference |' : ''}`);
-  out.push(`| --- | ${flights.map(() => '---').join(' | ')} |${pair ? ' --- |' : ''}`);
+  out.push(`| Metric | ${flights.map((f) => cell(nameStem(f.name))).join(' | ')} |${spread ? ' Spread |' : ''}`);
+  out.push(`| --- | ${flights.map(() => '---').join(' | ')} |${spread ? ' --- |' : ''}`);
   for (const r of rows) {
     const cells = r.cells.map((c, i) => (i === r.best ? `**${cell(c)}**` : cell(c)));
-    const diff = pair ? ` ${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'} |` : '';
+    const diff = spread ? ` ${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'} |` : '';
     out.push(`| ${cell(r.label)} | ${cells.join(' | ')} |${diff}`);
   }
 
@@ -721,12 +727,12 @@ export function compareHtml(
   }
 
   const rows = compareMetricRows(flights, sys);
-  const pair = flights.length === 2;
-  const head = `<tr><th>Metric</th>${flights.map((f) => `<th>${esc(nameStem(f.name))}</th>`).join('')}${pair ? '<th>Difference</th>' : ''}</tr>`;
+  const spread = flights.length >= 2;
+  const head = `<tr><th>Metric</th>${flights.map((f) => `<th>${esc(nameStem(f.name))}</th>`).join('')}${spread ? '<th>Spread</th>' : ''}</tr>`;
   const body = rows
     .map((r) => {
       const cells = r.cells.map((c, i) => `<td class="num${i === r.best ? ' best' : ''}">${esc(c)}</td>`).join('');
-      const diff = pair ? `<td class="num">${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'}</td>` : '';
+      const diff = spread ? `<td class="num">${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'}</td>` : '';
       return `<tr><td>${esc(r.label)}</td>${cells}${diff}</tr>`;
     })
     .join('');
@@ -915,7 +921,7 @@ export function analysisJson(
 }
 
 /** A comparison as structured JSON — each flight's metrics, the cross-check spreads,
- *  and (for a pair) the per-metric difference — the machine-readable companion to the
+ *  and the per-metric spread across the recordings — the machine-readable companion to the
  *  comparison Markdown, for a script reconciling redundant altimeters or tracking a
  *  rocket across launches. Same numbers as the compare view, in the chosen units. */
 export function compareJson(comparison: Comparison, sys: UnitSystem, note?: string, meta?: ReportMeta): string {

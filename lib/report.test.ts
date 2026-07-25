@@ -323,9 +323,19 @@ describe('comparison report', () => {
     expect(drogue.values.every((v) => Number.isNaN(v) || Number.isFinite(v))).toBe(true);
   });
 
-  it('reports no spread for a non-pair comparison', () => {
+  it('reports the full range as the spread once there are three recordings', () => {
+    // Two altimeters agreeing means nothing if the third is well out, so the spread is
+    // (highest − lowest) over their mean, not a pairwise difference.
     const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
-    expect(compareMetricRows(three.flights, 'metric')[0].spreadPct).toBeNull();
+    const apogee = compareMetricRows(three.flights, 'metric').find((r) => r.label === 'Apogee')!;
+    // Apogees ~300/315/330 → range 30 over a mean of ~315 ≈ 9.5%.
+    expect(apogee.spreadPct).toBeGreaterThan(7);
+    expect(apogee.spreadPct).toBeLessThan(12);
+  });
+
+  it('reports no spread when only one flight recorded the figure', () => {
+    const one = buildComparison([input('a', 300)]);
+    expect(compareMetricRows(one.flights, 'metric')[0].spreadPct).toBeNull();
   });
 
   it('tags a clipped max acceleration and withholds the highest-g crown', () => {
@@ -347,14 +357,14 @@ describe('comparison report', () => {
     expect(compareMetricRows(clean, 'metric').find((r) => r.label === 'Max acceleration')!.best).toBe(1);
   });
 
-  it('compareMarkdown carries the cross-check and a metrics table with a difference column', () => {
+  it('compareMarkdown carries the cross-check and a metrics table with a spread column', () => {
     const md = compareMarkdown(comparison, 'imperial');
     expect(md).toContain('# Debrief — flight comparison');
     expect(md).toContain('## Cross-check');
     expect(md).toMatch(/agree to within [\d.]+% on apogee/);
     expect(md).toContain('## Metrics');
-    expect(md).toContain('| Difference |');
-    // Header + every body row share the same column count (2 flights + Difference → 5 pipes).
+    expect(md).toContain('| Spread |');
+    // Header + every body row share the same column count (2 flights + Spread → 5 pipes).
     const bars = (s: string) => (s.match(/\|/g) ?? []).length;
     const tableRows = md.split('\n').filter((l) => l.startsWith('| ') && !l.includes('---'));
     expect(tableRows.length).toBeGreaterThan(3);
@@ -378,7 +388,7 @@ describe('comparison report', () => {
     expect(html).toContain('Booster vs sustainer');
     expect(html).toContain('Cross-check');
     expect(html).toMatch(/agree to within [\d.]+% on apogee/);
-    expect(html).toContain('<th>Difference</th>'); // two-flight comparison
+    expect(html).toContain('<th>Spread</th>');
     expect(html).toContain('<svg data-fig="alt"></svg>'); // the overlay figure inline
     // Self-contained and privacy-safe.
     expect(html).not.toMatch(/<script/i);

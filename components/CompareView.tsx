@@ -183,13 +183,17 @@ export default function CompareView({
   const saveOverlayCsv = () => {
     download(new Blob([overlayCsv()], { type: 'text/csv' }), 'compare-data.csv');
   };
-  const pair = flights.length === 2;
+  // Every comparison gets the spread column: (max − min) as a percent of the mean, over
+  // the flights that recorded each figure. For two recordings of one flight that's their
+  // agreement; for three it's the full range, which is the number that matters when a
+  // flyer flies triple redundancy — two agreeing says nothing if the third is 8% out.
+  const spread = flights.length >= 2;
   const metricsCsv = (): string => {
-    const header = ['Metric', ...flights.map((f) => stem(f.name)), ...(pair ? ['Difference (%)'] : [])];
+    const header = ['Metric', ...flights.map((f) => stem(f.name)), ...(spread ? ['Spread (%)'] : [])];
     const body = metricRows.map((r) => [
       r.label,
       ...r.cells,
-      ...(pair ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
+      ...(spread ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
     ]);
     return toCsv([header, ...body]);
   };
@@ -450,13 +454,13 @@ export default function CompareView({
                   )}
                 </th>
               ))}
-              {pair && (
+              {spread && (
                 <th
                   scope="col"
                   className="px-3 py-2 text-right align-bottom text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-                  title="The spread between the two: |a − b| as a percent of their mean — how closely two recordings of one flight agree, or how much one flight differs from another."
+                  title="How far apart the readings are: (highest − lowest) as a percent of their mean, over the flights that recorded the figure — how closely several recordings of one flight agree, or how much the flights differ from each other."
                 >
-                  Diff
+                  Spread
                 </th>
               )}
             </tr>
@@ -496,7 +500,7 @@ export default function CompareView({
                     {i === row.best && <span className="sr-only"> (highest)</span>}
                   </td>
                 ))}
-                {pair && (
+                {spread && (
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
                     {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
                   </td>
