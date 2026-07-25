@@ -131,6 +131,64 @@ export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, lan
   );
 }
 
+/**
+ * The flight as KML, for Google Earth — the one thing a GPX track can't give you.
+ *
+ * GPX carries where the rocket went on the ground; KML carries where it went, full stop.
+ * With the altitude beside each fix and `altitudeMode=relativeToGround`, Google Earth draws
+ * the actual trajectory in the air over the actual field, and `extrude` drops a wall to the
+ * ground under it so the drift reads at a glance. AltosUI has offered this for years and it
+ * is the obvious thing to hand someone helping you walk a rocket down, or to put in a cert
+ * package beside the numbers.
+ *
+ * Written from the published KML 2.2 schema (OGC 07-147r2): a `LineString` takes
+ * `lon,lat,alt` triples — that order, which is the reverse of how every other part of this
+ * app says it — and altitudes in metres. Heights are AGL, which is what
+ * `relativeToGround` means, so no geoid or pad elevation has to be invented.
+ */
+export function trackKml(
+  name: string,
+  lat: Float64Array,
+  lon: Float64Array,
+  altitudeM: Float64Array | undefined,
+  landingIndex: number,
+): string {
+  const n = Math.min(lat.length, lon.length);
+  const coords: string[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
+    const h = altitudeM && Number.isFinite(altitudeM[i]) ? Math.max(0, altitudeM[i]) : 0;
+    coords.push(`${lon[i].toFixed(6)},${lat[i].toFixed(6)},${h.toFixed(1)}`);
+  }
+  const landed =
+    landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
+      ? `    <Placemark>\n      <name>Landing</name>\n      <Point><coordinates>${lon[landingIndex].toFixed(6)},${lat[landingIndex].toFixed(6)},0</coordinates></Point>\n    </Placemark>\n`
+      : '';
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<kml xmlns="http://www.opengis.net/kml/2.2">\n' +
+    '  <Document>\n' +
+    `    <name>${xmlEscape(name)}</name>\n` +
+    '    <Style id="track">\n' +
+    '      <LineStyle><color>ff5e63e0</color><width>2</width></LineStyle>\n' +
+    '      <PolyStyle><color>335e63e0</color></PolyStyle>\n' +
+    '    </Style>\n' +
+    landed +
+    '    <Placemark>\n' +
+    `      <name>${xmlEscape(name)}</name>\n` +
+    '      <styleUrl>#track</styleUrl>\n' +
+    '      <LineString>\n' +
+    '        <extrude>1</extrude>\n' +
+    '        <tessellate>1</tessellate>\n' +
+    '        <altitudeMode>relativeToGround</altitudeMode>\n' +
+    `        <coordinates>${coords.join(' ')}</coordinates>\n` +
+    '      </LineString>\n' +
+    '    </Placemark>\n' +
+    '  </Document>\n' +
+    '</kml>\n'
+  );
+}
+
 /** The 8-point compass label for a bearing in degrees. */
 export function compass(bearing: number): string {
   const points = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];

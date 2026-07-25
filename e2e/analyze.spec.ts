@@ -741,3 +741,28 @@ test('one channel copies out of the sample table on its own', async ({ page, con
   expect(lines[1]).not.toContain('\t');
   expect(Number(lines[1])).not.toBeNaN();
 });
+
+// Benchmarked against AltosUI, which has offered a Google Earth export for years: a GPX
+// track says where the rocket went on the ground, and KML says where it went, full stop.
+test('a GPS flight saves as KML for Google Earth', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save KML' }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/-track\.kml$/);
+  const kml = (await readFile(await dl.path())).toString('utf8');
+  expect(kml).toContain('<kml xmlns="http://www.opengis.net/kml/2.2">');
+  expect(kml).toContain('<altitudeMode>relativeToGround</altitudeMode>');
+  // Real fixes, with a height on them — not a flat line at zero.
+  const coords = kml.match(/<coordinates>([^<]+)<\/coordinates>/g) ?? [];
+  expect(coords.length).toBeGreaterThan(0);
+  const triples = (kml.match(/-?\d+\.\d+,-?\d+\.\d+,\d+\.\d/g) ?? []);
+  expect(triples.length).toBeGreaterThan(20);
+  expect(triples.some((t) => Number(t.split(',')[2]) > 100)).toBe(true);
+});

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile } from './gps';
+import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile, trackKml } from './gps';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -161,5 +161,39 @@ describe('compass', () => {
     expect(compass(45)).toBe('NE');
     expect(compass(360)).toBe('N');
     expect(compass(-90)).toBe('W');
+  });
+});
+
+describe('trackKml — the flight in Google Earth', () => {
+  const lat = Float64Array.from([34.4949, 34.4952, 34.4958]);
+  const lon = Float64Array.from([-116.9577, -116.9571, -116.9564]);
+  const alt = Float64Array.from([0, 812.3, 5]);
+
+  it('writes lon,lat,alt triples — the order KML wants, not the one the app says', () => {
+    // The one thing that is easy to get wrong and impossible to see afterwards: KML is
+    // longitude first, which is the reverse of every other coordinate in this codebase.
+    // A swapped pair puts a Mojave launch in the Indian Ocean and still opens fine.
+    const kml = trackKml('flight', lat, lon, alt, 2);
+    expect(kml).toContain('-116.957700,34.494900,0.0');
+    expect(kml).toContain('-116.957100,34.495200,812.3');
+    expect(kml).toContain('<altitudeMode>relativeToGround</altitudeMode>');
+    expect(kml).toContain('<extrude>1</extrude>');
+    // Well-formed enough to be a document, with the landing marked.
+    expect(kml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
+    expect(kml).toContain('<name>Landing</name>');
+    expect(kml.trimEnd().endsWith('</kml>')).toBe(true);
+  });
+
+  it('flattens a flight with no altitude channel rather than refusing one', () => {
+    const kml = trackKml('flight', lat, lon, undefined, -1);
+    expect(kml).toContain('-116.957100,34.495200,0.0');
+    expect(kml).not.toContain('Landing');
+  });
+
+  it('skips fixes the receiver never made, and escapes the name', () => {
+    const gappy = Float64Array.from([34.4949, NaN, 34.4958]);
+    const kml = trackKml('a & b', gappy, lon, alt, -1);
+    expect(kml).toContain('<name>a &amp; b</name>');
+    expect(kml.match(/,34\./g)?.length).toBe(2);
   });
 });

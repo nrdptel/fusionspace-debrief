@@ -688,6 +688,22 @@ memory, so a later pass doesn't have to rediscover them.
 
 Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
 
+- **Benchmarked the recovery view against AltosUI and shipped the gap: KML for Google
+  Earth.** Read AltosUI's own documentation rather than going from memory. Two things it has
+  that Debrief didn't: an adjustable smoothing control on the baro-derived speed/acceleration
+  ("a larger value smooths the data more"), and a **KML export**. The second shipped — Debrief
+  already carries lat, lon and altitude on the same time base, and a GPX track says where the
+  rocket went on the ground while KML says where it went full stop: `relativeToGround`
+  altitudes and `extrude`, so Google Earth draws the trajectory in the air over the actual
+  field with a wall under it. Written from the published KML 2.2 schema (OGC 07-147r2). The
+  trap it is tested against is `lon,lat,alt` ordering — the reverse of every other coordinate
+  in this app, and a swap puts a Mojave launch in the Indian Ocean while still opening fine.
+  **Still open from the same benchmark:** the smoothing window is fixed and not exposed. It is
+  a real question whether it should be — a control that changes the numbers is not the same
+  kind of control as one that changes the view, and a flyer who can tune the filter until the
+  apogee reads how they'd like is being handed a way to fool themselves. Worth a deliberate
+  decision rather than a copy of AltosUI.
+
 - **Done: per-column sort in the sample table.** Click a column for highest-first, again for
   lowest, a third time back to the recorded order; `aria-sort` on the header so it is
   announced and not merely drawn. It sorts an index list rather than the data, measured at

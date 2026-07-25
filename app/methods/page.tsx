@@ -339,7 +339,13 @@ export default function MethodsPage() {
             sparse fast layer is dropped rather than guessed. The apogee&apos;s
             horizontal offset from the pad gives how far <em>off vertical</em> the ascent flew
             (weathercocking into the wind, plus the drift during the slow coast) — a lean that costs
-            altitude to the cosine and carries the rocket further downrange.
+            altitude to the cosine and carries the rocket further downrange.{' '}
+            The track saves two ways: <strong>GPX</strong> for a GPS app or a phone, and{' '}
+            <strong>KML</strong> for Google Earth — the same fixes with the altitude beside each
+            one, so what you get is the flight in the air over the actual field rather than a line
+            on the ground. Heights in the KML are above the pad, which is what its
+            <span className="font-mono">relativeToGround</span> mode means, so nothing about the
+            site&apos;s own elevation has to be invented.
           </Method>
           <Method title="Roll &amp; spin">
             When the logger recorded a roll-rate channel (angular rate about the long axis), Debrief

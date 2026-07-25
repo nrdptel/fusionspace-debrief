@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fmtLength, fmtSpeed, lengthIn, unitsOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile } from '@/lib/gps';
+import { groundTrack, recoveryStats, compass, trackGpx, trackKml, descentWind, ascentLean, windProfile } from '@/lib/gps';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 
@@ -242,10 +242,29 @@ export default function GroundTrack({
               `${stem}-track.gpx`,
             )
           }
-          title="Download the track and landing point as a GPX file (opens in any GPS app or Google Earth)"
+          title="Download the track and landing point as a GPX file (opens in any GPS app)"
           className={ACTION_BTN}
         >
           Save GPX
+        </button>
+        {/* GPX carries where it went on the ground; KML carries where it went, full stop.
+            With the altitude beside each fix, Google Earth draws the trajectory in the air
+            over the actual field — the view AltosUI has offered for years, and the one worth
+            handing to someone helping walk a rocket down. */}
+        <button
+          type="button"
+          onClick={() =>
+            download(
+              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex)], {
+                type: 'application/vnd.google-earth.kml+xml',
+              }),
+              `${stem}-track.kml`,
+            )
+          }
+          title="Download the flight as KML — the 3D path over the ground, for Google Earth"
+          className={ACTION_BTN}
+        >
+          Save KML
         </button>
       </div>
 
