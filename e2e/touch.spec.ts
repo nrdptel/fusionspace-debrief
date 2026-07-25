@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import path from 'node:path';
 
 // Debrief is built to be read on a phone at the field. uPlot binds only mouse
 // events, so the charts had no touch zoom at all; this covers the two-finger
@@ -114,6 +115,43 @@ test('the compare surface is thumb-sized too', async ({ page }) => {
 
   // And nothing on the page pushes past the viewport — the row that lost its file name
   // to a five-column squeeze was overflowing, not just crowded.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+// The column mapper is the first screen for every logger Debrief doesn't auto-detect —
+// the "universal" half of the promise — and it is a form, so a phone has to be able to
+// work it. As a four-column table it put the sample values, which are how you tell one
+// column from another, off the right edge with no sign they were there.
+test('the column mapper is usable one-handed', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-stratologger.csv'));
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+
+  // Every column's own values sit inside the viewport's width — as a four-column table
+  // they were rendered past the right edge, reachable only by scrolling the table itself.
+  for (const sample of ['0, 0.05, 0.1', '22, 33, 33', '7.9, 7.9, 7.9']) {
+    const cell = page.getByText(sample);
+    await expect(cell).toHaveCount(1);
+    const box = (await cell.boundingBox())!;
+    expect(box.x, `"${sample}" starts at x=${box.x}`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `"${sample}" ends at x=${box.x + box.width}`).toBeLessThanOrEqual(390);
+  }
+
+  const small = await page.evaluate(() => {
+    const out: string[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>('button, select, summary, nav a')) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName}`);
+    }
+    return out;
+  });
+  expect(small, `controls under 44 px tall on the mapper:\n${small.join('\n')}`).toEqual([]);
+
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

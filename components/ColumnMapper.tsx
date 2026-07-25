@@ -166,9 +166,14 @@ export default function ColumnMapper({
         )}
       </div>
 
+      {/* Below sm: each column is a card — its name, the values it actually holds, then the
+          two controls — because the sample values are how a flyer tells one column from
+          another, and in a four-column table on a phone they are the part that goes off the
+          edge. The same markup is a table from sm: up, so nothing is duplicated in the DOM
+          and every control keeps one accessible name. */}
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-        <table className="w-full border-collapse text-sm">
-          <thead>
+        <table className="block w-full border-collapse text-sm sm:table">
+          <thead className="hidden sm:table-header-group">
             <tr className="border-b border-zinc-200 bg-zinc-50 text-left dark:border-zinc-800 dark:bg-zinc-900/40">
               <th className="px-3 py-2 font-medium text-zinc-600 dark:text-zinc-400">Column</th>
               <th className="px-3 py-2 font-medium text-zinc-600 dark:text-zinc-400">Role</th>
@@ -176,21 +181,24 @@ export default function ColumnMapper({
               <th className="px-3 py-2 font-medium text-zinc-600 dark:text-zinc-400">Sample</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block sm:table-row-group">
             {table.headers.map((header, i) => {
               const units = unitOptionsFor(rows[i].role);
               const colName = header || `col ${i + 1}`;
               return (
-                <tr key={i} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
-                  <td className="px-3 py-2 font-mono text-xs text-zinc-700 dark:text-zinc-300">
+                <tr
+                  key={i}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-zinc-100 px-3 py-3 last:border-0 sm:table-row sm:px-0 sm:py-0 dark:border-zinc-800/60"
+                >
+                  <td className="order-1 w-full px-0 py-0 font-mono text-xs text-zinc-700 sm:table-cell sm:w-auto sm:px-3 sm:py-2 dark:text-zinc-300">
                     {colName}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="order-3 px-0 py-0 sm:table-cell sm:px-3 sm:py-2">
                     <select
                       value={rows[i].role}
                       onChange={(e) => setRole(i, e.target.value as ColumnRole)}
                       aria-label={`Role for the ${colName} column`}
-                      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs sm:min-h-0 dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       {ROLE_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -199,13 +207,13 @@ export default function ColumnMapper({
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="order-4 px-0 py-0 sm:table-cell sm:px-3 sm:py-2">
                     {units.length > 0 ? (
                       <select
                         value={rows[i].unit}
                         onChange={(e) => setUnit(i, e.target.value)}
                         aria-label={`Unit for the ${colName} column`}
-                        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs sm:min-h-0 dark:border-zinc-700 dark:bg-zinc-900"
                       >
                         {units.map((u) => (
                           <option key={u} value={u}>
@@ -217,7 +225,10 @@ export default function ColumnMapper({
                       <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                  <td className="order-2 w-full px-0 py-0 font-mono text-xs text-zinc-500 sm:table-cell sm:w-auto sm:px-3 sm:py-2 dark:text-zinc-400">
+                    <span aria-hidden="true" className="sm:hidden">
+                      e.g.{' '}
+                    </span>
                     {preview.map((r) => r[i]).filter(Boolean).slice(0, 3).join(', ') || '—'}
                   </td>
                 </tr>

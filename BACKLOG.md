@@ -232,6 +232,16 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Found by using the app cold on a phone, which is the only way this one shows up.** The
+  column mapper — the first screen for every logger Debrief doesn't auto-detect, i.e. the
+  "universal" half of the promise — is a four-column table, and at 390 px the Sample column
+  rendered 53 px past the right edge inside a scroller with no sign it was there. The sample
+  values are how a flyer tells one column from another, so the one thing the screen exists to
+  support was the thing off screen. Below `sm:` each column is now a card (name, its actual
+  values, then the two controls) and from `sm:` up it is the same table as before — one set of
+  markup, so no control has a second copy of its accessible name in the DOM. The role/unit
+  selects were 26 px and are now 44 on a phone. Asserted by a test that fails on the old
+  markup with the box coordinates in the message.
 - **Fixed on a phone, and it was hiding the one thing the row is for.** A logbook row put the
   file name, the logger badge, top speed, apogee and the date on one flex line; at 390 px the
   name is the only thing that can shrink, so it truncated to nothing and the date and ✕ ran off
