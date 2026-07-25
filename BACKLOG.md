@@ -22,6 +22,12 @@ memory, so a later pass doesn't have to rediscover them.
   Still open in the same area: those four flights now report no speed at all. The bracket is
   named in the warning, but a *reported* accelerometer-integrated velocity — what AltosUI and
   the Blue Raven tools show — would be better than nothing, and is the natural next step.
+- Found by driving the app, not by a test: a withheld velocity was still being printed
+  per-sample in the event legend and all four exports, so the headline read "—" while
+  burnout read 1,932 ft/s. Fixed for all three withholding guards at once. Worth checking
+  the same way wherever else a metric is withheld but a *series* stays plotted — the
+  Mach and dynamic-pressure channels already gate on the flag, but nothing enforces that
+  a new surface will.
 - Reconciliation regression now covers 6 of the corpus's 15 same-flight groups (17 files).
   The rest are single-analysable-recording groups, deliberate device disagreements, or
   known issues — but a *velocity* agreement assert is still missing, because trf-lemiv-l3's
