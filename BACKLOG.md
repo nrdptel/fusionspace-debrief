@@ -66,6 +66,10 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- Three e2e selector clashes this run came from adding the same phrase to the page's own
+  how-to copy that a test used to target a control (`per quantity`, `Show the samples`).
+  Worth a convention: target controls by role/summary, never by a bare phrase.
+
 - `e2e/worker.spec.ts` "a slow in-flight analysis does not overwrite a newer load" flaked
   once under full-suite parallel load and passed alone and on re-run — a timing assumption
   worth making load-independent before it costs someone a red CI.
@@ -83,9 +87,9 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   pressure follows the system). AltosUI lets you choose the unit for each quantity, and a
   cert document may want mph or km/h for speed and °C for temperature regardless. North
   Star #2 asks for exactly this.
-- **A raw sample table.** AltosUI has a data tab — a scrollable, copyable grid of the
-  actual samples — and Excel *is* that. Debrief plots any channel and exports CSV but
-  never shows the numbers on screen. Needs virtualisation for a 190k-row log.
+- **A raw sample table** — done, in the explorer. What's missing next to a spreadsheet:
+  no per-column sort or filter, no cell selection (only whole-row text selection), and no
+  "jump to an event" so a flyer can land on burnout without scrolling.
 - **A per-device flight list.** The vendor apps read several flights off one device and
   let you pick between them; Debrief's logbook is close but is keyed on files, not flights
   from one download session.

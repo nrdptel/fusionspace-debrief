@@ -100,6 +100,11 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   second axis for mixed units and live min/max/mean/Δ/rate over the zoomed window —
   and save the current plot as a PNG, a **vector SVG** (crisp at any size for a report or
   slide), or its exact data (your axes, your units) as CSV.
+- Shows you the numbers, not just the picture — the explorer opens the **samples behind the
+  plot**: every recorded value in a scrollable table, in the units you chose, following the
+  chart's zoom so a phase you select on the plot is the stretch you read. Nothing is
+  decimated away, and only the rows on screen are rendered, so a 190,000-sample high-rate
+  log stays as responsive as a 600-row sport flight.
 - Shows its work — overlay the raw (pre-filter) altitude on the cleaned line to see
   exactly what spike-removal took out, and open *Log details* for the factual read of
   the file: the logger's reported identity, sample rate, duration and recorded channels.

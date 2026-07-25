@@ -11,6 +11,7 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
+import SampleTable from './SampleTable';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -307,6 +308,23 @@ export default function ChannelExplorer({
         xUnit={xUnit}
         showDeltaRate={xIsTime}
       />
+
+      {/* The numbers behind the plot. Collapsed by default — the chart is the answer most
+          of the time — but one click away, and it follows the chart's zoom. */}
+      <details className="mt-4">
+        <summary className="cursor-pointer select-none text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+          Show the samples
+        </summary>
+        <SampleTable
+          channels={selected}
+          seriesData={seriesData}
+          xVals={xVals}
+          xName={xName}
+          xUnit={xUnit}
+          sys={sys}
+          view={view}
+        />
+      </details>
 
       {!xIsTime && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

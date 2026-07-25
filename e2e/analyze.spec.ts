@@ -250,3 +250,40 @@ test('the printed flight card keeps the numbers and drops the interactive chrome
 
   await page.emulateMedia({ media: 'screen' });
 });
+
+// A measurement instrument has to show the measurements. AltosUI has a data tab and Excel
+// is one; reading an exact value off a plot is guesswork. The table is virtualised, so a
+// long log stays responsive — only the rows on screen are in the DOM.
+test('the explorer shows the samples behind the plot, in the chosen units', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // The disclosure, not the phrase in the page's own how-to copy.
+  await page.locator('summary').filter({ hasText: 'Show the samples' }).click();
+  await expect(page.getByRole('heading', { name: /Every sample/i })).toBeVisible();
+
+  const table = page.locator('table').last();
+  // Headers name the channel and the unit in force.
+  await expect(table.locator('thead')).toContainText('Time');
+  await expect(table.locator('thead')).toContainText('ft');
+
+  // Thousands of samples, but only a screenful is rendered.
+  const count = await page.getByText(/[\d,]+ rows · exact values/).innerText();
+  const rows = Number(count.match(/([\d,]+) rows/)![1].replace(/,/g, ''));
+  expect(rows).toBeGreaterThan(1000);
+  const rendered = await table.locator('tbody tr').count();
+  expect(rendered).toBeLessThan(60);
+
+  // Scrolling reaches different samples rather than re-rendering the same ones.
+  const firstBefore = await table.locator('tbody tr').nth(1).innerText();
+  await page.locator('div.overflow-auto').last().evaluate((el) => el.scrollTo(0, 3000));
+  await expect(async () => {
+    expect(await table.locator('tbody tr').nth(1).innerText()).not.toBe(firstBefore);
+  }).toPass();
+
+  // The unit choice reaches the table like every other number.
+  await page.locator('summary').filter({ hasText: 'per quantity' }).click();
+  await page.locator('details select').nth(0).selectOption('m');
+  await expect(table.locator('thead')).toContainText('m');
+});
