@@ -158,6 +158,19 @@ export default function ValidationPage() {
               never dips below zero at all, so an honest reading is never caught by this.
             </li>
             <li>
+              A file holding <strong>more than one flight</strong> is read as its first flight only,
+              with a note saying how much of the file was used — merged, the record's highest point
+              belongs to one flight and its liftoff to another. A corpus Blue Raven backup download
+              holds one flight recorded twice, and read whole it put time-to-apogee at 39.6&nbsp;s
+              where the GPS recording the same flight, aligned by its own UTC stamps, puts apogee
+              19.3&nbsp;s after liftoff; read as one flight it now agrees.
+            </li>
+            <li>
+              A log that <strong>stops at apogee</strong> reports no descent rate at all rather than
+              averaging the few samples wobbling around the peak — that average is noise, and can even
+              come out as a negative &ldquo;descent&rdquo;.
+            </li>
+            <li>
               A <strong>single-source flight</strong> has nothing to cross-check against, so its read
               stands on the invariants and the method alone.
             </li>

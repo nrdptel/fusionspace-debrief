@@ -21,10 +21,16 @@ memory, so a later pass doesn't have to rediscover them.
   (TeleMetrum 2,502 ft vs StratoLogger 1,435 ft) — and each device's own summary states
   its own figure, so Debrief reproduces both faithfully. A real device disagreement worth
   surfacing, not a bug; do not add it as a reconciliation regression.
-- The Blue Raven jan10 LR reads time-to-apogee 39.6 s where its paired Featherweight GPS
-  reads 14.1 s on the same flight, and trf-lemiv-l3's four recordings spread 23.6–28.2 s.
-  Apogee agrees to ~1% in both groups, so this is liftoff or apogee *timing*, not altitude
-  — worth a look.
+- Diagnosed and fixed: the Blue Raven jan10 LR file holds one flight recorded twice, so the
+  merged record put apogee 39.6 s after liftoff; it now reads 18.2 s against the GPS's 19.3 s.
+  Still open in that group: trf-lemiv-l3's four recordings spread 23.6–28.2 s on time to
+  apogee while agreeing to 1% on altitude — a liftoff-detection difference, worth a look.
+- The Blue Raven's barometric altitude swings to −493 ft through the supersonic boost (the
+  shock over the static port) while its own inertial altitude climbs smoothly past 1,700 ft.
+  Debrief reads the burnout, max-velocity, transonic and max-Q *altitudes* straight off the
+  baro trace at exactly those instants, so it reports a burnout altitude of −307 ft. During
+  the ascent the altitude cannot decrease — where the record says otherwise the value is
+  noise and should be withheld (or read from the logger's inertial altitude where it has one).
 - The intrepid3tf2 AL1 recording reads a main descent of 2 ft/s where its AL0 partner reads
   57 ft/s on the same flight. AL1 is the power-loss file, but 2 ft/s is not a descent.
 

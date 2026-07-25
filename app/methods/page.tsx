@@ -44,6 +44,16 @@ export default function MethodsPage() {
             any barometric altitude stops holding and the reading under-reads; a flight that high is
             flagged, and a GPS or inertial altitude is more trustworthy up there.
           </Method>
+          <Method title="More than one flight in a file">
+            A logger downloaded twice, or a whole launch day dumped at once, puts several flights in
+            one file — and read as a single flight the record is nonsense: the highest point belongs
+            to a later flight while liftoff belongs to the first, so time-to-apogee spans both. The
+            test is something a rocket cannot do: return to the ground and climb again. Where that
+            happens, Debrief reads the first flight, says how much of the file it used, and leaves the
+            rest — split the file, or export the flights separately, to read the others. A dropout that
+            reads zero <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is
+            not a landing and never splits a file.
+          </Method>
           <Method title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
             two-sample jump an ejection charge punches into a baro trace — what makes a naïve

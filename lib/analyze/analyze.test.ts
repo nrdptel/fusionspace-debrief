@@ -335,6 +335,80 @@ describe('implausible velocity guard', () => {
   });
 });
 
+describe('a file holding more than one flight', () => {
+  /** Two flights end to end in one record, as a logger downloaded twice produces. */
+  function twoFlights(): RawFlight {
+    const a = syntheticBaroFlight().flight;
+    const n = a.time.length;
+    const dt = a.time[1] - a.time[0];
+    const time = new Float64Array(n * 2);
+    const alt = new Float64Array(n * 2);
+    const src = a.channels[0].values;
+    for (let i = 0; i < n; i++) {
+      time[i] = a.time[i];
+      alt[i] = src[i];
+      time[n + i] = a.time[n - 1] + dt * (i + 1);
+      alt[n + i] = src[i];
+    }
+    return { ...a, time, channels: [{ ...a.channels[0], values: alt }] };
+  }
+
+  it('analyzes the first flight and says the rest was ignored', () => {
+    const one = analyzeFlight(syntheticBaroFlight().flight);
+    const a = analyzeFlight(twoFlights());
+    // The same numbers as the single flight — not a timeline spanning both.
+    expect(a.metrics.apogeeAltitude).toBeCloseTo(one.metrics.apogeeAltitude, 5);
+    expect(a.metrics.timeToApogee).toBeCloseTo(one.metrics.timeToApogee, 5);
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(true);
+    // The warning names how much of the file was read, so the flyer can check it.
+    expect(a.warnings.find((w) => /holds more than one flight/.test(w))).toMatch(/opening \d/);
+  });
+
+  it('leaves a single flight alone', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(false);
+  });
+
+  it('does not split on a dropout that reads zero before the rocket ever climbed', () => {
+    // A GPS that loses lock through the boost reads ~0 until it reacquires — that is not
+    // a landing, and it happens before any climb, so the file is one flight.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    const from = Math.round(2 / 0.05);
+    for (let i = from; i < from + 20; i++) alt[i] = 0;
+    const a = analyzeFlight(flight);
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(false);
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+  });
+});
+
+describe('a log that stops at apogee', () => {
+  it('reports no descent rate rather than averaging noise at the peak', () => {
+    // A truncated download (or the first flight of a file holding two) can end within a
+    // sample or two of apogee. Averaging that wobble yields a "descent" of a few ft/s —
+    // sometimes a negative one, which is not a descent at all.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    let apIdx = 0;
+    for (let i = 1; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+    const cut = apIdx + 3;
+    const trimmed: RawFlight = {
+      ...flight,
+      time: flight.time.slice(0, cut),
+      channels: flight.channels.map((c) => ({ ...c, values: c.values.slice(0, cut) })),
+    };
+    const a = analyzeFlight(trimmed);
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+    expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.metrics.drogueDescentRate).toBeNull();
+  });
+
+  it('still reads the descent on a log that has one', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    expect(a.metrics.mainDescentRate).toBeGreaterThan(0);
+  });
+});
+
 describe('derived-kinematics provenance warnings', () => {
   it('flags both when velocity and acceleration both come from altitude', () => {
     const { flight } = syntheticBaroFlight();

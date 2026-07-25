@@ -227,7 +227,60 @@ function speedOfSoundProfile(altAgl: Float64Array, groundTempK: number): Float64
   return out;
 }
 
-export function analyzeFlight(flight: RawFlight): FlightAnalysis {
+/**
+ * Where a second flight begins in a record that holds more than one, or null for the
+ * normal single-flight file. The test is a thing a rocket cannot do: come back to the
+ * ground and then climb again. So look for the ground return that follows the first real
+ * climb, and a later climb back to a substantial height — both measured as fractions of
+ * the record's own peak, so it works the same on a 600 ft sport flight and a 27,000 ft
+ * one, and sits far above any noise near the pad.
+ *
+ * A Blue Raven backup file in the corpus holds one flight recorded twice: it climbs to
+ * 10,230 ft by 18 s, drops to 0, then climbs to 10,266 ft again. Read as one flight its
+ * apogee lands in the second copy while liftoff sits in the first, so time-to-apogee came
+ * out 39.6 s where the GPS recording the same flight puts apogee 19.3 s after liftoff.
+ */
+function nextFlightStart(altitude: Float64Array): number | null {
+  const n = altitude.length;
+  let peak = 0;
+  for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) peak = altitude[i];
+  if (!(peak > 0)) return null;
+  const high = peak * 0.5; // "really flew" — half the record's own best
+  const ground = Math.max(3, peak * 0.05); // back on the deck
+  let flew = false; // has the record climbed high yet?
+  let landed = -1; // …and come back down
+  for (let i = 0; i < n; i++) {
+    const h = altitude[i];
+    if (!Number.isFinite(h)) continue;
+    if (landed < 0) {
+      // A dip to the ground before anything climbed (a GPS losing lock through the
+      // boost reads zero) is not a landing, so `flew` has to come first.
+      if (h >= high) flew = true;
+      else if (flew && h <= ground) landed = i;
+    } else if (h >= high) {
+      // Up again after coming down: another flight is in this file. Too short a first
+      // segment to analyze is better read whole than truncated to nothing.
+      return landed >= 4 ? landed : null;
+    }
+  }
+  return null;
+}
+
+/** The flight up to `end` (exclusive): the time base and every channel, sliced together
+ *  so the model stays consistent. */
+function sliceFlight(flight: RawFlight, end: number): RawFlight {
+  return {
+    ...flight,
+    time: flight.time.slice(0, end),
+    channels: flight.channels.map((c) => ({ ...c, values: c.values.slice(0, end) })),
+  };
+}
+
+function formatSeconds(s: number): string {
+  return `${s < 10 ? s.toFixed(1) : Math.round(s)} s`;
+}
+
+export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
   const n = time.length;
@@ -277,6 +330,22 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     warnings.push(
       'The log doesn’t appear to start on the pad, so the ground baseline is approximate — altitude AGL and any ground reading may be offset.',
     );
+  }
+
+  // One file can hold more than one flight — a logger downloaded twice, or a day's
+  // flights in one dump. Read as a single flight the record is nonsense: the global peak
+  // belongs to a later flight while liftoff belongs to the first, so time-to-apogee
+  // spans both. Analyze the first flight and say so.
+  const secondFlightAt = nextFlightStart(altitude);
+  if (secondFlightAt != null && depth === 0) {
+    const first = analyzeFlight(sliceFlight(flight, secondFlightAt), 1);
+    return {
+      ...first,
+      warnings: [
+        `This file holds more than one flight — the record returns to the ground and climbs again. Debrief analyzed the first (the opening ${formatSeconds(time[secondFlightAt] - time[0])} of the file) and ignored the rest; read the others by splitting the file, or export them separately from your altimeter's software.`,
+        ...first.warnings,
+      ],
+    };
   }
 
   // Keep the pre-filter altitude (baseline-subtracted, still carrying any
@@ -655,13 +724,20 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
     }
   }
 
+  // A descent rate needs a descent to read it from. A log that stops at (or just past)
+  // apogee leaves a handful of samples wobbling around the peak, and averaging those is
+  // noise — it can even come out negative, a "descent" that goes up. So require the record
+  // to have actually come down a real fraction of the height it reached, and never report
+  // a rate that isn't downward.
+  const cameDown = altClean[apogeeIdx] - altClean[landingIdx] > Math.max(3, apogeeAlt * 0.1);
+  const downward = (v: number) => (Number.isFinite(v) && v > 0 ? v : null);
   let drogueDescentRate: number | null = null;
   let mainDescentRate: number | null = null;
-  if (mainIdx !== null) {
-    drogueDescentRate = mean(descent, apogeeIdx + 1, mainIdx);
-    mainDescentRate = mean(descent, mainIdx + 1, landingIdx);
-  } else if (landingIdx > apogeeIdx + 1) {
-    mainDescentRate = mean(descent, apogeeIdx + 1, landingIdx);
+  if (mainIdx !== null && cameDown) {
+    drogueDescentRate = downward(mean(descent, apogeeIdx + 1, mainIdx));
+    mainDescentRate = downward(mean(descent, mainIdx + 1, landingIdx));
+  } else if (landingIdx > apogeeIdx + 1 && cameDown) {
+    mainDescentRate = downward(mean(descent, apogeeIdx + 1, landingIdx));
   }
 
   // --- Events ---------------------------------------------------------------
