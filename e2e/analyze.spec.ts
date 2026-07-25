@@ -396,3 +396,61 @@ test('a GPS altitude is carried as a second recording and cross-checks apogee', 
   // The channel itself is plottable against the barometric line, not just summarised.
   await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'altitude (GPS)' })).toHaveCount(1);
 });
+
+// A report is written for a purpose — a cert package, a drag study, a club post — so which
+// readings it carries is the flyer's call, made once and followed by every report format.
+test('the readings in a report are the flyer’s choice, and follow into the exports', async ({ page }) => {
+  const read = async (dl: import('@playwright/test').Download) => {
+    const stream = await dl.createReadStream();
+    return new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+      stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      stream!.on('error', reject);
+    });
+  };
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText('Flight time', { exact: true })).toBeVisible();
+
+  const chooserToggle = page.locator('summary', { hasText: "Choose what's in this report" });
+  await chooserToggle.click();
+  const chooser = page.getByRole('checkbox', { name: 'Flight time' });
+  await expect(chooser).toBeChecked();
+  await chooser.uncheck();
+
+  // Gone from the report on screen (only the chooser's own label is left), and the
+  // chooser says how many are off.
+  await expect(page.getByText('Flight time', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('1 off')).toBeVisible();
+  // Apogee cannot be turned off — a flight report without one is a different document.
+  await expect(page.getByRole('checkbox', { name: 'Apogee', exact: true })).toBeDisabled();
+
+  // Closing it leaves no second copy of any reading's label behind.
+  await chooserToggle.click();
+  await expect(page.getByRole('checkbox', { name: 'Apogee', exact: true })).toHaveCount(0);
+
+  // …and gone from the exported report, without the choice being made again per format.
+  const [md] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .md' }).click(),
+  ]);
+  const markdown = await read(md);
+  expect(markdown).toContain('| Apogee |');
+  expect(markdown).not.toContain('| Flight time |');
+
+  // The data export is a record, not a document: it still carries everything.
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .json' }).click(),
+  ]);
+  expect(JSON.parse(await read(json)).metrics.flightTime).not.toBeNull();
+
+  // Remembered on this device, so the next flight opens the way the last one was left.
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText('1 off')).toBeVisible();
+});

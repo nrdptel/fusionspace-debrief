@@ -22,9 +22,12 @@ memory, so a later pass doesn't have to rediscover them.
   **Worth chasing:** on sg1.1 the two agree on the height (−2.7%) but put the peak 33 s apart —
   the flight already known for a 54% device disagreement. The report says so where the times
   diverge, but nothing yet reconciles it.
-  **Next in this direction:** the Featherweight GPS `#SATS`/`FIX` columns are not masked the
-  same way (those files are GPS-primary, so a held fix corrupts the altitude itself, not a
-  cross-check); and no other parser carries a GPS altitude yet.
+  **Swept the obvious follow-on and there is nothing there:** the Featherweight GPS tracker
+  files would matter more, since they are GPS-primary and a held fix would corrupt the
+  altitude the analysis itself rides on — but both corpus GPSTrk files carry `FIX=3` on every
+  row (174/174 and 404/404), so there is no held sample to mask. The only `FIX=0` rows in the
+  family are 14 of 1,669 in a *ground-station* log, a different layout Debrief doesn't read as
+  a flight. No change made. Still open: no other parser carries a GPS altitude yet.
 - **Fixed, and the earlier diagnosis was wrong.** The jimheaney L1 logs reading Mach 0.9–1.65
   on ~2,450 ft apogees are not a startup transient: the baro trace genuinely climbs 900 ft in
   0.72 s while the same file's accelerometer reads a 20 g boost that can only account for
@@ -338,6 +341,15 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
 
 ## Feature depth
 
+- **First slice of the report & export builder shipped: the flyer picks the readings.** Every
+  report format (screen, .txt, .md, .html, bundle) now reads its rows through one filter, and
+  a chooser under the tiles turns them on and off — stored as what is turned OFF, so a reading
+  a flight gains later (a roll-rate channel, a GPS apogee) appears rather than being silently
+  excluded by a list written before it existed. Apogee is not removable. The data exports
+  (.csv series, structured .json) deliberately stay complete: `debrief.flight/1` is a contract,
+  and trimming it would break a consumer rather than shorten a document. **Still missing from
+  North Star #2:** the flyer can't reorder the readings, pick WHICH figures go in the bundle,
+  or choose colours/layout, and the comparison exports have no equivalent chooser yet.
 - **Done for the comparison: `/compare` is its own route.** A set of flights is now named
   in the address (`?ids=…`, logbook keys — not flight data, which never leaves the device),
   so a comparison survives a reload, can be bookmarked, and can sit in a second tab beside

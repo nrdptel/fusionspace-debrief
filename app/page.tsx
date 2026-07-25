@@ -51,6 +51,16 @@ export default function Home() {
               between on any flight that has those channels.
             </li>
             <li>
+              <strong className="font-medium text-zinc-800 dark:text-zinc-200">Report</strong> — a
+              report is written for a purpose, so pick the readings it carries: open{' '}
+              <em>Choose what&apos;s in this report</em> and turn off what this one doesn&apos;t need
+              (a cert package wants apogee, speeds and descent rates; a drag study wants coast
+              efficiency and max&nbsp;Q). The choice applies on screen and to the .txt, .md and .html
+              reports and the bundle — made once, not once per format — and is remembered on this
+              device. The data exports (.csv, .json) always carry everything: a report is a document,
+              a data file is a record.
+            </li>
+            <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch
               feet and meters with one click (top-right), or open <em>per quantity</em> to set each on
               its own: altitude in feet with speed in mph or km/h, acceleration in g or m/s²,

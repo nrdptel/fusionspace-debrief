@@ -25,6 +25,7 @@ import { compareReported } from './flight/reported';
 import { formatFlownAt } from './flight/flownAt';
 import { crossCheck, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
+import { visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import { deployCheck } from './deploy';
@@ -112,6 +113,10 @@ function ejectionDelayRow(recovery: RecoveryFigures | undefined): [string, strin
 export interface ReportMeta {
   label?: string;
   notes?: string;
+  /** Readings the flyer has turned off for this report (see lib/reportProfile). Applies
+   *  to the text, Markdown and HTML reports — not to the data exports, which stay a
+   *  complete machine-readable record. */
+  hidden?: string[];
 }
 
 /** Trim a user string, returning undefined when it's empty — so an untouched field
@@ -132,6 +137,7 @@ function headlineRows(
   m: FlightAnalysis['metrics'],
   sys: UnitChoice,
   recovery?: RecoveryFigures,
+  hidden?: string[],
 ): [string, string][] {
   const rows: [string, string][] = [];
   rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys)]);
@@ -171,7 +177,8 @@ function headlineRows(
   if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
   if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
-  return rows;
+  // The flyer's own selection, applied at the one place every report format reads from.
+  return visibleRows(rows, (r) => r[0], hidden);
 }
 
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
@@ -222,7 +229,7 @@ export function summaryText(
   }
   lines.push('');
 
-  for (const [label, value] of headlineRows(analysis.metrics, sys, recovery)) lines.push(row(label, value));
+  for (const [label, value] of headlineRows(analysis.metrics, sys, recovery, meta?.hidden)) lines.push(row(label, value));
 
   if (analysis.events.length) {
     lines.push('');
@@ -291,7 +298,7 @@ export function summaryMarkdown(
 
   out.push('| Metric | Value |');
   out.push('| --- | --- |');
-  for (const [label, value] of headlineRows(analysis.metrics, sys, recovery)) out.push(`| ${cell(label)} | ${cell(value)} |`);
+  for (const [label, value] of headlineRows(analysis.metrics, sys, recovery, meta?.hidden)) out.push(`| ${cell(label)} | ${cell(value)} |`);
 
   if (analysis.events.length) {
     out.push('', '## Events', '', '| Event | Time | Altitude | Speed | Shock |', '| --- | --- | --- | --- | --- |');
@@ -410,7 +417,7 @@ export function summaryHtml(
   const stamp = `${flew}${analyzedAt ? ` · Analyzed ${esc(formatAnalyzedAt(analyzedAt))}` : ''}`;
   const title = label ? `${label} — Debrief flight report` : `Debrief flight report — ${flight.source}`;
 
-  const metricRows = headlineRows(analysis.metrics, sys, recovery)
+  const metricRows = headlineRows(analysis.metrics, sys, recovery, meta?.hidden)
     .map(([l, v]) => `<tr><th>${esc(l)}</th><td>${esc(v)}</td></tr>`)
     .join('');
 

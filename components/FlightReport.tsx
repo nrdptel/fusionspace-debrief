@@ -23,6 +23,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import { loadHidden, saveHidden, toggleHidden } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
 import ChannelExplorer from './ChannelExplorer';
@@ -138,7 +139,22 @@ export default function FlightReport({
     setReportLabel('');
     setReportNotes('');
   }, [flight.source]);
-  const reportMeta = useMemo(() => ({ label: reportLabel, notes: reportNotes }), [reportLabel, reportNotes]);
+  // Which readings this flyer wants in a report, remembered on this device and applied
+  // both here and in every report export — the same decision, made once.
+  const [hidden, setHidden] = useState<string[]>([]);
+  useEffect(() => setHidden(loadHidden()), []);
+  const toggleReading = useCallback((label: string) => {
+    setHidden((prev) => {
+      const next = toggleHidden(prev, label);
+      saveHidden(next);
+      return next;
+    });
+  }, []);
+
+  const reportMeta = useMemo(
+    () => ({ label: reportLabel, notes: reportNotes, hidden }),
+    [reportLabel, reportNotes, hidden],
+  );
   // The recovery figures a flyer entered — the descending mass (landing energy) and the
   // set main-deploy altitude (the fired-where-set check) — ride into the exported report
   // too, so what's on screen isn't left behind when they hand the report in.
@@ -659,7 +675,7 @@ export default function FlightReport({
         </div>
       )}
 
-      <MetricGrid metrics={metrics} sys={sys} />
+      <MetricGrid metrics={metrics} sys={sys} hidden={hidden} onToggle={toggleReading} />
 
       {/* Rail-exit velocity is a fine-grained reading of the first couple of metres,
           so it only makes sense with barometric altitude — GPS is far too coarse. It's

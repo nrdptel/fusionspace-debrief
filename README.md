@@ -171,6 +171,12 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   click: **Save bundle** packs the Markdown write-up, the data `.csv`, the structured
   `.json` and the altitude, velocity and acceleration figures into a single `.zip` — the
   whole report as one download, zipped in the browser, nothing uploaded.
+- Lets you **choose what's in the report** — every reading the file supports is worked out,
+  but which ones the report carries is yours to pick, once. The choice applies on screen and
+  to the `.txt`, `.md` and `.html` reports and the bundle, and is remembered on this device;
+  the data exports (`.csv`, `.json`) always carry everything, because a report is a document
+  and a data file is a record. Apogee can't be turned off — a flight report without one is a
+  different document.
 - Keeps a logbook — recent flights are remembered on your device for quick re-opening,
   sortable by date, apogee or top speed, with a ★ marking your best of the bunch. Add a
   note to any flight (motor, conditions, cert…) and it's kept as a logbook entry that
