@@ -12,6 +12,7 @@ import {
   fmtSpeed,
   fmtTemp,
   fmtTime,
+  fmtVoltage,
   lengthIn,
   pressureIn,
   pressureUnit,
@@ -151,6 +152,12 @@ function headlineRows(
     rows.push(['Max velocity', fmtSpeed(m.maxVelocity, sys) + mach]);
   }
   if (Number.isFinite(m.maxAcceleration)) rows.push(['Max acceleration', fmtAccel(m.maxAcceleration, sys)]);
+  // These four were on screen and in no saved report — so a flyer who read the
+  // thrust-to-weight off the page and saved a Markdown write-up got a document without it.
+  // A report that says less than the screen it came from is the export half-finished.
+  if (m.avgBoostAcceleration != null)
+    rows.push(['Avg acceleration', `${fmtAccel(m.avgBoostAcceleration, sys)} over the boost`]);
+  if (m.liftoffTWR != null) rows.push(['Thrust-to-weight', `${m.liftoffTWR.toFixed(1)}:1 off the pad`]);
   if (m.maxDynamicPressure != null) {
     const at = m.maxDynamicPressureAltitude != null ? ` at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : '';
     rows.push(['Max Q', fmtPressure(m.maxDynamicPressure, sys) + at]);
@@ -167,6 +174,10 @@ function headlineRows(
   if (m.burnoutAltitude != null) rows.push(['Burnout altitude', fmtLength(m.burnoutAltitude, sys)]);
   if (m.burnoutVelocity != null) rows.push(['Burnout velocity', fmtSpeed(m.burnoutVelocity, sys)]);
   if (m.coastTime != null) rows.push(['Coast to apogee', fmtTime(m.coastTime)]);
+  if (m.coastEfficiency != null) {
+    const drag = m.dragLossAltitude != null ? ` (drag cost ${fmtLength(m.dragLossAltitude, sys)})` : '';
+    rows.push(['Coast efficiency', `${Math.round(m.coastEfficiency * 100)}%${drag}`]);
+  }
   if (m.drogueDescentRate != null) rows.push(['Drogue descent', fmtSpeed(m.drogueDescentRate, sys)]);
   if (m.mainDescentRate != null) {
     rows.push([m.drogueDescentRate != null ? 'Main descent' : 'Descent rate', fmtSpeed(m.mainDescentRate, sys)]);
@@ -181,6 +192,16 @@ function headlineRows(
   if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
   if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
+  if (m.peakRollRate != null)
+    rows.push(['Peak roll rate', `${Math.round(m.peakRollRate)} °/s (${(m.peakRollRate / 360).toFixed(1)} rev/s)`]);
+  if (m.rollRevolutions != null)
+    rows.push(['Revolutions', `${m.rollRevolutions.toFixed(m.rollRevolutions < 10 ? 1 : 0)} total roll`]);
+  // A weak pack is a common cause of a charge that didn't fire, so the voltage belongs in
+  // the document a flyer keeps, not only on the screen they looked at once.
+  if (m.batteryMinV != null) {
+    const rest = m.batteryStartV != null ? ` (${fmtVoltage(m.batteryStartV)} at rest)` : '';
+    rows.push(['Battery low', `${fmtVoltage(m.batteryMinV)}${rest}`]);
+  }
   // The flyer's own selection, applied at the one place every report format reads from.
   return visibleRows(rows, (r) => r[0], hidden);
 }

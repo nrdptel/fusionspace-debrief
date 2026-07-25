@@ -289,6 +289,16 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **The saved report was missing six readings the screen shows.** Chasing why the flight
+  report can't reorder its readings (two parallel lists, see Feature depth) turned up the
+  reason those lists were worth unifying: `headlineRows` — which feeds the .txt, .md, .html
+  and the copied table — never carried **avg acceleration, thrust-to-weight, coast
+  efficiency, peak roll rate, revolutions or battery low**, all of which the tiles show. A
+  flyer reading the thrust-to-weight off the page and saving a Markdown write-up got a
+  document without it. They are in now, with the context the tiles carry ("over the boost",
+  "off the pad", "drag cost 5,109 ft", "3.7 V at rest") rather than as bare numbers. **The
+  two lists are still two lists** — this closed the gap that mattered, not the duplication
+  that caused it; unifying them is what would let the report's readings be reordered too.
 - Same rule, one surface over: the comparison's structured export gave `crossCheck` spread
   percentages with nothing to say the files date those flights years apart — so a consumer of
   `debrief.comparison/1` would read a flight-to-flight difference as an agreement, which is

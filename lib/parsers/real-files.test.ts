@@ -5,6 +5,7 @@ import { importFlight } from './index';
 import { analyzeFlight } from '../analyze';
 import { getChannel } from '../flight/types';
 import { convert } from '../units';
+import { summaryMarkdown } from '../report';
 
 // Regression tests against real, downloaded flight files (see __fixtures__/README.md
 // for sources). Big logs are downsampled but keep their original headers. Where a
@@ -49,6 +50,24 @@ describe('real files — Altus Metrum TeleMetrum', () => {
     // The analysis itself is unmoved — the barometric channel is still the one it rides.
     expect(a.series.altitudeSource).toBe('baro');
     expect(a.metrics.gpsAscentFixes).toBeGreaterThan(50);
+  });
+
+  it('puts every reading the screen shows into the written report', () => {
+    // Four readings were on screen and in no export: a flyer who read the thrust-to-weight
+    // off the page and saved a Markdown write-up got a document without it. A report that
+    // says less than the screen it came from is an export half-finished.
+    const { r, a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
+    const md = summaryMarkdown(r.flight, a, 'imperial');
+    expect(a.metrics.avgBoostAcceleration).not.toBeNull();
+    expect(a.metrics.liftoffTWR).not.toBeNull();
+    expect(a.metrics.coastEfficiency).not.toBeNull();
+    for (const label of ['Avg acceleration', 'Thrust-to-weight', 'Coast efficiency']) {
+      expect(md, `${label} belongs in the report`).toContain(`| ${label} |`);
+    }
+    // …with the context the tile carries, not a bare number.
+    expect(md).toMatch(/\| Avg acceleration \| [^|]*over the boost/);
+    expect(md).toMatch(/\| Thrust-to-weight \| [\d.]+:1 off the pad/);
+    expect(md).toMatch(/\| Coast efficiency \| \d+%/);
   });
 
   it('drops the fixes the receiver held with no satellites', () => {
