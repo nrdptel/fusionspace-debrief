@@ -58,7 +58,8 @@ export default function Home() {
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Offline</strong> —
-              install it to your home screen; once opened it works with no signal, right at the field.
+              install it to your home screen; one visit with signal is enough, and after that it works
+              with none, right at the field.
             </li>
           </ul>
         </div>

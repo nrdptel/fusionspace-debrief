@@ -148,9 +148,18 @@ memory, so a later pass doesn't have to rediscover them.
   report itself ("Only one of those 3 files could be read as a flight… Left out: …"), not just
   in the comparison view. It prints with the report but deliberately stays out of the flight's
   own exports, which describe the flight rather than the folder it arrived in.
-- Offline reload on a *fresh* mobile context failed in a cold walk-through (`ERR_FAILED`)
-  even though the app then analysed a flight offline and the PWA e2e specs pass — likely the
-  service worker not yet in control that early. Worth confirming on a real phone.
+- Fixed, and the cause wasn't control: the worker DID claim the page (controller=true right
+  after `ready`), but on a first visit the shell, chunks and CSS are all fetched before it
+  exists, so it never saw those requests — the cache held one entry (the precached sample)
+  and an offline reload had nothing to serve. Debrief needed TWO online visits to work
+  offline, against a promise of one. The page now hands the worker the same-origin resources
+  it actually loaded (from the Performance API, so no manifest to drift against hashed chunk
+  names) and the cache fills to 18 entries in ~200 ms. Both PWA e2e specs had encoded the bug
+  as a workaround (`await page.reload()` "so the worker caches the shell"), which is why they
+  passed; the new spec does one visit only, and fails without the fix.
+- Offline, a route that was never visited (`/methods/`) falls back to the cached `/` — so the
+  app comes up, but showing the home page at the /methods/ URL. Better than an error, still a
+  small lie; caching each visited route's own document, or an offline notice, would fix it.
 
 - Three e2e selector clashes this run came from adding the same phrase to the page's own
   how-to copy that a test used to target a control (`per quantity`, `Show the samples`).

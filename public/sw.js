@@ -33,6 +33,47 @@ self.addEventListener('install', (event) => {
   );
 });
 
+// Warm the cache with what a page actually loaded. The first visit is the problem this
+// solves: the shell, the chunks and the CSS are all fetched BEFORE this worker takes
+// control, so it never sees those requests and caches none of them — leaving a flyer who
+// opened Debrief once at home with nothing offline at the field, which is the one place it
+// has to work. Rather than a precache manifest of content-hashed chunk names (which drifts
+// out of date on every build), the page tells the worker what it just used; it knows
+// exactly. Only same-origin GETs already missing from the cache are fetched, so a warmed
+// visit costs nothing. Nothing here leaves the device — it stores Debrief's own static
+// assets locally, and never touches a flight log.
+self.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data || data.type !== 'warm' || !Array.isArray(data.urls)) return;
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const wanted = [];
+      for (const raw of data.urls.slice(0, 200)) {
+        let url;
+        try {
+          url = new URL(raw, self.location.origin);
+        } catch {
+          continue;
+        }
+        if (url.origin !== self.location.origin) continue;
+        if (await cache.match(url.href)) continue;
+        wanted.push(url.href);
+      }
+      await Promise.all(
+        wanted.map(async (href) => {
+          try {
+            const res = await fetch(href, { credentials: 'same-origin' });
+            if (res.ok) await cache.put(href, res);
+          } catch {
+            /* offline again, or gone — runtime caching will pick it up next time */
+          }
+        }),
+      );
+    })(),
+  );
+});
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {

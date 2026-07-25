@@ -35,7 +35,8 @@ test('the app loads offline after a first online visit', async ({ page, context 
   await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
     timeout: 20000,
   });
-  // Reload so the controlling worker caches the shell and its assets.
+  // A second visit, which is the easy case: the worker is in control from the first byte
+  // and caches everything it serves. (The hard case — one visit only — is the test below.)
   await page.reload();
   await page.waitForLoadState('networkidle');
   await expect(page.getByRole('heading', { name: 'Debrief', level: 1 })).toBeVisible();
@@ -53,7 +54,7 @@ test('analyzes a dropped flight fully offline — the actual field promise', asy
   await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
     timeout: 20000,
   });
-  // Reload so the controlling worker has cached the shell and the page's JS.
+  // A second visit, so the worker has served (and cached) the shell and the page's JS.
   await page.reload();
   await page.waitForLoadState('networkidle');
   await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
@@ -90,5 +91,40 @@ test('the sample flight works on a first offline visit (precached on install)', 
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await context.setOffline(false);
+});
+
+// The promise is "open it once, then use it in the field" — ONE online visit, not two. On a
+// first visit the shell, the chunks and the CSS are fetched before the worker exists, so it
+// never sees those requests: Debrief used to come up with a browser error page here, which
+// is no use to someone who opened it at home and drove somewhere with no signal.
+test('comes up offline after a single online visit — no second visit needed', async ({ page, context }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+  // The page hands the worker what it loaded, so wait for the cache to hold the shell
+  // itself rather than only the precached sample flight.
+  await page.waitForFunction(
+    async () => {
+      for (const k of await caches.keys()) {
+        if (await (await caches.open(k)).match(new URL('/', location.href).href)) return true;
+      }
+      return false;
+    },
+    null,
+    { timeout: 20000 },
+  );
+
+  // No second online visit. Cut the network and reload.
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Debrief', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
+  // And it still works, not just paints.
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'field.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   await context.setOffline(false);
 });
