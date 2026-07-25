@@ -72,10 +72,10 @@ memory, so a later pass doesn't have to rediscover them.
 - Three e2e selector clashes this run came from adding the same phrase to the page's own
   how-to copy that a test used to target a control (`per quantity`, `Show the samples`).
   Worth a convention: target controls by role/summary, never by a bare phrase.
+- Two other e2e specs still use fixed `waitForTimeout` sleeps to let something settle
+  (`touch.spec.ts`, `compare.spec.ts`); the worker one was the flaky one, but the same
+  pattern is a latent flake wherever the machine is slower than the number chosen.
 
-- `e2e/worker.spec.ts` "a slow in-flight analysis does not overwrite a newer load" flaked
-  once under full-suite parallel load and passed alone and on re-run — a timing assumption
-  worth making load-independent before it costs someone a red CI.
 - The comparison table sorts now, but doesn't filter, and columns can't be dragged into a
   deliberate order (booster/sustainer, or flight 1..n) — the next step for a launch day.
 - Links inside prose stay 16–20 px tall on a phone, which is right — but check the few

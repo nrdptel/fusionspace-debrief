@@ -54,9 +54,21 @@ test('a slow in-flight analysis does not overwrite a newer load', async ({ page 
     return d;
   });
   await page.locator('[aria-label="Flight log drop zone"]').dispatchEvent('drop', { dataTransfer: dt });
-  await page.waitForTimeout(4000); // well past the big flight's analysis
-  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toHaveCount(0);
+
+  // The mapper is the newer action, so it has to appear — waited for, not slept past. A
+  // fixed sleep here made this test flaky: a 200,000-row analysis on a loaded machine can
+  // outlast any number you pick, and the failure was the deadline, not the behaviour.
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible({ timeout: 30_000 });
+
+  // Then hold the invariant open while the big flight's analysis lands late: the stale
+  // result must never take the view back. Checking continuously for a stretch is a
+  // stronger test than one check after a sleep, and it can't fail for being early.
+  const deadline = Date.now() + 6000;
+  while (Date.now() < deadline) {
+    await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toHaveCount(0);
+    await page.waitForTimeout(250);
+  }
 });
 
 test('analysis still works when Workers are unavailable (synchronous fallback)', async ({ page }) => {
