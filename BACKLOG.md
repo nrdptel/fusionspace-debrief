@@ -202,6 +202,12 @@ memory, so a later pass doesn't have to rediscover them.
   was cached: 12/12 come up and run. (Honest caveat: the one ERR_FAILED that started this was
   seen once and never reproduced on demand, so the mechanism is removed rather than proven
   guilty.)
+- CI caught a race my local runs didn't, in an offline spec I had just written: the five
+  static routes are precached in *parallel*, so waiting for `/methods/` to land says nothing
+  about `/validation/` — cut the network there and the second page falls back to the cached
+  root. Passed locally every time, failed on CI twice (including the retry). Third instance
+  today of the same test-shaped mistake: **an offline test must wait for every URL it will
+  open, not the first one.** Worth a convention if a fourth appears.
 - Solved, and it was never the app: three full e2e runs "failed" 39, 45 and 83 of 121 today
   with no code change either side. With traces kept on local failures the answer was one line
   — `net::ERR_CONNECTION_REFUSED`: the dev server had died mid-run. Cause: driving the app by

@@ -141,11 +141,19 @@ test('the methods and validation pages come up offline, as themselves', async ({
     timeout: 20000,
   });
   // The static routes are precached on install (their URLs are stable across builds, unlike
-  // the hashed chunks), so wait for one to land rather than visiting it first.
+  // the hashed chunks), so wait for them to land rather than visiting them first — EVERY one
+  // this test then opens, not just the first. They are fetched in parallel, so /methods/
+  // arriving says nothing about /validation/: waiting on one and cutting the network was a
+  // race that passed locally and failed on CI, which is the same mistake in test-shaped form
+  // as cutting the network mid-warm-up.
   await page.waitForFunction(
     async () => {
       for (const k of await caches.keys()) {
-        if (await (await caches.open(k)).match(new URL('/methods/', location.href).href, { ignoreVary: true })) return true;
+        const cache = await caches.open(k);
+        const all = await Promise.all(
+          ['/methods/', '/validation/'].map((u) => cache.match(new URL(u, location.href).href, { ignoreVary: true })),
+        );
+        if (all.every(Boolean)) return true;
       }
       return false;
     },
