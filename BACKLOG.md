@@ -6,6 +6,26 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Per-stage assembly: measured the obvious detector first, and the corpus refutes it.** The
+  corpus does hold genuine two-stage pairs — `iss-kairos-20240323` (booster TeleMega +
+  sustainer TeleMega telemetry) and `iss-sg1.2-20231118` (booster StratoLogger + sustainer
+  TeleMega) — so the North Star's "stitch per-stage logs into one composite" has real files to
+  work from. The obvious signature is that two stages of one flight *track each other through
+  the boost and then diverge at separation*, where redundant altimeters track all the way and
+  different flights never track. Measured on the liftoff-aligned shared grid, with an
+  agreement band of 10% of the smaller peak: **staged kairos tracks to 6.1 s, staged sg1.2 to
+  1.0 s — but the redundant endurance pair separates at 0.7 s, and two genuinely different
+  flights (endurance vs euroc-stacarl2, both ~9,300 ft) track to 56.1 s.** No separation at
+  all. The confound is liftoff alignment: two altimeters that detect liftoff half a second
+  apart are hundreds of feet apart through a 1,000 ft/s boost, which swamps the signal the
+  test is looking for. **What would unblock it:** align on something sharper than each
+  device's own liftoff event (the boost's own acceleration onset, or a cross-correlation of
+  the two altitude traces) before asking whether they agree; and separation is probably better
+  found in the *booster's* record — its own thrust ending while the composite keeps climbing —
+  than in a comparison of two. Not built: guessing here would put a wrong "these are two
+  stages of one flight" in front of a flyer, which is the same failure as the clock verdict
+  above.
+
 - **A golden assert on a mapper fixture looked armed and wasn't — found by deliberately
   writing a wrong one.** Added the corpus's first numeric assert for a generic-mapper file
   and, checking it could fail, set the value to 750 ft against a 666 ft read. The suite
