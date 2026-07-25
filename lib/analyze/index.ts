@@ -276,6 +276,11 @@ function sliceFlight(flight: RawFlight, end: number): RawFlight {
   };
 }
 
+/** null for a non-finite value, for the metrics that are nullable rather than NaN. */
+function nullIfNaN(v: number): number | null {
+  return Number.isFinite(v) ? v : null;
+}
+
 function formatSeconds(s: number): string {
   return `${s < 10 ? s.toFixed(1) : Math.round(s)} s`;
 }
@@ -527,6 +532,48 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   const liftoffRef = liftoffFound ? liftoffIdx : 0;
   const liftoffTime = time[liftoffRef];
 
+  // An ascent altitude read-off is only a reading if the record doesn't contradict it. A
+  // climbing rocket cannot be lower than a height it has already passed, but a barometric
+  // port goes useless through the transonic push — the shock over it drives the sensed
+  // pressure up, which reads as the rocket descending — and burnout, the speed peak, the
+  // Mach-1 crossing and max-Q all land in exactly that stretch. Read straight off the
+  // trace, a Blue Raven flight reports a burnout altitude of −307 ft while its own inertial
+  // channel climbs past 1,700 ft, and a TeleMega reads 1,095 ft below a height it had
+  // already recorded. Where the trace contradicts itself by more than a barometer's own
+  // credible wander, the altitude at that instant is withheld rather than reported: the
+  // record cannot say how high the rocket was there. The time, the speed and the event
+  // itself are unaffected, and so is the altitude chart.
+  const ascentFloor = altClean.slice();
+  {
+    let run = -Infinity;
+    for (let i = liftoffRef; i <= apogeeIdx && i < n; i++) {
+      const h = altClean[i];
+      if (Number.isFinite(h) && h > run) run = h;
+      ascentFloor[i] = run;
+    }
+  }
+  // A few percent of the height reached, with a floor for a low flight — below that the
+  // backslide is barometric noise, not a broken reading. Across the corpus every sound
+  // flight's read-offs sit within 72 ft of the record; the three that trip this are 557 to
+  // 1,125 ft below it.
+  const contradictionBand = Math.max(30, apogeeAlt * 0.03);
+  // A rocket in flight is also never below its own pad. That catches the same artefact
+  // where it strikes before the rocket has climbed far enough for the running maximum to
+  // mean anything — a TeleMega reads −542 ft at its Mach-1 crossing.
+  const belowGroundBand = Math.max(15, apogeeAlt * 0.005);
+  let withheldAnAltitude = false;
+  /** The altitude at an ascent instant, or NaN when the record contradicts it. Every
+   *  surface formats a non-finite length as "—", so it reads as unknown everywhere. */
+  const altAt = (idx: number): number => {
+    const h = altClean[idx];
+    const onAscent = idx >= liftoffRef && idx <= apogeeIdx && Number.isFinite(h);
+    if (onAscent && (h < -belowGroundBand || ascentFloor[idx] - h > contradictionBand)) {
+      withheldAnAltitude = true;
+      return NaN;
+    }
+    return h;
+  };
+
   // A large gap in the sampled ascent makes a baro-DERIVED velocity peak
   // undeterminable: the true top speed may fall in the unrecorded stretch, and the
   // smoothed derivative across the gap spikes to a nonsense speed (a gappy GPS log
@@ -758,7 +805,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   const push = (type: FlightEvent['type'], idx: number | null, label: string, provenance: FlightEvent['provenance']) => {
     if (idx === null || idx < 0 || idx >= n) return;
     const peakAccel = type === 'apogee' || type === 'main' ? shockAt(idx) : undefined;
-    events.push({ type, label, time: time[idx], index: idx, altitude: altClean[idx], provenance, peakAccel });
+    events.push({ type, label, time: time[idx], index: idx, altitude: altAt(idx), provenance, peakAccel });
   };
   if (liftoffFound) push('liftoff', liftoffIdx, 'Liftoff', accelerationSource === 'device' ? 'measured' : 'derived');
   // Burnout is 'measured' only when it came from a genuine signed-axial thrust
@@ -794,8 +841,8 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
       }
     }
   }
-  const maxDynamicPressureAltitude = maxQIdx >= 0 ? altClean[maxQIdx] : null;
-  const maxVelocityAltitude = maxVelIdx >= 0 ? altClean[maxVelIdx] : NaN;
+  const maxDynamicPressureAltitude = maxQIdx >= 0 ? nullIfNaN(altAt(maxQIdx)) : null;
+  const maxVelocityAltitude = maxVelIdx >= 0 ? altAt(maxVelIdx) : NaN;
 
   // Transonic crossing: the first ascent sample at or past Mach 1 — both an
   // engineering point (the transonic region) and a bragging right.
@@ -809,7 +856,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
       const sos = sosProfile[i];
       if (Number.isFinite(velocity[i]) && Number.isFinite(sos) && sos > 0 && velocity[i] / sos >= 1) {
         transonicTime = liftoffFound ? time[i] - liftoffTime : time[i];
-        transonicAltitude = altClean[i];
+        transonicAltitude = nullIfNaN(altAt(i));
         break;
       }
     }
@@ -945,7 +992,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     accelClipped,
     liftoffTWR,
     burnTime: burnoutIdx !== null && liftoffFound ? time[burnoutIdx] - liftoffTime : null,
-    burnoutAltitude: burnoutIdx !== null ? altClean[burnoutIdx] : null,
+    burnoutAltitude: burnoutIdx !== null ? nullIfNaN(altAt(burnoutIdx)) : null,
     // Reads the velocity trace directly, so it inherits an impossible velocity even
     // when burnout was pinned off the accelerometer — withheld with the rest.
     burnoutVelocity: burnoutIdx !== null && !velocityImplausible ? velocity[burnoutIdx] : null,
@@ -1025,6 +1072,11 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   if (ascentGapBreaksPeak) {
     warnings.push(
       'A gap in the sampled ascent leaves the peak velocity undeterminable — the top speed may fall in the unrecorded stretch, and a derivative taken across the gap spikes to a spurious figure — so max velocity, Mach, max-Q and any transonic crossing are withheld rather than guessed across it.',
+    );
+  }
+  if (withheldAnAltitude) {
+    warnings.push(
+      'The altitude trace contradicts itself on the way up — dropping below the pad, or well below a height the record had already reached, neither of which a climbing rocket can do. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure up. Where a reading lands in that stretch its altitude is withheld (shown as “—”) rather than reported, because the record cannot say how high the rocket was there; the time and speed of those readings, and the altitude chart, are unaffected.',
     );
   }
   if (velocityNoiseDominated) {

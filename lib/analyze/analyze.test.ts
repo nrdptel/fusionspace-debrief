@@ -382,6 +382,55 @@ describe('a file holding more than one flight', () => {
   });
 });
 
+describe('an ascent altitude the record contradicts', () => {
+  /** The transonic artefact: a barometric port reads the rocket *descending* through the
+   *  Mach-1 push, so the trace drops below the pad and below heights it already passed —
+   *  exactly where burnout, the speed peak and max-Q are read. */
+  function transonicDip(): RawFlight {
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    // An inertial velocity channel, as the Blue Raven has: the speed is measured, so the
+    // bad barometer costs only the altitude it happened at.
+    const vel = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++) vel[i] = (alt[i] - alt[i - 1]) / (flight.time[i] - flight.time[i - 1]);
+    for (let i = 0; i < alt.length; i++) vel[i] *= 1 + 0.03 * Math.sin(i);
+    // The dip straddles burnout, where the speed peaks — as the real artefact does.
+    const from = Math.round(3.4 / 0.05);
+    for (let i = from; i < from + 24; i++) alt[i] -= 260;
+    flight.channels.push({ kind: 'velocity', label: 'v', unit: 'm/s', values: vel });
+    return flight;
+  }
+
+  it('withholds the altitude rather than reporting one the trace contradicts', () => {
+    const a = analyzeFlight(transonicDip());
+    // Apogee, read from the peak, is unaffected — the dip is far below it.
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+    // The readings that land in the dip report no altitude…
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(false);
+    // …and say why.
+    expect(a.warnings.some((w) => /contradicts itself on the way up/.test(w))).toBe(true);
+    // The speed itself is still reported — only the altitude it happened at is unknown.
+    expect(a.metrics.maxVelocity).toBeGreaterThan(0);
+  });
+
+  it('leaves a sound trace alone', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(true);
+    expect(a.metrics.maxVelocityAltitude).toBeGreaterThan(0);
+    expect(a.warnings.some((w) => /contradicts itself on the way up/.test(w))).toBe(false);
+  });
+
+  it('does not withhold over ordinary barometric wander', () => {
+    // A few metres of jitter on the way up is a barometer being a barometer.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    for (let i = 0; i < alt.length; i++) alt[i] += (i % 3) - 1;
+    const a = analyzeFlight(flight);
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(true);
+    expect(a.warnings.some((w) => /contradicts itself on the way up/.test(w))).toBe(false);
+  });
+});
+
 describe('a log that stops at apogee', () => {
   it('reports no descent rate rather than averaging noise at the peak', () => {
     // A truncated download (or the first flight of a file holding two) can end within a

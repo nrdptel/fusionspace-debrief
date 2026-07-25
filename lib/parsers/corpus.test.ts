@@ -83,7 +83,9 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
     expect(m.liftoffTWR, ctx('TWR < 100')).toBeLessThan(100);
   }
   // The design points all happen at or below apogee.
-  if (Number.isFinite(m.maxVelocity)) expect(m.maxVelocityAltitude, ctx('maxVelAlt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  // A withheld altitude (the record contradicted itself at that instant) is NaN, and is
+  // not a value to bound — only a reported one is checked.
+  if (Number.isFinite(m.maxVelocityAltitude)) expect(m.maxVelocityAltitude, ctx('maxVelAlt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.maxDynamicPressureAltitude != null) expect(m.maxDynamicPressureAltitude, ctx('maxQ alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.transonicAltitude != null) expect(m.transonicAltitude, ctx('transonic alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.burnoutAltitude != null) expect(m.burnoutAltitude, ctx('burnout alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
@@ -103,7 +105,11 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
     .map((t) => a.events.find((e) => e.type === t))
     .filter(Boolean) as { time: number; altitude: number; type: string }[];
   for (let i = 1; i < order.length; i++) expect(order[i].time, ctx(`${order[i - 1].type} before ${order[i].type}`)).toBeGreaterThanOrEqual(order[i - 1].time - 1e-6);
-  for (const e of order) expect(e.altitude, ctx(`${e.type} not above apogee`)).toBeLessThanOrEqual(apo + 1);
+  // A withheld altitude is NaN — the record contradicted itself at that instant — and
+  // there is nothing to bound; only reported altitudes are checked.
+  for (const e of order) {
+    if (Number.isFinite(e.altitude)) expect(e.altitude, ctx(`${e.type} not above apogee`)).toBeLessThanOrEqual(apo + 1);
+  }
 }
 
 function runFixture(fx: Fixture) {

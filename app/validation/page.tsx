@@ -166,6 +166,15 @@ export default function ValidationPage() {
               19.3&nbsp;s after liftoff; read as one flight it now agrees.
             </li>
             <li>
+              The <strong>altitude a reading happened at</strong> is withheld when the record
+              contradicts it — below the pad, or well below a height already passed, neither of which a
+              climbing rocket can do. It is the transonic barometric artefact, and it strikes exactly
+              where burnout, the speed peak, the Mach-1 crossing and max-Q are read: one corpus trace
+              reads 307&nbsp;ft below its pad there while the same device&apos;s inertial channel climbs
+              past 1,700&nbsp;ft. Sound flights are nowhere near the bar (within 72&nbsp;ft), so a good
+              reading is never withheld.
+            </li>
+            <li>
               A log that <strong>stops at apogee</strong> reports no descent rate at all rather than
               averaging the few samples wobbling around the peak — that average is noise, and can even
               come out as a negative &ldquo;descent&rdquo;.

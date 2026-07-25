@@ -91,6 +91,21 @@ export default function MethodsPage() {
             supersonic, nor bound how fast it really went. It&apos;s flagged, not withheld; an
             accelerometer, an inertial solution or GPS settles it.
           </Method>
+          <Method title="The altitude a reading happened at">
+            Burnout, the speed peak, the Mach-1 crossing and max-Q are each reported with the altitude
+            they occurred at — and every one of them lands in the stretch where a barometric port is
+            least trustworthy. Through the transonic push the shock over the port drives the sensed
+            pressure up, which reads as the rocket <em>descending</em>: one corpus flight&apos;s trace
+            drops to 307&nbsp;ft below its pad while the same device&apos;s inertial channel climbs past
+            1,700&nbsp;ft, and another reads 1,095&nbsp;ft below a height it had already recorded. A
+            climbing rocket can do neither. Where the record contradicts itself like that — below the
+            pad, or well below a height already passed — the altitude for that reading is withheld and
+            shown as &ldquo;—&rdquo;, because the file cannot say how high the rocket was there. The
+            time and the speed of the reading are unaffected, so are apogee and the descent, and the
+            altitude chart still shows the trace exactly as recorded. Ordinary barometric wander is far
+            below the bar: across the corpus every sound flight&apos;s read-offs sit within 72&nbsp;ft
+            of the record, and the three that trip it are 557 to 1,125&nbsp;ft out.
+          </Method>
           <Method title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
             the average over the same boost (ignition to burnout), and max deceleration over the ascent.
