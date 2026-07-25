@@ -557,6 +557,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Hardening
 
+- **The offline docs test went red on CI again, and this time the cause is closed with a test
+  that fails without the fix.** Same shape as the four before it: `/methods/` came up offline
+  as `app/error.tsx`. The diagnosis from the last pass was right — a route whose JS chunk
+  isn't cached hydrates into the App Router's error boundary, so a document that cached
+  perfectly still shows "Something went sideways" — but the *fix* was to prefetch the docs
+  links on render, which only moves the race: the chunks reach the cache if a prefetch
+  finishes before the network is cut, and on CI it sometimes doesn't. **The worker now reads
+  each precached document for the `/_next/…` assets it names and caches those in the same
+  install.** Read out of the HTML, not from a build manifest: the names are content-hashed
+  and change every deploy, and a manifest is a second list to drift. Measured both ways —
+  with the extraction disabled, **7 of the assets `/methods/` names are missing from the
+  cache** after install; with it, zero. That is the race, and the new test sees it.
+
 - **A green e2e suite had a one-in-twenty flake in it, and it was the test's own bug.** "The
   wait says what it is reading" holds the sample fetch open with a route handler that sleeps,
   then called `page.unroute` while that handler was still sleeping — Playwright hands the route

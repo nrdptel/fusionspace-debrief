@@ -301,3 +301,46 @@ test('a launch day reads and compares on a phone with no signal', async ({ brows
   await ctx.setOffline(false);
   await ctx.close();
 });
+
+// A cached document is not a page that comes up. Next hydrates every route, and a route
+// whose JavaScript is missing gets swapped for the App Router's error boundary — the flyer
+// at the field reads "Something went sideways" off a document that cached perfectly. Those
+// chunks used to reach the cache only if the router had prefetched the link while online,
+// which is a race, and it is the race that has taken this suite red on CI more than once.
+// The worker now reads each precached document for the assets it names and caches those in
+// the same install. This asserts that directly, because the symptom is intermittent and the
+// cause is not.
+test('installing the worker caches the chunks each docs page needs, not just its HTML', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+  await page.waitForFunction(
+    async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      return !!reg && !reg.installing && !reg.waiting && !!reg.active;
+    },
+    null,
+    { timeout: 20000 },
+  );
+
+  // Read /methods/ out of the cache, take the asset URLs it names, and require every one of
+  // them to be cached too — the same list the worker read, checked independently.
+  const missing = await page.evaluate(async () => {
+    for (const k of await caches.keys()) {
+      const cache = await caches.open(k);
+      const doc = await cache.match(new URL('/methods/', location.href).href, { ignoreVary: true });
+      if (!doc) continue;
+      const html = await doc.text();
+      const named = [...html.matchAll(/(?:src|href)="(\/_next\/[^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
+      if (named.length === 0) return ['NO ASSETS NAMED BY THE DOCUMENT'];
+      const out: string[] = [];
+      for (const u of named) {
+        if (!(await cache.match(new URL(u, location.href).href, { ignoreVary: true }))) out.push(u);
+      }
+      return out;
+    }
+    return ['NO CACHED /methods/ DOCUMENT'];
+  });
+  expect(missing).toEqual([]);
+});

@@ -445,10 +445,12 @@ export default function MethodsPage() {
             One visit with a signal is enough: as soon as the service worker takes control, the page
             hands it the list of what it just loaded, so the shell, the app&apos;s code and the
             sample flight are all cached — Debrief used to need a second visit before an offline one
-            worked. These documentation pages are cached on install too, so the methods and the
-            limitations are readable at the field with no bars, as themselves rather than as the home
-            page. Only Debrief&apos;s own static files are stored, locally; no flight log is ever
-            cached, uploaded, or sent anywhere.
+            worked. These documentation pages are cached on install too, <em>with the code each one
+            needs to come up</em> — a cached document alone is not a page, and a route whose scripts
+            are missing shows an error instead of itself — so the methods and the limitations are
+            readable at the field with no bars, as themselves rather than as the home page. Only
+            Debrief&apos;s own static files are stored, locally; no flight log is ever cached,
+            uploaded, or sent anywhere.
           </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS),

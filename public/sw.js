@@ -45,12 +45,34 @@ const PRECACHE = [
  * comparing against Content-Length rejects a short read that didn't throw.
  */
 async function cacheIfWhole(cache, key, res) {
-  if (!res || !res.ok || res.type === 'opaque') return false;
+  if (!res || !res.ok || res.type === 'opaque') return null;
   const body = await res.arrayBuffer();
   const stated = res.headers.get('content-length');
-  if (stated && Number(stated) !== body.byteLength) return false;
+  if (stated && Number(stated) !== body.byteLength) return null;
   await cache.put(key, new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers }));
-  return true;
+  return body;
+}
+
+/**
+ * The build's own assets a document names — its script chunks and stylesheet.
+ *
+ * A cached document is not a page that comes up. Next hydrates every route, and when a
+ * route's JavaScript isn't there the App Router swaps the whole page for its error
+ * boundary: the flyer at the field gets "Something went sideways" from a document that
+ * cached perfectly. Those chunks used to reach the cache only if the router had prefetched
+ * the link while online — so the offline promise depended on whether a prefetch had
+ * finished, which is a race, and it lost on CI more than once.
+ *
+ * Read out of the precached HTML rather than from a build manifest: the names are
+ * content-hashed and change every deploy, and a manifest is a second list to drift. The
+ * document and the chunks it names are cached in the same install, from the same bytes.
+ */
+function assetUrlsIn(html) {
+  const urls = new Set();
+  const re = /(?:src|href)="(\/_next\/[^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) urls.add(m[1].replace(/&amp;/g, '&'));
+  return urls;
 }
 
 self.addEventListener('install', (event) => {
@@ -59,13 +81,29 @@ self.addEventListener('install', (event) => {
       const cache = await caches.open(CACHE);
       // One at a time rather than addAll: that rejects the whole batch if any single
       // request fails, which would lose the sample flight to a moved doc page.
+      const assets = new Set();
       await Promise.all(
         PRECACHE.map(async (url) => {
           try {
             const res = await fetch(url, { cache: 'reload', credentials: 'same-origin' });
-            await cacheIfWhole(cache, url, res);
+            const body = await cacheIfWhole(cache, url, res);
+            // A route's document is only half of it — collect the chunks it needs to come up.
+            if (body && url.endsWith('/')) {
+              for (const a of assetUrlsIn(new TextDecoder().decode(body))) assets.add(a);
+            }
           } catch {
             /* offline at install — runtime caching and the page's warm-up pick it up */
+          }
+        }),
+      );
+      await Promise.all(
+        [...assets].map(async (url) => {
+          if (await cache.match(url, { ignoreVary: true })) return;
+          try {
+            const res = await fetch(url, { credentials: 'same-origin' });
+            await cacheIfWhole(cache, url, res);
+          } catch {
+            /* same as above: a chunk that can't be fetched now is picked up at runtime */
           }
         }),
       );
