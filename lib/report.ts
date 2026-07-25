@@ -3,7 +3,24 @@
 
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
-import type { UnitSystem } from './display';
+import {
+  accelInG,
+  fmtAccel,
+  fmtLength,
+  fmtMach,
+  fmtPressure,
+  fmtSpeed,
+  fmtTemp,
+  fmtTime,
+  lengthIn,
+  pressureIn,
+  pressureUnit,
+  speedIn,
+  systemOf,
+  tempIn,
+  unitsOf,
+} from './display';
+import type { UnitChoice } from './display';
 import { compareReported } from './flight/reported';
 import { crossCheck, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
@@ -11,22 +28,6 @@ import { formulaGuard } from './csv';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import { deployCheck } from './deploy';
 import { delayCheck } from './ejection';
-import {
-  fmtLength,
-  fmtSpeed,
-  fmtAccel,
-  fmtTemp,
-  fmtTime,
-  fmtMach,
-  fmtPressure,
-  lengthIn,
-  speedIn,
-  accelInG,
-  tempIn,
-  pressureIn,
-  pressureUnit,
-  UNIT_LABEL,
-} from './display';
 
 /** Recovery figures a flyer supplied on-screen that a report should carry: the descending
  *  mass (for landing energy — the ½·m·v² a cert card and many club waivers ask for), and the
@@ -47,16 +48,16 @@ export interface RecoveryFigures {
  *  a landing descent rate — in the cert unit (ft·lbf imperial, J metric), noting the mass. */
 function landingEnergyRow(
   m: FlightAnalysis['metrics'],
-  sys: UnitSystem,
+  sys: UnitChoice,
   recovery: RecoveryFigures | undefined,
 ): [string, string] | null {
   if (recovery?.descendingMassKg == null) return null;
   const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null);
   if (joules == null) return null;
-  const massUnit = sys === 'metric' ? 'g' : 'oz';
+  const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
   const massDisp = (recovery.descendingMassKg / MASS_TO_KG[massUnit]).toFixed(massUnit === 'oz' ? 1 : 0);
   const value =
-    sys === 'metric'
+    systemOf(sys) === 'metric'
       ? `${Math.round(joules)} J`
       : `${joulesToFtLbf(joules).toFixed(joulesToFtLbf(joules) < 100 ? 1 : 0)} ft·lbf`;
   return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)`];
@@ -65,7 +66,7 @@ function landingEnergyRow(
 /** The main-deploy verification row, when the flyer entered the altitude they set: how the
  *  measured firing compared to it (on the mark / high / low), the check a cert flight and a
  *  careful flyer both want. */
-function mainDeployRow(sys: UnitSystem, recovery: RecoveryFigures | undefined): [string, string] | null {
+function mainDeployRow(sys: UnitChoice, recovery: RecoveryFigures | undefined): [string, string] | null {
   if (!recovery?.mainDeploy) return null;
   const { setM, actualM } = recovery.mainDeploy;
   const { offsetM, when } = deployCheck(actualM, setM);
@@ -119,7 +120,7 @@ function row(label: string, value: string): string {
  *  the metrics the flight actually has are included. */
 function headlineRows(
   m: FlightAnalysis['metrics'],
-  sys: UnitSystem,
+  sys: UnitChoice,
   recovery?: RecoveryFigures,
 ): [string, string][] {
   const rows: [string, string][] = [];
@@ -129,7 +130,7 @@ function headlineRows(
     const mach = m.mach ? ` (${fmtMach(m.mach)})` : '';
     rows.push(['Max velocity', fmtSpeed(m.maxVelocity, sys) + mach]);
   }
-  if (Number.isFinite(m.maxAcceleration)) rows.push(['Max acceleration', fmtAccel(m.maxAcceleration)]);
+  if (Number.isFinite(m.maxAcceleration)) rows.push(['Max acceleration', fmtAccel(m.maxAcceleration, sys)]);
   if (m.maxDynamicPressure != null) {
     const at = m.maxDynamicPressureAltitude != null ? ` at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : '';
     rows.push(['Max Q', fmtPressure(m.maxDynamicPressure, sys) + at]);
@@ -163,15 +164,15 @@ function headlineRows(
   return rows;
 }
 
-function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitSystem): string {
+function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   if (metric === 'apogeeAltitude') return fmtLength(si, sys);
   if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);
-  return fmtAccel(si);
+  return fmtAccel(si, sys);
 }
 
 /** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
  *  read, and how closely they agree. Empty when the file carried no summary. */
-function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: UnitSystem): [string, string, string, string][] {
+function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: UnitChoice): [string, string, string, string][] {
   if (!flight.reported?.length) return [];
   return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status }) => {
     const pct = deltaPct == null ? '' : deltaPct < 0.05 ? '≈0' : `${deltaPct.toFixed(deltaPct < 10 ? 1 : 0)}%`;
@@ -190,7 +191,7 @@ function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: Un
 export function summaryText(
   flight: RawFlight,
   analysis: FlightAnalysis,
-  sys: UnitSystem,
+  sys: UnitChoice,
   analyzedAt?: number,
   meta?: ReportMeta,
   recovery?: RecoveryFigures,
@@ -219,7 +220,7 @@ export function summaryText(
       const speed = Number.isFinite(v) ? `   ${fmtSpeed(v, sys)}` : '';
       // The snatch force a deployment charge put through the airframe — the recovery
       // hardware's load case, so it belongs in the report, not just the on-screen timeline.
-      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? `   ${fmtAccel(e.peakAccel)} shock` : '';
+      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? `   ${fmtAccel(e.peakAccel, sys)} shock` : '';
       lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${speed}${shock}${prov}`);
     }
   }
@@ -253,7 +254,7 @@ export function summaryText(
 export function summaryMarkdown(
   flight: RawFlight,
   analysis: FlightAnalysis,
-  sys: UnitSystem,
+  sys: UnitChoice,
   analyzedAt?: number,
   meta?: ReportMeta,
   recovery?: RecoveryFigures,
@@ -285,7 +286,7 @@ export function summaryMarkdown(
       const v = analysis.series.velocity[e.index];
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
       // The deployment snatch force — the recovery hardware's load case — where measured.
-      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel) : '—';
+      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel, sys) : '—';
       out.push(`| ${cell(label)} | ${fmtTime(e.time)} | ${cell(fmtLength(e.altitude, sys))} | ${cell(speed)} | ${cell(shock)} |`);
     }
   }
@@ -383,7 +384,7 @@ function figuresSection(figures?: { title: string; svg: string }[]): string {
 export function summaryHtml(
   flight: RawFlight,
   analysis: FlightAnalysis,
-  sys: UnitSystem,
+  sys: UnitChoice,
   analyzedAt?: number,
   meta?: ReportMeta,
   recovery?: RecoveryFigures,
@@ -403,7 +404,7 @@ export function summaryHtml(
       const lbl = e.provenance !== 'measured' ? `${e.label} (${e.provenance})` : e.label;
       const v = analysis.series.velocity[e.index];
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
-      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel) : '—';
+      const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel, sys) : '—';
       return `<tr><td>${esc(lbl)}</td><td>${esc(fmtTime(e.time))}</td><td>${esc(fmtLength(e.altitude, sys))}</td><td>${esc(speed)}</td><td>${esc(shock)}</td></tr>`;
     })
     .join('');
@@ -432,9 +433,9 @@ export function summaryHtml(
 
 /** The analyzed series as a tidy CSV in the chosen units — the cleaned data a
  *  spreadsheet user would otherwise have to derive by hand. */
-export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys: UnitSystem): string {
+export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys: UnitChoice): string {
   const { time, altitude, velocity, acceleration, speedOfSoundProfile, airDensity } = analysis.series;
-  const L = UNIT_LABEL[sys];
+  const L = unitsOf(sys);
   const pUnit = pressureUnit(sys);
   const cell = (v: number) => (Number.isFinite(v) ? v : '');
   // Past Debrief's six derived curves, carry every channel the logger actually recorded
@@ -510,7 +511,7 @@ export interface CompareMetricRow {
  *  the flights that recorded the figure. Velocity/acceleration that mix device and
  *  baro sources across flights are tagged "(baro)" rather than crowned across methods
  *  that aren't directly comparable. */
-export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): CompareMetricRow[] {
+export function compareMetricRows(flights: CompareFlight[], sys: UnitChoice): CompareMetricRow[] {
   const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
   const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
   const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
@@ -536,7 +537,7 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
     { label: 'Max Mach', get: (m) => fmtMach(m.mach), value: (m) => m.mach ?? NaN, rank: true },
     {
       label: 'Max acceleration',
-      get: (m) => fmtAccel(m.maxAcceleration) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)) + clipTag(m),
+      get: (m) => fmtAccel(m.maxAcceleration, sys) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)) + clipTag(m),
       value: (m) => m.maxAcceleration,
       rank: true,
       rankBlocked: anyClipped,
@@ -622,7 +623,7 @@ export function compareHasClippedAccel(flights: CompareFlight[]): boolean {
  *  recordings agree) and the side-by-side metrics table — to document a redundant-
  *  altimeter check or a stage-by-stage assembly in a cert package or a forum post.
  *  Same numbers as the compare view, in the chosen units. */
-export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: string, meta?: ReportMeta): string {
+export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: string, meta?: ReportMeta): string {
   const cell = (s: string) => s.replace(/\|/g, '\\|');
   const label = clean(meta?.label);
   const userNotes = clean(meta?.notes);
@@ -690,7 +691,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitSystem, note?: 
  *  sibling of {@link compareMarkdown}; figures are supplied by the caller. */
 export function compareHtml(
   comparison: Comparison,
-  sys: UnitSystem,
+  sys: UnitChoice,
   note?: string,
   meta?: ReportMeta,
   figures?: { title: string; svg: string }[],
@@ -764,7 +765,7 @@ export function compareHtml(
 
 /** Unit-conversion helpers for the JSON exports, bound to a system, so every
  *  structured export rounds and converts identically. */
-function jsonConv(sys: UnitSystem) {
+function jsonConv(sys: UnitChoice) {
   const round = (v: number, p: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(p)) : null);
   return {
     round,
@@ -777,8 +778,8 @@ function jsonConv(sys: UnitSystem) {
 }
 
 /** The units every JSON metric is expressed in, for the chosen system. */
-function jsonUnits(sys: UnitSystem) {
-  const L = UNIT_LABEL[sys];
+function jsonUnits(sys: UnitChoice) {
+  const L = unitsOf(sys);
   return {
     length: L.length,
     speed: L.speed,
@@ -795,7 +796,7 @@ function jsonUnits(sys: UnitSystem) {
 
 /** One flight's metrics as a JSON object, in the chosen units — the single builder
  *  behind both the single-flight and the comparison exports, so they can't drift. */
-function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitSystem): Record<string, number | string | boolean | null> {
+function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<string, number | string | boolean | null> {
   const { round, len, spd, acc, sec, prs } = jsonConv(sys);
   return {
     apogee: len(m.apogeeAltitude),
@@ -842,7 +843,7 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitSystem): Record<stri
 export function analysisJson(
   flight: RawFlight,
   analysis: FlightAnalysis,
-  sys: UnitSystem,
+  sys: UnitChoice,
   analyzedAt?: number,
   meta?: ReportMeta,
   recovery?: RecoveryFigures,
@@ -899,7 +900,7 @@ export function analysisJson(
     const rec: Record<string, unknown> = {};
     const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null) : null;
     if (joules != null && recovery.descendingMassKg != null) {
-      const massUnit = sys === 'metric' ? 'g' : 'oz';
+      const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
       rec.descendingMass = { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit };
       rec.landingEnergyJoules = round(joules, 1);
       rec.landingEnergyFtLbf = round(joulesToFtLbf(joules), 1);
@@ -924,7 +925,7 @@ export function analysisJson(
  *  and the per-metric spread across the recordings — the machine-readable companion to the
  *  comparison Markdown, for a script reconciling redundant altimeters or tracking a
  *  rocket across launches. Same numbers as the compare view, in the chosen units. */
-export function compareJson(comparison: Comparison, sys: UnitSystem, note?: string, meta?: ReportMeta): string {
+export function compareJson(comparison: Comparison, sys: UnitChoice, note?: string, meta?: ReportMeta): string {
   const { flights } = comparison;
   const { round } = jsonConv(sys);
   const label = clean(meta?.label);

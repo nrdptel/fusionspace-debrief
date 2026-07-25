@@ -39,6 +39,9 @@ const UNITS: UnitDef[] = [
   { quantity: 'speed', scale: 0.3048, aliases: ['ft/s', 'fps', 'feetpersecond'] },
   { quantity: 'speed', scale: 0.44704, aliases: ['mph'] },
   { quantity: 'speed', scale: 0.277778, aliases: ['km/h', 'kph', 'kmh'] },
+  // Knots: a GPS speed is often logged in them, and a flyer reading a recovery drift
+  // against a wind forecast wants them.
+  { quantity: 'speed', scale: 0.514444, aliases: ['kt', 'kts', 'knot', 'knots'] },
   // acceleration
   { quantity: 'accel', scale: 1, aliases: ['m/s²', 'm/s2', 'm/s^2', 'mps2'] },
   { quantity: 'accel', scale: G0, aliases: ['g', 'gs', "g's", 'gee', 'grav'] },

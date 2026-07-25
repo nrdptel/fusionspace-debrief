@@ -4,8 +4,8 @@
 // drawing itself (canvas) lives in the component, since it needs the DOM.
 
 import type { FlightMetrics } from './analyze/types';
-import type { UnitSystem } from './display';
-import { fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from './display';
+import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from './display';
+import type { UnitChoice } from './display';
 
 export interface CardStat {
   label: string;
@@ -17,7 +17,7 @@ export interface CardStat {
  *  then whichever of max velocity, max acceleration and flight time the log
  *  actually yielded (acceleration is absent on a GPS-only flight, flight time on a
  *  log that ends at apogee). Nothing here needs a user-supplied parameter. */
-export function flightCardStats(metrics: FlightMetrics, sys: UnitSystem): CardStat[] {
+export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice): CardStat[] {
   const stats: CardStat[] = [{ label: 'Apogee', value: fmtLength(metrics.apogeeAltitude, sys) }];
   if (Number.isFinite(metrics.maxVelocity)) {
     stats.push({
@@ -27,7 +27,7 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitSystem): CardSt
     });
   }
   if (Number.isFinite(metrics.maxAcceleration)) {
-    stats.push({ label: 'Max accel', value: fmtAccel(metrics.maxAcceleration) });
+    stats.push({ label: 'Max accel', value: fmtAccel(metrics.maxAcceleration, sys) });
   }
   if (metrics.flightTime != null) {
     stats.push({ label: 'Flight time', value: fmtTime(metrics.flightTime) });

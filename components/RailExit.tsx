@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { FlightSeries } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
-import { fmtSpeed, fmtMach } from '@/lib/display';
+import { fmtMach, fmtSpeed } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { railExitVelocity, RAIL_LENGTHS_M, DEFAULT_RAIL_M, MARGINAL_RAIL_VELOCITY } from '@/lib/rail';
 
 const PREF_KEY = 'debrief.rail';
@@ -37,7 +37,7 @@ export default function RailExit({
   liftoffIndex,
 }: {
   series: FlightSeries;
-  sys: UnitSystem;
+  sys: UnitChoice;
   liftoffIndex: number | null;
 }) {
   const [railM, setRailM] = useState<number>(DEFAULT_RAIL_M);

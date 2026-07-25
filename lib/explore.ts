@@ -5,7 +5,7 @@
 
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
-import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, UNIT_LABEL } from './display';
+import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, unitsOf, type UnitChoice, accelIn } from './display';
 import { formulaGuard } from './csv';
 
 export interface PlotChannel {
@@ -17,9 +17,9 @@ export interface PlotChannel {
   /** Stored values, in the canonical/native unit, aligned 1:1 with the time base. */
   values: Float64Array;
   /** Convert a stored value to the displayed value for the chosen unit system. */
-  toDisplay: (v: number, sys: UnitSystem) => number;
+  toDisplay: (v: number, sys: UnitChoice) => number;
   /** Axis unit label for the chosen unit system. */
-  unitLabel: (sys: UnitSystem) => string;
+  unitLabel: (sys: UnitChoice) => string;
 }
 
 /** Map a canonical unit string to a display conversion + label. Lengths, speeds,
@@ -28,14 +28,14 @@ export interface PlotChannel {
 function display(unit: string): Pick<PlotChannel, 'toDisplay' | 'unitLabel'> {
   switch (unit.toLowerCase().replace('²', '2')) {
     case 'm':
-      return { toDisplay: (v, sys) => lengthIn(v, sys), unitLabel: (sys) => UNIT_LABEL[sys].length };
+      return { toDisplay: (v, sys) => lengthIn(v, sys), unitLabel: (sys) => unitsOf(sys).length };
     case 'm/s':
-      return { toDisplay: (v, sys) => speedIn(v, sys), unitLabel: (sys) => UNIT_LABEL[sys].speed };
+      return { toDisplay: (v, sys) => speedIn(v, sys), unitLabel: (sys) => unitsOf(sys).speed };
     case 'm/s2':
-      return { toDisplay: (v) => accelInG(v), unitLabel: () => 'g' };
+      return { toDisplay: (v, sys) => accelIn(v, sys), unitLabel: (sys) => unitsOf(sys).accel };
     case 'c':
     case '°c':
-      return { toDisplay: (v, sys) => tempIn(v, sys), unitLabel: (sys) => UNIT_LABEL[sys].temp };
+      return { toDisplay: (v, sys) => tempIn(v, sys), unitLabel: (sys) => unitsOf(sys).temp };
     default:
       return { toDisplay: (v) => v, unitLabel: () => unit };
   }

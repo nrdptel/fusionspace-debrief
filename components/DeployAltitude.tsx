@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import { convert } from '@/lib/units';
-import { UNIT_LABEL, lengthIn, fmtLength } from '@/lib/display';
-import type { UnitSystem } from '@/lib/display';
+import { fmtLength, lengthIn, systemOf, unitsOf } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { deployCheck, DEPLOY_SLOP_M, MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
 
 function plain(v: number, places: number): string {
@@ -28,11 +28,11 @@ export default function DeployAltitude({
 }: {
   mainAltitudeM: number;
   apogeeAltitudeM: number;
-  sys: UnitSystem;
+  sys: UnitChoice;
   setM: number | null;
   onSetM: (m: number | null) => void;
 }) {
-  const unit = UNIT_LABEL[sys].length;
+  const unit = unitsOf(sys).length;
   const setField = setM == null ? '' : plain(lengthIn(setM, sys), 0);
 
   const onSet = (raw: string) => {
@@ -71,7 +71,7 @@ export default function DeployAltitude({
               type="number"
               inputMode="decimal"
               min={0}
-              step={sys === 'imperial' ? 50 : 10}
+              step={systemOf(sys) === 'imperial' ? 50 : 10}
               value={setField}
               onChange={(e) => onSet(e.target.value)}
               aria-label={`Set main deploy altitude (${unit})`}

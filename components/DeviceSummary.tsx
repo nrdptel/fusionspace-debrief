@@ -5,14 +5,14 @@
 
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { ReportedValue } from '@/lib/flight/types';
-import type { UnitSystem } from '@/lib/display';
-import { fmtLength, fmtSpeed, fmtAccel } from '@/lib/display';
+import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { compareReported } from '@/lib/flight/reported';
 
-function fmt(metric: ReportedValue['metric'], si: number, sys: UnitSystem): string {
+function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   if (metric === 'apogeeAltitude') return fmtLength(si, sys);
   if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);
-  return fmtAccel(si);
+  return fmtAccel(si, sys);
 }
 
 export default function DeviceSummary({
@@ -22,7 +22,7 @@ export default function DeviceSummary({
 }: {
   reported: ReportedValue[];
   metrics: FlightMetrics;
-  sys: UnitSystem;
+  sys: UnitChoice;
 }) {
   const rows = compareReported(reported, metrics).map(({ reported: r, computed, hasComputed: has, deltaPct, status }) => ({
     r,

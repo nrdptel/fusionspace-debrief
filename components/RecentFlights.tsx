@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
-import type { UnitSystem } from '@/lib/display';
 import { fmtLength, fmtSpeed } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
 import { sortRecents, personalBests, type LogbookSort } from '@/lib/logbook';
 
@@ -35,7 +35,7 @@ export default function RecentFlights({
   onImport,
 }: {
   recents: RecentMeta[];
-  sys: UnitSystem;
+  sys: UnitChoice;
   onOpen: (id: string) => void;
   onRemove: (id: string) => void;
   onClear: () => void;

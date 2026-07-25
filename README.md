@@ -127,6 +127,13 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   deceleration come out with the right sign. Flags a **saturated accelerometer** — when the trace flat-tops at
   its peak (the sign a sensor hit its full-scale limit), the max acceleration is marked
   as possibly clipped rather than read as the true maximum.
+- Reads in **your units, per quantity** — one click switches the whole report between feet
+  and metres, and a *per quantity* panel sets each on its own: altitude in feet with speed
+  in mph, km/h or knots, acceleration in g, m/s² or ft/s², temperature in °F or °C,
+  pressure in psi or kPa. A US club quotes feet and mph; a cert document may want metres
+  and m/s; a drag write-up wants m/s². The choice applies to every number, chart axis and
+  export, is remembered on this device, and rides in the URL, so a shared link opens
+  reading the way it was sent.
 - Exports a flight: copy a text summary, save it as `.txt` or a report-grade **Markdown**
   file — the headline metrics and events as tables (and, when the file carried the logger's
   own summary, the device-vs-Debrief cross-check), ready to drop into a project write-up,
@@ -257,9 +264,10 @@ The `.json` is Debrief's canonical read, meant to be machine-read:
   `derived` or `estimated`), `warnings`, and a `loggerSummary` cross-check when the file
   carried the device's own figures.
 - **`debrief.comparison/1`** — several flights: each flight's `metrics`, the `crossCheck`
-  spreads, and (for a pair) the per-metric `differences`.
+  spreads, and the per-metric `differences`.
 
-Numbers are in the units you chose (`ft`/`m`), a metric the flight doesn't have is `null`
+Numbers are in the units you chose — per quantity, so altitude can be in feet while speed
+is in mph and acceleration in m/s² — a metric the flight doesn't have is `null`
 rather than absent or invented, and nothing reads as more certain than it is. The builders
 live in [`lib/report.ts`](lib/report.ts).
 

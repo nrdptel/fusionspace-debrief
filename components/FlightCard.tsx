@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FlightMetrics, FlightSeries } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
 import { fmtLength } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { flightCardStats } from '@/lib/flightCard';
 import { download } from '@/lib/download';
 
@@ -22,7 +22,7 @@ const LINE = '#e4e4e7'; // zinc-200
 
 function drawCard(
   canvas: HTMLCanvasElement,
-  data: { stem: string; formatLabel: string; series: FlightSeries; metrics: FlightMetrics; sys: UnitSystem },
+  data: { stem: string; formatLabel: string; series: FlightSeries; metrics: FlightMetrics; sys: UnitChoice },
 ) {
   const { stem, formatLabel, series, metrics, sys } = data;
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
@@ -116,7 +116,7 @@ function drawAltitude(
   ctx: CanvasRenderingContext2D,
   series: FlightSeries,
   metrics: FlightMetrics,
-  sys: UnitSystem,
+  sys: UnitChoice,
   x: number,
   y: number,
   w: number,
@@ -220,7 +220,7 @@ export default function FlightCard({
 }: {
   series: FlightSeries;
   metrics: FlightMetrics;
-  sys: UnitSystem;
+  sys: UnitChoice;
   stem: string;
   formatLabel: string;
 }) {

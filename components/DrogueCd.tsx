@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { UnitSystem } from '@/lib/display';
-import { fmtSpeed } from '@/lib/display';
+import { fmtSpeed, systemOf } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { parachuteCd, chuteDiameterToM, CHUTE_LEN_TO_M, MAX_REASONABLE_CHUTE_M } from '@/lib/parachute';
 
 const DROGUE_KEY = 'debrief.drogue.m';
@@ -44,7 +44,7 @@ export default function DrogueCd({
   descentRate: number | null;
   /** Air density at the drogue's (higher, thinner) altitude — not the ground value. */
   airDensity: number;
-  sys: UnitSystem;
+  sys: UnitChoice;
   /** Descending mass (kg), owned by the report and shared with landing energy. */
   massKg: number | null;
 }) {
@@ -54,7 +54,7 @@ export default function DrogueCd({
     setDrogueM(readNum(DROGUE_KEY, MAX_REASONABLE_CHUTE_M));
   }, []);
 
-  const unit = sys === 'imperial' ? 'in' : 'cm';
+  const unit = systemOf(sys) === 'imperial' ? 'in' : 'cm';
   const field = drogueM == null ? '' : plain(drogueM / CHUTE_LEN_TO_M[unit], 0);
 
   const onDiameter = (raw: string) => {

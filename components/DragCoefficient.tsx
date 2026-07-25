@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { FlightSeries, FlightEvent } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
+import { systemOf } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { dragCoefficient, diameterToM, LEN_TO_M, MAX_REASONABLE_DIAMETER_M } from '@/lib/drag';
 import { massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 
@@ -50,7 +51,7 @@ export default function DragCoefficient({
 }: {
   series: FlightSeries;
   events: FlightEvent[];
-  sys: UnitSystem;
+  sys: UnitChoice;
 }) {
   const [massKg, setMassKg] = useState<number | null>(null);
   const [diamM, setDiamM] = useState<number | null>(null);
@@ -60,8 +61,8 @@ export default function DragCoefficient({
     setDiamM(readNum(DIAM_KEY, MAX_REASONABLE_DIAMETER_M));
   }, []);
 
-  const massUnit = sys === 'imperial' ? 'oz' : 'g';
-  const lenUnit = sys === 'imperial' ? 'in' : 'mm';
+  const massUnit = systemOf(sys) === 'imperial' ? 'oz' : 'g';
+  const lenUnit = systemOf(sys) === 'imperial' ? 'in' : 'mm';
 
   const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0);
   const diamField = diamM == null ? '' : plain(diamM / LEN_TO_M[lenUnit], lenUnit === 'in' ? 2 : 0);

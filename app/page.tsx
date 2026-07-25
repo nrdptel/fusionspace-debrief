@@ -37,8 +37,10 @@ export default function Home() {
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch
-              feet and meters on a report (top-right); acceleration is always in g. Your choice is
-              remembered and rides in the URL.
+              feet and meters with one click (top-right), or open <em>per quantity</em> to set each on
+              its own: altitude in feet with speed in mph or km/h, acceleration in g or m/s²,
+              temperature in °F or °C. It applies to every number, chart and export, is remembered on
+              this device, and rides in the URL — so a link opens reading the way you sent it.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Share &amp; keep</strong>{' '}

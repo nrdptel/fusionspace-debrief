@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
-import { lengthIn, speedIn, accelInG, UNIT_LABEL, fmtLength, fmtSpeed, fmtAccel, fmtTime, fmtMach } from '@/lib/display';
+import { accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, speedIn, systemOf, unitsOf } from '@/lib/display';
+import type { UnitChoice, Units } from '@/lib/display';
 import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, type RecoveryFigures } from '@/lib/report';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -17,6 +17,7 @@ import { MAX_REASONABLE_DELAY_S } from '@/lib/ejection';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import { zip, type ZipEntry } from '@/lib/zip';
+import UnitsControl from './UnitsControl';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
@@ -53,13 +54,15 @@ export default function FlightReport({
   sourceText,
   sys,
   onToggleUnits,
+  onSetUnits,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
   analyzedAt: number;
   sourceText: string;
-  sys: UnitSystem;
+  sys: UnitChoice;
   onToggleUnits: () => void;
+  onSetUnits: (units: Units) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -274,10 +277,10 @@ export default function FlightReport({
         svg: plotSvg({
           x: series.time,
           series: [
-            { label: `Altitude (${UNIT_LABEL[sys].length} AGL)`, color: '#6366f1', axis: 'left', values: Array.from(series.altitude, (m) => lengthIn(m, sys)) },
+            { label: `Altitude (${unitsOf(sys).length} AGL)`, color: '#6366f1', axis: 'left', values: Array.from(series.altitude, (m) => lengthIn(m, sys)) },
           ],
           xLabel: 'Time (s)',
-          leftLabel: `${UNIT_LABEL[sys].length} AGL`,
+          leftLabel: `${unitsOf(sys).length} AGL`,
           markers: markerDefs,
           dark: figureDark,
         }),
@@ -288,9 +291,9 @@ export default function FlightReport({
         name: `${stem}-velocity.svg`,
         svg: plotSvg({
           x: series.time,
-          series: [{ label: `Velocity (${UNIT_LABEL[sys].speed})`, color: '#10b981', axis: 'left', values: Array.from(series.velocity, (v) => speedIn(v, sys)) }],
+          series: [{ label: `Velocity (${unitsOf(sys).speed})`, color: '#10b981', axis: 'left', values: Array.from(series.velocity, (v) => speedIn(v, sys)) }],
           xLabel: 'Time (s)',
-          leftLabel: UNIT_LABEL[sys].speed,
+          leftLabel: unitsOf(sys).speed,
           markers: markerDefs,
           dark: figureDark,
         }),
@@ -423,7 +426,7 @@ export default function FlightReport({
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
-  const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration)}` : ''}.`;
+  const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration, sys)}` : ''}.`;
 
   return (
     <div className="space-y-8">
@@ -483,14 +486,7 @@ export default function FlightReport({
             >
               Print
             </button>
-            <button
-              type="button"
-              onClick={onToggleUnits}
-              aria-label={`Units: ${sys === 'imperial' ? 'feet' : 'meters'}. Switch to ${sys === 'imperial' ? 'meters' : 'feet'}.`}
-              className={ACTION_BTN}
-            >
-              Units: {sys === 'imperial' ? 'feet' : 'meters'}
-            </button>
+            <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
           </div>
           {/* File exports — one saved file each. A single horizontal strip on a phone
               (so the flight rises up), wrapping inline on a wider screen. */}
@@ -685,7 +681,7 @@ export default function FlightReport({
         </div>
       )}
       <div className="space-y-6">
-        <ChartBlock title={`Altitude (${UNIT_LABEL[sys].length} AGL)`}>
+        <ChartBlock title={`Altitude (${unitsOf(sys).length} AGL)`}>
           <div ref={altChartRef}>
             <Chart
               time={series.time}
@@ -701,7 +697,7 @@ export default function FlightReport({
         </ChartBlock>
 
         <ChartBlock
-          title={`Velocity (${UNIT_LABEL[sys].speed})`}
+          title={`Velocity (${unitsOf(sys).speed})`}
           note={series.velocitySource === 'device' ? 'logged by the device' : 'derived from altitude'}
         >
           <Chart
@@ -779,7 +775,7 @@ export default function FlightReport({
                 </span>
                 {eventSpeed(e.index) && <span className="block">{eventSpeed(e.index)}</span>}
                 {e.peakAccel != null && accelInG(e.peakAccel) >= 2 && (
-                  <span className="block">{fmtAccel(e.peakAccel)} shock</span>
+                  <span className="block">{fmtAccel(e.peakAccel, sys)} shock</span>
                 )}
               </span>
             </div>

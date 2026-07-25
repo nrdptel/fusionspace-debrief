@@ -6,7 +6,7 @@ import { COMPARE_PALETTE } from '@/lib/compare';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import type { FlightEvent } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
@@ -40,7 +40,7 @@ export default function ChannelExplorer({
   channels: PlotChannel[];
   time: Float64Array;
   events: FlightEvent[];
-  sys: UnitSystem;
+  sys: UnitChoice;
   /** Filesystem-safe stem of the source file, for export filenames. */
   stem: string;
 }) {
@@ -337,7 +337,7 @@ function Stats({
   channels: PlotChannel[];
   seriesData: Float64Array[];
   xVals: Float64Array;
-  sys: UnitSystem;
+  sys: UnitChoice;
   view: [number, number] | null;
   xName: string;
   xUnit: string;

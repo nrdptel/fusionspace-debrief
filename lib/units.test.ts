@@ -26,3 +26,14 @@ describe('resolveUnit — acceleration in milli-g (mG)', () => {
     expect(resolveUnit('mG')!.toCanonical(1)).toBeCloseTo(G0 / 1000, 9);
   });
 });
+
+describe('knots', () => {
+  it('converts to and from m/s', () => {
+    // 1 kt = 1 nautical mile per hour = 1852 m / 3600 s.
+    expect(convert(1, 'kt', 'm/s')).toBeCloseTo(0.514444, 5);
+    expect(convert(100, 'm/s', 'kt')).toBeCloseTo(194.384, 2);
+    for (const alias of ['kts', 'knot', 'knots', 'KT']) {
+      expect(resolveUnit(alias)?.quantity).toBe('speed');
+    }
+  });
+});

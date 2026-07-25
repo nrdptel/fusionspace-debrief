@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
 import { crossCheck } from '@/lib/compare';
-import type { UnitSystem } from '@/lib/display';
+import { accelInG, lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
+import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
-import { lengthIn, speedIn, accelInG, pressureIn, pressureUnit, UNIT_LABEL } from '@/lib/display';
+import UnitsControl from './UnitsControl';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
@@ -50,12 +51,14 @@ export default function CompareView({
   note,
   sys,
   onToggleUnits,
+  onSetUnits,
   onBack,
 }: {
   comparison: Comparison;
   note?: string;
-  sys: UnitSystem;
+  sys: UnitChoice;
   onToggleUnits: () => void;
+  onSetUnits: (units: Units) => void;
   onBack: () => void;
 }) {
   const dark = useIsDark();
@@ -127,9 +130,9 @@ export default function CompareView({
     get: (f: CompareFlight) => Float64Array;
     toDisplay: (v: number) => number;
   }[] = [
-    { key: 'altitude', label: 'Altitude', unit: UNIT_LABEL[sys].length, get: (f) => f.altitude, toDisplay: (v) => lengthIn(v, sys) },
-    { key: 'velocity', label: 'Velocity', unit: UNIT_LABEL[sys].speed, get: (f) => f.velocity, toDisplay: (v) => speedIn(v, sys) },
-    { key: 'acceleration', label: 'Acceleration', unit: 'g', get: (f) => f.acceleration, toDisplay: (v) => accelInG(v) },
+    { key: 'altitude', label: 'Altitude', unit: unitsOf(sys).length, get: (f) => f.altitude, toDisplay: (v) => lengthIn(v, sys) },
+    { key: 'velocity', label: 'Velocity', unit: unitsOf(sys).speed, get: (f) => f.velocity, toDisplay: (v) => speedIn(v, sys) },
+    { key: 'acceleration', label: 'Acceleration', unit: unitsOf(sys).accel, get: (f) => f.acceleration, toDisplay: (v) => accelIn(v, sys) },
     { key: 'mach', label: 'Mach', unit: '', get: (f) => f.mach, toDisplay: (v) => v },
     { key: 'dynamicPressure', label: 'Dynamic pressure', unit: pressureUnit(sys), get: (f) => f.dynamicPressure, toDisplay: (v) => pressureIn(v, sys) },
   ];
@@ -150,7 +153,7 @@ export default function CompareView({
         case 'velocity':
           return round0(speedIn(v, sys));
         case 'acceleration':
-          return round1(accelInG(v));
+          return round1(accelIn(v, sys));
         case 'mach':
           return round2(v);
         case 'dynamicPressure':
@@ -282,14 +285,7 @@ export default function CompareView({
         >
           ← Back to a single flight
         </button>
-        <button
-          type="button"
-          onClick={onToggleUnits}
-          aria-label={`Units: ${sys === 'imperial' ? 'feet' : 'meters'}. Switch to ${sys === 'imperial' ? 'meters' : 'feet'}.`}
-          className={ACTION_BTN}
-        >
-          Units: {sys === 'imperial' ? 'feet' : 'meters'}
-        </button>
+        <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
       </div>
 
       <div>

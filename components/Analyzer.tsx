@@ -7,7 +7,7 @@ import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import type { RawFlight } from '@/lib/flight/types';
 import { analyzeAsync } from '@/lib/analyze/runner';
 import type { FlightAnalysis } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
+import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
 import DropZone from './DropZone';
 import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
@@ -44,18 +44,34 @@ const MAX_BYTES = 64 * 1024 * 1024; // 64 MB — far above any real flight log
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-function readInitialUnits(): UnitSystem {
+function readInitialUnits(): UnitChoice {
   if (typeof window === 'undefined') return 'imperial';
-  const u = new URLSearchParams(window.location.search).get('u');
-  if (u === 'm' || u === 'metric') return 'metric';
-  if (u === 'ft' || u === 'imperial') return 'imperial';
-  const saved = window.localStorage.getItem('debrief.units');
-  return saved === 'metric' ? 'metric' : 'imperial';
+  // A shared link's units win over this device's remembered choice, so a link opens
+  // reading the way its sender saw it.
+  return (
+    decodeUnits(new URLSearchParams(window.location.search).get('u')) ??
+    decodeUnits(window.localStorage.getItem('debrief.units')) ??
+    'imperial'
+  );
+}
+
+/** Remember the choice on this device and put it in the URL, so a refresh, a shared
+ *  link and the next visit all read the same way. */
+function rememberUnits(next: UnitChoice): void {
+  try {
+    const code = encodeUnits(next);
+    window.localStorage.setItem('debrief.units', code);
+    const url = new URL(window.location.href);
+    url.searchParams.set('u', code);
+    window.history.replaceState(null, '', url);
+  } catch {
+    /* a private window with storage blocked — the choice still applies to this view */
+  }
 }
 
 export default function Analyzer() {
   const [state, setState] = useState<State>({ phase: 'idle' });
-  const [sys, setSys] = useState<UnitSystem>('imperial');
+  const [sys, setSys] = useState<UnitChoice>('imperial');
   const [recents, setRecents] = useState<RecentMeta[]>([]);
   // Analysis is async (it runs in a worker), so a slow load that resolves after a
   // newer one must not overwrite it. Each load bumps this counter and only applies
@@ -77,19 +93,19 @@ export default function Analyzer() {
     refreshRecents();
   }, [refreshRecents]);
 
+  // The fast path: the whole set flips between feet and metres, discarding any
+  // per-quantity overrides — one click back to a familiar system.
   const toggleUnits = useCallback(() => {
     setSys((prev) => {
-      const next: UnitSystem = prev === 'imperial' ? 'metric' : 'imperial';
-      try {
-        window.localStorage.setItem('debrief.units', next);
-        const url = new URL(window.location.href);
-        url.searchParams.set('u', next === 'metric' ? 'm' : 'ft');
-        window.history.replaceState(null, '', url);
-      } catch {
-        /* ignore */
-      }
+      const next: UnitChoice = systemOf(prev) === 'imperial' ? 'metric' : 'imperial';
+      rememberUnits(next);
       return next;
     });
+  }, []);
+
+  const setUnits = useCallback((next: Units) => {
+    setSys(next);
+    rememberUnits(next);
   }, []);
 
   const ingest = useCallback(
@@ -387,13 +403,14 @@ export default function Analyzer() {
           sourceText={state.text}
           sys={sys}
           onToggleUnits={toggleUnits}
+          onSetUnits={setUnits}
         />
       </div>
     );
   }
 
   if (state.phase === 'compare') {
-    return <CompareView comparison={state.comparison} note={state.note} sys={sys} onToggleUnits={toggleUnits} onBack={reset} />;
+    return <CompareView comparison={state.comparison} note={state.note} sys={sys} onToggleUnits={toggleUnits} onSetUnits={setUnits} onBack={reset} />;
   }
 
   if (state.phase === 'mapping') {

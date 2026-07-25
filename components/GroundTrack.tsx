@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { UnitSystem } from '@/lib/display';
-import { fmtLength, fmtSpeed, lengthIn, UNIT_LABEL } from '@/lib/display';
+import { fmtLength, fmtSpeed, lengthIn, unitsOf } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile } from '@/lib/gps';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
@@ -35,7 +35,7 @@ export default function GroundTrack({
 }: {
   lat: Float64Array;
   lon: Float64Array;
-  sys: UnitSystem;
+  sys: UnitChoice;
   /** Filesystem-safe stem of the source file, for the GPX filename. */
   stem: string;
   /** Flight time base (s), aligned with lat/lon — needed to read drift velocity. */
@@ -129,7 +129,7 @@ export default function GroundTrack({
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, r * scale, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillText(`${Math.round(lengthIn(r, sys))} ${UNIT_LABEL[sys].length}`, size / 2 + 3, py(r) + 11);
+      ctx.fillText(`${Math.round(lengthIn(r, sys))} ${unitsOf(sys).length}`, size / 2 + 3, py(r) + 11);
     }
 
     // North indicator (top-centre).
@@ -275,7 +275,7 @@ export default function GroundTrack({
               <div key={l.altLoM} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
                 <dt className="font-mono text-zinc-500 dark:text-zinc-400">
                   {Math.round(lengthIn(l.altLoM, sys)).toLocaleString('en-US')}–
-                  {Math.round(lengthIn(l.altHiM, sys)).toLocaleString('en-US')} {UNIT_LABEL[sys].length}
+                  {Math.round(lengthIn(l.altHiM, sys)).toLocaleString('en-US')} {unitsOf(sys).length}
                 </dt>
                 <dd className="font-mono font-medium text-zinc-800 dark:text-zinc-200">
                   {fmtSpeed(l.speed, sys)} from {compass(l.fromBearing)}

@@ -1,6 +1,6 @@
 import type { FlightEvent, FlightMetrics } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
-import { fmtTime, fmtSpeed } from '@/lib/display';
+import { fmtSpeed, fmtTime } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { flightPhases, type Phase } from '@/lib/phases';
 
 // Phase colours drawn from the app's existing palette (altitude indigo, velocity
@@ -23,7 +23,7 @@ export default function FlightTimeline({
 }: {
   events: FlightEvent[];
   metrics: FlightMetrics;
-  sys: UnitSystem;
+  sys: UnitChoice;
 }) {
   const phases = flightPhases(events);
   const total = phases.reduce((s, p) => s + p.duration, 0);

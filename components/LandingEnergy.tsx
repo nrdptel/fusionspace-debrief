@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
-import { fmtSpeed, fmtLength } from '@/lib/display';
+import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
-function massUnit(sys: UnitSystem): 'g' | 'oz' {
-  return sys === 'imperial' ? 'oz' : 'g';
+function massUnit(sys: UnitChoice): 'g' | 'oz' {
+  return systemOf(sys) === 'imperial' ? 'oz' : 'g';
 }
 
 function round(v: number, places: number): string {
@@ -37,7 +37,7 @@ export default function LandingEnergy({
   onMassKg,
 }: {
   metrics: FlightMetrics;
-  sys: UnitSystem;
+  sys: UnitChoice;
   massKg: number | null;
   onMassKg: (kg: number | null) => void;
 }) {
@@ -104,14 +104,14 @@ export default function LandingEnergy({
       <div className="mt-3 flex items-baseline gap-3">
         <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           {ftlbf != null && joules != null
-            ? sys === 'metric'
+            ? systemOf(sys) === 'metric'
               ? `${round(joules, 0)} J`
               : `${round(ftlbf, ftlbf < 100 ? 1 : 0)} ft·lbf`
             : '—'}
         </span>
         {ftlbf != null && joules != null && (
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {sys === 'metric' ? `${round(ftlbf, ftlbf < 100 ? 1 : 0)} ft·lbf` : `${round(joules, 0)} J`}
+            {systemOf(sys) === 'metric' ? `${round(ftlbf, ftlbf < 100 ? 1 : 0)} ft·lbf` : `${round(joules, 0)} J`}
             {rate != null && ` · at ${fmtSpeed(rate, sys)} down`}
           </span>
         )}

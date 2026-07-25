@@ -1,6 +1,6 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
-import type { UnitSystem } from '@/lib/display';
-import { fmtLength, fmtSpeed, fmtAccel, fmtTemp, fmtTime, fmtMach, fmtPressure, fmtVoltage } from '@/lib/display';
+import { fmtAccel, fmtLength, fmtMach, fmtPressure, fmtSpeed, fmtTemp, fmtTime, fmtVoltage } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 
 interface Tile {
   label: string;
@@ -14,7 +14,7 @@ interface Tile {
  *  barometric altitude (softer at peak). Provenance is shown for the peak the way
  *  the max-acceleration tile shows it, so a headline number never reads as more
  *  direct than it is. */
-function maxVelocitySub(m: FlightMetrics, sys: UnitSystem): string | undefined {
+function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
   if (!Number.isFinite(m.maxVelocity)) return 'not in this log';
   const parts: string[] = [];
   if (m.mach) parts.push(fmtMach(m.mach));
@@ -23,7 +23,7 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitSystem): string | undefined {
   return parts.join(' · ');
 }
 
-function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
+function tiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   const out: Tile[] = [
     {
       label: 'Apogee',
@@ -43,7 +43,7 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   if (Number.isFinite(m.maxAcceleration)) {
     out.push({
       label: 'Max acceleration',
-      value: fmtAccel(m.maxAcceleration),
+      value: fmtAccel(m.maxAcceleration, sys),
       sub:
         m.accelerationSource === 'device'
           ? m.accelClipped
@@ -55,7 +55,7 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   }
 
   if (m.avgBoostAcceleration != null)
-    out.push({ label: 'Avg acceleration', value: fmtAccel(m.avgBoostAcceleration), sub: 'over the boost' });
+    out.push({ label: 'Avg acceleration', value: fmtAccel(m.avgBoostAcceleration, sys), sub: 'over the boost' });
   if (m.liftoffTWR != null)
     out.push({ label: 'Thrust-to-weight', value: `${m.liftoffTWR.toFixed(1)}:1`, sub: 'off the pad' });
   if (m.burnTime != null) out.push({ label: 'Burn time', value: fmtTime(m.burnTime) });
@@ -121,7 +121,7 @@ function tiles(m: FlightMetrics, sys: UnitSystem): Tile[] {
   return out;
 }
 
-export default function MetricGrid({ metrics, sys }: { metrics: FlightMetrics; sys: UnitSystem }) {
+export default function MetricGrid({ metrics, sys }: { metrics: FlightMetrics; sys: UnitChoice }) {
   const all = tiles(metrics, sys);
   const primary = all.filter((t) => t.primary);
   const rest = all.filter((t) => !t.primary);

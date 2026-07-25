@@ -231,6 +231,19 @@ export default function MethodsPage() {
             browser doesn&apos;t lose it. The file never leaves your device; it&apos;s yours to
             store wherever you like.
           </Method>
+          <Method title="Units">
+            Every number is stored in SI internally and converted once for display, so the unit you
+            read a flight in never changes the analysis. The unit is chosen <em>per quantity</em>, not
+            as one of two systems: altitude in feet or metres, speed in ft/s, mph, m/s, km/h or knots,
+            acceleration in g, m/s&sup2; or ft/s&sup2;, temperature in &deg;F or &deg;C, dynamic
+            pressure in psi or kPa. A US club quotes feet and mph, a certification document may want
+            metres and m/s, a drag write-up wants m/s&sup2; — none of those is one system. One click
+            still switches the whole set between feet and metres. The choice reaches every number,
+            chart axis and export together, is remembered on this device, and rides in the URL, so a
+            shared link opens reading the way it was sent. Thrust-to-weight stays a ratio and Mach
+            stays a number, since neither has a unit to pick; the mass and diameter you type for the
+            drag, parachute and landing-energy readings follow whichever system your altitude is in.
+          </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS),
             Entacore AIM and MissileWorks RRC3 (mDACS) files are recognized automatically; the

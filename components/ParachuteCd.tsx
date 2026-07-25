@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { UnitSystem } from '@/lib/display';
-import { fmtSpeed } from '@/lib/display';
+import { fmtSpeed, systemOf } from '@/lib/display';
+import type { UnitChoice } from '@/lib/display';
 import { parachuteCd, chuteDiameterToM, CHUTE_LEN_TO_M, MAX_REASONABLE_CHUTE_M } from '@/lib/parachute';
 
 const CHUTE_KEY = 'debrief.chute.m';
@@ -42,7 +42,7 @@ export default function ParachuteCd({
 }: {
   descentRate: number | null;
   airDensity: number;
-  sys: UnitSystem;
+  sys: UnitChoice;
   /** Descending mass (kg), owned by the report and shared with landing energy. */
   massKg: number | null;
 }) {
@@ -52,7 +52,7 @@ export default function ParachuteCd({
     setChuteM(readNum(CHUTE_KEY, MAX_REASONABLE_CHUTE_M));
   }, []);
 
-  const chuteUnit = sys === 'imperial' ? 'in' : 'cm';
+  const chuteUnit = systemOf(sys) === 'imperial' ? 'in' : 'cm';
   const chuteField = chuteM == null ? '' : plain(chuteM / CHUTE_LEN_TO_M[chuteUnit], 0);
 
   const onChute = (raw: string) => {
