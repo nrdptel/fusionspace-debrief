@@ -152,6 +152,15 @@ const IMPLAUSIBLE_VELOCITY = 4000;
  *  liftoff detected a sample early. */
 const ASCENT_NOISE_FRACTION = 0.2;
 
+/** How long the vertical velocity must stay negative before the record is read as
+ *  descending rather than wobbling, scaled to the file's own sample rate. A real descent
+ *  runs for tens of seconds — from 12,000 ft under a drogue, minutes — so an honest onset
+ *  clears three seconds easily, while a transient dip in a noisy trace does not. Measured:
+ *  at half a second, a 121 km flight whose barometric trace is pressure noise above 50 km
+ *  (swinging 163,000–206,000 ft with no trend while its inertial velocity falls smoothly
+ *  through zero) had an apogee pulled 28 s early by one brief excursion. */
+const DESCENT_ONSET_S = 3;
+
 /** How far past the ceiling its own accelerometer allows a barometric speed must read
  *  before the barometer is judged wrong rather than merely soft. The ceiling —
  *  ∫(a − g)dt from liftoff, taking the measured specific force as if it pointed straight
@@ -497,9 +506,75 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   };
 
   // --- Apogee & whether there is an ascent at all ---------------------------
-  const apogeeIdx = Math.max(0, argMax(altClean));
+  // A reading that arrives after the rocket has been coming down for seconds is not an
+  // apogee, however high it is. A deployment charge vents the airframe, and on a fast
+  // logger that transient is a burst of wide swings rather than the one- or two-sample
+  // spike the median filter is built for: one corpus Blue Raven log swings ±250 ft for most
+  // of a second at 50 Hz, and the plain highest-sample reads 12,060 ft a full 3.7 s after
+  // the flight's own velocity went negative. Its three sibling recordings and the same
+  // file's inertial altitude all put apogee at the velocity crossing.
+  //
+  // So the peak is looked for up to the moment a sustained descent begins — the rocket
+  // cannot be descending before it has peaked — with two gates that keep this from ever
+  // firing on a sound flight:
+  //  - the scan starts where the climb is unambiguous (half the height eventually reached),
+  //    so a velocity wobbling either side of zero on the pad is never read as a descent;
+  //  - a trace whose ascent velocity swings well negative is carrying noise rather than
+  //    speed (the same measure the velocity guard below uses), and its sign says nothing, so
+  //    the peak is left where the altitude puts it.
+  const peakIdx = Math.max(0, argMax(altClean));
+  const apogeeIdx = clampToDescent(peakIdx);
   const apogeeTime = time[apogeeIdx];
   const apogeeAlt = altClean[apogeeIdx];
+
+  function clampToDescent(peak: number): number {
+    if (peak < 2) return peak;
+    // Above the troposphere a barometric reading has stopped being a height at all — the
+    // constant-lapse model behind it breaks down and the trace goes to noise — so there is
+    // no "spurious peak in an otherwise sound trace" to correct. That flight's apogee is
+    // already reported as an approximate lower bound (see the warning below); leave it. One
+    // corpus 121 km shot swings between 163,000 and 206,000 ft with no trend up there.
+    if (altitudeSource === 'baro' && altClean[peak] > TROPOSPHERE_LIMIT_M) return peak;
+
+    // Start where the climb is unambiguous — half the height eventually reached — so a
+    // velocity wobbling either side of zero on the pad is never read as a descent.
+    const half = altClean[peak] * 0.5;
+    let from = 0;
+    while (from < peak && !(altClean[from] >= half)) from++;
+    if (from >= peak) return peak;
+
+    // The first sustained descent: DESCENT_ONSET_S of continuously negative velocity.
+    const run = Math.max(2, windowFor(dt, DESCENT_ONSET_S));
+    let neg = 0;
+    let onset = -1;
+    for (let i = from; i < n; i++) {
+      if (Number.isFinite(velocity[i]) && velocity[i] < 0) {
+        if (++neg >= run) {
+          onset = i - neg + 1;
+          break;
+        }
+      } else {
+        neg = 0;
+      }
+    }
+    // Only a contradiction is corrected: a peak at or before the descent stands as it is.
+    if (onset < 1 || peak <= onset) return peak;
+
+    // Is the sign of this velocity worth trusting? Judged over the climb only — the stretch
+    // between half height and the descent, before whatever artefact moved the peak. A trace
+    // that swings well negative while still climbing is carrying noise rather than speed
+    // (the measure the velocity guard below uses), so its sign settles nothing.
+    let worst = 0;
+    let best = 0;
+    for (let i = from; i < onset; i++) {
+      if (!Number.isFinite(velocity[i])) continue;
+      if (velocity[i] < worst) worst = velocity[i];
+      if (velocity[i] > best) best = velocity[i];
+    }
+    if (!(best > 0) || -worst / best > ASCENT_NOISE_FRACTION) return peak;
+
+    return Math.max(0, argMax(altClean, 0, onset + 1));
+  }
 
   // A real flight climbs to a clear peak that isn't the first sample. A
   // descent-only or truncated-at-start log has neither, so we report the peak we

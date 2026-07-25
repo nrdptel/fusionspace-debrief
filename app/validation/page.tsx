@@ -158,6 +158,16 @@ export default function ValidationPage() {
               never dips below zero at all, so an honest reading is never caught by this.
             </li>
             <li>
+              An <strong>apogee cannot come after the descent started</strong>. A deployment charge
+              vents the airframe, and a fast logger records that as a burst of swings rather than the
+              one- or two-sample spike a median filter removes — so the highest sample can sit well
+              past the summit. One corpus Blue&nbsp;Raven log read 12,060&nbsp;ft nearly 4&nbsp;s after
+              its own velocity went negative; against the same file&apos;s inertial altitude and three
+              other recordings of that flight it now reads 11,766&nbsp;ft, and the four recordings&apos;
+              time-to-apogee agrees to 0.7&nbsp;s where it used to spread 4.6&nbsp;s. That agreement is
+              asserted on every change.
+            </li>
+            <li>
               A <strong>descent rate needs the leg in the record</strong>: each phase is read only
               where the log shows it dropping more than a tenth of the height it began at. A corpus
               recording that loses power 1.3&nbsp;s after its main fires at 1,877&nbsp;ft averaged the

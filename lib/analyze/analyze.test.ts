@@ -912,6 +912,39 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.timeToApogee).toBeLessThan(truth.tToApogee * 1.05);
   });
 
+  it('is not fooled by a deployment transient that lands after the descent began', () => {
+    // The wide version of the ejection artefact: a charge vents the airframe and a fast
+    // logger records a burst of swings rather than a one- or two-sample spike, so the
+    // median filter can't remove it and the highest sample lands well after apogee. A
+    // corpus Blue Raven log reads 12,060 ft nearly 4 s after its own velocity went
+    // negative, where three sibling recordings of the same flight agree it had peaked.
+    const { flight, truth } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    const t = flight.time;
+    let apIdx = 0;
+    for (let i = 1; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+    // 0.6 s of ±150 m swings, 4 s into the descent — bigger than the peak, in pairs of
+    // samples so a median filter keeps them.
+    const from = apIdx + Math.round(4 / 0.05);
+    for (let i = from; i < from + 12; i++) alt[i] += Math.floor((i - from) / 2) % 2 ? 150 : -60;
+
+    const a = analyzeFlight(flight);
+    // The apogee is where the climb ended, not on the transient.
+    expect(a.metrics.apogeeAltitude).toBeCloseTo(truth.apogee, -1);
+    expect(a.metrics.timeToApogee).toBeCloseTo(truth.tToApogee, 0);
+    const apo = a.events.find((e) => e.type === 'apogee')!;
+    expect(apo.time).toBeLessThan(t[from]);
+    // The transient is still in the record — nothing is edited away, it just isn't apogee.
+    expect(Math.max(...a.series.altitudeRaw)).toBeGreaterThan(a.metrics.apogeeAltitude);
+  });
+
+  it('leaves a peak that is genuinely the last of the climb alone', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    const { truth } = syntheticBaroFlight();
+    expect(a.metrics.apogeeAltitude).toBeCloseTo(truth.apogee, -1);
+    expect(a.metrics.timeToApogee).toBeCloseTo(truth.tToApogee, 0);
+  });
+
   it('is not fooled by an ejection spike at apogee', () => {
     const clean = analyzeFlight(syntheticBaroFlight().flight);
     const spiked = analyzeFlight(syntheticBaroFlight({ ejectionSpike: true }).flight);

@@ -58,7 +58,20 @@ export default function MethodsPage() {
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
             two-sample jump an ejection charge punches into a baro trace — what makes a naïve
             &ldquo;highest reading&rdquo; report an apogee that never happened — while leaving the true
-            peak untouched.
+            peak untouched. A fast logger sees a wider version of the same artefact: the charge vents
+            the airframe and the trace swings for most of a second, too long for a median filter to
+            remove, so the highest single sample can land well after the rocket started down. The peak
+            is therefore looked for only up to the moment a sustained descent begins — a rocket
+            cannot be descending before it has peaked. On one corpus Blue&nbsp;Raven log recorded at
+            50&nbsp;Hz that moves apogee from 12,060&nbsp;ft to 11,766&nbsp;ft and 3.9&nbsp;s earlier,
+            where the same file&apos;s inertial altitude and the flight&apos;s three other recordings
+            (11,731, 11,734 and 12,001&nbsp;ft) all put it; time-to-apogee across the four went from
+            a 4.6&nbsp;s spread to 0.7&nbsp;s. The transient itself is never edited out — it stays in
+            the raw trace you can plot — it just isn&apos;t read as the summit. Two things keep this
+            from touching a sound flight: the search for the descent starts only once the climb has
+            passed half the height it reached, so a velocity wobbling either side of zero on the pad
+            can&apos;t look like one, and a trace whose ascent velocity swings well negative is
+            carrying noise rather than speed, so its sign is not used at all.
           </Method>
           <Method title="Velocity & max velocity">
             Used straight from the device when it logged a velocity (an accelerometer-integrated speed

@@ -57,8 +57,17 @@ memory, so a later pass doesn't have to rediscover them.
   surfacing, not a bug; do not add it as a reconciliation regression.
 - Diagnosed and fixed: the Blue Raven jan10 LR file holds one flight recorded twice, so the
   merged record put apogee 39.6 s after liftoff; it now reads 18.2 s against the GPS's 19.3 s.
-  Still open in that group: trf-lemiv-l3's four recordings spread 23.6–28.2 s on time to
-  apogee while agreeing to 1% on altitude — a liftoff-detection difference, worth a look.
+- Fixed, and it wasn't liftoff detection: trf-lemiv-l3's four recordings spread 23.6–28.2 s on
+  time to apogee. The Blue Raven's 50 Hz baro trace swings ±250 ft for most of a second when
+  the drogue charge vents the bay, and the plain highest sample landed on a 12,060 ft noise
+  peak 3.7 s after the flight's own (device) velocity had gone negative — the wide cousin of
+  the ejection spike the median filter is built for. Apogee is now looked for only up to the
+  onset of a sustained descent; the group reads 11,731 / 11,734 / 11,766 / 12,001 ft and
+  23.60 / 23.75 / 24.30 / 23.90 s, asserted as a reconciliation regression (spread 0.70 s).
+  Two measured gates keep it off sound flights: three seconds of continuous negative velocity
+  before it counts as a descent (half a second pulled a 121 km flight's apogee 28 s early on
+  one transient dip), and no clamping above the troposphere, where a baro trace has stopped
+  being a height at all — that same 121 km log swings 163,000–206,000 ft with no trend.
 - **The transonic artefact also runs the other way, and nothing catches it yet.** On the
   Blue Raven jan18 flight the barometric altitude *over*-reads through the supersonic push:
   it climbs 98 → 592 → 1,784 → 2,605 ft between t=0.24 s and 0.74 s (an implied 3,570 ft/s)

@@ -237,7 +237,15 @@ function loadForCompare(file: string): CompareInput | null {
 // have caught a baro second-derivative 'acceleration' reading ~300,000 m/s² next to its
 // device partner's real ~180 m/s² peak: an apogee that agrees to a fraction of a percent
 // beside an acceleration cross-check off by four orders of magnitude.
-const RECON_GROUPS: { name: string; files: string[]; apogeeTolPct: number }[] = [
+const RECON_GROUPS: {
+  name: string;
+  files: string[];
+  apogeeTolPct: number;
+  /** Optional: how far apart the recordings' time-to-apogee may fall (seconds). Only set
+   *  where the group's liftoff detection genuinely agrees — a device that starts its log at
+   *  a different moment shifts this without anything being wrong. */
+  timeToApogeeTolS?: number;
+}[] = [
   {
     name: 'iss-endurance: TeleMetrum + StratoLogger',
     apogeeTolPct: 3,
@@ -289,6 +297,12 @@ const RECON_GROUPS: { name: string; files: string[]; apogeeTolPct: number }[] = 
     // Quantum reformatted into the Featherweight layout.
     name: 'trf-lemiv-l3: Blue Raven + GPS + Proton + Quantum',
     apogeeTolPct: 4,
+    // All four measure the same climb from their own liftoff, so time-to-apogee has to
+    // agree too. It didn't: the Blue Raven's 50 Hz trace read 28.24 s against 23.6–23.9 s
+    // because the plain highest sample landed on its drogue-deployment pressure transient,
+    // nearly 4 s after the flight's own velocity had gone negative. Asserting the spread
+    // keeps that from coming back.
+    timeToApogeeTolS: 1.5,
     files: [
       'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
       'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv',
@@ -313,6 +327,16 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
       const apo = agree.find((a) => a.key === 'apogee');
       expect(apo, `${g.name}: apogee cross-check present`).toBeTruthy();
       expect(apo!.spreadPct, `${g.name}: apogee spread ${apo!.spreadPct.toFixed(1)}%`).toBeLessThan(g.apogeeTolPct);
+
+      // Where the recordings' liftoffs genuinely line up, the climb they timed has to
+      // agree as well as the height it reached — the check that catches an apogee landing
+      // on a deployment transient rather than on the peak.
+      if (g.timeToApogeeTolS != null) {
+        const tapo = agree.find((a) => a.key === 'timeToApogee');
+        expect(tapo, `${g.name}: time-to-apogee cross-check present`).toBeTruthy();
+        const spread = tapo!.max - tapo!.min;
+        expect(spread, `${g.name}: time-to-apogee spread ${spread.toFixed(2)} s`).toBeLessThan(g.timeToApogeeTolS);
+      }
 
       // No cross-check figure may be a physically impossible noise spike — the guard
       // that keeps a derived-signal artefact from ever being reported as agreement.
