@@ -555,3 +555,21 @@ test('the wait says what it is reading', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
 });
 
+
+// What prints is the record; what doesn't is the chrome. A cross-check added to the report
+// belongs in the printed page — a flyer printing for a certification package is printing
+// the evidence — while the controls that produced it do not.
+test('the printed report keeps the cross-checks and drops the controls', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.getByRole('region', { name: 'The GPS recording' })).toBeVisible();
+  await expect(page.locator('summary', { hasText: "Choose what's in this report" })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Copy table' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Save .md' })).toBeHidden();
+  await page.emulateMedia({ media: 'screen' });
+});
