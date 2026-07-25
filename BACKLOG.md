@@ -132,11 +132,11 @@ memory, so a later pass doesn't have to rediscover them.
 - Done: dropping a device summary alongside its log now feeds the summary's figures into the
   cross-check as the device's side, paired on the rocket name the summary states (which the
   app also puts in the log's file name). A Blue Raven pair reads Apogee 4,035 ft device vs
-  4,036 ft Debrief and Max velocity 700 vs 698 ft/s. Two gaps left in the same area: a figure
-  the summary states but Debrief withholds (max acceleration on a baro-only log) drops out of
-  the table entirely, where showing "device 24.1 g / Debrief —" would teach more; and the
+  4,036 ft Debrief and Max velocity 700 vs 698 ft/s. One gap left in the same area: the
   pairing is within one drop only — a summary dropped on its own still just explains itself,
-  and can't attach to a flight already open or in the logbook.
+  and can't attach to a flight already open or in the logbook. (Checked, not a gap: a figure
+  the summary states but Debrief withholds already shows as "24.1 g / — / not computed", so
+  the device's reading isn't lost.)
 - Measured, and deliberately NOT built: a date role for the column mapper, so a generic CSV
   could carry its launch date the way the three named parsers now do. Zero of the corpus's
   generic CSVs have a date column (jimheaney ×4: Time/Acc/Alt/Temp; Lyrid: 30 IMU columns, no
@@ -189,10 +189,11 @@ memory, so a later pass doesn't have to rediscover them.
 
 Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
 
-- **Named view presets.** The explorer now remembers *one* view (the last one). OpenRocket
-  lets you keep several plot configurations; a flyer checking the same three things on every
-  flight of a season would want to name and switch between them — and that is the same
-  machinery the report/export builder needs.
+- Done: **named view presets.** Up to 8 views kept under names you choose, applied on any
+  flight that has those channels (stored by channel label, so they survive moving between
+  loggers). Re-saving a name updates it. Next in the same machinery: the report/export builder
+  wants exactly this shape for "which tables and plots go in my document", and a preset can't
+  yet be exported or shared — it lives in this browser only.
 
 - **Per-quantity units.** Debrief has one feet/metres switch (acceleration is always g,
   pressure follows the system). AltosUI lets you choose the unit for each quantity, and a

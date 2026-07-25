@@ -327,6 +327,14 @@ export default function MethodsPage() {
             one corpus TeleMetrum insists on 27 Apr 2013 for a flight flown in October 2023, and that
             is the device&apos;s own record, not something to quietly correct.
           </Method>
+          <Method title="Named views">
+            The explorer remembers how you last set it up, and you can also keep several plots under
+            names you choose — the boost, the deployments, the airframe&apos;s health — and switch
+            between them on any flight. A view names its channels rather than their column numbers,
+            since column 3 means something different in every logger&apos;s export, so a saved view
+            follows you across loggers and restores only the channels the flight in front of you
+            actually has. Kept on this device, like the rest of Debrief&apos;s state.
+          </Method>
           <Method title="Logbook & backup">
             Flights you open are remembered in this browser (IndexedDB) for quick re-opening,
             and a note keeps one as a permanent logbook entry. Because that lives only on this

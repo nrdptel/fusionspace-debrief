@@ -310,3 +310,40 @@ test('the explorer remembers how you set it up', async ({ page }) => {
   await open();
   await expect(chart()).toHaveAttribute('aria-label', /Altitude \(AGL\), Velocity against Time/);
 });
+
+// Named views: OpenRocket keeps several plot configurations and AltosUI saved graphs, and a
+// flyer checking the same few things on every flight of a season wants them by name rather
+// than rebuilt each time. Kept on this device, and applied wherever the flight has those
+// channels.
+test('the explorer keeps named views and applies them to the next flight', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // Build a view: add a second channel to the plot, then name it.
+  await page.getByLabel('Add a channel to the plot').selectOption({ label: 'Velocity' });
+  await expect(page.getByRole('button', { name: 'Remove Velocity from the plot' })).toBeVisible();
+  await page.getByRole('button', { name: '+ Save this view' }).click();
+  await page.getByLabel('Name for this view').fill('Boost check');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  // Exact: the delete button beside it is named "Forget the Boost check view", which a
+  // substring match would also claim.
+  const chip = page.getByRole('button', { name: 'Boost check', exact: true });
+  await expect(chip).toBeVisible();
+
+  // Change the plot, then bring the named view back.
+  await page.getByRole('button', { name: 'Remove Velocity from the plot' }).click();
+  await expect(page.getByRole('button', { name: 'Remove Velocity from the plot' })).toHaveCount(0);
+  await chip.click();
+  await expect(page.getByRole('button', { name: 'Remove Velocity from the plot' })).toBeVisible();
+
+  // It survives a reload and a different flight, which is the point of naming it.
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toBeVisible();
+
+  // And it can be forgotten.
+  await page.getByRole('button', { name: 'Forget the Boost check view' }).click();
+  await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '+ Save this view' })).toBeVisible();
+});

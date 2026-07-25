@@ -2,7 +2,18 @@
 
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { planAxes, windowStats, exploreCsv, type PlotChannel } from '@/lib/explore';
-import { loadPlotView, resolveView, savePlotView, viewId } from '@/lib/plotView';
+import {
+  loadPlotView,
+  resolveView,
+  savePlotView,
+  viewId,
+  loadPresets,
+  savePreset,
+  deletePreset,
+  MAX_PRESETS,
+  MAX_PRESET_NAME,
+  type PlotPreset,
+} from '@/lib/plotView';
 import { COMPARE_PALETTE } from '@/lib/compare';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
@@ -74,6 +85,27 @@ export default function ChannelExplorer({
     const ids = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c).map(viewId);
     if (ids.length > 0) savePlotView({ y: ids, x: xKey });
   }, [yKeys, xKey, byKey]);
+  // Named views. The single remembered view above covers "open every flight the way I read
+  // the last one"; these cover the several things a flyer checks on every flight of a season
+  // — the boost, the deployments, the airframe's health — each under its own name.
+  const [presets, setPresets] = useState<PlotPreset[]>([]);
+  const [naming, setNaming] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  useEffect(() => setPresets(loadPresets()), []);
+  const applyPreset = (p: PlotPreset) => {
+    const restored = resolveView(p, channels);
+    if (restored.length > 0) setYKeys(restored);
+    setXKey(p.x === 'time' || channels.some((c) => c.key === p.x) ? p.x : 'time');
+  };
+  const commitPreset = () => {
+    const name = presetName.trim();
+    if (!name) return;
+    const y = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c).map(viewId);
+    setPresets(savePreset(name, { y, x: xKey }));
+    setPresetName('');
+    setNaming(false);
+  };
+
   // Visible x-range, reported by the chart; zoom is the measurement selection.
   const [view, setView] = useState<[number, number] | null>(null);
   const onView = useCallback((min: number, max: number) => {
@@ -266,6 +298,74 @@ export default function ChannelExplorer({
             })}
           </select>
         </label>
+      </div>
+
+      {/* Named views */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Views</span>
+        {presets.map((p) => (
+          <span
+            key={p.name}
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white py-0.5 pl-1.5 pr-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/40"
+          >
+            <button
+              type="button"
+              onClick={() => applyPreset(p)}
+              title={`Plot the “${p.name}” view`}
+              className="min-h-[1.75rem] px-1 font-medium text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400"
+            >
+              {p.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresets(deletePreset(p.name))}
+              aria-label={`Forget the ${p.name} view`}
+              title="Forget this view"
+              className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        {naming ? (
+          <span className="inline-flex items-center gap-1">
+            <input
+              autoFocus
+              aria-label="Name for this view"
+              value={presetName}
+              maxLength={MAX_PRESET_NAME}
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitPreset();
+                if (e.key === 'Escape') {
+                  setNaming(false);
+                  setPresetName('');
+                }
+              }}
+              placeholder="Boost check"
+              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+            <button type="button" onClick={commitPreset} className={ACTION_BTN}>
+              Save
+            </button>
+          </span>
+        ) : (
+          presets.length < MAX_PRESETS && (
+            <button
+              type="button"
+              onClick={() => setNaming(true)}
+              title="Keep this set of channels and axis under a name, for every flight"
+              className={ACTION_BTN}
+            >
+              + Save this view
+            </button>
+          )
+        )}
+        {presets.length > 0 && (
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            kept on this device · a view applies wherever the flight has those channels
+          </span>
+        )}
       </div>
 
       {/* Export what's plotted */}

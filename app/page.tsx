@@ -40,7 +40,9 @@ export default function Home() {
               Debrief&apos;s own Mach and dynamic-pressure channels, then save the plot or its data.
               Open <em>Show the samples</em> to read the exact values behind the curve — the table
               follows the chart&apos;s zoom. However you set the plot up is remembered, so the next
-              flight opens the way you left it.
+              flight opens the way you left it — and <em>+ Save this view</em> keeps several under
+              names you choose (the boost, the deployments, the airframe&apos;s health) to switch
+              between on any flight that has those channels.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch

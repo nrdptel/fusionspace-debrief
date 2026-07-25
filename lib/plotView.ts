@@ -61,3 +61,75 @@ export function savePlotView(view: PlotView): void {
     /* a private window with storage blocked — the view still applies to this session */
   }
 }
+
+// Named views. Remembering the *last* view covers "open every flight the way I read the last
+// one"; a flyer checking several distinct things across a season wants them by name — the
+// boost, the deployments, the airframe's health — which is what OpenRocket's plot
+// configurations and AltosUI's saved graphs give you. Kept on this device like everything
+// else, and applied the same forgiving way: a preset names channels, and only the ones this
+// flight actually has are restored.
+
+const PRESETS_KEY = 'debrief.plotPresets';
+
+/** Enough for a season's worth of habits without letting the strip run away. */
+export const MAX_PRESETS = 8;
+/** Long enough to be descriptive, short enough to stay a chip. */
+export const MAX_PRESET_NAME = 24;
+
+export interface PlotPreset extends PlotView {
+  name: string;
+}
+
+function readPresets(): PlotPreset[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(PRESETS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((p): p is PlotPreset => {
+        if (!p || typeof p !== 'object') return false;
+        const q = p as { name?: unknown; y?: unknown; x?: unknown };
+        return (
+          typeof q.name === 'string' &&
+          q.name.trim().length > 0 &&
+          Array.isArray(q.y) &&
+          q.y.every((v) => typeof v === 'string')
+        );
+      })
+      .map((p) => ({ name: p.name.slice(0, MAX_PRESET_NAME), y: p.y, x: typeof p.x === 'string' ? p.x : 'time' }))
+      .slice(0, MAX_PRESETS);
+  } catch {
+    return [];
+  }
+}
+
+export function loadPresets(): PlotPreset[] {
+  return readPresets();
+}
+
+/** Store a view under a name, replacing one of the same name (trimmed, case-insensitive) so
+ *  re-saving is how you update a preset. Oldest is dropped once the cap is reached. */
+export function savePreset(name: string, view: PlotView): PlotPreset[] {
+  const clean = name.trim().slice(0, MAX_PRESET_NAME);
+  if (!clean || view.y.length === 0) return readPresets();
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const kept = readPresets().filter((p) => !same(p.name, clean));
+  const next = [...kept, { name: clean, y: [...view.y], x: view.x }].slice(-MAX_PRESETS);
+  return writePresets(next);
+}
+
+export function deletePreset(name: string): PlotPreset[] {
+  return writePresets(readPresets().filter((p) => p.name.toLowerCase() !== name.trim().toLowerCase()));
+}
+
+function writePresets(next: PlotPreset[]): PlotPreset[] {
+  if (typeof window === 'undefined') return next;
+  try {
+    window.localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+  } catch {
+    /* storage blocked — the presets still apply to this session */
+  }
+  return next;
+}
