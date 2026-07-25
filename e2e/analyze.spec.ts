@@ -391,7 +391,7 @@ test('a GPS altitude is carried as a second recording and cross-checks apogee', 
   await expect(gps.getByRole('cell', { name: /9,322 ft/ })).toBeVisible();
   await expect(gps.getByText(/agree · \+1\.5%/)).toBeVisible();
   // …and how much of a recording it is, so the reader can weigh it.
-  await expect(gps.getByText(/locked fixes on the way up/)).toBeVisible();
+  await expect(gps.getByText(/three-dimensional fixes on the way up/)).toBeVisible();
 
   // The channel itself is plottable against the barometric line, not just summarised.
   await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'altitude (GPS)' })).toHaveCount(1);

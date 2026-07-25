@@ -95,6 +95,10 @@ test('the compare surface is thumb-sized too', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  // Wait for the flight to actually be IN the logbook before leaving the page — the save
+  // is a background write, and navigating on the render alone raced it.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
 
   await page.goto('/compare');
   await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();

@@ -223,7 +223,8 @@ export const altusMetrumParser: Parser = {
         // loses lock through the whole boost and repeats its pad position and 218 m all
         // the way to 2,400 m, so taking those as data would put the rocket on the pad
         // while the barometer has it a mile up.
-        const locked = !sats || !Number.isFinite(sats.values[i]) || sats.values[i] > 0;
+        const n = sats && Number.isFinite(sats.values[i]) ? sats.values[i] : null;
+        const locked = n === null || n > 0;
         const ok =
           locked &&
           Number.isFinite(la) &&
@@ -234,8 +235,15 @@ export const altusMetrumParser: Parser = {
         if (!ok) {
           lat.values[i] = NaN;
           lon.values[i] = NaN;
-          if (gpsAlt) gpsAlt.values[i] = NaN;
         } else any = true;
+        // The altitude needs one more satellite than the position does. Three gives a 2D
+        // fix — latitude and longitude solved on the assumption of a fixed height — and no
+        // altitude at all; the fourth is what makes the solution 3D (the receiver solves
+        // for x, y, z and its own clock bias, four unknowns needing four satellites). So a
+        // height written beside a 3-satellite fix is an assumption the receiver made, not
+        // something it measured, and it is dropped while the position beside it is kept:
+        // a 2D fix still walks you to the rocket.
+        if (gpsAlt && (!ok || (n !== null && n < 4))) gpsAlt.values[i] = NaN;
       }
       if (any) flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');
     }

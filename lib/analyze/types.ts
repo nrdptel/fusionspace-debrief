@@ -95,8 +95,8 @@ export interface FlightMetrics {
   gpsApogeeAltitude: number | null;
   /** Seconds from liftoff to the GPS recording's own peak. */
   gpsApogeeTime: number | null;
-  /** Locked fixes the GPS recording contributed on the way up — how well it could
-   *  resolve a peak at all. A 1 Hz receiver on a 20-second ascent has twenty. */
+  /** 3D fixes the GPS recording contributed on the way up — how well it could resolve a
+   *  peak at all. A 1 Hz receiver on a 20-second ascent has twenty. */
   gpsAscentFixes: number | null;
 }
 

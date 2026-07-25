@@ -7,6 +7,7 @@
 
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, type UnitChoice } from '@/lib/display';
+import { peakAgreement, peakTimeTolerance } from '@/lib/crossPeak';
 
 export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sys: UnitChoice }) {
   const gps = metrics.gpsApogeeAltitude;
@@ -14,13 +15,14 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
   if (gps == null || !Number.isFinite(baro) || baro <= 0) return null;
 
   const deltaPct = ((gps - baro) / baro) * 100;
-  const close = Math.abs(deltaPct) < 5;
   const gpsT = metrics.gpsApogeeTime;
   const baroT = metrics.timeToApogee;
-  // A peak the two recordings put seconds apart is a disagreement in its own right, even
-  // when the heights match — worth saying rather than leaving to be noticed.
+  // Judged on both axes. Two recordings that put apogee seconds apart did not see the same
+  // instant, and then a close pair of heights is a coincidence rather than corroboration —
+  // so the badge must not say "agree" on the strength of the numbers alone.
+  const verdict = peakAgreement({ value: gps, time: gpsT }, { value: baro, time: baroT });
   const timeApart =
-    gpsT != null && Number.isFinite(baroT) && Math.abs(gpsT - baroT) > Math.max(2, baroT * 0.15)
+    verdict === 'different-peak' && gpsT != null && Number.isFinite(baroT)
       ? Math.abs(gpsT - baroT)
       : null;
 
@@ -59,13 +61,24 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
               <td className="py-1.5">
                 <span
                   className={
-                    close
+                    verdict === 'agree'
                       ? 'inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
                       : 'inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
                   }
+                  title={
+                    verdict === 'different-peak'
+                      ? 'The two recordings put the peak too far apart in time to be the same instant, so how close the heights are says nothing about whether they corroborate each other.'
+                      : undefined
+                  }
                 >
-                  {close ? 'agree' : 'differ'} · {deltaPct > 0 ? '+' : ''}
-                  {Math.abs(deltaPct) < 0.05 ? '≈0' : deltaPct.toFixed(1)}%
+                  {verdict === 'different-peak' ? (
+                    'not the same peak'
+                  ) : (
+                    <>
+                      {verdict === 'agree' ? 'agree' : 'differ'} · {deltaPct > 0 ? '+' : ''}
+                      {Math.abs(deltaPct) < 0.05 ? '≈0' : deltaPct.toFixed(1)}%
+                    </>
+                  )}
                 </span>
               </td>
             </tr>
@@ -75,10 +88,11 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
       <p className="mt-2.5 text-xs text-zinc-500 dark:text-zinc-400">
         {metrics.gpsAscentFixes != null && (
           <>
-            From {metrics.gpsAscentFixes.toLocaleString()} locked{' '}
-            {metrics.gpsAscentFixes === 1 ? 'fix' : 'fixes'} on the way up — samples where the
-            receiver had satellites; with none it repeats its last position, and those are left out
-            rather than read as measurements.{' '}
+            From {metrics.gpsAscentFixes.toLocaleString()} three-dimensional{' '}
+            {metrics.gpsAscentFixes === 1 ? 'fix' : 'fixes'} on the way up — samples with at least
+            four satellites, which is what it takes to solve for a height at all. Three gives a
+            position on an assumed altitude, and none at all makes the receiver repeat its last
+            one; both are left out rather than read as measurements.{' '}
           </>
         )}
         A GPS altitude is coarse (metres, and worse vertically than horizontally) but owes nothing
@@ -87,10 +101,13 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
           <>
             {' '}
             <strong className="font-medium text-amber-700 dark:text-amber-400">
-              The two put the peak {timeApart.toFixed(1)}&nbsp;s apart
+              These are not readings of the same instant: the two put the peak{' '}
+              {timeApart.toFixed(1)}&nbsp;s apart
             </strong>{' '}
-            — the heights may line up, but the recordings do not agree about when it happened, which
-            is worth a look at the curves before either figure is quoted.
+            — more than the {peakTimeTolerance(metrics.timeToApogee).toFixed(1)}&nbsp;s this flight
+            allows for one apogee. However close the heights look, that closeness is a coincidence
+            rather than corroboration; plot the GPS altitude against the barometric line before
+            quoting either.
           </>
         )}
       </p>

@@ -6,6 +6,24 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The GPS cross-check I had just shipped was itself capable of a wrong number with a green
+  badge — found by chasing the disagreement it flagged.** On the sg1.1 booster it read
+  “GPS 2,434 ft, barometer 2,502 ft, agree 2.7%” while noting the peaks were 34 s apart.
+  Plotting the raw columns showed why: that receiver's altitude solution lags the flight
+  completely — it sits at pad level (33 m) through the entire boost and coast while the
+  barometer climbs past 2,450 ft, then drifts *up* to 772 m at t=46 s, under drogue, and is
+  still reading 361 m with the rocket on the ground. Its peak landing within 3% of the true
+  apogee is a coincidence. Two fixes, both from first principles rather than tolerances:
+  **(1) a height needs a 3D fix** — four satellites, because the receiver solves x, y, z and
+  its own clock bias; three gives a position on an *assumed* altitude, which is not a
+  measurement. Costs nothing on the corpus (all four good flights are bit-identical) and does
+  not rescue sg1.1 on its own, but it is right. **(2) agreement is judged on *when* as well as
+  how high** — apogee is one instant, so recordings that put it further apart than the flight
+  allows did not see the same one, and the badge reads “not the same peak” instead of a
+  percentage. Corpus invariant asserts the pairing both ways. **Still open:** nothing detects
+  a lagging GPS solution *as such* — sg1.1's altitude column is unusable and only the time
+  test catches it; a receiver that lagged by less than the tolerance would still read as
+  corroboration.
 - **Found by using the app cold on a launch day's files: the cross-check was offering a 201%
   “agreement” between flights the files date years apart.** The panel's framing (“if these
   are recordings of the same flight…”) is a conditional, so it was never false — but it burnt

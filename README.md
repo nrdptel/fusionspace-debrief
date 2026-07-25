@@ -96,9 +96,12 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   receiver's own altitude, a sensor that owes nothing to the weather or to the air around the
   airframe. Debrief keeps both so you can plot them
   against each other, and states the **GPS apogee beside the barometric one** as a cross-check
-  (never averaged — across the test corpus they differ by −2.7% to +6.5%). A fix is only read
-  where the file says the receiver had satellites: with none it repeats its last position, and
-  one flight in the corpus writes its pad altitude all the way to 2,400 m. Through the transonic push, where the shock over a static port makes the
+  (never averaged — across the test corpus they differ by −2.7% to +6.5%). A height is only
+  read from a **3D fix** — four satellites, since a receiver solves four unknowns — because
+  three gives a position on an assumed altitude and none makes it repeat its last one; one
+  corpus flight writes its pad altitude all the way to 2,400 m. And agreement is judged on
+  *when* as well as how high: two recordings that put apogee seconds apart didn't see the same
+  instant, so a close pair of heights there is coincidence, not corroboration, and it says so. Through the transonic push, where the shock over a static port makes the
   baro trace read the rocket *descending* (one flight reaches 493 ft below its pad) — or, on
   another airframe, climbing faster than the rocket's own measured speed can account for
   (2,495 ft at a burnout where under 900 ft is possible) — the

@@ -9,6 +9,7 @@ import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
+import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -133,6 +134,23 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
       ctx(`GPS apogee ${m.gpsApogeeAltitude.toFixed(0)} m vs barometric ${apo.toFixed(0)} m`),
     ).toBeLessThan(0.25);
     expect(m.gpsAscentFixes, ctx('a stated GPS apogee has fixes behind it')).toBeGreaterThan(0);
+    // …and a GPS apogee that is close in height but nowhere near in time is a coincidence,
+    // not a corroboration. Whichever it is, it must be judged rather than assumed: the
+    // corpus holds one of each, and the second must not read as an agreement.
+    const verdict = peakAgreement(
+      { value: m.gpsApogeeAltitude, time: m.gpsApogeeTime },
+      { value: apo, time: m.timeToApogee },
+    );
+    expect(
+      ['agree', 'differ', 'different-peak'],
+      ctx(`GPS peak verdict ${verdict}`),
+    ).toContain(verdict);
+    if (verdict !== 'different-peak' && m.gpsApogeeTime != null && Number.isFinite(m.timeToApogee)) {
+      expect(
+        Math.abs(m.gpsApogeeTime - m.timeToApogee),
+        ctx('a corroborating GPS peak is at the same instant'),
+      ).toBeLessThanOrEqual(peakTimeTolerance(m.timeToApogee));
+    }
   }
   // A coast can't beat a vacuum. Coast efficiency is the height actually gained from
   // burnout to apogee over the v²/2g a body would gain with no drag at all, so a value above

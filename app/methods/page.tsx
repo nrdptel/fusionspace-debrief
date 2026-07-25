@@ -42,15 +42,26 @@ export default function MethodsPage() {
             averaging the two: where they agree that is real corroboration, and where they don&apos;t
             the gap is the finding. Across the corpus the two differ by &minus;2.7% to +6.5%. The
             analysis itself stays on the barometric channel, which doesn&apos;t jump metres between
-            fixes. Two things have to hold before a GPS figure is a reading. It needs satellites: a
-            receiver with none doesn&apos;t report nothing, it repeats its last position and altitude,
-            and one corpus flight loses lock through the whole boost and writes its pad position all
-            the way to 2,400&nbsp;m — so samples with no fix are dropped rather than read. And the
+            fixes. Two things have to hold before a GPS figure is a reading. It needs <em>four</em> satellites. Three
+            give a 2D fix — latitude and longitude solved on an assumed height — because a receiver
+            solves for x, y, z and its own clock bias, four unknowns needing four satellites; and a
+            receiver with none doesn&apos;t report nothing, it repeats its last position and altitude
+            (one corpus flight loses lock through the whole boost and writes its pad altitude all the
+            way to 2,400&nbsp;m). So a height beside a 2D fix is an assumption the receiver made,
+            not something it measured, and it is dropped — while the position beside it is kept,
+            because a 2D fix still walks you to the rocket. And the
             record has to have come back down from its peak, because a rocket returns to the ground:
             a GPS record whose highest sample is roughly where it stops never saw an apogee, it just
             stopped climbing. Two corpus flights are exactly that, and would otherwise have stated a
             0&nbsp;ft and a 20&nbsp;ft &ldquo;GPS apogee&rdquo; against 3,253&nbsp;ft and
-            3,547&nbsp;ft flights. The receiver&apos;s altitude and its satellite count are both in
+            3,547&nbsp;ft flights. And the cross-check is judged on <em>when</em> as well as how
+            high: apogee is one instant, so two recordings that put it seconds apart did not see the
+            same one, and a close pair of heights is then a coincidence rather than corroboration.
+            A corpus flight shows exactly that — a receiver whose altitude solution lags so far
+            behind that it sits at pad level through the whole climb and peaks 34&nbsp;s later,
+            under drogue, within 3% of the barometric apogee. Read as an agreement that would be a
+            wrong number with a green badge; it reads &ldquo;not the same peak&rdquo;. The
+            receiver&apos;s altitude and its satellite count are both in
             the explorer, so you can plot either against the barometric line.
           </Method>
           <Method title="Ground baseline & altitude">
