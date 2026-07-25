@@ -6,6 +6,28 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- Checked, not a bug: the two jimheaney L1 logs that read Mach ~1.6 (1,838 and 1,809 ft/s
+  on ~2,450 ft apogees) are faithful reads of a *startup transient* — both logs begin
+  mid-boost with the baro filter still converging, and Debrief already warns that the log
+  doesn't start on the pad and that a baro peak past Mach 0.9 bounds nothing. Their ascent
+  velocity never goes negative, so the noise guard correctly leaves them alone. What would
+  actually help is recognising that the opening samples of a log that starts mid-ascent are
+  a filter transient, not flight.
+- 12 of the corpus's 15 same-flight groups are not under reconciliation regression (only 3
+  RECON_GROUPS exist). Several are genuinely comparable and would lock in agreement:
+  ac-lilnuke (4 recordings, apogee within 0.04%), euroc-stacarl2 (1.4%), trf-f1-jan10
+  (1.3%), trf-lemiv-l3 (4 analysable recordings, 2.7% spread).
+- Two recordings of the Stargazer 1.1 *booster* genuinely disagree by 54% on apogee
+  (TeleMetrum 2,502 ft vs StratoLogger 1,435 ft) — and each device's own summary states
+  its own figure, so Debrief reproduces both faithfully. A real device disagreement worth
+  surfacing, not a bug; do not add it as a reconciliation regression.
+- The Blue Raven jan10 LR reads time-to-apogee 39.6 s where its paired Featherweight GPS
+  reads 14.1 s on the same flight, and trf-lemiv-l3's four recordings spread 23.6–28.2 s.
+  Apogee agrees to ~1% in both groups, so this is liftoff or apogee *timing*, not altitude
+  — worth a look.
+- The intrepid3tf2 AL1 recording reads a main descent of 2 ft/s where its AL0 partner reads
+  57 ft/s on the same flight. AL1 is the power-loss file, but 2 ft/s is not a descent.
+
 - An AltimeterCloud export's own peak acceleration sits exactly 1 g below Debrief's
   read on all five corpus files (31.3 G vs 32.3 G, etc.) — the device reports
   acceleration net of gravity, Debrief reports the specific force the accelerometer

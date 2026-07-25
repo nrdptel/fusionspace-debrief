@@ -267,6 +267,40 @@ describe('implausible velocity guard', () => {
     expect(a.series.velocityImplausible).toBe(true);
   });
 
+  it('withholds the velocity when the trace swings negative on the way up', () => {
+    // What a barometer records on an airframe that is tumbling or venting — a spent
+    // booster after separation: the pressure at the port stops tracking altitude, so the
+    // derived velocity swings hard both ways. A climbing, accelerating rocket has no
+    // negative vertical velocity, so the peak beside those dips isn't a reading either.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    // Two-sample-wide excursions, as the real trace shows (447 → 230 → 241 → 579 ft):
+    // a single-sample wobble is what the median filter is there to remove.
+    const boostFrom = Math.round(2 / 0.05);
+    for (let i = boostFrom; i < boostFrom + 40; i++) alt[i] += (Math.floor(i / 2) % 2 ? 30 : -30);
+
+    const a = analyzeFlight(flight);
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.mach).toBeNull();
+    expect(a.metrics.maxDynamicPressure).toBeNull();
+    expect(a.metrics.burnoutVelocity).toBeNull();
+    expect(a.metrics.coastEfficiency).toBeNull();
+    expect(a.warnings.some((w) => /swings well below zero/.test(w))).toBe(true);
+    // Says what it is, not that the column is misidentified — a different fault.
+    expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(false);
+    // The judgement rides on the series, so the explorer withholds the derived curves.
+    expect(a.series.velocityImplausible).toBe(true);
+    // Apogee, timings and the descent still read off the altitude.
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+    expect(a.metrics.mainDescentRate).toBeGreaterThan(0);
+  });
+
+  it('leaves a clean ascent alone (no negative dip to find)', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    expect(a.metrics.maxVelocity).toBeGreaterThan(0);
+    expect(a.warnings.some((w) => /swings well below zero/.test(w))).toBe(false);
+  });
+
   it('keeps a fast but physically-plausible flight (a ~Mach-5 space shot)', () => {
     const a = analyzeFlight(withDeviceVelocity(1800));
     expect(a.metrics.maxVelocity).toBeGreaterThan(1000);

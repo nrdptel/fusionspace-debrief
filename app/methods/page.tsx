@@ -63,7 +63,15 @@ export default function MethodsPage() {
             any rocket — the fastest amateur flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled
             or misidentified velocity column (a raw sensor count read as a speed); such a reading is
             withheld, along with everything derived from it — Mach, max-Q, the burnout velocity and the
-            coast efficiency — rather than reported as an impossible number. A derived speed that peaks
+            coast efficiency — rather than reported as an impossible number. The same figures are
+            withheld when the trace <em>swings below zero on the way up</em>: a climbing, accelerating
+            rocket has no negative vertical velocity, so a trace that dips well under it there is
+            carrying more noise than speed, and the peak beside those dips is that same noise. It is
+            what a barometer records on an airframe that is tumbling or venting — a spent booster after
+            separation — where the pressure at the port stops tracking altitude. Two altimeters that
+            recorded one such booster agree on its apogee to the foot and read peaks of 1,500 and
+            540&nbsp;ft/s, so the honest answer is that neither recording resolves the speed. Apogee,
+            the timings and the descent still read normally from the altitude. A derived speed that peaks
             at or past the transonic region (about Mach&nbsp;0.9 up) carries a further caveat:
             approaching Mach&nbsp;1 the airflow over a barometric pressure port goes locally supersonic
             and a shock sits on it, distorting the sensed pressure and the speed read from it — and the

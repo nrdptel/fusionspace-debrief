@@ -141,6 +141,17 @@ const TROPOSPHERE_LIMIT_M = 11000;
  *  impossible headline. */
 const IMPLAUSIBLE_VELOCITY = 4000;
 
+/** How far a velocity trace may dip below zero on the way up — as a fraction of its own
+ *  ascent peak — before the trace is read as noise rather than speed. Physics puts the
+ *  true figure at zero: a climbing, accelerating rocket has no negative vertical
+ *  velocity. Across the corpus every flight whose ascent trace is a real velocity reads
+ *  exactly 0.00 here; the only exceptions are one flight's two barometric recordings of
+ *  a tumbling booster (0.33 and 0.45) and two already-documented anomalies (0.80, 1.62).
+ *  A fifth of the peak sits a wide margin above the honest readings and well below every
+ *  noise-dominated one, and it tolerates the small dip a real trace can show right at a
+ *  liftoff detected a sample early. */
+const ASCENT_NOISE_FRACTION = 0.2;
+
 /** The range of ambient air temperatures (°C) a rocket is actually launched into on
  *  Earth's surface — from a bitter high-altitude winter pad to the hottest desert
  *  playa, with generous margin. A pad reading outside this isn't a credible ambient
@@ -517,8 +528,26 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   // figure derived from it (Mach, max-Q, the transonic crossing, burnout velocity, coast
   // efficiency), rather than reported as an impossible number; the warning below says why.
   // The flag is read where each of those is computed below.
+  // A velocity trace that dips well below zero on the way UP is not a velocity at all.
+  // Between liftoff and its own peak the rocket is climbing and speeding up, so the
+  // vertical velocity there is positive by definition; a strongly negative reading is
+  // noise, and the positive peak beside it is made of the same noise. This is what a
+  // barometer sees on a booster tumbling after separation: two StratoLoggers recording
+  // one such flight agree on apogee to the foot (1,526 ft each) while their velocity
+  // traces swing to −492 and −246 ft/s on the way up and peak at 1,500 and 540 — so the
+  // honest reading is that neither recording resolves the speed, not that one of them
+  // does. Withheld like any other unusable velocity rather than picked between.
+  let velocityNoiseDominated = false;
+  if (liftoffFound && maxVelIdx >= 0 && Number.isFinite(maxVelocity) && maxVelocity > 0) {
+    let worst = 0;
+    for (let i = liftoffRef; i <= maxVelIdx; i++) {
+      if (Number.isFinite(velocity[i]) && velocity[i] < worst) worst = velocity[i];
+    }
+    velocityNoiseDominated = -worst / maxVelocity > ASCENT_NOISE_FRACTION;
+  }
+
   let velocityImplausible = false;
-  if (Number.isFinite(maxVelocity) && maxVelocity > IMPLAUSIBLE_VELOCITY) {
+  if (Number.isFinite(maxVelocity) && (maxVelocity > IMPLAUSIBLE_VELOCITY || velocityNoiseDominated)) {
     velocityImplausible = true;
     maxVelocity = NaN;
     maxVelIdx = -1;
@@ -922,7 +951,11 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       'A gap in the sampled ascent leaves the peak velocity undeterminable — the top speed may fall in the unrecorded stretch, and a derivative taken across the gap spikes to a spurious figure — so max velocity, Mach, max-Q and any transonic crossing are withheld rather than guessed across it.',
     );
   }
-  if (velocityImplausible) {
+  if (velocityNoiseDominated) {
+    warnings.push(
+      'The velocity on the way up swings well below zero — but a climbing, accelerating rocket has no negative vertical velocity, so this trace is carrying more noise than speed and its peak is that noise, not a reading. It is what a barometer records on an airframe that is tumbling or venting (a spent booster after separation, say), where the pressure at the port stops tracking altitude. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.',
+    );
+  } else if (velocityImplausible) {
     warnings.push(
       'The velocity channel reads implausibly fast — a peak beyond any rocket, so its column or unit is almost certainly misidentified (a raw sensor count read as a speed), or the data is corrupt. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported as impossible numbers; if this is a generic CSV, check the velocity column and its unit in the mapping.',
     );

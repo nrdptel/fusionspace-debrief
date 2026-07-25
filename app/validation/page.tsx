@@ -148,6 +148,16 @@ export default function ValidationPage() {
               to check the mapping.
             </li>
             <li>
+              A <strong>velocity trace that swings below zero on the way up</strong> is noise, not
+              speed — a climbing, accelerating rocket has no negative vertical velocity — so max
+              velocity and everything derived from it is withheld. It is the signature of a tumbling
+              or venting airframe, where the pressure at the static port stops tracking altitude. Two
+              altimeters that recorded one spent booster show it: apogee agrees to the foot
+              (1,526&nbsp;ft each) while their velocity peaks read 1,500 and 540&nbsp;ft/s, so neither
+              recording resolves the speed. Every corpus flight whose ascent trace is a real velocity
+              never dips below zero at all, so an honest reading is never caught by this.
+            </li>
+            <li>
               A <strong>single-source flight</strong> has nothing to cross-check against, so its read
               stands on the invariants and the method alone.
             </li>
