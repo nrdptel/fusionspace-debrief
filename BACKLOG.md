@@ -149,9 +149,17 @@ memory, so a later pass doesn't have to rediscover them.
   a route onward, but a real reader for the AltOS eeprom format (documented, open source)
   would cover files a flyer already has on disk — and each of those three has a paired CSV
   export in the corpus, so there is ground truth to check a reader against.
-- `velocitySource: 'device'` still means "the file had a velocity column", which for a
-  baro-only logger is barometric all the same. The alt-diff test catches the naive case;
-  a device whose velocity column is a *filtered* baro derivative still reads as measured.
+- Fixed: `velocitySource: 'device'` used to mean only "the file had a velocity column", so a
+  baro-only logger's filtered derivative read as measured — 9 corpus flights, including an
+  Eggtimer at 4,483 ft/s on a 4,661 ft apogee (Mach 4.08) and another at 2,671 ft/s on 958 ft,
+  plus the StratoLogger pair at Mach 2.52. A column is measured only where the file carries an
+  accelerometer, a GPS fix, or the device's own inertial altitude (which a Blue Raven low-rate
+  file has without the accelerometer). Corpus split moved from device 30 / baro 15 to device 21
+  / baro 24; every relabelled flight now gets the transonic caveat, and no headline number
+  changed. Still open: the same reasoning says a GPS-only *altitude* can't yield a measured
+  acceleration (already withheld) — but a GPS velocity is Doppler and IS a measurement, which
+  the code now trusts on the presence of a latitude channel alone. If a logger ever writes
+  lat/lon without a Doppler speed, that would be too generous.
 
 ## Craft & product feel
 

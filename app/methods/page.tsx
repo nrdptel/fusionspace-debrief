@@ -82,7 +82,18 @@ export default function MethodsPage() {
             all — a baro-only altimeter has no speed sensor, so what it writes there carries the
             barometer&apos;s quantization as speed, and its peak is that noise (one real export of a
             Mach&nbsp;1.3 flight states 4,880&nbsp;ft/s). Debrief detects that case, re-derives the
-            velocity from the same altitude with proper smoothing, and labels it derived. A peak beyond
+            velocity from the same altitude with proper smoothing, and labels it derived. The weaker
+            version of the same problem is a <em>filtered</em> barometric derivative, which no longer
+            matches the raw difference and slips past that test — caught instead by asking what the
+            device had to measure a speed <em>with</em>. A baro-only altimeter has one sensor, so its
+            velocity column is worked out from its own pressure readings however the firmware smooths
+            them, and it is labelled derived. A column counts as measured only where the file carries
+            an accelerometer, a GPS fix (a Doppler speed is a real measurement), or the device&apos;s
+            own inertial altitude — which can only come from an inertial sensor even when the export
+            leaves the accelerometer out, as a Blue Raven&apos;s low-rate file does. Nine corpus
+            flights used to read as measured with none of the three, among them 4,483&nbsp;ft/s on a
+            4,661&nbsp;ft apogee and 2,671&nbsp;ft/s on 958&nbsp;ft; the numbers the device wrote are
+            still shown, but they now carry every derived-velocity caveat. A peak beyond
             any rocket — the fastest amateur flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled
             or misidentified velocity column (a raw sensor count read as a speed); such a reading is
             withheld, along with everything derived from it — Mach, max-Q, the burnout velocity and the

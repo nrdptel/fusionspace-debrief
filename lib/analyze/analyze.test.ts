@@ -249,7 +249,17 @@ describe('implausible velocity guard', () => {
     const at = Math.max(1, Math.floor(apIdx * 0.5)); // safely within the ascent
     const vel = new Float64Array(flight.time.length);
     for (let i = 0; i < vel.length; i++) vel[i] = peak * Math.max(0, 1 - Math.abs(i - at) / at);
-    return { ...flight, channels: [...flight.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: vel }] };
+    // Plus the inertial altitude a device like this writes. A logged velocity only counts
+    // as measured where the file shows the device had a non-barometric sensor at all — a
+    // pressure sensor alone can't measure a speed, however the firmware filters it.
+    return {
+      ...flight,
+      channels: [
+        ...flight.channels,
+        { kind: 'velocity', label: 'v', unit: 'm/s', values: vel },
+        { kind: 'altitudeInertial', label: 'Inertial_Altitude', unit: 'm', values: alt.slice() },
+      ],
+    };
   }
 
   it('withholds a velocity beyond any rocket, with the figures derived from it, and says why', () => {
@@ -605,8 +615,12 @@ describe('derived-kinematics provenance warnings', () => {
     const alt = flight.channels[0].values;
     const vel = new Float64Array(alt.length);
     for (let i = 1; i < alt.length; i++) vel[i] = (alt[i] - alt[i - 1]) / (flight.time[i] - flight.time[i - 1]);
+    const inertial = Float64Array.from(alt);
     for (let i = 0; i < alt.length; i++) alt[i] = Math.round(alt[i]);
     flight.channels.push({ kind: 'velocity', label: 'v', unit: 'm/s', values: vel });
+    // The inertial altitude such a file also carries — the evidence that this device has a
+    // sensor other than its barometer, without which a logged velocity isn't a measurement.
+    flight.channels.push({ kind: 'altitudeInertial', label: 'Inertial_Altitude', unit: 'm', values: inertial });
     const a = analyzeFlight(flight);
     expect(a.metrics.maxVelocitySource).toBe('device');
     expect(a.metrics.accelerationSource).toBe('baro');
@@ -1099,15 +1113,56 @@ describe('analyzeFlight (barometric)', () => {
     // and exports soften "went supersonic" rather than assert it.
     if (baro.metrics.transonicTime != null) expect(baro.metrics.transonicUnconfirmed).toBe(true);
 
-    // Same flight with a measured velocity channel: the reading is trustworthy, so no
-    // transonic caveat even at the same Mach.
+    // Same flight recorded by a device that can actually measure a speed — an
+    // accelerometer beside the barometer, as every logger with a trustworthy velocity
+    // channel has. The reading is then trustworthy, so no transonic caveat at the same
+    // Mach. (Without that sensor the same column is a filtered barometric derivative and
+    // gets the caveat, which is the next test.)
+    const accel = Float64Array.from(time, (t) => (t - padT > 0 && t - padT <= tBurn ? aBoost + G0 : 0));
     const measured = analyzeFlight({
       ...baseFlight,
-      channels: [...baseFlight.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: Float64Array.from(vel) }],
+      channels: [
+        ...baseFlight.channels,
+        { kind: 'velocity', label: 'v', unit: 'm/s', values: Float64Array.from(vel) },
+        { kind: 'accelAxial', label: 'acc', unit: 'm/s²', values: accel },
+      ],
     });
     expect(measured.series.velocitySource).toBe('device');
     expect(measured.warnings.some((w) => /transonic/i.test(w))).toBe(false);
     expect(measured.metrics.transonicUnconfirmed).toBe(false);
+  });
+
+  it('reads a velocity column as derived when the device had no way to measure a speed', () => {
+    // A baro-only altimeter has one sensor. Whatever its firmware filters, the "velocity"
+    // it writes is worked out from its own pressure readings, so it cannot count as a
+    // second, independent reading — nine corpus flights used to claim it did, one of them
+    // 4,483 ft/s on a 4,661 ft apogee. The column's own numbers are kept; the label is what
+    // changes, and with it every derived-velocity caveat.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    // A plausible filtered velocity: the true profile, so it is NOT this altitude
+    // differenced (which the alt-diff detector catches separately).
+    const vel = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++) vel[i] = (alt[i] - alt[i - 1]) / (flight.time[i] - flight.time[i - 1]);
+    for (let i = 0; i < alt.length; i++) alt[i] = Math.round(alt[i]);
+    const withVel = { ...flight, channels: [...flight.channels, { kind: 'velocity' as const, label: 'Veloc', unit: 'm/s', values: vel }] };
+
+    expect(analyzeFlight(withVel).series.velocitySource).toBe('baro');
+    expect(analyzeFlight(withVel).warnings.some((w) => /derived from altitude/i.test(w))).toBe(true);
+
+    // The same column IS a measurement once the file shows a sensor that can produce one —
+    // an accelerometer, a GPS fix, or the device's own inertial altitude.
+    for (const sensor of [
+      { kind: 'accelAxial' as const, label: 'acc', unit: 'm/s²' },
+      { kind: 'latitude' as const, label: 'lat', unit: '°' },
+      { kind: 'altitudeInertial' as const, label: 'Inertial_Altitude', unit: 'm' },
+    ]) {
+      const a = analyzeFlight({
+        ...withVel,
+        channels: [...withVel.channels, { ...sensor, values: Float64Array.from(alt) }],
+      });
+      expect(a.series.velocitySource, sensor.kind).toBe('device');
+    }
   });
 
   it('builds an atmosphere for the Mach & dynamic-pressure channels', () => {

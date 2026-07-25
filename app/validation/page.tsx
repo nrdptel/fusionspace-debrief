@@ -158,6 +158,15 @@ export default function ValidationPage() {
               never dips below zero at all, so an honest reading is never caught by this.
             </li>
             <li>
+              A <strong>logged velocity is only called measured where the device could measure
+              one</strong>. A pressure sensor cannot measure a speed, so a baro-only
+              altimeter&apos;s velocity column is a barometric derivative however its firmware
+              filters it, and is labelled and caveated as one. Nine corpus flights read as measured
+              without an accelerometer, a GPS fix or an inertial altitude anywhere in the file —
+              including an Eggtimer stating 4,483&nbsp;ft/s on a 4,661&nbsp;ft apogee. Their figures
+              are unchanged; what they claim about themselves is.
+            </li>
+            <li>
               An <strong>apogee cannot come after the descent started</strong>. A deployment charge
               vents the airframe, and a fast logger records that as a burst of swings rather than the
               one- or two-sample spike a median filter removes — so the highest sample can sit well

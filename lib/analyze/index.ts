@@ -401,9 +401,26 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // derived-velocity caveat downstream.
   const deviceVelocityIsAltDiff =
     !!velCh && finiteDifferenceMatch(time, velCh.values, altitudeRaw) >= 0.8;
+  // And a velocity column is only a MEASUREMENT if the device had something to measure a
+  // speed with. A baro-only altimeter has one sensor — a pressure sensor — so whatever
+  // filtering it puts on top, its "velocity" is worked out from its own altitude and
+  // deserves every derived-velocity caveat: the transonic warning, no measured claim, no
+  // credit as a second opinion. The evidence has to be in the file: an accelerometer
+  // channel, a GPS fix (a Doppler speed is a real measurement), or the device's own
+  // inertial altitude, which can only come from an inertial sensor even when the export
+  // doesn't carry the accelerometer itself (a Blue Raven's low-rate file). Nine corpus
+  // flights read as "measured" without any of the three, and some of those figures are
+  // impossible: an Eggtimer states 4,483 ft/s on a 4,661 ft apogee, another 2,671 ft/s on
+  // 958 ft. The column's own numbers are kept — they are what the device reported, and
+  // Debrief doesn't claim to improve them — but the label now says what they are.
+  const hasSpeedSensor =
+    !!getChannel(flight, 'accelAxial') ||
+    !!getChannel(flight, 'accelTotal') ||
+    !!getChannel(flight, 'latitude') ||
+    !!getChannel(flight, 'altitudeInertial');
   if (velCh && !deviceVelocityIsAltDiff) {
     velocity = velCh.values.slice();
-    velocitySource = 'device';
+    velocitySource = hasSpeedSensor ? 'device' : 'baro';
   } else {
     velocity = movingAverage(derivative(time, altSmooth), windowFor(dt, 0.1));
     velocitySource = 'baro';
