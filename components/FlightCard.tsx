@@ -22,9 +22,16 @@ const LINE = '#e4e4e7'; // zinc-200
 
 function drawCard(
   canvas: HTMLCanvasElement,
-  data: { stem: string; formatLabel: string; series: FlightSeries; metrics: FlightMetrics; sys: UnitChoice },
+  data: {
+    stem: string;
+    formatLabel: string;
+    series: FlightSeries;
+    metrics: FlightMetrics;
+    sys: UnitChoice;
+    xRange?: [number, number];
+  },
 ) {
-  const { stem, formatLabel, series, metrics, sys } = data;
+  const { stem, formatLabel, series, metrics, sys, xRange } = data;
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -102,7 +109,7 @@ function drawCard(
   const chartH = H - chartTop - PAD - 24;
   const chartL = PAD;
   const chartR = W - PAD;
-  drawAltitude(ctx, series, metrics, sys, chartL, chartTop, chartR - chartL, chartH, mono, sans);
+  drawAltitude(ctx, series, metrics, sys, chartL, chartTop, chartR - chartL, chartH, mono, sans, xRange);
 
   // Footer.
   ctx.fillStyle = MUTED;
@@ -123,6 +130,7 @@ function drawAltitude(
   h: number,
   mono: string,
   sans: string,
+  xRange?: [number, number],
 ) {
   const { time, altitude } = series;
   const n = Math.min(time.length, altitude.length);
@@ -134,6 +142,9 @@ function drawAltitude(
     const a = altitude[i];
     const t = time[i];
     if (!Number.isFinite(a) || !Number.isFinite(t)) continue;
+    // The card draws the flight, not the file: a pad wait outside the window would
+    // otherwise squeeze the whole climb into the last inch of the curve.
+    if (xRange && (t < xRange[0] || t > xRange[1])) continue;
     if (t < t0) t0 = t;
     if (t > t1) t1 = t;
     if (a > aMax) {
@@ -217,20 +228,24 @@ export default function FlightCard({
   sys,
   stem,
   formatLabel,
+  xRange,
 }: {
   series: FlightSeries;
   metrics: FlightMetrics;
   sys: UnitChoice;
   stem: string;
   formatLabel: string;
+  /** The window the report's charts are framed on, so the card draws the same flight
+   *  they do rather than the whole record. */
+  xRange?: [number, number];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys });
-  }, [series, metrics, sys, stem, formatLabel]);
+    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange });
+  }, [series, metrics, sys, stem, formatLabel, xRange]);
 
   const save = useCallback(() => {
     canvasRef.current?.toBlob((blob) => blob && download(blob, `${stem}-card.png`));

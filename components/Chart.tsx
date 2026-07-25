@@ -111,6 +111,15 @@ export interface ChartProps {
   syncKey?: string;
   /** Called with the visible x-range on init and whenever it changes (zoom). */
   onView?: (min: number, max: number) => void;
+  /** The x-window to open on. Without it the chart opens on the whole series. Used to
+   *  frame a plot on the flight rather than on the file: a logger armed on the pad can
+   *  record minutes before liftoff, and every one of those seconds is axis the flight
+   *  doesn't get. Applied once, after the plot is built, rather than through uPlot's
+   *  `scales.x.range` — that callback is consulted on every `setScale`, not only when the
+   *  scale auto-ranges, so a window set there would pin the axis and swallow every zoom.
+   *  The data outside stays in the series: the double-click reset and the "Full record"
+   *  preset both reach it. */
+  xRange?: [number, number];
 }
 
 export default function Chart({
@@ -127,6 +136,7 @@ export default function Chart({
   ariaLabel,
   syncKey,
   onView,
+  xRange,
 }: ChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
@@ -258,6 +268,10 @@ export default function Chart({
     const plot = new uPlot(opts, data, host);
     plotRef.current = plot;
 
+    // Open on the requested window (see `xRange`). Done here, once, so uPlot treats it as
+    // an ordinary zoom the flyer can zoom out of.
+    if (xRange && xRange[1] > xRange[0]) plot.setScale('x', { min: xRange[0], max: xRange[1] });
+
     // Touch zoom. uPlot binds only mouse events, so on a phone — where this tool
     // is built to be used, reading a log at the field — the charts couldn't be
     // zoomed at all. Add a two-finger pinch on the x-axis (one finger still
@@ -347,7 +361,7 @@ export default function Chart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, xSorted, syncKey, onView]);
+  }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, xSorted, syncKey, onView, xRange]);
 
   return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
 }

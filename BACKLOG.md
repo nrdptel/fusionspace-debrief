@@ -331,6 +331,28 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Found by looking at the app rather than at the tests: the charts were plotting the file,
+  not the flight.** Swept every corpus flight for how much of the plotted axis is actually
+  flight (liftoff → landing). Median **97%** — so the naive version of this worry is wrong and
+  most files are fine — but the tail is severe: `Kairos-Sustainer-March` is **20% flight, with
+  307.7 s of pad wait in front of a 76 s flight**, and three more sit at 28%, 28% and 67%. On
+  those, four fifths of every chart is a rocket standing still and the boost is a sliver you
+  cannot read, worst of all on a phone. The compare surface had solved this a long time ago
+  (`gStart = max(gStart, -1.5)`) and the single-flight report had not — one model, two
+  surfaces, different answers. The report's three charts now open on the flight, the saved
+  SVG figures and the shareable card are framed the same way (a document has to say what the
+  page said), and the zoom row gained a **Flight** preset, renamed *Full* to *Full record*,
+  and now reports which view is showing instead of being four buttons with no state.
+  **Nearly shipped a bad bug doing it:** setting the window through uPlot's `scales.x.range`
+  pins the axis, because that callback runs on every `setScale` and not only when the scale
+  auto-ranges — so the charts silently swallowed every zoom and every preset. Caught by the
+  e2e assertion on the preset's own active state, and the test now drags, checks the view
+  moved, and double-clicks back. **Still open:** the explorer's chart is not framed this way
+  (its x axis can be a channel rather than time, so "the flight" isn't a window there), and
+  on a long descent the velocity plot's y-scale is set by the boost, which leaves the 55 ft/s
+  under canopy as a flat line — a log scale or a per-phase y-range is the honest fix and
+  needs its own pass.
+
 - **The saved report was missing six readings the screen shows.** Chasing why the flight
   report can't reorder its readings (two parallel lists, see Feature depth) turned up the
   reason those lists were worth unifying: `headlineRows` — which feeds the .txt, .md, .html

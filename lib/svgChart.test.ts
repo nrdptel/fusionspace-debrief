@@ -63,3 +63,32 @@ describe('plotSvg', () => {
     expect(titled).toContain('a &amp; &lt;b&gt;');
   });
 });
+
+describe('plotSvg — framing a window inside the record', () => {
+  // A record that holds a long pad wait before a short flight: 300 s at zero, then a
+  // 20 s arc. Drawn whole, the arc is the last 6% of the axis and its shape is lost.
+  const x = Float64Array.from({ length: 320 }, (_, i) => i);
+  const alt = Float64Array.from(x, (t) => (t < 300 ? 0 : Math.max(0, 100 - (t - 310) * (t - 310))));
+
+  it('draws only the requested window, and ranges y inside it', () => {
+    const whole = plotSvg({ x, series: [{ label: 'alt', color: '#000', axis: 'left', values: Array.from(alt) }], xLabel: 't', leftLabel: 'm' });
+    const framed = plotSvg({
+      x,
+      series: [{ label: 'alt', color: '#000', axis: 'left', values: Array.from(alt) }],
+      xLabel: 't',
+      leftLabel: 'm',
+      xRange: [299, 320],
+    });
+    expect(framed).not.toBe(whole);
+    // The whole-record figure's axis starts at the file; the framed one at the flight.
+    expect(whole).toContain('>0<');
+    expect(framed).toContain('>300<');
+    expect(framed).not.toContain('>50<'); // no tick at 50 s — that stretch isn't in view
+  });
+
+  it('clamps a window wider than the record rather than drawing into a corner', () => {
+    const wide = plotSvg({ x, series: [{ label: 'alt', color: '#000', axis: 'left', values: Array.from(alt) }], xLabel: 't', leftLabel: 'm', xRange: [-1000, 5000] });
+    const whole = plotSvg({ x, series: [{ label: 'alt', color: '#000', axis: 'left', values: Array.from(alt) }], xLabel: 't', leftLabel: 'm' });
+    expect(wide).toBe(whole);
+  });
+});

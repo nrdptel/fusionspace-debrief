@@ -294,6 +294,53 @@ export default function FlightReport({
     out.toBlob((blob) => blob && download(blob, `${stem}-altitude.png`));
   }
 
+  // One-click zoom presets that frame all three charts to a flight phase — and the
+  // window the charts OPEN on, which is the flight rather than the file. A logger armed
+  // early records the pad wait, and a corpus TeleMega holds 308 s of it before a 76 s
+  // flight: opened on the whole record, four fifths of that chart is a rocket standing
+  // still. The record either side is never dropped — "Full record" and zooming out reach
+  // it, and it is where the plot returns on a double-click reset.
+  const zoomPresets = useMemo(() => {
+    const t0 = series.time[0] ?? 0;
+    const tEnd = series.time[series.time.length - 1] ?? 0;
+    const at = (type: string) => events.find((e) => e.type === type)?.time;
+    const lo = at('liftoff');
+    const bo = at('burnout');
+    const apo = at('apogee');
+    const land = at('landing');
+    const presets: { label: string; min: number; max: number }[] = [];
+    if (lo != null) {
+      // A little air either side so liftoff and touchdown aren't drawn on the frame.
+      const end = land ?? tEnd;
+      const pad = Math.max(1, (end - lo) * 0.03);
+      presets.push({ label: 'Flight', min: Math.max(t0, lo - pad), max: Math.min(tEnd, end + pad) });
+    }
+    if (lo != null && bo != null && bo > lo) presets.push({ label: 'Boost', min: Math.max(t0, lo - 0.3), max: bo + 1 });
+    if (lo != null && apo != null) presets.push({ label: 'Ascent', min: Math.max(t0, lo - 0.3), max: Math.min(tEnd, apo + (tEnd - apo) * 0.05 + 1) });
+    if (apo != null && land != null && land > apo) presets.push({ label: 'Descent', min: Math.max(t0, apo - 1), max: land });
+    presets.push({ label: 'Full record', min: t0, max: tEnd });
+    return presets;
+  }, [series.time, events]);
+
+  // What the charts open on: the flight where one was detected, the whole record where it
+  // wasn't (a file with no liftoff has no flight window to choose).
+  const chartRange = useMemo<[number, number] | undefined>(() => {
+    const flight = zoomPresets.find((p) => p.label === 'Flight');
+    return flight ? [flight.min, flight.max] : undefined;
+  }, [zoomPresets]);
+
+  // Which preset the charts are currently showing, so the row reports the view instead of
+  // being four buttons with no state. Read off the charts' own visible range (they report
+  // it on init and on every zoom), matched within half a second so a preset still reads as
+  // active after uPlot has rounded the window to its axis.
+  const [view, setView] = useState<[number, number] | null>(null);
+  const onChartView = useCallback((min: number, max: number) => setView([min, max]), []);
+  const activePreset = useMemo(() => {
+    if (!view) return null;
+    const near = zoomPresets.find((p) => Math.abs(p.min - view[0]) < 0.5 && Math.abs(p.max - view[1]) < 0.5);
+    return near?.label ?? null;
+  }, [view, zoomPresets]);
+
   // The report's headline figures as standalone vector SVGs — altitude, and (when
   // recorded) velocity and acceleration — events marked, crisp at any size. One
   // definition feeds both the single Save .svg button and the bundle, so they can't
@@ -312,6 +359,7 @@ export default function FlightReport({
           leftLabel: `${unitsOf(sys).length} AGL`,
           markers: markerDefs,
           dark: figureDark,
+          ...(chartRange ? { xRange: chartRange } : {}),
         }),
       },
     ];
@@ -325,6 +373,7 @@ export default function FlightReport({
           leftLabel: unitsOf(sys).speed,
           markers: markerDefs,
           dark: figureDark,
+          ...(chartRange ? { xRange: chartRange } : {}),
         }),
       });
     }
@@ -338,11 +387,12 @@ export default function FlightReport({
           leftLabel: 'g',
           markers: markerDefs,
           dark: figureDark,
+          ...(chartRange ? { xRange: chartRange } : {}),
         }),
       });
     }
     return figs;
-  }, [series, events, sys, figureDark, stem]);
+  }, [series, events, sys, figureDark, stem, chartRange]);
 
   function saveChartSvg() {
     const [alt] = figureSvgs();
@@ -438,22 +488,6 @@ export default function FlightReport({
   // A per-flight key links the three charts' hover cursor and zoom range.
   const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
 
-  // One-click zoom presets that frame all three charts to a flight phase.
-  const zoomPresets = useMemo(() => {
-    const t0 = series.time[0] ?? 0;
-    const tEnd = series.time[series.time.length - 1] ?? 0;
-    const at = (type: string) => events.find((e) => e.type === type)?.time;
-    const lo = at('liftoff');
-    const bo = at('burnout');
-    const apo = at('apogee');
-    const land = at('landing');
-    const presets: { label: string; min: number; max: number }[] = [];
-    if (lo != null && bo != null && bo > lo) presets.push({ label: 'Boost', min: Math.max(t0, lo - 0.3), max: bo + 1 });
-    if (lo != null && apo != null) presets.push({ label: 'Ascent', min: Math.max(t0, lo - 0.3), max: Math.min(tEnd, apo + (tEnd - apo) * 0.05 + 1) });
-    if (apo != null && land != null && land > apo) presets.push({ label: 'Descent', min: Math.max(t0, apo - 1), max: land });
-    presets.push({ label: 'Full', min: t0, max: tEnd });
-    return presets;
-  }, [series.time, events]);
 
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
@@ -733,16 +767,24 @@ export default function FlightReport({
       {zoomPresets.length > 1 && (
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Zoom to</span>
-          {zoomPresets.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              onClick={() => focusRange(syncKey, p.min, p.max)}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400"
-            >
-              {p.label}
-            </button>
-          ))}
+          {zoomPresets.map((p) => {
+            const active = activePreset === p.label;
+            return (
+              <button
+                key={p.label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => focusRange(syncKey, p.min, p.max)}
+                className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
+                  active
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
+                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </div>
       )}
       <div className="space-y-6">
@@ -757,6 +799,8 @@ export default function FlightReport({
               fmt={altFmt}
               ariaLabel={altLabel}
               syncKey={syncKey}
+              xRange={chartRange}
+              onView={onChartView}
             />
           </div>
         </ChartBlock>
@@ -774,6 +818,8 @@ export default function FlightReport({
             fmt={velFmt}
             ariaLabel={velLabel}
             syncKey={syncKey}
+            xRange={chartRange}
+            onView={onChartView}
           />
         </ChartBlock>
 
@@ -797,6 +843,8 @@ export default function FlightReport({
               fmt={accFmt}
               ariaLabel={accLabel}
               syncKey={syncKey}
+              xRange={chartRange}
+              onView={onChartView}
             />
           </ChartBlock>
         )}
@@ -910,7 +958,7 @@ export default function FlightReport({
       </div>
 
       {/* The shareable card closes the report, once everything it summarizes is shown. */}
-      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} />
+      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} xRange={chartRange} />
 
       {/* Print-only provenance line, so a card that leaves the screen says where
           it came from. */}

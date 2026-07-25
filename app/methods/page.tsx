@@ -402,6 +402,16 @@ export default function MethodsPage() {
             one corpus TeleMetrum insists on 27 Apr 2013 for a flight flown in October 2023, and that
             is the device&apos;s own record, not something to quietly correct.
           </Method>
+          <Method title="What the charts show, and what they leave out">
+            The three plots open on <strong>the flight</strong> — from just before liftoff to just
+            after touchdown — not on the whole file. A logger armed early records the pad wait, and
+            one corpus TeleMega holds 308 seconds of it in front of a 76-second flight: opened on the
+            record, four fifths of that chart is a rocket standing still and the boost is a sliver.
+            Nothing is dropped or trimmed from the data. <em>Full record</em> shows the file end to
+            end, the zoom row says which view you are looking at, and dragging across any chart zooms
+            all three together. The saved figures and the shareable card are framed the same way as
+            the screen, so a document says what the page said.
+          </Method>
           <Method title="Named views">
             The explorer remembers how you last set it up, and you can also keep several plots under
             names you choose — the boost, the deployments, the airframe&apos;s health — and switch

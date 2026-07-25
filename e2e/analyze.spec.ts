@@ -576,3 +576,54 @@ test('the printed report keeps the cross-checks and drops the controls', async (
   await expect(page.getByRole('button', { name: 'Save .md' })).toBeHidden();
   await page.emulateMedia({ media: 'screen' });
 });
+
+// A plot of a flight should open on the flight. A logger armed early records the pad
+// wait, and one corpus TeleMega holds 308 s of it before a 76 s flight — opened on the
+// whole record, four fifths of that chart is a rocket standing still and the boost is a
+// sliver. The record either side is never dropped: "Full record" reaches it.
+test('the charts open on the flight, not on the pad wait before it', async ({ page }) => {
+  const rows = ['Time (s),Alt (ft)'];
+  // 300 s on the pad, a 24 s flight, then 10 s on the ground: the flight is 7% of the file.
+  for (let t = 0; t < 300; t += 1) rows.push(`${t},0`);
+  for (let i = 0; i <= 240; i++) {
+    const t = 300 + i * 0.1;
+    const dt = t - 302;
+    rows.push(`${t.toFixed(1)},${Math.max(0, Math.round(2000 - 15 * dt * dt))}`);
+  }
+  for (let t = 325; t < 335; t += 1) rows.push(`${t},0`);
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'long-pad-wait.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // The zoom row reports which view is showing, and it opens on the flight.
+  const flight = page.getByRole('button', { name: 'Flight', exact: true });
+  await expect(flight).toHaveAttribute('aria-pressed', 'true');
+  const full = page.getByRole('button', { name: 'Full record' });
+  await expect(full).toHaveAttribute('aria-pressed', 'false');
+
+  // …and the whole record is one click away, which then reads as the active view.
+  await full.click();
+  await expect(full).toHaveAttribute('aria-pressed', 'true');
+  await expect(flight).toHaveAttribute('aria-pressed', 'false');
+
+  // The opening window must be an ordinary zoom, not a pinned axis. Setting it through
+  // uPlot's scales.x.range does pin it — that callback runs on every setScale, so the
+  // charts silently swallowed every zoom and every preset. Drag across the altitude
+  // chart: the view has to move off any preset, and the reset has to bring it back.
+  const chart = page.locator('.uplot').first();
+  await chart.scrollIntoViewIfNeeded();
+  const box = await chart.locator('canvas').first().boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width * 0.35, box!.y + box!.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.5, { steps: 12 });
+  await page.mouse.up();
+  await expect(full).toHaveAttribute('aria-pressed', 'false');
+  await expect(flight).toHaveAttribute('aria-pressed', 'false');
+  await page.mouse.dblclick(box!.x + box!.width * 0.5, box!.y + box!.height * 0.5);
+  await expect(full).toHaveAttribute('aria-pressed', 'true');
+});

@@ -30,6 +30,12 @@ export interface SvgChartOpts {
   width?: number;
   height?: number;
   dark?: boolean;
+  /** The x-window to draw, when the figure should frame something narrower than the
+   *  whole series — a flight inside a record that also holds the pad wait. Without it
+   *  the figure spans the data, which is what the explorer and the compare overlay want.
+   *  A saved figure has to match the chart it was saved from, or the document a flyer
+   *  files says something the screen didn't. */
+  xRange?: [number, number];
 }
 
 function xmlEscape(s: string): string {
@@ -99,12 +105,29 @@ export function plotSvg(opts: SvgChartOpts): string {
   const plotH = Math.max(1, height - mT - mB);
 
   const xExt = finiteExtent([opts.x]);
-  const lExt = finiteExtent(left.map((s) => s.values));
-  const rExt = finiteExtent(right.map((s) => s.values));
+  // Range y over the samples INSIDE the window: a pad-time or post-landing outlier
+  // outside the view must not set a scale the visible trace then hides in.
+  const inWindow = (vals: Float64Array | number[]) => {
+    if (!opts.xRange) return vals;
+    const [lo, hi] = opts.xRange;
+    const out: number[] = [];
+    for (let i = 0; i < vals.length && i < opts.x.length; i++) {
+      const xv = opts.x[i];
+      if (Number.isFinite(xv) && xv >= lo && xv <= hi) out.push(vals[i]);
+    }
+    return out;
+  };
+  const lExt = finiteExtent(left.map((s) => inWindow(s.values)));
+  const rExt = finiteExtent(right.map((s) => inWindow(s.values)));
   if (!xExt || (!lExt && !rExt)) {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${bg}"/></svg>`;
   }
-  const [xMin, xMax] = xExt;
+  // Clamp the requested window to the data — a range wider than the record would draw
+  // the trace into a corner, and one that misses it entirely would draw nothing.
+  const [xMin, xMax] =
+    opts.xRange && opts.xRange[1] > opts.xRange[0]
+      ? [Math.max(xExt[0], opts.xRange[0]), Math.min(xExt[1], opts.xRange[1])]
+      : xExt;
 
   const parts: string[] = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="sans-serif">`);
