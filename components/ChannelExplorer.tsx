@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { planAxes, windowStats, exploreCsv, type PlotChannel } from '@/lib/explore';
+import { loadPlotView, resolveView, savePlotView, viewId } from '@/lib/plotView';
 import { COMPARE_PALETTE } from '@/lib/compare';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
@@ -50,8 +51,29 @@ export default function ChannelExplorer({
   const chartRef = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(channels.map((c) => [c.key, c])), [channels]);
 
+  // Restored from however the flyer last set the explorer up, where this flight has those
+  // channels — the tenth flight of a season is read the same way as the ninth. Falls back
+  // to the first channel when nothing matches, so a new logger still opens on something.
   const [yKeys, setYKeys] = useState<string[]>(channels[0] ? [channels[0].key] : []);
   const [xKey, setXKey] = useState('time');
+  // Applied once the flight's channels are known, and again when the flight changes.
+  const channelIds = channels.map((c) => c.key).join('|');
+  useEffect(() => {
+    const saved = loadPlotView();
+    const restored = resolveView(saved, channels);
+    setYKeys(restored.length > 0 ? restored : channels[0] ? [channels[0].key] : []);
+    setXKey(saved && (saved.x === 'time' || channels.some((c) => c.key === saved.x)) ? saved.x : 'time');
+    // channelIds stands in for the channel set: a new flight with the same channels keeps
+    // the view without a needless reset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelIds]);
+
+  // Remember any change, so it is there on the next flight and the next visit.
+  useEffect(() => {
+    if (yKeys.length === 0) return;
+    const ids = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c).map(viewId);
+    if (ids.length > 0) savePlotView({ y: ids, x: xKey });
+  }, [yKeys, xKey, byKey]);
   // Visible x-range, reported by the chart; zoom is the measurement selection.
   const [view, setView] = useState<[number, number] | null>(null);
   const onView = useCallback((min: number, max: number) => {

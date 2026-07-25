@@ -287,3 +287,26 @@ test('the explorer shows the samples behind the plot, in the chosen units', asyn
   await page.locator('details select').nth(0).selectOption('m');
   await expect(table.locator('thead')).toContainText('m');
 });
+
+// A season's tenth flight is read the same way as its ninth. The explorer used to forget
+// the configured view on every new flight and every reload — the "controls that forget"
+// failure. OpenRocket's plot dialog and AltosUI both keep the series you enabled.
+test('the explorer remembers how you set it up', async ({ page }) => {
+  const chart = () => page.locator('[aria-label^="Line chart of"]').first();
+  const open = async () => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Try a sample flight' }).click();
+    await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  };
+
+  await open();
+  await expect(chart()).toHaveAttribute('aria-label', /Altitude \(AGL\) against Time/);
+
+  // Configure it: overlay a second channel.
+  await page.getByLabel('Add a channel to the plot').selectOption({ label: 'Velocity' });
+  await expect(chart()).toHaveAttribute('aria-label', /Altitude \(AGL\), Velocity against Time/);
+
+  // A fresh visit opens on the same view.
+  await open();
+  await expect(chart()).toHaveAttribute('aria-label', /Altitude \(AGL\), Velocity against Time/);
+});

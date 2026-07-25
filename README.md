@@ -105,7 +105,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   **dynamic pressure** (the transonic and max-Q curves a rocket is designed around) —
   against time, or one channel against another (e.g. velocity vs altitude), with a
   second axis for mixed units and live min/max/mean/Δ/rate over the zoomed window —
-  and save the current plot as a PNG, a **vector SVG** (crisp at any size for a report or
+  remembering the channels and axis you chose so the next flight opens the same way, and
+  save the current plot as a PNG, a **vector SVG** (crisp at any size for a report or
   slide), or its exact data (your axes, your units) as CSV.
 - Shows you the numbers, not just the picture — the explorer opens the **samples behind the
   plot**: every recorded value in a scrollable table, in the units you chose, following the

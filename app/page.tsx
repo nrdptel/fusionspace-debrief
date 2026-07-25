@@ -35,7 +35,8 @@ export default function Home() {
               any channel the logger recorded, against time or one against another, alongside
               Debrief&apos;s own Mach and dynamic-pressure channels, then save the plot or its data.
               Open <em>Show the samples</em> to read the exact values behind the curve — the table
-              follows the chart&apos;s zoom.
+              follows the chart&apos;s zoom. However you set the plot up is remembered, so the next
+              flight opens the way you left it.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch

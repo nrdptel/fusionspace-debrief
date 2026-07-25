@@ -102,6 +102,11 @@ memory, so a later pass doesn't have to rediscover them.
 
 Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
 
+- **Named view presets.** The explorer now remembers *one* view (the last one). OpenRocket
+  lets you keep several plot configurations; a flyer checking the same three things on every
+  flight of a season would want to name and switch between them — and that is the same
+  machinery the report/export builder needs.
+
 - **Per-quantity units.** Debrief has one feet/metres switch (acceleration is always g,
   pressure follows the system). AltosUI lets you choose the unit for each quantity, and a
   cert document may want mph or km/h for speed and °C for temperature regardless. North
