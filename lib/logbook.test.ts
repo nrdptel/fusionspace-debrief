@@ -85,3 +85,27 @@ describe('filterRecents', () => {
     expect(filterRecents(list, '   ')).toHaveLength(3);
   });
 });
+
+describe('sorting and searching by the launch day', () => {
+  const at = (id: string, stamp?: string): RecentMeta => ({
+    id,
+    name: `${id}.csv`,
+    formatLabel: 'Test',
+    addedAt: 0,
+    apogeeM: null,
+    maxVelocityMs: null,
+    note: '',
+    ...(stamp ? { flownAt: { stamp, zone: 'UTC' as const } } : {}),
+  });
+
+  it('orders by the launch day, newest first, and sinks the undated', () => {
+    const list = [at('old', '2021-10-30T20:07'), at('undated'), at('new', '2024-05-11T14:09')];
+    expect(sortRecents(list, 'flown').map((r) => r.id)).toEqual(['new', 'old', 'undated']);
+  });
+
+  it('finds a launch by its month and year, the way the row shows it', () => {
+    const list = [at('a', '2021-10-30T20:07'), at('b', '2024-05-11T14:09')];
+    expect(filterRecents(list, 'oct 2021').map((r) => r.id)).toEqual(['a']);
+    expect(filterRecents(list, '2024-05').map((r) => r.id)).toEqual(['b']);
+  });
+});

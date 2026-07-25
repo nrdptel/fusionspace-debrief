@@ -6,6 +6,7 @@ import { fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
 import { sortRecents, filterRecents, personalBests, type LogbookSort } from '@/lib/logbook';
+import { formatFlownAt } from '@/lib/flight/flownAt';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -13,6 +14,7 @@ const SEARCH_FROM = 4;
 
 const SORTS: { key: LogbookSort; label: string }[] = [
   { key: 'recent', label: 'Recent' },
+  { key: 'flown', label: 'Flown' },
   { key: 'apogee', label: 'Apogee' },
   { key: 'speed', label: 'Speed' },
 ];
@@ -287,7 +289,15 @@ export default function RecentFlights({
                     )}
                     {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
                   </span>
-                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{relativeTime(r.addedAt)}</span>
+                  {/* The launch day where the file states it — that's what a logbook entry
+                      is about. Only when the file says nothing does the row fall back to
+                      when it was opened here, which is a fact about this device. */}
+                  <span
+                    className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400"
+                    title={r.flownAt ? `Flew ${formatFlownAt(r.flownAt)}` : `Opened ${relativeTime(r.addedAt)}`}
+                  >
+                    {r.flownAt ? formatFlownAt(r.flownAt).replace(/,.*$/, '') : relativeTime(r.addedAt)}
+                  </span>
                 </button>
                 <button
                   type="button"

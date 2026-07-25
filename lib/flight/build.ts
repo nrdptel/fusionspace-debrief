@@ -4,6 +4,7 @@
 
 import type { RawFlight, Channel, ChannelKind, ReportedValue } from './types';
 import type { ColumnRole } from './columns';
+import type { FlownAt } from './flownAt';
 import { resolveUnit, CANONICAL } from '../units';
 import { parseNumber } from '../csv';
 
@@ -51,6 +52,8 @@ export interface BuildOptions {
   meta?: Record<string, string | number>;
   notes?: string[];
   reported?: ReportedValue[];
+  /** When the flight flew, where the source file states it. */
+  flownAt?: FlownAt;
 }
 
 function num(cell: string | undefined): number {
@@ -141,5 +144,6 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     meta: opts.meta ?? {},
     notes,
     ...(opts.reported?.length ? { reported: opts.reported } : {}),
+    ...(opts.flownAt ? { flownAt: opts.flownAt } : {}),
   };
 }

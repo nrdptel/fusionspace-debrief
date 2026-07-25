@@ -18,6 +18,7 @@ import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { RawFlight, Channel } from '../flight/types';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
+import { flownAtFromColumns } from '../flight/flownAt';
 
 const ATM_PA = 101325;
 const HR_HINT =
@@ -91,6 +92,19 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
 
   const where = (pred: (h: string) => boolean) => lower.findIndex(pred);
   const timeIdx = where((h) => h.includes('flight_time'));
+  // A Blue Raven stamps every sample with its own calendar date and wall clock
+  // (Year,Month,Day,Time) — the device's clock, with no zone stated, so it's carried as
+  // the logger's own rather than pretended to be UTC.
+  const clock = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(dataRows.find((r) => (r[where((h) => h === 'time')] ?? '').includes(':'))?.[where((h) => h === 'time')] ?? '');
+  const flownAt = flownAtFromColumns(
+    dataRows,
+    { year: where((h) => h === 'year'), month: where((h) => h === 'month'), day: where((h) => h === 'day') },
+    'logger',
+  );
+  const flownAtWithClock =
+    flownAt && clock
+      ? { ...flownAt, stamp: `${flownAt.stamp}T${clock[1].padStart(2, '0')}:${clock[2]}${clock[3] ? `:${clock[3]}` : ''}` }
+      : flownAt;
   // Prefer the barometric AGL altitude; the inertial altitude drifts (a real
   // flight reads ~11% high on the inertial channel vs baro).
   const aglIdx = where((h) => h.includes('baro') && h.includes('agl'));
@@ -139,6 +153,7 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
     dataRows,
     mappings,
     meta: { device: 'Featherweight Blue Raven' },
+    flownAt: flownAtWithClock ?? undefined,
     notes: [note],
   });
 }

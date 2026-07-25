@@ -10,6 +10,7 @@
 import type { Parser, ParseInput } from './types';
 import type { RawFlight, Channel } from '../flight/types';
 import { parseTable } from '../csv';
+import { flownAtFromText } from '../flight/flownAt';
 
 function findHeaderRow(rows: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
@@ -35,7 +36,17 @@ export const featherweightGpsParser: Parser = {
     if (headerIdx < 0) throw new Error('Could not find the Featherweight GPS header.');
     const header = rows[headerIdx].map((c) => c.trim().toLowerCase());
     const idx = (name: string) => header.indexOf(name);
+    const cUtc = idx('utctime');
     const cUt = idx('unixtime');
+    // The stated UTC stamp of the first fix that carries one: the flight's own date and
+    // time, straight off the satellites. Rows before a lock hold a placeholder, which
+    // flownAtFromText rejects rather than guesses at.
+    const flownAt =
+      (cUtc >= 0
+        ? rows
+            .slice(headerIdx + 1)
+            .reduce<ReturnType<typeof flownAtFromText>>((got, r) => got ?? flownAtFromText(r[cUtc] ?? '', 'UTC'), null)
+        : null) ?? undefined;
     const cAlt = idx('alt');
     const cLat = idx('lat');
     const cLon = idx('lon');
@@ -98,6 +109,9 @@ export const featherweightGpsParser: Parser = {
       time,
       channels,
       meta: { device: 'Featherweight GPS', altitudeSource: 'gps' },
+      // Every fix is stamped `Apr 17 2021 19:06:45.800 UTC` — a GPS's own UTC, so the
+      // flight carries the day and time it flew without any zone guesswork.
+      ...(flownAt ? { flownAt } : {}),
       notes: [
         'Featherweight GPS log: altitude is the GPS reading, which is coarser than a barometer — read it as approximate. The ground track shows where the rocket drifted and landed.',
       ],

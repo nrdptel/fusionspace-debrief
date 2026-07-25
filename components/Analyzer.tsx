@@ -142,6 +142,7 @@ export default function Analyzer() {
             formatLabel: result.flight.formatLabel,
             apogeeM: analysis.metrics.apogeeAltitude ?? null,
             maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+            ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             text,
           }).then(refreshRecents);
         } else if (result.table.dataRows.length === 0) {
@@ -233,6 +234,7 @@ export default function Analyzer() {
             formatLabel: result.flight.formatLabel,
             apogeeM: analysis.metrics.apogeeAltitude ?? null,
             maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+            ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             text,
           });
         } catch (e) {
@@ -308,6 +310,7 @@ export default function Analyzer() {
           formatLabel: 'Generic CSV',
           apogeeM: analysis.metrics.apogeeAltitude ?? null,
           maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+          ...(flight.flownAt ? { flownAt: flight.flownAt } : {}),
           text,
         }).then(refreshRecents);
       } catch (err) {

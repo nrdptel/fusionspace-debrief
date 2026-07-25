@@ -4,6 +4,8 @@
 // as the rest of the app, and it can be cleared in one tap. All calls fail soft —
 // private-mode or storage-blocked browsers just won't remember anything.
 
+import type { FlownAt } from './flight/flownAt';
+
 export interface RecentMeta {
   id: string;
   name: string;
@@ -12,6 +14,10 @@ export interface RecentMeta {
   apogeeM: number | null;
   /** Max velocity (m/s) for the logbook; null when the flight didn't yield one. */
   maxVelocityMs: number | null;
+  /** When the flight flew, where its file states it (see lib/flight/flownAt.ts). Absent on
+   *  entries saved before this was read, and on files that carry no date — the logbook shows
+   *  when it was opened in that case rather than inventing a launch day. */
+  flownAt?: FlownAt;
   /** A free-text logbook note (motor, conditions, cert…). A noted flight is kept
    *  rather than pruned — it's a logbook entry, not just a recent. */
   note: string;
@@ -100,7 +106,7 @@ export async function listRecents(): Promise<RecentMeta[]> {
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
     return all
       .sort((a, b) => b.addedAt - a.addedAt)
-      .map(({ id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note }) => ({
+      .map(({ id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note, flownAt }) => ({
         id,
         name,
         formatLabel,
@@ -109,6 +115,8 @@ export async function listRecents(): Promise<RecentMeta[]> {
         // Older records predate these fields — treat them as "unknown"/empty.
         maxVelocityMs: maxVelocityMs ?? null,
         note: note ?? '',
+        // Only where the file stated it; entries saved before this was read have none.
+        ...(flownAt ? { flownAt } : {}),
       }));
   } catch {
     return [];
@@ -177,7 +185,19 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     apogeeM: typeof r.apogeeM === 'number' ? r.apogeeM : null,
     maxVelocityMs: typeof r.maxVelocityMs === 'number' ? r.maxVelocityMs : null,
     note: typeof r.note === 'string' ? r.note : '',
+    // A restored backup keeps the launch day, so the logbook doesn't come back dateless.
+    // Validated rather than trusted: a hand-edited file shouldn't inject a shape.
+    ...(flownAtOf(r.flownAt) ? { flownAt: flownAtOf(r.flownAt)! } : {}),
   };
+}
+
+/** A stored/imported `flownAt`, or null when it isn't one. */
+function flownAtOf(v: unknown): FlownAt | null {
+  if (!v || typeof v !== 'object') return null;
+  const f = v as Record<string, unknown>;
+  if (typeof f.stamp !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(f.stamp)) return null;
+  if (f.zone !== 'UTC' && f.zone !== 'logger') return null;
+  return { stamp: f.stamp, zone: f.zone };
 }
 
 /** Parse an exported logbook (the envelope, or a bare array of flights) into

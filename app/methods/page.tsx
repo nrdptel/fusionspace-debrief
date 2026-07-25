@@ -287,6 +287,21 @@ export default function MethodsPage() {
             — so a high-elevation launch reads its real, thinner air. Both ride on the velocity, so
             they soften near peak speed.
           </Method>
+          <Method title="When the flight flew">
+            Where the file says, Debrief reads the flight&apos;s own date and time and shows it beside
+            the read — on the report, in every export, and as the launch day in your logbook, which
+            you can sort and search by. Three of the loggers here state it: Altus Metrum and a
+            Featherweight GPS write a GPS&apos;s <strong>UTC</strong>, and a Blue Raven writes its own
+            wall clock with no zone at all. Whose clock it is is kept and labelled, and nothing is ever
+            converted between zones — one corpus flight recorded on both devices reads 14:55 on the
+            Blue Raven and 22:55 UTC on the GPS, and re-projecting either into your browser&apos;s zone
+            would land it on the wrong hour and sometimes the wrong day. A file that states no date
+            gets none: the file&apos;s modification time is when it was copied off the altimeter, not
+            when it flew. A clock that was never set is dropped rather than shown (a GPS with no lock
+            writes zeros), but a clock that was set <em>wrongly</em> is reported as the file states it —
+            one corpus TeleMetrum insists on 27 Apr 2013 for a flight flown in October 2023, and that
+            is the device&apos;s own record, not something to quietly correct.
+          </Method>
           <Method title="Logbook & backup">
             Flights you open are remembered in this browser (IndexedDB) for quick re-opening,
             and a note keeps one as a permanent logbook entry. Because that lives only on this

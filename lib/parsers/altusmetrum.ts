@@ -15,6 +15,7 @@ import type { RawFlight } from '../flight/types';
 import { getChannel } from '../flight/types';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
+import { flownAtFromColumns } from '../flight/flownAt';
 
 function stripHash(cell: string): string {
   return cell.replace(/^#\s*/, '').trim();
@@ -94,6 +95,11 @@ function parseTelemetry(input: ParseInput, rows: string[][]): RawFlight {
     headers,
     dataRows,
     mappings,
+    flownAt: flownAtFromColumns(
+      dataRows,
+      { year: col('year'), month: col('month'), day: col('day'), hour: col('hour'), minute: col('minute'), second: col('second') },
+      'UTC',
+    ) ?? undefined,
     notes: [
       'Read from the AltOS radio-telemetry log in AltOS’s native metric units. Telemetry is lossy — downsampled, and often cut off mid-descent when the signal drops — so treat it as a cross-check against the on-board flight log, not a complete record.',
     ],
@@ -168,6 +174,13 @@ export const altusMetrumParser: Parser = {
       dataRows,
       mappings,
       meta,
+      // AltOS writes the GPS date and time of day as their own columns, so the flight
+      // carries when it flew — in UTC, since that is what a GPS reports.
+      flownAt: flownAtFromColumns(
+        dataRows,
+        { year: col('year'), month: col('month'), day: col('day'), hour: col('hour'), minute: col('minute'), second: col('second') },
+        'UTC',
+      ) ?? undefined,
       notes: ['Altitude is the AltOS AGL "height" channel; values are read in AltOS’s native metric units.'],
     });
 

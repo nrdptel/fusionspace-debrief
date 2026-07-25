@@ -3,8 +3,9 @@
 // only "best of the flights you have on this device", never an all-time claim.
 
 import type { RecentMeta } from './recents';
+import { formatFlownAt } from './flight/flownAt';
 
-export type LogbookSort = 'recent' | 'apogee' | 'speed';
+export type LogbookSort = 'recent' | 'flown' | 'apogee' | 'speed';
 
 /** A copy of the list ordered by the chosen key (descending for the metrics,
  *  most-recent-first for time). Missing values sink to the bottom. */
@@ -13,7 +14,12 @@ export function sortRecents(recents: RecentMeta[], sort: LogbookSort): RecentMet
   const num = (v: number | null | undefined) => (v != null && Number.isFinite(v) ? v : -Infinity);
   if (sort === 'apogee') out.sort((a, b) => num(b.apogeeM) - num(a.apogeeM));
   else if (sort === 'speed') out.sort((a, b) => num(b.maxVelocityMs) - num(a.maxVelocityMs));
-  else out.sort((a, b) => b.addedAt - a.addedAt);
+  else if (sort === 'flown') {
+    // Newest launch day first. The stamps are 'YYYY-MM-DD…', so they order as strings; a
+    // flight whose file states no date has no launch day to sort by and sinks to the
+    // bottom rather than being given one.
+    out.sort((a, b) => (b.flownAt?.stamp ?? '').localeCompare(a.flownAt?.stamp ?? ''));
+  } else out.sort((a, b) => b.addedAt - a.addedAt);
   return out;
 }
 
@@ -24,14 +30,16 @@ export function sortRecents(recents: RecentMeta[], sort: LogbookSort): RecentMet
  * (which is where the motor and conditions live).
  *
  * Every whitespace-separated term has to match somewhere, in any order, so "raven h135"
- * narrows to one flight where a single substring couldn't. Case- and accent-insensitive;
+ * narrows to one flight where a single substring couldn't. The launch day the file stated is
+ * in there too, so "oct 2021" finds a launch. Case- and accent-insensitive;
  * an empty or whitespace query matches everything rather than nothing.
  */
 export function filterRecents(recents: RecentMeta[], query: string): RecentMeta[] {
   const terms = fold(query).split(/\s+/).filter(Boolean);
   if (terms.length === 0) return recents;
   return recents.filter((r) => {
-    const hay = fold(`${r.name} ${r.formatLabel} ${r.note ?? ''}`);
+    // The launch day is searchable too, in the form it's shown: "oct 2021" or "2021-10".
+    const hay = fold(`${r.name} ${r.formatLabel} ${r.note ?? ''} ${r.flownAt?.stamp ?? ''} ${formatFlownAt(r.flownAt)}`);
     return terms.every((t) => hay.includes(t));
   });
 }

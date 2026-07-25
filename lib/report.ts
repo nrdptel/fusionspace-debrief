@@ -22,6 +22,7 @@ import {
 } from './display';
 import type { UnitChoice } from './display';
 import { compareReported } from './flight/reported';
+import { formatFlownAt } from './flight/flownAt';
 import { crossCheck, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
 import { formulaGuard } from './csv';
@@ -211,6 +212,9 @@ export function summaryText(
   lines.push('Debrief — flight report');
   if (label) lines.push(label);
   lines.push(`${flight.source} · ${flight.formatLabel}`);
+  // When it flew, where the file states it — the date a cert document or logbook wants,
+  // and a different fact from when this report was produced.
+  if (flight.flownAt) lines.push(`Flew ${formatFlownAt(flight.flownAt)}`);
   if (analyzedAt) lines.push(`Analyzed ${formatAnalyzedAt(analyzedAt)}`);
   if (notes) {
     lines.push('');
@@ -275,8 +279,9 @@ export function summaryMarkdown(
   out.push('# Debrief — flight report');
   out.push('');
   if (label) out.push(`## ${cell(label)}`, '');
+  const flew = flight.flownAt ? ` · Flew ${cell(formatFlownAt(flight.flownAt))}` : '';
   const stamp = analyzedAt ? ` · Analyzed ${formatAnalyzedAt(analyzedAt)}` : '';
-  out.push(`**${cell(flight.source)}** · ${cell(flight.formatLabel)}${stamp}`);
+  out.push(`**${cell(flight.source)}** · ${cell(flight.formatLabel)}${flew}${stamp}`);
   out.push('');
   if (notes) {
     // A blockquote keeps the flyer's own words distinct from the read; each line
@@ -401,7 +406,8 @@ export function summaryHtml(
 ): string {
   const label = clean(meta?.label);
   const notes = clean(meta?.notes);
-  const stamp = analyzedAt ? ` · Analyzed ${esc(formatAnalyzedAt(analyzedAt))}` : '';
+  const flew = flight.flownAt ? ` · Flew ${esc(formatFlownAt(flight.flownAt))}` : '';
+  const stamp = `${flew}${analyzedAt ? ` · Analyzed ${esc(formatAnalyzedAt(analyzedAt))}` : ''}`;
   const title = label ? `${label} — Debrief flight report` : `Debrief flight report — ${flight.source}`;
 
   const metricRows = headlineRows(analysis.metrics, sys, recovery)
@@ -872,6 +878,9 @@ export function analysisJson(
     ...(label ? { label } : {}),
     ...(notes ? { notes } : {}),
     analyzedAt: analyzedAt ? new Date(analyzedAt).toISOString() : null,
+    // The stamp exactly as the file states it, with whose clock it is — never
+    // re-projected into another zone, and null when the file carries no date.
+    flownAt: flight.flownAt ? { stamp: flight.flownAt.stamp, clock: flight.flownAt.zone } : null,
     units: jsonUnits(sys),
     altitudeSource: series.altitudeSource,
     metrics: jsonMetrics(m, sys),

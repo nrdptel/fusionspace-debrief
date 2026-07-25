@@ -6,6 +6,7 @@ import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, speedIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, type RecoveryFigures } from '@/lib/report';
+import { formatFlownAt } from '@/lib/flight/flownAt';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
@@ -611,6 +612,14 @@ export default function FlightReport({
       )}
 
       <p className="-mt-4 text-xs text-zinc-500 dark:text-zinc-400">
+        {/* When it flew comes first where the file says: that's the flight's own date, and
+            the one a cert document or a logbook entry wants. When it was read is ours. */}
+        {flight.flownAt && (
+          <>
+            Flew <time dateTime={flight.flownAt.stamp}>{formatFlownAt(flight.flownAt)}</time>
+            {' · '}
+          </>
+        )}
         Analyzed{' '}
         <time dateTime={new Date(analyzedAt).toISOString()}>{formatAnalyzedAt(analyzedAt)}</time>
       </p>
@@ -853,7 +862,9 @@ export default function FlightReport({
       {/* Print-only provenance line, so a card that leaves the screen says where
           it came from. */}
       <p className="hidden text-center text-[11px] text-zinc-500 print:block">
-        debrief.fusionspace.co · analyzed {formatAnalyzedAt(analyzedAt)}
+        debrief.fusionspace.co ·{' '}
+        {flight.flownAt ? `flew ${formatFlownAt(flight.flownAt)} · ` : ''}analyzed{' '}
+        {formatAnalyzedAt(analyzedAt)}
       </p>
     </div>
   );

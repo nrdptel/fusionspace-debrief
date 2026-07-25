@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import path from 'node:path';
+import { readFileSync } from 'node:fs';
 
 // The logbook backup/restore round-trip: export the remembered flights (and their
 // notes) to a file, clear the device, then import the file back and prove the
@@ -122,4 +124,40 @@ test('the logbook can be searched by name, logger and note', async ({ page }) =>
   await page.getByRole('button', { name: 'Show all 4' }).click();
   await expect(rows).toHaveCount(4);
   await expect(search).toHaveValue('');
+});
+
+// A flight's own date, where the file states it: on the report, in the export, and as the
+// launch day in the logbook — which can then be sorted and searched by it.
+test('a flight that states when it flew says so, and the logbook keeps it', async ({ page }) => {
+  // A real Blue Raven app export: Year,Month,Day + a Time column, and no zone stated
+  // anywhere, so the date is the device's own clock.
+  const fx = path.join(__dirname, '../lib/parsers/__fixtures__/blueraven-app-lr.csv');
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'blueraven-may.csv', mimeType: 'text/csv', buffer: readFileSync(fx) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  // The report says when it flew, labelled as the logger's own clock — never re-projected
+  // into this browser's zone.
+  await expect(page.getByText(/Flew 11 May 2024, 14:09 \(logger clock\)/)).toBeVisible();
+
+  // And it rides into the text export.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .txt' }).click(),
+  ]);
+  const stream = await dl.createReadStream();
+  const txt = await new Promise<string>((res) => {
+    let s = '';
+    stream!.on('data', (c) => (s += c));
+    stream!.on('end', () => res(s));
+  });
+  expect(txt).toContain('Flew 11 May 2024, 14:09 (logger clock)');
+
+  // The logbook row shows the launch day rather than when the file was opened.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  const row = page.getByRole('list', { name: 'Your flights' }).getByRole('listitem').first();
+  await expect(row).toContainText('11 May 2024');
+  await expect(row).not.toContainText('just now');
 });

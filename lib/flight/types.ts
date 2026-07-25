@@ -3,6 +3,8 @@
 // The analysis pipeline only ever sees this shape, so adding a new logger never
 // touches the analysis.
 
+import type { FlownAt } from './flownAt';
+
 export type ChannelKind =
   | 'altitude' // height (canonical metres) — AGL once a baseline is set
   | 'altitudeInertial' // the logger's own inertial (accelerometer-integrated) height, m —
@@ -55,6 +57,10 @@ export interface RawFlight {
   channels: Channel[];
   /** Free-form metadata pulled from the file (device, serial, ground level…). */
   meta: Record<string, string | number>;
+  /** When the flight flew, where the file states it — a GPS fix's UTC or the logger's own
+   *  wall clock. Absent when the file carries no date; never inferred from the file itself
+   *  arriving on this device. See ./flownAt.ts. */
+  flownAt?: FlownAt;
   /** Anything the parser wants the reader to know (carried-forward rows, etc). */
   notes: string[];
   /** Headline figures the logger computed and wrote into the file — kept for a

@@ -149,3 +149,37 @@ describe('real files — Blue Raven phone-app low-rate, vs its summary', () => {
     expect(a.metrics.drogueDescentRate!).toBeGreaterThan(a.metrics.mainDescentRate!);
   });
 });
+
+// The date a flight flew, where the file states it. Three loggers do: AltOS and a
+// Featherweight GPS write a GPS's UTC, a Blue Raven writes its own wall clock. Whose clock
+// it is has to survive, because the same flight reads differently through each — a corpus
+// pair recorded on both stamps 14:55 on the Blue Raven and 22:55 UTC on the GPS.
+describe('real files — when the flight flew', () => {
+  const flightOf = (file: string, as = file) => {
+    const r = importFlight({ name: as, text: read(file) });
+    if (r.kind !== 'flight') throw new Error(`${file} did not auto-detect`);
+    return r.flight;
+  };
+
+  it('reads the GPS date out of an AltOS log, as UTC', () => {
+    expect(flightOf('altusmetrum-telemetrum.csv').flownAt).toEqual({ stamp: '2021-10-30T20:07:50', zone: 'UTC' });
+  });
+
+  it('reads a Featherweight GPS’s stated UTC stamp', () => {
+    expect(flightOf('featherweight-gps.csv').flownAt).toEqual({ stamp: '2021-04-17T19:06:45', zone: 'UTC' });
+  });
+
+  it('reads a Blue Raven’s own clock, and says it is the logger’s', () => {
+    // Year,Month,Day + a Time column, with no zone stated anywhere in the file — so it is
+    // carried as the device's clock rather than promoted to UTC.
+    expect(flightOf('blueraven-app-lr.csv').flownAt).toEqual({ stamp: '2024-05-11T14:09:44', zone: 'logger' });
+  });
+
+  it('leaves it absent on a file that carries no date', () => {
+    // A Raven FIP export and an AIM export are time/altitude/accel/… — nothing about the
+    // day. The file's own modification time is when it was copied off the altimeter, not
+    // when it flew, so there is nothing honest to show.
+    expect(flightOf('featherweight-raven-fip.csv').flownAt).toBeUndefined();
+    expect(flightOf('aim-xtra.csv').flownAt).toBeUndefined();
+  });
+});

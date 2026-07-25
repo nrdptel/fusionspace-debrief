@@ -176,11 +176,18 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   let you pick between them; Debrief's logbook is close but is keyed on files, not flights
   from one download session.
 - Found by driving a season into the logbook: it sorts but couldn't be *searched* — now it
-  can (name, logger, note, all terms in any order). Two things that drive still shows:
-  every row's time is relative only ("3d ago"), with no absolute date anywhere, and the date
-  it carries is when the FILE WAS OPENED, not when the flight flew. Several formats stamp the
-  flight's own date/time (AltOS, a Featherweight GPS's UTC fixes) — reading that would make
-  the logbook a logbook rather than a recents list, and would let it sort by launch day.
+  can (name, logger, note, launch day; all terms in any order), and the row shows the launch
+  day the file stated rather than "3d ago". Three parsers read a date (AltOS and a
+  Featherweight GPS state a GPS's UTC; a Blue Raven states its own clock); 12 of 28 corpus
+  files and 3 of 5 fixtures carry one. Still open: the **column mapper can't carry a date at
+  all** — a generic CSV with Year/Month/Day columns loses them, because there's no date role.
+  That's the next step, and it would also cover a StratoLogger export (which states none) no
+  worse than today.
+- A corpus TeleMetrum states 27 Apr 2013 for a flight the ISSUIUC repo files under 2023-10-01
+  — a decade out, on all 4,118 rows. Debrief reports what the file says (that's the device's
+  own record, and the reason the label names whose clock it is), but it's worth knowing the
+  stated date can be wrong when anything downstream is tempted to trust it: don't use it to
+  group a launch day, dedupe, or order a stage assembly.
 
 ## Feature depth
 
