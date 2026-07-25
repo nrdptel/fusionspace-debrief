@@ -89,6 +89,15 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
   if (m.maxDynamicPressureAltitude != null) expect(m.maxDynamicPressureAltitude, ctx('maxQ alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.transonicAltitude != null) expect(m.transonicAltitude, ctx('transonic alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.burnoutAltitude != null) expect(m.burnoutAltitude, ctx('burnout alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  // A coast can't beat a vacuum. Coast efficiency is the height actually gained from
+  // burnout to apogee over the v²/2g a body would gain with no drag at all, so a value above
+  // 1 is a free lunch: it means the burnout velocity, the burnout altitude and the apogee
+  // aren't from the same instant of the same flight. Measured across the corpus the highest
+  // is 82%, so this has real headroom — it fires only on a pairing that has gone wrong.
+  if (m.coastEfficiency != null) {
+    expect(m.coastEfficiency, ctx(`coastEfficiency ${(m.coastEfficiency * 100).toFixed(0)}% ≤ 100%`)).toBeLessThanOrEqual(1);
+    expect(m.coastEfficiency, ctx('coastEfficiency > 0')).toBeGreaterThan(0);
+  }
   // Descent rates are downward (positive); the main is the slow chute.
   if (m.drogueDescentRate != null) expect(m.drogueDescentRate, ctx('drogue ≥ 0')).toBeGreaterThanOrEqual(0);
   if (m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≥ 0')).toBeGreaterThanOrEqual(0);

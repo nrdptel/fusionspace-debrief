@@ -149,6 +149,11 @@ memory, so a later pass doesn't have to rediscover them.
   a route onward, but a real reader for the AltOS eeprom format (documented, open source)
   would cover files a flyer already has on disk — and each of those three has a paired CSV
   export in the corpus, so there is ground truth to check a reader against.
+- Checked, no finding: coast efficiency (height gained burnout→apogee over the drag-free
+  v²/2g) is above 1 on nothing in the corpus — 29 flights report one and the highest is 82%
+  (an AltimeterCloud flight). A value over 1 would mean the burnout velocity, burnout altitude
+  and apogee aren't from one instant of one flight, so it's now asserted as an invariant with
+  real headroom rather than left to be noticed by eye.
 - The launch day now reaches the comparison too (column header, the compare Markdown and the
   compare JSON), which increment 4 had left out — it went to the report, the flight's exports
   and the logbook only. Worth a habit: when a value lands on "every surface", the comparison

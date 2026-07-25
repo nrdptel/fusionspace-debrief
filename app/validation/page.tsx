@@ -61,8 +61,11 @@ export default function ValidationPage() {
             whatever the logger. A deceleration is never a positive number dressed up as one; the
             events fall in flight order and none sits above apogee; boost&nbsp;+&nbsp;coast adds up to
             the time to apogee, and ascent&nbsp;+&nbsp;descent to the flight time; descent rates point
-            downward and the main is slower than the drogue; thrust-to-weight off the pad is a sane
-            launch number; a battery&apos;s low never exceeds its resting start. A metric that
+            downward and the main is slower than the drogue; a coast never beats a vacuum (the height
+            gained from burnout to apogee cannot exceed the v²/2g a drag-free body would gain, or the
+            three figures aren&apos;t from one instant of one flight — the corpus&apos;s highest is
+            82%); thrust-to-weight off the pad is a sane launch number; a battery&apos;s low never
+            exceeds its resting start. A metric that
             contradicts itself trips these guards even when there is no ground truth to compare
             against — the kind of bug a single golden number can miss.
           </p>
