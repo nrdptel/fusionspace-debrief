@@ -52,7 +52,10 @@ export interface MappingResult {
 
 export type ImportResult = AutoResult | MappingResult;
 
-function suggestMapping(table: AnalyzedTable): ColumnMapping[] {
+/** The mapping the column mapper opens pre-filled with — every column the table analysis
+ *  could name, with the unit it read. Exported so a test can drive the generic path a
+ *  flyer sees, rather than a hand-written approximation of it. */
+export function suggestMapping(table: AnalyzedTable): ColumnMapping[] {
   return table.columns
     .filter((c) => c.role !== 'ignore')
     .map((c) => ({

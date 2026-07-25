@@ -361,3 +361,83 @@ describe('body-axis acceleration columns', () => {
     expect(roleOfHeader(set, 'Yacc_g')).toBe('accelAxial');
   });
 });
+
+describe('analyzeTable — the columns that say when the flight flew', () => {
+  /** Rows of a plausible little flight, with whatever date columns are prepended. */
+  function withDate(prefix: (i: number) => string[], headers: string[]): string[][] {
+    const rows: string[][] = [headers];
+    for (let i = 0; i < 40; i++) {
+      const alt = i <= 20 ? i * 30 : Math.max(0, 600 - (i - 20) * 30);
+      rows.push([...prefix(i), (i * 0.1).toFixed(2), String(alt)]);
+    }
+    return rows;
+  }
+
+  it('claims Year/Month/Day/Hour/Minute/Second, which it used to throw away', () => {
+    const t = analyzeTable(
+      withDate(() => ['2023', '6', '21', '14', '32', '9'], [
+        'Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'Time (s)', 'Alt (ft)',
+      ]),
+    );
+    expect(t.columns.map((c) => c.role)).toEqual([
+      'year', 'month', 'day', 'hour', 'minute', 'second', 'time', 'altitude',
+    ]);
+  });
+
+  it('hands the time base back when a calendar Second had taken it', () => {
+    // "Second" reads as an elapsed-time column too, and being first it took the role and
+    // blocked the real one — the whole flight lost to a naming clash. With a Year/Month/Day
+    // beside it, it is a calendar second and "Time (s)" gets the time base.
+    const t = analyzeTable(
+      withDate(() => ['2023', '6', '21', '9'], ['Year', 'Month', 'Day', 'Second', 'Time (s)', 'Alt (ft)']),
+    );
+    expect(t.columns[3].role).toBe('second');
+    expect(t.columns[4].role).toBe('time');
+  });
+
+  it('keeps a lone Second as the time base — a flight with no clock is worse than one with no date', () => {
+    const rows: string[][] = [['Year', 'Month', 'Day', 'Second', 'Alt (ft)']];
+    for (let i = 0; i < 40; i++) {
+      const alt = i <= 20 ? i * 30 : Math.max(0, 600 - (i - 20) * 30);
+      rows.push(['2023', '6', '21', (i * 0.1).toFixed(2), String(alt)]);
+    }
+    const t = analyzeTable(rows);
+    expect(t.columns[3].role).toBe('time');
+    expect(t.columns[0].role).toBe('year'); // the date is still read
+  });
+
+  it('leaves the calendar parts alone unless a whole date is there', () => {
+    // A year with no month and day names no day, and taking the column would only cost
+    // the flyer a channel. "Second" stays whatever the channel pass made of it.
+    const t = analyzeTable(
+      withDate(() => ['2023', '9'], ['Year', 'Second', 'Time (s)', 'Alt (ft)']),
+    );
+    expect(t.columns[0].role).toBe('ignore');
+    expect(t.columns[1].role).not.toBe('second');
+  });
+
+  it('never takes a column the channel pass already assigned', () => {
+    // "Seconds" is this file's elapsed-time base, not a calendar second — and the date
+    // pass only ever claims columns the name-based pass gave up on.
+    const t = analyzeTable(
+      withDate(() => ['2023', '6', '21'], ['Year', 'Month', 'Day', 'Seconds', 'Alt (ft)']),
+    );
+    expect(t.columns[3].role).toBe('time');
+  });
+
+  it('reads a stated stamp, and a clock, out of the cells rather than the header', () => {
+    // Both columns are called something a header test would get wrong ("Time" is elapsed
+    // seconds in the next file along), so the evidence is what the cells actually hold.
+    const t = analyzeTable(
+      withDate(() => ['2024-05-11 14:09:44', '14:09:44'], ['Stamp', 'Time', 'Time (s)', 'Alt (ft)']),
+    );
+    expect(t.columns[0].role).toBe('date');
+    expect(t.columns[1].role).toBe('timeOfDay');
+    expect(t.columns[2].role).toBe('time');
+  });
+
+  it('leaves a column of ordinary text alone', () => {
+    const t = analyzeTable(withDate(() => ['Lyrid'], ['Rocket', 'Time (s)', 'Alt (ft)']));
+    expect(t.columns[0].role).toBe('ignore');
+  });
+});

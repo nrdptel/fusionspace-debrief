@@ -6,7 +6,24 @@
 import { resolveUnit } from '../units';
 import { isNumeric, parseNumber } from '../csv';
 import { extractReportedSummary } from './reported';
+import { clockFromText, flownAtFromText } from './flownAt';
 import type { ReportedValue } from './types';
+
+/** The columns that say WHEN the flight flew rather than what it did. They carry no
+ *  channel and never reach the analysis — they build the flight's `flownAt`, the same
+ *  stamp a named parser reads (see ./flownAt.ts). Kept as a named set so the places
+ *  that must skip them (channel building, unit inference) can't miss one. */
+export const DATE_ROLES = [
+  'date',
+  'timeOfDay',
+  'year',
+  'month',
+  'day',
+  'hour',
+  'minute',
+  'second',
+] as const;
+export type DateRole = (typeof DATE_ROLES)[number];
 
 export type ColumnRole =
   | 'time'
@@ -24,7 +41,13 @@ export type ColumnRole =
   | 'longitude'
   | 'altitudeGps'
   | 'satellites'
+  | DateRole
   | 'ignore';
+
+const DATE_ROLE_SET = new Set<string>(DATE_ROLES);
+export function isDateRole(role: ColumnRole): role is DateRole {
+  return DATE_ROLE_SET.has(role);
+}
 
 export interface ColumnGuess {
   index: number;
@@ -38,7 +61,18 @@ export interface ColumnGuess {
 // Keyword tests, in priority order. The first role whose test matches a header
 // wins, so more specific roles come first (total-accel before generic accel).
 const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
-  { role: 'time', test: (h) => /\b(time|seconds?|millis|timestamp|elapsed|flttime|flighttime)\b/.test(h) || /^t$/.test(h) },
+  // Plus the fused "…TIME" forms with no separator to give \btime\b a boundary — a
+  // Featherweight GPS's `UNIXTIME` is that file's only usable time base, and without this
+  // the whole export reaches the mapper with no clock the flyer can be told to pick.
+  // Its `UTCTIME` sibling is a stated stamp, not a number, so the numeric gate above
+  // leaves it for the date pass rather than letting it win the time role.
+  {
+    role: 'time',
+    test: (h) =>
+      /\b(time|seconds?|millis|timestamp|elapsed|flttime|flighttime)\b/.test(h) ||
+      /^t$/.test(h) ||
+      /^[a-z]+time$/.test(h),
+  },
   { role: 'accelTotal', test: (h) => /(total.?acc|acc.?total|net.?acc|accel.?mag|gforce|g.?force)/.test(h) || (/acc/.test(h) && /\b(total|net|resultant|magnitude)\b/.test(h)) },
   // Deliberately does NOT match a bare "g" — that steals GPS/geoid columns; rely
   // on an explicit accel word, with the unit (g) read separately from the header.
@@ -233,6 +267,100 @@ function inferHeaderlessUnits(dataRows: string[][], columns: ColumnGuess[]): voi
   fillUnitSystem(columns);
 }
 
+// The calendar parts a logger writes as separate numeric columns, by exact name. Deliberately
+// exact and deliberately a separate pass from ROLE_TESTS: "Second" and "Min" also read as an
+// elapsed-time column and a minimum, so the whole block has to be there before any of it is
+// claimed — a lone "Min" is a minimum, and "Min" beside a Year, a Month and a Day is a minute.
+const CALENDAR_PARTS: { role: DateRole; test: RegExp }[] = [
+  { role: 'year', test: /^(?:(?:gps|utc) )?(?:year|yr|yyyy)$/ },
+  { role: 'month', test: /^(?:(?:gps|utc) )?(?:month|mon)$/ },
+  { role: 'day', test: /^(?:(?:gps|utc) )?(?:day|dom|day of month)$/ },
+  { role: 'hour', test: /^(?:(?:gps|utc) )?(?:hour|hr)$/ },
+  { role: 'minute', test: /^(?:(?:gps|utc) )?(?:minute|min)$/ },
+  { role: 'second', test: /^(?:(?:gps|utc) )?(?:second|sec)$/ },
+];
+
+/** How many of a column's non-empty cells (up to a sample) satisfy a test. */
+function cellAgreement(dataRows: string[][], index: number, ok: (cell: string) => boolean): number {
+  let sampled = 0;
+  let hits = 0;
+  for (const row of dataRows) {
+    const cell = row[index];
+    if (cell === undefined || cell === '') continue;
+    sampled++;
+    if (ok(cell)) hits++;
+    if (sampled >= 50) break;
+  }
+  return sampled === 0 ? 0 : hits / sampled;
+}
+
+/**
+ * Find the columns that state WHEN the flight flew, in the two shapes real loggers write:
+ * separate calendar parts (`Year,Month,Day,Hour,Minute,Second`, what AltOS and a GPS
+ * breakout emit) and a whole stated stamp in one cell (`2024-05-11 14:09:44`, a Featherweight
+ * GPS's `UTCTIME`), optionally with a clock column beside a date-only one (a Blue Raven's
+ * `Year,Month,Day,Time`).
+ *
+ * Runs after the name-based pass and only ever claims columns it left as `ignore`, so no
+ * channel can be stolen: a date column is one this file was throwing away entirely. The
+ * stamp/clock shapes are settled by READING the cells rather than trusting the header,
+ * because "Time" is a clock in one file and elapsed seconds in the next.
+ */
+function inferDateRoles(dataRows: string[][], columns: ColumnGuess[]): void {
+  const free = (c: ColumnGuess) => c.role === 'ignore';
+  const claim = (c: ColumnGuess, role: DateRole) => {
+    c.role = role;
+    c.unit = null;
+    c.unitFromHeader = false;
+  };
+
+  // Calendar parts, all-or-nothing on the date itself: a year with no month and day is not
+  // a date, and claiming it alone would only take a column off the flyer.
+  const named = new Map<DateRole, ColumnGuess>();
+  for (const c of columns) {
+    if (c.numericFraction < 0.5) continue;
+    const h = normalize(c.header);
+    const part = CALENDAR_PARTS.find((p) => p.test.test(h));
+    if (part && !named.has(part.role)) named.set(part.role, c);
+  }
+  const trio: DateRole[] = ['year', 'month', 'day'];
+  if (trio.every((r) => named.get(r) && free(named.get(r)!))) {
+    for (const [role, c] of named) {
+      if (free(c)) claim(c, role);
+      // "Second" beside a Year/Month/Day is a calendar second, but it also reads as an
+      // elapsed-time column ("seconds"), so the channel pass may already have taken it as
+      // this file's time base — and then blocked the real one, which is a whole flight lost
+      // to a naming clash. Hand the time base to the column that wanted it and let the
+      // calendar have its own; with no such column, the clock stays the time base, because
+      // a flight with no time at all is worse than one with no date.
+      else if (c.role === 'time') {
+        const heir = columns.find(
+          (o) => o !== c && o.role === 'ignore' && o.numericFraction >= 0.5 && roleOf(o.header) === 'time',
+        );
+        if (heir) {
+          heir.role = 'time';
+          claim(c, role);
+        }
+      }
+    }
+  }
+
+  // A stated stamp, or a clock, in one cell — both non-numeric, so these are columns the
+  // numeric pass never even looked at.
+  let haveDate = named.has('year');
+  let haveClock = named.has('hour');
+  for (const c of columns) {
+    if (!free(c) || c.numericFraction >= 0.5) continue;
+    if (!haveDate && cellAgreement(dataRows, c.index, (v) => flownAtFromText(v, 'logger') !== null) >= 0.6) {
+      claim(c, 'date');
+      haveDate = true;
+    } else if (!haveClock && cellAgreement(dataRows, c.index, (v) => clockFromText(v) !== null) >= 0.6) {
+      claim(c, 'timeOfDay');
+      haveClock = true;
+    }
+  }
+}
+
 /** What fraction of a column's data cells parse as finite numbers. */
 function numericFraction(rows: string[][], index: number): number {
   if (rows.length === 0) return 0;
@@ -386,6 +514,10 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
       numericFraction: frac,
     };
   });
+
+  // The columns that state a launch date, read from what the cells hold. Runs after the
+  // channel pass so it can only take columns that pass gave up on.
+  inferDateRoles(dataRows, columns);
 
   fillUnitSystem(columns);
 

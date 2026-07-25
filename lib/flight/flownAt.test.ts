@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { flownAtFromParts, flownAtFromText, flownAtFromColumns, formatFlownAt } from './flownAt';
+import {
+  flownAtFromParts,
+  flownAtFromText,
+  flownAtFromColumns,
+  flownAtFromMapping,
+  formatFlownAt,
+} from './flownAt';
 
 describe('flownAtFromParts', () => {
   it('builds a stamp from calendar parts, keeping the stated clock', () => {
@@ -80,5 +86,53 @@ describe('formatFlownAt', () => {
     expect(formatFlownAt(null)).toBe('');
     expect(formatFlownAt(undefined)).toBe('');
     expect(formatFlownAt({ stamp: 'garbage', zone: 'UTC' })).toBe('');
+  });
+});
+
+describe('flownAtFromMapping — the date a hand-mapped file states', () => {
+  it('reads a stamp column, taking the zone only where the file says so', () => {
+    // The Featherweight GPS shape (a stated UTC stamp) and the everyday ISO one. A cell
+    // that doesn't name a zone is the logger's own clock — Debrief never promotes it.
+    const utc = [['Apr 17 2021 19:06:45.800 UTC', '0']];
+    expect(flownAtFromMapping(utc, { date: 0 })).toEqual({ stamp: '2021-04-17T19:06:45', zone: 'UTC' });
+    const local = [['2024-05-11 14:09:44', '0']];
+    expect(flownAtFromMapping(local, { date: 0 })).toEqual({ stamp: '2024-05-11T14:09:44', zone: 'logger' });
+  });
+
+  it('reads separate calendar parts, and never claims they are UTC', () => {
+    // The AltOS / GPS-breakout shape. Bare numbers carry no zone, so the stamp is the
+    // logger's clock — saying UTC here would move an evening launch to the wrong day.
+    const rows = [['2023', '6', '21', '14', '32', '9']];
+    expect(flownAtFromMapping(rows, { year: 0, month: 1, day: 2, hour: 3, minute: 4, second: 5 })).toEqual({
+      stamp: '2023-06-21T14:32:09',
+      zone: 'logger',
+    });
+  });
+
+  it('pairs a date-only column with a clock column from the same row', () => {
+    // The Blue Raven shape: Year,Month,Day and a "Time" cell beside them.
+    const rows = [['2024', '5', '11', '14:09:44']];
+    expect(flownAtFromMapping(rows, { year: 0, month: 1, day: 2, timeOfDay: 3 })?.stamp).toBe(
+      '2024-05-11T14:09:44',
+    );
+    expect(flownAtFromMapping([['2024-05-11', '09:05']], { date: 0, timeOfDay: 1 })?.stamp).toBe(
+      '2024-05-11T09:05',
+    );
+  });
+
+  it('scans past the rows a GPS writes before it locks', () => {
+    const rows = [
+      ['0', '0', '0'],
+      ['2021', '10', '30'],
+    ];
+    expect(flownAtFromMapping(rows, { year: 0, month: 1, day: 2 })?.stamp).toBe('2021-10-30');
+  });
+
+  it('is null when nothing was mapped, or what was mapped is not a date', () => {
+    expect(flownAtFromMapping([['1', '2']], {})).toBeNull();
+    expect(flownAtFromMapping([['1', '2']], { year: 0 })).toBeNull(); // a year alone is not a date
+    expect(flownAtFromMapping([['not a date']], { date: 0 })).toBeNull();
+    // An ambiguous order is refused rather than guessed — 03/04/2024 is two different days.
+    expect(flownAtFromMapping([['03/04/2024']], { date: 0 })).toBeNull();
   });
 });

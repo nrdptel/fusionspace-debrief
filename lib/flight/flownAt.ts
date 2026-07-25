@@ -154,3 +154,87 @@ export function flownAtFromColumns(
   }
   return null;
 }
+
+/** A time of day a logger writes as its own cell — "14:09:44", "9:05", "19:06:45.800".
+ *  Returns the hour/minute/second, or null for anything that isn't a clock. */
+export function clockFromText(text: string): { hour: number; minute: number; second?: number } | null {
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(text.trim());
+  if (!m) return null;
+  const hour = Number(m[1]);
+  const minute = Number(m[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  const second = m[3] != null ? Number(m[3]) : undefined;
+  return { hour, minute, ...(second != null && second >= 0 && second < 60 ? { second } : {}) };
+}
+
+/** Which clock a stated date is on, read from the text itself. A file that says UTC is
+ *  taken at its word; anything else is the logger's own wall clock, because a mapped
+ *  column carries no format Debrief knows and guessing a zone moves a flight's hour. */
+function zoneOfText(text: string): FlownAt['zone'] {
+  return /(\bUTC\b|\bGMT\b|\bZULU\b|Z$)/i.test(text.trim()) ? 'UTC' : 'logger';
+}
+
+/** Column indices a mapping can nominate as the flight's date — the shapes real loggers
+ *  write, so a hand-mapped CSV can state a launch day the same way a named parser does. */
+export interface DateColumns {
+  /** One cell holding a whole date, optionally with a time: "2024-05-11 14:09:44". */
+  date?: number;
+  /** A clock beside a date-only column: "14:09:44". */
+  timeOfDay?: number;
+  year?: number;
+  month?: number;
+  day?: number;
+  hour?: number;
+  minute?: number;
+  second?: number;
+}
+
+/**
+ * When the flight flew, from whichever date columns a mapping nominated. Covers the two
+ * shapes the corpus's loggers write and a hand-mapped CSV therefore also writes: one
+ * stated stamp (a Featherweight GPS's `UTCTIME`), or separate calendar parts (AltOS's
+ * `year,month,day,hour,minute,second`, a Blue Raven's `Year,Month,Day,Time`).
+ *
+ * Scans for the first row that states a real date, like `flownAtFromColumns` — a GPS
+ * writes zeros until it locks. The zone is never guessed: only a cell that says UTC is
+ * read as UTC, and separate numeric parts carry no zone at all, so they are the logger's
+ * clock and labelled as such.
+ */
+export function flownAtFromMapping(rows: string[][], cols: DateColumns): FlownAt | null {
+  const hasParts = cols.year != null && cols.month != null && cols.day != null;
+  if (cols.date == null && !hasParts) return null;
+  const at = (row: string[], i: number | undefined) => (i == null ? undefined : Number(row[i]));
+
+  for (const row of rows) {
+    let got: FlownAt | null = null;
+    if (cols.date != null) {
+      const cell = row[cols.date] ?? '';
+      got = flownAtFromText(cell, zoneOfText(cell));
+    }
+    if (!got && hasParts) {
+      got = flownAtFromParts(
+        {
+          year: at(row, cols.year) ?? NaN,
+          month: at(row, cols.month) ?? NaN,
+          day: at(row, cols.day) ?? NaN,
+          hour: at(row, cols.hour),
+          minute: at(row, cols.minute),
+          second: at(row, cols.second),
+        },
+        'logger',
+      );
+    }
+    if (!got) continue;
+    // A date-only stamp with a clock column beside it: take the time from the same row,
+    // so the two halves of one record can't come from different moments.
+    if (!got.stamp.includes('T') && cols.timeOfDay != null) {
+      const clock = clockFromText(row[cols.timeOfDay] ?? '');
+      if (clock) {
+        const [year, month, day] = got.stamp.split('-').map(Number);
+        got = flownAtFromParts({ year, month, day, ...clock }, got.zone) ?? got;
+      }
+    }
+    return got;
+  }
+  return null;
+}

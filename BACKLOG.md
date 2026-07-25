@@ -514,6 +514,15 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Hardening
 
+- **A green e2e suite had a one-in-twenty flake in it, and it was the test's own bug.** "The
+  wait says what it is reading" holds the sample fetch open with a route handler that sleeps,
+  then called `page.unroute` while that handler was still sleeping — Playwright hands the route
+  back to itself, and the handler's `route.continue()` then throws "Route is already handled".
+  Caught on a full run, reproduced by reading rather than by repeating (six repeats after the
+  fix, all green). The unroute did nothing the handler's own timer wasn't already doing, so it
+  is gone. Fifth instance of the same shape: **an e2e failure that looks like flake is usually
+  a precondition the test got wrong.**
+
 - **The screen and the saved report can no longer disagree about which readings exist.**
   Six readings — avg acceleration, thrust-to-weight, coast efficiency, peak roll rate,
   revolutions, battery low — were on the page and in no export, and that was possible
@@ -568,10 +577,9 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   can (name, logger, note, launch day; all terms in any order), and the row shows the launch
   day the file stated rather than "3d ago". Three parsers read a date (AltOS and a
   Featherweight GPS state a GPS's UTC; a Blue Raven states its own clock); 12 of 28 corpus
-  files and 3 of 5 fixtures carry one. Still open: the **column mapper can't carry a date at
-  all** — a generic CSV with Year/Month/Day columns loses them, because there's no date role.
-  That's the next step, and it would also cover a StratoLogger export (which states none) no
-  worse than today.
+  files and 3 of 5 fixtures carry one. The **column mapper couldn't carry a date at all** — a
+  generic CSV with Year/Month/Day columns lost them, because there was no date role. Done
+  since; see Feature depth.
 - A corpus TeleMetrum states 27 Apr 2013 for a flight the ISSUIUC repo files under 2023-10-01
   — a decade out, on all 4,118 rows. Debrief reports what the file says (that's the device's
   own record, and the reason the label names whose clock it is), but it's worth knowing the
@@ -579,6 +587,28 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   group a launch day, dedupe, or order a stage assembly.
 
 ## Feature depth
+
+- **The column mapper can now carry a launch date — the gap the logbook work left open.** A
+  hand-mapped CSV lost the one value that makes a logbook a logbook rather than a recents
+  list. The mapper has eight new roles in a "When it flew" group, covering the two shapes real
+  loggers actually write: a whole stamp in one cell, or the calendar parts in columns of their
+  own with an hour/minute/second or a clock cell beside them. Nothing about them is guessed
+  from the header alone — a stamp or clock column is settled by *reading the cells*, because
+  "Time" is a wall clock in one file and elapsed seconds in the next. **The evidence it is
+  right:** run the detector blind over the corpus and it independently reproduces every date
+  the named parsers hand-code — 8 AltOS files as year/month/day/hour/minute/second, 6 Blue
+  Ravens as Year/Month/Day + a clock, 3 Featherweight GPS files as a stated stamp — and steals
+  no channel from anything else (all 67 corpus fixtures unmoved). Three committed fixtures now
+  assert the stamp twice, once through the named parser and once through the generic path.
+  **Two things it turned up:** a calendar `Second` column was winning the elapsed-time role and
+  blocking the real one (a whole flight lost to a naming clash — the time base is handed back
+  now, unless there is no other candidate); and a Featherweight GPS's `UNIXTIME` matched no
+  time test at all, because `\btime\b` has no boundary inside it. **The honesty line:** a
+  mapped date is the *logger's* clock unless the cell itself says UTC — a mapping carries no
+  format Debrief knows, and promoting it to UTC would move an evening launch to the wrong day.
+  **Still open:** a `date`/`timeOfDay` column can't yet serve as the *time base*, so a file
+  whose only clock is a wall clock still can't be analysed at all (a Featherweight GPS export
+  is exactly that shape, and only its `UNIXTIME` column rescues it).
 
 - **First slice of the report & export builder shipped: the flyer picks the readings.** Every
   report format (screen, .txt, .md, .html, bundle) now reads its rows through one filter, and

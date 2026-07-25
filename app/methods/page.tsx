@@ -385,7 +385,14 @@ export default function MethodsPage() {
             the read — on the report, in every export, and as the launch day in your logbook, which
             you can sort and search by. Three of the loggers here state it: Altus Metrum and a
             Featherweight GPS write a GPS&apos;s <strong>UTC</strong>, and a Blue Raven writes its own
-            wall clock with no zone at all. Whose clock it is is kept and labelled, and nothing is ever
+            wall clock with no zone at all. A file Debrief doesn&apos;t recognize can state it too:
+            the column mapper takes a whole stamp in one cell
+            (<span className="font-mono">2024-05-11 14:09:44</span>) or the calendar parts in columns
+            of their own (<span className="font-mono">Year, Month, Day</span>, with an hour/minute/second
+            or a clock cell beside them), and reads it back to you before you analyze. Those columns
+            carry no format Debrief knows, so a mapped date is the <em>logger&apos;s</em> clock unless
+            the cell itself says UTC — guessing a zone would move the flight an hour, and sometimes a
+            day. Whose clock it is is kept and labelled, and nothing is ever
             converted between zones — one corpus flight recorded on both devices reads 14:55 on the
             Blue Raven and 22:55 UTC on the GPS, and re-projecting either into your browser&apos;s zone
             would land it on the wrong hour and sometimes the wrong day. A file that states no date

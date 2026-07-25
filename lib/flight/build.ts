@@ -3,8 +3,8 @@
 // parsers (mapping is fixed and known).
 
 import type { RawFlight, Channel, ChannelKind, ReportedValue } from './types';
-import type { ColumnRole } from './columns';
-import type { FlownAt } from './flownAt';
+import { isDateRole, type ColumnRole, type DateRole } from './columns';
+import { flownAtFromMapping, type DateColumns, type FlownAt } from './flownAt';
 import { resolveUnit, CANONICAL } from '../units';
 import { parseNumber } from '../csv';
 
@@ -15,7 +15,7 @@ export interface ColumnMapping {
   unit: string | null;
 }
 
-const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> = {
+const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore' | DateRole>, ChannelKind> = {
   altitude: 'altitude',
   altitudeInertial: 'altitudeInertial',
   pressure: 'pressure',
@@ -76,7 +76,7 @@ export function buildFlight(opts: BuildOptions): RawFlight {
   // Read every selected column into parallel arrays, keeping only rows with a
   // finite time. Then sort by time so non-monotonic exports still analyse.
   const channelMaps = opts.mappings.filter(
-    (m) => m.role !== 'time' && m.role !== 'ignore',
+    (m) => m.role !== 'time' && m.role !== 'ignore' && !isDateRole(m.role),
   );
 
   const rawTime: number[] = [];
@@ -115,7 +115,7 @@ export function buildFlight(opts: BuildOptions): RawFlight {
   for (let i = 0; i < order.length; i++) time[i] = rawTime[order[i]] - t0;
 
   const channels: Channel[] = channelMaps.map((m, c) => {
-    const kind = ROLE_TO_KIND[m.role as Exclude<ColumnRole, 'time' | 'ignore'>];
+    const kind = ROLE_TO_KIND[m.role as Exclude<ColumnRole, 'time' | 'ignore' | DateRole>];
     const src = rawCols[c];
     const values = new Float64Array(order.length);
     const expected = KIND_QUANTITY[kind];
@@ -138,6 +138,12 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     };
   });
 
+  // A named parser hands its own `flownAt` in, because it knows whose clock the file
+  // states. A mapping has to be read: the flyer told Debrief which columns hold the date,
+  // so build the stamp from them. Rows are used unsorted and untrimmed here on purpose —
+  // the calendar day is a property of the file, not of the window the analysis keeps.
+  const flownAt = opts.flownAt ?? flownAtFromMapping(opts.dataRows, dateColumnsOf(opts.mappings)) ?? undefined;
+
   return {
     source: opts.source,
     format: opts.format,
@@ -147,6 +153,16 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     meta: opts.meta ?? {},
     notes,
     ...(opts.reported?.length ? { reported: opts.reported } : {}),
-    ...(opts.flownAt ? { flownAt: opts.flownAt } : {}),
+    ...(flownAt ? { flownAt } : {}),
   };
+}
+
+/** The date columns a mapping nominates, first of each — the mapper warns about a role
+ *  mapped twice and uses the first, and this is where that promise is kept for dates. */
+function dateColumnsOf(mappings: ColumnMapping[]): DateColumns {
+  const cols: DateColumns = {};
+  for (const m of mappings) {
+    if (isDateRole(m.role) && cols[m.role] === undefined) cols[m.role] = m.index;
+  }
+  return cols;
 }

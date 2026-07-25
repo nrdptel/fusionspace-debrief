@@ -539,7 +539,11 @@ test('the readings and the comparison both copy as a real table', async ({ page,
 // A wait a flyer sees. On a phone at the field an 11 MB log takes about six seconds to
 // read and analyze, which is long enough that a bare "Reading…" reads as stuck.
 test('the wait says what it is reading', async ({ page }) => {
-  // Hold the sample fetch open so the loading state can be read rather than raced.
+  // Hold the sample fetch open so the loading state can be read rather than raced. The
+  // hold is released by the handler's own timer, not by unrouting: `unroute` while this
+  // handler is still sleeping hands the route to Playwright, and the `continue()` below
+  // then throws "Route is already handled" — a flake that fails a green build about one
+  // run in twenty.
   await page.route('**/samples/*.csv', async (route) => {
     await new Promise((r) => setTimeout(r, 1500));
     await route.continue();
@@ -550,7 +554,6 @@ test('the wait says what it is reading', async ({ page }) => {
   const note = page.getByRole('status').filter({ hasText: 'Reading' });
   await expect(note).toBeVisible();
   await expect(note).toContainText('the sample flight');
-  await page.unroute('**/samples/*.csv');
 
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
 });

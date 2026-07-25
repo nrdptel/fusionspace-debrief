@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import type { AnalyzedTable } from '@/lib/flight/columns';
-import type { ColumnRole } from '@/lib/flight/columns';
+import { isDateRole, type ColumnRole } from '@/lib/flight/columns';
+import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/flight/flownAt';
 import type { ColumnMapping } from '@/lib/flight/build';
-import { ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
+import { ROLE_GROUPS, ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
 import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
 
 interface Row {
@@ -86,6 +87,19 @@ export default function ColumnMapper({
     setRemembered(true);
   };
 
+  // What the date columns say, right now. A launch day is the one mapped value that never
+  // shows up in the report's numbers, so without this a flyer only finds out whether Debrief
+  // read it by finishing the analysis and looking at the logbook. Costs nothing until a date
+  // role is actually mapped — with none, the scan returns immediately.
+  const flownAt = useMemo(() => {
+    const cols: DateColumns = {};
+    rows.forEach((r, i) => {
+      if (isDateRole(r.role) && cols[r.role] === undefined) cols[r.role] = i;
+    });
+    return flownAtFromMapping(table.dataRows, cols);
+  }, [rows, table.dataRows]);
+  const mappedDate = rows.some((r) => isDateRole(r.role));
+
   const hasTime = rows.some((r) => r.role === 'time');
   const hasAltitudeSource = rows.some((r) => r.role === 'altitude' || r.role === 'pressure');
   const ready = hasTime && hasAltitudeSource;
@@ -157,7 +171,9 @@ export default function ColumnMapper({
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Debrief didn&apos;t recognize <span className="font-mono">{fileName}</span> as a known
           format, so tell it which column is which. It&apos;s pre-filled with a best guess — set the
-          time column, an altitude or pressure column, and the units, then analyze.
+          time column, an altitude or pressure column, and the units, then analyze. If the file
+          also says when it flew, point the date columns at it and that becomes the flight&apos;s
+          launch day.
         </p>
         {appliedSaved && (
           <p className="mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
@@ -200,10 +216,15 @@ export default function ColumnMapper({
                       aria-label={`Role for the ${colName} column`}
                       className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs sm:min-h-0 dark:border-zinc-700 dark:bg-zinc-900"
                     >
-                      {ROLE_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
+                      <option value="ignore">Ignore</option>
+                      {ROLE_GROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.options.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </td>
@@ -237,6 +258,29 @@ export default function ColumnMapper({
           </tbody>
         </table>
       </div>
+
+      {mappedDate && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-sm text-zinc-600 dark:text-zinc-400"
+          data-testid="mapper-flown-at"
+        >
+          {flownAt ? (
+            <>
+              Launch date read as <strong className="font-medium">{formatFlownAt(flownAt)}</strong> — it
+              names the flight in your logbook and rides along in every export.
+            </>
+          ) : (
+            <>
+              Those columns don&apos;t state a date Debrief can read — a whole date needs a year, a
+              month and a day, or one column holding a stamp like{' '}
+              <span className="font-mono">2024-05-11 14:09:44</span>. The flight still analyzes
+              without one.
+            </>
+          )}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button

@@ -135,3 +135,54 @@ test('every unreadable file says what is wrong, and nothing throws', async ({ pa
 
   expect(errors, 'no unreadable file may throw').toEqual([]);
 });
+
+// The launch date the mapper could never carry. A hand-mapped CSV lost the one thing that
+// makes a logbook a logbook rather than a recents list — so this drives the whole way
+// through: the columns are recognised, the mapper shows what it read before you commit,
+// and the flight lands in the logbook under the day it flew.
+test('a mapped CSV carries its launch date through to the logbook', async ({ page }) => {
+  const rows = ['Year,Month,Day,Time,Seconds,Alt (ft)'];
+  for (let i = 0; i < 60; i++) {
+    const alt = i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25);
+    rows.push(`2024,5,11,14:09:44,${(i * 0.1).toFixed(2)},${alt}`);
+  }
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'srad-with-date.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  await expect(page.getByLabel('Role for the Year column')).toHaveValue('year');
+  await expect(page.getByLabel('Role for the Month column')).toHaveValue('month');
+  await expect(page.getByLabel('Role for the Day column')).toHaveValue('day');
+  await expect(page.getByLabel('Role for the Time column')).toHaveValue('timeOfDay');
+  await expect(page.getByLabel('Role for the Seconds column')).toHaveValue('time');
+  // Read back on the spot — the one mapped value that never shows up in the flight's numbers.
+  await expect(page.getByTestId('mapper-flown-at')).toContainText('11 May 2024, 14:09 (logger clock)');
+
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await expect(page.getByText('11 May 2024, 14:09 (logger clock)').first()).toBeVisible();
+});
+
+// Point the roles at columns that don't hold a date and the mapper says so, rather than
+// letting a flyer find out by looking for a launch day that never arrived.
+test('the mapper says when the date columns state no date it can read', async ({ page }) => {
+  const rows = ['Year,Month,Day,Seconds,Alt (ft)'];
+  for (let i = 0; i < 60; i++) {
+    const alt = i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25);
+    rows.push(`0,0,0,${(i * 0.1).toFixed(2)},${alt}`); // a GPS that never locked
+  }
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'no-lock.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  await expect(page.getByTestId('mapper-flown-at')).toContainText("don't state a date Debrief can read");
+  // It is not a blocker: the flight still analyses.
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+});

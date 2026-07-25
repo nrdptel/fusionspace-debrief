@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { importFlight } from './index';
+import { importFlight, suggestMapping } from './index';
+import { analyzeTable } from '../flight/columns';
+import { buildFlight } from '../flight/build';
+import { parseTable } from '../csv';
 import { analyzeFlight } from '../analyze';
 import { getChannel } from '../flight/types';
 import { convert } from '../units';
@@ -238,5 +241,53 @@ describe('real files — when the flight flew', () => {
     // when it flew, so there is nothing honest to show.
     expect(flightOf('featherweight-raven-fip.csv').flownAt).toBeUndefined();
     expect(flightOf('aim-xtra.csv').flownAt).toBeUndefined();
+  });
+});
+
+describe('real files — the generic mapper reads the launch date the named parser reads', () => {
+  // The date columns are the one thing the mapper could never express: a hand-mapped CSV
+  // lost its launch day entirely. These three fixtures are the shapes real loggers write —
+  // AltOS's separate calendar parts, a Blue Raven's Year/Month/Day + clock, a Featherweight
+  // GPS's one stated stamp — and each is checked TWICE: through its named parser, and
+  // through the generic path a flyer gets for an unrecognized file. Two independent routes
+  // to the same stamp is the evidence that the mapper's date roles are right, and it fails
+  // if either side drifts.
+  const flightOf = (file: string) => {
+    const r = importFlight({ name: file, text: read(file) });
+    if (r.kind !== 'flight') throw new Error(`${file} did not auto-detect`);
+    return r.flight;
+  };
+  const throughMapper = (file: string) => {
+    const table = analyzeTable(parseTable(read(file)).rows);
+    return buildFlight({
+      source: file,
+      format: 'generic',
+      formatLabel: 'Generic CSV',
+      headers: table.headers,
+      dataRows: table.dataRows,
+      mappings: suggestMapping(table),
+    }).flownAt;
+  };
+
+  it('AltOS: year, month, day, hour, minute, second in columns of their own', () => {
+    // The named parser knows AltOS states a GPS's UTC; a mapping carries no zone, so the
+    // generic read says "logger clock" rather than claiming a zone it cannot see.
+    expect(flightOf('altusmetrum-telemetrum.csv').flownAt).toEqual({ stamp: '2021-10-30T20:07:50', zone: 'UTC' });
+    expect(throughMapper('altusmetrum-telemetrum.csv')).toEqual({ stamp: '2021-10-30T20:07:50', zone: 'logger' });
+  });
+
+  it('Blue Raven: Year/Month/Day with the clock in a column beside them', () => {
+    expect(flightOf('blueraven-app-lr.csv').flownAt).toEqual({ stamp: '2024-05-11T14:09:44', zone: 'logger' });
+    expect(throughMapper('blueraven-app-lr.csv')).toEqual({ stamp: '2024-05-11T14:09:44', zone: 'logger' });
+  });
+
+  it('Featherweight GPS: one stated stamp, which names its own zone', () => {
+    // "Apr 17 2021 19:06:45.800 UTC" says UTC in the cell, so the generic read keeps it.
+    expect(flightOf('featherweight-gps.csv').flownAt).toEqual({ stamp: '2021-04-17T19:06:45', zone: 'UTC' });
+    expect(throughMapper('featherweight-gps.csv')).toEqual({ stamp: '2021-04-17T19:06:45', zone: 'UTC' });
+  });
+
+  it('a file that states no date still gets none through the mapper', () => {
+    expect(throughMapper('perfectflite-stratologger.csv')).toBeUndefined();
   });
 });
