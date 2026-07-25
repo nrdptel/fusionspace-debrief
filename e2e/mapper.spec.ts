@@ -82,3 +82,23 @@ test('a broken .xlsx explains what went wrong', async ({ page }) => {
     .setInputFiles({ name: 'broken.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: broken });
   await expect(page.getByText(/not a readable ZIP archive/i)).toBeVisible();
 });
+
+// A raw binary download straight off the device — an AltOS .eeprom, an Entacore .bin —
+// reaches the mapper as one column of nothing. Telling the flyer to "set a time column"
+// there is an instruction they can't follow, so it gets its own honest empty state.
+test('a file with no columns of numbers says so instead of asking for a mapping', async ({ page }) => {
+  await page.goto('/');
+  // Binary noise with no delimiters and no numeric columns, as a native log reads.
+  const blob = Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 37) % 251));
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'flight.eeprom', mimeType: 'application/octet-stream', buffer: blob });
+
+  await expect(page.getByRole('heading', { name: /no flight data in this file/i })).toBeVisible();
+  // Says what Debrief does read, and what to do about it.
+  await expect(page.getByText(/text export/i)).toBeVisible();
+  await expect(page.getByText(/export or save-as CSV/i)).toBeVisible();
+  // No mapping UI to fight with, and a way onward.
+  await expect(page.getByRole('button', { name: 'Analyze flight' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Choose a different file' })).toBeVisible();
+});

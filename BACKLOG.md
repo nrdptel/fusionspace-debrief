@@ -30,8 +30,10 @@ memory, so a later pass doesn't have to rediscover them.
   *used*: dropping a summary and its log together should feed the summary's numbers into
   the cross-check as the device's side. That needs multi-file association — the next real
   step for reconciliation.
-- A binary or image file (a `.png` of a flight summary, say) reaches the column mapper and
-  is offered as a table. Recognise "this isn't text data" and say so.
+- Native binary logs still can't be *read*: an AltOS `.eeprom` (3 in the corpus), an
+  Entacore `.bin`/`.xtra` and an RRC3 `.rff` now get an honest "no flight data here" with
+  a route onward, but a real reader for the AltOS eeprom format (documented, open source)
+  would cover files a flyer already has on disk.
 - `velocitySource: 'device'` still means "the file had a velocity column", which for a
   baro-only logger is barometric all the same. The alt-diff test catches the naive case;
   a device whose velocity column is a *filtered* baro derivative still reads as measured.

@@ -29,6 +29,14 @@ export default function ColumnMapper({
   const saved = useMemo(() => loadTemplate(signature), [signature]);
   const appliedSaved = !!(saved && saved.length === table.headers.length);
 
+  // Not every file that reaches the mapper is a table at all: a native binary download
+  // (an AltOS .eeprom, an Entacore .bin/.xtra, an RRC3 .rff) or a screenshot reads as one
+  // column of nothing. Asking the flyer to "set a time column" there is an instruction
+  // they cannot follow, so say what actually happened instead. Every such file in the
+  // corpus lands on exactly this shape — one column, no numeric data — while a real
+  // export's columns are numeric throughout.
+  const mappable = table.columns.some((c) => c.numericFraction >= 0.5);
+
   const initial = useMemo<Row[]>(() => {
     const validRole = (r: string): r is ColumnRole => ROLE_OPTIONS.some((o) => o.value === r);
     const rowFor = (role: ColumnRole, wantUnit: string | null | undefined): Row => {
@@ -96,6 +104,51 @@ export default function ColumnMapper({
   };
 
   const preview = table.dataRows.slice(0, 5);
+
+  if (!mappable) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">There&apos;s no flight data in this file</h2>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Debrief read <span className="font-mono">{fileName}</span> but found no columns of numbers in
+            it — so there are no channels to map and no flight to analyze.
+          </p>
+        </div>
+        <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+          <p>
+            Debrief reads a logger&apos;s <strong className="font-medium">text export</strong> — CSV, TSV or
+            plain text — or an <strong className="font-medium">Excel spreadsheet</strong>. A raw binary
+            download straight off the device (an AltOS <span className="font-mono">.eeprom</span>, an
+            Entacore <span className="font-mono">.bin</span> or <span className="font-mono">.xtra</span>, an
+            RRC3 <span className="font-mono">.rff</span>) isn&apos;t one, and neither is a screenshot or a
+            PDF of a flight summary.
+          </p>
+          <p className="mt-2">
+            Open the file in your altimeter&apos;s own software and export or save-as CSV, then drop that
+            here. Everything still stays on your device.
+          </p>
+        </div>
+        {preview.length > 0 && (
+          <details className="rounded-md border border-zinc-200 bg-zinc-50/60 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900/30">
+            <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
+              What Debrief did read
+            </summary>
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-zinc-500 dark:text-zinc-400">
+              {preview.map((r) => r.join(', ').slice(0, 200)).join('\n')}
+            </pre>
+          </details>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+        >
+          Choose a different file
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
