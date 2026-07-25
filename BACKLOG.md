@@ -105,10 +105,23 @@ memory, so a later pass doesn't have to rediscover them.
   wraparound. `Velocity_DR` swings to −820 ft/s on a flight whose *vertical* peak is
   698 ft/s. Surfacing those as measured downrange figures would have put a 32,750 ft
   downrange position and a supersonic sideways speed in front of a flyer, so nothing shipped.
-  The honest way in is a rail guard — |value| at the int16 limit is a sensor limit, not a
-  distance, exactly the shape of the accelerometer-saturation guard that already ships —
-  withholding those samples and saying so. Worth doing; needs the care the guard deserves,
-  not the twenty minutes that were left.
+  **Two hard results from measuring it, so the next pass starts ahead:**
+  (1) *The position columns are FEET, settled against ground truth rather than assumed.* On the
+  trf-lemiv-l3 flight, recorded by both a Blue Raven and a Featherweight GPS, √(DR²+CR²) at
+  apogee is 6,236 against the GPS summary's stated 5,480.90 ft distance at apogee — 1.14×,
+  ordinary drift for an inertial solution over a 28 s ascent, where reading them as metres
+  would be 3.73× and absurd.
+  (2) *A rail guard is NOT enough, so the accelerometer-saturation analogy does not transfer.*
+  Blanking |value| ≥ 32000 was tried and reverted: the surviving samples still reach
+  ±31,993 ft on a 12,000 ft flight, because a wrapping counter sweeps the whole range rather
+  than sitting at the limit. 51 of 2,843 samples rail on one flight and 146–149 of 9,655 on
+  the other, but the contaminated *band* is wider than that.
+  What would actually work: detect the wrap as a discontinuity between consecutive samples
+  (~65,536 counts if that's the modulus — unverified) and either unwrap the counter or withhold
+  the stretch, checked against the GPS distance at apogee on the lemiv pair, which is the one
+  flight where an independent number exists. The Velocity_DR/CR columns stay out either way:
+  they reach 1,516 ft/s sideways against a 1,401 ft/s vertical peak and nothing in the corpus
+  says what they're in.
 - Fixed: the intrepid3tf2 AL1 recording read a main descent of 2 ft/s against its AL0
   partner's 57 ft/s. Diagnosed by driving it — the log loses power at 1,876 ft, 1.3 s after
   its main fires at 1,877 ft, so the "rate" was 26 samples at the very end of a truncated
