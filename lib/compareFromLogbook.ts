@@ -4,13 +4,13 @@
 // browser's logbook, so a set of them can be named by id in a URL, reloaded, and bookmarked
 // — where a comparison assembled from a drop exists only until the page goes away.
 //
-// Each file is independent. One that can no longer be read, or that needed a hand-made
-// column mapping (which the logbook doesn't store), is reported by name and skipped rather
-// than allowed to sink the whole comparison — a launch day shouldn't lose five good flights
-// to one bad file.
+// Each file is independent. One that can no longer be read is reported by name and skipped
+// rather than allowed to sink the whole comparison — a launch day shouldn't lose five good
+// flights to one bad file. A file that needed a hand-made column mapping comes back with
+// that mapping, which the logbook now stores beside the text.
 
 import { getRecent } from './recents';
-import { importFlight } from './parsers';
+import { importRecent } from './reopen';
 import { analyzeAsync } from './analyze/runner';
 import { buildComparison, MAX_COMPARE, type Comparison, type CompareInput } from './compare';
 
@@ -39,11 +39,12 @@ export async function compareFromLogbook(ids: string[]): Promise<LogbookComparis
         continue;
       }
       name = rec.name;
-      // Only auto-detected flights can be re-read: a generic CSV that needed the column
-      // mapper can't be re-analysed without that mapping, which isn't stored with it.
-      const result = importFlight({ name: rec.name, text: rec.text });
+      // A hand-mapped flight re-reads through its stored mapping; anything else through
+      // its own format. What is left is a custom file saved before the mapping was kept —
+      // open it once on the analyze page and it rejoins.
+      const result = importRecent(rec);
       if (result.kind !== 'flight') {
-        skipped.push({ name, why: 'needs its columns mapped, which a comparison can’t do' });
+        skipped.push({ name, why: 'needs its columns mapped — open it on its own once, and it can join' });
         continue;
       }
       inputs.push({

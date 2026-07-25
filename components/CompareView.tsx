@@ -61,6 +61,8 @@ export default function CompareView({
   onBack,
   backLabel = '← Back to a single flight',
   permalink,
+  mappable,
+  onMapFile,
 }: {
   comparison: Comparison;
   note?: string;
@@ -75,6 +77,10 @@ export default function CompareView({
    *  from a drop exists only until the page does — but the dropped files went into the
    *  logbook on the way in, so the same set can be named by id and offered as a link. */
   permalink?: string;
+  /** Files dropped alongside these flights that need their columns mapped, by name. */
+  mappable?: string[];
+  /** Open the mapper on one of them; it rejoins this comparison when mapped. */
+  onMapFile?: (name: string) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -410,6 +416,32 @@ export default function CompareView({
           >
             {note}
           </p>
+        )}
+        {/* Files from the same drop that Debrief doesn't auto-detect. A batch can't run the
+            column mapper — it needs an answer per file — but that is a reason to ASK, not a
+            reason to leave them out: without this the flyer starts the launch day over, one
+            file at a time, and loses the comparison they already have. Mapping one brings it
+            straight back here with the others. */}
+        {onMapFile && mappable && mappable.length > 0 && (
+          <div className="mt-2 rounded-md border border-indigo-300/70 bg-indigo-50 px-3 py-2 text-xs text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:text-indigo-200">
+            <p>
+              {mappable.length === 1 ? 'One more file from that drop isn’t' : `${mappable.length} more files from that drop aren’t`}{' '}
+              a format Debrief recognizes — map the columns and{' '}
+              {mappable.length === 1 ? 'it joins' : 'each one joins'} this comparison.
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {mappable.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => onMapFile(name)}
+                  className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-indigo-400 bg-white px-2.5 py-1 font-medium text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/60 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                >
+                  Map <span className="font-mono">{stem(name)}</span> →
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {/* The flyer's own caption for this comparison, once set. */}
         {(reportLabel.trim() || reportNotes.trim()) && (

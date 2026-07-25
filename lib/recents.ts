@@ -25,6 +25,19 @@ export interface RecentMeta {
 
 export interface RecentFlight extends RecentMeta {
   text: string;
+  /** The column mapping a flyer made by hand, for a file Debrief doesn't auto-detect.
+   *  Without it the logbook holds the text and not the answer: reopening the flight asks
+   *  for the mapping again, and a comparison built by id drops it entirely. Absent on every
+   *  auto-detected flight, which re-reads itself from its own format. */
+  mapping?: StoredMapping[];
+}
+
+/** One mapped column, in the shape `buildFlight` takes. Stored as data rather than as a
+ *  `ColumnMapping` import so the logbook module stays independent of the parsers. */
+export interface StoredMapping {
+  index: number;
+  role: string;
+  unit: string | null;
 }
 
 const DB_NAME = 'debrief';
@@ -199,7 +212,26 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // A restored backup keeps the launch day, so the logbook doesn't come back dateless.
     // Validated rather than trusted: a hand-edited file shouldn't inject a shape.
     ...(flownAtOf(r.flownAt) ? { flownAt: flownAtOf(r.flownAt)! } : {}),
+    // …and keeps a hand-made column mapping, or a restored logbook would ask the flyer to
+    // map every custom file again.
+    ...(mappingOf(r.mapping) ? { mapping: mappingOf(r.mapping)! } : {}),
   };
+}
+
+/** A stored/imported column mapping, or null when it isn't one. Same rule as `flownAtOf`:
+ *  a hand-edited backup file must not be able to inject a shape the app then trusts. */
+function mappingOf(v: unknown): StoredMapping[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const out: StoredMapping[] = [];
+  for (const item of v) {
+    if (!item || typeof item !== 'object') return null;
+    const m = item as Record<string, unknown>;
+    if (typeof m.index !== 'number' || !Number.isInteger(m.index) || m.index < 0) return null;
+    if (typeof m.role !== 'string') return null;
+    if (m.unit != null && typeof m.unit !== 'string') return null;
+    out.push({ index: m.index, role: m.role, unit: typeof m.unit === 'string' ? m.unit : null });
+  }
+  return out;
 }
 
 /** A stored/imported `flownAt`, or null when it isn't one. */

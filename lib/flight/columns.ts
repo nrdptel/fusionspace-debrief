@@ -394,6 +394,23 @@ export function findHeaderRow(rows: string[][]): number {
   return Math.max(0, findFirstDataRow(rows) - 1);
 }
 
+/**
+ * Is there anything here a flyer could actually map?
+ *
+ * Not every file that falls through to the mapper is a table at all: a native binary
+ * download (an AltOS .eeprom, an Entacore .bin, an RRC3 .rff), a screenshot, a note to
+ * self. Those read as one column of nothing, and asking someone to "set a time column"
+ * there is an instruction they cannot follow. Every such file in the corpus lands on
+ * exactly this shape, while a real export's columns are numeric throughout.
+ *
+ * One rule, in one place, because two surfaces ask it: the mapper (to say what actually
+ * happened instead of showing a table of nothing) and a batch drop (to decide whether a
+ * file it couldn't read is worth offering the mapper for, or is simply not a flight).
+ */
+export function hasMappableColumns(table: Pick<AnalyzedTable, 'columns'>): boolean {
+  return table.columns.some((c) => c.numericFraction >= 0.5);
+}
+
 export interface AnalyzedTable {
   headerRow: number;
   headers: string[];

@@ -421,3 +421,32 @@ test('the comparison remembers which channel you were looking at', async ({ page
   await expect(page.getByRole('heading', { name: /^Velocity/ })).toBeVisible();
 });
 
+
+// A launch day's folder mixes loggers Debrief auto-detects with files it doesn't. A batch
+// drop can't run the column mapper — that needs an answer per file — but leaving those
+// files out means starting the launch day over one file at a time and losing the comparison
+// already on screen. The comparison now offers to map them, and a mapped file rejoins it.
+test('a file a batch drop could not read can be mapped into the comparison it arrived with', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    fixture('altusmetrum-telemetrum.csv'),
+    fixture('blueraven-app-lr.csv'),
+    fixture('perfectflite-stratologger.csv'), // real, readable, but no auto-detect: it maps
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  // Offered by name, not merely reported as missing.
+  const mapIt = page.getByRole('button', { name: /Map perfectflite-stratologger/ });
+  await expect(mapIt).toBeVisible();
+  await mapIt.click();
+
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+
+  // Back to a comparison — now of three flights, at an address that survives a reload.
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  expect(page.url()).toContain('/compare?ids=');
+  await expect(page.getByText('perfectflite-stratologger').first()).toBeVisible();
+});

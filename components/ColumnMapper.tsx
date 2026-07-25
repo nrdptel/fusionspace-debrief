@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { AnalyzedTable } from '@/lib/flight/columns';
-import { isDateRole, type ColumnRole } from '@/lib/flight/columns';
+import { hasMappableColumns, isDateRole, type ColumnRole } from '@/lib/flight/columns';
 import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/flight/flownAt';
 import type { ColumnMapping } from '@/lib/flight/build';
 import { ROLE_GROUPS, ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
@@ -30,13 +30,9 @@ export default function ColumnMapper({
   const saved = useMemo(() => loadTemplate(signature), [signature]);
   const appliedSaved = !!(saved && saved.length === table.headers.length);
 
-  // Not every file that reaches the mapper is a table at all: a native binary download
-  // (an AltOS .eeprom, an Entacore .bin/.xtra, an RRC3 .rff) or a screenshot reads as one
-  // column of nothing. Asking the flyer to "set a time column" there is an instruction
-  // they cannot follow, so say what actually happened instead. Every such file in the
-  // corpus lands on exactly this shape — one column, no numeric data — while a real
-  // export's columns are numeric throughout.
-  const mappable = table.columns.some((c) => c.numericFraction >= 0.5);
+  // See `hasMappableColumns`: a file with no columns of numbers isn't a table to map, and
+  // gets an account of what happened instead of a mapping screen it can't answer.
+  const mappable = hasMappableColumns(table);
 
   const initial = useMemo<Row[]>(() => {
     const validRole = (r: string): r is ColumnRole => ROLE_OPTIONS.some((o) => o.value === r);

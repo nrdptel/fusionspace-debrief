@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight, ParseGuidanceError } from '@/lib/parsers';
+import { importRecent } from '@/lib/reopen';
+import { hasMappableColumns } from '@/lib/flight/columns';
 import { summaryFigures } from '@/lib/parsers/deviceSummary';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
@@ -26,6 +28,7 @@ import {
   exportLogbook,
   importLogbook,
   type RecentMeta,
+  type StoredMapping,
 } from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
@@ -38,11 +41,17 @@ type State =
   /** `what` names what is being read, so a six-second wait on a phone says which file
    *  it is working on rather than only that it is working. */
   | { phase: 'loading'; what?: { name: string; bytes?: number } }
-  | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
+  /** `addToIds` is set when this file came out of a batch drop that already built a
+   *  comparison: mapping it puts it back with the flights it was dropped alongside,
+   *  instead of stranding it as a report of its own. */
+  | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[]; addToIds?: string[] }
   | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string; note?: string }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
-  | { phase: 'compare'; comparison: Comparison; note?: string; ids?: string[] }
+  /** Files in the same drop that need their columns mapped. They are not failures — a
+   *  batch can't run the mapper, but the flyer can, one at a time, and each one rejoins
+   *  this comparison when they do. */
+  | { phase: 'compare'; comparison: Comparison; note?: string; ids?: string[]; mappable?: { name: string; text: string }[] }
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
@@ -169,14 +178,17 @@ export default function Analyzer() {
   }, []);
 
   const ingest = useCallback(
-    async (name: string, text: string) => {
+    /** `mapping` is a hand-made column mapping the logbook kept with this flight — present
+     *  only when reopening one, so a custom file comes back as the flight the flyer made
+     *  rather than as the mapper again. */
+    async (name: string, text: string, mapping?: StoredMapping[]) => {
       const set = beginLoad();
       try {
         if (text.trim().length === 0) {
           set({ phase: 'error', message: 'That file is empty.' });
           return;
         }
-        const result = importFlight({ name, text });
+        const result = importRecent({ name, text, ...(mapping ? { mapping } : {}) });
         if (result.kind === 'flight') {
           const analysis = await analyzeAsync(result.flight);
           set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
@@ -186,6 +198,7 @@ export default function Analyzer() {
             apogeeM: analysis.metrics.apogeeAltitude ?? null,
             maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
+            ...(mapping ? { mapping } : {}),
             text,
           }).then(logbook.refresh);
         } else if (result.table.dataRows.length === 0) {
@@ -256,6 +269,8 @@ export default function Analyzer() {
       // high-rate half, a device summary — dropping those on the floor without a word
       // leaves the flyer counting flights to notice one is missing.
       const skipped: { name: string; why: string }[] = [];
+      // Files the batch can't read on its own but the flyer can, through the mapper.
+      const mappable: { name: string; text: string }[] = [];
       // A dropped device summary isn't a flight, but it isn't rubbish either: it holds the
       // altimeter's OWN headline figures for the flight in the log beside it. Held aside
       // here and paired up below, so the pair a Featherweight app writes reads as one
@@ -272,7 +287,13 @@ export default function Analyzer() {
           text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
           const result = importFlight({ name: file.name, text });
           if (result.kind !== 'flight') {
-            skipped.push({ name: file.name, why: 'needs its columns mapped, which only works one file at a time' });
+            // Kept, not dropped: the comparison offers to open the mapper on it, and a
+            // mapped file rejoins the flights it arrived with. Only where there is
+            // something to map — a binary download or a note to self reaches the mapper
+            // too, and offering it would send the flyer to a screen that can only tell
+            // them the file isn't a flight.
+            if (hasMappableColumns(result.table)) mappable.push({ name: file.name, text });
+            else skipped.push({ name: file.name, why: 'has no columns of numbers in it — not a flight log' });
             continue;
           }
           const analysis = await analyzeAsync(result.flight);
@@ -339,11 +360,23 @@ export default function Analyzer() {
         // Every dropped flight went into the logbook, so this comparison HAS an address —
         // offer it rather than leaving a view that vanishes on reload.
         const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
+        const addressable = ids.length === results.length;
+        // A file that needs mapping is only offerable when the flights it would join have
+        // an address — that address is how it gets back to them. Without one, say what
+        // was left out as before rather than offering a button that can't finish the job.
+        if (mappable.length > 0 && !addressable) {
+          notes.push(
+            skippedNote(
+              mappable.map((m) => ({ name: m.name, why: 'needs its columns mapped, which only works one file at a time' })),
+            ),
+          );
+        }
         set({
           phase: 'compare',
           comparison: buildComparison(inputs),
           note: notes.join(' ') || undefined,
-          ...(ids.length === results.length ? { ids } : {}),
+          ...(addressable ? { ids } : {}),
+          ...(mappable.length > 0 && addressable ? { mappable } : {}),
         });
       } else if (results.length === 1) {
         const r = results[0];
@@ -354,8 +387,11 @@ export default function Analyzer() {
           analyzedAt: Date.now(),
           text: r.text,
           note:
-            skipped.length > 0
-              ? loneFlightNote(list.length, skipped)
+            skipped.length + mappable.length > 0
+              ? loneFlightNote(list.length, [
+                  ...skipped,
+                  ...mappable.map((m) => ({ name: m.name, why: 'needs its columns mapped, which only works one file at a time' })),
+                ])
               : paired.length > 0
                 ? pairedNote(paired)
                 : undefined,
@@ -386,7 +422,7 @@ export default function Analyzer() {
   const onMappingSubmit = useCallback(
     async (mappings: ColumnMapping[]) => {
       if (state.phase !== 'mapping') return;
-      const { fileName, table, text } = state;
+      const { fileName, table, text, addToIds } = state;
       const set = beginLoad();
       try {
         const flight = buildFlight({
@@ -400,23 +436,79 @@ export default function Analyzer() {
         });
         set({ phase: 'loading' });
         const analysis = await analyzeAsync(flight);
-        set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
-        void saveRecent({
+        const save = saveRecent({
           name: fileName,
           formatLabel: 'Generic CSV',
           apogeeM: analysis.metrics.apogeeAltitude ?? null,
           maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
           ...(flight.flownAt ? { flownAt: flight.flownAt } : {}),
+          // The answer, kept with the file. This is what lets the flight be reopened, and
+          // joined to a comparison by id, without asking for the mapping again.
+          mapping: mappings.map((m) => ({ index: m.index, role: m.role, unit: m.unit })),
           text,
-        }).then(logbook.refresh);
+        });
+        // Mapped out of a batch drop: put it back with the flights it arrived with, at the
+        // comparison's own address. Awaited, because the id it was saved under is what
+        // names it there — and if the save didn't happen there is nothing to add it to, so
+        // the flight is shown on its own rather than silently lost.
+        if (addToIds) {
+          const id = await save;
+          void logbook.refresh();
+          if (id) {
+            window.location.href = `/compare?ids=${[...addToIds, id].map(encodeURIComponent).join(',')}&u=${encodeUnits(sys)}`;
+            return;
+          }
+        }
+        set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
+        if (!addToIds) void save.then(logbook.refresh);
       } catch (err) {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
     },
-    [state, logbook.refresh, beginLoad],
+    [state, logbook.refresh, beginLoad, sys],
   );
 
   const reset = useCallback(() => setState({ phase: 'idle' }), []);
+
+  /** Leaving the mapper. A file opened out of a batch drop goes back to the comparison it
+   *  came from — dropping the flyer on an empty drop zone would throw away the launch day
+   *  they were part-way through. */
+  const cancelMapping = useCallback(() => {
+    if (state.phase === 'mapping' && state.addToIds && state.addToIds.length >= 2) {
+      window.location.href = `/compare?ids=${state.addToIds.map(encodeURIComponent).join(',')}&u=${encodeUnits(sys)}`;
+      return;
+    }
+    setState({ phase: 'idle' });
+  }, [state, sys]);
+
+  /** Open the column mapper on one file a batch drop couldn't read, remembering the
+   *  comparison it should rejoin. */
+  const onMapDropped = useCallback(
+    (name: string) => {
+      if (state.phase !== 'compare' || !state.mappable || !state.ids) return;
+      const file = state.mappable.find((m) => m.name === name);
+      if (!file) return;
+      const addToIds = state.ids;
+      try {
+        const result = importFlight({ name: file.name, text: file.text });
+        if (result.kind !== 'mapping') {
+          setState({ phase: 'error', message: `${file.name} could not be opened for mapping.` });
+          return;
+        }
+        setState({
+          phase: 'mapping',
+          fileName: file.name,
+          text: file.text,
+          table: result.table,
+          suggested: result.suggested,
+          addToIds,
+        });
+      } catch (err) {
+        setState({ phase: 'error', message: err instanceof Error ? err.message : `Could not read ${file.name}.` });
+      }
+    },
+    [state],
+  );
 
   const openRecent = useCallback(
     async (id: string) => {
@@ -427,7 +519,7 @@ export default function Analyzer() {
         return;
       }
       await tick();
-      await ingest(rec.name, rec.text);
+      await ingest(rec.name, rec.text, rec.mapping);
     },
     [ingest],
   );
@@ -516,6 +608,8 @@ export default function Analyzer() {
         onSetUnits={setUnits}
         onBack={reset}
         permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
+        mappable={state.mappable?.map((m) => m.name)}
+        onMapFile={onMapDropped}
       />
     );
   }
@@ -527,7 +621,7 @@ export default function Analyzer() {
           table={state.table}
           suggested={state.suggested}
           fileName={state.fileName}
-          onCancel={reset}
+          onCancel={cancelMapping}
           onSubmit={onMappingSubmit}
         />
       </div>

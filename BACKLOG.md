@@ -644,6 +644,23 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
 
 ## Feature depth
 
+- **The logbook was keeping the file and throwing away the answer.** Found while adding an
+  affordance and turned out to be the deeper bug under it: a flight Debrief doesn't
+  auto-detect is only a flight because the flyer said which column was which, and that
+  mapping was never stored. Reopening the flight from the logbook asked for it again from
+  scratch, and `compareFromLogbook` skipped the flight outright with "needs its columns
+  mapped, which a comparison can't do" — a limitation the code documented rather than fixed.
+  The mapping now rides with the flight (`RecentFlight.mapping`, validated on import like
+  `flownAt`, and carried in a logbook backup), and one shared `importRecent` puts the text and
+  the mapping back together, so every surface that reopens a flight gets the same one.
+  **On top of that, the launch-day gap that led here:** a batch drop used to report a file it
+  couldn't auto-detect as left out, telling the flyer to open it on its own — which means
+  starting the launch day over and losing the comparison already on screen. The comparison
+  offers each one by name now, and a mapped file rejoins it at its own address. **A defect
+  this introduced and the suite caught:** a note-to-self `.txt` reaches the mapper too, so it
+  was offered as mappable and led to a dead end; the mapper's own "is there anything here to
+  map" test is now one shared rule (`hasMappableColumns`) that both surfaces ask.
+
 - **The column mapper can now carry a launch date — the gap the logbook work left open.** A
   hand-mapped CSV lost the one value that makes a logbook a logbook rather than a recents
   list. The mapper has eight new roles in a "When it flew" group, covering the two shapes real

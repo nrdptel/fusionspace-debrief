@@ -161,3 +161,48 @@ test('a flight that states when it flew says so, and the logbook keeps it', asyn
   await expect(row).toContainText('11 May 2024');
   await expect(row).not.toContainText('just now');
 });
+
+// The logbook used to hold the file and not the answer. A flight Debrief doesn't
+// auto-detect is only a flight because the flyer said which column was which — and that
+// mapping was thrown away on the way in, so reopening the flight asked for it all over
+// again, and a comparison built from logbook ids skipped it outright. The mapping is stored
+// with the flight now, and this walks both paths.
+test('a hand-mapped flight reopens as itself, and can join a comparison by id', async ({ page }) => {
+  const rows = ['Seconds,Height,Volts'];
+  for (let i = 0; i < 60; i++) {
+    const alt = i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25);
+    rows.push(`${(i * 0.1).toFixed(2)},${alt},${(9.1 - i * 0.001).toFixed(2)}`);
+  }
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'srad-custom.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  // Map it by hand, including a role the guess wouldn't make.
+  await page.getByLabel('Role for the Height column').selectOption('altitude');
+  await page.getByLabel('Role for the Volts column').selectOption('voltage');
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  // Drop in a second flight so there is something to compare against, then reopen the
+  // mapped one from the logbook: it must come back as the flight, not as the mapper.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+  await page.getByRole('button', { name: /srad-custom/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  // …and it joins a comparison named by logbook id, which is the path that used to drop it.
+  await page.goto('/compare');
+  await page.getByRole('checkbox', { name: /srad-custom/ }).check();
+  await page.getByRole('checkbox', { name: /altusmetrum-telemetrum/ }).check();
+  await page.getByRole('button', { name: /Compare/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByText(/needs its columns mapped/)).toHaveCount(0);
+});

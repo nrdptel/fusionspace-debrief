@@ -420,6 +420,18 @@ export default function MethodsPage() {
             follows you across loggers and restores only the channels the flight in front of you
             actually has. Kept on this device, like the rest of Debrief&apos;s state.
           </Method>
+          <Method title="A file Debrief doesn&apos;t recognize">
+            An unrecognized export goes to the column mapper, where you say which column is
+            which — and Debrief <strong>keeps that answer</strong> with the flight. Reopening it
+            from the logbook comes straight back to the flight rather than asking again, and it can
+            join a comparison named by id like any auto-detected file; before, the mapping lived
+            only in the moment you made it, and both of those paths quietly lost the flight. A
+            logbook backup carries the mapping too. Drop a launch day&apos;s folder at once and the
+            files that need mapping aren&apos;t left out either: the comparison offers each one by
+            name, and mapping it puts it back with the flights it arrived with. A file with no
+            columns of numbers in it — a binary download off the device, a screenshot — is not
+            offered, because there is nothing there to map, and it says so instead.
+          </Method>
           <Method title="Logbook & backup">
             Flights you open are remembered in this browser (IndexedDB) for quick re-opening,
             and a note keeps one as a permanent logbook entry. Because that lives only on this

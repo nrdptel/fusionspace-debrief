@@ -166,11 +166,27 @@ test('a batch drop says which files it left out, and why', async ({ page }) => {
   ]);
 
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
-  // Named, so the flyer knows which file to open on its own, and told why.
+  // Named, and offered: a file that only needs its columns mapped is not a failure, and
+  // used to be reported as one — the flyer was told to go and open it on its own, losing
+  // the comparison they had. It is a button now, and mapping it brings the file back here.
+  await expect(page.getByText(/isn’t a format Debrief recognizes/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Map mystery/ })).toBeVisible();
+});
+
+test('a batch drop still says which files it cannot use at all, and why', async ({ page }) => {
+  await page.goto('/');
+  const asBuffer = (f: string) => ({ name: f, mimeType: 'text/csv', buffer: readFileSync(fx(f)) });
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    asBuffer('altusmetrum-telemetrum.csv'),
+    asBuffer('featherweight-raven-fip.csv'),
+    // Not a flight log at all — no mapping can rescue this one, so it is reported.
+    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('remember to buy more shear pins\n') },
+  ]);
+
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   const note = page.getByText(/left out of this comparison/);
   await expect(note).toBeVisible();
-  await expect(note).toContainText('mystery.csv');
-  await expect(note).toContainText(/columns mapped/);
+  await expect(note).toContainText('notes.txt');
 });
 
 // The same drop, but only ONE file turns out to be readable: there is no comparison to
