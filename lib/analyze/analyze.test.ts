@@ -480,6 +480,57 @@ describe('a file holding more than one flight', () => {
     expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(false);
   });
 
+  /** A launch day: three flights in one download, the middle one the highest. */
+  function launchDay(apogees: number[]): RawFlight {
+    const time: number[] = [];
+    const alt: number[] = [];
+    let t = 0;
+    for (const apogee of apogees) {
+      for (let i = 0; i < 20; i++) {
+        time.push(t);
+        alt.push(0);
+        t += 0.1;
+      }
+      for (let i = 0; i <= 60; i++) {
+        time.push(t);
+        alt.push(apogee * Math.sin((Math.PI / 2) * (i / 60)));
+        t += 0.1;
+      }
+      for (let i = 1; i <= 120; i++) {
+        time.push(t);
+        alt.push(Math.max(0, apogee * (1 - i / 120)));
+        t += 0.1;
+      }
+      for (let i = 0; i < 20; i++) {
+        time.push(t);
+        alt.push(0);
+        t += 0.1;
+      }
+    }
+    const { flight } = syntheticBaroFlight();
+    return {
+      ...flight,
+      time: Float64Array.from(time),
+      channels: [{ ...flight.channels[0], values: Float64Array.from(alt) }],
+    };
+  }
+
+  it('reads the first flight all the way to the ground', () => {
+    // The boundary between two flights used to be taken where the record first crossed a
+    // "back on the deck" band — but that band is a fraction of the file's own HIGHEST
+    // flight, so on a lower one it sits well up the descent. The first flight was cut
+    // before it landed, and the next segment would begin 20 m in the air, taking its pad
+    // baseline from a rocket still coming down. The cut is the trough between them now.
+    const a = analyzeFlight(launchDay([300, 500, 250]));
+    const alt = a.series.altitude;
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(true);
+    // The segment ends on the ground, not part-way down.
+    expect(Math.abs(alt[alt.length - 1])).toBeLessThan(3);
+    // …and it is the first flight, not a timeline spanning two of them.
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(250);
+    expect(a.metrics.apogeeAltitude).toBeLessThan(320);
+  });
+
   it('does not split on a dropout that reads zero before the rocket ever climbed', () => {
     // A GPS that loses lock through the boost reads ~0 until it reacquires — that is not
     // a landing, and it happens before any climb, so the file is one flight.

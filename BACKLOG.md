@@ -6,6 +6,32 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A multi-flight file was being cut in the wrong place, and it can hide a third flight
+  entirely.** The boundary between two flights in one download was taken at the first sample
+  below a "back on the deck" band — but that band is 5% of the *file's own highest* flight,
+  so on a lower flight it sits well up the descent. The result: the first segment ended
+  before the rocket landed, and the next one started 20 m in the air, taking its pad baseline
+  from a rocket still coming down. On a synthetic launch day of 300/500/250 m that 20 m error
+  put the third flight's climb below the "really flew" bar and **the third flight vanished**.
+  The cut is now the *trough* between the two — the first sample of the low stretch — which
+  gives the first flight its touchdown and the next one the quiet window its baseline is
+  measured from. No corpus number moves (the two real multi-flight files are one flight
+  recorded twice); the synthetic is the evidence, and it is now a test.
+- **Prototyped “read the other flights in this file”, measured it, and did not ship it.**
+  With the boundary fixed, a splitter that turns a file into the flights it holds is a
+  twenty-line function, and the feature is obvious: let the flyer open flight 2 instead of
+  being told to split the CSV by hand. Run over the corpus, three files split — and one of
+  them shouldn't. The Eggtimer early-deploy anomaly file splits into 4,661 ft (the real
+  flight) and **8,696 ft**, and the corpus's own ground truth says what that second one is:
+  "apogee (~8974 ft) is an inflated baro spike per the OP", corroborated in-thread against
+  external barometer, GPS and IMU graphs. The other two splits are genuine (a Blue Raven that
+  recorded one flight twice). Offering a chooser would therefore put a documented artefact in
+  front of a flyer *as a flight* one time in three, so the prototype was deleted rather than
+  left in the tree uncalled. **What would unblock it:** a test that separates a second flight
+  from a second spike — the existing physical guards are the place to look, since that file
+  trips them (its in-file velocity spikes to 32,380 ft/s) and the two genuine ones don't.
+  Note the detector is unchanged and already finds this boundary; today it makes Debrief read
+  the first flight, which on that file is the right answer.
 - **The GPS cross-check I had just shipped was itself capable of a wrong number with a green
   badge — found by chasing the disagreement it flagged.** On the sg1.1 booster it read
   “GPS 2,434 ft, barometer 2,502 ft, agree 2.7%” while noting the peaks were 34 s apart.

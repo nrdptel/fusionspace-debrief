@@ -249,6 +249,24 @@ function speedOfSoundProfile(altAgl: Float64Array, groundTempK: number): Float64
 }
 
 /**
+ * Pad baseline from the quiet pre-launch window: the opening run of samples that haven't
+ * yet climbed off the pad. This adapts to logs that start anywhere from seconds before
+ * launch to right at it, instead of assuming a fixed 2 s of pad.
+ */
+function padBaseline(altitude: Float64Array, dt: number): { baseEnd: number; offset: number } {
+  const n = altitude.length;
+  const ref = altitude[0];
+  const maxBase = Math.min(n, Math.round(3 / (dt || 0.1)));
+  let baseEnd = 1;
+  while (baseEnd < maxBase && Number.isFinite(altitude[baseEnd]) && Math.abs(altitude[baseEnd] - ref) < 6) {
+    baseEnd++;
+  }
+  baseEnd = Math.max(3, baseEnd);
+  const baseline = median(altitude, 0, baseEnd);
+  return { baseEnd, offset: Number.isFinite(baseline) ? baseline : 0 };
+}
+
+/**
  * Where a second flight begins in a record that holds more than one, or null for the
  * normal single-flight file. The test is a thing a rocket cannot do: come back to the
  * ground and then climb again. So look for the ground return that follows the first real
@@ -279,9 +297,25 @@ function nextFlightStart(altitude: Float64Array): number | null {
       if (h >= high) flew = true;
       else if (flew && h <= ground) landed = i;
     } else if (h >= high) {
-      // Up again after coming down: another flight is in this file. Too short a first
-      // segment to analyze is better read whole than truncated to nothing.
-      return landed >= 4 ? landed : null;
+      // Up again after coming down: another flight is in this file. Cut at the LOW POINT
+      // between the two — the first sample of the trough — rather than where the record
+      // crossed the ground band. The band is a fraction of the file's own highest flight,
+      // so on a lower one it sits well up the descent, and cutting there would end the
+      // first flight before it landed and start the next one already in the air, with its
+      // pad baseline taken from a rocket still coming down (20 m out on a synthetic pair,
+      // enough to hide a third flight entirely). The trough gives the first flight its
+      // touchdown and the next one the quiet stretch its baseline is measured from.
+      let low = Infinity;
+      for (let k = landed; k < i; k++) if (Number.isFinite(altitude[k]) && altitude[k] < low) low = altitude[k];
+      let cut = landed;
+      for (let k = landed; k < i; k++) {
+        if (Number.isFinite(altitude[k]) && altitude[k] <= low + 1) {
+          cut = k;
+          break;
+        }
+      }
+      // Too short a first segment to analyze is better read whole than truncated to nothing.
+      return cut >= 4 ? cut : null;
     }
   }
   return null;
@@ -333,18 +367,8 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     throw new Error('This file has no altitude or pressure data to analyze.');
   }
 
-  // Pad baseline from the quiet pre-launch window: the opening run of samples that
-  // haven't yet climbed off the pad. This adapts to logs that start anywhere from
-  // seconds before launch to right at it, instead of assuming a fixed 2 s of pad.
-  const ref = altitude[0];
-  const maxBase = Math.min(n, Math.round(3 / (dt || 0.1)));
-  let baseEnd = 1;
-  while (baseEnd < maxBase && Number.isFinite(altitude[baseEnd]) && Math.abs(altitude[baseEnd] - ref) < 6) {
-    baseEnd++;
-  }
-  baseEnd = Math.max(3, baseEnd);
-  const baseline = median(altitude, 0, baseEnd);
-  const baseOffset = Number.isFinite(baseline) ? baseline : 0;
+  // Pad baseline from the quiet pre-launch window (see `padBaseline`).
+  const { baseEnd, offset: baseOffset } = padBaseline(altitude, dt);
   for (let i = 0; i < n; i++) altitude[i] -= baseOffset;
 
   // If there's no real quiet window, the file probably starts mid-flight, so the
