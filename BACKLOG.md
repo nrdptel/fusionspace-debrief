@@ -289,6 +289,22 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Wrong diagnosis first, then the real one: the service worker was serving navigations
+  network-first.** After the precondition fix below, `/validation/` *still* failed to come up
+  offline on CI — same assertion, same shape, and still never reproducible locally (three
+  full CI-shaped runs, `--repeat-each` sweeps, and a check that the static server issues no
+  redirects for those routes). So the precondition was not the cause. What is: the navigation
+  handler tried the network first and fell back to the cache **on failure** — which is only
+  sound if "offline" means `fetch()` rejects promptly, and it doesn't always. A request made
+  with no network can sit pending, and then the page hangs loading a document that was in the
+  cache the whole time. It also explains the shape of the failure exactly: the first offline
+  navigation came up, the second hung. Navigations are now served from the cache when there
+  is a copy, with the network refreshing it in the background — which at the field, where
+  *every* navigation is offline, was the right order anyway. The freshness given up is one
+  visit, and a deploy brings a new worker whose install refreshes those routes outright. The
+  test now carries the page's own account of itself into the failure message (controlled?
+  cached? readyState? title?) so the next one on a machine I can't reproduce on arrives
+  already diagnosed.
 - **CI went red twice on a test that had been green for a session, and the cause was a
   precondition I had already fixed once in a weaker form.** The offline docs spec waits for
   the routes it opens to be in the cache, then cuts the network — but the install fetches

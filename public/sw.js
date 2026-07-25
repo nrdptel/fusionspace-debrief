@@ -127,16 +127,33 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // leave cross-origin alone
 
+  // Navigations: serve the cached page immediately where there is one, and refresh it in
+  // the background. This used to try the network first and fall back on failure, which is
+  // fine only if "offline" means fetch() rejects promptly — and it doesn't always. A
+  // request made with no network can sit pending instead of failing, and then the page is
+  // stuck loading a document that was in the cache the whole time. CI caught exactly that:
+  // one precached doc page opened offline, the next one hung, with the wait for the worker
+  // to finish installing already ruled out. At the field, where every navigation is
+  // offline, waiting for the network to give up first was never the right order anyway.
+  //
+  // The freshness this gives up is one visit: the page loads from cache while the same
+  // request goes to the network and updates it, and a deploy also brings a new worker whose
+  // install refreshes all of these outright.
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
-        try {
-          const fresh = await fetch(request);
-          putInCache(request, fresh.clone());
-          return fresh;
-        } catch {
-          return (await caches.match(request, MATCH)) || (await caches.match('/', MATCH)) || Response.error();
+        const cached = await caches.match(request, MATCH);
+        const network = fetch(request)
+          .then((fresh) => {
+            putInCache(request, fresh.clone());
+            return fresh;
+          })
+          .catch(() => null);
+        if (cached) {
+          event.waitUntil(network);
+          return cached;
         }
+        return (await network) || (await caches.match('/', MATCH)) || Response.error();
       })(),
     );
     return;

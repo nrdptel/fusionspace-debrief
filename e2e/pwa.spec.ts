@@ -210,13 +210,39 @@ test('the methods and validation pages come up offline, as themselves', async ({
   );
 
   await context.setOffline(true);
-  // Neither page has been visited in this browser.
-  const methods = await context.newPage();
-  await methods.goto('/methods/');
-  await expect(methods.getByRole('heading', { name: 'Where the numbers come from', level: 1 })).toBeVisible();
+  // Neither page has been visited in this browser. Both are opened, because whatever went
+  // wrong here on CI hit the SECOND one — the first came up fine — and a test that stops at
+  // the first proves nothing about the state that mattered.
+  //
+  // Each assertion carries the page's own account of itself, so a failure on a machine this
+  // cannot be reproduced on arrives already diagnosed: was the worker controlling the page,
+  // was the document in the cache, and what did the page end up showing?
+  const open = async (path: string, heading: string) => {
+    const page = await context.newPage();
+    await page.goto(path).catch(() => {
+      /* a navigation that never resolves is itself the finding — read the state below */
+    });
+    const diag = await page.evaluate(async (p) => {
+      const keys = await caches.keys();
+      let cached = false;
+      for (const k of keys) {
+        const c = await caches.open(k);
+        if (await c.match(new URL(p, location.href).href, { ignoreVary: true })) cached = true;
+      }
+      return {
+        controlled: !!navigator.serviceWorker.controller,
+        cached,
+        readyState: document.readyState,
+        title: document.title,
+      };
+    }, path);
+    await expect(
+      page.getByRole('heading', { name: heading, level: 1 }),
+      `${path} offline — ${JSON.stringify(diag)}`,
+    ).toBeVisible();
+  };
 
-  const validation = await context.newPage();
-  await validation.goto('/validation/');
-  await expect(validation.getByRole('heading', { name: 'How Debrief is validated', level: 1 })).toBeVisible();
+  await open('/methods/', 'Where the numbers come from');
+  await open('/validation/', 'How Debrief is validated');
   await context.setOffline(false);
 });
