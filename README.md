@@ -92,8 +92,13 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   the ascent flew — the apogee's horizontal offset from the pad (weathercocking plus ascent drift),
   a lean that costs altitude to the cosine.
 - Carries a **second altitude recording** where the logger has one — a Blue Raven solves an
-  inertial altitude alongside its barometric one, and Debrief keeps both so you can plot them
-  against each other. Through the transonic push, where the shock over a static port makes the
+  inertial altitude alongside its barometric one, and a GPS-equipped logger writes the
+  receiver's own altitude, a sensor that owes nothing to the weather or to the air around the
+  airframe. Debrief keeps both so you can plot them
+  against each other, and states the **GPS apogee beside the barometric one** as a cross-check
+  (never averaged — across the test corpus they differ by −2.7% to +6.5%). A fix is only read
+  where the file says the receiver had satellites: with none it repeats its last position, and
+  one flight in the corpus writes its pad altitude all the way to 2,400 m. Through the transonic push, where the shock over a static port makes the
   baro trace read the rocket *descending* (one flight reaches 493 ft below its pad) — or, on
   another airframe, climbing faster than the rocket's own measured speed can account for
   (2,495 ft at a burnout where under 900 ft is possible) — the

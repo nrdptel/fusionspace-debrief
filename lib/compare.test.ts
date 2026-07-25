@@ -142,6 +142,9 @@ const metrics = (apogee: number): FlightMetrics => ({
   peakRollRate: null,
   rollRevolutions: null,
   tiltAtBurnout: null,
+    gpsApogeeAltitude: null,
+    gpsApogeeTime: null,
+    gpsAscentFixes: null,
 });
 
 // A flight whose liftoff is at `t0` on its own clock; altitude is a small ramp so

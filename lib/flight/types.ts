@@ -20,6 +20,13 @@ export type ChannelKind =
   | 'voltage' // battery / pyro voltage, V
   | 'latitude' // GPS latitude, decimal degrees (+N)
   | 'longitude' // GPS longitude, decimal degrees (+E)
+  | 'altitudeGps' // the receiver's own altitude, m — a second, independent altitude
+  //   recording in the same file (a different sensor from the barometer, and one that
+  //   doesn't care about the weather or the shock over a static port). Kept beside the
+  //   barometric channel for cross-checking, never merged into it. NaN wherever the
+  //   receiver had no fix: a GPS holds its last position rather than saying nothing.
+  | 'satellites' // satellites in the fix — 0 means the position and GPS altitude beside
+  //   it are held-over values, not measurements
   | 'other';
 
 export interface Channel {

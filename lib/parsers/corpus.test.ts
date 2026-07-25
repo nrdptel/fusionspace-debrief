@@ -121,6 +121,19 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
       }
     }
   }
+  // A stated GPS apogee is a reading of the SAME flight. The two recordings are allowed
+  // to disagree — that is the entire point of showing them side by side, and across the
+  // corpus they differ by −2.7% to +6.5% — but an order-of-magnitude gap means what is
+  // being reported is not this flight's apogee at all. Two corpus files are exactly that
+  // (a 20-fix log and a 2.5-second telemetry capture, both reading essentially pad level
+  // against a 3,000 ft flight); they are withheld, and this keeps them withheld.
+  if (m.gpsApogeeAltitude != null && apo > 0) {
+    expect(
+      Math.abs(m.gpsApogeeAltitude - apo) / apo,
+      ctx(`GPS apogee ${m.gpsApogeeAltitude.toFixed(0)} m vs barometric ${apo.toFixed(0)} m`),
+    ).toBeLessThan(0.25);
+    expect(m.gpsAscentFixes, ctx('a stated GPS apogee has fixes behind it')).toBeGreaterThan(0);
+  }
   // A coast can't beat a vacuum. Coast efficiency is the height actually gained from
   // burnout to apogee over the v²/2g a body would gain with no drag at all, so a value above
   // 1 is a free lunch: it means the burnout velocity, the burnout altitude and the apogee

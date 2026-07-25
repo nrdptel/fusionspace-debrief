@@ -28,12 +28,15 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> 
   voltage: 'voltage',
   latitude: 'latitude',
   longitude: 'longitude',
+  altitudeGps: 'altitudeGps',
+  satellites: 'satellites',
 };
 
 // Voltage is intentionally absent: it's stored as-is in volts, not converted.
 const KIND_QUANTITY: Partial<Record<ChannelKind, keyof typeof CANONICAL>> = {
   altitude: 'length',
   altitudeInertial: 'length',
+  altitudeGps: 'length',
   pressure: 'pressure',
   temperature: 'temperature',
   accelAxial: 'accel',

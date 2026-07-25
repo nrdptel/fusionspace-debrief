@@ -6,6 +6,25 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A GPS altitude was in the file all along and Debrief was throwing it away.** AltOS writes
+  a second `altitude` column right after the GPS position — the receiver's own — and the parser
+  explicitly skipped it as a duplicate. It is now carried as a second altitude recording
+  (`altitudeGps`), with the satellite count (`satellites`) beside it, and its apogee is stated
+  next to the barometric one as a cross-check. Never merged: the analysis stays on the baro
+  channel, which doesn't jump metres between fixes. Two qualification rules, both measured
+  rather than tuned: **a fix needs satellites** — with none AltOS repeats its last position, and
+  the endurance TeleMetrum holds its pad position and 218 m through the entire boost while the
+  barometer climbs past 2,400 m (masking drops 112 of 228 ascent samples on that flight and
+  leaves its apogee unchanged) — and **the record must come back down from its peak**, because a
+  rocket returns to the ground. Of 7 AltOS corpus flights with GPS, 5 state an apogee (Δ −2.7%,
+  −1.7%, −1.5%, +1.5%, +6.5%) and 2 are withheld: a 20-fix log and a 2.5-second telemetry
+  capture that would have claimed 0 ft and 20 ft against 3,253 ft and 3,547 ft flights.
+  **Worth chasing:** on sg1.1 the two agree on the height (−2.7%) but put the peak 33 s apart —
+  the flight already known for a 54% device disagreement. The report says so where the times
+  diverge, but nothing yet reconciles it.
+  **Next in this direction:** the Featherweight GPS `#SATS`/`FIX` columns are not masked the
+  same way (those files are GPS-primary, so a held fix corrupts the altitude itself, not a
+  cross-check); and no other parser carries a GPS altitude yet.
 - **Fixed, and the earlier diagnosis was wrong.** The jimheaney L1 logs reading Mach 0.9–1.65
   on ~2,450 ft apogees are not a startup transient: the baro trace genuinely climbs 900 ft in
   0.72 s while the same file's accelerometer reads a 20 g boost that can only account for

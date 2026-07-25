@@ -373,3 +373,26 @@ test('the sample table jumps to a flight event', async ({ page }) => {
   await page.getByRole('button', { name: 'Liftoff', exact: true }).click();
   await expect.poll(landedAt).toBeLessThan(atApogee);
 });
+
+// A second, independent recording of the same altitude — the receiver's, beside the
+// barometer's. Two sensors that fail in completely different ways, so where they agree
+// that is corroboration; where they don't, the gap is the finding. Shown, never merged.
+test('a GPS altitude is carried as a second recording and cross-checks apogee', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  const gps = page.getByRole('region', { name: 'The GPS recording' });
+  await expect(gps).toBeVisible();
+  // Both readings, stated: the receiver's and the barometer's, with the spread named.
+  await expect(gps.getByRole('cell', { name: /9,459 ft/ })).toBeVisible();
+  await expect(gps.getByRole('cell', { name: /9,322 ft/ })).toBeVisible();
+  await expect(gps.getByText(/agree · \+1\.5%/)).toBeVisible();
+  // …and how much of a recording it is, so the reader can weigh it.
+  await expect(gps.getByText(/locked fixes on the way up/)).toBeVisible();
+
+  // The channel itself is plottable against the barometric line, not just summarised.
+  await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'altitude (GPS)' })).toHaveCount(1);
+});

@@ -36,6 +36,9 @@ const base: FlightMetrics = {
   peakRollRate: null,
   rollRevolutions: null,
   tiltAtBurnout: null,
+    gpsApogeeAltitude: null,
+    gpsApogeeTime: null,
+    gpsAscentFixes: null,
 };
 
 describe('flightCardStats', () => {

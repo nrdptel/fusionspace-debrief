@@ -155,8 +155,26 @@ export const altusMetrumParser: Parser = {
     add(col('temperature'), 'temperature', 'c');
     add(col('battery_voltage'), 'voltage', 'v');
     // GPS, on the units that have it — drives the recovery (ground-track) view.
+    const iLon = col('longitude');
     add(col('latitude'), 'latitude', null);
-    add(col('longitude'), 'longitude', null);
+    add(iLon, 'longitude', null);
+    // AltOS writes a SECOND `altitude` column immediately after the GPS position: the
+    // receiver's own altitude, a different sensor from the barometer entirely. It is
+    // kept as a second altitude recording to cross-check against, never merged into the
+    // analysis — which stays on the barometric channel. Found by position rather than by
+    // name because the name is a duplicate of the baro MSL column earlier in the row.
+    if (iLon >= 0) {
+      for (let i = iLon + 1; i < lower.length; i++) {
+        if (lower[i] === 'altitude') {
+          mappings.push({ index: i, role: 'altitudeGps', unit: 'm' });
+          break;
+        }
+      }
+    }
+    // How many satellites were in the fix. A receiver with none does not report
+    // nothing — it holds its last position and altitude — so this is what separates a
+    // measurement from a stale value.
+    add(col('nsat'), 'satellites', null);
 
     const meta: Record<string, string | number> = {};
     for (let i = 0; i < headerIdx; i++) {
@@ -189,15 +207,34 @@ export const altusMetrumParser: Parser = {
     // site is never at exactly 0,0 or out of range.
     const lat = getChannel(flight, 'latitude');
     const lon = getChannel(flight, 'longitude');
+    const gpsAlt = getChannel(flight, 'altitudeGps');
+    // AltOS names it `altitude`, the same word as the barometric MSL column earlier in
+    // the row, so on its own it reads as a duplicate in the explorer's channel list. The
+    // source name is kept — this only says which of the two it is.
+    if (gpsAlt) gpsAlt.label = `${gpsAlt.label} (GPS)`;
+    const sats = getChannel(flight, 'satellites');
     if (lat && lon) {
       let any = false;
       for (let i = 0; i < lat.values.length; i++) {
         const la = lat.values[i];
         const lo = lon.values[i];
-        const ok = Number.isFinite(la) && Number.isFinite(lo) && Math.abs(la) <= 90 && Math.abs(lo) <= 180 && !(la === 0 && lo === 0);
+        // With no satellites in the fix, the position and the GPS altitude beside it are
+        // the last ones the receiver had, written again — not readings. One corpus flight
+        // loses lock through the whole boost and repeats its pad position and 218 m all
+        // the way to 2,400 m, so taking those as data would put the rocket on the pad
+        // while the barometer has it a mile up.
+        const locked = !sats || !Number.isFinite(sats.values[i]) || sats.values[i] > 0;
+        const ok =
+          locked &&
+          Number.isFinite(la) &&
+          Number.isFinite(lo) &&
+          Math.abs(la) <= 90 &&
+          Math.abs(lo) <= 180 &&
+          !(la === 0 && lo === 0);
         if (!ok) {
           lat.values[i] = NaN;
           lon.values[i] = NaN;
+          if (gpsAlt) gpsAlt.values[i] = NaN;
         } else any = true;
       }
       if (any) flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');

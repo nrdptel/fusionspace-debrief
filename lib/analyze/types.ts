@@ -85,6 +85,19 @@ export interface FlightMetrics {
    *  a straight boost; a large one flags weathercocking). Read straight from the
    *  logger's own tilt channel at burnout, not derived. Null without both. */
   tiltAtBurnout: number | null;
+  /** Apogee as the GPS receiver recorded it, where the file carries a GPS altitude —
+   *  a second, independent altitude recording (a different sensor, indifferent to the
+   *  weather and to the shock over a static port that ruins a barometer transonically).
+   *  Stated beside Debrief's barometric read as a cross-check and never merged into it:
+   *  agreement builds confidence, a gap is worth chasing. Metres AGL, baselined on the
+   *  pad the same way. Null unless the recording had a fix and covered the descent —
+   *  a record that stops at its own highest sample never saw an apogee. */
+  gpsApogeeAltitude: number | null;
+  /** Seconds from liftoff to the GPS recording's own peak. */
+  gpsApogeeTime: number | null;
+  /** Locked fixes the GPS recording contributed on the way up — how well it could
+   *  resolve a peak at all. A 1 Hz receiver on a 20-second ascent has twenty. */
+  gpsAscentFixes: number | null;
 }
 
 export interface FlightSeries {

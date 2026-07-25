@@ -22,6 +22,8 @@ export type ColumnRole =
   | 'voltage'
   | 'latitude'
   | 'longitude'
+  | 'altitudeGps'
+  | 'satellites'
   | 'ignore';
 
 export interface ColumnGuess {

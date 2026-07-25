@@ -1,0 +1,99 @@
+// Cross-check: apogee as the GPS receiver recorded it, beside Debrief's barometric read
+// of the same flight. Two sensors that fail in completely different ways — a barometer
+// drifts with the weather and goes useless through the transonic push, a receiver loses
+// lock and quantises to the metre — so where they agree that is real corroboration, and
+// where they don't the gap is the finding. Stated, never merged: the analysis stays on
+// the barometric channel throughout.
+
+import type { FlightMetrics } from '@/lib/analyze/types';
+import { fmtLength, type UnitChoice } from '@/lib/display';
+
+export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sys: UnitChoice }) {
+  const gps = metrics.gpsApogeeAltitude;
+  const baro = metrics.apogeeAltitude;
+  if (gps == null || !Number.isFinite(baro) || baro <= 0) return null;
+
+  const deltaPct = ((gps - baro) / baro) * 100;
+  const close = Math.abs(deltaPct) < 5;
+  const gpsT = metrics.gpsApogeeTime;
+  const baroT = metrics.timeToApogee;
+  // A peak the two recordings put seconds apart is a disagreement in its own right, even
+  // when the heights match — worth saying rather than leaving to be noticed.
+  const timeApart =
+    gpsT != null && Number.isFinite(baroT) && Math.abs(gpsT - baroT) > Math.max(2, baroT * 0.15)
+      ? Math.abs(gpsT - baroT)
+      : null;
+
+  return (
+    <section
+      aria-labelledby="gpsapo-heading"
+      className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40"
+    >
+      <p id="gpsapo-heading" className="mb-0.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        The GPS recording
+      </p>
+      <p className="mb-2.5 text-xs text-zinc-500 dark:text-zinc-400">
+        This file carries the receiver&apos;s own altitude as well as the barometer&apos;s — two
+        independent recordings of one flight, which fail in different ways. Shown side by side as a
+        cross-check, never averaged: the analysis stays on the barometric channel.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <th className="py-1 pr-4 font-medium">Reading</th>
+              <th className="py-1 pr-4 font-medium">GPS</th>
+              <th className="py-1 pr-4 font-medium">Barometer</th>
+              <th className="py-1 font-medium">Agreement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-zinc-200 dark:border-zinc-800">
+              <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">Apogee</td>
+              <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">
+                {fmtLength(gps, sys)}
+              </td>
+              <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">
+                {fmtLength(baro, sys)}
+              </td>
+              <td className="py-1.5">
+                <span
+                  className={
+                    close
+                      ? 'inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
+                      : 'inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
+                  }
+                >
+                  {close ? 'agree' : 'differ'} · {deltaPct > 0 ? '+' : ''}
+                  {Math.abs(deltaPct) < 0.05 ? '≈0' : deltaPct.toFixed(1)}%
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2.5 text-xs text-zinc-500 dark:text-zinc-400">
+        {metrics.gpsAscentFixes != null && (
+          <>
+            From {metrics.gpsAscentFixes.toLocaleString()} locked{' '}
+            {metrics.gpsAscentFixes === 1 ? 'fix' : 'fixes'} on the way up — samples where the
+            receiver had satellites; with none it repeats its last position, and those are left out
+            rather than read as measurements.{' '}
+          </>
+        )}
+        A GPS altitude is coarse (metres, and worse vertically than horizontally) but owes nothing
+        to the weather or to the air around the airframe.
+        {timeApart != null && (
+          <>
+            {' '}
+            <strong className="font-medium text-amber-700 dark:text-amber-400">
+              The two put the peak {timeApart.toFixed(1)}&nbsp;s apart
+            </strong>{' '}
+            — the heights may line up, but the recordings do not agree about when it happened, which
+            is worth a look at the curves before either figure is quoted.
+          </>
+        )}
+      </p>
+    </section>
+  );
+}

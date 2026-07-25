@@ -35,6 +35,24 @@ export default function MethodsPage() {
         </p>
 
         <div className="mt-6 grid gap-x-8 gap-y-5 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
+          <Method title="The GPS recording, where the file has one">
+            Some loggers write the receiver&apos;s own altitude beside the barometer&apos;s — a
+            different sensor, indifferent to the weather and to the shock over a static port. Debrief
+            keeps it as a <em>second recording</em> and states its apogee beside its own, never
+            averaging the two: where they agree that is real corroboration, and where they don&apos;t
+            the gap is the finding. Across the corpus the two differ by &minus;2.7% to +6.5%. The
+            analysis itself stays on the barometric channel, which doesn&apos;t jump metres between
+            fixes. Two things have to hold before a GPS figure is a reading. It needs satellites: a
+            receiver with none doesn&apos;t report nothing, it repeats its last position and altitude,
+            and one corpus flight loses lock through the whole boost and writes its pad position all
+            the way to 2,400&nbsp;m — so samples with no fix are dropped rather than read. And the
+            record has to have come back down from its peak, because a rocket returns to the ground:
+            a GPS record whose highest sample is roughly where it stops never saw an apogee, it just
+            stopped climbing. Two corpus flights are exactly that, and would otherwise have stated a
+            0&nbsp;ft and a 20&nbsp;ft &ldquo;GPS apogee&rdquo; against 3,253&nbsp;ft and
+            3,547&nbsp;ft flights. The receiver&apos;s altitude and its satellite count are both in
+            the explorer, so you can plot either against the barometric line.
+          </Method>
           <Method title="Ground baseline & altitude">
             From the logger&apos;s own altitude channel, or from barometric pressure (with the standard
             atmosphere) when it only logs pressure. The pad level is the median of the opening samples,

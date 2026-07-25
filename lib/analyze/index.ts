@@ -1203,6 +1203,59 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     if (Number.isFinite(v)) tiltAtBurnout = Math.abs(v);
   }
 
+  // The GPS receiver's own altitude, where the file carries one: a second, independent
+  // altitude recording of the same flight. It is NOT merged into the analysis — the
+  // barometric channel is the one that doesn't jump metres between fixes — but its
+  // apogee is worth stating beside Debrief's, because the two sensors fail in completely
+  // different ways: a barometer drifts with weather and goes useless through the
+  // transonic push, a receiver loses lock and quantises to the metre.
+  //
+  // Two things have to hold before it is a reading. It needs a fix (the parser has
+  // already blanked the samples where the receiver had no satellites and was repeating
+  // its last position). And the record has to have come back down from its peak — a
+  // rocket returns to the ground, so a GPS record whose highest sample is near where it
+  // stops never saw an apogee at all; it stopped climbing. Two corpus flights are exactly
+  // that (a 20-fix log and a 2.5-second telemetry capture), and without this they would
+  // state a 0 ft and a 20 ft "GPS apogee" against a 3,253 ft and 3,547 ft flight.
+  let gpsApogeeAltitude: number | null = null;
+  let gpsApogeeTime: number | null = null;
+  let gpsAscentFixes: number | null = null;
+  const gpsAltCh = getChannel(flight, 'altitudeGps');
+  if (gpsAltCh && gpsAltCh.values.length === n) {
+    const g = gpsAltCh.values;
+    // Pad reference: the locked fixes before the rocket moved, or the earliest ones the
+    // record has when the log opens after liftoff.
+    const padVals: number[] = [];
+    for (let i = 0; i < n && padVals.length < 16; i++) {
+      if (i > liftoffRef && padVals.length > 0) break;
+      if (Number.isFinite(g[i])) padVals.push(g[i]);
+    }
+    const base = padVals.length > 0 ? padVals.slice().sort((a, b) => a - b)[padVals.length >> 1] : NaN;
+    if (Number.isFinite(base)) {
+      let peak = -Infinity;
+      let peakIdx = -1;
+      let last = NaN;
+      let fixes = 0;
+      for (let i = 0; i < n; i++) {
+        const v = g[i];
+        if (!Number.isFinite(v)) continue;
+        last = v - base;
+        if (i <= apogeeIdx) fixes++;
+        if (v - base > peak) {
+          peak = v - base;
+          peakIdx = i;
+        }
+      }
+      // Came back down from its own peak — the record covers a descent, not just a climb.
+      const covered = peakIdx >= 0 && Number.isFinite(last) && last < peak * 0.5;
+      if (covered && peak > 0) {
+        gpsApogeeAltitude = peak;
+        gpsApogeeTime = liftoffFound ? time[peakIdx] - liftoffTime : time[peakIdx] - time[0];
+        gpsAscentFixes = fixes;
+      }
+    }
+  }
+
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
@@ -1248,6 +1301,9 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     peakRollRate,
     rollRevolutions,
     tiltAtBurnout,
+    gpsApogeeAltitude,
+    gpsApogeeTime,
+    gpsAscentFixes,
   };
 
   if (accelClipped) {

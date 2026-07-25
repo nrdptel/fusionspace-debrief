@@ -32,6 +32,44 @@ describe('real files — Altus Metrum TeleMetrum', () => {
     expect(ft).toBeGreaterThan(9000);
     expect(ft).toBeLessThan(9600);
   });
+
+  it('keeps the receiver’s own altitude as a second recording, and cross-checks apogee', () => {
+    const { r, a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
+    // AltOS writes a second `altitude` column after the GPS position — the receiver's
+    // own, a different sensor from the barometer. It is carried, not merged.
+    const gps = getChannel(r.flight, 'altitudeGps');
+    expect(gps).toBeTruthy();
+    expect(gps!.values.some((v) => Number.isFinite(v))).toBe(true);
+
+    // Two independent readings of one apogee, stated side by side.
+    const gpsFt = convert(a.metrics.gpsApogeeAltitude!, 'm', 'ft');
+    const baroFt = convert(a.metrics.apogeeAltitude, 'm', 'ft');
+    expect(gpsFt).toBeGreaterThan(9000);
+    expect(Math.abs(gpsFt - baroFt) / baroFt).toBeLessThan(0.05);
+    // The analysis itself is unmoved — the barometric channel is still the one it rides.
+    expect(a.series.altitudeSource).toBe('baro');
+    expect(a.metrics.gpsAscentFixes).toBeGreaterThan(50);
+  });
+
+  it('drops the fixes the receiver held with no satellites', () => {
+    // This flight loses lock through the whole boost, and AltOS repeats the last
+    // position and altitude rather than writing nothing. Read as data those samples put
+    // the rocket on the pad at 218 m while the barometer has it climbing past 2,000 m.
+    const { r } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
+    const sats = getChannel(r.flight, 'satellites');
+    const gps = getChannel(r.flight, 'altitudeGps');
+    const lat = getChannel(r.flight, 'latitude');
+    expect(sats).toBeTruthy();
+    let zeroFix = 0;
+    for (let i = 0; i < sats!.values.length; i++) {
+      if (sats!.values[i] !== 0) continue;
+      zeroFix++;
+      expect(Number.isFinite(gps!.values[i])).toBe(false);
+      expect(Number.isFinite(lat!.values[i])).toBe(false);
+    }
+    // …and this file really does have such samples, so the assertion above has teeth.
+    expect(zeroFix).toBeGreaterThan(10);
+  });
 });
 
 describe('real files — PerfectFlite Pnut .pf2', () => {

@@ -24,6 +24,7 @@ import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import DeviceSummary from './DeviceSummary';
+import GpsApogee from './GpsApogee';
 import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
 import FlightTimeline from './FlightTimeline';
@@ -629,6 +630,8 @@ export default function FlightReport({
       {flight.reported && flight.reported.length > 0 && (
         <DeviceSummary reported={flight.reported} metrics={metrics} sys={sys} />
       )}
+
+      <GpsApogee metrics={metrics} sys={sys} />
 
       {warnings.length > 0 && (
         <div
