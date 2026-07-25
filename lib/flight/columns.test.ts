@@ -286,3 +286,41 @@ describe('analyzeTable — infers the file-wide unit system for unlabelled colum
     expect(by('Velocity_Up').unit).toBeNull();
   });
 });
+
+describe('a first record fused onto the header line', () => {
+  // Firmware that prints its header without a trailing newline: the names and the first
+  // record arrive as one row, with the record's first value stuck to the last name.
+  const fused = [
+    ['Time', 'Baro', 'AltiM', 'AccelX10.42', '876.41', '1207.22', '0.10'],
+    ['10.51', '810.50', '1844.00', '0.20'],
+    ['10.58', '810.51', '1843.91', '0.30'],
+    ['10.65', '810.50', '1843.99', '0.40'],
+  ];
+
+  it('splits the names back out instead of inventing columns named after numbers', () => {
+    const t = analyzeTable(fused);
+    expect(t.headers).toEqual(['Time', 'Baro', 'AltiM', 'AccelX']);
+    const by = (h: string) => t.columns.find((c) => c.header === h)!;
+    expect(by('Time').role).toBe('time');
+    expect(by('AltiM').role).toBe('altitude');
+    expect(by('AltiM').unit).toBe('m');
+  });
+
+  it('recovers the fused record as the first sample', () => {
+    const t = analyzeTable(fused);
+    expect(t.dataRows.length).toBe(4);
+    expect(t.dataRows[0]).toEqual(['10.42', '876.41', '1207.22', '0.10']);
+  });
+
+  it('leaves a header that merely names unfilled columns alone', () => {
+    // Wider than the data, but its tail is names, not a record — nothing to split.
+    const t = analyzeTable([
+      ['Time', 'Altitude', 'Velocity', 'Spare1', 'Spare2'],
+      ['0', '0', '0'],
+      ['1', '500', '150'],
+      ['2', '1200', '120'],
+    ]);
+    expect(t.headers).toEqual(['Time', 'Altitude', 'Velocity', 'Spare1', 'Spare2']);
+    expect(t.dataRows.length).toBe(3);
+  });
+});

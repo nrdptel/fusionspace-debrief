@@ -263,6 +263,35 @@ export interface AnalyzedTable {
   reported?: ReportedValue[];
 }
 
+/**
+ * Recover a first data record fused onto the header line. Some firmware prints its
+ * column names without a trailing newline, so the header and the first record arrive
+ * as one line: the header row comes out far wider than the data, its tail is a record's
+ * worth of numbers, and the record's first value is stuck to the last column name
+ * ("…, GameRotK10.42, 876.41, …" — a real SRAD 9-DOF log). Left alone, the mapper shows
+ * the flyer dozens of phantom columns named after numbers, and the sample is lost.
+ *
+ * Splits at the boundary a record's width from the end, dividing the fused cell into
+ * name and value. Prepends the recovered record to `dataRows` and returns the names.
+ * A header that is merely wider than the data (names for columns the logger never
+ * filled) has a non-numeric tail, so it is left untouched.
+ */
+function splitFusedHeaderRow(headerRow: string[], dataRows: string[][]): string[] {
+  const dataWidth = dataRows[0]?.length ?? 0;
+  if (dataWidth < 2 || headerRow.length <= dataWidth) return headerRow;
+  // The fused cell belongs to both sides, so it is counted once in the header row.
+  const split = headerRow.length - dataWidth;
+  const tail = headerRow.slice(split);
+  // Judge the tail past the fused cell, which is a name and a value run together and so
+  // never reads as numeric on its own.
+  const filled = tail.slice(1).filter((c) => c !== '');
+  if (filled.length < 1 || filled.filter(isNumeric).length / filled.length < 0.8) return headerRow;
+  const fused = headerRow[split].match(/^(.*[A-Za-z])\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)$/);
+  if (!fused) return headerRow;
+  dataRows.unshift([fused[2], ...tail.slice(1)]);
+  return [...headerRow.slice(0, split), fused[1]];
+}
+
 /** Does a row read as a row of unit labels (s, ft, g, …) rather than names? */
 function looksLikeUnitsRow(row: string[]): boolean {
   if (row.length < 2) return false;
@@ -311,9 +340,11 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
     namesRow = firstData - 2;
   }
 
-  const headers = rows[namesRow] ?? [];
   const units = unitsRow >= 0 ? rows[unitsRow] : null;
   const dataRows = rows.slice(firstData).filter((r) => r.some((c) => c !== ''));
+  // Recover a first record fused onto the header line (see below); prepends it to
+  // dataRows and hands back the header names alone.
+  const headers = splitFusedHeaderRow(rows[namesRow] ?? [], dataRows);
 
   const used = new Set<ColumnRole>();
   const columns: ColumnGuess[] = headers.map((header, index) => {

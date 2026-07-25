@@ -228,9 +228,11 @@ export default function MethodsPage() {
             Entacore AIM and MissileWorks RRC3 (mDACS) files are recognized automatically; the
             generic-CSV mapper — which also reads header-less exports (guessing the time and altitude
             columns from the data&apos;s own shape, and reading any unit the values carry in-cell, such as
-            a &deg;F temperature, to settle whether the altitude is in feet or metres) and UTF-16 files
-            (decoding them from their byte-order mark, as a Windows RRC3 mDACS text export needs) — covers
-            everything else. The RRC3 export names no units, so — like a metric-configured Eggtimer — its
+            a &deg;F temperature, to settle whether the altitude is in feet or metres), UTF-16 files
+            (decoding them from their byte-order mark, as a Windows RRC3 mDACS text export needs) and a
+            header line a logger forgot to end (where its first record arrives fused onto the column
+            names — the record is recovered and the names split back out, instead of showing you dozens
+            of columns named after numbers) — covers everything else. The RRC3 export names no units, so — like a metric-configured Eggtimer — its
             altitude is ambiguous between feet and metres; Debrief settles it from physics, reading the
             altitude in whichever unit matches the apogee its own barometric-pressure column implies.
             Files are read with the browser&apos;s own file API and never uploaded.
