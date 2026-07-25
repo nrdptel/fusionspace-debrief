@@ -679,3 +679,40 @@ test('the figures a report carries are the flyer’s choice, and it holds across
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: 'Velocity', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
+
+// A raw sample table you cannot sort is a spreadsheet with the useful half removed. On a
+// flight log it is not decoration either: sorting altitude descending is how a flyer tells a
+// real apogee from a one-sample spike, because the top of the list shows the gap.
+test('the sample table sorts by any column, and returns to sample order', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  await page.locator('summary', { hasText: 'Show the samples' }).click();
+
+  const table = page.locator('table').filter({ has: page.getByRole('button', { name: /^Time/ }) }).first();
+  const firstCell = () => table.locator('tbody tr').first().locator('td').first();
+  const secondCol = () => table.locator('tbody tr').first().locator('td').nth(1);
+
+  // Sample order first: the table opens on the recording's own order, ascending in time.
+  const t0 = await firstCell().innerText();
+  const t1 = await table.locator('tbody tr').nth(1).locator('td').first().innerText();
+  expect(Number(t1)).toBeGreaterThan(Number(t0));
+
+  // Sort by the altitude column, descending: the top row must be the highest sample.
+  const altHeader = table.getByRole('button', { name: /Altitude/ });
+  await altHeader.click();
+  const top = Number(await secondCol().innerText());
+  const next = Number(await table.locator('tbody tr').nth(1).locator('td').nth(1).innerText());
+  expect(top).toBeGreaterThanOrEqual(next);
+  expect(top).toBeGreaterThan(Number(t0));
+  // Announced to a screen reader, not only drawn.
+  await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'descending');
+
+  // Second click flips it; the third puts the samples back in the order they were recorded.
+  await altHeader.click();
+  await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'ascending');
+  expect(Number(await secondCol().innerText())).toBeLessThanOrEqual(top);
+  await altHeader.click();
+  await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'none');
+  expect(await firstCell().innerText()).toBe(t0);
+});

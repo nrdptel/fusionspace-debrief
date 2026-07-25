@@ -424,6 +424,16 @@ export default function MethodsPage() {
             knows to be there. Trimming a report is a presentation choice; trimming a data contract
             is a broken file.
           </Method>
+          <Method title="The samples themselves">
+            Under the explorer&apos;s plot is every sample in the window, exact and in your units —
+            nothing decimated away, because a sample you can&apos;t see is a sample you can&apos;t
+            check. <em>Jump to</em> scrolls straight to a liftoff, burnout, apogee or deployment and
+            highlights the row it landed on, and <strong>any column sorts</strong> (click once for
+            highest first, again for lowest, a third time back to the order the flight was recorded
+            in). Sorting a time series is not idle: sorting altitude descending is how you tell a
+            real apogee from a one-sample spike — the top of the list either steps down gently or
+            starts with an outlier, and the second reading is the honest one.
+          </Method>
           <Method title="Named views">
             The explorer remembers how you last set it up, and you can also keep several plots under
             names you choose — the boost, the deployments, the airframe&apos;s health — and switch
