@@ -58,7 +58,10 @@ export default function Home() {
               efficiency and max&nbsp;Q). The choice applies on screen and to the .txt, .md and .html
               reports and the bundle — made once, not once per format — and is remembered on this
               device. The data exports (.csv, .json) always carry everything: a report is a document,
-              a data file is a record.
+              a data file is a record. <em>Copy table</em> puts the readings straight on the clipboard
+              — they land in cells in a spreadsheet or a document, and as tab-separated text
+              anywhere else — so the club sheet or the cert package doesn&apos;t need a round trip
+              through a saved file. The comparison has the same button.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Units</strong> — switch

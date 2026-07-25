@@ -232,6 +232,14 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Benchmarked the comparison surface against a spreadsheet and found the obvious thing
+  missing: you could not copy the table.** Six download buttons and no paste — so a flyer
+  putting a launch day into the club sheet, an email or a cert document had to save a CSV,
+  find it, open it and copy it, for something a spreadsheet has done since 1985. Both
+  surfaces now have **Copy table**, writing `text/html` (a real table, so Sheets, Excel, Word
+  and mail clients land it in cells) and `text/plain` (tab-separated) in one clipboard write,
+  with a plain fallback and a stated failure when a browser refuses. Added to the single
+  flight as well as the comparison so it isn't a one-off on one surface.
 - **Found by using the app cold on a phone, which is the only way this one shows up.** The
   column mapper — the first screen for every logger Debrief doesn't auto-detect, i.e. the
   "universal" half of the promise — is a four-column table, and at 390 px the Sample column

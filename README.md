@@ -171,6 +171,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   click: **Save bundle** packs the Markdown write-up, the data `.csv`, the structured
   `.json` and the altitude, velocity and acceleration figures into a single `.zip` — the
   whole report as one download, zipped in the browser, nothing uploaded.
+- **Copies the table** — the flight's readings, or the whole side-by-side comparison,
+  straight to the clipboard: a real table for a spreadsheet, a document or an email, and
+  tab-separated text everywhere else. No round trip through a saved file for something a
+  spreadsheet has done since 1985.
 - Lets you **choose what's in the report** — every reading the file supports is worked out,
   but which ones the report carries is yours to pick, once. The choice applies on screen and
   to the `.txt`, `.md` and `.html` reports and the bundle, and is remembered on this device;

@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, speedIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
-import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, type RecoveryFigures } from '@/lib/report';
+import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -23,6 +23,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import { copyTable } from '@/lib/copyTable';
 import { loadHidden, saveHidden, toggleHidden } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
@@ -126,6 +127,7 @@ export default function FlightReport({
   const altChartRef = useRef<HTMLDivElement>(null);
   const printingRef = useRef(false);
   const [copied, setCopied] = useState(false);
+  const [copiedTable, setCopiedTable] = useState<'yes' | 'no' | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [bundleMsg, setBundleMsg] = useState<string | null>(null);
 
@@ -202,6 +204,15 @@ export default function FlightReport({
     } catch {
       download(new Blob([text], { type: 'text/plain' }), `${stem}-debrief.txt`);
     }
+  }
+
+  // The readings as a table, for the club spreadsheet or the cert document — the same
+  // paste a spreadsheet has supported forever, rather than a round trip through a file.
+  async function copyReadings() {
+    const { header, rows } = reportTable(analysis, sys, reportMeta, recovery);
+    const ok = await copyTable(header, rows);
+    setCopiedTable(ok ? 'yes' : 'no');
+    setTimeout(() => setCopiedTable(null), 4000);
   }
 
   function downloadSummary() {
@@ -493,6 +504,14 @@ export default function FlightReport({
             </button>
             <button
               type="button"
+              onClick={copyReadings}
+              title="Copy the readings as a table — lands in cells in a spreadsheet or document, and as tab-separated text everywhere else"
+              className={ACTION_BTN}
+            >
+              {copiedTable === 'yes' ? 'Copied ✓' : 'Copy table'}
+            </button>
+            <button
+              type="button"
               onClick={shareLink}
               title="Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded"
               className={ACTION_BTN}
@@ -619,6 +638,13 @@ export default function FlightReport({
       {shareMsg && (
         <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">
           {shareMsg}
+        </p>
+      )}
+
+      {copiedTable === 'no' && (
+        <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">
+          This browser wouldn&apos;t let the page write to the clipboard. <strong>Save .csv</strong>{' '}
+          gives you the same readings as a file.
         </p>
       )}
 

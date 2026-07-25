@@ -181,6 +181,23 @@ function headlineRows(
   return visibleRows(rows, (r) => r[0], hidden);
 }
 
+/**
+ * The flight's readings as a header + rows — the same rows the text, Markdown and HTML
+ * reports carry, honouring the same choice of what's in the report, for anywhere that
+ * needs the table itself rather than a document (the clipboard, today).
+ */
+export function reportTable(
+  analysis: FlightAnalysis,
+  sys: UnitChoice,
+  meta?: ReportMeta,
+  recovery?: RecoveryFigures,
+): { header: string[]; rows: string[][] } {
+  return {
+    header: ['Reading', 'Value'],
+    rows: headlineRows(analysis.metrics, sys, recovery, meta?.hidden).map(([l, v]) => [l, v]),
+  };
+}
+
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   if (metric === 'apogeeAltitude') return fmtLength(si, sys);
   if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);

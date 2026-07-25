@@ -454,3 +454,51 @@ test('the readings in a report are the flyer’s choice, and follow into the exp
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText('1 off')).toBeVisible();
 });
+
+// A table you can't copy is the tell a spreadsheet has been beating tools on since 1985:
+// the club's sheet, the cert document and the email all take a paste, and making a flyer
+// round-trip through a saved file for that is a missing affordance, not a design.
+test('the readings and the comparison both copy as a real table', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  const clip = () =>
+    page.evaluate(async () => {
+      const items = await navigator.clipboard.read();
+      const out: Record<string, string> = {};
+      for (const item of items) {
+        for (const type of item.types) out[type] = await (await item.getType(type)).text();
+      }
+      return out;
+    });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Copy table' }).click();
+  await expect(page.getByRole('button', { name: 'Copied ✓' })).toBeVisible();
+  const one = await clip();
+  // Tab-separated for anywhere that takes text…
+  expect(one['text/plain']).toMatch(/^Reading\tValue\n/);
+  expect(one['text/plain']).toMatch(/\nApogee\t[\d,]+ ft/);
+  // …and a real table for a spreadsheet or a document.
+  expect(one['text/html']).toContain('<th>Reading</th>');
+  expect(one['text/html']).toMatch(/<td>Apogee<\/td>/);
+
+  // The same affordance on the comparison, where a side-by-side table is the whole point.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'),
+    path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await page.getByRole('button', { name: 'Copy table' }).click();
+  await expect(page.getByText(/Table copied/)).toBeVisible();
+
+  const two = await clip();
+  const head = two['text/plain'].split('\n')[0].split('\t');
+  expect(head[0]).toBe('Metric');
+  expect(head).toContain('altusmetrum-telemetrum');
+  expect(two['text/plain']).toMatch(/\nApogee\t/);
+  expect(two['text/html']).toContain('<th>Metric</th>');
+});

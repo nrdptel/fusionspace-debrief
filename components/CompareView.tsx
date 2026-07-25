@@ -8,6 +8,7 @@ import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
+import { copyTable } from '@/lib/copyTable';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
@@ -220,14 +221,28 @@ export default function CompareView({
   // agreement; for three it's the full range, which is the number that matters when a
   // flyer flies triple redundancy — two agreeing says nothing if the third is 8% out.
   const spread = flights.length >= 2;
-  const metricsCsv = (): string => {
-    const header = ['Metric', ...flights.map((f) => stem(f.name)), ...(spread ? ['Spread (%)'] : [])];
-    const body = metricRows.map((r) => [
+  /** The table as header + rows — one shape, so the CSV, the clipboard and anything after
+   *  them can't disagree about what the table says. */
+  const metricsTable = (): { header: string[]; rows: string[][] } => ({
+    header: ['Metric', ...flights.map((f) => stem(f.name)), ...(spread ? ['Spread (%)'] : [])],
+    rows: metricRows.map((r) => [
       r.label,
       ...r.cells,
       ...(spread ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
-    ]);
-    return toCsv([header, ...body]);
+    ]),
+  });
+  const metricsCsv = (): string => {
+    const { header, rows } = metricsTable();
+    return toCsv([header, ...rows]);
+  };
+  const copyMetrics = async () => {
+    const { header, rows } = metricsTable();
+    const ok = await copyTable(header, rows);
+    setCopyMsg(
+      ok
+        ? 'Table copied — paste it into a spreadsheet, an email or a cert document.'
+        : 'This browser wouldn’t let the page write to the clipboard. Save metrics gives you the same table as a file.',
+    );
   };
   const saveMetricsCsv = () => {
     download(new Blob([metricsCsv()], { type: 'text/csv' }), 'compare-metrics.csv');
@@ -283,6 +298,7 @@ export default function CompareView({
   // figures — a redundant-altimeter or stage assembly check as a single download.
   // Zipped in the browser; nothing uploaded.
   const [bundleMsg, setBundleMsg] = useState<string | null>(null);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
   const saveBundle = async () => {
     setBundleMsg('Building bundle…');
     try {
@@ -628,6 +644,14 @@ export default function CompareView({
           </button>
           <button
             type="button"
+            onClick={copyMetrics}
+            title="Copy the side-by-side table to the clipboard — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
+            className={ACTION_BTN}
+          >
+            Copy table
+          </button>
+          <button
+            type="button"
             onClick={saveMetricsCsv}
             title="Save the side-by-side metrics table as CSV"
             className={ACTION_BTN}
@@ -651,6 +675,11 @@ export default function CompareView({
             Save bundle
           </button>
         </div>
+        {copyMsg && (
+          <p role="status" aria-live="polite" className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+            {copyMsg}
+          </p>
+        )}
         {bundleMsg && (
           <p role="status" aria-live="polite" className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
             {bundleMsg}
