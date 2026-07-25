@@ -24,19 +24,24 @@ export default function SiteFooter() {
           <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
             ·
           </span>
-          <Link href="/methods" className="hover:text-zinc-800 dark:hover:text-zinc-200">
+          {/* Prefetched on render, not when the footer scrolls into view. The offline
+              promise is "open it once with signal, then use it at the field", and that must
+              not depend on whether the flyer happened to scroll far enough to bring these
+              links into the viewport — the route's own JavaScript has to reach the cache
+              during that one online visit or the page can't hydrate without a network. */}
+          <Link href="/methods" prefetch className="hover:text-zinc-800 dark:hover:text-zinc-200">
             Methods
           </Link>
           <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
             ·
           </span>
-          <Link href="/validation" className="hover:text-zinc-800 dark:hover:text-zinc-200">
+          <Link href="/validation" prefetch className="hover:text-zinc-800 dark:hover:text-zinc-200">
             Validation
           </Link>
           <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
             ·
           </span>
-          <Link href="/privacy" className="hover:text-zinc-800 dark:hover:text-zinc-200">
+          <Link href="/privacy" prefetch className="hover:text-zinc-800 dark:hover:text-zinc-200">
             Privacy
           </Link>
         </nav>

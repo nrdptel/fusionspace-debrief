@@ -340,8 +340,13 @@ memory, so a later pass doesn't have to rediscover them.
   the page was opened: only the HTML of these routes is precached, and the chunks arrive via
   the page's warm-up, which a slower runner may not have finished. The diagnostic now
   captures every `<h1>` on the page and the body length, so the next failure says outright
-  whether it is the error boundary — and if it is, the fix is to make these routes' JS reach
-  the cache before the network is cut, or to make a docs page survive without it.
+  whether it is the error boundary. **And the likely fix for that reading is now shipped
+  anyway, because it is right on its own terms:** a route's JavaScript reached the cache only
+  when its link entered the viewport (App Router's default prefetch), and the docs links live
+  in the footer — below the fold. So "open it once with signal, then use it at the field"
+  quietly depended on whether the flyer scrolled far enough. Those links, and the header's
+  surface links, now prefetch on render. If the next CI failure still shows the error
+  boundary, the remaining move is to make a docs page survive without hydrating at all.
 - **Third diagnosis, also not the cause on the evidence so far: the worker could cache a
   truncated response body.** The instrumentation added on the second attempt paid
   for itself immediately — the next CI failure arrived reading

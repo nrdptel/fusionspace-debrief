@@ -61,6 +61,7 @@ export default function SiteHeader({
             <Link
               key={s.key}
               href={s.href}
+              prefetch
               title={s.hint}
               aria-current={active ? 'page' : undefined}
               className={
