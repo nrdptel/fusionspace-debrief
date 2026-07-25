@@ -58,6 +58,7 @@ export default function CompareView({
   onSetUnits,
   onBack,
   backLabel = '← Back to a single flight',
+  permalink,
 }: {
   comparison: Comparison;
   note?: string;
@@ -68,6 +69,10 @@ export default function CompareView({
   /** Where back goes depends on where the comparison came from: a drop on the analyze
    *  page returns to that one flight; the compare surface returns to its picker. */
   backLabel?: string;
+  /** An address this comparison can be reopened at, where it has one. A comparison built
+   *  from a drop exists only until the page does — but the dropped files went into the
+   *  logbook on the way in, so the same set can be named by id and offered as a link. */
+  permalink?: string;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -348,6 +353,15 @@ export default function CompareView({
         >
           {backLabel}
         </button>
+        {permalink && (
+          <a
+            href={permalink}
+            title="Open this comparison at its own address — reloadable, bookmarkable, and it can sit in a second tab beside one flight's report. The flights are already in this browser's logbook; the link names them by id and carries no flight data."
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+          >
+            Give this comparison an address →
+          </a>
+        )}
         <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
       </div>
 

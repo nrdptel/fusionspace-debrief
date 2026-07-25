@@ -40,7 +40,9 @@ type State =
   | { phase: 'loading'; what?: { name: string; bytes?: number } }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
   | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string; note?: string }
-  | { phase: 'compare'; comparison: Comparison; note?: string }
+  /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
+   *  it — enough to offer this comparison at its own address on /compare. */
+  | { phase: 'compare'; comparison: Comparison; note?: string; ids?: string[] }
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
@@ -245,7 +247,7 @@ export default function Analyzer() {
       const set = beginLoad();
       set({ phase: 'loading' });
       await tick();
-      const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string }[] = [];
+      const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string; savedId: string | null }[] = [];
       // Cap on the number of *flights we can show*, not on input files: keep
       // parsing past a file that fails to auto-detect so a valid later file can
       // still fill a slot, and stop once the comparison is full.
@@ -274,9 +276,8 @@ export default function Analyzer() {
             continue;
           }
           const analysis = await analyzeAsync(result.flight);
-          results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text });
           // Awaited (not fire-and-forget) so the per-save prune doesn't race itself.
-          await saveRecent({
+          const savedId = await saveRecent({
             name: file.name,
             formatLabel: result.flight.formatLabel,
             apogeeM: analysis.metrics.apogeeAltitude ?? null,
@@ -284,6 +285,7 @@ export default function Analyzer() {
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             text,
           });
+          results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId });
         } catch (e) {
           const figures = text ? summaryFigures(text) : null;
           if (figures) {
@@ -334,7 +336,15 @@ export default function Analyzer() {
         }
         if (paired.length > 0) notes.push(pairedNote(paired));
         if (skipped.length > 0) notes.push(skippedNote(skipped));
-        set({ phase: 'compare', comparison: buildComparison(inputs), note: notes.join(' ') || undefined });
+        // Every dropped flight went into the logbook, so this comparison HAS an address —
+        // offer it rather than leaving a view that vanishes on reload.
+        const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
+        set({
+          phase: 'compare',
+          comparison: buildComparison(inputs),
+          note: notes.join(' ') || undefined,
+          ...(ids.length === results.length ? { ids } : {}),
+        });
       } else if (results.length === 1) {
         const r = results[0];
         set({
@@ -497,7 +507,17 @@ export default function Analyzer() {
   }
 
   if (state.phase === 'compare') {
-    return <CompareView comparison={state.comparison} note={state.note} sys={sys} onToggleUnits={toggleUnits} onSetUnits={setUnits} onBack={reset} />;
+    return (
+      <CompareView
+        comparison={state.comparison}
+        note={state.note}
+        sys={sys}
+        onToggleUnits={toggleUnits}
+        onSetUnits={setUnits}
+        onBack={reset}
+        permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
+      />
+    );
   }
 
   if (state.phase === 'mapping') {

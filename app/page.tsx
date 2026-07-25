@@ -28,9 +28,11 @@ export default function Home() {
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Compare</strong> — drop
               several files at once, or open <Link href="/compare" className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100">Compare</Link>{' '}
               and tick flights in your logbook, to overlay their curves and line up the numbers side
-              by side. A comparison built from the logbook lives at its own address, so it survives a
+              by side. A comparison lives at its own address, so it survives a
               reload and can be bookmarked or kept in a second tab beside a single flight&apos;s
-              report. Click any metric in that table to order the flights by it —
+              report — built from the logbook it starts there, and one built from a drop is one
+              click from it (<em>Give this comparison an address</em>; the link names the flights
+              by their logbook id and carries no flight data). Click any metric in that table to order the flights by it —
               highest first, then lowest — or move a column with ◀ ▶ into an order no metric gives you
               (booster then sustainer, flight 1 to 6). The chart legend and every export follow
               whichever order you set.

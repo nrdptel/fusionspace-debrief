@@ -93,3 +93,24 @@ test('the compare picker opens a single flight on the analyze page', async ({ pa
   // The id is spent once used, so a refresh doesn't re-open it forever.
   await expect(page).not.toHaveURL(/open=/);
 });
+
+// A comparison built by dropping files exists only until the page does — but those files
+// went into the logbook on the way in, so the same set can be named by id. The offer to
+// turn it into an address is what closes the gap between the two ways of comparing.
+test('a comparison built from a drop can be given an address', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  await page.getByRole('link', { name: /Give this comparison an address/ }).click();
+
+  // Same comparison, now at an address that survives a reload.
+  await expect(page).toHaveURL(/\/compare\/?\?ids=[^&]+,[^&]+/);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  // …and it carries the unit choice, not just the flights.
+  await expect(page).toHaveURL(/[?&]u=/);
+});

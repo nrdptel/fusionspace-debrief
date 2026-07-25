@@ -417,9 +417,10 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   is the picker, and both surfaces share one `useLogbook` so a note added on either shows on
   both. Dropping several files at once still compares them in place on `/`, because that
   path carries things the logbook cannot: a device's own summary file paired with its log,
-  and per-file skip reasons for anything unreadable. **Next in the same direction:** offer a
-  permalink from a drop-built comparison (the files are already saved to the logbook, so the
-  ids exist), and give the report & export builder its own route when it lands.
+  and per-file skip reasons for anything unreadable — but it now offers **“Give this comparison
+  an address”**, since the dropped flights went into the logbook on the way in and
+  `saveRecent` returns the id it stored them under. **Next in the same direction:** give the
+  report & export builder its own route when it lands.
 - Two surfaces still share one description: the header tagline says "drop in a flight log…
   and read the flight" on `/compare` too. Wrong-ish rather than wrong; it wants a per-surface
   line once there are three of them.

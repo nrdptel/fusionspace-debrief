@@ -210,8 +210,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   the metrics CSV, a structured `.json` (each flight's metrics, the cross-check and the
   pairwise differences) and the altitude, velocity and acceleration overlay figures, zipped
   in the browser into one `.zip` to drop into a certification package.
-  A comparison built from the logbook is addressable — `/compare?ids=…` — so it survives a
-  reload, can be bookmarked, and can sit in a second tab beside one flight's full report.
+  A comparison is addressable — `/compare?ids=…` — so it survives a
+  reload, can be bookmarked, and can sit in a second tab beside one flight's full report. One
+  built by dropping files is one click from that address too: the dropped flights went into
+  the logbook on the way in, so the link names them by id and carries no flight data.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 - Makes a **flight card** — a clean, branded image of the headline numbers and the

@@ -58,7 +58,16 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
-export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'note'>): Promise<void> {
+/**
+ * Remember a flight. Resolves with the id it was stored under — which is what makes a
+ * comparison built from a drop addressable, since `/compare?ids=…` names logbook keys —
+ * or null when storage is unavailable (a private window), where the caller simply has
+ * nothing to link to.
+ */
+export async function saveRecent(
+  rec: Omit<RecentFlight, 'id' | 'addedAt' | 'note'>,
+): Promise<string | null> {
+  let savedId: string | null = null;
   try {
     const db = await idb();
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
@@ -75,6 +84,7 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
     for (const r of all) if (isDup(r)) store.delete(r.id);
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     store.put({ ...rec, note: inheritedNote, id, addedAt: Date.now() });
+    savedId = id;
 
     // Prune: keep every noted flight (a logbook entry, capped to bound storage),
     // and the most recent un-noted ones — the new flight fills one of those slots.
@@ -86,6 +96,7 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
   } catch {
     /* storage unavailable — just don't remember */
   }
+  return savedId;
 }
 
 /** Set (or clear) a flight's logbook note. A note makes the flight sticky. */
