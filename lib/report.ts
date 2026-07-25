@@ -25,7 +25,7 @@ import { compareReported } from './flight/reported';
 import { formatFlownAt, formatFlownDay } from './flight/flownAt';
 import { crossCheck, differentFlightDays, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
-import { visibleRows } from './reportProfile';
+import { orderRows, visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import { deployCheck } from './deploy';
@@ -117,6 +117,9 @@ export interface ReportMeta {
    *  to the text, Markdown and HTML reports — not to the data exports, which stay a
    *  complete machine-readable record. */
   hidden?: string[];
+  /** The order the flyer put the comparison's rows in (see lib/reportProfile). Applies to
+   *  the comparison only, where one builder feeds the screen and every export alike. */
+  order?: string[];
 }
 
 /** Trim a user string, returning undefined when it's empty — so an untouched field
@@ -554,6 +557,7 @@ export function compareMetricRows(
   flights: CompareFlight[],
   sys: UnitChoice,
   hidden?: string[],
+  order?: string[],
 ): CompareMetricRow[] {
   const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
   const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
@@ -645,10 +649,9 @@ export function compareMetricRows(
       spreadPct,
     };
   });
-  // The flyer's own choice of readings, applied at the one place every comparison
-  // surface and export reads from — the same choice, and the same filter, as the
-  // single-flight report's.
-  return visibleRows(built, (r) => r.label, hidden);
+  // The flyer's own choice and order of readings, applied at the one place every
+  // comparison surface and export reads from — the same profile as the single flight's.
+  return orderRows(visibleRows(built, (r) => r.label, hidden), (r) => r.label, order);
 }
 
 /** Whether any compared flight tags a metric "(baro)" — i.e. the flights mix a
@@ -713,7 +716,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     );
   }
 
-  const rows = compareMetricRows(flights, sys, meta?.hidden);
+  const rows = compareMetricRows(flights, sys, meta?.hidden, meta?.order);
   // The comparison carries a Spread column: how far apart the recordings are on
   // each metric — the redundant-altimeter agreement, or the flight-to-flight change.
   const spread = flights.length >= 2;
@@ -791,7 +794,7 @@ export function compareHtml(
     crossHtml = `<section><h2>${otherDays ? 'Flight to flight' : 'Cross-check'}</h2><p class="lede">${lede}</p>${foot}</section>`;
   }
 
-  const rows = compareMetricRows(flights, sys, meta?.hidden);
+  const rows = compareMetricRows(flights, sys, meta?.hidden, meta?.order);
   const spread = flights.length >= 2;
   const head = `<tr><th>Metric</th>${flights.map((f) => `<th>${esc(nameStem(f.name))}</th>`).join('')}${spread ? '<th>Spread</th>' : ''}</tr>`;
   const body = rows

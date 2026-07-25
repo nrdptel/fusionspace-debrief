@@ -473,7 +473,14 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   (.csv series, structured .json) deliberately stay complete: `debrief.flight/1` is a contract,
   and trimming it would break a consumer rather than shorten a document. **Still missing from
   North Star #2:** the flyer can't reorder the readings, pick WHICH figures go in the bundle,
-  or choose colours/layout. **The comparison now shares it** — same component, same stored
+  or choose colours/layout — though the comparison's readings can now be **reordered**, and
+  the order follows into its table, its clipboard copy and every export. Ordering is
+  deliberately NOT offered on the single-flight report: it is a grid of tiles beside an
+  export table that carries readings the tiles don't (time to apogee, landing energy, an
+  ejection delay), so an order made against one list has no exact meaning in the other —
+  every rule tried for carrying it across (send unnamed readings to the back; anchor each to
+  its nearest named neighbour) moved things a flyer didn't ask to move. Unifying those two
+  lists is what would unblock it. **The comparison shares the show/hide half** — same component, same stored
   choice, so "what do I care about?" is answered once rather than once per surface, and the
   comparison's Markdown/HTML/bundle follow it like the flight report's do.
 - **Done for the comparison: `/compare` is its own route.** A set of flights is now named

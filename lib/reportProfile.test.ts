@@ -1,5 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { loadHidden, saveHidden, toggleHidden, visibleRows, ALWAYS_SHOWN, MAX_HIDDEN } from './reportProfile';
+import {
+  loadHidden,
+  saveHidden,
+  toggleHidden,
+  visibleRows,
+  orderRows,
+  moveReading,
+  loadOrder,
+  saveOrder,
+  ALWAYS_SHOWN,
+  MAX_HIDDEN,
+} from './reportProfile';
 
 // A Map-backed localStorage, since these tests run without a DOM.
 function stubStorage(): void {
@@ -80,5 +91,67 @@ describe('storage', () => {
     expect(loadHidden()).toEqual([]);
     window.localStorage.setItem('debrief.report.hidden', '["ok", 7, null]');
     expect(loadHidden()).toEqual(['ok']);
+  });
+});
+
+describe('orderRows', () => {
+  const rows = ['Apogee', 'Max velocity', 'Max Q', 'Flight time'];
+  const id = (s: string) => s;
+
+  it('leaves Debrief’s own order alone when nothing has been moved', () => {
+    expect(orderRows(rows, id, [])).toEqual(rows);
+    expect(orderRows(rows, id, undefined)).toEqual(rows);
+  });
+
+  it('applies the order it was given', () => {
+    // A stored order always names every reading of the list it was made on (a move
+    // rewrites that whole list), so this is the ordinary case.
+    expect(orderRows(rows, id, ['Flight time', 'Apogee', 'Max velocity', 'Max Q'])).toEqual([
+      'Flight time',
+      'Apogee',
+      'Max velocity',
+      'Max Q',
+    ]);
+  });
+
+  it('ignores a stored label this flight does not have', () => {
+    // A saved order carries readings from other flights; those must not leave gaps.
+    expect(orderRows(rows, id, ['Peak roll rate', 'Apogee', 'Max velocity', 'Max Q', 'Flight time'])).toEqual(
+      rows,
+    );
+  });
+
+  it('keeps a row the order does not name behind the ones it does', () => {
+    // A comparison can gain a row between one flight set and the next (a tilt channel on
+    // one logger and not another); it appears rather than being silently ordered away.
+    expect(orderRows([...rows, 'Tilt at burnout'], id, ['Flight time', 'Apogee', 'Max velocity', 'Max Q'])).toEqual([
+      'Flight time',
+      'Apogee',
+      'Max velocity',
+      'Max Q',
+      'Tilt at burnout',
+    ]);
+  });
+});
+
+describe('moveReading', () => {
+  const all = ['Apogee', 'Max velocity', 'Max Q', 'Flight time'];
+
+  it('moves one place at a time, from where the list actually reads', () => {
+    const once = moveReading([], all, 'Max Q', -1);
+    expect(orderRows(all, (s) => s, once)).toEqual(['Apogee', 'Max Q', 'Max velocity', 'Flight time']);
+    const twice = moveReading(once, all, 'Max Q', -1);
+    expect(orderRows(all, (s) => s, twice)).toEqual(['Max Q', 'Apogee', 'Max velocity', 'Flight time']);
+  });
+
+  it('does nothing at the ends', () => {
+    expect(orderRows(all, (s) => s, moveReading([], all, 'Apogee', -1))).toEqual(all);
+    expect(orderRows(all, (s) => s, moveReading([], all, 'Flight time', 1))).toEqual(all);
+  });
+
+  it('round-trips through storage', () => {
+    const moved = moveReading([], all, 'Flight time', -1);
+    saveOrder(moved);
+    expect(orderRows(all, (s) => s, loadOrder())).toEqual(orderRows(all, (s) => s, moved));
   });
 });

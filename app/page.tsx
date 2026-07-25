@@ -34,7 +34,9 @@ export default function Home() {
               click from it (<em>Give this comparison an address</em>; the link names the flights
               by their logbook id and carries no flight data). Click any metric in that table to order the flights by it —
               highest first, then lowest — or move a column with ◀ ▶ into an order no metric gives you
-              (booster then sustainer, flight 1 to 6). The chart legend and every export follow
+              (booster then sustainer, flight 1 to 6), or move a <em>reading</em> up and down the
+              table in <em>Choose what&apos;s in this report</em> so the comparison leads with what
+              you care about. The chart legend and every export follow
               whichever order you set.
               Anything in the drop Debrief couldn&apos;t read is named, with the reason — even when only
               one file survives and you get a single report instead. Drop a logger&apos;s summary file

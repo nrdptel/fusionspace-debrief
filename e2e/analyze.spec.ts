@@ -521,3 +521,4 @@ test('the wait says what it is reading', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
 });
+

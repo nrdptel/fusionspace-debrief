@@ -9,7 +9,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
-import { loadHidden, saveHidden, toggleHidden } from '@/lib/reportProfile';
+import { loadHidden, loadOrder, moveReading, saveHidden, saveOrder, toggleHidden } from '@/lib/reportProfile';
 import ReadingChooser from './ReadingChooser';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
@@ -148,7 +148,11 @@ export default function CompareView({
   // Which readings the flyer wants — the same stored choice the flight report uses, so
   // "what I care about" is answered once rather than per surface.
   const [hidden, setHidden] = useState<string[]>([]);
-  useEffect(() => setHidden(loadHidden()), []);
+  const [order, setOrder] = useState<string[]>([]);
+  useEffect(() => {
+    setHidden(loadHidden());
+    setOrder(loadOrder());
+  }, []);
   const toggleReading = useCallback((label: string) => {
     setHidden((prev) => {
       const next = toggleHidden(prev, label);
@@ -158,15 +162,28 @@ export default function CompareView({
   }, []);
 
   const reportMeta = useMemo<ReportMeta>(
-    () => ({ label: reportLabel, notes: reportNotes, hidden }),
-    [reportLabel, reportNotes, hidden],
+    () => ({ label: reportLabel, notes: reportNotes, hidden, order }),
+    [reportLabel, reportNotes, hidden, order],
   );
 
   // The side-by-side rows (with best-of emphasis and the mixed-source "(baro)"
   // tagging) come from one shared builder, so the on-screen table, the metrics CSV
   // and the Markdown bundle can't drift.
-  const allRows = useMemo(() => compareMetricRows(flights, sys), [flights, sys]);
-  const metricRows = useMemo(() => compareMetricRows(flights, sys, hidden), [flights, sys, hidden]);
+  const allRows = useMemo(() => compareMetricRows(flights, sys, undefined, order), [flights, sys, order]);
+  const metricRows = useMemo(
+    () => compareMetricRows(flights, sys, hidden, order),
+    [flights, sys, hidden, order],
+  );
+  const moveReadingBy = useCallback(
+    (label: string, delta: -1 | 1) => {
+      setOrder((prev) => {
+        const next = moveReading(prev, compareMetricRows(flights, sys).map((r) => r.label), label, delta);
+        saveOrder(next);
+        return next;
+      });
+    },
+    [flights, sys],
+  );
   const baroMix = compareHasBaroMix(flights);
   const clippedAccel = compareHasClippedAccel(flights);
 
@@ -644,6 +661,7 @@ export default function CompareView({
         labels={allRows.map((r) => r.label)}
         hidden={hidden}
         onToggle={toggleReading}
+        onMove={moveReadingBy}
         where="Applies to this table, the chart legend’s figures and the .md, .html and bundle exports."
       />
 

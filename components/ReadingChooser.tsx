@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { ALWAYS_SHOWN } from '@/lib/reportProfile';
 
+const MOVE_BTN =
+  'flex h-11 w-8 items-center justify-center rounded text-[10px] text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-25 disabled:hover:bg-transparent sm:h-6 dark:hover:bg-zinc-800 dark:hover:text-zinc-200';
+
 /**
  * Which readings a report carries — the one control, used by every surface that lists
  * them. A flyer's answer to "what do I care about?" is about the flyer, not about which
@@ -16,12 +19,15 @@ export default function ReadingChooser({
   labels,
   hidden,
   onToggle,
+  onMove,
   where,
 }: {
   /** Every reading this flight (or comparison) can show, in the order it shows them. */
   labels: string[];
   hidden: string[];
   onToggle: (label: string) => void;
+  /** Move one reading one place earlier or later. */
+  onMove?: (label: string, delta: -1 | 1) => void;
   /** What the choice applies to here, named in the flyer's terms. */
   where: string;
 }) {
@@ -45,14 +51,14 @@ export default function ReadingChooser({
             alike, and is remembered on this device. The data exports (.csv, .json) always carry
             everything: a report is a document, a data file is a record.
           </p>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
-            {labels.map((label) => {
+          <ul className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+            {labels.map((label, i) => {
               const locked = ALWAYS_SHOWN.includes(label);
               const on = locked || !hidden.includes(label);
               return (
-                <li key={label}>
+                <li key={label} className="flex items-center gap-1">
                   <label
-                    className={`flex min-h-11 items-center gap-2 text-xs sm:min-h-0 ${
+                    className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 text-xs sm:min-h-0 ${
                       locked ? 'text-zinc-400 dark:text-zinc-500' : 'cursor-pointer text-zinc-700 dark:text-zinc-300'
                     }`}
                   >
@@ -67,6 +73,32 @@ export default function ReadingChooser({
                       {label}
                     </span>
                   </label>
+                  {/* Order is the other half of "this report is mine" — a certification
+                      package leads with what the certification asks for. */}
+                  {onMove && (
+                    <span className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        onClick={() => onMove(label, -1)}
+                        disabled={i === 0}
+                        aria-label={`Move ${label} earlier`}
+                        title="Move earlier"
+                        className={MOVE_BTN}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onMove(label, 1)}
+                        disabled={i === labels.length - 1}
+                        aria-label={`Move ${label} later`}
+                        title="Move later"
+                        className={MOVE_BTN}
+                      >
+                        ▼
+                      </button>
+                    </span>
+                  )}
                 </li>
               );
             })}

@@ -342,3 +342,52 @@ test('the reading chooser is one choice shared by both surfaces', async ({ page 
   const names = zipEntryNames(await readFile(await dl.path()));
   expect(names).toContain('compare-summary.md');
 });
+
+// Which readings come first is the other half of "this table is mine" — a certification
+// package leads with what the certification asks for, not with what Debrief thinks matters.
+// The comparison is where that has an exact meaning: one builder feeds the screen, the
+// clipboard and every export, so "third from the top" is third from the top everywhere.
+test('the comparison’s readings can be reordered, and the order follows into the exports', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('aim-xtra.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  const rowLabels = () => page.getByRole('rowheader').allInnerTexts();
+  const before = await rowLabels();
+  expect(before[0]).toContain('Apogee');
+
+  await page.locator('summary', { hasText: "Choose what's in this report" }).click();
+  await page.getByRole('button', { name: 'Move Max Q earlier' }).click();
+  await page.getByRole('button', { name: 'Move Max Q earlier' }).click();
+
+  const after = await rowLabels();
+  expect(after.findIndex((l) => l.includes('Max Q'))).toBeLessThan(
+    before.findIndex((l) => l.includes('Max Q')),
+  );
+
+  // …and the saved table is in the same order as the screen.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save metrics' }).click(),
+  ]);
+  const stream = await dl.createReadStream();
+  const csv = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream!.on('error', reject);
+  });
+  const csvLabels = csv
+    .split('\n')
+    .slice(1)
+    .map((l) => l.split(',')[0].replace(/"/g, ''))
+    .filter(Boolean);
+  // The row headers include the flights' own names; compare the readings the two share.
+  const onScreen = after.map((l) => l.split('\n')[0].trim()).filter((l) => csvLabels.includes(l));
+  expect(onScreen.length).toBeGreaterThan(4);
+  expect(csvLabels.filter((l) => onScreen.includes(l))).toEqual(onScreen);
+});
