@@ -24,6 +24,7 @@ const CACHE = 'debrief-runtime-v1';
 const PRECACHE = [
   '/samples/sample-altusmetrum.csv',
   '/',
+  '/compare/',
   '/methods/',
   '/validation/',
   '/privacy/',

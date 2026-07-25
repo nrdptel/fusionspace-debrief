@@ -6,10 +6,11 @@ import { SITE_URL } from '@/lib/links';
 export const dynamic = 'force-static';
 
 /** Every indexable page. Debrief is a small static tool: the analyzer, the
- * methods write-up, the validation page, and the privacy page. */
+ * comparison surface, the methods write-up, the validation page, and privacy. */
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${SITE_URL}/`, changeFrequency: 'monthly', priority: 1 },
+    { url: `${SITE_URL}/compare/`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/methods/`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${SITE_URL}/validation/`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${SITE_URL}/privacy/`, changeFrequency: 'yearly', priority: 0.3 },

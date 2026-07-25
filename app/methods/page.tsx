@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function MethodsPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-10">
-      <SiteHeader />
+      <SiteHeader brandAsHeading={false} />
 
       <section className="mt-10">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">

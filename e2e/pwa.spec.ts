@@ -135,6 +135,46 @@ test('comes up offline after a single online visit — no second visit needed', 
 // At the field with no signal, "what does this number mean?" is a real question — so the
 // docs have to come up too, and as themselves. They used to fall back to the cached "/",
 // which meant the app appeared but showed the home page at the /methods/ URL.
+// The comparison surface is where a launch day gets read, which is exactly the moment
+// there is no signal. Offline it has to do more than render: it has to hydrate and reach
+// the on-device logbook, or a flyer at the field is told their logbook is empty.
+test('the compare surface works offline, with the logbook it can reach', async ({ page, context }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+
+  // Remember a flight, so there is something for the offline surface to find.
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'field.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  // Wait for the route itself to be precached (stable URL, fetched on install).
+  await page.waitForFunction(
+    async () => {
+      for (const k of await caches.keys()) {
+        const cache = await caches.open(k);
+        if (await cache.match(new URL('/compare/', location.href).href, { ignoreVary: true })) return true;
+      }
+      return false;
+    },
+    null,
+    { timeout: 20000 },
+  );
+  // …and give the header's link the chance to prefetch the route's own JS, which is what
+  // makes the page interactive rather than a static shell.
+  await page.waitForLoadState('networkidle');
+
+  await context.setOffline(true);
+  const compare = await context.newPage();
+  await compare.goto('/compare/');
+  await expect(compare.getByRole('heading', { name: 'Compare flights', level: 1 })).toBeVisible();
+  // Hydrated and reading IndexedDB with no network: the flight is there to pick.
+  await expect(compare.getByText('field.csv', { exact: true })).toBeVisible();
+  await context.setOffline(false);
+});
+
 test('the methods and validation pages come up offline, as themselves', async ({ page, context }) => {
   await page.goto('/');
   await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {

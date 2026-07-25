@@ -9,7 +9,7 @@ export default function Home() {
       {/* Chrome and prose stay at the focused reading width; only the analysis and
           compare views (below) use the extra room, where the charts live. */}
       <div className="mx-auto w-full max-w-5xl">
-        <SiteHeader />
+        <SiteHeader current="analyze" />
 
       <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden">
         <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
@@ -26,8 +26,11 @@ export default function Home() {
           <ul className="space-y-2">
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Compare</strong> — drop
-              several files at once, or tick flights in your logbook, to overlay their curves and line
-              up the numbers side by side. Click any metric in that table to order the flights by it —
+              several files at once, or open <Link href="/compare" className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100">Compare</Link>{' '}
+              and tick flights in your logbook, to overlay their curves and line up the numbers side
+              by side. A comparison built from the logbook lives at its own address, so it survives a
+              reload and can be bookmarked or kept in a second tab beside a single flight&apos;s
+              report. Click any metric in that table to order the flights by it —
               highest first, then lowest — or move a column with ◀ ▶ into an order no metric gives you
               (booster then sustainer, flight 1 to 6). The chart legend and every export follow
               whichever order you set.
@@ -66,8 +69,8 @@ export default function Home() {
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Offline</strong> —
               install it to your home screen; one visit with signal is enough, and after that it works
-              with none, right at the field — including the methods and validation pages, so
-              &ldquo;what does this number mean?&rdquo; is answerable with no bars.
+              with none, right at the field — the compare page included, along with the methods and
+              validation pages, so &ldquo;what does this number mean?&rdquo; is answerable with no bars.
             </li>
           </ul>
         </div>

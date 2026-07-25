@@ -14,6 +14,7 @@ import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
+import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import {
   saveRecent,
@@ -104,7 +105,9 @@ function rememberUnits(next: UnitChoice): void {
 export default function Analyzer() {
   const [state, setState] = useState<State>({ phase: 'idle' });
   const [sys, setSys] = useState<UnitChoice>('imperial');
-  const [recents, setRecents] = useState<RecentMeta[]>([]);
+  // The logbook and everything done to it, shared with the comparison surface so a note
+  // added on either shows on both.
+  const logbook = useLogbook();
   // Analysis is async (it runs in a worker), so a slow load that resolves after a
   // newer one must not overwrite it. Each load bumps this counter and only applies
   // its result if it's still the most recent.
@@ -116,14 +119,10 @@ export default function Analyzer() {
     };
   }, []);
 
-  const refreshRecents = useCallback(() => {
-    listRecents().then(setRecents);
-  }, []);
-
   useEffect(() => {
     setSys(readInitialUnits());
-    refreshRecents();
-  }, [refreshRecents]);
+    logbook.refresh();
+  }, [logbook.refresh]);
 
   // The fast path: the whole set flips between feet and metres, discarding any
   // per-quantity overrides — one click back to a familiar system.
@@ -159,7 +158,7 @@ export default function Analyzer() {
             maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             text,
-          }).then(refreshRecents);
+          }).then(logbook.refresh);
         } else if (result.table.dataRows.length === 0) {
           set({
             phase: 'error',
@@ -172,7 +171,7 @@ export default function Analyzer() {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
       }
     },
-    [refreshRecents, beginLoad],
+    [logbook.refresh, beginLoad],
   );
 
   const onFile = useCallback(
@@ -298,7 +297,7 @@ export default function Analyzer() {
         };
         paired.push(`${s.name} → ${target.name}`);
       }
-      refreshRecents();
+      logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
         const notes: string[] = [];
@@ -331,7 +330,7 @@ export default function Analyzer() {
         });
       }
     },
-    [onFile, refreshRecents, beginLoad],
+    [onFile, logbook.refresh, beginLoad],
   );
 
   const onSample = useCallback(async () => {
@@ -372,12 +371,12 @@ export default function Analyzer() {
           maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
           ...(flight.flownAt ? { flownAt: flight.flownAt } : {}),
           text,
-        }).then(refreshRecents);
+        }).then(logbook.refresh);
       } catch (err) {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
     },
-    [state, refreshRecents, beginLoad],
+    [state, logbook.refresh, beginLoad],
   );
 
   const reset = useCallback(() => setState({ phase: 'idle' }), []);
@@ -396,86 +395,33 @@ export default function Analyzer() {
     [ingest],
   );
 
-  const compareRecents = useCallback(async (ids: string[]) => {
-    const set = beginLoad();
-    set({ phase: 'loading' });
-    try {
-      const inputs = [];
-      for (const id of ids.slice(0, MAX_COMPARE)) {
-        // Each file is independent: one that can't be re-read or re-analyzed is
-        // skipped, not allowed to sink the whole comparison.
-        try {
-          const rec = await getRecent(id);
-          if (!rec) continue;
-          // Only auto-detected flights can be compared; a generic CSV that needed
-          // manual column mapping can't be re-analyzed without that mapping.
-          const result = importFlight({ name: rec.name, text: rec.text });
-          if (result.kind !== 'flight') continue;
-          inputs.push({
-            id,
-            name: rec.name,
-            formatLabel: result.flight.formatLabel,
-            analysis: await analyzeAsync(result.flight),
-            ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
-          });
-        } catch {
-          /* skip this file */
-        }
-      }
-      if (inputs.length < 2) {
-        set({
-          phase: 'error',
-          message:
-            'Need at least two readable flights to compare. Files that needed manual column mapping (Generic CSV) can’t be auto-compared.',
-        });
-        return;
-      }
-      set({ phase: 'compare', comparison: buildComparison(inputs) });
-    } catch {
-      set({ phase: 'error', message: 'Could not build the comparison.' });
-    }
-  }, [beginLoad]);
-
-  const removeOne = useCallback(
-    async (id: string) => {
-      await removeRecent(id);
-      refreshRecents();
+  // Comparing from the logbook happens on the comparison surface, which can be reloaded,
+  // bookmarked and opened beside a single flight — the ids are all it needs, and they are
+  // logbook keys on this device, not flight data.
+  // The unit choice rides along, so a comparison opens reading the way this page did even
+  // when it came from a shared `?u=` link that was never stored on this device.
+  const compareRecents = useCallback(
+    (ids: string[]) => {
+      window.location.href = `/compare?ids=${ids.map(encodeURIComponent).join(',')}&u=${encodeUnits(sys)}`;
     },
-    [refreshRecents],
-  );
-
-  const clearAll = useCallback(async () => {
-    await clearRecents();
-    refreshRecents();
-  }, [refreshRecents]);
-
-  const setNote = useCallback(
-    async (id: string, note: string) => {
-      await updateNote(id, note);
-      refreshRecents();
-    },
-    [refreshRecents],
+    [sys],
   );
 
   // Back up the whole logbook to a file you keep, and restore it on another
   // machine (or after a clear). Still entirely on-device — nothing is uploaded.
-  const exportLog = useCallback(async () => {
-    const json = await exportLogbook();
-    download(new Blob([json], { type: 'application/json' }), 'debrief-logbook.json');
+  // A logbook row on another surface (the comparison page) links here to read one flight:
+  // `/?open=<id>`. The flight itself never travels — only its logbook id, which this page
+  // resolves against the same on-device store.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('open');
+    if (!id) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('open');
+    window.history.replaceState(null, '', url);
+    void openRecent(id);
+    // openRecent is stable; this runs once for the id the page arrived with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const importLog = useCallback(
-    async (file: File): Promise<number> => {
-      try {
-        const n = await importLogbook(await file.text());
-        if (n > 0) refreshRecents();
-        return n;
-      } catch {
-        return 0;
-      }
-    },
-    [refreshRecents],
-  );
 
   // A shared link carries the flight in the URL fragment; decode and analyze it.
   useEffect(() => {
@@ -555,15 +501,15 @@ export default function Analyzer() {
       {state.phase !== 'loading' && <RecognizedFormats />}
       {state.phase !== 'loading' && (
         <RecentFlights
-          recents={recents}
+          recents={logbook.recents}
           sys={sys}
           onOpen={openRecent}
-          onRemove={removeOne}
-          onClear={clearAll}
+          onRemove={logbook.remove}
+          onClear={logbook.clear}
           onCompare={compareRecents}
-          onNote={setNote}
-          onExport={exportLog}
-          onImport={importLog}
+          onNote={logbook.note}
+          onExport={logbook.exportAll}
+          onImport={logbook.importAll}
         />
       )}
     </div>

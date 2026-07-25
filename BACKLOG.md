@@ -194,6 +194,16 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Fixed on a phone, and it was hiding the one thing the row is for.** A logbook row put the
+  file name, the logger badge, top speed, apogee and the date on one flex line; at 390 px the
+  name is the only thing that can shrink, so it truncated to nothing and the date and ✕ ran off
+  the edge — a launch day's logbook where no flight can be told from another. The name now has
+  the line to itself below `sm:` with everything that describes it wrapping under, and the row
+  is unchanged on a pointer (`sm:contents` puts the two halves back). While there: the ✎ and ✕
+  buttons were 28 px and the header's nav links 29 px, both under the 44 px floor this repo
+  already holds itself to — the existing check only ran on `/` with a flight open, where the
+  logbook isn't shown, so nothing was measuring them. The check now also runs over `/compare`,
+  where the logbook *is* the page, and asserts nothing overflows the viewport.
 - Removed a real mechanism for "offline reload fails even though the page is cached": both
   this host and Cloudflare send `Vary: Accept-Encoding` on the shell, and the copies the
   service worker stores are fetched by the worker, whose Accept-Encoding needn't match the
@@ -293,9 +303,19 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
 
 ## Feature depth
 
-- Everything lives on `/`. The product-shape invariant wants distinct surfaces —
-  reading a flight, comparing/reconciling several, the report & export builder, the docs
-  — each its own static route over the one model.
+- **Done for the comparison: `/compare` is its own route.** A set of flights is now named
+  in the address (`?ids=…`, logbook keys — not flight data, which never leaves the device),
+  so a comparison survives a reload, can be bookmarked, and can sit in a second tab beside
+  one flight's report; back/forward move between the picker and the comparison. The logbook
+  is the picker, and both surfaces share one `useLogbook` so a note added on either shows on
+  both. Dropping several files at once still compares them in place on `/`, because that
+  path carries things the logbook cannot: a device's own summary file paired with its log,
+  and per-file skip reasons for anything unreadable. **Next in the same direction:** offer a
+  permalink from a drop-built comparison (the files are already saved to the logbook, so the
+  ids exist), and give the report & export builder its own route when it lands.
+- Two surfaces still share one description: the header tagline says "drop in a flight log…
+  and read the flight" on `/compare` too. Wrong-ish rather than wrong; it wants a per-surface
+  line once there are three of them.
 - No report/export builder yet: a table & plot picker with unit/colour/theme control and
   multi-format export in one place (North Star #2).
 - Per-stage assembly (a staged flight logging each stage on its own device) isn't built;

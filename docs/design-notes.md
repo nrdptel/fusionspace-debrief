@@ -100,6 +100,13 @@ It fits the family by construction:
   says where it can be wrong.
 - **State in the URL** for view settings (units, which curves, smoothing, selected
   events); the flight data itself stays local. Recent flights remembered per device.
+- **A surface per job, each its own static route.** Reading one flight is `/`;
+  lining several up is `/compare`, which names its set by logbook id (`?ids=…`) so a
+  comparison survives a reload, bookmarks, and opens in a second tab beside a single
+  flight's report. They share the logbook and the unit choice, not their layout — the
+  comparison gets the full width for overlaid charts and a wide table, the analyze page
+  stays at reading width. New surfaces are earned by functions accumulating, not split
+  off ahead of them.
 
 What "correctly-analyzed" means, and the format and sharing decisions, are in
 `docs/plan.md`.

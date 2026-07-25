@@ -170,8 +170,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   won't be pruned. Never uploaded; clears in one tap. **Back it up** — export the whole
   logbook (flights and notes) to a file you keep, and import it to restore it on another
   machine or after a clear; the file is yours and nothing is uploaded.
-- Compares several flights at once — drop multiple files (or tick two or more recent
-  flights) to overlay any of their altitude, velocity, acceleration, Mach or
+- Compares several flights at once, on its own page — drop multiple files, or open
+  **Compare** and tick two or more flights in your logbook, to overlay any of their
+  altitude, velocity, acceleration, Mach or
   dynamic-pressure curves (aligned at liftoff) with a side-by-side metrics table that
   flags the best apogee, max velocity, Mach, acceleration and max Q — plus a **cross-check**
   reading how closely the flights agree, from apogee and top speed through to the descent rate
@@ -189,6 +190,8 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   the metrics CSV, a structured `.json` (each flight's metrics, the cross-check and the
   pairwise differences) and the altitude, velocity and acceleration overlay figures, zipped
   in the browser into one `.zip` to drop into a certification package.
+  A comparison built from the logbook is addressable — `/compare?ids=…` — so it survives a
+  reload, can be bookmarked, and can sit in a second tab beside one flight's full report.
 - Shares a flight as a link with the whole file encoded in the URL fragment — decoded in
   the recipient's browser, never uploaded.
 - Makes a **flight card** — a clean, branded image of the headline numbers and the

@@ -8,8 +8,13 @@ are welcome — especially new altimeter/format parsers and fixes to existing on
 Debrief is a single, fully static Next.js app (no backend). Everything runs in
 the browser.
 
-- `app/` — the Next.js App Router pages, root layout, and global styles.
+- `app/` — the Next.js App Router pages, root layout, and global styles. Each
+  surface is its own static route: `/` reads one flight, `/compare` lines several
+  up from the logbook (`?ids=…`), and `/methods`, `/validation`, `/privacy` are
+  the write-ups. A page is a thin shell: chrome plus one client component.
 - `components/` — the UI: drop zone, column mapper, flight report, charts.
+  `useLogbook` owns the on-device logbook for every surface that shows it, so
+  the two flight surfaces can't drift apart about what's in it.
 - `lib/parsers/` — the format registry. Each parser `detect()`s a file and
   `parse()`s it into a raw flight; `importFlight()` picks the best match.
 - `lib/analyze/` — the analysis pipeline (spike rejection, event detection,

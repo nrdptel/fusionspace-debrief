@@ -266,14 +266,25 @@ export default function RecentFlights({
                   disabled={!isSel && atCap}
                   onChange={() => toggle(r.id)}
                   aria-label={`Select ${r.name} to compare`}
-                  className="h-4 w-4 shrink-0 accent-indigo-600 disabled:opacity-40"
+                  className="h-5 w-5 shrink-0 accent-indigo-600 disabled:opacity-40 sm:h-4 sm:w-4"
                 />
-                <button type="button" onClick={() => onOpen(r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <button
+                  type="button"
+                  onClick={() => onOpen(r.id)}
+                  className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 py-1 text-left sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:py-0"
+                >
+                  {/* Below sm: the name gets the line to itself — telling one flight from
+                      another is what the row is for — and everything that describes it
+                      wraps underneath. Above sm: both wrappers dissolve (`contents`) back
+                      into the one dense row. */}
+                  <span className="flex min-w-0 sm:contents">
                   <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
+                  </span>
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:contents">
                   <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                     {r.formatLabel}
                   </span>
-                  <span className="ml-auto shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Max velocity">
+                  <span className="shrink-0 font-mono text-xs text-zinc-500 sm:ml-auto dark:text-zinc-400" title="Max velocity">
                     {isSpeedBest && (
                       <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
                         ★<span className="sr-only">fastest, </span>
@@ -298,13 +309,14 @@ export default function RecentFlights({
                   >
                     {r.flownAt ? formatFlownAt(r.flownAt).replace(/,.*$/, '') : relativeTime(r.addedAt)}
                   </span>
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => startEdit(r.id, r.note)}
                   aria-label={`${r.note ? 'Edit' : 'Add'} note for ${r.name}`}
                   title={r.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 ${
                     r.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   }`}
                 >
@@ -315,7 +327,7 @@ export default function RecentFlights({
                   onClick={() => onRemove(r.id)}
                   aria-label={`Remove ${r.name} from recent flights`}
                   title="Remove"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 >
                   ✕
                 </button>

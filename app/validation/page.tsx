@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function ValidationPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6 md:py-10">
-      <SiteHeader />
+      <SiteHeader brandAsHeading={false} />
 
       <h1 className="mt-10 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         How Debrief is validated

@@ -54,6 +54,7 @@ export default function CompareView({
   onToggleUnits,
   onSetUnits,
   onBack,
+  backLabel = '← Back to a single flight',
 }: {
   comparison: Comparison;
   note?: string;
@@ -61,6 +62,9 @@ export default function CompareView({
   onToggleUnits: () => void;
   onSetUnits: (units: Units) => void;
   onBack: () => void;
+  /** Where back goes depends on where the comparison came from: a drop on the analyze
+   *  page returns to that one flight; the compare surface returns to its picker. */
+  backLabel?: string;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -308,7 +312,7 @@ export default function CompareView({
           onClick={onBack}
           className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
         >
-          ← Back to a single flight
+          {backLabel}
         </button>
         <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
       </div>

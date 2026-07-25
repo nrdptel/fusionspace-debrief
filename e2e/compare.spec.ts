@@ -188,8 +188,11 @@ test('compare two flights from the recents list', async ({ page }) => {
   const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   expect(violations.map((v) => v.id)).toEqual([]);
 
-  await page.getByRole('button', { name: /Back to a single flight/ }).click();
-  await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
+  // Leaving a comparison built from the logbook returns to the picker on this surface,
+  // with the logbook still there to build the next one from.
+  await page.getByRole('button', { name: /Compare other flights/ }).click();
+  await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
 });
 
 // The overlay chart must actually draw its curves. A shorter flight is NaN-padded

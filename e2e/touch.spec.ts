@@ -84,3 +84,36 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
   });
   expect(small, `controls under 44 px tall on a phone:\n${small.join('\n')}`).toEqual([]);
 });
+
+// The same floor on the comparison surface, where the logbook is the whole page: its
+// rows, its per-flight controls and the sort chips are what a thumb has to hit at the
+// field, and they had never been measured because the analyze page only shows them
+// after a flight is loaded.
+test('the compare surface is thumb-sized too', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  await page.goto('/compare');
+  await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
+
+  const small = await page.evaluate(() => {
+    const out: string[] = [];
+    const sel =
+      'button, select, summary, [role=button], nav a, input:not([type=checkbox]):not([type=radio]):not([type=range])';
+    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
+    }
+    return out;
+  });
+  expect(small, `controls under 44 px tall on the compare page:\n${small.join('\n')}`).toEqual([]);
+
+  // And nothing on the page pushes past the viewport — the row that lost its file name
+  // to a five-column squeeze was overflowing, not just crowded.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
