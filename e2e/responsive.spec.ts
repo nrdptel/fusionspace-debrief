@@ -93,3 +93,19 @@ test('two flights’ readings are both on screen on a phone', async ({ page }) =
   expect(box.first).toBeLessThanOrEqual(box.box);
   expect(box.second).toBeLessThanOrEqual(box.box);
 });
+
+// …and the column that doesn't fit is gone rather than cut. Sliced at the viewport edge, the
+// Spread column showed the first digit of each percentage — "7" for 79%, "11" for 114% — which
+// reads as a number rather than as a fragment. Nothing is lost: the cross-check panel above
+// states every one of those spreads in prose.
+test('the spread column is absent on a phone rather than cut in half', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    fx('altusmetrum-telemetrum.csv'),
+    fx('blueraven-app-lr.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Spread' })).toBeHidden();
+  // The figures themselves are still on the page, in the panel above the table.
+  await expect(page.getByText(/% on apogee/)).toBeVisible();
+});

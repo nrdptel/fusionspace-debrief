@@ -655,7 +655,7 @@ export default function CompareView({
               {spread && (
                 <th
                   scope="col"
-                  className="px-1.5 py-2 text-right align-bottom text-xs font-medium uppercase tracking-wide text-zinc-500 sm:px-3 dark:text-zinc-400"
+                  className="hidden px-1.5 py-2 text-right align-bottom text-xs font-medium uppercase tracking-wide text-zinc-500 sm:table-cell sm:px-3 dark:text-zinc-400"
                   title="How far apart the readings are: (highest − lowest) as a percent of their mean, over the flights that recorded the figure — how closely several recordings of one flight agree, or how much the flights differ from each other."
                 >
                   Spread
@@ -698,8 +698,12 @@ export default function CompareView({
                     {i === row.best && <span className="sr-only"> (highest)</span>}
                   </td>
                 ))}
+                {/* Hidden on a phone, where it is the column that doesn't fit: cut off at the
+                    edge it showed the first digit of each percentage, which reads as a number
+                    rather than as a fragment. Nothing is lost — the cross-check panel above
+                    states every one of these spreads in prose. */}
                 {spread && (
-                  <td className="px-1.5 py-2 text-right font-mono tabular-nums text-zinc-500 sm:px-3 dark:text-zinc-400">
+                  <td className="hidden px-1.5 py-2 text-right font-mono tabular-nums text-zinc-500 sm:table-cell sm:px-3 dark:text-zinc-400">
                     {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
                   </td>
                 )}

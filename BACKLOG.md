@@ -374,6 +374,15 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Found by the cold walk, immediately after the fix that caused it.** Making two flights fit
+  on a 360 px phone left the Spread column sliced at the viewport edge — showing the first
+  digit of each percentage: "7" for 79%, "11" for 114%. A cut-off number does not read as a
+  fragment, it reads as a number, which is worse than not showing the column at all. It is
+  hidden below `sm:` now, and nothing is lost: the cross-check panel directly above states
+  every one of those spreads in prose. Asserted. The lesson is the smaller one: **a fix that
+  makes something fit should be looked at, not just measured** — the assertion I wrote
+  (both flights' cells inside the box) was true while the screen was still wrong.
+
 - **The surface called "Compare flights" could not take a flight.** Found by looking at the
   picker cold: a flyer landing on `/compare` with a launch day's folder was told to go to the
   analyze page, drop it there and come back. The one action the page is named for was the one
