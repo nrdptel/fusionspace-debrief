@@ -172,3 +172,23 @@ test('a batch drop says which files it left out, and why', async ({ page }) => {
   await expect(note).toContainText('mystery.csv');
   await expect(note).toContainText(/columns mapped/);
 });
+
+// The same drop, but only ONE file turns out to be readable: there is no comparison to
+// carry the note, so the single report has to carry it instead. Before, the flyer got a
+// report for one file and silence about the other two.
+test('a batch that yields one flight still says what it left out', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'altusmetrum-telemetrum.csv', mimeType: 'text/csv', buffer: readFileSync(fx('altusmetrum-telemetrum.csv')) },
+    { name: 'mystery.csv', mimeType: 'text/csv', buffer: Buffer.from('t,h,spd\n0,0,0\n0.1,5,50\n0.2,12,80\n0.3,6,-10') },
+    { name: 'notes.csv', mimeType: 'text/csv', buffer: Buffer.from('this file is not a flight log at all\n') },
+  ]);
+
+  // One readable flight → the report, not the comparison.
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  const note = page.getByText(/single report rather than a comparison/);
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('Only one of those 3 files');
+  await expect(note).toContainText('mystery.csv');
+  await expect(note).toContainText('notes.csv');
+});

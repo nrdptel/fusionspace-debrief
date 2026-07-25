@@ -35,7 +35,7 @@ type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
-  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string }
+  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string; note?: string }
   | { phase: 'compare'; comparison: Comparison; note?: string }
   | { phase: 'error'; message: string };
 
@@ -51,6 +51,14 @@ function skippedNote(skipped: { name: string; why: string }[]): string {
   const one = skipped.length === 1;
   const listed = skipped.map((s) => `${s.name} — ${s.why}`).join('; ');
   return `${one ? 'One dropped file was' : `${skipped.length} dropped files were`} left out of this comparison: ${listed}.`;
+}
+
+/** The same account when only ONE file of a batch turned out to be readable, so there is a
+ *  single flight report where the flyer asked for a comparison. Saying "here is a report"
+ *  and nothing else leaves them to notice the other files went missing by counting. */
+function loneFlightNote(dropped: number, skipped: { name: string; why: string }[]): string {
+  const listed = skipped.map((s) => `${s.name} — ${s.why}`).join('; ');
+  return `Only one of those ${dropped} files could be read as a flight, so this is a single report rather than a comparison. Left out: ${listed}.`;
 }
 
 function readInitialUnits(): UnitChoice {
@@ -246,7 +254,14 @@ export default function Analyzer() {
         set({ phase: 'compare', comparison: buildComparison(inputs), note: notes.join(' ') || undefined });
       } else if (results.length === 1) {
         const r = results[0];
-        set({ phase: 'report', flight: r.flight, analysis: r.analysis, analyzedAt: Date.now(), text: r.text });
+        set({
+          phase: 'report',
+          flight: r.flight,
+          analysis: r.analysis,
+          analyzedAt: Date.now(),
+          text: r.text,
+          note: skipped.length > 0 ? loneFlightNote(list.length, skipped) : undefined,
+        });
       } else {
         set({
           phase: 'error',
@@ -420,6 +435,17 @@ export default function Analyzer() {
         >
           ← Analyze another flight
         </button>
+        {/* What the drop couldn't read. Not print:hidden — a report a flyer keeps should
+            say which of their files it didn't cover. It stays out of the flight's own
+            exports, which describe this flight rather than the folder it arrived in. */}
+        {state.note && (
+          <p
+            role="status"
+            className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            {state.note}
+          </p>
+        )}
         <FlightReport
           flight={state.flight}
           analysis={state.analysis}
