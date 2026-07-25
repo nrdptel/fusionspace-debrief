@@ -102,3 +102,36 @@ test('a file with no columns of numbers says so instead of asking for a mapping'
   await expect(page.getByRole('button', { name: 'Analyze flight' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Choose a different file' })).toBeVisible();
 });
+
+// The degenerate inputs a real flyer produces by accident: a zero-byte download, a header
+// with no rows, a binary file renamed .csv, a note to self. Each has to say what happened
+// rather than fail silently or throw — and none of them may take the page down.
+test('every unreadable file says what is wrong, and nothing throws', async ({ page }) => {
+  const cases: [string, Buffer, RegExp][] = [
+    ['empty.csv', Buffer.from(''), /That file is empty/],
+    ['header-only.csv', Buffer.from('time,altitude\n'), /no flight data in this file/i],
+    ['binary.csv', Buffer.from([0x00, 0xff, 0x10, 0x42, 0x00, 0x99, 0x7f]), /no flight data in this file/i],
+    ['prose.txt', Buffer.from('Dear log,\n\nIt flew nicely.\n'), /no flight data in this file/i],
+  ];
+
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+
+  for (const [name, buffer, expected] of cases) {
+    await page.goto('/');
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: name.endsWith('.txt') ? 'text/plain' : 'text/csv', buffer });
+    await expect(page.getByText(expected), `${name} must say what is wrong`).toBeVisible();
+  }
+
+  // A single row of numbers is readable — it just can't be auto-detected, so it goes to the
+  // mapper rather than being rejected.
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'one-row.csv', mimeType: 'text/csv', buffer: Buffer.from('time,altitude\n0,0\n') });
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+
+  expect(errors, 'no unreadable file may throw').toEqual([]);
+});

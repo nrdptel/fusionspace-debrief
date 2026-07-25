@@ -472,6 +472,16 @@ memory, so a later pass doesn't have to rediscover them.
   that act as navigation without living in a `<nav>` (the "Read the methods →" call to
   action, say) and move them into one.
 
+## Hardening
+
+- **Swept the degenerate inputs and found nothing wrong — recording it so the next pass
+  doesn't re-sweep.** A zero-byte file, a header row with no data, a binary file renamed
+  `.csv`, and a note-to-self in a `.txt` each produce their own specific message ("That file
+  is empty", "There's no flight data in this file"); a single row of numbers goes to the
+  mapper rather than being rejected; none of them throws. (I briefly believed the empty file
+  failed silently — it doesn't, my instrumentation truncated the page text before the error
+  panel.) All five are an e2e regression now, which is what was actually missing.
+
 ## Benchmarked against the mature tools
 
 Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
