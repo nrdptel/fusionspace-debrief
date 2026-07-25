@@ -60,9 +60,40 @@ export default function CompareView({
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
-  const { time, flights } = comparison;
-  const syncKey = useMemo(() => `compare-${flights.map((f) => f.id).join('-')}`, [flights]);
+  const { time, flights: loaded } = comparison;
+  // Keyed off the set, not the order, so re-sorting the table doesn't rebuild the
+  // chart and throw away the flyer's zoom.
+  const syncKey = useMemo(() => `compare-${loaded.map((f) => f.id).join('-')}`, [loaded]);
   const [metric, setMetric] = useState<MetricKey>('altitude');
+
+  // Order the flights by one of the metrics. A launch day is six files at once, and
+  // "which went highest" shouldn't mean reading across a wide table by eye — so any
+  // row can order the columns, and the order carries into the chart legend and every
+  // export, because they all read the same array.
+  const [sort, setSort] = useState<{ label: string; dir: 'desc' | 'asc' } | null>(null);
+  const flights = useMemo(() => {
+    if (!sort) return loaded;
+    const row = compareMetricRows(loaded, sys).find((r) => r.label === sort.label);
+    if (!row) return loaded;
+    const sign = sort.dir === 'desc' ? -1 : 1;
+    return loaded
+      .map((f, i) => ({ f, i }))
+      .sort((a, b) => {
+        const av = row.values[a.i];
+        const bv = row.values[b.i];
+        // A flight without this figure sinks to the end, keeping its loaded order.
+        if (!Number.isFinite(av) || !Number.isFinite(bv)) {
+          if (Number.isFinite(av)) return -1;
+          if (Number.isFinite(bv)) return 1;
+          return a.i - b.i;
+        }
+        return av === bv ? a.i - b.i : sign * (av - bv);
+      })
+      .map((x) => x.f);
+  }, [loaded, sort, sys]);
+  // Third click on the same metric clears the sort, back to the order they loaded in.
+  const cycleSort = (label: string) =>
+    setSort((s) => (s?.label !== label ? { label, dir: 'desc' } : s.dir === 'desc' ? { label, dir: 'asc' } : null));
   const chartRef = useRef<HTMLDivElement>(null);
 
   // An optional caption for the comparison — for a redundant-altimeter or staged-flight
@@ -382,7 +413,17 @@ export default function CompareView({
                 scope="col"
                 className="sticky left-0 bg-white py-2 pr-4 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
               >
-                Metric
+                Metric{' '}
+                {sort && (
+                  <button
+                    type="button"
+                    onClick={() => setSort(null)}
+                    title="Back to the order the flights loaded in"
+                    className="ml-2 font-medium normal-case tracking-normal text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    clear sort
+                  </button>
+                )}
               </th>
               {flights.map((f) => (
                 <th key={f.id} scope="col" className="px-3 py-2 text-right align-bottom">
@@ -425,9 +466,22 @@ export default function CompareView({
               <tr key={row.label} className="border-t border-zinc-100 dark:border-zinc-900">
                 <th
                   scope="row"
+                  aria-sort={sort?.label === row.label ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}
                   className="sticky left-0 bg-white py-2 pr-4 text-left font-medium text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
                 >
-                  {row.label}
+                  <button
+                    type="button"
+                    onClick={() => cycleSort(row.label)}
+                    title={`Order the flights by ${row.label.toLowerCase()}`}
+                    className={`group inline-flex items-center gap-1 text-left transition hover:text-indigo-600 dark:hover:text-indigo-400 ${
+                      sort?.label === row.label ? 'text-indigo-600 dark:text-indigo-400' : ''
+                    }`}
+                  >
+                    {row.label}
+                    <span aria-hidden="true" className={sort?.label === row.label ? '' : 'opacity-0 group-hover:opacity-40'}>
+                      {sort?.label === row.label && sort.dir === 'asc' ? '▲' : '▼'}
+                    </span>
+                  </button>
                 </th>
                 {flights.map((f, i) => (
                   <td

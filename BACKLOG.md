@@ -38,9 +38,8 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
-- The comparison table (metrics × flights) can't be sorted, filtered or reordered — on a
-  launch day with six flights, "which went highest" means reading across by eye. Sorting
-  the flight columns by a metric is the affordance a mature tool has here.
+- The comparison table sorts now, but doesn't filter, and columns can't be dragged into a
+  deliberate order (booster/sustainer, or flight 1..n) — the next step for a launch day.
 - Footer and prose links stay 16–20 px tall on a phone (correctly — a 44 px link inside a
   sentence would be wrong), but the footer nav in particular is a thumb target in practice.
   Worth laying the footer links out as a real nav row on a coarse pointer.

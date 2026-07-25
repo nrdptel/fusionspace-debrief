@@ -492,6 +492,9 @@ export interface CompareMetricRow {
   label: string;
   /** One formatted string per flight, in flight order. */
   cells: string[];
+  /** The same figures unformatted, in flight order (NaN where the flight has none) —
+   *  what the table sorts the flight columns by. */
+  values: number[];
   /** Index of the flight to emphasize as best, or -1 for none. */
   best: number;
   /** For a two-flight comparison only: the spread between the pair, |a−b| as a
@@ -584,7 +587,13 @@ export function compareMetricRows(flights: CompareFlight[], sys: UnitSystem): Co
       if (Number.isFinite(a) && Number.isFinite(b) && mean > 0) spreadPct = (Math.abs(a - b) / mean) * 100;
     }
 
-    return { label: s.label, cells: flights.map((f) => s.get(f.metrics)), best, spreadPct };
+    return {
+      label: s.label,
+      cells: flights.map((f) => s.get(f.metrics)),
+      values: flights.map((f) => s.value(f.metrics)),
+      best,
+      spreadPct,
+    };
   });
 }
 

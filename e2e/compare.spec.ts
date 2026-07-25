@@ -74,12 +74,38 @@ test('compare two flights from the recents list', async ({ page }) => {
   // Switch which quantity is overlaid across the flights, including the derived
   // engineering channels (Mach, dynamic pressure).
   await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Acceleration' }).click();
+  await page.getByRole('button', { name: 'Acceleration', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Acceleration \(g\)/ })).toBeVisible();
   await page.getByRole('button', { name: 'Mach', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Mach', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Dynamic pressure', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Dynamic pressure \((kPa|psi)\)/ })).toBeVisible();
+
+  // Any metric row orders the flight columns — a launch day is several files at once,
+  // and "which went highest" shouldn't mean reading across the table by eye. The order
+  // carries into the exports below, which read the same array.
+  const metricsTable = page
+    .locator('table')
+    .filter({ has: page.getByRole('rowheader', { name: 'Apogee', exact: true }) });
+  const flightColumns = async () =>
+    (await metricsTable.getByRole('columnheader').allInnerTexts())
+      .map((t) => t.split('\n')[0].trim())
+      .filter((t) => t && !/^metric/i.test(t) && !/^diff$/i.test(t));
+  const loadedOrder = await flightColumns();
+  expect(loadedOrder).toHaveLength(2);
+  const apogeeHeader = apogeeRow.getByRole('rowheader', { name: 'Apogee', exact: true });
+  const apogeeSort = apogeeHeader.getByRole('button', { name: 'Apogee', exact: true });
+
+  await apogeeSort.click(); // highest first
+  await expect(apogeeHeader).toHaveAttribute('aria-sort', 'descending');
+  const desc = await flightColumns();
+  await apogeeSort.click(); // lowest first
+  await expect(apogeeHeader).toHaveAttribute('aria-sort', 'ascending');
+  expect(await flightColumns()).toEqual([...desc].reverse());
+
+  // A third click (or the explicit escape) puts them back the way they loaded.
+  await page.getByRole('button', { name: 'clear sort' }).click();
+  expect(await flightColumns()).toEqual(loadedOrder);
 
   // Export the comparison — the chart data, the metrics table, and a PNG.
   const [dataCsv] = await Promise.all([
@@ -115,7 +141,7 @@ test('compare two flights from the recents list', async ({ page }) => {
   // A vector (SVG) export of the overlay, for reports — one path per compared flight.
   // Overlay altitude first: both flights have a finite altitude curve, so the path
   // count is deterministic.
-  await page.getByRole('button', { name: 'Altitude' }).click();
+  await page.getByRole('button', { name: 'Altitude', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Altitude/ })).toBeVisible();
   const exportSvg = async () => {
     const [dl] = await Promise.all([

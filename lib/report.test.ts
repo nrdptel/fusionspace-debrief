@@ -307,6 +307,22 @@ describe('comparison report', () => {
     expect(apogee.spreadPct).toBeLessThan(7);
   });
 
+  it('carries the raw figures beside the formatted cells, in flight order', () => {
+    // What the table sorts its flight columns by — the same numbers the cells format,
+    // so the on-screen order can't disagree with the values shown.
+    const rows = compareMetricRows(comparison.flights, 'metric');
+    const apogee = rows.find((r) => r.label === 'Apogee')!;
+    expect(apogee.values).toHaveLength(2);
+    expect(apogee.values[0]).toBeLessThan(apogee.values[1]); // 'a' ~300 m, 'b' ~315 m
+    expect(apogee.values[0]).toBeGreaterThan(250);
+    // A metric no flight recorded reads NaN rather than 0, so it sorts to the end
+    // instead of pretending to be the lowest.
+    const tilt = rows.find((r) => r.label === 'Tilt at burnout');
+    expect(tilt).toBeUndefined();
+    const drogue = rows.find((r) => r.label === 'Drogue descent')!;
+    expect(drogue.values.every((v) => Number.isNaN(v) || Number.isFinite(v))).toBe(true);
+  });
+
   it('reports no spread for a non-pair comparison', () => {
     const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
     expect(compareMetricRows(three.flights, 'metric')[0].spreadPct).toBeNull();

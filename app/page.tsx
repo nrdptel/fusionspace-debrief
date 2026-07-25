@@ -27,7 +27,8 @@ export default function Home() {
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Compare</strong> — drop
               several files at once, or tick flights in your logbook, to overlay their curves and line
-              up the numbers side by side.
+              up the numbers side by side. Click any metric in that table to order the flights by it —
+              highest first, then lowest — and the chart legend and every export follow the same order.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Explore</strong> — plot
