@@ -25,10 +25,20 @@ memory, so a later pass doesn't have to rediscover them.
   merged record put apogee 39.6 s after liftoff; it now reads 18.2 s against the GPS's 19.3 s.
   Still open in that group: trf-lemiv-l3's four recordings spread 23.6–28.2 s on time to
   apogee while agreeing to 1% on altitude — a liftoff-detection difference, worth a look.
-- The Blue Raven jan18 flight reports a burnout altitude of 2,542 ft, but its own burnout
-  speed (1,243 ft/s) and time put the rocket at most ~870 ft up by then — so either burnout
-  is detected late on that flight or the altitude is wrong. Its baro isn't contradicted, so
-  neither guard fires. Worth checking burnout detection on a device-velocity flight.
+- **The transonic artefact also runs the other way, and nothing catches it yet.** On the
+  Blue Raven jan18 flight the barometric altitude *over*-reads through the supersonic push:
+  it climbs 98 → 592 → 1,784 → 2,605 ft between t=0.24 s and 0.74 s (an implied 3,570 ft/s)
+  while the same device's inertial velocity peaks at 1,239 ft/s, then plateaus near 2,800 ft
+  for seconds with the rocket still doing 900 ft/s. So burnout is detected correctly (at the
+  velocity peak, 0.74 s) but its altitude reads 2,542 ft where the flight's own velocity
+  record allows about 460 ft (∫v dt). The monotonicity guard only sees altitude going
+  *backwards*, so it doesn't fire.
+  The rigorous test: with a measured (non-barometric) velocity, the height climbed from
+  liftoff to any ascent instant cannot exceed ∫v dt from liftoff — here violated 5.6×. The
+  honest response is probably to withhold, since the file's two altitude recordings disagree
+  and neither the baro nor a single check can say which is right. Needs a corpus-wide
+  validation pass before it ships: only three corpus files carry both recordings, so the
+  blast radius is checkable.
 - A Blue Raven also solves downrange/crossrange velocity and position (`Velocity_DR/CR`,
   `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
   dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the
