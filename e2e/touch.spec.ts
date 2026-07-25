@@ -59,3 +59,26 @@ test('a two-finger pinch zooms the chart on a touch device', async ({ page }) =>
   });
   await expect(page.getByRole('heading', { name: 'Across the whole flight' })).toBeVisible();
 });
+
+// A pad check happens one-handed, on a phone, sometimes with gloves on. Every control
+// the flyer has to hit there needs a real touch target — 44 px, the floor Apple's HIG
+// and WCAG 2.5.5 set — while the pointer/desktop layout keeps its dense 26 px chips.
+// Text links inside prose are exempt (a 44 px-tall link mid-sentence would be wrong).
+test('every control on a phone is a thumb-sized target', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  const small = await page.evaluate(() => {
+    const out: string[] = [];
+    const sel = 'button, select, summary, [role=button], input:not([type=checkbox]):not([type=radio]):not([type=range])';
+    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue; // hidden (e.g. the sr-only file input)
+      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
+    }
+    return out;
+  });
+  expect(small, `controls under 44 px tall on a phone:\n${small.join('\n')}`).toEqual([]);
+});

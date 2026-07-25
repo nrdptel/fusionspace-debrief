@@ -30,6 +30,35 @@ html {
   border-radius: 2px;
 }
 
+/* A phone at the pad is driven with a thumb, often a gloved one, so on a coarse
+   pointer every control gets a real touch target — 44 px, the floor Apple's HIG and
+   WCAG 2.5.5 both set (Material asks 48 dp) — where the dense pointer layout keeps its
+   26 px chips. Only the hit area grows: padding, type scale and colour are untouched,
+   so the controls still read as the same compact strip. Checkboxes, radios and range
+   sliders are left alone (they sit inline with their labels), as are text links, which
+   must not become 44 px tall inside a paragraph. */
+@media (pointer: coarse) {
+  button,
+  select,
+  a[download],
+  [role='button'],
+  input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+    min-height: 44px;
+  }
+  button,
+  [role='button'] {
+    min-width: 44px;
+  }
+  /* A summary is a block list-item, so a min-height would strand its label at the top
+     of the taller box — and switching it to flex to centre that would drop the
+     disclosure triangle. Pad it instead: the row grows to a thumb's worth and the whole
+     width of it stays the toggle. */
+  summary {
+    padding-block: 0.75rem;
+    min-height: 44px; /* the floor for a summary whose label is smaller than text-sm */
+  }
+}
+
 /* Honour reduced-motion for the few transitions we use. */
 @media (prefers-reduced-motion: reduce) {
   *,
