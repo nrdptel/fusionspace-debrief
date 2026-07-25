@@ -44,6 +44,15 @@ const MAX_BYTES = 64 * 1024 * 1024; // 64 MB — far above any real flight log
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+/** What a batch drop couldn't read, said plainly. Names the files — a flyer who dropped a
+ *  folder needs to know *which* one is missing — and keeps a logger's own guidance
+ *  (a Blue Raven's high-rate half, a device summary) rather than flattening it. */
+function skippedNote(skipped: { name: string; why: string }[]): string {
+  const one = skipped.length === 1;
+  const listed = skipped.map((s) => `${s.name} — ${s.why}`).join('; ');
+  return `${one ? 'One dropped file was' : `${skipped.length} dropped files were`} left out of this comparison: ${listed}.`;
+}
+
 function readInitialUnits(): UnitChoice {
   if (typeof window === 'undefined') return 'imperial';
   // A shared link's units win over this device's remembered choice, so a link opens
@@ -190,13 +199,24 @@ export default function Analyzer() {
       // Cap on the number of *flights we can show*, not on input files: keep
       // parsing past a file that fails to auto-detect so a valid later file can
       // still fill a slot, and stop once the comparison is full.
+      // Whatever a batch couldn't read, and why. A launch day's folder mixes loggers
+      // Debrief auto-detects with files that need the column mapper, a Blue Raven's
+      // high-rate half, a device summary — dropping those on the floor without a word
+      // leaves the flyer counting flights to notice one is missing.
+      const skipped: { name: string; why: string }[] = [];
       for (const file of list) {
         if (results.length >= MAX_COMPARE) break;
         try {
-          if (file.size > MAX_BYTES) continue;
+          if (file.size > MAX_BYTES) {
+            skipped.push({ name: file.name, why: 'too large to read in the browser' });
+            continue;
+          }
           const text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
           const result = importFlight({ name: file.name, text });
-          if (result.kind !== 'flight') continue;
+          if (result.kind !== 'flight') {
+            skipped.push({ name: file.name, why: 'needs its columns mapped, which only works one file at a time' });
+            continue;
+          }
           const analysis = await analyzeAsync(result.flight);
           results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text });
           // Awaited (not fire-and-forget) so the per-save prune doesn't race itself.
@@ -207,19 +227,23 @@ export default function Analyzer() {
             maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
             text,
           });
-        } catch {
-          /* skip this file */
+        } catch (e) {
+          // A guidance error explains itself (the Blue Raven high-rate file, a device
+          // summary); anything else is just unreadable.
+          const why = e instanceof ParseGuidanceError ? e.message : 'couldn’t be read as a flight';
+          skipped.push({ name: file.name, why });
         }
       }
       refreshRecents();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis }));
+        const notes: string[] = [];
         // Only when the cap actually held some flights back from a larger drop.
-        const note =
-          results.length === MAX_COMPARE && list.length > MAX_COMPARE
-            ? `Showing ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`
-            : undefined;
-        set({ phase: 'compare', comparison: buildComparison(inputs), note });
+        if (results.length === MAX_COMPARE && list.length > MAX_COMPARE) {
+          notes.push(`Showing ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`);
+        }
+        if (skipped.length > 0) notes.push(skippedNote(skipped));
+        set({ phase: 'compare', comparison: buildComparison(inputs), note: notes.join(' ') || undefined });
       } else if (results.length === 1) {
         const r = results[0];
         set({ phase: 'report', flight: r.flight, analysis: r.analysis, analyzedAt: Date.now(), text: r.text });

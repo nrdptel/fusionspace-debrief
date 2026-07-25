@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 
 // A deep, user-simulated audit of the compare feature: realistic multi-flight
 // sessions exercising the table, the mixed-source (baro) marking, every overlay
@@ -148,4 +149,26 @@ test('comparing three flights from the recents list', async ({ page }) => {
     .getByRole('row')
     .filter({ has: page.getByRole('rowheader', { name: 'Apogee', exact: true }) });
   await expect(apogeeRow.getByText(/^\d+(\.\d)?%$/)).toBeVisible();
+});
+
+// A launch day's folder mixes loggers Debrief auto-detects with files it can't batch-read:
+// one that needs the column mapper, a Blue Raven's high-rate half, a device summary. Those
+// used to be dropped on the floor without a word, leaving the flyer to count flights to
+// notice one was missing.
+test('a batch drop says which files it left out, and why', async ({ page }) => {
+  await page.goto('/');
+  const asBuffer = (f: string) => ({ name: f, mimeType: 'text/csv', buffer: readFileSync(fx(f)) });
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    asBuffer('altusmetrum-telemetrum.csv'),
+    asBuffer('featherweight-raven-fip.csv'),
+    // Needs the column mapper — a plain time/height CSV with no logger signature.
+    { name: 'mystery.csv', mimeType: 'text/csv', buffer: Buffer.from('t,h,spd\n0,0,0\n0.1,5,50\n0.2,12,80\n0.3,6,-10') },
+  ]);
+
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  // Named, so the flyer knows which file to open on its own, and told why.
+  const note = page.getByText(/left out of this comparison/);
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('mystery.csv');
+  await expect(note).toContainText(/columns mapped/);
 });

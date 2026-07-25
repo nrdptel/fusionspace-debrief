@@ -78,6 +78,13 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- A batch drop that yields exactly **one** readable flight still shows that report with no
+  word about the other files — the note only reaches the comparison view. The report phase
+  has no note slot; give it one.
+- Offline reload on a *fresh* mobile context failed in a cold walk-through (`ERR_FAILED`)
+  even though the app then analysed a flight offline and the PWA e2e specs pass — likely the
+  service worker not yet in control that early. Worth confirming on a real phone.
+
 - Three e2e selector clashes this run came from adding the same phrase to the page's own
   how-to copy that a test used to target a control (`per quantity`, `Show the samples`).
   Worth a convention: target controls by role/summary, never by a bare phrase.
