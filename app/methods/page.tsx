@@ -93,9 +93,12 @@ export default function MethodsPage() {
           </Method>
           <Method title="When the accelerometer settles it">
             On a log that carries both channels, the accelerometer bounds a barometric speed from{' '}
-            <em>above</em>: integrate the measured specific force less gravity from liftoff, as if every
-            g pointed straight up and drag cost nothing, and the result is a ceiling the rocket cannot
-            have passed. The unpowered coast bounds it from <em>below</em>: climbing Δh from the end of
+            <em>above</em>: integrate the measured specific force less gravity from liftoff, crediting
+            every measured g as vertical, and the result is a ceiling the rocket cannot have passed —
+            an accelerometer reads the force along the airframe&apos;s axis, so a rocket leaning at all
+            puts only a&nbsp;cos(lean) of it into the climb while this sum takes all of it. Drag needs
+            no allowance here: it is already in the reading, which is why the same sum falls back again
+            through the coast. The unpowered coast bounds it from <em>below</em>: climbing Δh from the end of
             thrust to apogee with the motor out needs at least √(2gΔh). Where those two bracket a real
             speed and the barometric peak reads outside the bracket, the barometer is wrong rather than
             merely soft, and the speed figures are withheld with the bracket named. Four flights of one

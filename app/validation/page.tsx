@@ -168,8 +168,13 @@ export default function ValidationPage() {
             <li>
               A <strong>barometric speed the flight&apos;s own accelerometer cannot account for</strong>{' '}
               is withheld too. The accelerometer caps it from above — the measured g integrated from
-              liftoff, with every g taken as vertical and drag as free — and the unpowered coast to apogee
-              floors it from below, so the two bracket the top speed. Four flights of one home-built
+              liftoff, with every g credited as vertical, which a leaning airframe never manages — and
+              the unpowered coast to apogee floors it from below, so the two bracket the top speed.
+              Integrating that same reading does <em>not</em> give a speed worth reporting, though: it
+              closes back to zero at apogee — which is what apogee means — on only 7 of the 22 corpus
+              flights that carry an accelerometer, and on none of the four below. Where it does close it
+              lands within 6% of the device&apos;s own figure; where it doesn&apos;t, the drift is 44% to
+              135% of the peak, so the bound is all this channel honestly supports. Four flights of one home-built
               altimeter read barometric peaks of Mach&nbsp;0.9–1.65 on ~2,450&nbsp;ft apogees against a
               bracket of roughly Mach&nbsp;0.3–0.4: the summary names the bracket instead of the peak. The
               bound is only used where the coast corroborates the accelerometer, so a channel read on the

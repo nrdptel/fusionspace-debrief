@@ -11,7 +11,8 @@ memory, so a later pass doesn't have to rediscover them.
   0.72 s while the same file's accelerometer reads a 20 g boost that can only account for
   ~430 ft/s. Two channels of one flight, one of them wrong. What separated it — where three
   attempts at a *threshold* on this artefact had failed — is that the accelerometer bounds the
-  speed from above (∫(a−g)dt from liftoff, every g taken as vertical, drag free) and the
+  speed from above (∫(a−g)dt from liftoff, every g credited as vertical — the tilt term is
+  what makes it generous; drag is already in the reading) and the
   unpowered coast bounds it from below (√(2gΔh) from the end of thrust to apogee). Both are
   inequalities from the flight's own record, not tolerances. Swept over the corpus the two
   bracket the speed on all 22 flights with an accelerometer, and only these four read outside
@@ -19,9 +20,27 @@ memory, so a later pass doesn't have to rediscover them.
   settles the truth sits at 88–138%. The ceiling is used only where the coast corroborates it,
   which is what keeps a Jolly Logic sample flight (ceiling 2 ft/s against a 666 ft apogee — a
   channel on another convention, or too coarse to integrate) from accusing its own barometer.
-  Still open in the same area: those four flights now report no speed at all. The bracket is
-  named in the warning, but a *reported* accelerometer-integrated velocity — what AltosUI and
-  the Blue Raven tools show — would be better than nothing, and is the natural next step.
+  Still open in the same area: those four flights report no speed at all. The bracket is named
+  in the warning; stating a number off the same channel was tried next and does not hold up —
+  see the entry below.
+- **Measured, and it does not support a reported number: an accelerometer-integrated
+  velocity.** The obvious next step after bounding the speed was to state it — integrate
+  (a−g) from liftoff, the way AltosUI and the Blue Raven tools do. It has a free, exact
+  self-test: the vertical velocity must come back to zero at apogee, because that is what
+  apogee means, so the residual there IS the accumulated drift. Swept over all 22 corpus
+  flights with a device accelerometer: it closes to within 7% on the six AltimeterCloud
+  flights and −13% on the 121 km TeleMega — and where it closes it agrees with the device's
+  own reported velocity to 2–6% (540 vs 541, 533 vs 515, 223 vs 212, 527 vs 550, 553 vs 523,
+  199 vs 206 ft/s), so the method is right where it applies. Everywhere else the residual is
+  −44% to −135% (one Jolly Logic channel −9,485%). **The four jimheaney flights that report no
+  speed today are at −44%, −52%, −63% and −77%, so this would not rescue them.** The mechanism
+  is the same tilt term that makes the bound generous: an axial reading credited as vertical,
+  integrated over a long coast, walks off. Bounding the speed is what this channel supports;
+  stating it is not. Don't retry without a tilt/attitude channel to project the axis with.
+  (While measuring this: the shipped comment and both doc pages claimed the ceiling was
+  generous partly because "drag cost nothing". Wrong — an accelerometer measures drag, which
+  is why the running sum falls again through the coast. The generosity is the tilt term alone.
+  Corrected in the same change.)
 - Found by driving the app, not by a test: a withheld velocity was still being printed
   per-sample in the event legend and all four exports, so the headline read "—" while
   burnout read 1,932 ft/s. Fixed for all three withholding guards at once. Worth checking

@@ -698,8 +698,11 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
 
   // A barometric peak speed the flight's own accelerometer cannot account for. On a log
   // carrying both channels the accelerometer bounds the speed from ABOVE: integrate the
-  // measured specific force less gravity from liftoff, as if every g pointed straight up
-  // and drag cost nothing, and the result is a ceiling the rocket cannot have passed. The
+  // measured specific force less gravity from liftoff, crediting every measured g as
+  // vertical, and the result is a ceiling the rocket cannot have passed — an accelerometer
+  // reads the axial force, so a tilted airframe puts only a·cos(tilt) into the climb while
+  // this sum takes all of it. (Drag needs no allowance: it is already inside the reading,
+  // which is why the sum falls again through the coast.) The
   // unpowered coast bounds it from BELOW: to climb Δh from the end of thrust to apogee a
   // body needs at least √(2g·Δh). Where those two bracket a real speed and the barometric
   // trace reads outside the bracket, the barometer is wrong rather than merely soft — the
@@ -1191,7 +1194,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   } else if (velocityBeyondAccel) {
     const mach = (v: number) => (series.speedOfSound > 0 ? (v / series.speedOfSound).toFixed(2) : '—');
     warnings.push(
-      `The barometric speed reads about ${beyondAccelRatio.toFixed(1)}× faster than this flight’s own accelerometer allows, so it is not a speed. Integrating the measured g from liftoff — as if every g pointed straight up and drag cost nothing, which makes it a generous ceiling — the rocket cannot have passed about Mach ${mach(accelCeiling)}, and the unpowered climb from the end of thrust to apogee needs at least about Mach ${mach(coastFloor)}, so the flight’s own records bracket its top speed between those two. What the barometer reads instead is the shock over its pressure port through the transonic push. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off a figure the rest of the record contradicts; apogee, timings and the descent still read normally.`,
+      `The barometric speed reads about ${beyondAccelRatio.toFixed(1)}× faster than this flight’s own accelerometer allows, so it is not a speed. Integrating the measured g from liftoff, with every measured g credited as vertical — which makes it a generous ceiling, since a tilted airframe puts only part of its thrust into the climb — the rocket cannot have passed about Mach ${mach(accelCeiling)}, and the unpowered climb from the end of thrust to apogee needs at least about Mach ${mach(coastFloor)}, so the flight’s own records bracket its top speed between those two. What the barometer reads instead is the shock over its pressure port through the transonic push. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off a figure the rest of the record contradicts; apogee, timings and the descent still read normally.`,
     );
   } else if (velocityImplausible) {
     warnings.push(
