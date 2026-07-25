@@ -300,7 +300,7 @@ export default function Analyzer() {
       }
       refreshRecents();
       if (results.length >= 2) {
-        const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis }));
+        const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
         const notes: string[] = [];
         // Only when the cap actually held some flights back from a larger drop.
         if (results.length === MAX_COMPARE && list.length > MAX_COMPARE) {
@@ -416,6 +416,7 @@ export default function Analyzer() {
             name: rec.name,
             formatLabel: result.flight.formatLabel,
             analysis: await analyzeAsync(result.flight),
+            ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
           });
         } catch {
           /* skip this file */

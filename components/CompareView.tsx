@@ -12,6 +12,7 @@ import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import UnitsControl from './UnitsControl';
+import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
@@ -493,6 +494,13 @@ export default function CompareView({
                   <span className="mt-0.5 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
                     {f.formatLabel}
                   </span>
+                  {/* The launch day, where the file stated it — on a launch day's comparison
+                      that's the column's real identity, not its file name. */}
+                  {f.flownAt && (
+                    <span className="mt-0.5 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                      {formatFlownAt(f.flownAt)}
+                    </span>
+                  )}
                   {!f.liftoffDetected && (
                     <span
                       className="mt-0.5 block text-[11px] font-normal text-amber-600 dark:text-amber-400"

@@ -251,3 +251,27 @@ test('a comparison column can be moved into a deliberate order', async ({ page }
   await page.getByRole('button', { name: 'clear sort' }).click();
   expect((await names())[0]).toContain('aim-xtra');
 });
+
+// The launch day belongs on a launch day's comparison: increment by increment the date the
+// file states reached the report, the exports and the logbook, and the comparison was the one
+// surface left showing only file names.
+test('a comparison labels each column with the launch day the file states', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'blueraven-may.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app-lr.csv')) },
+    { name: 'telemetrum-oct.csv', mimeType: 'text/csv', buffer: readFileSync(fx('altusmetrum-telemetrum.csv')) },
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  // A Blue Raven states its own clock; an AltOS log states a GPS's UTC. Both, labelled.
+  const header = page.locator('thead');
+  await expect(header).toContainText('11 May 2024, 14:09 (logger clock)');
+  await expect(header).toContainText('30 Oct 2021, 20:07 UTC');
+
+  // And it rides into the comparison's Markdown.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save metrics', exact: true }).click(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/compare-metrics\.csv$/);
+});

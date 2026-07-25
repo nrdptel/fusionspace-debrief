@@ -4,6 +4,7 @@
 // a shared, uniform time grid. uPlot needs one x-array shared by all series, so
 // the resampling is what makes the overlay possible at all.
 
+import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
 // Distinct, colour-blind-friendly-ish strokes; one per flight, in order. Caps the
@@ -18,6 +19,9 @@ export interface CompareInput {
   name: string;
   formatLabel: string;
   analysis: FlightAnalysis;
+  /** When the flight flew, where its file stated it — carried through so a launch day's
+   *  comparison can label its columns by date rather than by file name alone. */
+  flownAt?: FlownAt;
 }
 
 export interface CompareFlight {
@@ -25,6 +29,8 @@ export interface CompareFlight {
   name: string;
   formatLabel: string;
   color: string;
+  /** When it flew, where the file said (see lib/flight/flownAt.ts). */
+  flownAt?: FlownAt;
   /** Altitude (m AGL) resampled onto the shared grid; NaN outside the flight. */
   altitude: Float64Array;
   /** Velocity (m/s) resampled onto the shared grid; NaN outside the flight. */
@@ -139,6 +145,7 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       id: it.id,
       name: it.name,
       formatLabel: it.formatLabel,
+      ...(it.flownAt ? { flownAt: it.flownAt } : {}),
       color: COMPARE_PALETTE[idx % COMPARE_PALETTE.length],
       altitude: resample(rels[idx], series.altitude, grid),
       velocity: resample(rels[idx], series.velocity, grid),

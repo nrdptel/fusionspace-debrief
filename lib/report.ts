@@ -649,7 +649,13 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
   if (label) out.push(`## ${cell(label)}`, '');
   out.push(`Comparing **${flights.length}** flight${flights.length === 1 ? '' : 's'}, aligned at liftoff (t = 0).`);
   out.push('');
-  out.push(...flights.map((f) => `- **${cell(nameStem(f.name))}** · ${cell(f.formatLabel)}`));
+  out.push(
+    ...flights.map(
+      (f) =>
+        `- **${cell(nameStem(f.name))}** · ${cell(f.formatLabel)}` +
+        (f.flownAt ? ` · flew ${cell(formatFlownAt(f.flownAt))}` : ''),
+    ),
+  );
   if (userNotes) out.push('', userNotes.split('\n').map((l) => `> ${l}`).join('\n'));
   if (note) out.push('', `> ${cell(note)}`);
 
@@ -956,7 +962,14 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
     ...(userNotes ? { notes: userNotes } : {}),
     ...(note ? { note } : {}),
     units: jsonUnits(sys),
-    flights: flights.map((f) => ({ name: f.name, format: f.formatLabel, metrics: jsonMetrics(f.metrics, sys) })),
+    flights: flights.map((f) => ({
+      name: f.name,
+      format: f.formatLabel,
+      // The stamp exactly as the file stated it, with whose clock it is; null where the
+      // file carried no date. Never re-projected into another zone.
+      flownAt: f.flownAt ? { stamp: f.flownAt.stamp, clock: f.flownAt.zone } : null,
+      metrics: jsonMetrics(f.metrics, sys),
+    })),
     crossCheck: crossCheck(flights).map((a) => ({
       metric: a.key,
       label: a.label,

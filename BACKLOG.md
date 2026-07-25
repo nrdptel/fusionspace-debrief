@@ -149,6 +149,11 @@ memory, so a later pass doesn't have to rediscover them.
   a route onward, but a real reader for the AltOS eeprom format (documented, open source)
   would cover files a flyer already has on disk — and each of those three has a paired CSV
   export in the corpus, so there is ground truth to check a reader against.
+- The launch day now reaches the comparison too (column header, the compare Markdown and the
+  compare JSON), which increment 4 had left out — it went to the report, the flight's exports
+  and the logbook only. Worth a habit: when a value lands on "every surface", the comparison
+  view is the one that gets forgotten, because it reads a different type (`CompareFlight`, not
+  `RawFlight`).
 - Fixed: `velocitySource: 'device'` used to mean only "the file had a velocity column", so a
   baro-only logger's filtered derivative read as measured — 9 corpus flights, including an
   Eggtimer at 4,483 ft/s on a 4,661 ft apogee (Mach 4.08) and another at 2,671 ft/s on 958 ft,
