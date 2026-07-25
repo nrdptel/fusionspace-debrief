@@ -391,3 +391,27 @@ test('the comparison’s readings can be reordered, and the order follows into t
   expect(onScreen.length).toBeGreaterThan(4);
   expect(csvLabels.filter((l) => onScreen.includes(l))).toEqual(onScreen);
 });
+
+// A control that forgets is a control that asks the same question every time. The explorer
+// already remembers how a flyer set it up; the comparison's channel didn't, so someone
+// comparing a season's boosts clicked past altitude on every single one.
+test('the comparison remembers which channel you were looking at', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('aim-xtra.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  // Altitude by default, as before.
+  await expect(page.getByRole('heading', { name: /^Altitude/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Velocity', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /^Velocity/ })).toBeVisible();
+
+  // The next comparison opens on velocity, without being asked again.
+  await page.getByRole('button', { name: /Back to a single flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Velocity/ })).toBeVisible();
+});

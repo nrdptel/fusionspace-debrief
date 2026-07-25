@@ -289,6 +289,12 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- The comparison chart reset to altitude on every comparison — so a flyer comparing a
+  season's boosts clicked past it every single time. It remembers the channel now, on this
+  device, the same way the explorer remembers how it was set up. Worth sweeping for other
+  controls that forget: the comparison's sort and manual column order still reset per
+  comparison, which is arguably right (they're about *those* flights) but has never been
+  thought about deliberately.
 - **Drove the field journey end to end and it holds — now asserted.** A phone, no signal at
   all, and a launch day already in the logbook from home: open `/compare` cold, tick two
   flights, get the comparison, then open one of them on its own from the same logbook. Every

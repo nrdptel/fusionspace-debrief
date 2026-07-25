@@ -10,6 +10,7 @@ import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
 import { loadHidden, loadOrder, moveReading, saveHidden, saveOrder, toggleHidden } from '@/lib/reportProfile';
+import { loadCompareChannel, saveCompareChannel } from '@/lib/plotView';
 import ReadingChooser from './ReadingChooser';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
@@ -23,7 +24,8 @@ import Chart, { type ChartMarker } from './Chart';
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
 
-type MetricKey = 'altitude' | 'velocity' | 'acceleration' | 'mach' | 'dynamicPressure';
+const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
+type MetricKey = (typeof METRIC_KEYS)[number];
 
 function round0(v: number): string {
   return Number.isFinite(v) ? String(Math.round(v)) : '—';
@@ -80,7 +82,18 @@ export default function CompareView({
   // Keyed off the set, not the order, so re-sorting the table doesn't rebuild the
   // chart and throw away the flyer's zoom.
   const syncKey = useMemo(() => `compare-${loaded.map((f) => f.id).join('-')}`, [loaded]);
+  // The channel the flyer was last looking at, remembered on this device: comparing a
+  // season's boosts means velocity every time, and clicking past altitude on each one is
+  // the tool forgetting what it was just told.
   const [metric, setMetric] = useState<MetricKey>('altitude');
+  useEffect(() => {
+    const saved = loadCompareChannel();
+    if (saved && (METRIC_KEYS as readonly string[]).includes(saved)) setMetric(saved as MetricKey);
+  }, []);
+  const chooseMetric = useCallback((key: MetricKey) => {
+    setMetric(key);
+    saveCompareChannel(key);
+  }, []);
 
   // Order the flights by one of the metrics. A launch day is six files at once, and
   // "which went highest" shouldn't mean reading across a wide table by eye — so any
@@ -688,7 +701,7 @@ export default function CompareView({
             <button
               key={m.key}
               type="button"
-              onClick={() => setMetric(m.key)}
+              onClick={() => chooseMetric(m.key)}
               aria-pressed={m.key === metric}
               className={seg(m.key === metric)}
             >

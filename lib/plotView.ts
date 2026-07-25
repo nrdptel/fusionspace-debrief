@@ -7,6 +7,32 @@
 // a saved view is applied only where the new flight actually has those channels.
 
 const KEY = 'debrief.plotView';
+const COMPARE_KEY = 'debrief.compareChannel';
+
+/**
+ * Which channel the comparison chart was last showing. Same reasoning as the explorer's
+ * saved view, one surface over: a flyer who compares boosts looks at velocity every time,
+ * and having to click past altitude on every comparison is the tool forgetting something it
+ * was just told. Stored as a plain string and validated by the caller, since the set of
+ * channels belongs to the comparison, not here.
+ */
+export function loadCompareChannel(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(COMPARE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveCompareChannel(key: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(COMPARE_KEY, key);
+  } catch {
+    /* storage blocked — the choice still applies to this view */
+  }
+}
 
 export interface PlotView {
   /** Channel identifiers, in plot order. */
