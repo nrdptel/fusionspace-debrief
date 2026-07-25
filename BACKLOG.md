@@ -68,7 +68,23 @@ memory, so a later pass doesn't have to rediscover them.
   before it counts as a descent (half a second pulled a 121 km flight's apogee 28 s early on
   one transient dip), and no clamping above the troposphere, where a baro trace has stopped
   being a height at all — that same 121 km log swings 163,000–206,000 ft with no trend.
-- **The transonic artefact also runs the other way, and nothing catches it yet.** On the
+- **Fixed, and the way in was a bound after three thresholds had failed.** On the Blue Raven
+  jan18 flight the barometric altitude *over*-reads through the supersonic push, so burnout
+  reported 2,495 ft where the flight's own inertial speed record allows under 900. The running
+  maximum can't see it — the trace never goes backwards — and the entry below records three
+  attempts to threshold the discrepancy, all abandoned. What works is not a tolerance at all:
+  over any stretch a rocket's **mean climb rate cannot exceed the fastest it was going during
+  it** (the mean value theorem), and where the speed is measured the fastest it was going is in
+  the file. So the height gained since liftoff is capped by (peak speed so far) × (time since
+  liftoff), with the same 3%-of-apogee band the floor guard uses to absorb barometric wander.
+  Swept over the corpus: exactly **one event on one flight** exceeds the cap — that burnout, by
+  495 m against a 58 m band — while the worst sound flight sits at 28% of its own band, so the
+  separation is 9× on one side and 3.5× on the other rather than a tuned edge. The reading now
+  comes from that device's inertial altitude (564 ft, against ∫v dt ≈ 460 ft), accepted only
+  because it satisfies the bound the barometer failed. Gated on a *measured* velocity: a
+  barometric one is this very trace differenced, so the cap would test the trace against itself
+  — asserted by a test. Standing corpus invariant added (it fails on the old code: 495 m > 58 m).
+- **The original entry, kept for the reasoning that got here.** On the
   Blue Raven jan18 flight the barometric altitude *over*-reads through the supersonic push:
   it climbs 98 → 592 → 1,784 → 2,605 ft between t=0.24 s and 0.74 s (an implied 3,570 ft/s)
   while the same device's inertial velocity peaks at 1,239 ft/s, then plateaus near 2,800 ft

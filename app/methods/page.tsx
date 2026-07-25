@@ -144,11 +144,24 @@ export default function MethodsPage() {
             pressure up, which reads as the rocket <em>descending</em>: one corpus flight&apos;s trace
             drops to 307&nbsp;ft below its pad while the same device&apos;s inertial channel climbs past
             1,700&nbsp;ft, and another reads 1,095&nbsp;ft below a height it had already recorded. A
-            climbing rocket can do neither. Where the record contradicts itself like that — below the
-            pad, or well below a height already passed — Debrief looks for a second altitude recording
+            climbing rocket can do neither. The same shock runs the other way on other airframes,
+            driving the sensed pressure <em>down</em> so the trace climbs faster than the rocket did —
+            and a running maximum cannot see that, because the altitude never goes backwards. What
+            catches it is a bound rather than a tolerance: over any stretch a rocket&apos;s mean climb
+            rate cannot exceed the fastest it was going during that stretch, and where the flight has a
+            measured speed the fastest it was going is in the file. So the height gained since liftoff
+            is capped by (peak speed so far)&nbsp;×&nbsp;(time since liftoff). One corpus flight reports
+            a burnout altitude of 2,495&nbsp;ft where its own inertial speed record allows under
+            900&nbsp;ft. The cap applies only where the speed is <em>measured</em> — a barometric
+            velocity is worked out from this very altitude trace, so it would be testing the trace
+            against itself — and reading an axial speed as vertical only makes the cap more generous,
+            which is the right direction for a guard. Across the whole corpus it changes exactly that
+            one figure. Where the record contradicts itself either way — below the
+            pad, well below a height already passed, or above what its own speed record allows —
+            Debrief looks for a second altitude recording
             in the same file: where the logger solved for an inertial altitude (a Blue Raven does) and
-            that solution agrees with what the barometer had already established, the reading is taken
-            from it instead. On that flight it turns a burnout altitude of &minus;307&nbsp;ft into
+            that solution satisfies the bound the barometer just failed, the reading is taken
+            from it instead. On the flight above that turns 2,495&nbsp;ft into 564&nbsp;ft. On that flight it turns a burnout altitude of &minus;307&nbsp;ft into
             1,583&nbsp;ft, which checks out against the flight&apos;s own burnout speed and time
             (v&nbsp;·&nbsp;t&nbsp;÷&nbsp;2&nbsp;&asymp;&nbsp;1,366&nbsp;ft, a lower bound since thrust
             tapers). With no second recording to turn to, the altitude for that reading is withheld and

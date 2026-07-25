@@ -673,12 +673,44 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // flight's read-offs sit within 72 ft of the record; the three that trip this are 557 to
   // 1,125 ft below it.
   const contradictionBand = Math.max(30, apogeeAlt * 0.03);
+
+  // The same artefact runs the other way, and the running maximum can't see it: through the
+  // supersonic push the shock over the static port can drive the sensed pressure DOWN as
+  // well as up, and the trace then climbs faster than the rocket did. One corpus Blue Raven
+  // flight reads 98 → 592 → 1,784 → 2,605 ft in half a second — an implied 3,570 ft/s —
+  // while its own inertial channel peaks at 1,239 ft/s, so its burnout altitude reported
+  // 2,495 ft on a flight whose own speed record allows under 900.
+  //
+  // What catches it is not a tolerance on the discrepancy but a bound: over any stretch, a
+  // rocket's MEAN climb rate cannot exceed the fastest it was going during it (that's the
+  // mean value theorem, not a rule of thumb), and the fastest it was going is in the file.
+  // So the height gained since liftoff is capped by (peak speed so far) × (time since
+  // liftoff). Taking the speed as vertical when it may be axial only makes the cap more
+  // generous, which is the right direction for a guard.
+  //
+  // Only where the speed is MEASURED: a baro-derived velocity comes from this very altitude
+  // trace, so the cap would be testing the trace against itself.
+  const ascentCeil = new Float64Array(n);
+  {
+    const hLift = Number.isFinite(altClean[liftoffRef]) ? altClean[liftoffRef] : 0;
+    let peak = 0;
+    for (let i = liftoffRef; i <= apogeeIdx && i < n; i++) {
+      const v = velocity[i];
+      if (Number.isFinite(v) && v > peak) peak = v;
+      ascentCeil[i] = hLift + peak * (time[i] - liftoffTime);
+    }
+  }
+  const capApplies = velocitySource === 'device';
   // A rocket in flight is also never below its own pad. That catches the same artefact
   // where it strikes before the rocket has climbed far enough for the running maximum to
   // mean anything — a TeleMega reads −542 ft at its Mach-1 crossing.
   const belowGroundBand = Math.max(15, apogeeAlt * 0.005);
   let withheldAnAltitude = false;
   let recoveredFromInertial = false;
+  // Which way the trace went wrong, so the warning can say what happened rather than
+  // recite every way it could have.
+  let sawUnderRead = false;
+  let sawOverRead = false;
   /** The altitude at an ascent instant: the logger's inertial solution where the
    *  barometric record contradicts itself and that solution is consistent with it,
    *  otherwise NaN. Every surface formats a non-finite length as "—", so a figure with no
@@ -686,13 +718,25 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   const altAt = (idx: number): number => {
     const h = altClean[idx];
     const onAscent = idx >= liftoffRef && idx <= apogeeIdx && Number.isFinite(h);
-    if (onAscent && (h < -belowGroundBand || ascentFloor[idx] - h > contradictionBand)) {
+    if (!onAscent) return h;
+    const tooLow = h < -belowGroundBand || ascentFloor[idx] - h > contradictionBand;
+    const tooHigh = capApplies && h - ascentCeil[idx] > contradictionBand;
+    if (tooLow || tooHigh) {
+      if (tooLow) sawUnderRead = true;
+      if (tooHigh) sawOverRead = true;
       // Only when the second recording agrees with what the first already established:
-      // at least the height the baro itself had reached, and no higher than the apogee.
+      // between the height the baro itself had reached and the apogee when the trace read
+      // too low, and under the speed record's own cap when it read too high. A candidate is
+      // held to the bound the barometer just failed, or it is no better than what it replaces.
       const alt = inertial?.[idx];
-      if (alt != null && Number.isFinite(alt) && alt >= ascentFloor[idx] && alt <= apogeeAlt) {
+      const usable =
+        alt != null &&
+        Number.isFinite(alt) &&
+        (tooLow ? alt >= ascentFloor[idx] && alt <= apogeeAlt : true) &&
+        (tooHigh ? alt - ascentCeil[idx] <= contradictionBand && alt > -belowGroundBand : true);
+      if (usable) {
         recoveredFromInertial = true;
-        return alt;
+        return alt as number;
       }
       withheldAnAltitude = true;
       return NaN;
@@ -1269,15 +1313,30 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
       'A gap in the sampled ascent leaves the peak velocity undeterminable — the top speed may fall in the unrecorded stretch, and a derivative taken across the gap spikes to a spurious figure — so max velocity, Mach, max-Q and any transonic crossing are withheld rather than guessed across it.',
     );
   }
-  if (recoveredFromInertial) {
-    warnings.push(
-      'The altitude trace contradicts itself on the way up — dropping below the pad, or below a height the record had already reached, neither of which a climbing rocket can do. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure up. Where a reading lands in that stretch, its altitude is taken from the logger’s own inertial solution instead — a second recording in the same file, which doesn’t use the port — rather than off the distorted baro trace. The altitude chart still shows the barometric trace as recorded, and you can plot the inertial one against it in the explorer.',
-    );
-  }
-  if (withheldAnAltitude) {
-    warnings.push(
-      'The altitude trace contradicts itself on the way up — dropping below the pad, or well below a height the record had already reached, neither of which a climbing rocket can do. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure up. Where a reading lands in that stretch its altitude is withheld (shown as “—”) rather than reported, because the record cannot say how high the rocket was there; the time and speed of those readings, and the altitude chart, are unaffected.',
-    );
+  if (recoveredFromInertial || withheldAnAltitude) {
+    // Both faults are the same physical cause read in opposite directions, so the sentence
+    // is built from what this flight actually did.
+    const how = [
+      sawUnderRead
+        ? 'dropping below the pad, or below a height the record had already reached'
+        : '',
+      sawOverRead
+        ? 'climbing further in a stretch than the flight’s own measured top speed over that stretch can account for'
+        : '',
+    ]
+      .filter(Boolean)
+      .join(', and ');
+    const cause = `The altitude trace contradicts itself on the way up — ${how}, and a climbing rocket can do neither. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure away from the true static value — upward on some airframes, downward on others.`;
+    if (recoveredFromInertial) {
+      warnings.push(
+        `${cause} Where a reading lands in that stretch, its altitude is taken from the logger’s own inertial solution instead — a second recording in the same file, which doesn’t use the port — rather than off the distorted baro trace, and only where that solution satisfies the bound the barometer failed. The altitude chart still shows the barometric trace as recorded, and you can plot the inertial one against it in the explorer.`,
+      );
+    }
+    if (withheldAnAltitude) {
+      warnings.push(
+        `${cause} Where a reading lands in that stretch its altitude is withheld (shown as “—”) rather than reported, because the record cannot say how high the rocket was there; the time and speed of those readings, and the altitude chart, are unaffected.`,
+      );
+    }
   }
   if (velocityNoiseDominated) {
     warnings.push(

@@ -558,6 +558,86 @@ describe('an ascent altitude the record contradicts', () => {
     expect(a.warnings.some((w) => /contradicts itself on the way up/.test(w))).toBe(false);
   });
 
+  /** The same artefact the other way round: the shock drives the sensed pressure DOWN, so
+   *  the trace climbs faster than the rocket did. The running maximum can't see this — the
+   *  altitude never goes backwards — but the flight's own measured speed can: over any
+   *  stretch the mean climb rate cannot exceed the fastest the rocket was going in it. */
+  function transonicOverRead(): RawFlight {
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    const t = flight.time;
+    // The speed is measured, and taken from the sound profile BEFORE the trace is
+    // distorted — that is what makes it an independent record rather than the same
+    // reading twice. A little wobble so it isn't recognisable as this trace differenced.
+    const vel = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++)
+      vel[i] = Math.max(0, ((alt[i] - alt[i - 1]) / (t[i] - t[i - 1])) * (1 + 0.03 * Math.sin(i)));
+    // The accelerometer that makes the speed a measurement, consistent with it by
+    // construction (a = dv/dt + g), so no other guard has anything to say about it.
+    const acc = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++) acc[i] = (vel[i] - vel[i - 1]) / (t[i] - t[i - 1]) + 9.80665;
+    // A step the port invents through the push, and then holds: 400 m in a third of a
+    // second, which nothing in this flight's speed record can account for. Placed on the
+    // speed peak, where the real artefact strikes and where the read-offs are.
+    let peak = 1;
+    for (let i = 1; i < vel.length; i++) if (vel[i] > vel[peak]) peak = i;
+    const from = Math.max(1, peak - 6);
+    for (let i = from; i < alt.length; i++) alt[i] += Math.min(400, (i - from) * 66.7);
+    flight.channels.push({ kind: 'velocity', label: 'v', unit: 'm/s', values: vel });
+    flight.channels.push({ kind: 'accelTotal', label: 'a', unit: 'm/s²', values: acc });
+    return flight;
+  }
+
+  it('withholds an altitude the flight’s own speed record cannot account for', () => {
+    const a = analyzeFlight(transonicOverRead());
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(false);
+    expect(a.warnings.some((w) => /contradicts itself on the way up/.test(w))).toBe(true);
+    // The warning names what actually happened — not the opposite fault.
+    expect(a.warnings.some((w) => /measured top speed over that stretch can account for/.test(w))).toBe(
+      true,
+    );
+    // The speed and the apogee are unaffected: only the altitude at that instant is unknown.
+    expect(a.metrics.maxVelocity).toBeGreaterThan(0);
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+  });
+
+  it('takes the inertial recording when it satisfies the bound the barometer failed', () => {
+    const flight = transonicOverRead();
+    const truth = syntheticBaroFlight().flight.channels[0].values; // the undistorted profile
+    flight.channels.push({ kind: 'altitudeInertial', label: 'Inertial_Altitude', unit: 'm', values: truth });
+    const a = analyzeFlight(flight);
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(true);
+    expect(a.warnings.some((w) => /inertial solution instead/.test(w))).toBe(true);
+  });
+
+  it('rejects an inertial recording that breaks the same bound', () => {
+    // A second recording is only worth having if it satisfies what the first one failed;
+    // one that is just as impossible settles nothing.
+    const flight = transonicOverRead();
+    const alt = flight.channels[0].values;
+    flight.channels.push({
+      kind: 'altitudeInertial',
+      label: 'Inertial_Altitude',
+      unit: 'm',
+      values: Float64Array.from(alt, (h) => h + 50),
+    });
+    const a = analyzeFlight(flight);
+    expect(Number.isFinite(a.metrics.maxVelocityAltitude)).toBe(false);
+    expect(a.warnings.some((w) => /is withheld/.test(w))).toBe(true);
+  });
+
+  it('never applies the speed cap to a baro-derived velocity', () => {
+    // With no speed sensor the "velocity" is this very altitude trace differenced, so the
+    // cap would be testing the trace against itself — it must not fire at all.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    const from = Math.round(3.4 / 0.05);
+    for (let i = from; i < alt.length; i++) alt[i] += Math.min(400, (i - from) * 60 * 0.05);
+    const a = analyzeFlight(flight);
+    expect(a.series.velocitySource).toBe('baro');
+    expect(a.warnings.some((w) => /can account for/.test(w))).toBe(false);
+  });
+
   it('does not withhold over ordinary barometric wander', () => {
     // A few metres of jitter on the way up is a barometer being a barometer.
     const { flight } = syntheticBaroFlight();

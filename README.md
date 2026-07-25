@@ -94,8 +94,10 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
 - Carries a **second altitude recording** where the logger has one — a Blue Raven solves an
   inertial altitude alongside its barometric one, and Debrief keeps both so you can plot them
   against each other. Through the transonic push, where the shock over a static port makes the
-  baro trace read the rocket *descending* (one flight reaches 493 ft below its pad), the
-  inertial solution is the one still climbing — 1,710 ft at that same instant. Shown side by
+  baro trace read the rocket *descending* (one flight reaches 493 ft below its pad) — or, on
+  another airframe, climbing faster than the rocket's own measured speed can account for
+  (2,495 ft at a burnout where under 900 ft is possible) — the
+  inertial solution is the one that holds up: 1,710 ft and 564 ft at those instants. Shown side by
   side, never merged: the analysis stays on the barometric channel, which doesn't drift over a
   whole flight.
 - Opens up the full data — a channel explorer lets you plot anything the logger

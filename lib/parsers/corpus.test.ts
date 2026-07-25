@@ -89,6 +89,38 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
   if (m.maxDynamicPressureAltitude != null) expect(m.maxDynamicPressureAltitude, ctx('maxQ alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.transonicAltitude != null) expect(m.transonicAltitude, ctx('transonic alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
   if (m.burnoutAltitude != null) expect(m.burnoutAltitude, ctx('burnout alt ≤ apogee')).toBeLessThanOrEqual(apo + 5);
+  // No reported ascent altitude may be higher than the flight's own measured speed can
+  // account for: over the stretch from liftoff, the mean climb rate cannot exceed the
+  // fastest the rocket was going in it. That is the mean value theorem, not a tolerance,
+  // and the small allowance below is for barometric wander alone. Only where the speed is
+  // measured — a barometric velocity comes from this very altitude trace, so the check
+  // would be circular. Reading an axial speed as vertical makes the cap generous, which is
+  // the safe direction.
+  if (a.series.velocitySource === 'device') {
+    const t = a.series.time;
+    const h = a.series.altitude;
+    const lift = a.events.find((e) => e.type === 'liftoff');
+    const apoEv = a.events.find((e) => e.type === 'apogee');
+    if (lift && apoEv && apoEv.index > lift.index) {
+      const band = Math.max(30, apo * 0.03);
+      let peak = 0;
+      const ceilAt = new Float64Array(t.length);
+      for (let i = lift.index; i <= apoEv.index; i++) {
+        const v = a.series.velocity[i];
+        if (Number.isFinite(v) && v > peak) peak = v;
+        ceilAt[i] = (Number.isFinite(h[lift.index]) ? h[lift.index] : 0) + peak * (t[i] - t[lift.index]);
+      }
+      for (const e of a.events) {
+        if (e.index <= lift.index || e.index > apoEv.index || !Number.isFinite(e.altitude)) continue;
+        expect(
+          e.altitude - ceilAt[e.index],
+          ctx(
+            `${e.type} altitude ${e.altitude.toFixed(0)} m exceeds what ${peak.toFixed(0)} m/s over ${(t[e.index] - t[lift.index]).toFixed(2)} s allows (${ceilAt[e.index].toFixed(0)} m)`,
+          ),
+        ).toBeLessThanOrEqual(band);
+      }
+    }
+  }
   // A coast can't beat a vacuum. Coast efficiency is the height actually gained from
   // burnout to apogee over the v²/2g a body would gain with no drag at all, so a value above
   // 1 is a free lunch: it means the burnout velocity, the burnout altitude and the apogee
