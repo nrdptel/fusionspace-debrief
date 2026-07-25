@@ -192,3 +192,28 @@ test('a batch that yields one flight still says what it left out', async ({ page
   await expect(note).toContainText('mystery.csv');
   await expect(note).toContainText('notes.csv');
 });
+
+// A Featherweight app writes a log and a summary side by side, and a flyer drops both. The
+// summary isn't a flight, but it holds the device's OWN figures for the flight in the log —
+// so the pair should read as one flight with a cross-check, not one flight and one rejected
+// file. (Before, the summary was skipped with its figures buried in a note.)
+test('a log dropped with its device summary reads as one flight plus a cross-check', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'BlRv_SN0829_LR_05-11-2024.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app-lr.csv')) },
+    { name: 'BlRv_SN0829_summary_05-11-2024_.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app.summary.csv')) },
+  ]);
+
+  // One flight, and the note says what the second file contributed.
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await expect(page.getByText(/Read the device's own summary alongside the flight/)).toBeVisible();
+
+  // The device's figures sit beside Debrief's own read, with the agreement stated.
+  const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Logger' }) });
+  await expect(table).toBeVisible();
+  const apogee = table.getByRole('row').filter({ hasText: 'Apogee' });
+  await expect(apogee).toContainText('4,035 ft'); // what the device wrote
+  await expect(apogee).toContainText('4,036 ft'); // what Debrief read
+  await expect(apogee).toContainText(/agree/);
+  await expect(table.getByRole('row').filter({ hasText: 'Max velocity' })).toContainText('700 ft/s');
+});

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { importFlight } from './index';
+import { summaryFigures } from './deviceSummary';
 import { ParseGuidanceError } from './types';
 
 // A Featherweight app summary export, trimmed: key,value rows and no time series,
@@ -47,5 +48,66 @@ describe('a device summary file', () => {
     // No rocket name, no headline figure — nothing to claim.
     const settings = ['Setting,Value', 'Main altitude,700', 'Drogue delay,2', 'Beeper,on', 'Units,feet'].join('\n');
     expect(() => importFlight({ name: 'settings.csv', text: settings })).not.toThrow();
+  });
+});
+
+// The figures a summary contributes to the flight it belongs to, for the side-by-side
+// cross-check. Read as SI, with the unit taken from the value the file states rather than
+// assumed — the same app can be set to metric.
+describe('summaryFigures', () => {
+  it('reads a Featherweight (Blue Raven) summary’s headline figures', () => {
+    const s = summaryFigures(
+      [
+        'Rocket Name,BlRv_SN0829',
+        'Firmware,fd31408 02/03/2024 11:34:33',
+        'Max Altitude,4034.98 feet',
+        'Max velocity,700.36 feet/sec',
+        'Pad altitude ASL,230.55 feet',
+        'Max motor burn acceleration,24.1 Gs',
+        'Tilt angle at burnout,2.6 deg',
+      ].join('\n'),
+    )!;
+    expect(s.rocket).toBe('BlRv_SN0829');
+    const by = Object.fromEntries(s.reported.map((r) => [r.metric, r.value]));
+    expect(by.apogeeAltitude).toBeCloseTo(1229.86, 1); // 4034.98 ft
+    expect(by.maxVelocity).toBeCloseTo(213.47, 1); // 700.36 ft/s
+    expect(by.maxAcceleration).toBeCloseTo(236.34, 1); // 24.1 g
+    expect(s.reported.every((r) => r.source === 'device')).toBe(true);
+  });
+
+  it('reads a GPS summary’s velocity and the UTC launch time it states', () => {
+    const s = summaryFigures(
+      [
+        'Rocket Name,GPSTrk05305',
+        'Launch time UTC,Apr 12 2025 16:46:14.200 UTC',
+        'Launch time local time zone,Apr 12 2025 12:46:14',
+        'Max vertical velocity,1340 ft/sec',
+        'Pad altitude,25.0 ft',
+        'Distance at apogee,5480.90 ft',
+      ].join('\n'),
+    )!;
+    expect(s.flownAt).toEqual({ stamp: '2025-04-12T16:46:14', zone: 'UTC' });
+    const by = Object.fromEntries(s.reported.map((r) => [r.metric, r.value]));
+    expect(by.maxVelocity).toBeCloseTo(408.43, 1); // 1340 ft/s
+    // "Distance at apogee" is downrange, not altitude: mapping it would invent a
+    // cross-check that contradicts a sound read.
+    expect(by.apogeeAltitude).toBeUndefined();
+  });
+
+  it('drops a figure whose unit it can’t resolve rather than assuming feet', () => {
+    const s = summaryFigures(
+      [
+        'Rocket Name,Mystery',
+        'Firmware,abc 01/01/2024',
+        'Max Altitude,4034.98 cubits',
+        'Max velocity,700.36 feet/sec',
+        'Pad altitude ASL,230.55 feet',
+      ].join('\n'),
+    )!;
+    expect(s.reported.map((r) => r.metric)).toEqual(['maxVelocity']);
+  });
+
+  it('is null for anything that isn’t a summary', () => {
+    expect(summaryFigures('Time (s),Altitude (ft)\n0,0\n0.1,5\n')).toBeNull();
   });
 });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight, ParseGuidanceError } from '@/lib/parsers';
+import { summaryFigures } from '@/lib/parsers/deviceSummary';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import type { RawFlight } from '@/lib/flight/types';
@@ -59,6 +60,20 @@ function skippedNote(skipped: { name: string; why: string }[]): string {
 function loneFlightNote(dropped: number, skipped: { name: string; why: string }[]): string {
   const listed = skipped.map((s) => `${s.name} — ${s.why}`).join('; ');
   return `Only one of those ${dropped} files could be read as a flight, so this is a single report rather than a comparison. Left out: ${listed}.`;
+}
+
+/** What a summary file contributed, so the flyer can see the drop did something with it
+ *  rather than wondering why one of their two files vanished. */
+function pairedNote(paired: string[]): string {
+  return `Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`;
+}
+
+/** Does this file name belong to the rocket a summary names? Compared on letters and digits
+ *  only, so "BlRv_SN1537_LR_04-12-2025.csv" matches a summary for "BlRv_SN1537". */
+function sameRocket(fileName: string, rocket: string): boolean {
+  const fold = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const key = fold(rocket);
+  return key.length >= 4 && fold(fileName).includes(key);
 }
 
 function readInitialUnits(): UnitChoice {
@@ -213,14 +228,20 @@ export default function Analyzer() {
       // high-rate half, a device summary — dropping those on the floor without a word
       // leaves the flyer counting flights to notice one is missing.
       const skipped: { name: string; why: string }[] = [];
+      // A dropped device summary isn't a flight, but it isn't rubbish either: it holds the
+      // altimeter's OWN headline figures for the flight in the log beside it. Held aside
+      // here and paired up below, so the pair a Featherweight app writes reads as one
+      // flight with a cross-check rather than one flight and one rejected file.
+      const summaries: { name: string; figures: NonNullable<ReturnType<typeof summaryFigures>> }[] = [];
       for (const file of list) {
         if (results.length >= MAX_COMPARE) break;
+        let text = '';
         try {
           if (file.size > MAX_BYTES) {
             skipped.push({ name: file.name, why: 'too large to read in the browser' });
             continue;
           }
-          const text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
+          text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
           const result = importFlight({ name: file.name, text });
           if (result.kind !== 'flight') {
             skipped.push({ name: file.name, why: 'needs its columns mapped, which only works one file at a time' });
@@ -238,11 +259,44 @@ export default function Analyzer() {
             text,
           });
         } catch (e) {
-          // A guidance error explains itself (the Blue Raven high-rate file, a device
-          // summary); anything else is just unreadable.
+          const figures = text ? summaryFigures(text) : null;
+          if (figures) {
+            summaries.push({ name: file.name, figures });
+            continue;
+          }
+          // A guidance error explains itself (the Blue Raven high-rate file); anything
+          // else is just unreadable.
           const why = e instanceof ParseGuidanceError ? e.message : 'couldn’t be read as a flight';
           skipped.push({ name: file.name, why });
         }
+      }
+
+      // Pair each summary with the log it belongs to. The key is the rocket name the
+      // summary itself states, which the app also puts in the log's file name — data, not a
+      // naming convention — falling back to the obvious case of one flight and one summary.
+      const paired: string[] = [];
+      for (const s of summaries) {
+        const target =
+          results.find((r) => sameRocket(r.name, s.figures.rocket)) ??
+          (results.length === 1 && summaries.length === 1 ? results[0] : undefined);
+        if (!target) {
+          skipped.push({
+            name: s.name,
+            why: `the device's own summary for “${s.figures.rocket}”, but its flight log wasn't in this drop`,
+          });
+          continue;
+        }
+        // Beside Debrief's read, never merged into it: the figures land in `reported`,
+        // which is what the cross-check panel compares against. A figure the log already
+        // stated for itself wins — that one came from the flight record.
+        const already = new Set((target.flight.reported ?? []).map((v) => v.metric));
+        const added = s.figures.reported.filter((v) => !already.has(v.metric));
+        target.flight = {
+          ...target.flight,
+          ...(added.length ? { reported: [...(target.flight.reported ?? []), ...added] } : {}),
+          ...(target.flight.flownAt ?? s.figures.flownAt ? { flownAt: target.flight.flownAt ?? s.figures.flownAt } : {}),
+        };
+        paired.push(`${s.name} → ${target.name}`);
       }
       refreshRecents();
       if (results.length >= 2) {
@@ -252,6 +306,7 @@ export default function Analyzer() {
         if (results.length === MAX_COMPARE && list.length > MAX_COMPARE) {
           notes.push(`Showing ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`);
         }
+        if (paired.length > 0) notes.push(pairedNote(paired));
         if (skipped.length > 0) notes.push(skippedNote(skipped));
         set({ phase: 'compare', comparison: buildComparison(inputs), note: notes.join(' ') || undefined });
       } else if (results.length === 1) {
@@ -262,7 +317,12 @@ export default function Analyzer() {
           analysis: r.analysis,
           analyzedAt: Date.now(),
           text: r.text,
-          note: skipped.length > 0 ? loneFlightNote(list.length, skipped) : undefined,
+          note:
+            skipped.length > 0
+              ? loneFlightNote(list.length, skipped)
+              : paired.length > 0
+                ? pairedNote(paired)
+                : undefined,
         });
       } else {
         set({

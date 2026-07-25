@@ -129,10 +129,21 @@ memory, so a later pass doesn't have to rediscover them.
 - Checked, not a bug: the `Lyrid-04252021` SRAD log reads 171 ft AGL against a manifest
   "6220 ft", which is MSL — its altitude record genuinely spans only the top 183 ft of a
   truncated capture, and Debrief now says so (no pad baseline, no clear ascent).
-- A device summary file is now recognised and explained, but its figures still aren't
-  *used*: dropping a summary and its log together should feed the summary's numbers into
-  the cross-check as the device's side. That needs multi-file association — the next real
-  step for reconciliation.
+- Done: dropping a device summary alongside its log now feeds the summary's figures into the
+  cross-check as the device's side, paired on the rocket name the summary states (which the
+  app also puts in the log's file name). A Blue Raven pair reads Apogee 4,035 ft device vs
+  4,036 ft Debrief and Max velocity 700 vs 698 ft/s. Two gaps left in the same area: a figure
+  the summary states but Debrief withholds (max acceleration on a baro-only log) drops out of
+  the table entirely, where showing "device 24.1 g / Debrief —" would teach more; and the
+  pairing is within one drop only — a summary dropped on its own still just explains itself,
+  and can't attach to a flight already open or in the logbook.
+- Measured, and deliberately NOT built: a date role for the column mapper, so a generic CSV
+  could carry its launch date the way the three named parsers now do. Zero of the corpus's
+  generic CSVs have a date column (jimheaney ×4: Time/Acc/Alt/Temp; Lyrid: 30 IMU columns, no
+  date; Proton and Quantum FW-format: Flight_Time only; Eggtimer: T/Alt/Veloc). It would fire
+  on no real file here, which is worse than nothing — revisit when a dated generic export
+  turns up, and note that Y/M/D roles would also need guarding against a "Day" column that
+  means something else.
 - Native binary logs still can't be *read*: an AltOS `.eeprom` (3 in the corpus), an
   Entacore `.bin`/`.xtra` and an RRC3 `.rff` now get an honest "no flight data here" with
   a route onward, but a real reader for the AltOS eeprom format (documented, open source)

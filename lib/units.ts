@@ -35,8 +35,9 @@ const UNITS: UnitDef[] = [
   { quantity: 'length', scale: 0.01, aliases: ['cm'] },
   { quantity: 'length', scale: 1609.344, aliases: ['mi', 'mile', 'miles'] },
   // speed
-  { quantity: 'speed', scale: 1, aliases: ['m/s', 'mps', 'meterspersecond', 'metrespersecond'] },
-  { quantity: 'speed', scale: 0.3048, aliases: ['ft/s', 'fps', 'feetpersecond'] },
+  { quantity: 'speed', scale: 1, aliases: ['m/s', 'mps', 'meterspersecond', 'metrespersecond', 'm/sec'] },
+  // 'ft/sec' and 'feet/sec' are what a Featherweight summary file writes.
+  { quantity: 'speed', scale: 0.3048, aliases: ['ft/s', 'fps', 'feetpersecond', 'ft/sec', 'feet/sec'] },
   { quantity: 'speed', scale: 0.44704, aliases: ['mph'] },
   { quantity: 'speed', scale: 0.277778, aliases: ['km/h', 'kph', 'kmh'] },
   // Knots: a GPS speed is often logged in them, and a flyer reading a recovery drift

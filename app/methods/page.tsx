@@ -300,6 +300,18 @@ export default function MethodsPage() {
             — so a high-elevation launch reads its real, thinner air. Both ride on the velocity, so
             they soften near peak speed.
           </Method>
+          <Method title="The device's own summary, dropped alongside">
+            Some altimeter apps write a summary file next to the log — the device&apos;s own
+            headline figures, with no time series in it. Drop the pair together and Debrief reads
+            the flight from the log and puts those figures beside its own read as a cross-check,
+            matched up by the rocket name the summary itself states. They are never merged into the
+            read: two measurements that agree build confidence, and a gap is worth a look. The unit
+            is taken from the value the file states (&ldquo;4034.98 feet&rdquo;) rather than assumed,
+            since the same app can be set to metric, and a figure whose unit doesn&apos;t resolve is
+            left out rather than guessed at. Only figures that line up against something Debrief
+            measures are read — a GPS summary&apos;s &ldquo;distance at apogee&rdquo; is downrange,
+            not altitude, and mapping it would invent a disagreement out of a sound read.
+          </Method>
           <Method title="When the flight flew">
             Where the file says, Debrief reads the flight&apos;s own date and time and shows it beside
             the read — on the report, in every export, and as the launch day in your logbook, which

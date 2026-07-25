@@ -11,7 +11,10 @@
 // read against, so a flyer who drops the pair gets them either way.
 
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
-import { isNumeric, parseTable } from '../csv';
+import { isNumeric, parseNumber, parseTable } from '../csv';
+import type { ReportedValue } from '../flight/types';
+import { flownAtFromText, type FlownAt } from '../flight/flownAt';
+import { resolveUnit } from '../units';
 
 /** Summary keys worth quoting back, in the order they read best. Matched on a
  *  normalised key, so "Max Altitude" and "Max altitude" are the same row. */
@@ -58,6 +61,62 @@ function readSummary(text: string): Summary | null {
   if (rocket === null) return null;
   if (!pairs.some(([k]) => HEADLINE.includes(norm(k)))) return null;
   return { rocket, rows: pairs };
+}
+
+
+/** The figures a summary states that line up against something Debrief reads, keyed by the
+ *  (normalised) label the file writes. The unit is NOT assumed: a Featherweight summary
+ *  writes it into the value ("4034.98 feet", "700.36 feet/sec", "24.1 Gs"), and the app can
+ *  be set to metric, so it is parsed from there and converted — a figure whose unit doesn't
+ *  resolve is dropped rather than guessed at.
+ *
+ *  Deliberately small. "Distance at apogee" is downrange, not altitude, and mapping it would
+ *  invent a cross-check that contradicts a sound read. */
+const SUMMARY_KEYS: Record<string, { metric: ReportedValue['metric']; label: string; quantity: string }> = {
+  'max altitude': { metric: 'apogeeAltitude', label: 'Apogee', quantity: 'length' },
+  'max velocity': { metric: 'maxVelocity', label: 'Max velocity', quantity: 'speed' },
+  'max vertical velocity': { metric: 'maxVelocity', label: 'Max velocity', quantity: 'speed' },
+  'max motor burn acceleration': { metric: 'maxAcceleration', label: 'Max acceleration', quantity: 'accel' },
+};
+
+/** A stated "4034.98 feet" as canonical SI, or null when the number or the unit isn't
+ *  readable — an unconvertible figure is left out, never assumed to be in feet. */
+function statedValue(raw: string, quantity: string): number | null {
+  const m = /^\s*(-?[\d.,]+)\s*(.*)$/.exec(raw);
+  if (!m) return null;
+  const n = parseNumber(m[1]);
+  if (!Number.isFinite(n)) return null;
+  const unit = resolveUnit(m[2].replace(/[()]/g, '').trim());
+  if (!unit || unit.quantity !== quantity) return null;
+  return unit.toCanonical(n);
+}
+
+/** What a dropped device-summary file contributes to the flight it belongs to: the device's
+ *  own headline figures (for the side-by-side cross-check, never merged into Debrief's read)
+ *  and the launch date it states. Returns null when the text isn't a summary at all. */
+export function summaryFigures(text: string): { rocket: string; reported: ReportedValue[]; flownAt?: FlownAt } | null {
+  const summary = readSummary(text);
+  if (!summary) return null;
+  const reported: ReportedValue[] = [];
+  const seen = new Set<string>();
+  for (const [key, value] of summary.rows) {
+    const def = SUMMARY_KEYS[norm(key)];
+    if (!def || seen.has(def.metric)) continue;
+    const si = statedValue(value, def.quantity);
+    if (si == null) continue;
+    seen.add(def.metric);
+    reported.push({ metric: def.metric, label: def.label, value: si, source: 'device' });
+  }
+  // The launch date, where the summary states one. A GPS summary writes an explicit UTC
+  // stamp; a Blue Raven writes its own clock as a separate date and time of day.
+  const row = (k: string) => summary.rows.find(([key]) => norm(key) === k)?.[1] ?? '';
+  const utc = row('launch time utc');
+  let flownAt = utc ? flownAtFromText(utc, 'UTC') : null;
+  if (!flownAt) {
+    const local = row('launch time local time zone');
+    if (local) flownAt = flownAtFromText(local, 'logger');
+  }
+  return { rocket: summary.rocket ?? 'this device', reported, ...(flownAt ? { flownAt } : {}) };
 }
 
 export const deviceSummaryParser: Parser = {

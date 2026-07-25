@@ -37,3 +37,12 @@ describe('knots', () => {
     }
   });
 });
+
+it('resolves the spelled-out per-second forms a summary file writes', () => {
+  // A Featherweight summary states "700.36 feet/sec"; nothing else in the corpus
+  // spells it that way, and 'ft/s' alone missed it.
+  expect(resolveUnit('feet/sec')?.quantity).toBe('speed');
+  expect(resolveUnit('ft/sec')?.quantity).toBe('speed');
+  expect(resolveUnit('m/sec')?.quantity).toBe('speed');
+  expect(convert(700.36, 'feet/sec', 'm/s')).toBeCloseTo(213.47, 2);
+});
