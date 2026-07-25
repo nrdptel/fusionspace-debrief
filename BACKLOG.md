@@ -289,6 +289,11 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- The GPS cross-check shipped on screen but not into the saved report — so the document a
+  flyer files said less than the page it came from, which is exactly what a certification
+  package can't afford. It's in the .txt, .md and .html reports now, in the same shape as the
+  logger's-own-summary cross-check beside it. Worth a rule: **a cross-check that isn't in the
+  export isn't finished.**
 - The comparison chart reset to altitude on every comparison — so a flyer comparing a
   season's boosts clicked past it every single time. It remembers the channel now, on this
   device, the same way the explorer remembers how it was set up. Worth sweeping for other

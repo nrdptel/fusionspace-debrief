@@ -24,6 +24,7 @@ import type { UnitChoice } from './display';
 import { compareReported } from './flight/reported';
 import { formatFlownAt, formatFlownDay } from './flight/flownAt';
 import { crossCheck, differentFlightDays, type Comparison, type CompareFlight } from './compare';
+import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
@@ -225,6 +226,28 @@ function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: Un
   });
 }
 
+/**
+ * The GPS recording as a cross-check row, where the file carries one — the same shape as
+ * the logger's own summary, because it is the same kind of thing: a second, independent
+ * reading of one flight, stated beside Debrief's and never merged into it. A saved report
+ * has to carry it, or the document a flyer files says less than the screen it came from.
+ */
+function gpsCrossRow(m: FlightAnalysis['metrics'], sys: UnitChoice): [string, string, string, string] | null {
+  const gps = m.gpsApogeeAltitude;
+  if (gps == null || !Number.isFinite(m.apogeeAltitude) || m.apogeeAltitude <= 0) return null;
+  const verdict = peakAgreement(
+    { value: gps, time: m.gpsApogeeTime },
+    { value: m.apogeeAltitude, time: m.timeToApogee },
+  );
+  const deltaPct = ((gps - m.apogeeAltitude) / m.apogeeAltitude) * 100;
+  const pct = Math.abs(deltaPct) < 0.05 ? '≈0%' : `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}%`;
+  const agreement =
+    verdict === 'different-peak'
+      ? `not the same peak — the two put it ${Math.abs((m.gpsApogeeTime ?? 0) - m.timeToApogee).toFixed(1)} s apart`
+      : `${verdict === 'agree' ? 'agree' : 'differ'} (${pct})`;
+  return ['Apogee', fmtLength(gps, sys), fmtLength(m.apogeeAltitude, sys), agreement];
+}
+
 export function summaryText(
   flight: RawFlight,
   analysis: FlightAnalysis,
@@ -272,6 +295,13 @@ export function summaryText(
     for (const [label, device, debrief, agreement] of xrows) {
       lines.push(`  ${label.padEnd(16)} logger ${device.padStart(10)}   Debrief ${debrief.padStart(10)}   ${agreement}`);
     }
+  }
+
+  const gpsRow = gpsCrossRow(analysis.metrics, sys);
+  if (gpsRow) {
+    lines.push('');
+    lines.push('The GPS recording (cross-check)');
+    lines.push(`  ${gpsRow[0].padEnd(16)} GPS ${gpsRow[1].padStart(13)}   barometer ${gpsRow[2].padStart(8)}   ${gpsRow[3]}`);
   }
 
   if (analysis.warnings.length) {
@@ -338,6 +368,12 @@ export function summaryMarkdown(
     for (const [label, device, debrief, agreement] of xrows) {
       out.push(`| ${cell(label)} | ${cell(device)} | ${cell(debrief)} | ${cell(agreement)} |`);
     }
+  }
+
+  const gpsRow = gpsCrossRow(analysis.metrics, sys);
+  if (gpsRow) {
+    out.push('', '## The GPS recording (cross-check)', '', '| Reading | GPS | Barometer | Agreement |', '| --- | --- | --- | --- |');
+    out.push(`| ${cell(gpsRow[0])} | ${cell(gpsRow[1])} | ${cell(gpsRow[2])} | ${cell(gpsRow[3])} |`);
   }
 
   if (analysis.warnings.length) {
@@ -453,6 +489,10 @@ export function summaryHtml(
 
   const xrows = crossCheckRows(flight, analysis.metrics, sys);
   const crossRows = xrows.map(([l, d, b, a]) => `<tr><td>${esc(l)}</td><td>${esc(d)}</td><td>${esc(b)}</td><td>${esc(a)}</td></tr>`).join('');
+  const gpsRow = gpsCrossRow(analysis.metrics, sys);
+  const gpsHtml = gpsRow
+    ? `<section><h2>The GPS recording (cross-check)</h2><table><thead><tr><th>Reading</th><th>GPS</th><th>Barometer</th><th>Agreement</th></tr></thead><tbody><tr>${gpsRow.map((c) => `<td>${esc(c)}</td>`).join('')}</tr></tbody></table><p class="src">A second, independent altitude recording — a different sensor from the barometer. Stated beside Debrief's read, never merged into it.</p></section>`
+    : '';
 
   const notesHtml = notes ? `<blockquote>${esc(notes).replace(/\n/g, '<br>')}</blockquote>` : '';
   const warnHtml = analysis.warnings.length
@@ -469,6 +509,7 @@ export function summaryHtml(
   ${figuresSection(figures)}
   ${eventRows ? `<section><h2>Events</h2><table><thead><tr><th>Event</th><th>Time</th><th>Altitude</th><th>Speed</th><th>Shock</th></tr></thead><tbody>${eventRows}</tbody></table></section>` : ''}
   ${crossRows ? `<section><h2>Logger’s own summary (cross-check)</h2><table><thead><tr><th>Reading</th><th>Logger</th><th>Debrief</th><th>Agreement</th></tr></thead><tbody>${crossRows}</tbody></table></section>` : ''}
+  ${gpsHtml}
   ${warnHtml}`;
   return htmlDoc(title, inner);
 }

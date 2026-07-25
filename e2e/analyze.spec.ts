@@ -395,6 +395,22 @@ test('a GPS altitude is carried as a second recording and cross-checks apogee', 
 
   // The channel itself is plottable against the barometric line, not just summarised.
   await expect(page.getByLabel('X axis channel').locator('option', { hasText: 'altitude (GPS)' })).toHaveCount(1);
+
+  // …and the saved report carries it, or the document says less than the screen it came
+  // from — which is exactly what a certification package can't afford.
+  const [md] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .md' }).click(),
+  ]);
+  const stream = await md.createReadStream();
+  const text = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream!.on('error', reject);
+  });
+  expect(text).toContain('## The GPS recording (cross-check)');
+  expect(text).toMatch(/\| Apogee \| 9,459 ft \| 9,322 ft \| agree/);
 });
 
 // A report is written for a purpose — a cert package, a drag study, a club post — so which
