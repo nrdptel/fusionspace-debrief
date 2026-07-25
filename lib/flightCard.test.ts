@@ -13,6 +13,7 @@ const base: FlightMetrics = {
   maxDynamicPressureAltitude: 300,
   transonicTime: null,
   transonicAltitude: null,
+  transonicUnconfirmed: false,
   maxAcceleration: 120,
   avgBoostAcceleration: 70,
   maxDeceleration: -20,

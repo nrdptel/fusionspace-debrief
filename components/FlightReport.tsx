@@ -386,7 +386,10 @@ export default function FlightReport({
   // Speed (and Mach, once it's worth showing) at an event — so the events list
   // answers "how fast at burnout / at deployment", not just when and how high.
   const eventSpeed = (index: number): string => {
-    const v = series.velocity[index];
+    // A velocity the analysis judged unusable is withheld everywhere it would be read as
+    // a number, not just in the headline — printing the impossible figure beside burnout
+    // while the headline shows "—" would hand it back with the withholding hidden.
+    const v = series.velocityImplausible ? NaN : series.velocity[index];
     if (!Number.isFinite(v)) return '';
     const sos = series.speedOfSoundProfile[index]; // local speed of sound at the event's altitude
     const m = Number.isFinite(sos) && sos > 0 ? v / sos : NaN;

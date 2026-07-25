@@ -152,6 +152,18 @@ const IMPLAUSIBLE_VELOCITY = 4000;
  *  liftoff detected a sample early. */
 const ASCENT_NOISE_FRACTION = 0.2;
 
+/** How far past the ceiling its own accelerometer allows a barometric speed must read
+ *  before the barometer is judged wrong rather than merely soft. The ceiling —
+ *  ∫(a − g)dt from liftoff, taking the measured specific force as if it pointed straight
+ *  up and cost nothing to drag — is deliberately generous, so any excess at all is
+ *  already a contradiction. The margin covers the one thing that can make a discrete
+ *  integral read low: a thrust spike between samples. Measured across the corpus's
+ *  dual-recorded flights, where a device velocity settles the truth, the barometric trace
+ *  still runs up to 38% above this ceiling on flights whose numbers are demonstrably
+ *  right; half again over the ceiling sits clear of that, and the flights it catches read
+ *  150%, 220%, 380% and 400% of it. */
+const ACCEL_CEILING_MARGIN = 1.5;
+
 /** The range of ambient air temperatures (°C) a rocket is actually launched into on
  *  Earth's surface — from a bitter high-altitude winter pad to the hottest desert
  *  playa, with generous margin. A pad reading outside this isn't a credible ambient
@@ -684,8 +696,62 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     velocityNoiseDominated = -worst / maxVelocity > ASCENT_NOISE_FRACTION;
   }
 
+  // A barometric peak speed the flight's own accelerometer cannot account for. On a log
+  // carrying both channels the accelerometer bounds the speed from ABOVE: integrate the
+  // measured specific force less gravity from liftoff, as if every g pointed straight up
+  // and drag cost nothing, and the result is a ceiling the rocket cannot have passed. The
+  // unpowered coast bounds it from BELOW: to climb Δh from the end of thrust to apogee a
+  // body needs at least √(2g·Δh). Where those two bracket a real speed and the barometric
+  // trace reads outside the bracket, the barometer is wrong rather than merely soft — the
+  // shock over its pressure port through the transonic push, reading as speed.
+  let accelCeiling = NaN;
+  let coastFloor = NaN;
+  if (
+    velocitySource === 'baro' &&
+    accelerationSource === 'device' &&
+    !accelClipped &&
+    liftoffFound &&
+    maxVelIdx >= 0
+  ) {
+    let sum = 0;
+    let best = 0;
+    let thrustEnd = liftoffRef;
+    for (let i = liftoffRef + 1; i <= apogeeIdx && i < n; i++) {
+      const step = time[i] - time[i - 1];
+      const a0 = signedAccel[i - 1];
+      const a1 = signedAccel[i];
+      if (!(step > 0) || !Number.isFinite(a0) || !Number.isFinite(a1)) continue;
+      sum += ((a0 + a1) / 2 - G0) * step;
+      if (sum > best) {
+        best = sum;
+        thrustEnd = i;
+      }
+    }
+    // The running integral peaks where the measured force falls back through gravity —
+    // the accelerometer's own end of thrust, so everything gained after it is coast.
+    const coastGain = apogeeAlt - altClean[thrustEnd];
+    if (best > 0) accelCeiling = best;
+    if (Number.isFinite(coastGain) && coastGain > 0) coastFloor = Math.sqrt(2 * G0 * coastGain);
+  }
+  // Only trust the ceiling where the coast corroborates it. An accelerometer channel read
+  // on a different convention (logged net of gravity, or sampled far too coarsely to
+  // integrate) yields a ceiling BELOW the speed the climb demonstrably required — one
+  // consumer altimeter's sample flight caps at 2 ft/s against a 666 ft apogee — and that
+  // is a broken bound, not a broken barometer. Say nothing rather than accuse the wrong
+  // channel over it.
+  const velocityBeyondAccel =
+    Number.isFinite(accelCeiling) &&
+    Number.isFinite(coastFloor) &&
+    coastFloor <= accelCeiling &&
+    Number.isFinite(maxVelocity) &&
+    maxVelocity > accelCeiling * ACCEL_CEILING_MARGIN;
+  const beyondAccelRatio = velocityBeyondAccel ? maxVelocity / accelCeiling : NaN;
+
   let velocityImplausible = false;
-  if (Number.isFinite(maxVelocity) && (maxVelocity > IMPLAUSIBLE_VELOCITY || velocityNoiseDominated)) {
+  if (
+    Number.isFinite(maxVelocity) &&
+    (maxVelocity > IMPLAUSIBLE_VELOCITY || velocityNoiseDominated || velocityBeyondAccel)
+  ) {
     velocityImplausible = true;
     maxVelocity = NaN;
     maxVelIdx = -1;
@@ -1109,6 +1175,11 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   if (velocityNoiseDominated) {
     warnings.push(
       'The velocity on the way up swings well below zero — but a climbing, accelerating rocket has no negative vertical velocity, so this trace is carrying more noise than speed and its peak is that noise, not a reading. It is what a barometer records on an airframe that is tumbling or venting (a spent booster after separation, say), where the pressure at the port stops tracking altitude. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.',
+    );
+  } else if (velocityBeyondAccel) {
+    const mach = (v: number) => (series.speedOfSound > 0 ? (v / series.speedOfSound).toFixed(2) : '—');
+    warnings.push(
+      `The barometric speed reads about ${beyondAccelRatio.toFixed(1)}× faster than this flight’s own accelerometer allows, so it is not a speed. Integrating the measured g from liftoff — as if every g pointed straight up and drag cost nothing, which makes it a generous ceiling — the rocket cannot have passed about Mach ${mach(accelCeiling)}, and the unpowered climb from the end of thrust to apogee needs at least about Mach ${mach(coastFloor)}, so the flight’s own records bracket its top speed between those two. What the barometer reads instead is the shock over its pressure port through the transonic push. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off a figure the rest of the record contradicts; apogee, timings and the descent still read normally.`,
     );
   } else if (velocityImplausible) {
     warnings.push(

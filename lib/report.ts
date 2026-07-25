@@ -44,6 +44,15 @@ export interface RecoveryFigures {
   ejectionDelay?: { printedS: number; coastS: number };
 }
 
+/** The speed at an event, for the event tables every export carries. A velocity the
+ *  analysis judged unusable — beyond any rocket, swinging negative on the way up, or past
+ *  the ceiling the flight's own accelerometer allows — is withheld here as it is in the
+ *  headline, so no export hands back the figure the analysis has already refused. */
+function eventSpeed(analysis: FlightAnalysis, index: number): number {
+  if (analysis.series.velocityImplausible) return NaN;
+  return analysis.series.velocity[index] ?? NaN;
+}
+
 /** The landing-energy summary row, when a descending mass was entered and the flight has
  *  a landing descent rate — in the cert unit (ft·lbf imperial, J metric), noting the mass. */
 function landingEnergyRow(
@@ -216,7 +225,7 @@ export function summaryText(
     lines.push('Events');
     for (const e of analysis.events) {
       const prov = e.provenance !== 'measured' ? `  (${e.provenance})` : '';
-      const v = analysis.series.velocity[e.index];
+      const v = eventSpeed(analysis, e.index);
       const speed = Number.isFinite(v) ? `   ${fmtSpeed(v, sys)}` : '';
       // The snatch force a deployment charge put through the airframe — the recovery
       // hardware's load case, so it belongs in the report, not just the on-screen timeline.
@@ -283,7 +292,7 @@ export function summaryMarkdown(
     out.push('', '## Events', '', '| Event | Time | Altitude | Speed | Shock |', '| --- | --- | --- | --- | --- |');
     for (const e of analysis.events) {
       const label = e.provenance !== 'measured' ? `${e.label} (${e.provenance})` : e.label;
-      const v = analysis.series.velocity[e.index];
+      const v = eventSpeed(analysis, e.index);
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
       // The deployment snatch force — the recovery hardware's load case — where measured.
       const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel, sys) : '—';
@@ -402,7 +411,7 @@ export function summaryHtml(
   const eventRows = analysis.events
     .map((e) => {
       const lbl = e.provenance !== 'measured' ? `${e.label} (${e.provenance})` : e.label;
-      const v = analysis.series.velocity[e.index];
+      const v = eventSpeed(analysis, e.index);
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
       const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel, sys) : '—';
       return `<tr><td>${esc(lbl)}</td><td>${esc(fmtTime(e.time))}</td><td>${esc(fmtLength(e.altitude, sys))}</td><td>${esc(speed)}</td><td>${esc(shock)}</td></tr>`;
@@ -871,7 +880,7 @@ export function analysisJson(
       label: e.label,
       time: sec(e.time),
       altitude: len(e.altitude),
-      speed: spd(series.velocity[e.index] ?? NaN),
+      speed: spd(eventSpeed(analysis, e.index)),
       provenance: e.provenance,
       ...(e.peakAccel != null ? { peakAcceleration: acc(e.peakAccel) } : {}),
     })),

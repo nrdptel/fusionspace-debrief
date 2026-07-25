@@ -307,6 +307,107 @@ describe('implausible velocity guard', () => {
     expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(false);
   });
 
+  // A log carrying BOTH a barometric altitude and an accelerometer, where the two
+  // disagree about how fast the rocket went. `boostAccel` is what the accelerometer
+  // measured (specific force, m/s², for `tBurn` seconds from liftoff); `baroClimb` is how
+  // high the barometric trace claims the rocket got by burnout. Raising `baroClimb` alone
+  // steepens the baro trace — and so the speed derived from it — while leaving apogee and
+  // the accelerometer where they were: exactly the shape of a pressure port under shock.
+  function withBaroAndAccel(boostAccel: number, baroClimb: number): RawFlight {
+    const dt = 0.05;
+    const padT = 1;
+    const tBurn = 2;
+    const coastT = 4;
+    // A trace that is internally consistent: the climb the barometer shows over the boost
+    // sets the speed at burnout (2·h/t for a constant-acceleration climb), and the coast
+    // decelerates linearly from it to zero at apogee. So a steeper boost carries a higher
+    // apogee with it, and nothing in the altitude record contradicts itself.
+    const vBurnout = (2 * baroClimb) / tBurn;
+    const apogee = baroClimb + (vBurnout * coastT) / 2;
+    const descentRate = 15;
+    const n = Math.round((padT + tBurn + coastT + apogee / descentRate + 3) / dt);
+    const time = new Float64Array(n);
+    const alt = new Float64Array(n);
+    const acc = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i * dt;
+      time[i] = t;
+      const ft = t - padT; // since liftoff
+      if (ft <= 0) {
+        alt[i] = 0;
+        acc[i] = 0;
+      } else if (ft <= tBurn) {
+        alt[i] = baroClimb * (ft / tBurn) ** 2;
+        // Thrust tapering through the burn, averaging `boostAccel` — a real boost never
+        // holds a dead-flat peak, and a synthetic one that did would trip the saturation
+        // guard instead of this one.
+        acc[i] = boostAccel * (1.25 - (0.5 * ft) / tBurn);
+      } else if (ft <= tBurn + coastT) {
+        const c = ft - tBurn; // coast: v falls linearly from vBurnout to 0 at apogee
+        alt[i] = baroClimb + vBurnout * c - (vBurnout / (2 * coastT)) * c * c;
+        acc[i] = -G0;
+      } else {
+        alt[i] = Math.max(0, apogee - descentRate * (ft - tBurn - coastT));
+        acc[i] = 0;
+      }
+    }
+    return {
+      source: 'synthetic',
+      format: 'test',
+      formatLabel: 'Test',
+      time,
+      channels: [
+        { kind: 'altitude', label: 'alt', unit: 'm', values: alt },
+        { kind: 'accelAxial', label: 'acc', unit: 'm/s²', values: acc },
+      ],
+      meta: {},
+      notes: [],
+    };
+  }
+
+  it('withholds a barometric speed the flight’s own accelerometer cannot account for', () => {
+    // 100 m/s² measured for 2 s caps the climb at ∫(a−g)dt ≈ 180 m/s even with every g
+    // pointing straight up and no drag — but the baro trace climbs 600 m in that time, so
+    // the speed derived from it peaks near 600 m/s. Two channels of one flight, and only
+    // one of them can be right.
+    const a = analyzeFlight(withBaroAndAccel(100, 600));
+    expect(a.metrics.maxVelocitySource).toBe('baro');
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.mach).toBeNull();
+    expect(a.metrics.maxDynamicPressure).toBeNull();
+    expect(a.metrics.burnoutVelocity).toBeNull();
+    expect(a.series.velocityImplausible).toBe(true);
+    // Names the contradiction and the bracket the record does support — not the wrong
+    // fault (a misidentified column) and not a bare refusal.
+    const w = a.warnings.find((x) => /own accelerometer allows/.test(x));
+    expect(w).toBeDefined();
+    expect(w).toMatch(/about \d\.\d× faster/);
+    expect(w).toMatch(/cannot have passed about Mach 0\.5/);
+    expect(a.warnings.some((x) => /implausibly fast/.test(x))).toBe(false);
+    // Apogee and the descent are read off the altitude and are untouched.
+    expect(a.metrics.apogeeAltitude).toBeCloseTo(1800, 0);
+    expect(a.metrics.mainDescentRate).toBeGreaterThan(0);
+  });
+
+  it('leaves a barometric speed the accelerometer supports alone', () => {
+    // The same 100 m/s² boost, with a baro trace that agrees with it: 180 m of climb by
+    // burnout, so the derived peak sits just under the ceiling.
+    const a = analyzeFlight(withBaroAndAccel(100, 180));
+    expect(a.metrics.maxVelocity).toBeGreaterThan(0);
+    expect(a.metrics.mach).not.toBeNull();
+    expect(a.warnings.some((x) => /own accelerometer allows/.test(x))).toBe(false);
+  });
+
+  it('says nothing when the accelerometer channel can’t account for the flight either', () => {
+    // A channel Debrief is reading on the wrong convention or far too coarsely: 12 m/s²
+    // through the boost caps the climb at ~4 m/s, which cannot have produced the 360 m
+    // unpowered coast this record also holds. That's a broken bound, not a broken
+    // barometer — the guard has to stay quiet rather than accuse the wrong channel.
+    const a = analyzeFlight(withBaroAndAccel(12, 180));
+    expect(a.metrics.maxVelocity).toBeGreaterThan(0);
+    expect(a.warnings.some((x) => /own accelerometer allows/.test(x))).toBe(false);
+  });
+
   it('also withholds the velocity-derived figures when burnout is pinned off the accelerometer', () => {
     // A real accelerometer finds burnout from its own sign change, so burnout velocity
     // and coast efficiency read the (garbage) velocity trace directly — they must be

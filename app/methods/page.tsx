@@ -91,6 +91,25 @@ export default function MethodsPage() {
             supersonic, nor bound how fast it really went. It&apos;s flagged, not withheld; an
             accelerometer, an inertial solution or GPS settles it.
           </Method>
+          <Method title="When the accelerometer settles it">
+            On a log that carries both channels, the accelerometer bounds a barometric speed from{' '}
+            <em>above</em>: integrate the measured specific force less gravity from liftoff, as if every
+            g pointed straight up and drag cost nothing, and the result is a ceiling the rocket cannot
+            have passed. The unpowered coast bounds it from <em>below</em>: climbing Δh from the end of
+            thrust to apogee with the motor out needs at least √(2gΔh). Where those two bracket a real
+            speed and the barometric peak reads outside the bracket, the barometer is wrong rather than
+            merely soft, and the speed figures are withheld with the bracket named. Four flights of one
+            home-built altimeter show it: barometric peaks of Mach&nbsp;0.9–1.65 on ~2,450&nbsp;ft
+            apogees, where each flight&apos;s own accelerometer allows about Mach&nbsp;0.4 and its coast
+            demands at least about Mach&nbsp;0.3. The bound is only used where the coast corroborates it
+            — a channel read on a different convention, or sampled too coarsely to integrate, produces a
+            ceiling below the speed the climb demonstrably required (one consumer altimeter&apos;s sample
+            flight caps at 2&nbsp;ft/s against a 666&nbsp;ft apogee), and that is a broken bound, not a
+            broken barometer. A margin of half again over the ceiling is allowed before the barometer is
+            called wrong, because a discrete integral can under-read a thrust spike between samples: on
+            the corpus flights where a device velocity settles the truth, the barometric trace still runs
+            up to 38% over the ceiling while being right.
+          </Method>
           <Method title="The altitude a reading happened at">
             Burnout, the speed peak, the Mach-1 crossing and max-Q are each reported with the altitude
             they occurred at — and every one of them lands in the stretch where a barometric port is

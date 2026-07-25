@@ -119,6 +119,7 @@ const metrics = (apogee: number): FlightMetrics => ({
   maxDynamicPressureAltitude: null,
   transonicTime: null,
   transonicAltitude: null,
+  transonicUnconfirmed: false,
   maxAcceleration: 100,
   avgBoostAcceleration: 60,
   maxDeceleration: -20,

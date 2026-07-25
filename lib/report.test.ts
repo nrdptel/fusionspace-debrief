@@ -108,6 +108,34 @@ describe('report exports', () => {
     expect(tableRows.every((l) => bars(l) === bars('| a | b |') || bars(l) === bars('| a | b | c | d | e |'))).toBe(true);
   });
 
+  it('withholds the event speeds in every export when the velocity was judged unusable', () => {
+    // The headline already withholds an unusable velocity; the event tables read the same
+    // trace sample by sample, so they have to withhold it too — an export that prints the
+    // refused figure beside burnout hands it back with the refusal hidden.
+    const bad = { ...analysis, series: { ...analysis.series, velocityImplausible: true } };
+    const speeds = (s: string) => s.match(/[\d,]+(?:\.\d+)? (?:ft\/s|m\/s)/g) ?? [];
+    // Just the events block of each export — the part that reads the trace per sample.
+    const block = (s: string, from: RegExp, to: RegExp) => {
+      const i = s.search(from);
+      const rest = i < 0 ? '' : s.slice(i + (s.match(from)?.[0].length ?? 0));
+      const j = rest.search(to);
+      return j < 0 ? rest : rest.slice(0, j);
+    };
+    for (const [name, render, events] of [
+      ['text', summaryText, (s: string) => block(s, /^Events$/m, /\n\s*\n/)],
+      ['markdown', summaryMarkdown, (s: string) => block(s, /^## Events$/m, /\n#/)],
+      ['html', summaryHtml, (s: string) => block(s, /<h2>Events<\/h2>/, /<\/table>/)],
+    ] as const) {
+      // The same block does carry speeds when the velocity is usable — so an empty result
+      // below is the withholding, not a selector that matches nothing.
+      expect(speeds(events(render(flight, analysis, 'imperial', 0))).length, name).toBeGreaterThan(0);
+      expect(speeds(events(render(flight, bad, 'imperial', 0))), name).toEqual([]);
+    }
+    for (const e of JSON.parse(analysisJson(flight, bad, 'imperial', 0)).events) {
+      expect(e.speed).toBeNull();
+    }
+  });
+
   it('summaryHtml is a self-contained report — no external asset, script, or fetch', () => {
     const html = summaryHtml(flight, analysis, 'imperial', 1_700_000_000_000, { label: 'My flight' }, undefined, [
       { title: 'Altitude', svg: '<svg data-fig="alt"></svg>' },

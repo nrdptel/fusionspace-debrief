@@ -158,6 +158,16 @@ export default function ValidationPage() {
               never dips below zero at all, so an honest reading is never caught by this.
             </li>
             <li>
+              A <strong>barometric speed the flight&apos;s own accelerometer cannot account for</strong>{' '}
+              is withheld too. The accelerometer caps it from above — the measured g integrated from
+              liftoff, with every g taken as vertical and drag as free — and the unpowered coast to apogee
+              floors it from below, so the two bracket the top speed. Four flights of one home-built
+              altimeter read barometric peaks of Mach&nbsp;0.9–1.65 on ~2,450&nbsp;ft apogees against a
+              bracket of roughly Mach&nbsp;0.3–0.4: the summary names the bracket instead of the peak. The
+              bound is only used where the coast corroborates the accelerometer, so a channel read on the
+              wrong convention accuses nothing.
+            </li>
+            <li>
               A file holding <strong>more than one flight</strong> is read as its first flight only,
               with a note saying how much of the file was used — merged, the record's highest point
               belongs to one flight and its liftoff to another. A corpus Blue Raven backup download

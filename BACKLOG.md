@@ -6,13 +6,22 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
-- Checked, not a bug: the two jimheaney L1 logs that read Mach ~1.6 (1,838 and 1,809 ft/s
-  on ~2,450 ft apogees) are faithful reads of a *startup transient* — both logs begin
-  mid-boost with the baro filter still converging, and Debrief already warns that the log
-  doesn't start on the pad and that a baro peak past Mach 0.9 bounds nothing. Their ascent
-  velocity never goes negative, so the noise guard correctly leaves them alone. What would
-  actually help is recognising that the opening samples of a log that starts mid-ascent are
-  a filter transient, not flight.
+- **Fixed, and the earlier diagnosis was wrong.** The jimheaney L1 logs reading Mach 0.9–1.65
+  on ~2,450 ft apogees are not a startup transient: the baro trace genuinely climbs 900 ft in
+  0.72 s while the same file's accelerometer reads a 20 g boost that can only account for
+  ~430 ft/s. Two channels of one flight, one of them wrong. What separated it — where three
+  attempts at a *threshold* on this artefact had failed — is that the accelerometer bounds the
+  speed from above (∫(a−g)dt from liftoff, every g taken as vertical, drag free) and the
+  unpowered coast bounds it from below (√(2gΔh) from the end of thrust to apogee). Both are
+  inequalities from the flight's own record, not tolerances. Swept over the corpus the two
+  bracket the speed on all 22 flights with an accelerometer, and only these four read outside
+  their bracket (150%, 220%, 380% and 400% of the ceiling); every flight where a device velocity
+  settles the truth sits at 88–138%. The ceiling is used only where the coast corroborates it,
+  which is what keeps a Jolly Logic sample flight (ceiling 2 ft/s against a 666 ft apogee — a
+  channel on another convention, or too coarse to integrate) from accusing its own barometer.
+  Still open in the same area: those four flights now report no speed at all. The bracket is
+  named in the warning, but a *reported* accelerometer-integrated velocity — what AltosUI and
+  the Blue Raven tools show — would be better than nothing, and is the natural next step.
 - Reconciliation regression now covers 6 of the corpus's 15 same-flight groups (17 files).
   The rest are single-analysable-recording groups, deliberate device disagreements, or
   known issues — but a *velocity* agreement assert is still missing, because trf-lemiv-l3's
@@ -50,6 +59,10 @@ memory, so a later pass doesn't have to rediscover them.
   Hampel filter, a monotone-envelope lower bound, and this integral bound); the two guards
   that did ship work because they test something a rocket physically cannot do (be below its
   pad; have negative vertical velocity while climbing), not because they tuned a tolerance.
+  Postscript: the *speed* half of the same artefact did yield to a bound, because a speed can
+  be bracketed from both sides at once (see the jimheaney entry above) where an altitude at a
+  single instant cannot. The distinction is worth keeping: bracket a quantity, don't threshold
+  a discrepancy.
 - A Blue Raven also solves downrange/crossrange velocity and position (`Velocity_DR/CR`,
   `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
   dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the
