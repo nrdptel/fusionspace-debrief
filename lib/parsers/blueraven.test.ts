@@ -155,3 +155,25 @@ describe('Blue Raven phone-app export', () => {
     expect(() => importFlight({ name: 'tcf_TTV_018 HR.csv', text: hr })).toThrow(/low-rate/i);
   });
 });
+
+describe('Blue Raven inertial altitude', () => {
+  it('is carried as a second altitude recording, not discarded', () => {
+    const res = importFlight({ name: 'tcf_TTV_018 LR.csv', text: blueRavenAppLow() });
+    if (res.kind !== 'flight') throw new Error('expected a flight');
+    // The barometric channel stays the analysis source…
+    const baro = getChannel(res.flight, 'altitude');
+    expect(baro).toBeTruthy();
+    // …and the device's own inertial solution rides along beside it, in canonical metres,
+    // so it can be plotted against the baro line. It matters through the transonic push,
+    // where a baro trace reads the rocket descending: on a corpus flight the barometric
+    // altitude reaches 493 ft below the pad at the same instant the inertial reads
+    // 1,710 ft, and only one of those can be a height.
+    const inert = getChannel(res.flight, 'altitudeInertial');
+    expect(inert, 'inertial altitude channel').toBeTruthy();
+    expect(inert!.unit).toBe('m');
+    expect(inert!.values.length).toBe(res.flight.time.length);
+    expect(inert!.values.some((v) => Number.isFinite(v) && v > 0)).toBe(true);
+    // Two distinct recordings, not the same column twice.
+    expect(inert!.label).not.toBe(baro!.label);
+  });
+});

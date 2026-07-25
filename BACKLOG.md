@@ -25,12 +25,15 @@ memory, so a later pass doesn't have to rediscover them.
   merged record put apogee 39.6 s after liftoff; it now reads 18.2 s against the GPS's 19.3 s.
   Still open in that group: trf-lemiv-l3's four recordings spread 23.6–28.2 s on time to
   apogee while agreeing to 1% on altitude — a liftoff-detection difference, worth a look.
-- Fixed by withholding: the altitudes at burnout / speed peak / Mach-1 / max-Q are dropped
-  when the record contradicts them (transonic baro artefact). The better answer for a logger
-  that *has* an inertial altitude channel (a Blue Raven does, climbing smoothly past 1,700 ft
-  where its baro reads −307 ft) is to read those altitudes from it instead of withholding —
-  the parser currently ignores the inertial channel entirely because it drifts after
-  deployment, which doesn't apply on the ascent.
+- The inertial altitude is now carried and plottable, but the withheld ascent read-offs
+  still aren't recovered from it. Reading burnout / speed-peak / Mach-1 / max-Q altitudes off
+  the inertial channel (labelled as such) when the baro contradicts itself would turn four
+  withheld figures into measured ones — the drift that keeps the analysis on the baro is a
+  whole-flight effect and is negligible in the first seconds.
+- A Blue Raven also solves downrange/crossrange velocity and position (`Velocity_DR/CR`,
+  `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
+  dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the
+  same shape as the inertial-altitude one just added.
 - The intrepid3tf2 AL1 recording reads a main descent of 2 ft/s where its AL0 partner reads
   57 ft/s on the same flight. AL1 is the power-loss file, but 2 ft/s is not a descent.
 

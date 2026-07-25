@@ -16,6 +16,7 @@ export interface ColumnMapping {
 
 const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> = {
   altitude: 'altitude',
+  altitudeInertial: 'altitudeInertial',
   pressure: 'pressure',
   temperature: 'temperature',
   accelAxial: 'accelAxial',
@@ -31,6 +32,7 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore'>, ChannelKind> 
 // Voltage is intentionally absent: it's stored as-is in volts, not converted.
 const KIND_QUANTITY: Partial<Record<ChannelKind, keyof typeof CANONICAL>> = {
   altitude: 'length',
+  altitudeInertial: 'length',
   pressure: 'pressure',
   temperature: 'temperature',
   accelAxial: 'accel',

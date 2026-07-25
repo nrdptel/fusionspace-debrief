@@ -91,6 +91,13 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   (the slow low layers read cleanest; a sparse fast layer is dropped). And it reads how far **off vertical**
   the ascent flew — the apogee's horizontal offset from the pad (weathercocking plus ascent drift),
   a lean that costs altitude to the cosine.
+- Carries a **second altitude recording** where the logger has one — a Blue Raven solves an
+  inertial altitude alongside its barometric one, and Debrief keeps both so you can plot them
+  against each other. Through the transonic push, where the shock over a static port makes the
+  baro trace read the rocket *descending* (one flight reaches 493 ft below its pad), the
+  inertial solution is the one still climbing — 1,710 ft at that same instant. Shown side by
+  side, never merged: the analysis stays on the barometric channel, which doesn't drift over a
+  whole flight.
 - Opens up the full data — a channel explorer lets you plot anything the logger
   recorded (battery voltage, temperature, raw pressure, per-axis acceleration,
   onboard **tilt** / angle-off-vertical where the logger computes it, …)

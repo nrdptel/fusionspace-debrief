@@ -110,6 +110,17 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
 
   const mappings: ColumnMapping[] = [{ index: timeIdx, role: 'time', unit: 's' }];
   mappings.push({ index: altIdx, role: 'altitude', unit: 'ft' });
+  // The device's own inertial altitude, when the barometric one is the analysis source.
+  // It is a second, independent recording of the same quantity in the same file: it drifts
+  // over the flight (a real one reads ~11% high by apogee, which is why the analysis stays
+  // on the baro), but through the transonic push — where the shock over the static port
+  // drives the sensed pressure up and the baro trace reads the rocket *descending*, one
+  // corpus flight to 307 ft below its pad — the inertial solution is the one still
+  // climbing. Carried so it can be plotted against the baro line and read there, rather
+  // than discarded.
+  if (inertAltIdx >= 0 && inertAltIdx !== altIdx) {
+    mappings.push({ index: inertAltIdx, role: 'altitudeInertial', unit: 'ft' });
+  }
   if (velIdx >= 0) mappings.push({ index: velIdx, role: 'velocity', unit: 'ft/s' });
   if (battIdx >= 0) mappings.push({ index: battIdx, role: 'voltage', unit: 'V' });
   if (tempIdx >= 0) mappings.push({ index: tempIdx, role: 'temperature', unit: 'F' });

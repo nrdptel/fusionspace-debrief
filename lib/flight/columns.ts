@@ -11,6 +11,7 @@ import type { ReportedValue } from './types';
 export type ColumnRole =
   | 'time'
   | 'altitude'
+  | 'altitudeInertial'
   | 'pressure'
   | 'temperature'
   | 'accelAxial'

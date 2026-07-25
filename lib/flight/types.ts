@@ -5,6 +5,9 @@
 
 export type ChannelKind =
   | 'altitude' // height (canonical metres) — AGL once a baseline is set
+  | 'altitudeInertial' // the logger's own inertial (accelerometer-integrated) height, m —
+  //   a second, independent altitude recording in the same file, kept beside the
+  //   barometric one for cross-checking rather than merged into it
   | 'pressure' // ambient pressure, Pa
   | 'temperature' // °C
   | 'accelAxial' // acceleration along the rocket's long axis, m/s²

@@ -104,7 +104,13 @@ export default function MethodsPage() {
             time and the speed of the reading are unaffected, so are apogee and the descent, and the
             altitude chart still shows the trace exactly as recorded. Ordinary barometric wander is far
             below the bar: across the corpus every sound flight&apos;s read-offs sit within 72&nbsp;ft
-            of the record, and the three that trip it are 557 to 1,125&nbsp;ft out.
+            of the record, and the three that trip it are 557 to 1,125&nbsp;ft out. Where the logger
+            solved for an <strong>inertial altitude</strong> of its own (a Blue Raven does), Debrief
+            carries it as a second altitude recording you can plot against the barometric line — on
+            that same flight it reads 1,710&nbsp;ft at the instant the barometer reads 493&nbsp;ft
+            below the pad, and only one of those can be a height. The analysis stays on the barometric
+            channel, which is the one that doesn&apos;t drift over a whole flight; the two are shown
+            side by side rather than merged.
           </Method>
           <Method title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
