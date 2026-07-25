@@ -940,6 +940,21 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     peakRollRate: m.peakRollRate != null ? round(m.peakRollRate, 0) : null,
     rollRevolutions: m.rollRevolutions != null ? round(m.rollRevolutions, 1) : null,
     tiltAtBurnoutDeg: m.tiltAtBurnout != null ? round(m.tiltAtBurnout, 1) : null,
+    // The receiver's own apogee, where the file carries a GPS altitude — a second,
+    // independent recording, never merged into the figures above. `gpsApogeeAgreement`
+    // says how to read the pair: two recordings that put the peak seconds apart did not
+    // see the same instant, and then their heights matching is a coincidence rather than
+    // corroboration, which a consumer comparing only the numbers could not tell.
+    gpsApogee: m.gpsApogeeAltitude != null ? len(m.gpsApogeeAltitude) : null,
+    gpsApogeeTime: sec(m.gpsApogeeTime),
+    gpsAscentFixes: m.gpsAscentFixes,
+    gpsApogeeAgreement:
+      m.gpsApogeeAltitude != null && Number.isFinite(m.apogeeAltitude) && m.apogeeAltitude > 0
+        ? peakAgreement(
+            { value: m.gpsApogeeAltitude, time: m.gpsApogeeTime },
+            { value: m.apogeeAltitude, time: m.timeToApogee },
+          )
+        : null,
   };
 }
 

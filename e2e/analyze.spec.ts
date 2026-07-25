@@ -411,6 +411,23 @@ test('a GPS altitude is carried as a second recording and cross-checks apogee', 
   });
   expect(text).toContain('## The GPS recording (cross-check)');
   expect(text).toMatch(/\| Apogee \| 9,459 ft \| 9,322 ft \| agree/);
+
+  // …and the structured document carries it as data, with how to read the pair.
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .json' }).click(),
+  ]);
+  const jstream = await json.createReadStream();
+  const jtext = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    jstream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    jstream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    jstream!.on('error', reject);
+  });
+  const doc = JSON.parse(jtext);
+  expect(doc.metrics.gpsApogee).toBeGreaterThan(9000);
+  expect(doc.metrics.gpsApogeeAgreement).toBe('agree');
+  expect(doc.metrics.gpsAscentFixes).toBeGreaterThan(50);
 });
 
 // A report is written for a purpose — a cert package, a drag study, a club post — so which

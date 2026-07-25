@@ -295,11 +295,14 @@ memory, so a later pass doesn't have to rediscover them.
   the exact misreading the screen was fixed to prevent. It now carries `sameFlight`
   (`unknown`, or `different-flights` with the stated launch days) and a disclaimer that
   follows the verdict. Additive, so the contract is unbroken.
-- The GPS cross-check shipped on screen but not into the saved report — so the document a
+- The GPS cross-check shipped on screen but not into any export — so the document a
   flyer files said less than the page it came from, which is exactly what a certification
   package can't afford. It's in the .txt, .md and .html reports now, in the same shape as the
-  logger's-own-summary cross-check beside it. Worth a rule: **a cross-check that isn't in the
-  export isn't finished.**
+  logger's-own-summary cross-check beside it, and in the structured `debrief.flight/1` as
+  `gpsApogee` / `gpsApogeeTime` / `gpsAscentFixes` / `gpsApogeeAgreement` — the last of those
+  because a consumer reading only the two numbers cannot tell corroboration from coincidence.
+  The keys are present and null on a flight with no GPS, so a reader checks a key it knows.
+  The rule this run produced: **a cross-check that isn't in the export isn't finished.**
 - The comparison chart reset to altitude on every comparison — so a flyer comparing a
   season's boosts clicked past it every single time. It remembers the channel now, on this
   device, the same way the explorer remembers how it was set up. Worth sweeping for other

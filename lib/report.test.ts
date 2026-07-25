@@ -245,6 +245,19 @@ describe('report exports', () => {
     expect(summaryMarkdown(flight, analysis, 'metric')).not.toContain('cross-check');
   });
 
+  it('carries the GPS recording, and how to read it, into the structured document', () => {
+    // A cross-check that isn't in the export isn't finished: a consumer archiving the
+    // document would otherwise lose the second independent recording entirely, and one
+    // reading only the numbers could not tell corroboration from coincidence.
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000));
+    // This synthetic flight has no GPS, so the keys are present and null — a consumer
+    // reads a key it knows rather than guessing whether it was omitted.
+    expect(doc.metrics).toHaveProperty('gpsApogee', null);
+    expect(doc.metrics).toHaveProperty('gpsApogeeTime', null);
+    expect(doc.metrics).toHaveProperty('gpsAscentFixes', null);
+    expect(doc.metrics).toHaveProperty('gpsApogeeAgreement', null);
+  });
+
   it('analysisJson is valid JSON carrying units, metrics, events and provenance', () => {
     const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000));
     expect(doc.schema).toBe('debrief.flight/1');

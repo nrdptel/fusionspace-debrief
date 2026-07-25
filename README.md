@@ -308,6 +308,10 @@ The `.json` is Debrief's canonical read, meant to be machine-read:
   `metrics` (the headline numbers), `events` (each with its `provenance` — `measured`,
   `derived` or `estimated`), `warnings`, and a `loggerSummary` cross-check when the file
   carried the device's own figures.
+  The single-flight document also carries `gpsApogee`, `gpsApogeeTime`, `gpsAscentFixes`
+  and `gpsApogeeAgreement` where the file holds a GPS altitude — the receiver's own reading
+  beside the barometer's, with `agree`, `differ` or `different-peak` saying how to read the
+  pair.
 - **`debrief.comparison/1`** — several flights: each flight's `metrics`, the `crossCheck`
   spreads, the per-metric `differences`, and `sameFlight` — whether these could be
   recordings of one flight at all (`unknown`, or `different-flights` with the launch days
