@@ -6,6 +6,27 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Swept the corpus for a "different flights" verdict a wrong device clock could have
+  caused, and found none — but only by luck, so here is the evidence.** `differentFlightDays`
+  refutes the same-flight hypothesis when two files state launch days more than 36 h apart,
+  and one corpus file states a day that is a decade off (`SG1.1-Booster-October-TeleMetrum`
+  says 2013-04-27, for a flight ISSUIUC files under 2023-10-01). Ran every stated date in the
+  corpus against the redundant-recording groups: **13 of the files state a date**, and no pair
+  of recordings of one flight is refuted. Two reasons, and neither is a guard. The
+  decade-wrong TeleMetrum's companion recording of that same flight is a PerfectFlite
+  StratoLogger, whose export states no date at all — and with fewer than two stated days the
+  question stays open by design. The two Featherweight-GPS/Blue-Raven pairs each state the
+  same calendar day from different clocks (`2026-01-10T14:55:28` logger vs
+  `2026-01-10T22:55:30` UTC — eight hours apart, same day), and where a launch straddles
+  midnight between a local clock and UTC the 36-hour slack absorbs it.
+  **What this means:** put a second dated recording beside a logger with a dead backup cell
+  and Debrief will state, confidently and wrongly, that two recordings of one flight are
+  different flights. The clock is refutable evidence like any other, and today nothing
+  refutes it: the year range (1990–2100) can't see a clock that is merely ten years out. The
+  honest shape is probably to let the *measurements* answer back — two recordings agreeing on
+  apogee, time-to-apogee and max speed while their files' dates sit a decade apart is a story
+  about one broken clock, and saying so is more useful than either verdict alone. Deliberately
+  not built in this pass: it changes what a verdict means, which needs its own increment.
 - **A multi-flight file was being cut in the wrong place, and it can hide a third flight
   entirely.** The boundary between two flights in one download was taken at the first sample
   below a "back on the deck" band — but that band is 5% of the *file's own highest* flight,
