@@ -256,6 +256,40 @@ const RECON_GROUPS: { name: string; files: string[]; apogeeTolPct: number }[] = 
       'eggtimer/eggtimer__euroc-stacarl2-semicolon__sta-carl2-eggtimer.csv',
     ],
   },
+  {
+    // Four altimeters in one airframe on one flight — the tightest corroboration in the
+    // corpus, and the case that would catch a regression the widest tolerance would miss.
+    name: 'ac-lilnuke: four AltimeterCloud recordings',
+    apogeeTolPct: 1,
+    files: [
+      'mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1784__1784.csv',
+      'mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1785__1785.csv',
+      'mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1786__1786.csv',
+      'mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1796__1796.csv',
+    ],
+  },
+  {
+    // Different technologies on one flight: a Blue Raven's barometric altitude against a
+    // Featherweight GPS's satellite altitude — they have no error in common.
+    name: 'trf-f1-jan10: Blue Raven + Featherweight GPS',
+    apogeeTolPct: 3,
+    files: [
+      'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
+      'featherweight-gps/fwgps__trf-f1machbuster-jan10__GPSTrk05467_01-10-2026_14_55_35.csv',
+    ],
+  },
+  {
+    // An L3 cert flight recorded four ways — Blue Raven, GPS, and an Eggtimer Proton and
+    // Quantum reformatted into the Featherweight layout.
+    name: 'trf-lemiv-l3: Blue Raven + GPS + Proton + Quantum',
+    apogeeTolPct: 4,
+    files: [
+      'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+      'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv',
+      'generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv',
+      'generic-csv/genericcsv__trf-lemiv-l3__Quantum-FW_format.csv',
+    ],
+  },
 ];
 
 describe('same-flight reconciliation (redundant recordings agree)', () => {

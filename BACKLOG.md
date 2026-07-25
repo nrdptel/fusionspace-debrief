@@ -13,10 +13,10 @@ memory, so a later pass doesn't have to rediscover them.
   velocity never goes negative, so the noise guard correctly leaves them alone. What would
   actually help is recognising that the opening samples of a log that starts mid-ascent are
   a filter transient, not flight.
-- 12 of the corpus's 15 same-flight groups are not under reconciliation regression (only 3
-  RECON_GROUPS exist). Several are genuinely comparable and would lock in agreement:
-  ac-lilnuke (4 recordings, apogee within 0.04%), euroc-stacarl2 (1.4%), trf-f1-jan10
-  (1.3%), trf-lemiv-l3 (4 analysable recordings, 2.7% spread).
+- Reconciliation regression now covers 6 of the corpus's 15 same-flight groups (17 files).
+  The rest are single-analysable-recording groups, deliberate device disagreements, or
+  known issues — but a *velocity* agreement assert is still missing, because trf-lemiv-l3's
+  Proton recording reads 2,938 ft/s against the group's 1,401–1,724, so it would fail today.
 - Two recordings of the Stargazer 1.1 *booster* genuinely disagree by 54% on apogee
   (TeleMetrum 2,502 ft vs StratoLogger 1,435 ft) — and each device's own summary states
   its own figure, so Debrief reproduces both faithfully. A real device disagreement worth
