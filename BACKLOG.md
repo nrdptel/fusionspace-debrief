@@ -325,28 +325,25 @@ memory, so a later pass doesn't have to rediscover them.
   piece of that was already covered; the journey was not, and the journey is the product. It
   is one test now, including that nothing in the report pushes past a 390 px viewport while
   doing it.
-- **STILL RED, and the next pass should start here.** Three theories tried, three shipped
-  changes, all of them defensible on their own merits and none of them the cause: the offline
-  docs spec still fails on CI roughly one run in three, always on `/validation/`, always
-  after `/methods/` came up fine, and never reproducibly here (dozens of full CI-shaped runs,
-  `--repeat-each` sweeps, a check that the static server issues no redirects). The evidence
-  from the instrumented run is the thing to reason from:
-  `{"controlled":true,"cached":true,"readyState":"complete","title":"How Debrief is validated — Debrief"}`
-  — worker controlling, document cached, page complete, right title, no `<h1>`.
-  **The reading that fits and hasn't been tested yet:** hydration failing offline and Next's
-  route error boundary (`app/error.tsx`) replacing the content — its `<h1>` is "Something
-  went sideways", which the assertion wouldn't match while the `<title>` from the static
-  `<head>` survives untouched. That would mean the route's JS chunk wasn't in the cache when
-  the page was opened: only the HTML of these routes is precached, and the chunks arrive via
-  the page's warm-up, which a slower runner may not have finished. The diagnostic now
-  captures every `<h1>` on the page and the body length, so the next failure says outright
-  whether it is the error boundary. **And the likely fix for that reading is now shipped
-  anyway, because it is right on its own terms:** a route's JavaScript reached the cache only
-  when its link entered the viewport (App Router's default prefetch), and the docs links live
-  in the footer — below the fold. So "open it once with signal, then use it at the field"
-  quietly depended on whether the flyer scrolled far enough. Those links, and the header's
-  surface links, now prefetch on render. If the next CI failure still shows the error
-  boundary, the remaining move is to make a docs page survive without hydrating at all.
+- **FOUND, after three wrong theories, and it was a real user-facing bug rather than a flaky
+  test.** The offline docs spec had been failing on CI about one run in three — always
+  `/validation/`, always after `/methods/` came up fine, never reproducible locally. Three
+  theories were tried and shipped (a worker still installing; a navigation hanging on a dead
+  network; a truncated cached body); each is a genuine improvement and none was the cause.
+  Instrumenting the assertion is what ended it. The failure now reads:
+  `{"controlled":true,"cached":true,"readyState":"complete","title":"How Debrief is validated — Debrief","h1s":["Something went sideways"],"bodyChars":227}`
+  — **"Something went sideways" is `app/error.tsx`.** The document was cached and served
+  fine; the page then *hydrated into Next's route error boundary* because the route's own
+  JavaScript wasn't there. A flyer who opened Debrief at home and drove out of signal would
+  find the methods and validation pages — the two the offline promise names — showing an
+  error. **Cause:** a route's JS reaches the cache when the router prefetches its link, and
+  the App Router prefetches on *viewport entry*; the docs links live in the footer, below the
+  fold. So the promise quietly depended on how far the flyer had scrolled. Those links and
+  the header's surface links now prefetch on render. **Belt and braces, if it ever recurs:**
+  the docs routes could be made to survive without hydrating at all (their only client
+  components are the theme toggle and the tip button), so a missing chunk costs a control
+  rather than the page. Lesson worth keeping: **three guesses cost more than one instrumented
+  failure** — when a failure won't reproduce, spend the increment on making it explain itself.
 - **Third diagnosis, also not the cause on the evidence so far: the worker could cache a
   truncated response body.** The instrumentation added on the second attempt paid
   for itself immediately — the next CI failure arrived reading
