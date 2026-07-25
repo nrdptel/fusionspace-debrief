@@ -462,7 +462,10 @@ test('the headline altitude chart exports as a vector SVG with events marked', a
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByTitle(/Save the altitude chart as a vector SVG/).click(),
+    // Located by its label, not its tooltip: the tooltip says which figure this saves, and
+    // that now depends on which figures the flyer kept in the report. `.first()` is the
+    // report's own save strip — the explorer further down the page has one too.
+    page.getByRole('button', { name: 'Save .svg' }).first().click(),
   ]);
   expect(dl.suggestedFilename()).toMatch(/-altitude\.svg$/);
 });

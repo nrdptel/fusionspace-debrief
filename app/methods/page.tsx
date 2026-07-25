@@ -412,6 +412,18 @@ export default function MethodsPage() {
             all three together. The saved figures and the shareable card are framed the same way as
             the screen, so a document says what the page said.
           </Method>
+          <Method title="What goes in the report">
+            A report is written for a purpose, so what it carries is yours to set. The chooser
+            under the tiles picks the <strong>readings</strong>; the row under the charts picks the{' '}
+            <strong>figures</strong> — a certification package often wants the altitude trace and
+            nothing else, a drag study wants all three. Both choices are stored on this device and
+            followed by every written format: the .txt, the Markdown, the self-contained HTML and the
+            bundle. Neither touches what Debrief draws or computes on screen, and neither touches the
+            data exports: the analyzed-series CSV and the structured JSON stay complete, because a
+            consumer reading <span className="font-mono">debrief.flight/1</span> expects every key it
+            knows to be there. Trimming a report is a presentation choice; trimming a data contract
+            is a broken file.
+          </Method>
           <Method title="Named views">
             The explorer remembers how you last set it up, and you can also keep several plots under
             names you choose — the boost, the deployments, the airframe&apos;s health — and switch

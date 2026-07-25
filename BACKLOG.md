@@ -644,6 +644,16 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
 
 ## Feature depth
 
+- **Second slice of the report & export builder: the flyer picks the figures.** The first
+  slice gave them the readings; this gives them the plots. Every figure the flight supports
+  is still drawn on screen — that is the analysis — but which ones travel into the
+  self-contained HTML, the bundle and *Save .svg* is a choice now, stored the same way as
+  the readings (as what is turned OFF, so a figure a flight gains later appears rather than
+  being excluded by a list written before it existed). The data exports are untouched on
+  purpose. **Still missing from North Star #2:** colour and layout control, reordering the
+  single-flight readings (still blocked on unifying the two reading lists), and the builder
+  as a surface of its own rather than two controls on the report.
+
 - **The logbook was keeping the file and throwing away the answer.** Found while adding an
   affordance and turned out to be the deeper bug under it: a flight Debrief doesn't
   auto-detect is only a flight because the flyer said which column was which, and that

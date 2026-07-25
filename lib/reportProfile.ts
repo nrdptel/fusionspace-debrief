@@ -148,3 +148,42 @@ export function toggleHidden(hidden: string[], label: string): string[] {
   if (ALWAYS_SHOWN.includes(label)) return hidden;
   return hidden.includes(label) ? hidden.filter((l) => l !== label) : [...hidden, label];
 }
+
+// The other half of "this report is mine": which FIGURES it carries.
+//
+// The readings chooser answers "which numbers"; this answers "which plots". A cert package
+// often wants the altitude trace and nothing else — the velocity and acceleration curves are
+// the flyer's working, not the evidence — while a drag study wants all three and a club post
+// wants one. Debrief draws every figure the flight supports, and the flyer says which of
+// them travel: into the printable HTML, into the bundle, and into the single-figure save.
+//
+// Same shape and same reasoning as the readings above — stored as what is turned OFF, so a
+// figure a flight gains later (a channel it didn't have) appears rather than being excluded
+// by a list written before it existed — and, like them, deliberately not applied to the data
+// exports, which are a contract rather than a document.
+const FIGURES_KEY = 'debrief.report.hiddenFigures';
+
+/** Figure names this flyer has turned off, as stored on this device. */
+export function loadHiddenFigures(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(FIGURES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === 'string').slice(0, MAX_HIDDEN);
+  } catch {
+    return [];
+  }
+}
+
+export function saveHiddenFigures(names: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const unique = [...new Set(names.filter((n) => typeof n === 'string' && n))].slice(0, MAX_HIDDEN);
+    if (unique.length === 0) window.localStorage.removeItem(FIGURES_KEY);
+    else window.localStorage.setItem(FIGURES_KEY, JSON.stringify(unique));
+  } catch {
+    /* storage blocked (a private window) — the choice still applies to this view */
+  }
+}

@@ -24,7 +24,7 @@ import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import { copyTable } from '@/lib/copyTable';
-import { loadHidden, saveHidden, toggleHidden } from '@/lib/reportProfile';
+import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
 import ChannelExplorer from './ChannelExplorer';
@@ -149,6 +149,17 @@ export default function FlightReport({
     setHidden((prev) => {
       const next = toggleHidden(prev, label);
       saveHidden(next);
+      return next;
+    });
+  }, []);
+
+  // …and which figures travel with it. Same decision, same shape, kept on this device.
+  const [hiddenFigures, setHiddenFigures] = useState<string[]>([]);
+  useEffect(() => setHiddenFigures(loadHiddenFigures()), []);
+  const toggleFigure = useCallback((title: string) => {
+    setHiddenFigures((prev) => {
+      const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
+      saveHiddenFigures(next);
       return next;
     });
   }, []);
@@ -345,10 +356,11 @@ export default function FlightReport({
   // recorded) velocity and acceleration — events marked, crisp at any size. One
   // definition feeds both the single Save .svg button and the bundle, so they can't
   // drift. Built lazily on click, not on every render.
-  const figureSvgs = useCallback((): { name: string; svg: string }[] => {
+  const figureSvgs = useCallback((): { title: string; name: string; svg: string }[] => {
     const markerDefs = events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] }));
-    const figs: { name: string; svg: string }[] = [
+    const figs: { title: string; name: string; svg: string }[] = [
       {
+        title: 'Altitude',
         name: `${stem}-altitude.svg`,
         svg: plotSvg({
           x: series.time,
@@ -365,6 +377,7 @@ export default function FlightReport({
     ];
     if (series.velocity.some((v) => Number.isFinite(v))) {
       figs.push({
+        title: 'Velocity',
         name: `${stem}-velocity.svg`,
         svg: plotSvg({
           x: series.time,
@@ -379,6 +392,7 @@ export default function FlightReport({
     }
     if (series.accelerationSource === 'device' && series.acceleration.some((v) => Number.isFinite(v) && v !== 0)) {
       figs.push({
+        title: 'Acceleration',
         name: `${stem}-acceleration.svg`,
         svg: plotSvg({
           x: series.time,
@@ -391,22 +405,34 @@ export default function FlightReport({
         }),
       });
     }
-    return figs;
-  }, [series, events, sys, figureDark, stem, chartRange]);
+    // What the flyer asked for. Every figure the flight supports is drawn — the choice is
+    // about the document, not about the analysis — and turning them all off leaves a report
+    // of numbers, which is a legitimate answer for a table-only write-up.
+    return figs.filter((f) => !hiddenFigures.includes(f.title));
+  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures]);
+
+  /** Every figure this flight could carry, chosen or not — what the chooser lists. */
+  const figureTitles = useMemo(() => {
+    const titles = ['Altitude'];
+    if (series.velocity.some((v) => Number.isFinite(v))) titles.push('Velocity');
+    if (series.accelerationSource === 'device' && series.acceleration.some((a) => Number.isFinite(a) && a !== 0)) {
+      titles.push('Acceleration');
+    }
+    return titles;
+  }, [series]);
 
   function saveChartSvg() {
-    const [alt] = figureSvgs();
-    download(new Blob([alt.svg], { type: 'image/svg+xml' }), alt.name);
+    // The first figure the flyer kept — not necessarily altitude, and possibly none at all.
+    const [first] = figureSvgs();
+    if (!first) return;
+    download(new Blob([first.svg], { type: 'image/svg+xml' }), first.name);
   }
 
   // One self-contained HTML file — the numbers, events, cross-check and caveats plus the
   // charts inline as vector SVG — a flyer can save, email, print or archive without
   // re-running Debrief. Report-grade output as a single portable document.
   function downloadHtml() {
-    const figures = figureSvgs().map((f) => ({
-      title: f.name.replace(`${stem}-`, '').replace(/\.svg$/, '').replace(/^./, (c) => c.toUpperCase()),
-      svg: f.svg,
-    }));
+    const figures = figureSvgs().map((f) => ({ title: f.title, svg: f.svg }));
     download(
       new Blob([summaryHtml(flight, analysis, sys, analyzedAt, reportMeta, recovery, figures)], { type: 'text/html' }),
       `${stem}-debrief.html`,
@@ -611,8 +637,13 @@ export default function FlightReport({
             <button
               type="button"
               onClick={saveChartSvg}
-              title="Save the altitude chart as a vector SVG (events marked) — crisp at any size for a report"
-              className={SAVE_BTN}
+              disabled={figureTitles.every((t) => hiddenFigures.includes(t))}
+              title={
+                figureTitles.every((t) => hiddenFigures.includes(t))
+                  ? 'No figures are in this report — turn one on under the charts'
+                  : 'Save the first figure in this report as a vector SVG (events marked) — crisp at any size'
+              }
+              className={`${SAVE_BTN} disabled:cursor-not-allowed disabled:opacity-40`}
             >
               Save .svg
             </button>
@@ -861,6 +892,41 @@ export default function FlightReport({
         Hover to read all three at a time · drag across a chart to zoom (pinch on touch) · double-click
         or double-tap to reset
       </p>
+
+      {/* Which plots the DOCUMENT carries — the companion to the readings chooser under the
+          tiles, and the next thing a report is written for needs. A certification package
+          often wants the altitude trace alone; a drag study wants all three. Every figure
+          the flight supports is still drawn on screen: this is about what travels into the
+          .html, the bundle and the single-figure save, not about the analysis. */}
+      {figureTitles.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Figures in the report</span>
+          {figureTitles.map((t) => {
+            const on = !hiddenFigures.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleFigure(t)}
+                title={`${on ? 'Leave out' : 'Include'} the ${t.toLowerCase()} plot — applies to the .html report, the bundle and Save .svg`}
+                className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
+                  on
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
+                    : 'border-zinc-300 bg-white text-zinc-500 line-through hover:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {figureTitles.every((t) => hiddenFigures.includes(t))
+              ? 'None — the report carries its numbers and no plots.'
+              : 'Applies to the .html report, the bundle and Save .svg.'}
+          </span>
+        </div>
+      )}
 
       {/* Event legend */}
       <div>

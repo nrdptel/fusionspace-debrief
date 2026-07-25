@@ -627,3 +627,55 @@ test('the charts open on the flight, not on the pad wait before it', async ({ pa
   await page.mouse.dblclick(box!.x + box!.width * 0.5, box!.y + box!.height * 0.5);
   await expect(full).toHaveAttribute('aria-pressed', 'true');
 });
+
+// The report/export builder's next slice: a report is written for a purpose, and a
+// certification package often wants the altitude trace and nothing else — the velocity and
+// acceleration curves are the flyer's working, not the evidence. Which figures travel is a
+// choice now, kept on this device, and it reaches every place a figure goes.
+test('the figures a report carries are the flyer’s choice, and it holds across formats', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  const velocity = page.getByRole('button', { name: 'Velocity', exact: true });
+  await expect(velocity).toHaveAttribute('aria-pressed', 'true');
+
+  // Everything on by default: the bundle carries all three.
+  const bundleNames = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save bundle' }).click(),
+    ]);
+    return zipEntryNames(await readFile(await dl.path()));
+  };
+  const before = await bundleNames();
+  expect(before.some((n) => n.endsWith('-velocity.svg'))).toBe(true);
+
+  // Turn velocity off — the chart stays on screen (that's the analysis), the figure leaves
+  // the document (that's the report).
+  await velocity.click();
+  await expect(velocity).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('heading', { name: /^Velocity \(/ })).toBeVisible();
+
+  const after = await bundleNames();
+  expect(after.some((n) => n.endsWith('-altitude.svg'))).toBe(true);
+  expect(after.some((n) => n.endsWith('-velocity.svg'))).toBe(false);
+
+  // …and the self-contained HTML report agrees with the bundle.
+  const [htmlDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  const html = (await readFile(await htmlDl.path())).toString('utf8');
+  // The figure captions the HTML report actually writes — not a substring that would be
+  // present either way, which is an assertion that can't fail.
+  expect(html).toContain('<figcaption>Altitude</figcaption>');
+  expect(html).not.toContain('<figcaption>Velocity</figcaption>');
+
+  // The choice is remembered on this device, like the units and the readings.
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: 'Velocity', exact: true })).toHaveAttribute('aria-pressed', 'false');
+});
