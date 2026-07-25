@@ -21,6 +21,7 @@ export default function ReadingChooser({
   onToggle,
   onMove,
   where,
+  noun,
 }: {
   /** Every reading this flight (or comparison) can show, in the order it shows them. */
   labels: string[];
@@ -30,6 +31,8 @@ export default function ReadingChooser({
   onMove?: (label: string, delta: -1 | 1) => void;
   /** What the choice applies to here, named in the flyer's terms. */
   where: string;
+  /** What this surface calls the thing being chosen for — a report, or a comparison. */
+  noun: 'report' | 'comparison';
 }) {
   const [open, setOpen] = useState(false);
   const off = labels.filter((l) => hidden.includes(l) && !ALWAYS_SHOWN.includes(l)).length;
@@ -37,7 +40,7 @@ export default function ReadingChooser({
   return (
     <details className="print:hidden" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className="inline-flex cursor-pointer select-none items-center rounded-md px-1 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
-        Choose what&apos;s in this report
+        Choose what&apos;s in this {noun}
         {off > 0 && (
           <span className="ml-1.5 rounded bg-indigo-500/10 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-300">
             {off} off

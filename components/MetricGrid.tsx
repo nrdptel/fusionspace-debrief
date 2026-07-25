@@ -185,6 +185,7 @@ export default function MetricGrid({
           hidden={hidden ?? []}
           onToggle={onToggle}
           where="Applies here and to the .txt, .md and .html reports and the bundle."
+          noun="report"
         />
       )}
 

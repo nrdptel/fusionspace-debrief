@@ -675,7 +675,8 @@ export default function CompareView({
         hidden={hidden}
         onToggle={toggleReading}
         onMove={moveReadingBy}
-        where="Applies to this table, the chart legend’s figures and the .md, .html and bundle exports."
+        where="Applies to this table, its copy, and the .md, .html, metrics-CSV and bundle exports."
+        noun="comparison"
       />
 
       {baroMix && (

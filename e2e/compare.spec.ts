@@ -315,7 +315,7 @@ test('the reading chooser is one choice shared by both surfaces', async ({ page 
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Burn time', exact: true })).toBeVisible();
 
-  const toggle = page.locator('summary', { hasText: "Choose what's in this report" });
+  const toggle = page.locator('summary', { hasText: "Choose what's in this comparison" });
   await toggle.click();
   await page.getByRole('checkbox', { name: 'Burn time' }).uncheck();
   await expect(page.getByRole('rowheader', { name: 'Burn time', exact: true })).toHaveCount(0);
@@ -360,7 +360,7 @@ test('the comparison’s readings can be reordered, and the order follows into t
   const before = await rowLabels();
   expect(before[0]).toContain('Apogee');
 
-  await page.locator('summary', { hasText: "Choose what's in this report" }).click();
+  await page.locator('summary', { hasText: "Choose what's in this comparison" }).click();
   await page.getByRole('button', { name: 'Move Max Q earlier' }).click();
   await page.getByRole('button', { name: 'Move Max Q earlier' }).click();
 

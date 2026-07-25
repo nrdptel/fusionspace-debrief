@@ -37,7 +37,7 @@ export default function Home() {
               highest first, then lowest — or move a column with ◀ ▶ into an order no metric gives you
               (booster then sustainer, flight 1 to 6), or move a <em>reading</em> up and down the
               table in <em>Choose what&apos;s in this report</em> so the comparison leads with what
-              you care about. The chart legend and every export follow
+              you care about (<em>Choose what&apos;s in this comparison</em>). The chart legend and every export follow
               whichever order you set, and the channel you were last looking at (altitude,
               velocity, Mach…) is the one the next comparison opens on.
               Anything in the drop Debrief couldn&apos;t read is named, with the reason — even when only
