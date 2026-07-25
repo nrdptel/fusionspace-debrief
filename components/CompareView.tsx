@@ -574,7 +574,7 @@ export default function CompareView({
             <tr>
               <th
                 scope="col"
-                className="sticky left-0 bg-white py-2 pr-4 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
+                className="sticky left-0 bg-white py-2 pr-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 sm:pr-4 dark:bg-zinc-950 dark:text-zinc-400"
               >
                 Metric{' '}
                 {(sort || manual) && (
@@ -592,9 +592,9 @@ export default function CompareView({
                 )}
               </th>
               {flights.map((f, i) => (
-                <th key={f.id} scope="col" className="px-3 py-2 text-right align-bottom">
+                <th key={f.id} scope="col" className="px-1.5 py-2 text-right align-bottom sm:px-3">
                   {flights.length > 1 && (
-                    <span className="mb-0.5 flex items-center justify-end gap-0.5 print:hidden">
+                    <span className="mb-0.5 hidden items-center justify-end gap-0.5 sm:flex print:hidden">
                       {/* Buttons, not drag handles: a thumb on a phone and a keyboard both
                           reach these, and a drag target on a table header reaches neither. */}
                       <button
@@ -625,7 +625,10 @@ export default function CompareView({
                       style={{ backgroundColor: f.color }}
                       aria-hidden="true"
                     />
-                    <span className="max-w-[10rem] truncate font-mono text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <span
+                      title={stem(f.name)}
+                      className="max-w-[5rem] truncate font-mono text-xs font-medium text-zinc-700 sm:max-w-[10rem] dark:text-zinc-300"
+                    >
                       {stem(f.name)}
                     </span>
                   </span>
@@ -652,7 +655,7 @@ export default function CompareView({
               {spread && (
                 <th
                   scope="col"
-                  className="px-3 py-2 text-right align-bottom text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                  className="px-1.5 py-2 text-right align-bottom text-xs font-medium uppercase tracking-wide text-zinc-500 sm:px-3 dark:text-zinc-400"
                   title="How far apart the readings are: (highest − lowest) as a percent of their mean, over the flights that recorded the figure — how closely several recordings of one flight agree, or how much the flights differ from each other."
                 >
                   Spread
@@ -666,7 +669,7 @@ export default function CompareView({
                 <th
                   scope="row"
                   aria-sort={sort?.label === row.label ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}
-                  className="sticky left-0 bg-white py-2 pr-4 text-left font-medium text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400"
+                  className="sticky left-0 bg-white py-2 pr-2 text-left font-medium text-zinc-600 sm:pr-4 dark:bg-zinc-950 dark:text-zinc-400"
                 >
                   <button
                     type="button"
@@ -685,7 +688,7 @@ export default function CompareView({
                 {flights.map((f, i) => (
                   <td
                     key={f.id}
-                    className={`px-3 py-2 text-right font-mono tabular-nums ${
+                    className={`px-1.5 py-2 text-right font-mono tabular-nums sm:px-3 ${
                       i === row.best
                         ? 'font-semibold text-indigo-600 dark:text-indigo-400'
                         : 'text-zinc-800 dark:text-zinc-200'
@@ -696,7 +699,7 @@ export default function CompareView({
                   </td>
                 ))}
                 {spread && (
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <td className="px-1.5 py-2 text-right font-mono tabular-nums text-zinc-500 sm:px-3 dark:text-zinc-400">
                     {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
                   </td>
                 )}

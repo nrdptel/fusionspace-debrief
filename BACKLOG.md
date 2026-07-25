@@ -374,6 +374,18 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **The comparison surface could not show two flights at once on a phone — on the one surface
+  whose entire point is side by side.** Found by looking at a 390 px screenshot rather than at
+  a test: the first flight's column filled the width and the second started past the right
+  edge. Measured: the metric table was **540 px inside a 358 px box**. The row labels were
+  already sticky, so this wasn't "you lose your place" — it was that a comparison of two was
+  a comparison of one, a row at a time. Three things were spending a phone's width on desktop
+  habits: the ◀▶ reorder arrows (a pointer refinement, ~52 px per column), a 10 rem file-name
+  budget, and desktop cell padding. Below `sm:` those become no arrows, 5 rem and half the
+  padding — **382 px**, so both flights' readings are on screen at once, and only the Spread
+  column (which the cross-check panel above states in prose anyway) is a scroll away.
+  Asserted at 360 px, on the measured cell positions, since a layout like this drifts quietly.
+
 - **Found by looking at the app rather than at the tests: the charts were plotting the file,
   not the flight.** Swept every corpus flight for how much of the plotted axis is actually
   flight (liftoff → landing). Median **97%** — so the naive version of this worry is wrong and
