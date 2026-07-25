@@ -23,9 +23,6 @@ memory, so a later pass doesn't have to rediscover them.
 - Checked, not a bug: the `Lyrid-04252021` SRAD log reads 171 ft AGL against a manifest
   "6220 ft", which is MSL — its altitude record genuinely spans only the top 183 ft of a
   truncated capture, and Debrief now says so (no pad baseline, no clear ascent).
-- The Altus Metrum native `.eeprom` files (three in the corpus) reach the column mapper
-  with no roles, so they analyze as nothing. A native AltOS eeprom reader would cover
-  them — the paired CSV exports parse fine, so there's ground truth to check against.
 - A device summary file is now recognised and explained, but its figures still aren't
   *used*: dropping a summary and its log together should feed the summary's numbers into
   the cross-check as the device's side. That needs multi-file association — the next real
@@ -33,7 +30,8 @@ memory, so a later pass doesn't have to rediscover them.
 - Native binary logs still can't be *read*: an AltOS `.eeprom` (3 in the corpus), an
   Entacore `.bin`/`.xtra` and an RRC3 `.rff` now get an honest "no flight data here" with
   a route onward, but a real reader for the AltOS eeprom format (documented, open source)
-  would cover files a flyer already has on disk.
+  would cover files a flyer already has on disk — and each of those three has a paired CSV
+  export in the corpus, so there is ground truth to check a reader against.
 - `velocitySource: 'device'` still means "the file had a velocity column", which for a
   baro-only logger is barometric all the same. The alt-diff test catches the naive case;
   a device whose velocity column is a *filtered* baro derivative still reads as measured.
@@ -43,12 +41,26 @@ memory, so a later pass doesn't have to rediscover them.
 - `e2e/worker.spec.ts` "a slow in-flight analysis does not overwrite a newer load" flaked
   once under full-suite parallel load and passed alone and on re-run — a timing assumption
   worth making load-independent before it costs someone a red CI.
-
 - The comparison table sorts now, but doesn't filter, and columns can't be dragged into a
   deliberate order (booster/sustainer, or flight 1..n) — the next step for a launch day.
 - Links inside prose stay 16–20 px tall on a phone, which is right — but check the few
   that act as navigation without living in a `<nav>` (the "Read the methods →" call to
   action, say) and move them into one.
+
+## Benchmarked against the mature tools
+
+Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
+
+- **Per-quantity units.** Debrief has one feet/metres switch (acceleration is always g,
+  pressure follows the system). AltosUI lets you choose the unit for each quantity, and a
+  cert document may want mph or km/h for speed and °C for temperature regardless. North
+  Star #2 asks for exactly this.
+- **A raw sample table.** AltosUI has a data tab — a scrollable, copyable grid of the
+  actual samples — and Excel *is* that. Debrief plots any channel and exports CSV but
+  never shows the numbers on screen. Needs virtualisation for a 190k-row log.
+- **A per-device flight list.** The vendor apps read several flights off one device and
+  let you pick between them; Debrief's logbook is close but is keyed on files, not flights
+  from one download session.
 
 ## Feature depth
 
