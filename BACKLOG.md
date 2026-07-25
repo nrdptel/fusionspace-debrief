@@ -6,6 +6,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Found by using the app cold on a launch day's files: the cross-check was offering a 201%
+  “agreement” between flights the files date years apart.** The panel's framing (“if these
+  are recordings of the same flight…”) is a conditional, so it was never false — but it burnt
+  the most prominent panel on a hypothesis the record itself refutes, and a 201% agreement
+  figure is noise dressed as a measurement. Debrief has had the stated launch dates since the
+  flownAt work, and now uses them: two or more files dating the flights more than ~36 h apart
+  refutes one-flight, and the panel becomes “Flight to flight — these are different flights,
+  the files date them 30 Oct 2021, 11 May 2024 — so what follows is how far apart they are.”
+  Deliberately generous, because one recording can stamp UTC while another stamps a logger's
+  wall clock and an evening launch straddles midnight; with fewer than two stated dates the
+  question stays open. The Markdown and HTML exports carry the same framing, asserted.
+  **Next:** nothing checks whether two recordings *without* dates could be one flight; the
+  same-flight corpus groups are all identified by hand in the fixtures, not by the app.
 - **A GPS altitude was in the file all along and Debrief was throwing it away.** AltOS writes
   a second `altitude` column right after the GPS position — the receiver's own — and the parser
   explicitly skipped it as a duplicate. It is now carried as a second altitude recording

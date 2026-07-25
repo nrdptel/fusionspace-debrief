@@ -22,8 +22,8 @@ import {
 } from './display';
 import type { UnitChoice } from './display';
 import { compareReported } from './flight/reported';
-import { formatFlownAt } from './flight/flownAt';
-import { crossCheck, type Comparison, type CompareFlight } from './compare';
+import { formatFlownAt, formatFlownDay } from './flight/flownAt';
+import { crossCheck, differentFlightDays, type Comparison, type CompareFlight } from './compare';
 import { buildPlotChannels } from './explore';
 import { visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
@@ -694,9 +694,14 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     const sat = agree.some((a) => a.saturated)
       ? ' †One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
       : '';
-    out.push('', '## Cross-check', '');
+    // Where the files themselves date the flights days apart, the same numbers are a
+    // flight-to-flight difference, not a failed reconciliation — so the write-up says so.
+    const otherDays = differentFlightDays(flights);
+    out.push('', otherDays ? '## Flight to flight' : '## Cross-check', '');
     out.push(
-      `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
+      otherDays
+        ? `These are different flights — the files date them ${otherDays.map(formatFlownDay).join(', ')} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve.${mixed}${sat}`
+        : `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
     );
   }
 
@@ -769,7 +774,13 @@ export function compareHtml(
       .filter(Boolean)
       .map((s) => `<p class="src">${esc(s)}</p>`)
       .join('');
-    crossHtml = `<section><h2>Cross-check</h2><p class="lede">If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.</p>${foot}</section>`;
+    const otherDays = differentFlightDays(flights);
+    // `phrase` is already escaped label by label, so the lede is assembled from escaped
+    // parts rather than escaped again — which would double-encode it.
+    const lede = otherDays
+      ? `These are different flights — the files date them ${esc(otherDays.map(formatFlownDay).join(', '))} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve.`
+      : `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`;
+    crossHtml = `<section><h2>${otherDays ? 'Flight to flight' : 'Cross-check'}</h2><p class="lede">${lede}</p>${foot}</section>`;
   }
 
   const rows = compareMetricRows(flights, sys);

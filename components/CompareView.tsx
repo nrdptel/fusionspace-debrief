@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
-import { crossCheck } from '@/lib/compare';
+import { crossCheck, differentFlightDays } from '@/lib/compare';
 import { accelInG, lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
@@ -13,7 +13,7 @@ import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import UnitsControl from './UnitsControl';
-import { formatFlownAt } from '@/lib/flight/flownAt';
+import { formatFlownAt, formatFlownDay } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
@@ -410,11 +410,26 @@ export default function CompareView({
       {(() => {
         const agree = crossCheck(flights);
         if (agree.length === 0) return null;
+        // The files can refute the premise this panel rests on: recordings dated days apart
+        // are not one flight, so the same numbers mean something else and are introduced as
+        // what they are.
+        const otherDays = differentFlightDays(flights);
         return (
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
-            <p className="font-medium text-zinc-700 dark:text-zinc-300">Cross-check</p>
+            <p className="font-medium text-zinc-700 dark:text-zinc-300">
+              {otherDays ? 'Flight to flight' : 'Cross-check'}
+            </p>
             <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-              If these are recordings of the same flight, the independent readings agree to within{' '}
+              {otherDays ? (
+                <>
+                  These are different flights — the files date them{' '}
+                  {otherDays.map(formatFlownDay).join(', ')} — so what
+                  follows is how far apart they are, not how closely two recordings of one flight
+                  agree. They differ by{' '}
+                </>
+              ) : (
+                <>If these are recordings of the same flight, the independent readings agree to within{' '}</>
+              )}
               {agree.map((a, i) => (
                 <span key={a.key}>
                   {i > 0 && (i === agree.length - 1 ? ' and ' : ', ')}
@@ -425,7 +440,10 @@ export default function CompareView({
                   </span>
                 </span>
               ))}
-              . Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.
+              .{' '}
+              {otherDays
+                ? 'A season\u2019s spread is what changed between them \u2014 airframe, motor, conditions \u2014 not a disagreement to resolve.'
+                : 'Close agreement builds confidence; a wide gap is a flag worth chasing \u2014 not a verdict, just the spread.'}
               {agree.some((a) => a.mixedSource) && (
                 <>
                   {' '}

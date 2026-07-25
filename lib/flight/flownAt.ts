@@ -107,6 +107,14 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 /** The stamp for reading: `30 Oct 2021, 20:07 UTC` or `11 May 2024, 14:09 (logger clock)`.
  *  Built by hand rather than through `toLocaleString`, which would shift the hour into the
  *  reader's own zone — the one thing this must never do. */
+/** Just the calendar day a stamp states, in the same voice as `formatFlownAt` — for the
+ *  places that name a launch day rather than an instant. */
+export function formatFlownDay(stampOrDay: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(stampOrDay);
+  if (!m) return stampOrDay;
+  return `${Number(m[3])} ${MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}`;
+}
+
 export function formatFlownAt(f: FlownAt | null | undefined): string {
   if (!f) return '';
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(f.stamp);

@@ -196,6 +196,32 @@ export interface Agreement {
  * measurement of the recordings, never a verdict — so it's stated as a range, not a
  * single blessed number. Only metrics with a finite value on two or more flights.
  */
+/**
+ * Whether these recordings could be of one flight — the question the cross-check's whole
+ * framing rests on. It is a hypothesis, and the files can refute it: where two of them
+ * state a launch date and those dates are days apart, no reading of them is a
+ * redundant-altimeter agreement, and calling a 201% apogee gap an "agreement to within
+ * 201%" would be dressing a comparison of different flights as a failed reconciliation.
+ *
+ * Returns the distinct days the files state when it is refuted, and null when the question
+ * stays open — which is the honest answer whenever fewer than two files state a date.
+ *
+ * Deliberately generous: a day of slack, because one recording can stamp UTC while another
+ * stamps a logger's own wall clock, and an evening launch straddles midnight between them.
+ * Two flights on consecutive days of one launch weekend therefore keep the conditional
+ * framing. This only fires where the record makes the hypothesis impossible, not unlikely.
+ */
+export function differentFlightDays(flights: CompareFlight[]): string[] | null {
+  const days = flights
+    .map((f) => f.flownAt?.stamp.slice(0, 10))
+    .filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (days.length < 2) return null;
+  const ms = days.map((d) => Date.parse(`${d}T00:00:00Z`));
+  const span = Math.max(...ms) - Math.min(...ms);
+  if (!(span > 36 * 3600 * 1000)) return null;
+  return [...new Set(days)].sort();
+}
+
 export function crossCheck(flights: CompareFlight[]): Agreement[] {
   const specs: {
     key: string;

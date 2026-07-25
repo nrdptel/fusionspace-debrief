@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, crossCheck, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
+import { resample, buildComparison, crossCheck, differentFlightDays, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
+import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
 describe('crossCheck', () => {
@@ -270,5 +271,41 @@ describe('buildComparison', () => {
   it('caps the number of flights at MAX_COMPARE', () => {
     const many = Array.from({ length: MAX_COMPARE + 3 }, (_, i) => input(`f${i}`, 2, 100 + i));
     expect(buildComparison(many).flights).toHaveLength(MAX_COMPARE);
+  });
+});
+
+describe('differentFlightDays', () => {
+  const at = (stamp: string): FlownAt => ({ stamp, zone: 'UTC' });
+  const withDates = (...stamps: (string | null)[]): CompareFlight[] =>
+    stamps.map(
+      (s) => ({ metrics: metrics(1000), ...(s ? { flownAt: at(s) } : {}) }) as CompareFlight,
+    );
+
+  it('stays open when fewer than two files state a date', () => {
+    expect(differentFlightDays(withDates(null, null))).toBeNull();
+    expect(differentFlightDays(withDates('2025-04-12T12:45', null))).toBeNull();
+  });
+
+  it('stays open for recordings of one flight', () => {
+    expect(differentFlightDays(withDates('2025-04-12T12:45', '2025-04-12T16:45'))).toBeNull();
+  });
+
+  it('stays open across a midnight straddle — one clock is UTC, another is the logger’s', () => {
+    // The same launch, stamped either side of midnight by two different clocks, is not
+    // evidence of two flights.
+    expect(differentFlightDays(withDates('2025-04-12T23:50', '2025-04-13T04:50'))).toBeNull();
+  });
+
+  it('is refuted when the files date the flights a season apart', () => {
+    expect(differentFlightDays(withDates('2021-10-30T20:07', '2024-05-11T14:09'))).toEqual([
+      '2021-10-30',
+      '2024-05-11',
+    ]);
+  });
+
+  it('lists each stated day once, in order', () => {
+    expect(
+      differentFlightDays(withDates('2024-05-11T14:09', '2021-10-30T20:07', '2024-05-11T15:00')),
+    ).toEqual(['2021-10-30', '2024-05-11']);
   });
 });

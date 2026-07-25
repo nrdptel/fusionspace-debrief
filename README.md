@@ -195,7 +195,9 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   reading how closely the flights agree, from apogee and top speed through to the descent rate
   under each canopy, so redundant altimeters (or a booster and its sustainer bay) read as
   independent measurements: close agreement builds confidence, a wide gap is a flag worth
-  chasing, never a single number to trust on faith.
+  chasing, never a single number to trust on faith. Where the files themselves date the
+  flights days apart the premise is refuted, and the panel says so — the same numbers are
+  then what changed between two flights, not a disagreement between two recordings of one.
   Compare exactly two and the table adds a **Difference** column — the pairwise spread on
   every metric, so two altimeters on one flight show how tightly they agree, and two
   launches of one rocket show what changed.

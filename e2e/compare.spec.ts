@@ -254,3 +254,53 @@ test('choosing several files at once jumps straight to a comparison', async ({ p
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
 });
+
+// The cross-check rests on a hypothesis — that these are recordings of one flight — and
+// the files can refute it. Where they date the flights a season apart, calling a 139%
+// apogee gap an "agreement to within 139%" would dress a comparison of different flights
+// as a failed reconciliation.
+test('a comparison the files date apart is framed as flight-to-flight, not agreement', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    fixture('altusmetrum-telemetrum.csv'), // GPS UTC, 30 Oct 2021
+    fixture('blueraven-app-lr.csv'), // logger clock, 11 May 2024
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  await expect(page.getByText('Flight to flight')).toBeVisible();
+  await expect(page.getByText(/These are different flights/)).toBeVisible();
+  // Named in the app's own date voice, not as raw stamps.
+  await expect(page.getByText(/30 Oct 2021/).first()).toBeVisible();
+  await expect(page.getByText(/11 May 2024/).first()).toBeVisible();
+  await expect(page.getByText(/If these are recordings of the same flight/)).toHaveCount(0);
+
+  // …and the saved write-up says the same thing, not the opposite.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  const stream = await dl.createReadStream();
+  const html = await new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream!.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream!.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    stream!.on('error', reject);
+  });
+  expect(html).toContain('Flight to flight');
+  expect(html).toContain('These are different flights');
+  expect(html).not.toContain('If these are recordings of the same flight');
+});
+
+// …and where the files don't refute it, the reconciliation framing stays: two recordings
+// with no stated date could be one flight, and Debrief doesn't decide that for the flyer.
+test('with no stated dates the cross-check keeps its conditional framing', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('aim-xtra.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByText(/If these are recordings of the same flight/)).toBeVisible();
+  await expect(page.getByText('Flight to flight')).toHaveCount(0);
+});

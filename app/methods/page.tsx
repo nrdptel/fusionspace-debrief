@@ -62,6 +62,21 @@ export default function MethodsPage() {
             any barometric altitude stops holding and the reading under-reads; a flight that high is
             flagged, and a GPS or inertial altitude is more trustworthy up there.
           </Method>
+          <Method title="Whether several recordings are one flight">
+            A comparison&apos;s cross-check asks a specific question — if these are recordings of
+            the same flight, how closely do they agree? — and that question has a premise the
+            files can refute. Where two of them state a launch date and those dates are days
+            apart, no reading of them is a redundant-altimeter agreement, and reporting a 139%
+            apogee gap as an &ldquo;agreement to within 139%&rdquo; would dress a comparison of
+            different flights as a failed reconciliation. So Debrief checks the dates the files
+            themselves carry, and where they refute it, says plainly that these are different
+            flights and that the figures are how far apart they are. A day of slack is allowed
+            either way, because one recording can stamp UTC while another stamps a logger&apos;s
+            own wall clock and an evening launch straddles midnight between them; and where
+            fewer than two files state a date the question stays open, which is the honest
+            answer. Nothing else about the comparison changes — the numbers are the same
+            numbers, correctly introduced.
+          </Method>
           <Method title="More than one flight in a file">
             A logger downloaded twice, or a whole launch day dumped at once, puts several flights in
             one file — and read as a single flight the record is nonsense: the highest point belongs
