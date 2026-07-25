@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState } from 'react';
 import type { PlotChannel } from '@/lib/explore';
 import type { UnitChoice } from '@/lib/display';
+import type { FlightEvent } from '@/lib/analyze/types';
+import { EVENT_COLOR } from '@/lib/eventStyle';
 
 // The numbers themselves. AltosUI has a data tab and Excel *is* one, and a measurement
 // instrument that will only draw you a picture of your own record is missing something:
@@ -33,6 +35,8 @@ export default function SampleTable({
   xUnit,
   sys,
   view,
+  events,
+  eventX,
 }: {
   channels: PlotChannel[];
   /** Display-unit values, one array per plotted channel — the same numbers the chart drew. */
@@ -43,6 +47,11 @@ export default function SampleTable({
   sys: UnitChoice;
   /** The chart's current zoom, so the table shows the stretch being looked at. */
   view: [number, number] | null;
+  /** The flight's events, so the table can be jumped to one. */
+  events: FlightEvent[];
+  /** Where an event sits on the current x axis — its time, or the plotted channel's value
+   *  at that sample when something other than time is on x. Null when it can't be placed. */
+  eventX: (e: FlightEvent) => number | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -69,6 +78,31 @@ export default function SampleTable({
   const first = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
   const visible = Math.min(rows - first, Math.ceil(height / ROW_H) + OVERSCAN * 2);
 
+  // Reading a value AT an event is the thing a spreadsheet makes you hunt for: scroll to the
+  // right row out of tens of thousands. The events are already known, so each one gets a
+  // button that scrolls its row to the top of the window — and the row is highlighted so it
+  // is obvious which one you landed on.
+  const [landed, setLanded] = useState<number | null>(null);
+  const jumpTo = (e: FlightEvent) => {
+    const x = eventX(e);
+    if (x == null) return;
+    // The nearest sample in the visible window, by x — the table's own ordering.
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = from; i < to; i++) {
+      const d = Math.abs(xVals[i] - x);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (best < 0) return;
+    setLanded(best);
+    const el = scrollRef.current;
+    if (el) el.scrollTop = Math.max(0, (best - from) * ROW_H);
+  };
+  const jumpable = events.filter((e) => eventX(e) != null);
+
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -80,8 +114,31 @@ export default function SampleTable({
           select and copy, or use <em>Save .csv</em> for the whole set
         </p>
       </div>
+      {jumpable.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Jump to
+          </span>
+          {jumpable.map((e) => (
+            <button
+              key={e.type + e.index}
+              type="button"
+              onClick={() => jumpTo(e)}
+              className="inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: EVENT_COLOR[e.type] }}
+                aria-hidden="true"
+              />
+              {e.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div
         ref={(el) => {
+          scrollRef.current = el;
           if (el && el.clientHeight && el.clientHeight !== height) setHeight(el.clientHeight);
         }}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
@@ -117,7 +174,13 @@ export default function SampleTable({
             {Array.from({ length: Math.max(0, visible) }, (_, k) => {
               const i = from + first + k;
               return (
-                <tr key={i} className="border-t border-zinc-100 dark:border-zinc-900" style={{ height: ROW_H }}>
+                <tr
+                  key={i}
+                  className={`border-t border-zinc-100 dark:border-zinc-900 ${
+                    i === landed ? 'bg-indigo-50 dark:bg-indigo-950/40' : ''
+                  }`}
+                  style={{ height: ROW_H }}
+                >
                   <td className="px-3 py-0.5 text-right font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
                     {fmt(xVals[i])}
                   </td>

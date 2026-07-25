@@ -41,7 +41,8 @@ export default function Home() {
               any channel the logger recorded, against time or one against another, alongside
               Debrief&apos;s own Mach and dynamic-pressure channels, then save the plot or its data.
               Open <em>Show the samples</em> to read the exact values behind the curve — the table
-              follows the chart&apos;s zoom. However you set the plot up is remembered, so the next
+              follows the chart&apos;s zoom, and <em>Jump to</em> takes you straight to the row for
+              liftoff, burnout, apogee or a deployment instead of scrolling for it. However you set the plot up is remembered, so the next
               flight opens the way you left it — and <em>+ Save this view</em> keeps several under
               names you choose (the boost, the deployments, the airframe&apos;s health) to switch
               between on any flight that has those channels.

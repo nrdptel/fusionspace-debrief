@@ -228,9 +228,12 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   pressure follows the system). AltosUI lets you choose the unit for each quantity, and a
   cert document may want mph or km/h for speed and °C for temperature regardless. North
   Star #2 asks for exactly this.
-- **A raw sample table** — done, in the explorer. What's missing next to a spreadsheet:
-  no per-column sort or filter, no cell selection (only whole-row text selection), and no
-  "jump to an event" so a flyer can land on burnout without scrolling.
+- **A raw sample table** — done, in the explorer, and *jump to an event* is done too: a row of
+  buttons scrolls straight to liftoff, burnout, apogee or a deployment and highlights the
+  sample landed on (it places the event on whatever is on the x axis, so it works on an
+  altitude-vs-velocity plot as well as against time). Still missing next to a spreadsheet:
+  per-column sort, and cell/column selection — only whole-row text selection works, so copying
+  one channel out means the CSV export.
 - **A per-device flight list.** The vendor apps read several flights off one device and
   let you pick between them; Debrief's logbook is close but is keyed on files, not flights
   from one download session.

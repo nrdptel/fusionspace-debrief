@@ -118,6 +118,20 @@ export default function ChannelExplorer({
   const xIsTime = xKey === 'time';
   const xChan = xIsTime ? undefined : byKey.get(xKey);
 
+  // Where an event sits on the current x axis. On the usual time axis that's its own
+  // timestamp; with a channel on x it's that channel's displayed value at the event's
+  // sample, so "jump to burnout" still lands on the right row of an altitude-vs-velocity
+  // plot. Null when the sample isn't in range at all.
+  const eventX = useCallback(
+    (e: FlightEvent): number | null => {
+      if (xIsTime) return Number.isFinite(time[e.index]) ? time[e.index] : null;
+      if (!xChan) return null;
+      const v = xChan.toDisplay(xChan.values[e.index], sys);
+      return Number.isFinite(v) ? v : null;
+    },
+    [xIsTime, xChan, time, sys],
+  );
+
   const xVals = useMemo(() => {
     if (xIsTime || !xChan) return time;
     const out = new Float64Array(xChan.values.length);
@@ -445,6 +459,8 @@ export default function ChannelExplorer({
           xUnit={xUnit}
           sys={sys}
           view={view}
+          events={events}
+          eventX={eventX}
         />
       </details>
 

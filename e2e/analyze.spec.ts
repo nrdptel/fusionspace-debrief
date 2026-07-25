@@ -347,3 +347,29 @@ test('the explorer keeps named views and applies them to the next flight', async
   await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '+ Save this view' })).toBeVisible();
 });
+
+// Reading the numbers at an event is what a spreadsheet makes you hunt for — scrolling to the
+// right row out of tens of thousands. The events are already known, so the sample table can
+// be jumped to one.
+test('the sample table jumps to a flight event', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'Show the samples' }).click();
+
+  const table = page.locator('table').filter({ has: page.getByRole('columnheader', { name: /time/i }) }).last();
+  await expect(table).toBeVisible();
+  // The row jumped to is highlighted, so read the landed sample's x value from it — the
+  // rendered slice is virtualized, and its spacer rows are not samples.
+  const landedAt = async () =>
+    Number(await table.locator('tbody tr[class*="indigo"]').first().locator('td').first().innerText());
+
+  await page.getByRole('button', { name: 'Apogee', exact: true }).click();
+  await expect(table.locator('tbody tr[class*="indigo"]')).toHaveCount(1);
+  const atApogee = await landedAt();
+  expect(atApogee).toBeGreaterThan(1); // seconds into the flight, not the first sample
+
+  // And to a different event, earlier in the flight — which is the point of jumping.
+  await page.getByRole('button', { name: 'Liftoff', exact: true }).click();
+  await expect.poll(landedAt).toBeLessThan(atApogee);
+});
