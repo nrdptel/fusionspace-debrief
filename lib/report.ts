@@ -1057,6 +1057,13 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
       flownAt: f.flownAt ? { stamp: f.flownAt.stamp, clock: f.flownAt.zone } : null,
       metrics: jsonMetrics(f.metrics, sys),
     })),
+    // What the spread figures below MEAN — the same thing the screen and the written
+    // reports say, in a form a consumer can branch on. A reader that took `crossCheck` for
+    // an agreement between recordings of one flight would be wrong wherever the files
+    // themselves date them apart, and the numbers alone can't tell it so.
+    sameFlight: differentFlightDays(flights)
+      ? { verdict: 'different-flights', refutedBy: 'stated-dates', statedDays: differentFlightDays(flights) }
+      : { verdict: 'unknown' },
     crossCheck: crossCheck(flights).map((a) => ({
       metric: a.key,
       label: a.label,
@@ -1065,8 +1072,9 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
       ...(a.mixedSource ? { mixedSource: true } : {}),
       ...(a.saturated ? { saturated: true } : {}),
     })),
-    disclaimer:
-      'Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Parsed locally; nothing uploaded.',
+    disclaimer: differentFlightDays(flights)
+      ? 'These are different flights — the files date them days apart — so the spread figures are how far apart the flights are, not how closely two recordings of one flight agree. Aligned at liftoff and resampled onto a shared time base. Parsed locally; nothing uploaded.'
+      : 'Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Parsed locally; nothing uploaded.',
   };
   if (flights.length === 2) {
     doc.differences = compareMetricRows(flights, sys)

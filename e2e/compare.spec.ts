@@ -415,3 +415,4 @@ test('the comparison remembers which channel you were looking at', async ({ page
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Velocity/ })).toBeVisible();
 });
+

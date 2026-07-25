@@ -309,7 +309,10 @@ The `.json` is Debrief's canonical read, meant to be machine-read:
   `derived` or `estimated`), `warnings`, and a `loggerSummary` cross-check when the file
   carried the device's own figures.
 - **`debrief.comparison/1`** — several flights: each flight's `metrics`, the `crossCheck`
-  spreads, and the per-metric `differences`.
+  spreads, the per-metric `differences`, and `sameFlight` — whether these could be
+  recordings of one flight at all (`unknown`, or `different-flights` with the launch days
+  the files state). Read the spreads through it: between recordings of one flight they are
+  an agreement, and between different flights they are how far apart the flights are.
 
 Numbers are in the units you chose — per quantity, so altitude can be in feet while speed
 is in mph and acceleration in m/s² — a metric the flight doesn't have is `null`

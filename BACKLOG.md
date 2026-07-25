@@ -289,6 +289,12 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- Same rule, one surface over: the comparison's structured export gave `crossCheck` spread
+  percentages with nothing to say the files date those flights years apart — so a consumer of
+  `debrief.comparison/1` would read a flight-to-flight difference as an agreement, which is
+  the exact misreading the screen was fixed to prevent. It now carries `sameFlight`
+  (`unknown`, or `different-flights` with the stated launch days) and a disclaimer that
+  follows the verdict. Additive, so the contract is unbroken.
 - The GPS cross-check shipped on screen but not into the saved report — so the document a
   flyer files said less than the page it came from, which is exactly what a certification
   package can't afford. It's in the .txt, .md and .html reports now, in the same shape as the

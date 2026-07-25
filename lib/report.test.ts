@@ -424,6 +424,29 @@ describe('comparison report', () => {
     expect(html).not.toMatch(/(src|href)="http(?!s:\/\/debrief\.fusionspace\.co)/i);
   });
 
+  it('states in the JSON whether these could be recordings of one flight', () => {
+    // `debrief.comparison/1` is a contract, and a consumer reading `crossCheck` as an
+    // agreement between recordings of one flight would be wrong wherever the files date
+    // them apart. The numbers alone cannot say so, and the disclaimer follows the verdict.
+    const open = JSON.parse(compareJson(comparison, 'imperial'));
+    expect(open.sameFlight).toEqual({ verdict: 'unknown' });
+    expect(open.disclaimer).toContain('A cross-check of the recordings, never a verdict');
+
+    const dated = buildComparison([
+      { ...input('a', 300), flownAt: { stamp: '2021-10-30T20:07', zone: 'UTC' as const } },
+      { ...input('b', 315), flownAt: { stamp: '2024-05-11T14:09', zone: 'logger' as const } },
+    ]);
+    const doc = JSON.parse(compareJson(dated, 'imperial'));
+    expect(doc.sameFlight).toEqual({
+      verdict: 'different-flights',
+      refutedBy: 'stated-dates',
+      statedDays: ['2021-10-30', '2024-05-11'],
+    });
+    expect(doc.disclaimer).toContain('These are different flights');
+    // The spreads are still there — correctly introduced, not withheld.
+    expect(doc.crossCheck.length).toBeGreaterThan(0);
+  });
+
   it('carries an optional label and notes into the comparison Markdown and JSON', () => {
     const meta = { label: 'Nimbus IV — booster vs sustainer', notes: 'Two bays, one flight.' };
     const md = compareMarkdown(comparison, 'imperial', undefined, meta);
