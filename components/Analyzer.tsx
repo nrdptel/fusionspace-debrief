@@ -35,7 +35,9 @@ import { download } from '@/lib/download';
 
 type State =
   | { phase: 'idle' }
-  | { phase: 'loading' }
+  /** `what` names what is being read, so a six-second wait on a phone says which file
+   *  it is working on rather than only that it is working. */
+  | { phase: 'loading'; what?: { name: string; bytes?: number } }
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[] }
   | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string; note?: string }
   | { phase: 'compare'; comparison: Comparison; note?: string }
@@ -100,6 +102,31 @@ function rememberUnits(next: UnitChoice): void {
   } catch {
     /* a private window with storage blocked — the choice still applies to this view */
   }
+}
+
+/**
+ * What the wait says. On a desktop a big log is read in about a second and this barely
+ * shows; on a phone at the field an 11 MB log takes six, which is long enough that a bare
+ * "Reading…" reads as stuck and gets tapped again. So it names the file, states its size
+ * where that is why it is slow, and moves — while repeating the one thing a flyer might
+ * otherwise wonder about a long wait: nothing is being sent anywhere.
+ */
+function ReadingNote({ what }: { what?: { name: string; bytes?: number } }) {
+  const mb = what?.bytes != null ? what.bytes / 1024 / 1024 : null;
+  return (
+    <div role="status" aria-live="polite" className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+      <p>
+        <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500 align-middle" />
+        Reading {what?.name ? <span className="font-mono text-xs">{what.name}</span> : 'the file'}…
+      </p>
+      {mb != null && mb >= 2 && (
+        <p className="mt-1 text-xs">
+          {mb.toFixed(1)} MB — a log this size takes a few seconds to read and analyze here on
+          your device. Nothing is being sent anywhere.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function Analyzer() {
@@ -183,7 +210,7 @@ export default function Analyzer() {
         });
         return;
       }
-      setState({ phase: 'loading' });
+      setState({ phase: 'loading', what: { name: file.name, bytes: file.size } });
       try {
         // Read from the bytes, not file.text(): an .xlsx workbook is unzipped to
         // CSV, and a UTF-16 export (RRC3 mDACS, Excel "Unicode Text", …) is decoded
@@ -334,7 +361,7 @@ export default function Analyzer() {
   );
 
   const onSample = useCallback(async () => {
-    setState({ phase: 'loading' });
+    setState({ phase: 'loading', what: { name: 'the sample flight' } });
     try {
       const res = await fetch(SAMPLE_URL);
       if (!res.ok) throw new Error('sample missing');
@@ -427,7 +454,7 @@ export default function Analyzer() {
   useEffect(() => {
     const payload = payloadFromHash(window.location.hash);
     if (!payload) return;
-    setState({ phase: 'loading' });
+    setState({ phase: 'loading', what: { name: 'the shared flight' } });
     decodeFlight(payload)
       .then((res) =>
         res ? ingest(res.name, res.text) : setState({ phase: 'error', message: 'This shared link couldn’t be read.' }),
@@ -490,9 +517,7 @@ export default function Analyzer() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
-      {state.phase === 'loading' && (
-        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">Reading…</p>
-      )}
+      {state.phase === 'loading' && <ReadingNote what={state.what} />}
       {state.phase === 'error' && (
         <div className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300">
           {state.message}

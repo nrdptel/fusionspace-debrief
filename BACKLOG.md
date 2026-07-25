@@ -245,6 +245,21 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Measured the field claim rather than assuming it, and it holds — with one gap that
+  didn't.** The largest analysable corpus file (11 MB, 36,701 rows, a Blue Raven low-rate
+  log) goes from drop to full report in **1.2 s** unthrottled, **4.3 s** at 4× CPU throttle
+  and **6.0 s** at 6× (phone-class); the sample table opens in 134/330/446 ms and scrolls in
+  ~250 ms at every rate. Nothing needs optimising — the analysis already runs in a worker and
+  the table is virtualised. What did need work is the *wait*: six seconds of a bare
+  "Reading…" reads as stuck and gets tapped again, so it now names the file, states its size
+  where that is why it's slow, moves, and repeats the one thing a long wait might make a
+  flyer wonder about ("nothing is being sent anywhere"). While there: the report's
+  horizontally-scrolling "Save a file" strip clipped a button mid-word at the viewport edge
+  with nothing to say there was more, and now fades. (The 15 MB high-rate Blue Raven file is
+  a deliberate rejection, not a performance case.)
+- **A privacy tell in the copy, of all places.** The Blue Raven high-rate rejection said
+  "*Upload* the low-rate file" — in a tool whose entire promise is that nothing is uploaded.
+  Now "Drop the low-rate file instead". Worth a grep in any new copy.
 - **Benchmarked the comparison surface against a spreadsheet and found the obvious thing
   missing: you could not copy the table.** Six download buttons and no paste — so a flyer
   putting a launch day into the club sheet, an email or a cert document had to save a CSV,

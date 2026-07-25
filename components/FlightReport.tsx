@@ -529,8 +529,15 @@ export default function FlightReport({
             <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
           </div>
           {/* File exports — one saved file each. A single horizontal strip on a phone
-              (so the flight rises up), wrapping inline on a wider screen. */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              (so the flight rises up), wrapping inline on a wider screen. The strip fades
+              at its right edge below sm:, because a button clipped mid-word by the viewport
+              reads as broken rather than as "there is more this way". */}
+          <div className="relative">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent sm:hidden dark:from-zinc-950"
+            />
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">Save a file:</span>
             <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={SAVE_BTN}>
               Save .txt
@@ -587,6 +594,7 @@ export default function FlightReport({
               Save bundle
             </button>
             <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={SAVE_BTN} />
+          </div>
           </div>
           <span className="sr-only" role="status" aria-live="polite">
             {copied ? 'Summary copied to the clipboard.' : ''}

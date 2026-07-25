@@ -22,7 +22,7 @@ import { flownAtFromColumns } from '../flight/flownAt';
 
 const ATM_PA = 101325;
 const HR_HINT =
-  'This is the Blue Raven high-rate file (gyro, acceleration and attitude only). Upload the low-rate file for altitude and the flight profile.';
+  'This is the Blue Raven high-rate file (gyro, acceleration and attitude only). Drop the low-rate file instead for altitude and the flight profile.';
 
 function tokenValueAfter(tokens: string[], label: string, offset: number): number {
   const i = tokens.indexOf(label);

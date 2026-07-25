@@ -502,3 +502,22 @@ test('the readings and the comparison both copy as a real table', async ({ page,
   expect(two['text/plain']).toMatch(/\nApogee\t/);
   expect(two['text/html']).toContain('<th>Metric</th>');
 });
+
+// A wait a flyer sees. On a phone at the field an 11 MB log takes about six seconds to
+// read and analyze, which is long enough that a bare "Reading…" reads as stuck.
+test('the wait says what it is reading', async ({ page }) => {
+  // Hold the sample fetch open so the loading state can be read rather than raced.
+  await page.route('**/samples/*.csv', async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const note = page.getByRole('status').filter({ hasText: 'Reading' });
+  await expect(note).toBeVisible();
+  await expect(note).toContainText('the sample flight');
+  await page.unroute('**/samples/*.csv');
+
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+});
