@@ -163,14 +163,23 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
-- Witnessed once and unexplained: a full e2e run failed 39 of 120 with `toBeVisible` timeouts,
-  with no code change between it and a 120/120 pass immediately before and after. No stray
-  server was running. Leading suspicion is contention against the single-threaded `serve` —
-  each fresh context now also triggers the service worker's cache warm-up (~18 worker-side
-  fetches within ~100 ms of load; measured: load 185 ms, cache complete 284 ms). Not acted on,
-  because a fix aimed at an unreproduced cause is a guess: what would settle it is Playwright
-  traces (`trace: 'retain-on-failure'`) so the next occurrence is diagnosable, and warming on
-  idle instead of immediately if it turns out to be the cause.
+- Removed a real mechanism for "offline reload fails even though the page is cached": both
+  this host and Cloudflare send `Vary: Accept-Encoding` on the shell, and the copies the
+  service worker stores are fetched by the worker, whose Accept-Encoding needn't match the
+  page's — so a cached shell could be invisible to the navigation it was stored for. Cache
+  lookups now pass `ignoreVary`. Stressed 12x by cutting the network the instant the document
+  was cached: 12/12 come up and run. (Honest caveat: the one ERR_FAILED that started this was
+  seen once and never reproduced on demand, so the mechanism is removed rather than proven
+  guilty.)
+- Solved, and it was never the app: three full e2e runs "failed" 39, 45 and 83 of 121 today
+  with no code change either side. With traces kept on local failures the answer was one line
+  — `net::ERR_CONNECTION_REFUSED`: the dev server had died mid-run. Cause: driving the app by
+  hand starts `npx serve` in the background, Playwright's `reuseExistingServer` adopts it
+  instead of starting its own, and when that background job is reaped the suite loses its
+  server. Three consecutive 121/121 runs once no stray server is around. Lesson for the next
+  session: kill any hand-started `serve` before running the suite, and read the trace before
+  believing a flake. (Local runs now keep a trace and a screenshot on failure; they used to
+  keep neither, since `on-first-retry` never fires with no local retries.)
 - Fixed: a batch drop that yields exactly **one** readable flight now carries the note on the
   report itself ("Only one of those 3 files could be read as a flight… Left out: …"), not just
   in the comparison view. It prints with the report but deliberately stays out of the flight's
@@ -191,9 +200,9 @@ memory, so a later pass doesn't have to rediscover them.
 - Three e2e selector clashes this run came from adding the same phrase to the page's own
   how-to copy that a test used to target a control (`per quantity`, `Show the samples`).
   Worth a convention: target controls by role/summary, never by a bare phrase.
-- Two other e2e specs still use fixed `waitForTimeout` sleeps to let something settle
-  (`touch.spec.ts`, `compare.spec.ts`); the worker one was the flaky one, but the same
-  pattern is a latent flake wherever the machine is slower than the number chosen.
+- Checked, and this was stale: the only `waitForTimeout` left in the suite is worker.spec's
+  poll interval inside a "hold the invariant open for 6 s" loop, which is a deliberate poll
+  rather than a race. No spec waits a fixed time for something to settle any more.
 
 - Columns can now be put in a deliberate order (◀ ▶ per column, buttons rather than drag
   handles so a thumb and a keyboard both reach them); ordering by a metric and ordering by hand

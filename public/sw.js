@@ -57,7 +57,7 @@ self.addEventListener('message', (event) => {
           continue;
         }
         if (url.origin !== self.location.origin) continue;
-        if (await cache.match(url.href)) continue;
+        if (await cache.match(url.href, MATCH)) continue;
         wanted.push(url.href);
       }
       await Promise.all(
@@ -84,6 +84,15 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Cache lookups ignore Vary. Both this host and Cloudflare send `Vary: Accept-Encoding` on
+// the shell and the assets, and the copies this worker stores are fetched by the worker —
+// whose Accept-Encoding needn't match the page's. With Vary honoured, that mismatch makes a
+// cached shell invisible to the very navigation it was stored for, which shows up as an
+// offline reload failing with ERR_FAILED even though the cache holds the page. Only one
+// representation of each same-origin asset is ever stored, so ignoring Vary can't serve the
+// wrong thing.
+const MATCH = { ignoreVary: true };
+
 async function putInCache(request, response) {
   if (!response || !response.ok || response.type === 'opaque') return;
   const cache = await caches.open(CACHE);
@@ -108,7 +117,7 @@ self.addEventListener('fetch', (event) => {
           putInCache(request, fresh.clone());
           return fresh;
         } catch {
-          return (await caches.match(request)) || (await caches.match('/')) || Response.error();
+          return (await caches.match(request, MATCH)) || (await caches.match('/', MATCH)) || Response.error();
         }
       })(),
     );
@@ -117,7 +126,7 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     (async () => {
-      const cached = await caches.match(request);
+      const cached = await caches.match(request, MATCH);
       if (cached) return cached;
       try {
         const fresh = await fetch(request);

@@ -103,12 +103,15 @@ test('comes up offline after a single online visit — no second visit needed', 
   await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
     timeout: 20000,
   });
-  // The page hands the worker what it loaded, so wait for the cache to hold the shell
-  // itself rather than only the precached sample flight.
+  // The page hands the worker what it loaded, so wait for the cache to hold the whole shell
+  // — the document AND the app's own JavaScript — rather than only the precached sample
+  // flight. Waiting for the document alone let the network be cut mid-warm-up, which tests a
+  // race rather than the promise; a flyer walking out of signal has minutes, not 200 ms.
   await page.waitForFunction(
     async () => {
       for (const k of await caches.keys()) {
-        if (await (await caches.open(k)).match(new URL('/', location.href).href)) return true;
+        const urls = (await (await caches.open(k)).keys()).map((r) => new URL(r.url).pathname);
+        if (urls.includes('/') && urls.some((u) => u.endsWith('.js')) && urls.some((u) => u.endsWith('.css'))) return true;
       }
       return false;
     },

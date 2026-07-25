@@ -23,7 +23,13 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
+    // CI retries once, so a trace on the retry catches a flake there. Locally there are no
+    // retries, which meant a local failure left nothing behind to read: a full-suite run
+    // that failed 39 of 120 once, and passed either side of it with no code change, could
+    // not be diagnosed afterwards. Both settings only write on failure, so a green run
+    // costs nothing.
+    trace: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
