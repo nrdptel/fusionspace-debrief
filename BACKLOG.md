@@ -33,12 +33,23 @@ memory, so a later pass doesn't have to rediscover them.
   velocity peak, 0.74 s) but its altitude reads 2,542 ft where the flight's own velocity
   record allows about 460 ft (∫v dt). The monotonicity guard only sees altitude going
   *backwards*, so it doesn't fire.
-  The rigorous test: with a measured (non-barometric) velocity, the height climbed from
-  liftoff to any ascent instant cannot exceed ∫v dt from liftoff — here violated 5.6×. The
-  honest response is probably to withhold, since the file's two altitude recordings disagree
-  and neither the baro nor a single check can say which is right. Needs a corpus-wide
-  validation pass before it ships: only three corpus files carry both recordings, so the
-  blast radius is checkable.
+  **Measured, and it does not support a threshold — don't try again without reading this.**
+  With a measured velocity, the altitude climbed from liftoff and ∫v dt over the same stretch
+  are the same quantity, so the disagreement between them looked like a rigorous test. Swept
+  over every corpus flight with a device velocity, the worst disagreement on the ascent is
+  845% (RRC3 xprs2015), 443% (the jan18 flight), 218%, 189% (endurance TeleMetrum), 188% and
+  185% (the two irec2023 recordings) … down to 17%. Flights whose numbers are demonstrably
+  right sit among the worst. The artefact is *ubiquitous* through the transonic push rather
+  than special to one file, so no global bar separates a broken read from a sound one.
+  What that implies: an altitude read off a barometer at a supersonic instant is inherently
+  soft on every such flight, which is a caveat-and-cross-check problem, not a withholding
+  threshold. The ∫v dt comparison would make a good *surfaced* cross-check (two recordings
+  side by side, the flyer decides) — which is the shape this product already uses for the
+  logger's own reported figures.
+  Three attempts at a threshold on this artefact failed this way in one session (a detrended
+  Hampel filter, a monotone-envelope lower bound, and this integral bound); the two guards
+  that did ship work because they test something a rocket physically cannot do (be below its
+  pad; have negative vertical velocity while climbing), not because they tuned a tolerance.
 - A Blue Raven also solves downrange/crossrange velocity and position (`Velocity_DR/CR`,
   `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
   dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the
