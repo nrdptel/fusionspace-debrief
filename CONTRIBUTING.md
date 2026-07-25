@@ -17,6 +17,11 @@ the browser.
   the two flight surfaces can't drift apart about what's in it.
 - `lib/parsers/` — the format registry. Each parser `detect()`s a file and
   `parse()`s it into a raw flight; `importFlight()` picks the best match.
+- `lib/ingest` — what a *dropped folder* means: which files are flights, which need the
+  column mapper, which are a device summary and which can't be used. Both surfaces that
+  take a drop read it through this, so they can't disagree about a launch day.
+- `lib/reopen` — re-reading a flight the logbook holds, applying a hand-made column mapping
+  where it has one. Every surface that reopens a flight goes through it.
 - `lib/analyze/` — the analysis pipeline (spike rejection, event detection,
   apogee/velocity/descent rates).
 - `lib/flight/`, `lib/units`, `lib/share`, `lib/report` — the canonical flight

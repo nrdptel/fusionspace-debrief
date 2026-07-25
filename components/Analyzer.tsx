@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight, ParseGuidanceError } from '@/lib/parsers';
 import { importRecent } from '@/lib/reopen';
-import { hasMappableColumns } from '@/lib/flight/columns';
-import { summaryFigures } from '@/lib/parsers/deviceSummary';
+import { ingestFiles, MAX_BYTES } from '@/lib/ingest';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import type { RawFlight } from '@/lib/flight/types';
@@ -55,7 +54,6 @@ type State =
   | { phase: 'error'; message: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
-const MAX_BYTES = 64 * 1024 * 1024; // 64 MB — far above any real flight log
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -260,65 +258,9 @@ export default function Analyzer() {
       const set = beginLoad();
       set({ phase: 'loading' });
       await tick();
-      const results: { name: string; formatLabel: string; flight: RawFlight; analysis: FlightAnalysis; text: string; savedId: string | null }[] = [];
-      // Cap on the number of *flights we can show*, not on input files: keep
-      // parsing past a file that fails to auto-detect so a valid later file can
-      // still fill a slot, and stop once the comparison is full.
-      // Whatever a batch couldn't read, and why. A launch day's folder mixes loggers
-      // Debrief auto-detects with files that need the column mapper, a Blue Raven's
-      // high-rate half, a device summary — dropping those on the floor without a word
-      // leaves the flyer counting flights to notice one is missing.
-      const skipped: { name: string; why: string }[] = [];
-      // Files the batch can't read on its own but the flyer can, through the mapper.
-      const mappable: { name: string; text: string }[] = [];
-      // A dropped device summary isn't a flight, but it isn't rubbish either: it holds the
-      // altimeter's OWN headline figures for the flight in the log beside it. Held aside
-      // here and paired up below, so the pair a Featherweight app writes reads as one
-      // flight with a cross-check rather than one flight and one rejected file.
-      const summaries: { name: string; figures: NonNullable<ReturnType<typeof summaryFigures>> }[] = [];
-      for (const file of list) {
-        if (results.length >= MAX_COMPARE) break;
-        let text = '';
-        try {
-          if (file.size > MAX_BYTES) {
-            skipped.push({ name: file.name, why: 'too large to read in the browser' });
-            continue;
-          }
-          text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
-          const result = importFlight({ name: file.name, text });
-          if (result.kind !== 'flight') {
-            // Kept, not dropped: the comparison offers to open the mapper on it, and a
-            // mapped file rejoins the flights it arrived with. Only where there is
-            // something to map — a binary download or a note to self reaches the mapper
-            // too, and offering it would send the flyer to a screen that can only tell
-            // them the file isn't a flight.
-            if (hasMappableColumns(result.table)) mappable.push({ name: file.name, text });
-            else skipped.push({ name: file.name, why: 'has no columns of numbers in it — not a flight log' });
-            continue;
-          }
-          const analysis = await analyzeAsync(result.flight);
-          // Awaited (not fire-and-forget) so the per-save prune doesn't race itself.
-          const savedId = await saveRecent({
-            name: file.name,
-            formatLabel: result.flight.formatLabel,
-            apogeeM: analysis.metrics.apogeeAltitude ?? null,
-            maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
-            ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
-            text,
-          });
-          results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId });
-        } catch (e) {
-          const figures = text ? summaryFigures(text) : null;
-          if (figures) {
-            summaries.push({ name: file.name, figures });
-            continue;
-          }
-          // A guidance error explains itself (the Blue Raven high-rate file); anything
-          // else is just unreadable.
-          const why = e instanceof ParseGuidanceError ? e.message : 'couldn’t be read as a flight';
-          skipped.push({ name: file.name, why });
-        }
-      }
+      // One set of rules for what a launch day's folder holds, shared with the comparison
+      // surface so the two can't disagree about it (see lib/ingest.ts).
+      const { results, skipped, mappable, summaries } = await ingestFiles(list, MAX_COMPARE);
 
       // Pair each summary with the log it belongs to. The key is the rocket name the
       // summary itself states, which the app also puts in the log's file name — data, not a

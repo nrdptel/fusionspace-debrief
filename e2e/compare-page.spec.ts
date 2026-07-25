@@ -59,7 +59,9 @@ test('the compare page explains an empty logbook and a stale link', async ({ pag
 
   await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
   await expect(page.getByText(/logbook is empty/)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open a flight' })).toBeVisible();
+  // …and the way out of it is on this page: the folder can be dropped right here.
+  await expect(page.getByLabel('Choose flight logs to compare')).toBeAttached();
+  await expect(page.getByRole('link', { name: 'analyze page' }).first()).toBeVisible();
 
   // Nothing in the accessibility pass on the surface's own empty state.
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
@@ -113,4 +115,47 @@ test('a comparison built from a drop can be given an address', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   // …and it carries the unit choice, not just the flights.
   await expect(page).toHaveURL(/[?&]u=/);
+});
+
+// The surface called "Compare flights" could not take a flight. A flyer landing on it with
+// a launch day's folder was sent to the analyze page to drop it and come back — the one
+// action the page is named for was the one it couldn't do, while its own source comment
+// claimed dropping files here was offered. It reads the folder through the same
+// lib/ingest the analyze page uses, so the two can't disagree about what a launch day holds.
+test('a launch day can be dropped on the compare surface itself', async ({ page }) => {
+  await page.goto('/compare');
+  await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+
+  await page.getByLabel('Choose flight logs to compare').setInputFiles([
+    fixture('altusmetrum-telemetrum.csv'),
+    fixture('blueraven-app-lr.csv'),
+  ]);
+
+  // Two readable flights → straight to the comparison, at an address that survives a reload.
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  expect(page.url()).toContain('ids=');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+});
+
+test('one flight dropped on the compare surface joins the logbook and says so', async ({ page }) => {
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles([fixture('altusmetrum-telemetrum.csv')]);
+
+  // Not enough for a comparison, so it says what it did rather than doing nothing visible.
+  await expect(page.getByText(/Added altusmetrum-telemetrum\.csv to your logbook/)).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /altusmetrum-telemetrum/ })).toBeVisible();
+});
+
+test('the compare surface says which dropped files it could not use', async ({ page }) => {
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles([
+    fixture('altusmetrum-telemetrum.csv'),
+    fixture('blueraven-app-lr.csv'),
+    // A file that needs the column mapper — which happens on the analyze page, so it is
+    // named and explained rather than silently dropped.
+    fixture('perfectflite-stratologger.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByText(/perfectflite-stratologger\.csv — needs its columns mapped/)).toBeVisible();
 });

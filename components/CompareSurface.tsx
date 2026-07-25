@@ -6,6 +6,7 @@ import { MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
 import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
 import { useLogbook } from './useLogbook';
+import { ingestFiles } from '@/lib/ingest';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
 
@@ -28,6 +29,7 @@ export default function CompareSurface() {
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [state, setState] = useState<'picking' | 'loading' | 'ready'>('picking');
   const [note, setNote] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   // Units are a whole-app choice, remembered on this device and carried in the URL — the
   // same rules as the analyze page, read the same way, so a link opens reading alike.
@@ -68,7 +70,7 @@ export default function CompareSurface() {
   );
 
   /** Assemble the given logbook ids, and put them in the URL so the view is reloadable. */
-  const load = useCallback(async (ids: string[], pushUrl: boolean) => {
+  const load = useCallback(async (ids: string[], pushUrl: boolean, extraNote?: string) => {
     if (ids.length < 2) return;
     setState('loading');
     const { comparison: built, skipped, used } = await compareFromLogbook(ids);
@@ -84,11 +86,11 @@ export default function CompareSurface() {
     }
     setComparison(built);
     setState('ready');
-    setNote(
-      skipped.length > 0
-        ? `Left out: ${skipped.map((s) => `${s.name} — ${s.why}`).join('; ')}.`
-        : null,
-    );
+    // A drop can have its own account of what it left out; keep both, since a file the
+    // drop couldn't use and a logbook id that no longer reads are different problems.
+    const own = skipped.length > 0 ? `Left out: ${skipped.map((s) => `${s.name} — ${s.why}`).join('; ')}.` : '';
+    const both = [own, extraNote].filter(Boolean).join(' ');
+    setNote(both || null);
     if (pushUrl) {
       window.history.pushState(null, '', withIds(new URL(window.location.href), ids));
     }
@@ -111,6 +113,46 @@ export default function CompareSurface() {
   }, [load]);
 
   const onCompare = useCallback((ids: string[]) => void load(ids, true), [load]);
+
+  /**
+   * Files dropped here. A flyer who lands on the surface called "Compare flights" with a
+   * launch day's folder was being sent to the analyze page to drop it and come back — the
+   * one action this page is named for was the one it couldn't take.
+   *
+   * The reading of the folder is `lib/ingest`, shared with the analyze page, so the two
+   * surfaces can't disagree about what a launch day holds. Everything lands in the logbook
+   * on the way through, which is what gives the resulting comparison an address.
+   */
+  const onDropFiles = useCallback(
+    async (files: File[]) => {
+      const list = files.filter(Boolean);
+      if (list.length === 0) return;
+      setState('loading');
+      setNote(null);
+      const { results, skipped, mappable, summaries } = await ingestFiles(list, MAX_COMPARE);
+      logbook.refresh();
+
+      const left = [
+        ...skipped.map((s) => `${s.name} — ${s.why}`),
+        ...mappable.map((m) => `${m.name} — needs its columns mapped, which happens on the analyze page`),
+        ...summaries.map((x) => `${x.name} — a device summary for “${x.figures.rocket}”, not a flight record`),
+      ];
+      const leftNote = left.length > 0 ? ` Left out: ${left.join('; ')}.` : '';
+
+      const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
+      if (ids.length >= 2) {
+        void load(ids, true, leftNote.trim() || undefined);
+        return;
+      }
+      setState('picking');
+      setNote(
+        results.length === 0
+          ? `Nothing in that drop could be read as a flight.${leftNote}`
+          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}`,
+      );
+    },
+    [load, logbook],
+  );
 
   const back = useCallback(() => {
     const url = new URL(window.location.href);
@@ -169,22 +211,59 @@ export default function CompareSurface() {
         </p>
       )}
 
-      {!enough && (
-        <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center dark:border-zinc-700">
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            {logbook.recents.length === 0
-              ? 'Your logbook is empty, so there’s nothing to line up yet.'
-              : 'One flight in your logbook — a comparison needs at least two.'}
-          </p>
-          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Flights are remembered here as you open them.{' '}
-            <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
-              Open a flight
-            </Link>{' '}
-            — or drop several at once there and they&apos;ll be compared straight away.
-          </p>
-        </div>
-      )}
+      {/* Add flights right here. Deliberately compact rather than the analyze page's hero
+          drop zone: on this surface adding files is a step towards a comparison, not the
+          headline. Shown whether or not the logbook already has enough — a flyer with a
+          season logged still arrives with today's folder. */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (e.dataTransfer.files.length > 0) void onDropFiles(Array.from(e.dataTransfer.files));
+        }}
+        className={`rounded-lg border border-dashed px-4 py-5 text-center transition ${
+          dragging
+            ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-500/60 dark:bg-indigo-950/30'
+            : 'border-zinc-300 dark:border-zinc-700'
+        }`}
+      >
+        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          {logbook.recents.length === 0
+            ? 'Your logbook is empty — drop a launch day’s files here to start'
+            : !enough
+              ? 'One flight in your logbook — a comparison needs at least two'
+              : 'Drop more flight logs here to add them'}
+        </p>
+        <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+          Drop {MAX_COMPARE} or fewer and they&apos;re compared straight away; they go into the
+          logbook below on the way through, and never leave this device.
+        </p>
+        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
+          Choose flight logs
+          <input
+            type="file"
+            multiple
+            className="sr-only"
+            aria-label="Choose flight logs to compare"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) void onDropFiles(Array.from(e.target.files));
+              e.target.value = '';
+            }}
+          />
+        </label>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Reading one flight, and mapping a file Debrief doesn&apos;t recognize, live on the{' '}
+          <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+            analyze page
+          </Link>
+          .
+        </p>
+      </div>
 
       {/* The logbook itself, with its own search, sort and per-flight notes: ticking two or
           more is how a comparison starts here. Same component and same state as the analyze

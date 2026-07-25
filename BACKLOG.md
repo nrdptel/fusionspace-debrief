@@ -374,6 +374,20 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **The surface called "Compare flights" could not take a flight.** Found by looking at the
+  picker cold: a flyer landing on `/compare` with a launch day's folder was told to go to the
+  analyze page, drop it there and come back. The one action the page is named for was the one
+  it couldn't do — and its own source comment claimed "dropping files here is offered", so
+  the code was already documenting a thing that wasn't built. It has a drop area now
+  (deliberately compact, not the analyze page's hero: here adding files is a step towards a
+  comparison, not the headline), and it is shown whether or not the logbook already has
+  enough, because a flyer with a season logged still arrives with today's folder. Two or more
+  readable files go straight to the comparison at its own address; one lands in the logbook
+  and says so; anything left out is named with a reason. **The reading of the folder is now
+  one shared `lib/ingest`** — which files are flights, which need the mapper, which are a
+  device summary, which can't be used — so the two surfaces that take a drop can't drift
+  apart about what a launch day holds.
+
 - **The comparison surface could not show two flights at once on a phone — on the one surface
   whose entire point is side by side.** Found by looking at a 390 px screenshot rather than at
   a test: the first flight's column filled the width and the second started past the right
