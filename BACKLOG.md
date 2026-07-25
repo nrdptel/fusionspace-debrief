@@ -73,8 +73,16 @@ memory, so a later pass doesn't have to rediscover them.
   `Inertial_DR_Position`, `Inertial_CR_position`) and a roll angle; all four are still
   dropped. They'd need a speed-quantity and a distance-quantity "extra channel" role, the
   same shape as the inertial-altitude one just added.
-- The intrepid3tf2 AL1 recording reads a main descent of 2 ft/s where its AL0 partner reads
-  57 ft/s on the same flight. AL1 is the power-loss file, but 2 ft/s is not a descent.
+- Fixed: the intrepid3tf2 AL1 recording read a main descent of 2 ft/s against its AL0
+  partner's 57 ft/s. Diagnosed by driving it — the log loses power at 1,876 ft, 1.3 s after
+  its main fires at 1,877 ft, so the "rate" was 26 samples at the very end of a truncated
+  record. Each descent leg now gets the same test the whole descent already had, against the
+  height that leg started from: read it only where the record shows it dropping more than a
+  tenth of that. AL1's drogue leg (16,206 → 1,877 ft) still reads 69 ft/s; no other corpus
+  figure moved. Still open in that pair: neither AL0 nor AL1 says anywhere that the record
+  ENDS IN THE AIR — no landing, no flight time, a last sample at 891 and 1,876 ft. That is
+  worth a warning of its own; a flyer reading "descent —" deserves to be told the log stops
+  mid-flight rather than left to infer it.
 
 - An AltimeterCloud export's own peak acceleration sits exactly 1 g below Debrief's
   read on all five corpus files (31.3 G vs 32.3 G, etc.) — the device reports

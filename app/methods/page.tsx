@@ -236,7 +236,12 @@ export default function MethodsPage() {
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             giving way to a slow main — and marks it as the main deployment. Descent rates are the
             average vertical speed over each phase; a marginal transition is left unmarked rather than
-            guessed.
+            guessed. Each phase also has to be <em>in</em> the record to be read: a rate is reported
+            only where the log shows that leg dropping more than a tenth of the height it started
+            from, so a log that stops in mid-air moments after a deployment reports nothing for the
+            leg it barely caught. One corpus recording loses power 1.3&nbsp;s after its main fires at
+            1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
+            same flight reads 57. Two feet per second is the end of the record, not a descent.
           </Method>
           <Method title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a

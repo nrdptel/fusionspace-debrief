@@ -866,13 +866,25 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // a rate that isn't downward.
   const cameDown = altClean[apogeeIdx] - altClean[landingIdx] > Math.max(3, apogeeAlt * 0.1);
   const downward = (v: number) => (Number.isFinite(v) && v > 0 ? v : null);
+  // Each leg of the descent gets the same test as the descent as a whole, against the
+  // height that leg started from — because a log can stop moments after a deployment and
+  // leave a sliver of it. One corpus recording loses power 1.3 s after its main fires at
+  // 1,877 ft, and the 26 samples left over average to 2 ft/s against its partner
+  // recording's 57 ft/s on the same flight. Two feet per second is not a descent; it is
+  // the end of the record, and the honest reading is no reading.
+  const legRate = (from: number, to: number): number | null => {
+    if (!(to > from + 1)) return null;
+    const drop = altClean[from] - altClean[to];
+    if (!(drop > Math.max(3, Math.abs(altClean[from]) * 0.1))) return null;
+    return downward(mean(descent, from + 1, to));
+  };
   let drogueDescentRate: number | null = null;
   let mainDescentRate: number | null = null;
   if (mainIdx !== null && cameDown) {
-    drogueDescentRate = downward(mean(descent, apogeeIdx + 1, mainIdx));
-    mainDescentRate = downward(mean(descent, mainIdx + 1, landingIdx));
-  } else if (landingIdx > apogeeIdx + 1 && cameDown) {
-    mainDescentRate = downward(mean(descent, apogeeIdx + 1, landingIdx));
+    drogueDescentRate = legRate(apogeeIdx, mainIdx);
+    mainDescentRate = legRate(mainIdx, landingIdx);
+  } else if (cameDown) {
+    mainDescentRate = legRate(apogeeIdx, landingIdx);
   }
 
   // --- Events ---------------------------------------------------------------

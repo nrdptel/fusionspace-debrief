@@ -981,6 +981,32 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.mainDescentRate).toBeLessThan(20);
   });
 
+  it('withholds a descent leg the record only holds a sliver of', () => {
+    // A log that loses power in mid-air moments after the main fires: the samples left
+    // average to almost nothing, which is the end of the record rather than a descent.
+    // The drogue leg above it is a long, real descent and must still read.
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    const dt = 0.05;
+    const apIdx = alt.indexOf(Math.max(...alt));
+    // Drogue at 30 m/s from apogee, then a "main" that slows it hard 4 s before the log
+    // ends — long enough to be detected as a deployment, far too little of the leg (12 m
+    // of a 1,600 m descent still to run) to average a rate over.
+    const mainAt = apIdx + Math.round(20 / dt);
+    const end = mainAt + Math.round(4 / dt);
+    for (let i = apIdx + 1; i < alt.length; i++) {
+      alt[i] = i <= mainAt ? alt[apIdx] - 30 * (i - apIdx) * dt : alt[mainAt] - 4 * (i - mainAt) * dt;
+    }
+    const cut: RawFlight = {
+      ...flight,
+      time: flight.time.slice(0, end),
+      channels: [{ ...flight.channels[0], values: alt.slice(0, end) }],
+    };
+    const a = analyzeFlight(cut);
+    expect(a.metrics.drogueDescentRate).toBeGreaterThan(20); // the long leg still reads
+    expect(a.metrics.mainDescentRate).toBeNull(); // the sliver does not
+  });
+
   it('locates the design points: max-velocity & max-Q altitudes', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     // Peak speed is at burnout (~200 m up); max-Q is in the lower, faster air, so

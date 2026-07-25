@@ -158,6 +158,14 @@ export default function ValidationPage() {
               never dips below zero at all, so an honest reading is never caught by this.
             </li>
             <li>
+              A <strong>descent rate needs the leg in the record</strong>: each phase is read only
+              where the log shows it dropping more than a tenth of the height it began at. A corpus
+              recording that loses power 1.3&nbsp;s after its main fires at 1,877&nbsp;ft averaged the
+              handful of samples left to 2&nbsp;ft/s — against 57&nbsp;ft/s from the second altimeter
+              on the same flight — so that leg now reads &ldquo;—&rdquo; while the long drogue descent
+              above it still reads 69&nbsp;ft/s.
+            </li>
+            <li>
               A <strong>barometric speed the flight&apos;s own accelerometer cannot account for</strong>{' '}
               is withheld too. The accelerometer caps it from above — the measured g integrated from
               liftoff, with every g taken as vertical and drag as free — and the unpowered coast to apogee
