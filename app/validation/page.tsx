@@ -120,7 +120,19 @@ export default function ValidationPage() {
             </li>
             <li>
               A <strong>derived (barometric) velocity or acceleration</strong> is a smoothed estimate,
-              softer at peak speed than a logged one, and labelled wherever it appears.
+              softer at peak speed than a logged one, and labelled wherever it appears. From about
+              Mach&nbsp;0.9 up it stops being a reading of the speed at all: two corpus flights each
+              recorded on two devices bracket the error in both directions — one baro trace read
+              Mach&nbsp;1.19 against a measured 0.93, another Mach&nbsp;2.64 against a measured 1.22 —
+              so a baro peak there is flagged and never counted as proof of a supersonic flight.
+            </li>
+            <li>
+              A <strong>logged velocity column that is really the file&apos;s own altitude
+              differenced</strong> — what a baro-only altimeter, having no speed sensor, writes there —
+              is read as derived rather than measured: its raw peak is the barometer&apos;s
+              quantization, not a speed (one corpus export of a Mach&nbsp;1.3 flight states
+              4,880&nbsp;ft/s). Every genuine velocity channel in the corpus is far from that
+              signature, so the two don&apos;t get confused.
             </li>
             <li>
               A <strong>saturated accelerometer</strong> (a trace that flat-tops at its full-scale

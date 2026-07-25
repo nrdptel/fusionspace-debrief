@@ -12,4 +12,7 @@ npm-debug.log*
 .env*.local
 
 # Private flight-log corpus fetched by scripts/fetch-fixtures.mjs (never committed).
+# Both forms: the fetched directory, and a symlink to a local checkout of the
+# fixtures repo (the trailing-slash pattern alone does not match a symlink).
+/lib/parsers/__corpus__
 /lib/parsers/__corpus__/

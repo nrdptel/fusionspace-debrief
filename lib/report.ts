@@ -138,7 +138,7 @@ function headlineRows(
     const at = m.transonicAltitude != null ? ` at ${fmtLength(m.transonicAltitude, sys)}` : '';
     rows.push(
       m.transonicUnconfirmed
-        ? ['Transonic', `barometric speed crosses Mach 1${at} — unconfirmed (a barometer can’t confirm supersonic near Mach 1)`]
+        ? ['Transonic', `barometric speed crosses Mach 1${at} — unconfirmed (a barometer can’t resolve speed from about Mach 0.9 up)`]
         : ['Supersonic', `crossed Mach 1${at}, ${fmtTime(m.transonicTime)} after liftoff`],
     );
   }

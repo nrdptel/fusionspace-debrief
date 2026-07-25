@@ -15,6 +15,7 @@ import {
   movingAverage,
   derivative,
   medianDt,
+  finiteDifferenceMatch,
   argMax,
   argMin,
   peakAbsInWindow,
@@ -151,16 +152,17 @@ const IMPLAUSIBLE_VELOCITY = 4000;
 const MIN_AMBIENT_C = -90;
 const MAX_AMBIENT_C = 65;
 
-/** The transonic band (Mach) where a barometric speed can't be trusted to tell subsonic
- *  from supersonic. Approaching Mach 1 the airflow over the static port goes locally
- *  supersonic and a shock sits on it, so the sensed pressure — and the speed and Mach
- *  derived from it — spikes right where the reading matters most: a corpus baro flight
- *  read Mach 1.19 where its accelerometer-equipped partner measured 0.93. A baro peak in
- *  this band is flagged (not withheld) so a near-Mach-1 reading isn't taken as proof the
- *  rocket went supersonic. Above it the flight is unambiguously supersonic (baro only
- *  under-reads the peak, already caveated); below it there's no shock to distort it. */
+/** The Mach at and above which a barometric speed stops being a reading of the speed at
+ *  all. Approaching Mach 1 the airflow over the static port goes locally supersonic and a
+ *  shock sits on it, so the sensed pressure — and the speed and Mach derived from it —
+ *  is distorted right where the reading matters most, and the error runs BOTH ways. Two
+ *  corpus flights, each with an accelerometer- or inertial-equipped partner recording the
+ *  same flight, bracket it: one baro trace read Mach 1.19 where its partner measured 0.93,
+ *  and another read Mach 2.64 where its partner measured 1.22. So there is no band above
+ *  which a baro peak becomes trustworthy again — every baro peak from here up is flagged
+ *  (not withheld: it is still the flyer's own record) and never counted as proof the
+ *  rocket went supersonic. Below it there's no shock to distort the reading. */
 const TRANSONIC_BARO_LOW = 0.9;
-const TRANSONIC_BARO_HIGH = 1.3;
 
 /** Launch-pad ambient pressure (Pa) for the density model: the mean of any
  *  pressure channel over the quiet pad window, falling back to standard sea-level
@@ -283,7 +285,17 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   let velocity: Float64Array;
   let velocitySource: 'device' | 'baro';
   const velCh = getChannel(flight, 'velocity');
-  if (velCh) {
+  // A "velocity" column that IS this file's own altitude column differenced sample
+  // to sample is not a second, independent reading — it's the logger's naive
+  // derivative, and it carries the whole quantization noise of a coarse baro. Its
+  // peak is that noise, not a speed: an Eggtimer Proton export of a Mach 1.3 flight
+  // states 4880 ft/s (Mach 4.4) one sample after 4020 ft/s, off an altitude trace
+  // stepping 200 ft per 0.05 s. So re-derive it exactly as a baro-only flight is
+  // handled — smoothed for the real sample rate — which also earns the flight every
+  // derived-velocity caveat downstream.
+  const deviceVelocityIsAltDiff =
+    !!velCh && finiteDifferenceMatch(time, velCh.values, altitudeRaw) >= 0.8;
+  if (velCh && !deviceVelocityIsAltDiff) {
     velocity = velCh.values.slice();
     velocitySource = 'device';
   } else {
@@ -697,14 +709,15 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
       }
     }
   }
-  // A Mach-1 crossing read off a barometric speed in the transonic band is not a
-  // confirmed supersonic flight — the shock over the pressure port near Mach 1 inflates
-  // the reading (a corpus baro flight read Mach 1.19 where its accelerometer measured
-  // 0.93). Flagged so the headline and exports soften "went supersonic" instead of
-  // asserting it. Above the band a baro peak is unambiguously supersonic (baro only
-  // under-reads there), so it stays a confident crossing.
-  const transonicUnconfirmed =
-    transonicTime !== null && velocitySource === 'baro' && mach !== null && mach <= TRANSONIC_BARO_HIGH;
+  // A Mach-1 crossing read off a barometric speed is never a confirmed supersonic
+  // flight, however far past Mach 1 the number lands — the shock over the pressure port
+  // distorts the reading in both directions (a corpus baro flight read Mach 1.19 where
+  // its accelerometer measured 0.93; another read Mach 2.64 where its inertial partner
+  // measured 1.22). Flagged so the headline and exports soften "went supersonic" instead
+  // of asserting it. Only an accelerometer, an inertial solution or GPS settles it — and
+  // GPS does: a speed off GPS is coarse (its own warning says so) but nothing distorts it
+  // through Mach 1, so a GPS flight's crossing stands.
+  const transonicUnconfirmed = transonicTime !== null && velocitySource === 'baro' && altitudeSource === 'baro';
 
   // --- Battery (when the logger recorded it) -------------------------------
   // Resting voltage at the start and the lowest it sagged to. A pack that droops
@@ -859,19 +872,29 @@ export function analyzeFlight(flight: RawFlight): FlightAnalysis {
   if (altitudeSource !== 'gps') {
     const velBaro = velocitySource === 'baro';
     const accBaro = accelerationSource === 'baro';
-    if (velBaro && accBaro) {
+    // The file did carry a velocity column — say plainly that it was set aside and
+    // why, rather than implying the logger never recorded one.
+    if (deviceVelocityIsAltDiff) {
+      warnings.push(
+        'The logger wrote a velocity column, but it is only its own altitude differenced sample to sample — a derived estimate carrying the barometer’s quantization noise, whose raw peak (a step of a couple hundred feet between two samples) reads far past the real speed. Debrief re-derives the velocity from that same altitude, smoothed for the log’s sample rate, so it is an estimate rather than a measurement.' +
+          (accBaro
+            ? ' Acceleration comes off the same altitude, so peak acceleration isn’t reported — a barometer can’t resolve it.'
+            : ''),
+      );
+    } else if (velBaro && accBaro) {
       warnings.push('Velocity and acceleration were derived from altitude, so they are smoothed estimates rather than direct measurements; peak acceleration isn’t reported, as a barometer can’t resolve it.');
     } else if (accBaro) {
       warnings.push('Acceleration was derived from altitude (no accelerometer channel was recorded), so the curve is a smoothed estimate and peak acceleration isn’t reported — a barometer can’t resolve it.');
     } else if (velBaro) {
       warnings.push('Velocity was derived from altitude, so it is a smoothed estimate rather than a direct measurement.');
     }
-    // A barometric speed can't be trusted right around Mach 1 — the shock over the static
-    // port spikes the reading — so a baro peak in the transonic band isn't proof of a
-    // supersonic flight, even though the number lands past Mach 1.
-    if (velBaro && mach !== null && mach >= TRANSONIC_BARO_LOW && mach <= TRANSONIC_BARO_HIGH) {
+    // A barometric speed can't be trusted from the transonic region up — the shock over
+    // the static port distorts the reading, and a coarse baro trace differentiated at
+    // those speeds carries its quantization as speed. So a baro peak at or past Mach ~0.9
+    // is neither proof of a supersonic flight nor a floor under the real speed.
+    if (velBaro && mach !== null && mach >= TRANSONIC_BARO_LOW) {
       warnings.push(
-        `The peak speed (about Mach ${mach.toFixed(2)}) is in the transonic region, where a barometric speed is unreliable — the shock wave over the pressure port near Mach 1 inflates the reading, so this can’t confirm the rocket actually went supersonic. An accelerometer or GPS would settle it.`,
+        `The peak speed (about Mach ${mach.toFixed(2)}) is at or past the transonic region, where a barometric speed is unreliable — the shock wave over the pressure port distorts the sensed pressure, and the error runs both ways: corpus flights recorded on two devices show a baro trace reading Mach 1.19 against a measured 0.93, and Mach 2.64 against a measured 1.22. So this figure can neither confirm the rocket went supersonic nor bound how fast it actually went. An accelerometer, an inertial solution or GPS would settle it.`,
       );
     }
   }

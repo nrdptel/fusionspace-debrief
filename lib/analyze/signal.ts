@@ -150,6 +150,53 @@ export function derivative(time: Float64Array, values: Float64Array): Float64Arr
   return out;
 }
 
+/**
+ * Fraction of samples (0–1) at which `values` is simply a finite difference of
+ * `of` on the same time base — v[i] ≈ Δof/Δt, tested backward, forward and
+ * centred, taking whichever agrees most.
+ *
+ * This is how you tell a *measured* velocity channel from a logger's own naive
+ * derivative of its altitude column. A baro-only altimeter has no velocity
+ * sensor: what it writes into a "velocity" column is Δaltitude/Δt, which
+ * inherits the full quantization noise of a coarse baro and spikes far past the
+ * real speed. An accelerometer-integrated or Kalman-solved velocity is an
+ * independent reading, carrying its own error, and matches its altitude
+ * derivative only incidentally — across the corpus the two are far apart: every
+ * genuine velocity channel scores ≤ 0.44, and a differenced column scores 1.00.
+ *
+ * On a trace whose per-sample rise dwarfs its altitude resolution the two
+ * converge, since that is just calculus — but there the difference IS the
+ * velocity, so nothing is lost by reading it as derived.
+ */
+export function finiteDifferenceMatch(
+  time: Float64Array,
+  values: Float64Array,
+  of: Float64Array,
+  tol = 0.02,
+): number {
+  const n = Math.min(time.length, values.length, of.length);
+  if (n < 3) return 0;
+  let best = 0;
+  for (const shift of [-1, 1, 0] as const) {
+    let hits = 0;
+    let compared = 0;
+    for (let i = 1; i < n - 1; i++) {
+      const lo = shift === 0 ? i - 1 : shift < 0 ? i - 1 : i;
+      const hi = shift === 0 ? i + 1 : shift < 0 ? i : i + 1;
+      const dt = time[hi] - time[lo];
+      const v = values[i];
+      if (!(dt > 0) || !Number.isFinite(v) || !Number.isFinite(of[hi]) || !Number.isFinite(of[lo])) continue;
+      // Only judge samples where the channel reads a real rate — near zero any two
+      // traces agree trivially, and a log is mostly pad and parachute.
+      if (Math.abs(v) <= 1) continue;
+      compared++;
+      if (Math.abs((of[hi] - of[lo]) / dt - v) <= tol * Math.abs(v)) hits++;
+    }
+    if (compared >= 20) best = Math.max(best, hits / compared);
+  }
+  return best;
+}
+
 /** Median sample interval — robust against the odd duplicated timestamp. */
 export function medianDt(time: Float64Array): number {
   if (time.length < 2) return 0;

@@ -311,17 +311,50 @@ describe('derived-kinematics provenance warnings', () => {
   });
 
   it('flags acceleration alone when the logger measured velocity but not acceleration', () => {
-    // A Blue Raven low-rate logs velocity_up but no accelerometer, so acceleration is
-    // baro-derived even though velocity is measured — it must still be flagged.
+    // A Blue Raven low-rate logs its inertial velocity_up but no accelerometer, so
+    // acceleration is baro-derived even though velocity is measured — it must still be
+    // flagged. The velocity channel is taken from the true profile and the altitude is
+    // then rounded to the whole metres a real baro logs, so the channel is a genuine
+    // second reading rather than that altitude differenced (see the next test).
     const { flight } = syntheticBaroFlight();
     const alt = flight.channels[0].values;
     const vel = new Float64Array(alt.length);
     for (let i = 1; i < alt.length; i++) vel[i] = (alt[i] - alt[i - 1]) / (flight.time[i] - flight.time[i - 1]);
+    for (let i = 0; i < alt.length; i++) alt[i] = Math.round(alt[i]);
     flight.channels.push({ kind: 'velocity', label: 'v', unit: 'm/s', values: vel });
     const a = analyzeFlight(flight);
     expect(a.metrics.maxVelocitySource).toBe('device');
     expect(a.metrics.accelerationSource).toBe('baro');
     expect(a.warnings.some((w) => /Acceleration was derived from altitude/.test(w))).toBe(true);
+    expect(a.warnings.some((w) => /Velocity and acceleration were derived/.test(w))).toBe(false);
+  });
+
+  it('treats a velocity column that is the file’s own altitude difference as derived', () => {
+    // What a baro-only logger writes into a "velocity" column: its altitude, quantized
+    // to whole metres, differenced sample to sample. That is not a second reading — it
+    // carries the barometer's quantization as speed, and its peak is that noise. A real
+    // Eggtimer export of a Mach 1.3 flight states 4880 ft/s this way.
+    const { flight, truth } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    for (let i = 0; i < alt.length; i++) alt[i] = Math.round(alt[i]);
+    // One coarse baro step mid-boost — the artefact that makes such a column's peak
+    // meaningless: a real Eggtimer trace jumps ~200 ft between two 20 Hz samples.
+    alt[Math.round((2 + 1.5) / 0.05)] += 8;
+    const vel = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++) vel[i] = (alt[i] - alt[i - 1]) / (flight.time[i] - flight.time[i - 1]);
+    let rawPeak = 0;
+    for (const v of vel) if (v > rawPeak) rawPeak = v;
+    flight.channels.push({ kind: 'velocity', label: 'v', unit: 'm/s', values: vel });
+
+    const a = analyzeFlight(flight);
+    // Read as derived, not as the logger's measurement, so every baro-velocity caveat
+    // downstream applies — and the noise-inflated raw peak is not the headline.
+    expect(a.metrics.maxVelocitySource).toBe('baro');
+    expect(rawPeak).toBeGreaterThan(truth.vBurnout * 1.02);
+    expect(a.metrics.maxVelocity).toBeLessThan(rawPeak);
+    expect(a.metrics.maxVelocity).toBeGreaterThan(truth.vBurnout * 0.9);
+    expect(a.warnings.some((w) => /logger wrote a velocity column/.test(w))).toBe(true);
+    // …and it doesn't also claim the logger never recorded one.
     expect(a.warnings.some((w) => /Velocity and acceleration were derived/.test(w))).toBe(false);
   });
 
@@ -704,7 +737,10 @@ describe('analyzeFlight (barometric)', () => {
         v = Math.max(0, vB - G0 * c);
       }
       time.push(t);
-      alt.push(h);
+      // Whole metres, as a baro altimeter actually reports them — so the velocity
+      // channel below is a distinguishable second reading rather than this trace
+      // differenced (which Debrief reads as derived, not measured).
+      alt.push(Math.round(h));
       vel.push(v);
     }
     const baseFlight: RawFlight = {

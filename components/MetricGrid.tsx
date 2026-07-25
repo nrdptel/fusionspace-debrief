@@ -167,8 +167,9 @@ export default function MetricGrid({ metrics, sys }: { metrics: FlightMetrics; s
           <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
             Reads transonic — the barometric speed crosses Mach 1
             {metrics.transonicAltitude != null ? ` around ${fmtLength(metrics.transonicAltitude, sys)}` : ''}, but a
-            barometer can&apos;t confirm supersonic flight here (shock over the pressure port near Mach 1 inflates the
-            reading). An accelerometer or GPS would settle it.
+            barometer can&apos;t confirm supersonic flight (the shock over the pressure port distorts the sensed
+            pressure from about Mach 0.9 up, and the error runs both ways). An accelerometer, an inertial solution or
+            GPS would settle it.
           </p>
         ) : (
           <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">

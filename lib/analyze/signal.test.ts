@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { peakAbsInWindow, longestRunNear, medianFilter } from './signal';
+import { peakAbsInWindow, longestRunNear, medianFilter, finiteDifferenceMatch } from './signal';
 
 // medianFilter runs a quickselect under the hood (it dominates the analysis on a
 // big log, and only ever needs the median, not a full sort). Pin it to a simple
@@ -91,5 +91,50 @@ describe('longestRunNear', () => {
 
   it('breaks the run on NaN gaps', () => {
     expect(longestRunNear(f([16, 16, NaN, 16, 16, 16]), 0, 6, 16, 0.05)).toBe(3);
+  });
+});
+
+describe('finiteDifferenceMatch', () => {
+  // A 20 Hz baro flight whose altitude is quantized to whole metres, as a real
+  // altimeter reports it.
+  function flight(): { t: Float64Array; alt: Float64Array; vel: Float64Array } {
+    const t: number[] = [];
+    const alt: number[] = [];
+    const vel: number[] = [];
+    for (let i = 0; i <= 200; i++) {
+      const s = i * 0.05;
+      t.push(s);
+      alt.push(Math.round(0.5 * 90 * s * s));
+      // An independently measured velocity carries its own few-percent error, which
+      // is uncorrelated with the baro trace's quantization — so it never reproduces
+      // that trace's difference sample for sample.
+      vel.push(90 * s * (1 + 0.03 * Math.sin(i)));
+    }
+    return { t: Float64Array.from(t), alt: Float64Array.from(alt), vel: Float64Array.from(vel) };
+  }
+
+  it('spots a column that is the altitude differenced sample to sample', () => {
+    const { t, alt } = flight();
+    const diff = new Float64Array(alt.length);
+    for (let i = 1; i < alt.length; i++) diff[i] = (alt[i] - alt[i - 1]) / (t[i] - t[i - 1]);
+    expect(finiteDifferenceMatch(t, diff, alt)).toBeGreaterThan(0.99);
+    // Forward and centred conventions count too — the logger picks one.
+    const fwd = new Float64Array(alt.length);
+    for (let i = 0; i < alt.length - 1; i++) fwd[i] = (alt[i + 1] - alt[i]) / (t[i + 1] - t[i]);
+    expect(finiteDifferenceMatch(t, fwd, alt)).toBeGreaterThan(0.99);
+  });
+
+  it('leaves an independently measured velocity alone', () => {
+    // The true velocity of the same profile: on a quantized altitude trace it is a
+    // distinguishable second reading, not that trace's difference.
+    const { t, alt, vel } = flight();
+    expect(finiteDifferenceMatch(t, vel, alt)).toBeLessThan(0.5);
+  });
+
+  it('needs enough judged samples to say anything', () => {
+    const t = Float64Array.from([0, 0.1, 0.2, 0.3]);
+    const alt = Float64Array.from([0, 1, 2, 3]);
+    const vel = Float64Array.from([0, 10, 10, 10]);
+    expect(finiteDifferenceMatch(t, vel, alt)).toBe(0);
   });
 });

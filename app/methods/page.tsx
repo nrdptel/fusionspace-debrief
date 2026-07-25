@@ -54,16 +54,24 @@ export default function MethodsPage() {
             Used straight from the device when it logged a velocity (an accelerometer-integrated speed
             is best through the fast boost); otherwise it&apos;s the time-derivative of the cleaned
             altitude, smoothed to the file&apos;s own sample rate. Derived velocity is softer at peak
-            speed, and labelled wherever it appears. A peak beyond any rocket — the fastest amateur
-            flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled or misidentified velocity
-            column (a raw sensor count read as a speed); such a reading is withheld, along with
-            everything derived from it — Mach, max-Q, the burnout velocity and the coast efficiency —
-            rather than reported as an impossible number. A derived speed that peaks in the transonic
-            region (about Mach&nbsp;0.9–1.3) carries a further caveat: approaching Mach&nbsp;1 the airflow
-            over a barometric pressure port goes locally supersonic and a shock sits on it, inflating the
-            sensed pressure and the speed read from it — so a baro-only reading right around Mach&nbsp;1
-            can&apos;t confirm the rocket truly went supersonic. It&apos;s flagged, not withheld; an
-            accelerometer or GPS settles it.
+            speed, and labelled wherever it appears. A logged velocity column that turns out to be the
+            file&apos;s <em>own altitude differenced sample to sample</em> is not a second reading at
+            all — a baro-only altimeter has no speed sensor, so what it writes there carries the
+            barometer&apos;s quantization as speed, and its peak is that noise (one real export of a
+            Mach&nbsp;1.3 flight states 4,880&nbsp;ft/s). Debrief detects that case, re-derives the
+            velocity from the same altitude with proper smoothing, and labels it derived. A peak beyond
+            any rocket — the fastest amateur flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled
+            or misidentified velocity column (a raw sensor count read as a speed); such a reading is
+            withheld, along with everything derived from it — Mach, max-Q, the burnout velocity and the
+            coast efficiency — rather than reported as an impossible number. A derived speed that peaks
+            at or past the transonic region (about Mach&nbsp;0.9 up) carries a further caveat:
+            approaching Mach&nbsp;1 the airflow over a barometric pressure port goes locally supersonic
+            and a shock sits on it, distorting the sensed pressure and the speed read from it — and the
+            error runs both ways. Two flights recorded on two devices each bracket it: one baro trace
+            read Mach&nbsp;1.19 where its partner measured 0.93, another Mach&nbsp;2.64 where its
+            partner measured 1.22. So no baro peak from Mach&nbsp;0.9 up can confirm the rocket went
+            supersonic, nor bound how fast it really went. It&apos;s flagged, not withheld; an
+            accelerometer, an inertial solution or GPS settles it.
           </Method>
           <Method title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
