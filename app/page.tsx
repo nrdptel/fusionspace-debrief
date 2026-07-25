@@ -50,7 +50,9 @@ export default function Home() {
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Share &amp; keep</strong>{' '}
               — copy a link with the whole flight encoded inside it, or let the logbook remember recent
-              flights on this device — both stay on your machine.
+              flights on this device — both stay on your machine. Once a season&apos;s worth has built
+              up, search the logbook by file name, the logger it came off, or the note you wrote on it
+              (motor, conditions, cert), and sort by apogee or top speed.
             </li>
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Offline</strong> —

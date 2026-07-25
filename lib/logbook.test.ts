@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortRecents, personalBests } from './logbook';
+import { sortRecents, filterRecents, personalBests } from './logbook';
 import type { RecentMeta } from './recents';
 
 const rec = (id: string, addedAt: number, apogeeM: number | null, maxVelocityMs: number | null): RecentMeta => ({
@@ -42,5 +42,46 @@ describe('personalBests', () => {
     const tied = [rec('a', 1, 500, 70), rec('b', 2, 500, 60)];
     expect(personalBests(tied).apogeeId).toBeNull(); // tie for top apogee
     expect(personalBests(tied).speedId).toBe('a'); // speed still unique
+  });
+});
+
+describe('filterRecents', () => {
+  const mk = (over: Partial<RecentMeta>): RecentMeta => ({
+    id: 'x',
+    name: 'x.csv',
+    formatLabel: 'Test',
+    addedAt: 0,
+    apogeeM: null,
+    maxVelocityMs: null,
+    note: '',
+    ...over,
+  });
+  const list = [
+    mk({ id: 'a', name: 'Nike-Smoke-Oct.csv', formatLabel: 'Altus Metrum (AltOS)', note: 'H135 white, calm' }),
+    mk({ id: 'b', name: 'raven-flight3.csv', formatLabel: 'Featherweight Raven (FIP)', note: 'L3 attempt' }),
+    mk({ id: 'c', name: 'aim-xtra.csv', formatLabel: 'Entacore AIM', note: '' }),
+  ];
+
+  it('matches the name, the logger and the flyer’s own note', () => {
+    expect(filterRecents(list, 'nike').map((r) => r.id)).toEqual(['a']);
+    expect(filterRecents(list, 'featherweight').map((r) => r.id)).toEqual(['b']);
+    expect(filterRecents(list, 'h135').map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('requires every term but ignores their order', () => {
+    // What a flyer actually types: an airframe and a motor, or a logger and a level.
+    expect(filterRecents(list, 'h135 nike').map((r) => r.id)).toEqual(['a']);
+    expect(filterRecents(list, 'raven l3').map((r) => r.id)).toEqual(['b']);
+    expect(filterRecents(list, 'raven h135')).toEqual([]);
+  });
+
+  it('is case- and accent-insensitive', () => {
+    expect(filterRecents(list, 'ENTACORE').map((r) => r.id)).toEqual(['c']);
+    expect(filterRecents([mk({ id: 'd', name: 'Zéphyr.csv' })], 'zephyr').map((r) => r.id)).toEqual(['d']);
+  });
+
+  it('an empty query shows the whole logbook', () => {
+    expect(filterRecents(list, '')).toHaveLength(3);
+    expect(filterRecents(list, '   ')).toHaveLength(3);
   });
 });

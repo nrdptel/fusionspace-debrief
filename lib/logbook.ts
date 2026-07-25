@@ -17,6 +17,31 @@ export function sortRecents(recents: RecentMeta[], sort: LogbookSort): RecentMet
   return out;
 }
 
+/**
+ * The flights a search matches. A season's logbook runs to dozens of entries and sorting
+ * alone doesn't find one: what a flyer remembers is the airframe, the launch, the motor —
+ * so the search covers the file name, the logger it came off, and the note they wrote on it
+ * (which is where the motor and conditions live).
+ *
+ * Every whitespace-separated term has to match somewhere, in any order, so "raven h135"
+ * narrows to one flight where a single substring couldn't. Case- and accent-insensitive;
+ * an empty or whitespace query matches everything rather than nothing.
+ */
+export function filterRecents(recents: RecentMeta[], query: string): RecentMeta[] {
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return recents;
+  return recents.filter((r) => {
+    const hay = fold(`${r.name} ${r.formatLabel} ${r.note ?? ''}`);
+    return terms.every((t) => hay.includes(t));
+  });
+}
+
+/** Lower-cased and stripped of accents, so "Entacore" matches "entacore" and a pasted
+ *  file name with a decomposed character still matches what was typed. */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
 /** The id holding the single highest value of `get`, or null when fewer than two
  *  flights have a finite value or the top is tied (a best-of-one or a tie isn't a
  *  record worth crowning — mirrors the comparison table's rule). */

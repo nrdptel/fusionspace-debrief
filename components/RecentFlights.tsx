@@ -5,7 +5,11 @@ import type { RecentMeta } from '@/lib/recents';
 import { fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
-import { sortRecents, personalBests, type LogbookSort } from '@/lib/logbook';
+import { sortRecents, filterRecents, personalBests, type LogbookSort } from '@/lib/logbook';
+
+/** Below this the list is short enough to read at a glance, so a search box would be
+ *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
+const SEARCH_FROM = 4;
 
 const SORTS: { key: LogbookSort; label: string }[] = [
   { key: 'recent', label: 'Recent' },
@@ -47,6 +51,7 @@ export default function RecentFlights({
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<LogbookSort>('recent');
+  const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [importMsg, setImportMsg] = useState('');
@@ -124,8 +129,12 @@ export default function RecentFlights({
   const chosen = [...selected].filter((id) => present.has(id));
   const atCap = chosen.length >= MAX_COMPARE;
 
-  const ordered = sortRecents(recents, sort);
+  const ordered = sortRecents(filterRecents(recents, query), sort);
+  // Crowned against the whole logbook, not the filtered view: a personal best is a best
+  // whether or not the search happens to be showing the flight it beat.
   const bests = personalBests(recents);
+  const searchable = recents.length >= SEARCH_FROM;
+  const filtering = searchable && query.trim().length > 0;
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -191,6 +200,27 @@ export default function RecentFlights({
         </div>
       </div>
 
+      {searchable && (
+        <div className="mt-3 flex items-center gap-2">
+          <label htmlFor="logbook-search" className="sr-only">
+            Search your flights
+          </label>
+          <input
+            id="logbook-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, logger or note…"
+            className="min-h-[2.25rem] w-full max-w-xs rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          />
+          {filtering && (
+            <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400" role="status">
+              {ordered.length} of {recents.length}
+            </span>
+          )}
+        </div>
+      )}
+
       {recents.length > 1 && (
         <div className="mt-3 flex items-center gap-2">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sort by</span>
@@ -212,7 +242,8 @@ export default function RecentFlights({
         </div>
       )}
 
-      <ul className="mt-3 space-y-2">
+      {/* Named, so assistive tech (and a test) can tell the logbook from the page's other lists. */}
+      <ul aria-label="Your flights" className="mt-3 space-y-2">
         {ordered.map((r) => {
           const isSel = selected.has(r.id);
           const isApogeeBest = r.id === bests.apogeeId;
@@ -326,6 +357,20 @@ export default function RecentFlights({
           );
         })}
       </ul>
+      {filtering && ordered.length === 0 && (
+        <p className="mt-3 rounded-md border border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          No flight here matches “{query.trim()}”. Names, the logger a flight came off, and your own
+          notes are searched.{' '}
+          <button
+            type="button"
+            onClick={() => setQuery('')}
+            className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+          >
+            Show all {recents.length}
+          </button>
+          .
+        </p>
+      )}
       {importMsg && <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">{importMsg}</p>}
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
         Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks

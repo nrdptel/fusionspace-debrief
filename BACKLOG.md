@@ -175,6 +175,12 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
 - **A per-device flight list.** The vendor apps read several flights off one device and
   let you pick between them; Debrief's logbook is close but is keyed on files, not flights
   from one download session.
+- Found by driving a season into the logbook: it sorts but couldn't be *searched* — now it
+  can (name, logger, note, all terms in any order). Two things that drive still shows:
+  every row's time is relative only ("3d ago"), with no absolute date anywhere, and the date
+  it carries is when the FILE WAS OPENED, not when the flight flew. Several formats stamp the
+  flight's own date/time (AltOS, a Featherweight GPS's UTC fixes) — reading that would make
+  the logbook a logbook rather than a recents list, and would let it sort by launch day.
 
 ## Feature depth
 

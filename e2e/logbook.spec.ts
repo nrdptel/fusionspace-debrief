@@ -77,3 +77,49 @@ test('importing a file that is not a logbook reports it cleanly', async ({ page 
   // The existing flight is untouched.
   await expect(page.getByText('a.csv', { exact: true })).toBeVisible();
 });
+
+// A season fills the logbook, and sorting alone stops finding a flight: what a flyer
+// remembers is the airframe, the launch or the motor. The search covers the file name, the
+// logger it came off, and the note they wrote — so it has to reach all three.
+test('the logbook can be searched by name, logger and note', async ({ page }) => {
+  await page.goto('/');
+  // Four flights, which is where the search box earns its place.
+  for (const name of ['nike-smoke.csv', 'raven-l3.csv', 'pad-test.csv', 'cert-flight.csv']) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  const rows = page.getByRole('list', { name: 'Your flights' }).getByRole('listitem');
+  await expect(rows).toHaveCount(4);
+
+  // A note is part of what's searched, so put a motor on one flight.
+  await page.getByRole('button', { name: 'Add note for raven-l3.csv' }).click();
+  await page.getByRole('textbox', { name: 'Note for raven-l3.csv' }).fill('M1297 red, windy');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  const search = page.getByRole('searchbox', { name: 'Search your flights' });
+  await search.fill('nike');
+  await expect(rows).toHaveCount(1);
+  await expect(page.getByText('1 of 4')).toBeVisible();
+
+  // The motor from the note finds its flight, and so does the logger name.
+  await search.fill('m1297');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('raven-l3.csv');
+  await search.fill('eggtimer');
+  await expect(rows).toHaveCount(4);
+
+  // Every term has to match, in any order.
+  await search.fill('windy raven');
+  await expect(rows).toHaveCount(1);
+  await search.fill('windy nike');
+  await expect(rows).toHaveCount(0);
+  await expect(page.getByText(/No flight here matches/)).toBeVisible();
+
+  // And the way back is offered, not just implied.
+  await page.getByRole('button', { name: 'Show all 4' }).click();
+  await expect(rows).toHaveCount(4);
+  await expect(search).toHaveValue('');
+});
