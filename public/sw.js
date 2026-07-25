@@ -13,21 +13,38 @@
 
 const CACHE = 'debrief-runtime-v1';
 
-// The one asset worth precaching: the bundled sample flight. Its URL is stable
-// across builds (not content-hashed), so caching it on install — unlike a drift-
-// prone precache manifest of the hashed app chunks — lets "Try a sample flight"
-// work on a first *offline* visit too, not only after it's been opened online.
-const PRECACHE = ['/samples/sample-altusmetrum.csv'];
+// What's worth precaching on install: URLs that are stable across builds, unlike the
+// content-hashed app chunks (a manifest of those drifts out of date on every deploy, which
+// is why there isn't one).
+//  - the bundled sample flight, so "Try a sample flight" works on a first *offline* visit;
+//  - every static route's own document. Without them, a route the flyer never visited falls
+//    back to the cached "/" — so the app came up, but showing the home page at the
+//    /methods/ URL, which is a small lie at exactly the moment someone at the field with no
+//    signal wants to look up what a number means.
+const PRECACHE = [
+  '/samples/sample-altusmetrum.csv',
+  '/',
+  '/methods/',
+  '/validation/',
+  '/privacy/',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      try {
-        const cache = await caches.open(CACHE);
-        await cache.addAll(PRECACHE);
-      } catch {
-        /* offline at install, or asset moved — runtime caching still picks it up */
-      }
+      const cache = await caches.open(CACHE);
+      // One at a time rather than addAll: that rejects the whole batch if any single
+      // request fails, which would lose the sample flight to a moved doc page.
+      await Promise.all(
+        PRECACHE.map(async (url) => {
+          try {
+            const res = await fetch(url, { cache: 'reload', credentials: 'same-origin' });
+            if (res.ok) await cache.put(url, res);
+          } catch {
+            /* offline at install — runtime caching and the page's warm-up pick it up */
+          }
+        }),
+      );
       await self.skipWaiting();
     })(),
   );

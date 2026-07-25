@@ -131,3 +131,36 @@ test('comes up offline after a single online visit — no second visit needed', 
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   await context.setOffline(false);
 });
+
+// At the field with no signal, "what does this number mean?" is a real question — so the
+// docs have to come up too, and as themselves. They used to fall back to the cached "/",
+// which meant the app appeared but showed the home page at the /methods/ URL.
+test('the methods and validation pages come up offline, as themselves', async ({ page, context }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+  // The static routes are precached on install (their URLs are stable across builds, unlike
+  // the hashed chunks), so wait for one to land rather than visiting it first.
+  await page.waitForFunction(
+    async () => {
+      for (const k of await caches.keys()) {
+        if (await (await caches.open(k)).match(new URL('/methods/', location.href).href, { ignoreVary: true })) return true;
+      }
+      return false;
+    },
+    null,
+    { timeout: 20000 },
+  );
+
+  await context.setOffline(true);
+  // Neither page has been visited in this browser.
+  const methods = await context.newPage();
+  await methods.goto('/methods/');
+  await expect(methods.getByRole('heading', { name: 'Where the numbers come from', level: 1 })).toBeVisible();
+
+  const validation = await context.newPage();
+  await validation.goto('/validation/');
+  await expect(validation.getByRole('heading', { name: 'How Debrief is validated', level: 1 })).toBeVisible();
+  await context.setOffline(false);
+});

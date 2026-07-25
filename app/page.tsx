@@ -66,7 +66,8 @@ export default function Home() {
             <li>
               <strong className="font-medium text-zinc-800 dark:text-zinc-200">Offline</strong> —
               install it to your home screen; one visit with signal is enough, and after that it works
-              with none, right at the field.
+              with none, right at the field — including the methods and validation pages, so
+              &ldquo;what does this number mean?&rdquo; is answerable with no bars.
             </li>
           </ul>
         </div>

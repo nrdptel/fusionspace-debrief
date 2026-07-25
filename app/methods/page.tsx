@@ -367,6 +367,15 @@ export default function MethodsPage() {
             stays a number, since neither has a unit to pick; the mass and diameter you type for the
             drag, parachute and landing-energy readings follow whichever system your altitude is in.
           </Method>
+          <Method title="Offline">
+            One visit with a signal is enough: as soon as the service worker takes control, the page
+            hands it the list of what it just loaded, so the shell, the app&apos;s code and the
+            sample flight are all cached — Debrief used to need a second visit before an offline one
+            worked. These documentation pages are cached on install too, so the methods and the
+            limitations are readable at the field with no bars, as themselves rather than as the home
+            page. Only Debrief&apos;s own static files are stored, locally; no flight log is ever
+            cached, uploaded, or sent anywhere.
+          </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS),
             Entacore AIM and MissileWorks RRC3 (mDACS) files are recognized automatically; the

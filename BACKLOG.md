@@ -203,9 +203,12 @@ memory, so a later pass doesn't have to rediscover them.
   names) and the cache fills to 18 entries in ~200 ms. Both PWA e2e specs had encoded the bug
   as a workaround (`await page.reload()` "so the worker caches the shell"), which is why they
   passed; the new spec does one visit only, and fails without the fix.
-- Offline, a route that was never visited (`/methods/`) falls back to the cached `/` — so the
-  app comes up, but showing the home page at the /methods/ URL. Better than an error, still a
-  small lie; caching each visited route's own document, or an offline notice, would fix it.
+- Fixed: offline, a route never visited used to fall back to the cached `/` — the app came up
+  but showed the home page at the /methods/ URL. All four static routes are precached on
+  install (their URLs are stable across builds, unlike the hashed chunks), so the methods and
+  validation pages now come up offline as themselves; verified by visiting them with no signal
+  in a browser that had never opened them. Install also fetches each precache entry
+  individually now, where `addAll` would have lost the sample flight to one moved document.
 
 - Three e2e selector clashes this run came from adding the same phrase to the page's own
   how-to copy that a test used to target a control (`per quantity`, `Show the samples`).
