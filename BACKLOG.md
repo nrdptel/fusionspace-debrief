@@ -820,6 +820,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
 
+- **Benchmarked the explorer against OpenRocket's Plot Data tab** (from its own docs, not
+  memory). Debrief already matches it on the thing that matters most — several channels on
+  one plot with a left and a right axis — and beats it on saved views, which OpenRocket
+  doesn't have. Two gaps, both about the first thirty seconds rather than the tenth use:
+  **(1) "standard plots"** — OpenRocket ships quick-select preset configurations, so a new
+  user gets a useful plot before knowing what to ask for; Debrief's named views are all
+  flyer-made, so the explorer opens on whatever it opened on last and a first-time visitor
+  builds from scratch. A handful of built-in views (the boost, the deployments, the airframe's
+  health) shipped as defaults would close it, and the machinery already exists.
+  **(2) choosing which flight events are called out on the plot** — OpenRocket lets you pick;
+  Debrief draws all of them, which crowds the boost on a flight with four events in six
+  seconds. Neither is built.
+
 - **Benchmarked the recovery view against AltosUI and shipped the gap: KML for Google
   Earth.** Read AltosUI's own documentation rather than going from memory. Two things it has
   that Debrief didn't: an adjustable smoothing control on the baro-derived speed/acceleration
