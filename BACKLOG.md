@@ -6,6 +6,29 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A reported descent rate can disagree with its own leg's drop-over-duration by −58% to +17%, and
+  the cause is NOT sample weighting.** Swept all 46 analysable corpus fixtures, comparing each
+  reported leg rate against the chord slope of the leg it names —
+  `(alt[from] − alt[to]) / (t[to] − t[from])`, which is what "average descent rate" means and what
+  descent rate × descent time has to equal. **10 of 38 legs disagree by more than 5%**, three of
+  them on `knownIssue` files. Worst offenders (reported vs chord): TeleMetrum endurance drogue
+  **22.51 vs 19.34 m/s (+16.4%)**; SG1.1 TeleMetrum main **9.46 vs 8.52 (+11.0%)** and drogue
+  **13.51 vs 12.72 (+6.2%)**; lemiv-l3 Blue Raven main **8.13 vs 7.34 (+10.8%)**; fwgps jan10
+  drogue **50.73 vs 64.47 (−21.3%)**; Kairos whole **10.98 vs 10.44 (+5.2%)**.
+  `legRate` averages the smoothed `descent` series with a plain **sample-count** `mean`, so the
+  obvious hypothesis was uneven sampling (the TeleMetrum leg carries gaps from 0.02 s to 3.98 s, a
+  199x spread, and the analysis already warns loggers drop their rate after nose-over).
+  **That hypothesis was tested and is wrong** — swapping in a time-weighted trapezoidal mean moved
+  the TeleMetrum leg from +16.4% to +17.0% and flipped meraki2's drogue from −26.5% to +11.6%,
+  fixing nothing. The change was reverted rather than shipped on a disproved rationale. Remaining
+  suspects, in order: `descent` is a 0.6 s moving average of `baroVel` (a smoothed *derivative*),
+  which is unreliable across multi-second gaps; and short legs (the lemiv-l3 main is **1.7 s**
+  against a 0.6 s window) are dominated by the smoothing. **Nothing pins these numbers** —
+  `expected.json` asserts only apogee, maxVelocity and maxAccel, so no golden value guards a
+  descent rate at all, which is exactly why this survived. Next pass needs a ground truth to judge
+  against (a device's own stated descent rate, or a second recording of the same flight) before
+  changing the method; a descent rate is what a flyer sizes a parachute against, so it is the
+  rank-1 damage case and must not be changed on a guess.
 - **`altClean` vs `altAt` — the distinction that caused the coast-efficiency bug still lives only
   in a comment.** `altAt(i)` is the *corrected* ascent altitude (falls back to the logger's inertial
   solution where the baro trace contradicts itself, NaN where nothing can stand in); `altClean[i]` is
