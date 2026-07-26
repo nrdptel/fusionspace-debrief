@@ -83,10 +83,11 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Burnout velocity',
       value: fmtSpeed(m.burnoutVelocity, sys),
-      // Where burnout was taken from the velocity peak rather than a signed accelerometer
-      // crossing zero, this reading IS the max velocity — the same number under a second
-      // label, which reads as two measurements agreeing unless it says otherwise.
-      sub: m.burnoutSource === 'derived' ? 'at the velocity peak — the same instant as max velocity' : undefined,
+      // Where the burnout sample IS the max-velocity sample, this reading is the max velocity
+      // under a second label — which reads as two measurements agreeing unless it says
+      // otherwise. That is so by construction on a 'derived' burnout, and happens on a
+      // 'measured' one too, since the axial trace crosses zero exactly where the speed peaks.
+      sub: m.burnoutAtVelocityPeak ? 'at the velocity peak — the same instant as max velocity' : undefined,
     });
   if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
   if (m.coastEfficiency != null)

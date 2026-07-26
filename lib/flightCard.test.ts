@@ -7,6 +7,7 @@ const base: FlightMetrics = {
   timeToApogee: 8,
   maxVelocity: 200,
   burnoutSource: 'measured' as const,
+  burnoutAtVelocityPeak: false,
   maxVelocitySource: 'device',
   maxVelocityAltitude: 400,
   mach: 0.6,

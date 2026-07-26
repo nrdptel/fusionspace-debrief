@@ -1142,16 +1142,41 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // boost peak. Baro-only: velocity peaks at burnout. Either way, reject a
   // "burnout" that lands on apogee (a coast-dominated read with no real boost).
   let burnoutIdx: number | null = null;
+  // Whether the accelerometer actually gave up a thrust-end crossing, as opposed to the
+  // velocity-peak proxy standing in. `burnoutSource` used to be decided by whether a signed
+  // axial CHANNEL existed, which is not the same question: a flight can have the channel and
+  // still fall through to the peak, and it was then labelled "measured" while reporting the
+  // max velocity a second time under the burnout label — two readings that look like
+  // independent agreement and are one sample.
+  let burnoutFromAccel = false;
   if (ascentPresent && accelerationSource === 'device' && !accelerationResultant) {
     // Burnout is a sign change on the axial trace (thrust → drag), so read the
     // signed axis: the resultant magnitude never falls through zero. Only usable
     // for a genuine signed axial channel — a multi-axis logger's noisy body axis
     // can stay positive past burnout and cross zero only at ejection, so those
     // fall through to the velocity-peak proxy below.
-    const peak = argMax(signedAccel, liftoffRef, apogeeIdx + 1);
-    for (let i = peak; i < apogeeIdx; i++) {
+    // The search ends at the VELOCITY PEAK, not at apogee. Net acceleration is zero at the
+    // peak and negative after it, so a rocket cannot still be under thrust past it — and
+    // searching to apogee let the boost peak be found in the wrong event entirely. On three
+    // corpus flights the largest signed-axial reading between liftoff and apogee is the
+    // apogee ejection charge (187.8, 235.7 and 819.7 m/s²), not the motor; the crossing
+    // "after the boost peak" was then the charge settling, and burnout landed a few tenths
+    // of a second before apogee. That put a 39.85 s burn time, a 1.9 m/s burnout velocity
+    // and an 8,292 m burnout altitude (7 m under the apogee) on a flight whose motor burned
+    // for a few seconds and whose real burnout speed was near its 580.9 m/s peak.
+    //
+    // The existing guard below was meant to catch exactly this but is measured in SAMPLES:
+    // two of them is 0.02 s on a 100 Hz logger, so a burnout half a second before apogee
+    // passed it. Bounding the search physically is the fix; the guard stays as a backstop.
+    const searchEnd = maxVelIdx > liftoffRef ? maxVelIdx : apogeeIdx;
+    const peak = argMax(signedAccel, liftoffRef, searchEnd + 1);
+    // Inclusive of the endpoint: the axial trace crosses zero AT the velocity peak, so an
+    // exclusive bound missed the very sample the crossing lands on and fell through to the
+    // proxy below on flights where the accelerometer had the answer.
+    for (let i = peak; i <= searchEnd; i++) {
       if (signedAccel[i] <= 0) {
         burnoutIdx = i;
+        burnoutFromAccel = true;
         break;
       }
     }
@@ -1687,8 +1712,8 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // Reads the velocity trace directly, so it inherits an impossible velocity even
     // when burnout was pinned off the accelerometer — withheld with the rest.
     burnoutVelocity: burnoutIdx !== null && !velocityImplausible ? velocity[burnoutIdx] : null,
-    burnoutSource:
-      burnoutIdx === null ? null : accelerationSource === 'device' && !accelerationResultant ? 'measured' : 'derived',
+    burnoutSource: burnoutIdx === null ? null : burnoutFromAccel ? 'measured' : 'derived',
+    burnoutAtVelocityPeak: burnoutIdx !== null && maxVelIdx >= 0 && burnoutIdx === maxVelIdx,
     coastTime: burnoutIdx !== null ? apogeeTime - time[burnoutIdx] : null,
     coastEfficiency,
     dragLossAltitude,

@@ -11,6 +11,7 @@ const EVERYTHING: FlightMetrics = {
   timeToApogee: 24.6,
   maxVelocity: 341,
   burnoutSource: 'measured' as const,
+  burnoutAtVelocityPeak: false,
   maxVelocitySource: 'device',
   maxVelocityAltitude: 620,
   mach: 1.02,
@@ -180,23 +181,34 @@ describe('the screen and the saved report agree on which readings exist', () => 
 });
 
 describe('a burnout velocity that is the max velocity', () => {
-  it('says so on the tile when burnout came from the velocity peak', () => {
+  it('says so on the tile whenever it is the same sample, however burnout was located', () => {
     // Without a signed axial accelerometer, burnout is taken at the velocity peak — so the
     // burnout velocity IS the max velocity, the same number under a second label. Left bare
     // it reads as two measurements agreeing. Every AltimeterCloud file in the corpus is this
     // case: 156.91 m/s in both rows.
-    const derived = metricTiles({ ...EVERYTHING, burnoutSource: 'derived', burnoutVelocity: 156.91, maxVelocity: 156.91 }, 'metric');
+    const derived = metricTiles({ ...EVERYTHING, burnoutSource: 'derived', burnoutAtVelocityPeak: true, burnoutVelocity: 156.91, maxVelocity: 156.91 }, 'metric');
     const tile = derived.find((t) => t.label === 'Burnout velocity');
     expect(tile?.sub).toMatch(/same instant as max velocity/);
 
-    const measured = metricTiles({ ...EVERYTHING, burnoutSource: 'measured', burnoutVelocity: 150, maxVelocity: 156.91 }, 'metric');
+    // A genuine accelerometer crossing that lands somewhere else is two readings, and says
+    // nothing extra.
+    const measured = metricTiles({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: false, burnoutVelocity: 150, maxVelocity: 156.91 }, 'metric');
     expect(measured.find((t) => t.label === 'Burnout velocity')?.sub).toBeUndefined();
+
+    // …but a MEASURED crossing can land on the peak too — the axial trace crosses zero exactly
+    // where the speed peaks, which is where burnout physically is. Two corpus AltusMetrum
+    // flights are this case, and gating the note on `burnoutSource` alone left them printing
+    // 580.86 m/s twice with nothing to say the two rows are one sample.
+    const measuredAtPeak = metricTiles({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: true, burnoutVelocity: 580.86, maxVelocity: 580.86 }, 'metric');
+    expect(measuredAtPeak.find((t) => t.label === 'Burnout velocity')?.sub).toMatch(/same instant as max velocity/);
   });
 
   it('carries the same qualifier into the saved report', () => {
-    const rows = headlineRows({ ...EVERYTHING, burnoutSource: 'derived', burnoutVelocity: 156.91, maxVelocity: 156.91 }, 'metric');
+    const rows = headlineRows({ ...EVERYTHING, burnoutSource: 'derived', burnoutAtVelocityPeak: true, burnoutVelocity: 156.91, maxVelocity: 156.91 }, 'metric');
     expect(rows.find(([l]) => l === 'Burnout velocity')?.[1]).toMatch(/same instant as max velocity/);
-    const measured = headlineRows({ ...EVERYTHING, burnoutSource: 'measured', burnoutVelocity: 150 }, 'metric');
+    const measured = headlineRows({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: false, burnoutVelocity: 150 }, 'metric');
     expect(measured.find(([l]) => l === 'Burnout velocity')?.[1]).not.toMatch(/same instant/);
+    const measuredAtPeak = headlineRows({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: true, burnoutVelocity: 580.86, maxVelocity: 580.86 }, 'metric');
+    expect(measuredAtPeak.find(([l]) => l === 'Burnout velocity')?.[1]).toMatch(/same instant as max velocity/);
   });
 });
