@@ -40,16 +40,36 @@ memory, so a later pass doesn't have to rediscover them.
   says so on screen. Energy goes as v², so where the whole-descent average is well above the main
   rate the exported document overstates the joules by that ratio squared — on the document a cert
   write-up and a club energy limit are read from. Same substitution, caveat on one surface only.
-- **Ground truth for the descent rate finally exists, and Debrief reads 13.6–16.7% off it.** The
-  three AltimeterCloud corpus flights state their own descent velocity, and the cross-check that
-  is supposed to compare it never fires — it reads the null `mainDescentRate`, and still does: the
-  fix was written, gated green and **withdrawn in review** (see HANDOFF for why, and for how to do
-  it properly). Measured with that change applied locally: `greeneggs3-1888` device **6.21** vs Debrief **5.17 m/s (−16.7%)`,
-  `lilnuke4alt-1786` **5.71** vs **6.49 (+13.6%)**, `lilnuke4alt-1796` **5.63** vs **6.49
-  (+15.4%)**. Debrief reads HIGH on two and LOW on one, so this is spread, not a signed bias — but
-  it is the first device-stated descent figure the rank-1 divergence can be judged against. Three
-  points is thin; the next move is to find more loggers that write a descent figure (grep the
-  corpus for summary blocks) before changing the method.
+- **CORRECTED — the AltimeterCloud "13.6–16.7% error" is the DEVICE disagreeing with itself, not
+  Debrief being wrong.** Recorded earlier this run the wrong way round; this supersedes it. Each
+  Mercury file states an apogee, an apogee time, a landing height and a landing time, so its own
+  stated `Descent velocity` can be checked against its own header: `1786` chord **6.437** vs stated
+  **5.707 (−11.3%)**, `1796` chord **6.446** vs stated **5.625 (−12.7%)**, `1888` chord **5.373** vs
+  stated **6.208 (+15.5%)**. Debrief reads **6.49 / 6.49 / 5.17** — i.e. **+0.8% / +0.7% / −3.8%
+  against the raw chord**. On the two four-altimeter flights Debrief is accurate to under a percent
+  and the device summary is the outlier. **Consequence for the ground-truth hierarchy:** "the
+  device's own stated summary figure" is NOT unconditionally stronger than the file's own data for
+  a descent rate — on this firmware it is demonstrably worse. Check a stated figure against the
+  file's own apogee/landing header before treating it as truth.
+- **The highest-confidence descent number in the corpus: four altimeters, one flight.** Group
+  `ac-lilnuke-4altimeter` (`1784/1785/1786/1796`) puts apogee at 756.7–756.8 m @11.43–11.49 s and
+  landing at 128.6–128.8 s on all four, giving an apogee→landing chord of **6.441–6.449 m/s — a
+  0.12% four-way spread**. That is a golden value waiting to be written, and `expected.json`
+  currently asserts **no descent rate on any fixture** (only apogee ×17, maxVelocity ×3,
+  maxAccel ×2). Pin it.
+- **A drogue leg does not start at apogee, and that alone explains a big divergence.** On
+  `blueraven__trf-f1machbuster-jan18` the drogue channel (`Apo_fired`) fires **12.4 s after
+  apogee**; the rocket free-falls at ~156 ft/s until it does. Measured apogee→main the leg is
+  **77.6 ft/s**; measured drogue-deployment→main it is **59.4 ft/s**, against the device's stated
+  **−55.9**. So Blue Raven times its drogue leg from DEPLOYMENT and Debrief times it from APOGEE —
+  a definitional gap that moves the number by 31% and is nothing to do with smoothing. Several
+  loggers write their own deployment events and can be read directly for the boundary: MissileWorks
+  RRC3 writes inline `Drogue`/`Main` event rows, PerfectFlite StratoLogger states `Drogue At` /
+  `Main At` in its header. **Decide which boundary Debrief means, say so on the methods page, and
+  pin it — before touching the smoothing.**
+- **Do not trust a device summary that contradicts its own header.** Beyond the Mercury firmware
+  split above, `fwgps__trf-lemiv-l3` states "Vertical velocity at landing, −2 ft/sec", which is a
+  post-touchdown GPS artefact rather than a main descent rate.
 - **The descent-rate/chord divergence: mechanism found, and the window hypothesis is now also
   disproved.** Reproduced the sweep exactly — **9 of 26 corpus legs disagree with their own chord
   slope by >5%** (TeleMetrum drogue +16.4%, SG1.1 main +11.0% / drogue +6.2%, lemiv-l3 main

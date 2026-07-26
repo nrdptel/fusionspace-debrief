@@ -30,11 +30,28 @@ surfaces.
 
 ## The rank-1 item: descent rate — ground truth found, and a second hypothesis disproved
 
-**Ground truth now exists.** The three AltimeterCloud flights state their own descent velocity, and
-the cross-check above is what makes it visible. Debrief vs device: **−16.7%** (6.21 → 5.17 m/s),
-**+13.6%** (5.71 → 6.49), **+15.4%** (5.63 → 6.49). High on two, low on one — spread, not a signed
-bias. Three points is thin, and the next move is to grep the corpus for other loggers that write a
-descent figure in their summary block before touching the method.
+**Ground truth now exists — and it says Debrief is accurate, which is the opposite of what the
+first read of it suggested.** Each Mercury/AltimeterCloud file states an apogee, an apogee time, a
+landing height and a landing time, so its stated `Descent velocity` can be checked against its own
+header. It does not survive that check: `1786` chord **6.437** vs stated **5.707 (−11.3%)**, `1796`
+chord **6.446** vs stated **5.625 (−12.7%)**, `1888` chord **5.373** vs stated **6.208 (+15.5%)**.
+Debrief reads **6.49 / 6.49 / 5.17** — **+0.8% / +0.7% / −3.8% against the raw chord**. So on these
+flights Debrief is accurate to under a percent and the *device summary* is the outlier. An earlier
+note in this run had this backwards; BACKLOG carries the correction. **Hierarchy consequence:** a
+device's stated summary is not unconditionally stronger than the file's own data for a descent rate.
+
+**The strongest anchor in the corpus:** group `ac-lilnuke-4altimeter` is **four altimeters on one
+flight** agreeing on the apogee→landing chord to **0.12%** (6.441–6.449 m/s). `expected.json`
+asserts **no descent rate on any fixture** today. Pin that one first.
+
+**And the finding that probably matters most: a drogue leg does not start at apogee.** On
+`blueraven__trf-f1machbuster-jan18` the drogue fires **12.4 s after apogee** and the rocket
+free-falls at ~156 ft/s until it does. Apogee→main is **77.6 ft/s**; deployment→main is **59.4**,
+against the device's stated **−55.9**. Blue Raven times the leg from deployment, Debrief from
+apogee — a **31%** definitional gap that has nothing to do with smoothing. RRC3 writes inline
+`Drogue`/`Main` event rows and PerfectFlite states `Drogue At`/`Main At` in its header, so the
+boundary is readable on real files. **Settle the definition, document it, and pin it before
+touching the window.**
 
 **Hypothesis 2 tested and disproved** (hypothesis 1, sample weighting, died last run).
 `lib/analyze/index.ts:1310` sizes the 0.6 s descent smoother with `windowFor(dt, 0.6)` off the
@@ -86,18 +103,21 @@ than ~2x the window as its chord slope, and judge the result against the three d
 
 ## Pick up first, and why
 
-1. **A build-stamped version marker** (see above). Cheap, and every future done-check depends on it.
-2. **The descent-rate method**, now that there is something to judge it against — the half-window
-   exclusion described above, measured against the three device figures.
-3. **The descent smoothing window sized off `descentDt`** — a real bug (13 of 35 fixtures, up to
+1. **Settle where a drogue leg starts** (apogee vs drogue deployment — a 31% gap on a real file),
+   document it on the methods page, and pin the four-altimeter chord (0.12% spread) as the first
+   descent golden value the corpus has ever had.
+2. **A build-stamped version marker** (see above). Cheap, and every future done-check depends on it.
+3. **The descent-rate method** — the centred-window half-window exclusion described above, judged
+   against the raw chords rather than against device summaries that fail their own header check.
+4. **The descent smoothing window sized off `descentDt`** — a real bug (13 of 35 fixtures, up to
    12x) worth fixing for its own sake, but it moves leg boundaries, so it needs its own pass and its
    own corpus diff rather than riding along with a method change.
-4. **TWR rests on two samples at 10 Hz and says so nowhere.** The 0.2 s window is sample-count-blind
+5. **TWR rests on two samples at 10 Hz and says so nowhere.** The 0.2 s window is sample-count-blind
    and the figure is printed to 1 decimal like any other. Either widen it, or say what it rests on.
-5. **CSV export: column selection, a field separator, and a comments block.** Benchmarked against
+6. **CSV export: column selection, a field separator, and a comments block.** Benchmarked against
    OpenRocket's *Export data* tab; the separator is the sharp one — the corpus holds semicolon-
    delimited European exports Debrief reads correctly and cannot write.
-6. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
+7. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
    behind a 32 px fade, so `Save bundle` is undiscoverable. Needs a sheet, which the app lacks.
 
 BACKLOG.md carries the rest, newest first — including several reading-only findings marked
