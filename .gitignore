@@ -1,3 +1,7 @@
+# Throwaway probe scripts and specs (MAINTAINING.md names the convention), so a stray
+# `git add -A` can't ship one.
+*-tmp.*
+
 /node_modules
 /.next
 /out
