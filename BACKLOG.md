@@ -443,6 +443,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Seven cards on the report are a sentence and one small input, and a desktop was giving
+  each of them 1,232 px.** Measured: rail exit, drag Cd, ejection delay, main-deploy altitude,
+  landing energy, parachute Cd and drogue Cd, stacked full-width, took **1,031 px of vertical
+  scroll** on a 1440 px screen for fields you type three characters into — the "desktop that
+  wastes half the width" tell, exactly. They are two responsive grids now (two across from
+  `lg:`, one on a phone): **7,292 px → 6,906 px**, phone unchanged. The layout is the smaller
+  half of it. Three of the four recovery cards read off the *same* descending mass, so a flyer
+  typed it into one and scrolled past two others that had quietly filled in; side by side, the
+  shared figure and everything it unlocks are in view at once. **Still open:** the report is
+  still 6,900 px of one column on a desktop — the charts, events, explorer and card are each
+  full-width in sequence. Whether that wants a two-column reading layout or its own surfaces
+  is a product decision, not a CSS one.
+
 - **Found by the cold walk, immediately after the fix that caused it.** Making two flights fit
   on a 360 px phone left the Spread column sliced at the viewport edge — showing the first
   digit of each percentage: "7" for 79%, "11" for 114%. A cut-off number does not read as a

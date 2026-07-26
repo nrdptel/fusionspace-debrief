@@ -776,16 +776,23 @@ export default function FlightReport({
 
       <MetricGrid metrics={metrics} sys={sys} hidden={hidden} onToggle={toggleReading} />
 
-      {/* Rail-exit velocity is a fine-grained reading of the first couple of metres,
-          so it only makes sense with barometric altitude — GPS is far too coarse. It's
-          read by integrating the logged velocity from liftoff to one rail-length of travel. */}
-      {series.altitudeSource !== 'gps' && (
-        <RailExit series={series} sys={sys} liftoffIndex={events.find((e) => e.type === 'liftoff')?.index ?? null} />
-      )}
+      {/* The ascent readings that take a figure from the flyer. Each is a sentence and one
+          input, and stacked full-width on a desktop they were 1,232 px wide apiece for a
+          field you type three characters into — a column of mostly-empty cards between the
+          tiles and the charts. Two across from lg: up, one on a phone, which is what a card
+          this shape wants. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Rail-exit velocity is a fine-grained reading of the first couple of metres,
+            so it only makes sense with barometric altitude — GPS is far too coarse. It's
+            read by integrating the logged velocity from liftoff to one rail-length of travel. */}
+        {series.altitudeSource !== 'gps' && (
+          <RailExit series={series} sys={sys} liftoffIndex={events.find((e) => e.type === 'liftoff')?.index ?? null} />
+        )}
 
-      {/* Measured drag coefficient — read from the coast deceleration, so it needs a
-          real coast between burnout and apogee (and an accelerometer or baro trace). */}
-      {canMeasureDrag(series, events) && <DragCoefficient series={series} events={events} sys={sys} />}
+        {/* Measured drag coefficient — read from the coast deceleration, so it needs a
+            real coast between burnout and apogee (and an accelerometer or baro trace). */}
+        {canMeasureDrag(series, events) && <DragCoefficient series={series} events={events} sys={sys} />}
+      </div>
 
       <FlightTimeline events={events} metrics={metrics} sys={sys} />
 
@@ -962,46 +969,52 @@ export default function FlightReport({
         </div>
       </div>
 
-      {/* Main-deploy altitude check — a dual-deploy flight fires the main at a set
-          altitude; this surfaces where it actually fired (and the drogue descent
-          before it). Shown only when a main deployment was detected. */}
-      {(() => {
-        const main = events.find((e) => e.type === 'main');
-        return main ? (
-          <DeployAltitude
-            mainAltitudeM={main.altitude}
-            apogeeAltitudeM={metrics.apogeeAltitude}
+      {/* The recovery readings, together. Three of the four read off the SAME descending
+          mass, and stacked down a 1,232 px column the flyer typed it into one card and
+          scrolled past two others that had quietly filled in. Side by side, the shared
+          figure and everything it unlocks are in view at once. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Main-deploy altitude check — a dual-deploy flight fires the main at a set
+            altitude; this surfaces where it actually fired (and the drogue descent
+            before it). Shown only when a main deployment was detected. */}
+        {(() => {
+          const main = events.find((e) => e.type === 'main');
+          return main ? (
+            <DeployAltitude
+              mainAltitudeM={main.altitude}
+              apogeeAltitudeM={metrics.apogeeAltitude}
+              sys={sys}
+              setM={setMainDeployM}
+              onSetM={setMainDeploy}
+            />
+          ) : null;
+        })()}
+
+        {/* Landing energy belongs with recovery — it reads off the measured landing
+            descent rate, so it's only shown when the log actually descended to it. */}
+        {metrics.mainDescentRate != null && (
+          <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
+        )}
+
+        {/* Parachute Cd reads off the terminal main descent — shown with landing
+            energy, the other recovery measurement that needs the descending mass. */}
+        {metrics.mainDescentRate != null && (
+          <ParachuteCd
+            descentRate={metrics.mainDescentRate}
+            // Ground-level air density (first finite sample) — the main descends low,
+            // where density is near the pad's, so this is the right ρ for terminal v.
+            airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}
             sys={sys}
-            setM={setMainDeployM}
-            onSetM={setMainDeploy}
+            massKg={massKg}
           />
-        ) : null;
-      })()}
+        )}
 
-      {/* Landing energy belongs with recovery — it reads off the measured landing
-          descent rate, so it's only shown when the log actually descended to it. */}
-      {metrics.mainDescentRate != null && (
-        <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
-      )}
-
-      {/* Parachute Cd reads off the terminal main descent — shown with landing
-          energy, the other recovery measurement that needs the descending mass. */}
-      {metrics.mainDescentRate != null && (
-        <ParachuteCd
-          descentRate={metrics.mainDescentRate}
-          // Ground-level air density (first finite sample) — the main descends low,
-          // where density is near the pad's, so this is the right ρ for terminal v.
-          airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}
-          sys={sys}
-          massKg={massKg}
-        />
-      )}
-
-      {/* Drogue Cd — the same reading on the drogue-phase descent (in the thinner
-          air aloft), shown only on a dual-deploy flight that had a distinct drogue. */}
-      {metrics.drogueDescentRate != null && (
-        <DrogueCd descentRate={metrics.drogueDescentRate} airDensity={drogueDensity} sys={sys} massKg={massKg} />
-      )}
+        {/* Drogue Cd — the same reading on the drogue-phase descent (in the thinner
+            air aloft), shown only on a dual-deploy flight that had a distinct drogue. */}
+        {metrics.drogueDescentRate != null && (
+          <DrogueCd descentRate={metrics.drogueDescentRate} airDensity={drogueDensity} sys={sys} massKg={massKg} />
+        )}
+      </div>
 
       {gpsLat && gpsLon && (
         <GroundTrack
