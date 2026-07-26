@@ -22,3 +22,11 @@ two altimeters, so they cross-check each other (~1,009 ft).
 
 The full corpus these came from (many more flights, high-rate files, plots) was
 used during development but is intentionally not committed — it was ~260 MB.
+
+## `altimetercloud-mercury.csv`
+Rocketry Ltd Mercury (AltimeterCloud) — public flight page
+<https://www.altimetercloud.com/flights/1866/>, downsampled to ~650 rows with the original
+header kept. The device's own page states **784.2 ft**, which the parser test asserts. This is
+the columns-first variant, whose `bmp_temp(x100)` column is centi-degrees — the reason the
+named parser exists rather than leaving the file to the mapper.
+

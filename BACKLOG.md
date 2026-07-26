@@ -875,6 +875,20 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
 
 ## Feature depth
 
+- **A named Rocketry Ltd Mercury / AltimeterCloud parser — the seventh recognized logger.** It
+  was the last corpus family Debrief read *well* but still made the flyer map by hand: five
+  public flight-page exports, apogee agreeing with the device's own summary to 0.0%. Two
+  header flavours in the wild, both covered (`Time(ms),Altitude(m),Velocity(m/s),…,Board
+  temp(C)` after a settings block, and a columns-first
+  `time(ms),altitude(m),velocity_pressure(m/s),…,bmp_temp(x100)`). The parser earns its place
+  on more than detection: **`bmp_temp(x100)` is centi-degrees**, so the mapper read 2,708 °C
+  and the analysis discarded it — those flights had no ground temperature and no speed of
+  sound derived from one. They read 26.4–35.1 °C now, and the before/after is a test. The
+  Euler angles and the unstated gyro axes are deliberately left out (see the roll-rate entry
+  above), and `apogee_prediction` is left out because a prediction is not a measurement and
+  has no business in a flight Debrief reads. Apogee is byte-identical before and after —
+  the parser changes what is *recognised* and what is *recovered*, not the read.
+
 - **Second slice of the report & export builder: the flyer picks the figures.** The first
   slice gave them the readings; this gives them the plots. Every figure the flight supports
   is still drawn on screen — that is the analysis — but which ones travel into the

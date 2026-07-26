@@ -9,6 +9,7 @@ const FORMATS = [
   'Featherweight (Raven · Blue Raven · GPS)',
   'Entacore AIM',
   'MissileWorks RRC3 (mDACS)',
+  'Rocketry Ltd Mercury (AltimeterCloud)',
 ];
 
 export default function RecognizedFormats() {

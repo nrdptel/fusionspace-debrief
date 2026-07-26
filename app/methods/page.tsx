@@ -575,7 +575,10 @@ export default function MethodsPage() {
           </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS),
-            Entacore AIM and MissileWorks RRC3 (mDACS) files are recognized automatically; the
+            Entacore AIM, MissileWorks RRC3 (mDACS) and Rocketry Ltd Mercury (AltimeterCloud) files
+            are recognized automatically — the last of those in both its header flavours, one of
+            which writes its temperature in hundredths of a degree, so read as a plain column it
+            comes out as thousands of degrees and is thrown away; the
             generic-CSV mapper — which also reads header-less exports (guessing the time and altitude
             columns from the data&apos;s own shape, and reading any unit the values carry in-cell, such as
             a &deg;F temperature, to settle whether the altitude is in feet or metres), UTF-16 files

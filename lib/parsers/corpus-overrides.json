@@ -142,6 +142,138 @@
         }
       ],
       "note": "Jolly Logic AltimeterThree, the manufacturer's OWN official sample flight — the highest-authority ground truth in the corpus, and it asserted no number. Debrief reads 666 ft AGL where the device's Info tab says 681 ft, and the whole 15 ft is accounted for: 9 ft of pad baseline (the altitude column sits at ~8.6 ft mean over the 100 pre-liftoff samples, so 681 is not measured from the pad) and ~6 ft of a single-sample spike (the 681 sample at t=12.25 s has neighbours of 665 and 670 ft, in a trace whose sample-to-sample scatter is ~5 ft). Debrief's flight time, 48.8 s, matches the device's stated 49 s. Asserting the read Debrief can defend rather than the device's raw maximum. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "mercury-rocketry-altimetercloud/mercury__altimetercloud-greeneggs3-1888__1888.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altimetercloud"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity",
+        "accelTotal",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 686.6,
+          "unit": "ft",
+          "tolPct": 3
+        }
+      ],
+      "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Nano V1, summary block then Time(ms)/Altitude(m)/Velocity(m/s); Board temp(C) reads directly. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1784__1784.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altimetercloud"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity",
+        "accelTotal",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 2483,
+          "unit": "ft",
+          "tolPct": 2
+        }
+      ],
+      "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Mercury V1, columns-first with bmp_temp(x100) — centi-degrees, 27.1 °C once scaled; read as 2708 °C by the mapper and discarded. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1785__1785.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altimetercloud"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity",
+        "accelTotal",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 2482,
+          "unit": "ft",
+          "tolPct": 2
+        }
+      ],
+      "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Mercury V1, columns-first; bmp_temp(x100) → 26.4 °C. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1786__1786.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altimetercloud"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity",
+        "accelTotal",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 2482,
+          "unit": "ft",
+          "tolPct": 2
+        }
+      ],
+      "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Nano V1, summary block; Board temp(C) → 28.5 °C. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "mercury-rocketry-altimetercloud/mercury__altimetercloud-lilnuke4alt-1796__1796.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altimetercloud"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity",
+        "accelTotal",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 2483,
+          "unit": "ft",
+          "tolPct": 2
+        }
+      ],
+      "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Nano V1, summary block; Board temp(C) → 28.9 °C. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "mercury-rocketry-altimetercloud/mercury__altimetercloud-supernova-1866__1866.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "altimetercloud"
+      },
+      "requireChannels": [
+        "altitude",
+        "velocity",
+        "accelTotal",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 784.2,
+          "unit": "ft",
+          "tolPct": 3
+        }
+      ],
+      "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Mercury V1, columns-first; bmp_temp(x100) → 35.1 °C. Pending debrief-fixtures re-cut."
     }
   ]
 }
