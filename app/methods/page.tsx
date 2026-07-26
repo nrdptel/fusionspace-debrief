@@ -180,7 +180,22 @@ export default function MethodsPage() {
             read Mach&nbsp;1.19 where its partner measured 0.93, another Mach&nbsp;2.64 where its
             partner measured 1.22. So no baro peak from Mach&nbsp;0.9 up can confirm the rocket went
             supersonic, nor bound how fast it really went. It&apos;s flagged, not withheld; an
-            accelerometer, an inertial solution or GPS settles it.
+            accelerometer or an inertial solution settles it.
+          </Method>
+          <Method title="A GPS speed doesn't settle it either">
+            A speed worked out from a <strong>GPS</strong> altitude used to be treated as settling a
+            Mach&nbsp;1 crossing, on the reasoning that nothing distorts a GPS through the transonic
+            region the way a shock over a static port distorts a barometer. That reasoning is sound and
+            it answers the wrong question: the error in a GPS speed doesn&apos;t come from the
+            transonic region, it comes from differentiating an altitude that is coarse in space and
+            lagging in time. Both corpus GPS flights that a second instrument also recorded measure it,
+            and both run <em>high</em>: one reads Mach&nbsp;1.46 (1,631&nbsp;ft/s, sampled at
+            0.7&nbsp;Hz) where a Blue Raven on that same flight measured Mach&nbsp;1.14
+            (1,243&nbsp;ft/s at 50&nbsp;Hz), and the other reads 1,466&nbsp;ft/s at 2.1&nbsp;Hz where
+            the tracker&apos;s own summary states 1,340&nbsp;ft/s — +28% and +9%. A figure that can be
+            a third high is not one that decides whether a flight went supersonic, so a GPS-derived
+            crossing is now flagged the same way a barometric one is. The number is still shown: it is
+            the flyer&apos;s own record, and the direction of its error is stated with it.
           </Method>
           <Method title="When the accelerometer settles it">
             On a log that carries both channels, the accelerometer bounds a barometric speed from{' '}

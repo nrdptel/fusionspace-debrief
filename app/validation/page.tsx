@@ -188,7 +188,12 @@ export default function ValidationPage() {
             </li>
             <li>
               A <strong>GPS</strong> altitude or track is good only to a few metres, and a velocity
-              derived from it is rough; acceleration off it isn&apos;t meaningful and is withheld.
+              derived from it is rough; acceleration off it isn&apos;t meaningful and is withheld. The
+              roughness has a measured direction: on both corpus GPS flights a second instrument also
+              recorded, the GPS-derived peak lands <em>above</em> the measurement — Mach&nbsp;1.46
+              against a Blue Raven&apos;s measured 1.14 on the same flight, and 1,466&nbsp;ft/s against
+              the tracker&apos;s own stated 1,340&nbsp;ft/s. So a GPS peak past Mach&nbsp;0.9 is flagged
+              like a barometric one and never counted as proof of a supersonic flight.
             </li>
             <li>
               A <strong>derived (barometric) velocity or acceleration</strong> is a smoothed estimate,
@@ -196,7 +201,9 @@ export default function ValidationPage() {
               Mach&nbsp;0.9 up it stops being a reading of the speed at all: two corpus flights each
               recorded on two devices bracket the error in both directions — one baro trace read
               Mach&nbsp;1.19 against a measured 0.93, another Mach&nbsp;2.64 against a measured 1.22 —
-              so a baro peak there is flagged and never counted as proof of a supersonic flight.
+              so a baro peak there is flagged and never counted as proof of a supersonic flight. Only a
+              speed the device itself measured settles that; a speed differentiated from an altitude
+              never does, whichever sensor wrote the altitude.
             </li>
             <li>
               A <strong>logged velocity column that is really the file&apos;s own altitude

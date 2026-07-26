@@ -32,11 +32,18 @@ export interface FlightMetrics {
    *  or null for a subsonic flight. */
   transonicTime: number | null;
   transonicAltitude: number | null;
-  /** True when that Mach-1 crossing was read from a barometric speed in the transonic
-   *  band, where the shock over the pressure port inflates the reading — so it can't be
-   *  taken as confirmation the rocket actually went supersonic. The UI and exports soften
-   *  the claim accordingly rather than dropping it. */
+  /** True when that Mach-1 crossing was read from a speed differentiated out of an
+   *  altitude rather than measured — so it can't be taken as confirmation the rocket
+   *  actually went supersonic. The UI and exports soften the claim accordingly rather
+   *  than dropping it. */
   transonicUnconfirmed: boolean;
+  /** For a derived speed, which altitude it was differentiated from; null when the device
+   *  measured the speed itself. Two failure modes wear the same "derived" label and need
+   *  different sentences: a barometer is distorted by the shock over its port from about
+   *  Mach 0.9 up, while a GPS is not — but differentiating a coarse, lagging GPS altitude
+   *  runs the peak high instead. Saying "a barometer can't confirm this" over a GPS log
+   *  names the wrong sensor and the wrong failure. */
+  derivedVelocityFrom: 'baro' | 'gps' | null;
   maxAcceleration: number; // m/s²
   /** Mean acceleration over the boost (liftoff → burnout) — a standard altimeter
    *  reading alongside the peak. null without a burnout or an acceleration trace. */

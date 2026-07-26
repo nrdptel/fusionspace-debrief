@@ -636,3 +636,52 @@ describe('the descent clock read from a file’s second copy', () => {
     expect(Math.abs(b.timeToApogee + b.descentTime! - b.flightTime!)).toBeLessThan(0.01);
   });
 });
+
+// A speed differentiated from an altitude never confirms a Mach-1 crossing — and the GPS
+// carve-out that used to exist is what this pins down. The reasoning behind it was that
+// nothing distorts a GPS through the transonic region the way a shock over a static port
+// distorts a barometer. True, and beside the point: the error in a GPS speed comes from
+// differentiating a coarse, lagging altitude. Both corpus GPS flights that a second
+// instrument also recorded measure it, and both run HIGH — so the crossing is flagged.
+describe('a GPS-derived speed does not confirm a supersonic flight', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+
+  it('reads high against the instrument that measured the same flight (Mach 1.46 vs 1.14)', () => {
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv');
+    const br = loadForCompare('blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv');
+    expect(gps, 'the ground-station log is in the corpus').toBeTruthy();
+    expect(br, 'the Blue Raven is in the corpus').toBeTruthy();
+    const g = gps!.analysis.metrics;
+    const b = br!.analysis.metrics;
+    // The Blue Raven's speed is a measurement (its own velocity channel); the GPS one is
+    // this altitude differentiated at about 1 Hz.
+    expect(br!.analysis.series.velocitySource).toBe('device');
+    expect(gps!.analysis.series.velocitySource).toBe('baro');
+    expect(gps!.analysis.series.altitudeSource).toBe('gps');
+    // The gap between them is the whole point: 31% on the speed, and it is one-directional.
+    expect(g.maxVelocity! / b.maxVelocity!, 'the GPS peak runs high, not soft').toBeGreaterThan(1.2);
+    // …and the flyer is told so, in the language of the sensor that produced it — the
+    // barometric shock-over-the-port warning would name the wrong failure here.
+    const why = gps!.analysis.warnings.find((w) => /worked out from the GPS altitude/.test(w));
+    expect(why, 'the GPS peak says what it is').toBeTruthy();
+    expect(why, 'and which way its error runs').toMatch(/runs the peak high/);
+  });
+
+  it('flags the crossing it does detect instead of asserting it', () => {
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv');
+    expect(gps, 'the tracker log is in the corpus').toBeTruthy();
+    const m = gps!.analysis.metrics;
+    expect(m.transonicTime, 'this one does cross Mach 1 on the derived speed').not.toBeNull();
+    expect(m.transonicUnconfirmed, 'and the crossing is not asserted').toBe(true);
+  });
+
+  it('still confirms a crossing the device itself measured', () => {
+    const br = loadForCompare('blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv');
+    const m = br!.analysis.metrics;
+    expect(m.transonicTime, 'the Blue Raven crossed Mach 1').not.toBeNull();
+    expect(m.transonicUnconfirmed, 'a measured speed still settles it').toBe(false);
+  });
+});

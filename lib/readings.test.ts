@@ -105,6 +105,21 @@ describe('the screen and the saved report agree on which readings exist', () => 
     expect(unconfirmed).not.toContain('Supersonic');
   });
 
+  it('names the sensor an unconfirmed crossing came from, not just "derived"', () => {
+    // A barometer and a GPS both produce a derived speed and both fail to settle a Mach-1
+    // crossing, but for different reasons — the shock over a static port, versus
+    // differentiating a coarse, lagging altitude. Telling a GPS flyer their barometer is
+    // the problem is a wrong explanation of a right caveat.
+    const row = (from: 'baro' | 'gps') =>
+      headlineRows({ ...EVERYTHING, transonicUnconfirmed: true, derivedVelocityFrom: from }, 'imperial').find(
+        ([l]) => l === 'Transonic',
+      )![1];
+    expect(row('baro')).toMatch(/barometric speed/);
+    expect(row('baro')).not.toMatch(/GPS/);
+    expect(row('gps')).toMatch(/GPS-derived speed/);
+    expect(row('gps')).toMatch(/runs the peak high/);
+  });
+
   it('keeps both lists free of duplicate labels', () => {
     // Labels are the join between the two lists and the key the flyer's show/hide choice
     // is stored under, so a repeat would silently make one reading control another.

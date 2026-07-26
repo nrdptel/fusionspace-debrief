@@ -59,8 +59,14 @@ test('a GPS log shows the recovery (ground track) view with walkback numbers', a
   await expect(page.getByText(/flew about \d+° off vertical/)).toBeVisible();
   // The canvas exposes a text description of the track for screen readers.
   await expect(page.getByRole('img', { name: /landed .* from the pad, bearing/i })).toBeVisible();
-  // This flight is supersonic — the design-point note calls it out.
-  await expect(page.getByText(/Went supersonic — crossed Mach 1/)).toBeVisible();
+  // This flight's derived speed crosses Mach 1 — and a speed differentiated out of a GPS
+  // altitude does not confirm that, so the note says so instead of asserting it. Two
+  // corpus GPS flights that a second instrument also recorded put this read 9% and 31%
+  // above the measurement, always high; the barometric explanation would name the wrong
+  // sensor and the wrong failure, so the GPS sentence is its own.
+  await expect(page.getByText(/Went supersonic — crossed Mach 1/)).toHaveCount(0);
+  await expect(page.getByText(/Reads transonic — the GPS-derived speed crosses Mach 1/)).toBeVisible();
+  await expect(page.getByText(/differentiating a coarse, lagging altitude runs the peak high/)).toBeVisible();
 
   // GPS altitude → acceleration is honestly omitted, not shown as noise.
   await expect(page.getByText(/Acceleration is omitted/)).toBeVisible();

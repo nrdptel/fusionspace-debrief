@@ -179,7 +179,12 @@ export function headlineRows(
     const at = m.transonicAltitude != null ? ` at ${fmtLength(m.transonicAltitude, sys)}` : '';
     rows.push(
       m.transonicUnconfirmed
-        ? ['Transonic', `barometric speed crosses Mach 1${at} — unconfirmed (a barometer can’t resolve speed from about Mach 0.9 up)`]
+        ? [
+            'Transonic',
+            m.derivedVelocityFrom === 'gps'
+              ? `GPS-derived speed crosses Mach 1${at} — unconfirmed (differentiating a coarse GPS altitude runs the peak high)`
+              : `barometric speed crosses Mach 1${at} — unconfirmed (a barometer can’t resolve speed from about Mach 0.9 up)`,
+          ]
         : ['Supersonic', `crossed Mach 1${at}, ${fmtTime(m.transonicTime)} after liftoff`],
     );
   }
@@ -975,6 +980,9 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     transonicTime: sec(m.transonicTime),
     transonicAltitude: len(m.transonicAltitude),
     ...(m.transonicTime != null ? { transonicUnconfirmed: m.transonicUnconfirmed } : {}),
+    // Which altitude a derived speed was differentiated from — additive, and null on a
+    // device-measured speed, so a consumer reads a key it knows either way.
+    derivedVelocityFrom: m.derivedVelocityFrom,
     burnTime: sec(m.burnTime),
     burnoutAltitude: len(m.burnoutAltitude),
     burnoutVelocity: spd(m.burnoutVelocity),

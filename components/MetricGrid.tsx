@@ -74,11 +74,23 @@ export default function MetricGrid({
       {metrics.transonicTime != null &&
         (metrics.transonicUnconfirmed ? (
           <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-            Reads transonic — the barometric speed crosses Mach 1
-            {metrics.transonicAltitude != null ? ` around ${fmtLength(metrics.transonicAltitude, sys)}` : ''}, but a
-            barometer can&apos;t confirm supersonic flight (the shock over the pressure port distorts the sensed
-            pressure from about Mach 0.9 up, and the error runs both ways). An accelerometer, an inertial solution or
-            GPS would settle it.
+            Reads transonic — the {metrics.derivedVelocityFrom === 'gps' ? 'GPS-derived' : 'barometric'} speed crosses
+            Mach 1
+            {metrics.transonicAltitude != null ? ` around ${fmtLength(metrics.transonicAltitude, sys)}` : ''}, but{' '}
+            {metrics.derivedVelocityFrom === 'gps' ? (
+              <>
+                a speed worked out from a GPS altitude can&apos;t confirm supersonic flight. Nothing distorts a GPS
+                through the transonic region, but differentiating a coarse, lagging altitude runs the peak high — on
+                both corpus GPS flights a second instrument also recorded, this read came out above the measurement.
+                An accelerometer or an inertial solution would settle it.
+              </>
+            ) : (
+              <>
+                a barometer can&apos;t confirm supersonic flight (the shock over the pressure port distorts the sensed
+                pressure from about Mach 0.9 up, and the error runs both ways). An accelerometer or an inertial
+                solution would settle it.
+              </>
+            )}
           </p>
         ) : (
           <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
