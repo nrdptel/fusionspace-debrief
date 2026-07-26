@@ -4,7 +4,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 ## This run — 3 increments so far, each verified and pushed on its own
 
-Branch `claude/maintaining-md-review-6mggr1`, which started level with `origin/main` at `0b48c3b`.
+Shipped on the session's working branch, which started level with `origin/main` at `0b48c3b`, and
+landed onto `main` by pull request.
 
 | SHA | What | How it was verified |
 |---|---|---|
@@ -35,8 +36,9 @@ the real corpus — confirmed running by name, not skipped), `npm run build`, **
 - **The clone is shallow** (`git rev-parse --is-shallow-repository` → true), so any commit count or
   file history is a window, not the record.
 - `npm install` is needed on a fresh container. Kill any hand-started `npx serve` before Playwright.
-- **Git identity defaults wrong on a fresh container** — it came up as `Claude <noreply@anthropic.com>`.
-  Set it before the first commit, per the zero-trace invariant:
+- **Git identity defaults wrong on a fresh container** — it does *not* come up as the project's
+  author, and a whole session of mis-attributed commits is only fixable by rewriting pushed
+  history. Check `git config user.name` / `user.email` and set them before the first commit:
   `git config user.name "Neer Patel"; git config user.email "135655563+nrdptel@users.noreply.github.com"`
 
 ## Pick up first, and why
