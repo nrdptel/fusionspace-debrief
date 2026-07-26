@@ -97,6 +97,14 @@ export default function MethodsPage() {
             rest — split the file, or export the flights separately, to read the others. A dropout that
             reads zero <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is
             not a landing and never splits a file.
+          {' '}
+            Debrief reads the <strong>first</strong> flight in the file, and keeps doing so even
+            where a later copy looks more complete: reading the later one was tried and measured on
+            a Blue Raven that holds the same flight twice, and it moved the apogee from
+            10,245&nbsp;ft to 10,723 against the device&apos;s own stated 10,266 — the second copy
+            begins at the trough with no quiet pad window to take a ground baseline from. A right
+            apogee is not worth trading for a right descent; what the first copy lacks is said
+            instead.
           </Method>
           <Method title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
@@ -326,6 +334,18 @@ export default function MethodsPage() {
             leg it barely caught. One corpus recording loses power 1.3&nbsp;s after its main fires at
             1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
             same flight reads 57. Two feet per second is the end of the record, not a descent.
+          </Method>
+          <Method title="A record that stops in the air">
+            A flight time and a descent need a descent to be <em>in</em> the record, and the same
+            vacuum argument says when it isn&apos;t: a body cannot fall from{' '}
+            <span className="font-mono">h</span> in less than <span className="font-mono">√(2h/g)</span>,
+            so a log that ends sooner than that after its own apogee holds the climb and not the
+            fall — whatever the trace does at the cut. This is not a rare shape. A logger that writes
+            the same flight into one file twice can cut the first copy short, and the &ldquo;landing&rdquo;
+            then found is the record restarting: on one corpus Blue Raven, 0.08&nbsp;s after the peak
+            of a 10,245&nbsp;ft flight, reported as an 18.3&nbsp;s flight time. Those readings are
+            withheld now, with a note saying how far short the record stops. The climb — apogee, top
+            speed, burnout, the whole ascent — is unaffected and still read.
           </Method>
           <Method title="A descent rate that beats a vacuum">
             The rocket is at rest at apogee — that is what apogee means — so nothing after it can be

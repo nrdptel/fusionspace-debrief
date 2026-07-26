@@ -6,6 +6,25 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **An 18.3-second flight time for a 10,245 ft flight, and the fix I nearly shipped for it was
+  a regression.** The Blue Raven that holds one flight twice cuts its first copy at apogee, so
+  the "landing" the detector finds is the record restarting — 0.08 s after the peak — and
+  Debrief reported an 18.3 s flight time, a 0.08 s descent and (before the ceiling above) a
+  16,495 ft/s descent rate off it. **The obvious fix — read the copy that runs to the ground —
+  was built, measured, and reverted:** it moved the apogee from 10,245 ft to **10,723** against
+  the device's own stated **10,266 ft** and the GPS's 10,409, because the second copy begins at
+  the trough with no quiet pad window to take a ground baseline from. Trading a right apogee
+  for a right descent is not a trade worth making. **What shipped instead** is the vacuum
+  argument in time: a body cannot fall from h in less than √(2h/g), so a record ending sooner
+  than that after apogee holds the climb and not the fall. No landing is marked, and the
+  flight time, descent time and descent rates that hang off it are withheld with a note saying
+  how far short the record stops. Swept: three corpus files, and the only real number lost is
+  the 18.3 s fabrication (the other two were already null or a 19 ft partial capture). The
+  climb is untouched on all of them. **Still open:** the second copy of that Blue Raven file
+  holds a genuine descent that nothing reads — the honest end state is probably to take the
+  ascent from the copy with the pad and the descent from the copy with the ground, which is
+  per-recording assembly within one file and wants its own pass.
+
 - **Debrief was printing a 16,495 ft/s "main descent rate" on a real corpus file, and two
   more besides.** Found by sweeping every corpus flight's descent legs rather than by a
   report: a Blue Raven read **16,495 ft/s**, an Eggtimer **8,303 ft/s** and another

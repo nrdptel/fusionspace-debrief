@@ -1189,6 +1189,29 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.warnings.some((w) => /vacuum/.test(w))).toBe(true);
   });
 
+  it('withholds the clock when the record stops before the rocket came down', () => {
+    // A logger that writes the same flight twice can cut one copy short. The segmenter sees
+    // "climbed, came back to the ground, climbed again" either way, so the first copy's
+    // "landing" is the record restarting — on a corpus Blue Raven, 0.08 s after the peak of
+    // a 10,245 ft flight, which was reported as an 18.3 s flight time. A body cannot fall
+    // from h in less than √(2h/g), so a record that ends sooner than that after apogee did
+    // not hold a descent, whatever the trace does at the cut.
+    const { flight } = syntheticBaroFlight();
+    const alt = Float64Array.from(flight.channels[0].values);
+    const apIdx = alt.indexOf(Math.max(...alt));
+    const cut = apIdx + 4;
+    // Everything after apogee drops straight to the ground and stays there — the shape of a
+    // record restarting, not of a rocket descending.
+    for (let i = cut; i < alt.length; i++) alt[i] = 0;
+    const a = analyzeFlight({ ...flight, channels: [{ ...flight.channels[0], values: alt }] });
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0); // the climb is still read
+    expect(a.metrics.flightTime).toBeNull();
+    expect(a.metrics.descentTime).toBeNull();
+    expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.events.some((e) => e.type === 'landing')).toBe(false);
+    expect(a.warnings.some((w) => /holds the climb but not the descent/.test(w))).toBe(true);
+  });
+
   it('withholds a descent leg the record only holds a sliver of', () => {
     // A log that loses power in mid-air moments after the main fires: the samples left
     // average to almost nothing, which is the end of the record rather than a descent.

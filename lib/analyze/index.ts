@@ -321,14 +321,34 @@ function nextFlightStart(altitude: Float64Array): number | null {
   return null;
 }
 
-/** The flight up to `end` (exclusive): the time base and every channel, sliced together
- *  so the model stays consistent. */
-function sliceFlight(flight: RawFlight, end: number): RawFlight {
+/** The flight from `start` to `end` (exclusive): the time base and every channel, sliced
+ *  together so the model stays consistent. */
+function sliceFlight(flight: RawFlight, start: number, end: number): RawFlight {
   return {
     ...flight,
-    time: flight.time.slice(0, end),
-    channels: flight.channels.map((c) => ({ ...c, values: c.values.slice(0, end) })),
+    time: flight.time.slice(start, end),
+    channels: flight.channels.map((c) => ({ ...c, values: c.values.slice(start, end) })),
   };
+}
+
+/**
+ * Did the record actually contain a descent, or does it stop somewhere above the ground?
+ *
+ * The vacuum fall again, in time rather than in speed: a body released at height h cannot
+ * reach the ground in less than √(2h/g), so a record that ends sooner than that after its
+ * own peak did not hold a descent — whatever the trace does at the cut. A necessary
+ * condition, not a sufficient one, which is what a guard that must never refuse a real
+ * flight wants.
+ *
+ * A logger that writes the same flight into a file twice makes this concrete: one corpus
+ * Blue Raven cuts its first copy at apogee, and the "landing" the detector then finds is
+ * the record restarting, 0.08 s after the peak of a 10,245 ft flight. A flight time of
+ * 18.3 s and a descent of 0.08 s were both being reported off that.
+ */
+function descentIsInTheRecord(altitude: Float64Array, time: Float64Array, apogeeIdx: number, landingIdx: number): boolean {
+  const peak = altitude[apogeeIdx];
+  if (!(peak > 0) || landingIdx <= apogeeIdx) return false;
+  return time[landingIdx] - time[apogeeIdx] >= Math.sqrt((2 * peak) / G0);
 }
 
 /** null for a non-finite value, for the metrics that are nullable rather than NaN. */
@@ -385,10 +405,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // One file can hold more than one flight — a logger downloaded twice, or a day's
   // flights in one dump. Read as a single flight the record is nonsense: the global peak
   // belongs to a later flight while liftoff belongs to the first, so time-to-apogee
-  // spans both. Analyze the first flight and say so.
+  // spans both. So one segment is read, and the file says which.
+  //
+  // The first flight is the one read, and it stays that way even when a later segment looks
+  // more complete. That was tried and measured: on a corpus Blue Raven that holds the same
+  // flight twice, the first copy stops at apogee and the second runs to the ground — but the
+  // second has no pad window to take a ground baseline from, and reading it moved the apogee
+  // from 10,245 ft to 10,723 against the device's own stated 10,266 and a GPS's 10,409.
+  // Trading a right apogee for a right descent is not a trade worth making. What the first
+  // copy genuinely lacks is said instead, below.
   const secondFlightAt = nextFlightStart(altitude);
   if (secondFlightAt != null && depth === 0) {
-    const first = analyzeFlight(sliceFlight(flight, secondFlightAt), 1);
+    const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1);
     return {
       ...first,
       warnings: [
@@ -968,7 +996,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     }
   }
   const landingTime = time[landingIdx];
-  const landingFound = landingIdx < n - 1 || altClean[n - 1] < 5;
+  // A landing needs a descent to have happened before it. Where the record stops sooner
+  // after apogee than a vacuum fall from that height would take (see `descentIsInTheRecord`),
+  // whatever the detector settled on is the end of the record, not a touchdown — so no
+  // landing is marked, and the clock that hangs off it (flight time, descent time) is left
+  // unread rather than reported as a number the flight cannot have had.
+  const descentRecorded = descentIsInTheRecord(altClean, time, apogeeIdx, landingIdx);
+  const landingFound = (landingIdx < n - 1 || altClean[n - 1] < 5) && descentRecorded;
+  if (!descentRecorded && apogeeIdx < n - 2) {
+    warnings.push(
+      `The record stops ${formatSeconds(time[n - 1] - time[apogeeIdx])} after apogee, sooner than this flight could have fallen from ${Math.round(altClean[apogeeIdx])} m even in a vacuum (${formatSeconds(Math.sqrt((2 * altClean[apogeeIdx]) / G0))}). So it holds the climb but not the descent: no landing, no flight time, and no descent rate are read from it.`,
+    );
+  }
   if (apogeeIdx >= n - 2) {
     warnings.push('The log appears to end at or before apogee — descent numbers may be missing.');
   }
@@ -1027,7 +1066,10 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // noise — it can even come out negative, a "descent" that goes up. So require the record
   // to have actually come down a real fraction of the height it reached, and never report
   // a rate that isn't downward.
-  const cameDown = altClean[apogeeIdx] - altClean[landingIdx] > Math.max(3, apogeeAlt * 0.1);
+  // Two ways to ask "is the descent actually here": far enough (this) and long enough
+  // (`descentRecorded`). A record can satisfy one and not the other — a cut that drops to a
+  // restart baseline falls the whole way in a fraction of a second — and a rate needs both.
+  const cameDown = altClean[apogeeIdx] - altClean[landingIdx] > Math.max(3, apogeeAlt * 0.1) && descentRecorded;
   const downward = (v: number) => (Number.isFinite(v) && v > 0 ? v : null);
   // Each leg of the descent gets the same test as the descent as a whole, against the
   // height that leg started from — because a log can stop moments after a deployment and
