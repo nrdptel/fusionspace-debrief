@@ -1426,17 +1426,32 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // falling back to the ground value only if that index is somehow unreadable.
   const maxVelSoS = maxVelIdx >= 0 && Number.isFinite(sosProfile[maxVelIdx]) ? sosProfile[maxVelIdx] : speedOfSound;
   const mach = Number.isFinite(maxVelocity) && maxVelocity > 0 ? maxVelocity / maxVelSoS : null;
-  // Peak dynamic pressure (½ρv²) over the flight — the structural load case — and
-  // the altitude it happened at (a real design point).
+  // Peak dynamic pressure (½ρv²) over the ASCENT — the structural load case — and the
+  // altitude it happened at (a real design point).
+  //
+  // The window matters, and it used to be the whole record. Because q squares the speed,
+  // a velocity that swings hard NEGATIVE contributes as though it were airspeed, and the
+  // place that happens is the deployment transient: a charge vents the airframe and a
+  // derived or integrated velocity spikes for a fraction of a second. Six of the 34 corpus
+  // flights that report a max-Q took it from such a sample rather than from the boost —
+  // 3.18x, 2.22x, 2.19x and 1.95x the real ascent peak on four of them, and on the 121 km
+  // flight a −8,970 m/s sample read 47,322 kPa against an ascent peak of 404 kPa. A
+  // structural load case a hundred times the real one is not a caveat, it is a wrong
+  // number in the place a flyer sizes an airframe from.
+  //
+  // So q is read over the same window as the peak speed it comes from — liftoff to apogee,
+  // climbing — which is also where the load case has always lived. A descent has real
+  // airspeed and real q, but nothing near the boost's, and none of the six samples above
+  // was a descent: they are hundreds of m/s of transient in a trace that measures tens.
   let maxDynamicPressure: number | null = null;
   let maxQIdx = -1;
   // Skip when an ascent gap has already made the velocity untrustworthy, or the peak
   // was physically impossible — q = ½ρv² would inherit the same spurious speed.
-  if (!ascentGapBreaksPeak && !velocityImplausible) {
-    for (let i = 0; i < n; i++) {
+  if (ascentPresent && !ascentGapBreaksPeak && !velocityImplausible) {
+    for (let i = Math.max(0, liftoffRef); i <= apogeeIdx && i < n; i++) {
       const v = velocity[i];
       const rho = airDensity[i];
-      if (!Number.isFinite(v) || !Number.isFinite(rho)) continue;
+      if (!Number.isFinite(v) || v <= 0 || !Number.isFinite(rho)) continue;
       const q = 0.5 * rho * v * v;
       if (maxDynamicPressure === null || q > maxDynamicPressure) {
         maxDynamicPressure = q;

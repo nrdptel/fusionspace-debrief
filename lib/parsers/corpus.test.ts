@@ -731,3 +731,68 @@ describe('a speed differentiated out of an altitude reads high, not soft', () =>
     });
   }
 });
+
+// Max-Q is the boost load case, so it is read over the ascent — not over the whole record,
+// where q = ½ρv² squares away the sign of a deployment transient and reports it as airspeed.
+// Six corpus flights used to take their max-Q from such a sample; each is named here with
+// the ascent peak it should read instead, so the window cannot quietly widen again.
+describe('max-Q is the boost load case, not a deployment transient', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // file → the ascent peak in kPa, and what the whole-record rule used to report.
+  const WAS_A_TRANSIENT: { file: string; kPa: number; wasKPa: number }[] = [
+    { file: 'blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv', kPa: 404.1, wasKPa: 47321.8 },
+    { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 83.8, wasKPa: 266.3 },
+    { file: 'eggtimer/eggtimer__euroc-skyward-lynx__log.csv', kPa: 103.4, wasKPa: 230.0 },
+    { file: 'featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv', kPa: 1.5, wasKPa: 3.0 },
+    { file: 'missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv', kPa: 60.3, wasKPa: 401.4 },
+    { file: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv', kPa: 99.7, wasKPa: 218.6 },
+  ];
+  for (const c of WAS_A_TRANSIENT) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — ${c.wasKPa.toFixed(0)} kPa was a transient, ${c.kPa.toFixed(0)} kPa is the boost`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const q = loaded!.analysis.metrics.maxDynamicPressure;
+      expect(q, `${short}: a max-Q is reported`).not.toBeNull();
+      expect(q! / 1000, `${short}: reads the ascent peak, not the transient`).toBeCloseTo(c.kPa, 0);
+    });
+  }
+
+  it('never reads max-Q off a descending or post-apogee sample, on any corpus flight', { timeout: 60_000 }, () => {
+    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
+    let checked = 0;
+    for (const file of files) {
+      // A file Debrief deliberately refuses (a Blue Raven high-rate log, a device summary)
+      // throws its guidance rather than parsing — not a max-Q at all, so skip it.
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const { metrics: m, series: s } = loaded.analysis;
+      if (m.maxDynamicPressure == null || m.maxDynamicPressureAltitude == null) continue;
+      checked++;
+      // The reported q has to be reachable from a climbing sample at or before apogee.
+      let best = 0;
+      const apogeeT = loaded.analysis.events.find((e) => e.type === 'apogee')?.time ?? Infinity;
+      for (let i = 0; i < s.velocity.length; i++) {
+        const v = s.velocity[i];
+        const rho = s.airDensity[i];
+        if (!Number.isFinite(v) || v <= 0 || !Number.isFinite(rho)) continue;
+        if (s.time[i] > apogeeT) break;
+        const q = 0.5 * rho * v * v;
+        if (q > best) best = q;
+      }
+      expect(
+        m.maxDynamicPressure,
+        `${file}: reported ${(m.maxDynamicPressure / 1000).toFixed(1)} kPa exceeds the climbing peak ${(best / 1000).toFixed(1)} kPa`,
+      ).toBeLessThanOrEqual(best * 1.001);
+    }
+    expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+  });
+});

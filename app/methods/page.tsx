@@ -484,7 +484,21 @@ export default function MethodsPage() {
             touch higher than a ground-temperature divisor, and more so with height). Dynamic pressure
             (½&nbsp;ρv²) uses air density from the same lapse, anchored to the pad&apos;s own conditions
             — so a high-elevation launch reads its real, thinner air. Both ride on the velocity, so
-            they soften near peak speed.
+            they carry whatever caveat it carries.
+            <br />
+            <br />
+            Max-Q is read over the <strong>ascent</strong> — liftoff to apogee, climbing — the same
+            window the peak speed comes from, and where the structural load case lives. The window is
+            the whole point: q squares the speed, so a velocity that swings hard <em>negative</em>
+            counts as though it were airspeed, and the place that happens is the deployment transient,
+            where a charge vents the airframe and a derived or integrated velocity spikes for a
+            fraction of a second. Read over the whole record, six of the 34 corpus flights that report
+            a max-Q took it from such a sample instead of from the boost — 3.2&times;, 2.2&times;,
+            2.2&times; and 2.0&times; the real ascent peak on four of them, and on the 121&nbsp;km
+            flight a &minus;8,970&nbsp;m/s sample read 47,322&nbsp;kPa against an ascent peak of
+            404&nbsp;kPa. A descent has real airspeed and a real q, but nothing near the boost&apos;s,
+            and none of those six samples was a descent. A record with no ascent in it has no boost, so
+            no load case, and gets no max-Q at all.
           </Method>
           <Method title="The device's own summary, dropped alongside">
             Some altimeter apps write a summary file next to the log — the device&apos;s own
