@@ -1541,19 +1541,67 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   }
 
   // --- Thrust-to-weight off the pad ----------------------------------------
-  // At liftoff the accelerometer's specific force (in g) is the thrust-to-weight
-  // ratio — drag is negligible at low speed, so accel/g ≈ T/W. The 5:1 rule of
-  // thumb is the rail-departure safety check. Measured trace only, averaged over a
-  // short window off the pad (capped at burnout for a very short motor), and
-  // withheld if that window was saturated — a railed reading understates the true
-  // thrust, so it's better to show nothing than a floor.
+  // Read against the rocket's OWN resting reading, because loggers do not agree on
+  // what an accelerometer channel means.
+  //
+  // This used to be `mean(accel)/g`, which is T/W only if the channel is SPECIFIC
+  // FORCE — the thing an accelerometer actually measures, reading +1 g at rest.
+  // AltusMetrum's `acceleration` column is not that: it is the axial reading with the
+  // pad's 1 g already removed, so it sits at ~0 on the pad. Eight of eight AltusMetrum
+  // corpus flights rest at −0.79…+1.34 m/s² where the six AltimeterCloud flights rest
+  // at 9.60…10.05. The same AltusMetrum row proves it outright — `acceleration` reads
+  // −0.98 while its own `accel_x` body axis reads 9.78 on the same sample. Divided by
+  // g, a gravity-removed channel yields exactly **T/W − 1**: a full point low, on the
+  // reading whose stated purpose is the 5:1 rail-departure check. One corpus flight
+  // reported 3.27:1 for a real 4.27:1, and a genuine 5.2 would have printed 4.2 —
+  // below the rule it is quoted against.
+  //
+  // Differencing against the resting reading removes the convention instead of
+  // encoding a per-logger table. Write the channel as `specific force − O` for an
+  // unknown offset O (O = 0 for a true specific-force channel, O = g for a
+  // gravity-removed one). At rest a_pad = g − O; under vertical boost a_boost = T/m − O.
+  // The offset cancels in the difference, so (a_boost − a_pad)/g + 1 = T/(mg) = T/W
+  // exactly, for either convention and without a threshold to tune.
+  //
+  // Measured trace only, averaged over a short window off the pad (capped at burnout
+  // for a very short motor), and withheld if that window was saturated — a railed
+  // reading understates the true thrust, so it's better to show nothing than a floor.
   let liftoffTWR: number | null = null;
   if (ascentPresent && liftoffFound && accelerationSource === 'device') {
     const w = Math.max(2, Math.round(0.2 / (dt || 0.1)));
     const hi = Math.min(n, liftoffRef + w, burnoutIdx ?? n);
     const m = hi > liftoffRef + 1 ? mean(acceleration, liftoffRef, hi) : NaN;
-    if (Number.isFinite(m) && m > 0 && !(accelClipped && m >= 0.97 * maxAcceleration)) {
-      liftoffTWR = m / G0;
+    // The quiet stretch before the motor lit. Ends a little before liftoff so the
+    // ignition transient is outside it.
+    let padSum = 0;
+    let padCount = 0;
+    for (let i = 0; i < liftoffRef; i++) {
+      const t = time[i];
+      if (t < liftoffTime - 1 || t >= liftoffTime - 0.05) continue;
+      const v = acceleration[i];
+      if (Number.isFinite(v)) {
+        padSum += v;
+        padCount++;
+      }
+    }
+    const padRest = padCount >= 3 ? padSum / padCount : NaN;
+    if (
+      Number.isFinite(m) &&
+      Number.isFinite(padRest) &&
+      !(accelClipped && m >= 0.97 * maxAcceleration)
+    ) {
+      const twr = (m - padRest) / G0 + 1;
+      // A rocket that left the pad lifted more than it weighed. Anything at or below
+      // 1 means the window did not catch the boost, not a flight that hovered.
+      if (twr > 1) liftoffTWR = twr;
+    } else if (Number.isFinite(m) && m > 0 && !(accelClipped && m >= 0.97 * maxAcceleration)) {
+      // No usable pad stretch — a record that begins at the rail leaves nothing to
+      // difference against, and the channel's convention is then unknowable from the
+      // file. Withheld rather than published under an assumption, because the number
+      // is quoted against a safety rule.
+      warnings.push(
+        'The record starts too close to liftoff to read the accelerometer’s resting value, and loggers differ on whether that channel already has gravity removed. Thrust-to-weight is left unread rather than reported a full point out.',
+      );
     }
   }
 

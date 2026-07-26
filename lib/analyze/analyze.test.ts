@@ -990,6 +990,83 @@ describe('thrust-to-weight off the pad', () => {
   it('omits it without a measured accelerometer', () => {
     expect(analyzeFlight(syntheticBaroFlight().flight).metrics.liftoffTWR).toBeNull();
   });
+
+  it('is the same number whether or not the channel has gravity removed', () => {
+    // The bug this pins: loggers disagree about what an accelerometer channel means.
+    // A true specific-force channel reads +1 g at rest; AltusMetrum's `acceleration`
+    // has that 1 g already taken out and rests at ~0. Read as if it were specific
+    // force, a gravity-removed channel yields exactly T/W − 1 — a full point low on
+    // the figure Debrief quotes against the 5:1 rail-departure rule.
+    //
+    // Same motion, two conventions: shifting the whole trace by g is precisely the
+    // difference between them, and T/W cannot depend on which one the logger wrote.
+    //
+    // The boost is a STEP rather than a ramp so that both traces cross the liftoff
+    // threshold on the same sample. That threshold is itself convention-blind — a
+    // fixed `acceleration > 2 g`, which on a gravity-removed channel is really 3 g of
+    // specific force — so on a ramp the two would be timed differently and this test
+    // would be measuring that instead. See BACKLOG; it is the same bug one layer up.
+    const build = (rest: number): RawFlight => {
+      const dt = 0.05;
+      const n = 600; // 30 s
+      const time = new Float64Array(n);
+      const alt = new Float64Array(n);
+      const acc = new Float64Array(n);
+      // Net upward acceleration during the burn, tapering so the trace is not a flat
+      // top — a perfectly constant boost reads as a saturated sensor and is withheld.
+      const A0 = 110;
+      const k = 20;
+      const tOff = 1;
+      const tBurn = 2.2;
+      const burn = tBurn - tOff;
+      const vBurn = A0 * burn - (k * burn * burn) / 2;
+      const hBurn = (A0 * burn * burn) / 2 - (k * burn ** 3) / 6;
+      const tApogee = tBurn + vBurn / G0;
+      const hApogee = hBurn + (vBurn * vBurn) / (2 * G0);
+      for (let i = 0; i < n; i++) {
+        const t = i * dt;
+        time[i] = t;
+        if (t < tOff) {
+          alt[i] = 0;
+          acc[i] = rest;
+        } else if (t < tBurn) {
+          const u = t - tOff;
+          alt[i] = (A0 * u * u) / 2 - (k * u ** 3) / 6;
+          acc[i] = rest + A0 - k * u;
+        } else if (t < tApogee) {
+          const u = t - tBurn;
+          alt[i] = hBurn + vBurn * u - 0.5 * G0 * u * u;
+          acc[i] = rest - G0;
+        } else {
+          alt[i] = Math.max(0, hApogee - 20 * (t - tApogee));
+          acc[i] = rest;
+        }
+      }
+      return {
+        source: 'synthetic',
+        format: 'test',
+        formatLabel: 'Test',
+        time,
+        channels: [
+          { kind: 'altitude', label: 'alt', unit: 'm', values: alt },
+          { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc },
+        ],
+        meta: {},
+        notes: [],
+      };
+    };
+
+    const twrKinematic = analyzeFlight(build(0)).metrics.liftoffTWR; // rests at 0
+    const twrSpecific = analyzeFlight(build(G0)).metrics.liftoffTWR; // rests at +1 g
+    expect(twrKinematic).not.toBeNull();
+    expect(twrSpecific).not.toBeNull();
+    expect(twrKinematic!).toBeCloseTo(twrSpecific!, 6);
+
+    // Net thrust over the 0.2 s window averages ~108.5 m/s²; on top of supporting its
+    // own weight that is (108.5/g)+1 ≈ 12.1:1 — the real ratio, not the ratio minus one.
+    expect(twrSpecific!).toBeGreaterThan(11.5);
+    expect(twrSpecific!).toBeLessThan(12.6);
+  });
 });
 
 describe('burnout on a multi-axis logger', () => {

@@ -277,7 +277,21 @@ export default function MethodsPage() {
             weight. It&apos;s the &ldquo;5:1 rule&rdquo; number, the rail-departure safety check,
             measured rather than predicted. Only from a real accelerometer (averaged over a moment
             off the pad), and withheld when the trace was saturated at liftoff — a railed sensor
-            would read a floor, not the true thrust.
+            would read a floor, not the true thrust.{' '}
+            The reading is taken <em>against the rocket&apos;s own resting value</em>, because
+            loggers disagree about what an accelerometer channel means. A true specific-force
+            channel reads <strong>+1&nbsp;g</strong> sitting on the pad; AltusMetrum&apos;s{' '}
+            <code>acceleration</code> column has that gravity already taken out and rests at{' '}
+            <strong>~0</strong> — the same row of one of its files reads &minus;0.98 there while its
+            own <code>accel_x</code> body axis reads 9.78. Divided by g, a gravity-removed channel
+            gives exactly <strong>T/W&nbsp;&minus;&nbsp;1</strong>: a full point low. Eight corpus
+            flights were affected — one read <strong>3.27:1</strong> for a real{' '}
+            <strong>4.27:1</strong>, and a genuine 5.2 would have printed 4.2, under the very rule
+            it is quoted against. Subtracting the resting reading cancels the convention: write the
+            channel as specific force minus some unknown offset, and that offset drops out of{' '}
+            <strong>(a&#8203;<sub>boost</sub> &minus; a&#8203;<sub>pad</sub>)&nbsp;/&nbsp;g + 1</strong>,
+            which is T/W either way. Where a record starts too late to hold a resting stretch the
+            ratio is left unread, and says why, rather than published a point out.
           </Method>
           <Method title="Liftoff & burnout">
             With an accelerometer, liftoff is the first sustained kick above about 2 g and burnout is
