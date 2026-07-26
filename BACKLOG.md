@@ -6,6 +6,30 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **`altClean` vs `altAt` — the distinction that caused the coast-efficiency bug still lives only
+  in a comment.** `altAt(i)` is the *corrected* ascent altitude (falls back to the logger's inertial
+  solution where the baro trace contradicts itself, NaN where nothing can stand in); `altClean[i]` is
+  the raw spike-cleaned sample. Every reported altitude uses `altAt`; coast efficiency used
+  `altClean` and disagreed with the burnout altitude printed beside it (fixed, `f48bc17`). Two
+  consumers still read `altClean` on purpose — `lib/analyze/index.ts:1082` (`coastGain` → the
+  `coastFloor` speed bound) and `:1119` (`climbFromPeak`) — because both are *guards that detect the
+  barometer contradicting itself* and would be circular on a repaired trace. That reasoning is
+  correct but undocumented outside this line; a future session will re-derive it. Worth either a
+  named helper (`rawAltForGuard`) or a comment at each site.
+- **The independent-recompute sweep has more metrics to cover.** Recomputing a reported metric from
+  `analysis.series` and diffing corpus-wide found max-Q last run and coast efficiency this run.
+  Covered so far: apogee, max velocity, Mach, max/min acceleration, coast efficiency, burnout
+  velocity, max-Q, transonic crossing, time-to-apogee — 46 fixtures, no remaining unexplained flags.
+  **Not yet swept:** rail-exit velocity, landing energy, drag Cd, `peakRollRate`/`rollRevolutions`,
+  `liftoffTWR`, `avgBoostAcceleration`, and the drogue/main descent legs.
+- **A descent noise spike can exceed the reported apogee on the altitude chart.** On
+  `blueraven__trf-lemiv-l3__BlRv_SN1537_LR_…csv` the spike-cleaned series peaks at **3,676.0 m at
+  t=30.16 s** — 4 s after apogee, descending at 22 m/s — against a reported apogee of **3,586.1 m**
+  (2.4% higher). Apogee detection is right to ignore it; the samples around it scatter ±80 m
+  (3,554 → 3,593 → 3,676 → 3,519) and the cleaner leaves them. But the chart shows a peak higher
+  than the headline number beside it, which reads as the headline being wrong. Either the cleaner
+  should catch a post-apogee excursion this far above the apogee, or the chart should say why.
+
 - **Max-Q was being read off deployment transients, and one flight reported a load case 117x
   the real one.** Found by sanity-checking a new file's numbers against first principles: a
   ground-station GPS log reported 3.0 kPa where the ascent peak was 1.5. The rule was the peak
