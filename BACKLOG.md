@@ -6,6 +6,35 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Debrief was telling two Blue Raven owners their file held more than one flight, and it
+  held one.** Both corpus Blue Ravens are a download written twice, and the note they got —
+  "read the others by splitting the file, or export them separately from your altimeter's
+  software" — is advice that hands the flyer the same flight again. **The discriminator the
+  backlog has been asking for is the apogee, measured against ONE datum**, and the datum is
+  what the earlier attempt got wrong: it is one altitude column, so the second copy neither
+  needs nor may take a baseline of its own from the trough between the copies. Re-measured
+  that way over every multi-segment corpus file:
+
+  | file | segment peaks on the file's datum | apart |
+  |---|---|---|
+  | Blue Raven jan10 | 10,245 ft → 10,267 ft | **0.21%** |
+  | Blue Raven jan18 | 6,296 ft → 6,296 ft | **0.00%** |
+  | Eggtimer anomaly | 4,661 ft → 8,969 ft | **92.43%** |
+
+  The bound is 1% — five times the widest genuine agreement, ninety times inside the pair that
+  must be refused — and a file with no quiet pad window has no datum to share and is refused
+  before the peaks are compared, which disqualifies the Eggtimer twice over. Refusing falls
+  back to the older sentence, which is never a wrong number, only a less useful one. Now a
+  corpus regression naming all four multi-segment files and what each should say.
+  **The number that makes this worth the pass:** on the file's datum, jan10's *second* copy
+  peaks at **10,267 ft** against the device's own stated **10,266 ft**. The reverted experiment
+  read 10,723 ft from that same segment — the 456 ft was the trough baseline, not the flight.
+  **Which unblocks the assembly:** that second copy holds a complete descent (65.3 s of fall
+  against a 25.3 s vacuum minimum, down to 20 ft) for a flight whose first copy is cut 3.3 s
+  after apogee. Taking the ascent from the copy with the pad and the descent from the copy with
+  the ground is now a splice on a shared datum rather than a guess, and it can only fill in
+  readings that are withheld today — apogee and the climb come from copy 1 either way.
+
 - **Found by the cold walk: the different-days panel named two dates beside three columns.**
   Comparing a launch day where only some files carry a date, the panel read "The files date
   these on different days — 30 Oct 2021 (…), 11 May 2024 (…)" over a three-flight table, and

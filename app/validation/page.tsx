@@ -280,6 +280,20 @@ export default function ValidationPage() {
               19.3&nbsp;s after liftoff; read as one flight it now agrees.
             </li>
             <li>
+              …and a file holding <strong>the same flight written twice</strong> is told apart from one
+              holding two different flights, because the advice differs: telling the owner of a doubled
+              download to &ldquo;split the file and read the others&rdquo; hands them the same flight
+              again. The discriminator is the apogee measured against <strong>one datum</strong> — the
+              file&apos;s own pad baseline, since it is one altitude column and the second copy has no
+              business taking a baseline of its own from the trough between them. On that datum the two
+              corpus Blue Ravens agree to <strong>0.21%</strong> and <strong>0.00%</strong> (the first
+              reading 10,245&nbsp;ft then 10,267&nbsp;ft, against the device&apos;s own stated
+              10,266&nbsp;ft), while an Eggtimer file whose second segment is a baro artefact documented
+              in its ground truth is <strong>92%</strong> away. The bound is 1%: five times the widest
+              genuine agreement and ninety times inside the pair that must be refused. A file with no
+              quiet pad window has no datum to share and is refused before the peaks are compared.
+            </li>
+            <li>
               The <strong>altitude a reading happened at</strong> is withheld when the record
               contradicts it — below the pad, or well below a height already passed, neither of which a
               climbing rocket can do. It is the transonic barometric artefact, and it strikes exactly

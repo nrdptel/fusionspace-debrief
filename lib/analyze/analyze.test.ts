@@ -464,15 +464,61 @@ describe('a file holding more than one flight', () => {
     return { ...a, time, channels: [{ ...a.channels[0], values: alt }] };
   }
 
-  it('analyzes the first flight and says the rest was ignored', () => {
+  it('analyzes the first copy and names it as a copy, not a second flight', () => {
     const one = analyzeFlight(syntheticBaroFlight().flight);
     const a = analyzeFlight(twoFlights());
     // The same numbers as the single flight — not a timeline spanning both.
     expect(a.metrics.apogeeAltitude).toBeCloseTo(one.metrics.apogeeAltitude, 5);
     expect(a.metrics.timeToApogee).toBeCloseTo(one.metrics.timeToApogee, 5);
-    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(true);
+    // This synthetic writes the SAME flight twice, which is what both corpus Blue Ravens
+    // do — so "read the others by splitting the file" would hand the flyer the same flight
+    // again, and "this file holds more than one flight" is simply false about it.
+    expect(a.warnings.some((w) => /holds the same flight written twice/.test(w))).toBe(true);
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(false);
     // The warning names how much of the file was read, so the flyer can check it.
-    expect(a.warnings.find((w) => /holds more than one flight/.test(w))).toMatch(/opening \d/);
+    expect(a.warnings.find((w) => /written twice/.test(w))).toMatch(/opening \d/);
+  });
+
+  /** The same two copies, but the second climbs to a different height. */
+  function twoDifferentFlights(secondScale: number): RawFlight {
+    const f = twoFlights();
+    const alt = f.channels[0].values;
+    const half = alt.length / 2;
+    for (let i = half; i < alt.length; i++) alt[i] *= secondScale;
+    return f;
+  }
+
+  it('tells one flight written twice from two different flights, by the apogee', () => {
+    // Measured over every multi-segment corpus file, against the file's own pad baseline:
+    // the two genuine "written twice" Blue Ravens agree to 0.21% and 0.00%, while the
+    // Eggtimer file whose second segment is a documented baro artefact disagrees by 92%.
+    // The bound is 1% — five times the widest genuine agreement, ninety times inside the
+    // pair that must be refused.
+    const twice = analyzeFlight(twoDifferentFlights(1.005)); // half a percent taller
+    expect(twice.warnings.some((w) => /written twice/.test(w))).toBe(true);
+
+    const apart = analyzeFlight(twoDifferentFlights(1.6)); // a different, higher flight
+    expect(apart.warnings.some((w) => /written twice/.test(w))).toBe(false);
+    expect(apart.warnings.some((w) => /holds more than one flight/.test(w))).toBe(true);
+  });
+
+  it('will not call a file a double copy when it has no pad window to measure against', () => {
+    // The comparison only means anything on ONE datum, and the file's datum comes from its
+    // quiet pre-launch window. Without one there is nothing to share — which is the corpus
+    // Eggtimer's first disqualification, before its peaks are even compared. Refusing falls
+    // back to the older, weaker sentence, which is never a wrong number.
+    const f = twoFlights();
+    const alt = f.channels[0].values;
+    // Start the record already well into the climb: no quiet stretch at the front. The two
+    // copies still hold identical altitudes, so the peaks agree exactly — the missing datum
+    // is the only thing refusing this, which is what the test is for.
+    const cut = Math.round(2.5 / (f.time[1] - f.time[0]));
+    const time = f.time.slice(cut);
+    const t0 = time[0];
+    for (let i = 0; i < time.length; i++) time[i] -= t0;
+    const a = analyzeFlight({ ...f, time, channels: [{ ...f.channels[0], values: alt.slice(cut) }] });
+    expect(a.warnings.some((w) => /written twice/.test(w))).toBe(false);
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(true);
   });
 
   it('leaves a single flight alone', () => {

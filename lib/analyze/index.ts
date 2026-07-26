@@ -321,6 +321,48 @@ function nextFlightStart(altitude: Float64Array): number | null {
   return null;
 }
 
+/**
+ * Do the segments of a split record hold the SAME flight written twice, rather than two
+ * different flights? A logger downloaded twice, or one that restarts its log mid-flight,
+ * produces a file that trips the multi-flight detector while containing exactly one flight.
+ *
+ * The test is the apogee, and the thing that makes it work is measuring both peaks against
+ * **one datum** — the file's own pad baseline. It is one altitude column, so the second copy
+ * neither needs nor may take a baseline of its own: doing that is what made the earlier
+ * attempt at this read 10,723 ft where the device said 10,266. On the file's datum the same
+ * segment reads 10,267.
+ *
+ * Measured over every multi-segment corpus file:
+ *
+ *   Blue Raven jan10   10,245 ft / 10,267 ft   0.21% apart   one flight, written twice
+ *   Blue Raven jan18    6,296 ft /  6,296 ft   0.00% apart   one flight, written twice
+ *   Eggtimer anomaly    4,661 ft /  8,969 ft  92.43% apart   a flight and a documented
+ *                                                            baro artefact — not one flight
+ *
+ * The bound is 1%: five times the widest genuine agreement and ninety times inside the pair
+ * that must be refused. A file with no quiet pad window has no datum to share and is refused
+ * outright — which is the Eggtimer's first disqualification, before the peaks are even
+ * compared.
+ *
+ * Refusing is the safe direction: it falls back to reading the first segment and saying the
+ * file holds more than one flight, which is what shipped before this and is never a wrong
+ * number — only a less useful sentence.
+ */
+const RECORDED_TWICE_AGREEMENT = 0.01;
+
+function recordedTwice(altitude: Float64Array, cut: number, padDataLikely: boolean): boolean {
+  if (!padDataLikely) return false;
+  const peakOf = (from: number, to: number): number => {
+    let p = -Infinity;
+    for (let i = from; i < to; i++) if (Number.isFinite(altitude[i]) && altitude[i] > p) p = altitude[i];
+    return p;
+  };
+  const first = peakOf(0, cut);
+  const rest = peakOf(cut, altitude.length);
+  if (!(first > 0) || !(rest > 0)) return false;
+  return Math.abs(rest - first) / first <= RECORDED_TWICE_AGREEMENT;
+}
+
 /** The flight from `start` to `end` (exclusive): the time base and every channel, sliced
  *  together so the model stays consistent. */
 function sliceFlight(flight: RawFlight, start: number, end: number): RawFlight {
@@ -417,10 +459,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   const secondFlightAt = nextFlightStart(altitude);
   if (secondFlightAt != null && depth === 0) {
     const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1);
+    const opening = formatSeconds(time[secondFlightAt] - time[0]);
+    // Two different files trip this detector, and telling them apart changes what the flyer
+    // should do about it. Both corpus Blue Ravens hold ONE flight written twice; telling
+    // their owner to "read the others by splitting the file" would hand them the same flight
+    // again, and telling them the file holds more than one flight is simply false.
+    const twice = recordedTwice(altitude, secondFlightAt, padDataLikely);
     return {
       ...first,
       warnings: [
-        `This file holds more than one flight — the record returns to the ground and climbs again. Debrief analyzed the first (the opening ${formatSeconds(time[secondFlightAt] - time[0])} of the file) and ignored the rest; read the others by splitting the file, or export them separately from your altimeter's software.`,
+        twice
+          ? `This file holds the same flight written twice — the record returns to the ground and climbs again to the same height (within ${(RECORDED_TWICE_AGREEMENT * 100).toFixed(0)}%, measured against this file's own pad baseline). Debrief read the first copy (the opening ${opening} of the file), which is the one that starts on the pad. There is no second flight to read.`
+          : `This file holds more than one flight — the record returns to the ground and climbs again. Debrief analyzed the first (the opening ${opening} of the file) and ignored the rest; read the others by splitting the file, or export them separately from your altimeter's software.`,
         ...first.warnings,
       ],
     };

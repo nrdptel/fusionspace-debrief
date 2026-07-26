@@ -442,3 +442,49 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
     });
   }
 });
+
+// One file, one flight, written twice. Four corpus files trip the multi-flight detector, and
+// what Debrief should SAY about them differs: two hold the same flight recorded twice (so
+// "read the others by splitting the file" would hand the flyer the same flight again), and
+// two do not. The discriminator is the apogee measured against the file's own pad baseline —
+// on that datum the genuine pair agree to 0.21% and 0.00% while the Eggtimer's second
+// segment, a baro artefact documented in the corpus ground truth, is 92% away.
+const DOUBLE_RECORDINGS: { file: string; twice: boolean; why: string }[] = [
+  {
+    file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
+    twice: true,
+    why: '10,245 ft then 10,267 ft on one datum — 0.21% apart; the device itself states 10,266 ft',
+  },
+  {
+    file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
+    twice: true,
+    why: '6,296 ft twice — 0.00% apart',
+  },
+  {
+    file: 'eggtimer/eggtimer__reddit-seb-earlydeploy-anomaly__Eggtimer_Data.csv',
+    twice: false,
+    why: '4,661 ft then 8,969 ft — 92% apart, and the file has no quiet pad window to share a datum from',
+  },
+  {
+    file: 'blueraven/blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-Low.txt',
+    twice: false,
+    why: 'a 19 ft fragment whose apogee is withheld entirely',
+  },
+];
+
+describe('a file that holds the same flight twice says so', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  for (const c of DOUBLE_RECORDINGS) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — ${c.twice ? 'one flight written twice' : 'not a double recording'} (${c.why})`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const w = loaded!.analysis.warnings;
+      expect(w.some((x) => /holds the same flight written twice/.test(x)), `${short}: "written twice"`).toBe(c.twice);
+      expect(w.some((x) => /holds more than one flight/.test(x)), `${short}: "more than one flight"`).toBe(!c.twice);
+    });
+  }
+});
