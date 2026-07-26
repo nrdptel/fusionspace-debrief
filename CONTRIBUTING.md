@@ -53,6 +53,25 @@ npm run build       # also type-checks the whole app (CI gate)
 npm run test:e2e    # Playwright (incl. an axe accessibility audit)
 ```
 
+## Which build is live
+
+`npm run build` runs `scripts/stamp-version.mjs` first (an npm `prebuild`), which writes
+`public/version.json` with the commit being built — `GITHUB_SHA` in CI, `git rev-parse HEAD`
+locally, plus a `dirty` flag when the working tree had uncommitted changes. It is generated at
+build time and never committed.
+
+So the deployed site can answer what it is serving:
+
+```bash
+curl -s https://debrief.fusionspace.co/version.json
+```
+
+Comparing content-hashed chunk names against a local build does **not** answer this — an identical
+source tree builds to different hashes in CI than it does locally. Both the CDN headers
+(`public/_headers`) and the service worker (`public/sw.js`) deliberately keep `/version.json` off
+every cache: a stale build marker answers confidently and wrongly, which is worse than not having
+one. Offline the request simply fails, which is the honest answer.
+
 ## Adding a parser
 
 Most loggers export a CSV or a labelled text dump. To teach Debrief a new one:

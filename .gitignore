@@ -2,6 +2,10 @@
 # `git add -A` can't ship one.
 *-tmp.*
 
+# Written by scripts/stamp-version.mjs at build time so the deployed site can say
+# which commit it is. Generated, never committed — a checked-in copy would be stale.
+/public/version.json
+
 /node_modules
 /.next
 /out
