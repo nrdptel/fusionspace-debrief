@@ -441,3 +441,34 @@ describe('analyzeTable — the columns that say when the flight flew', () => {
     expect(t.columns[0].role).toBe('ignore');
   });
 });
+
+describe('analyzeTable — a roll that is an angle, not a rate', () => {
+  /** A 9-DOF log that solves an attitude: pitch/roll/yaw are Euler angles and the rates
+   *  live in the gyro columns — the shape every AltimeterCloud export has. */
+  function attitudeRows(headers: string[]): string[][] {
+    const rows: string[][] = [headers];
+    for (let i = 0; i < 40; i++) {
+      const alt = i <= 20 ? i * 30 : Math.max(0, 600 - (i - 20) * 30);
+      rows.push([(i * 0.1).toFixed(2), String(alt), '12.5', '179.99', '3.4', '1.2']);
+    }
+    return rows;
+  }
+
+  it('leaves roll alone when pitch and yaw are beside it', () => {
+    // Debrief reported a peak "roll rate" of 179.99 deg/s on every AltimeterCloud file in
+    // the corpus — the largest angle a ±180° column holds, and a perfectly plausible-looking
+    // rocket roll rate. Pitch and yaw mean nothing as rates, so their presence settles it.
+    const t = analyzeTable(attitudeRows(['Time (s)', 'Alt (ft)', 'pitch', 'roll', 'yaw', 'tilt']));
+    const role = (h: string) => t.columns.find((c) => c.header === h)?.role;
+    expect(role('roll')).toBe('ignore');
+    expect(role('tilt')).toBe('tilt'); // the attitude Debrief does read is untouched
+  });
+
+  it('still reads a roll rate on a logger that writes one', () => {
+    const t = analyzeTable(attitudeRows(['Time (s)', 'Alt (ft)', 'Roll rate (deg/s)', 'x', 'y', 'z']));
+    expect(t.columns.find((c) => c.header === 'Roll rate (deg/s)')?.role).toBe('rollRate');
+    // …and a bare roll with no pitch/yaw beside it is still taken as the rate it names.
+    const bare = analyzeTable(attitudeRows(['Time (s)', 'Alt (ft)', 'roll', 'x', 'y', 'z']));
+    expect(bare.columns.find((c) => c.header === 'roll')?.role).toBe('rollRate');
+  });
+});

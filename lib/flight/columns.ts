@@ -361,6 +361,33 @@ function inferDateRoles(dataRows: string[][], columns: ColumnGuess[]): void {
   }
 }
 
+/**
+ * A bare `roll` beside `pitch` and `yaw` is an Euler angle, not a roll rate.
+ *
+ * The name-based pass reads "roll" as a rate, which is right for a logger that writes one
+ * roll-rate column. It is wrong for anything that solves an attitude: there, `pitch`, `roll`
+ * and `yaw` are the three angles and the rates live in `gyro_x/y/z`. Debrief was reading a
+ * peak roll rate of **179.99 deg/s** off every AltimeterCloud file in the corpus — which is
+ * the largest roll ANGLE a ±180° column can hold, and which reads as a perfectly plausible
+ * rocket roll rate. A wrong number that looks right is the worst kind.
+ *
+ * The discriminator is the siblings, not the name: `pitch` and `yaw` mean nothing as rates
+ * and everything as angles, so their presence settles what `roll` is. No roll rate is
+ * reported for such a file — which axis of a three-axis gyro is roll is logger-specific, and
+ * saying nothing is the honest answer.
+ */
+function releaseAttitudeRoll(columns: ColumnGuess[]): void {
+  const named = new Set(columns.map((c) => normalize(c.header)));
+  if (!named.has('pitch') || !named.has('yaw')) return;
+  for (const c of columns) {
+    if (c.role === 'rollRate' && normalize(c.header) === 'roll') {
+      c.role = 'ignore';
+      c.unit = null;
+      c.unitFromHeader = false;
+    }
+  }
+}
+
 /** What fraction of a column's data cells parse as finite numbers. */
 function numericFraction(rows: string[][], index: number): number {
   if (rows.length === 0) return 0;
@@ -531,6 +558,9 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
       numericFraction: frac,
     };
   });
+
+  // A `roll` that is an attitude angle, not a rate — see `releaseAttitudeRoll`.
+  releaseAttitudeRoll(columns);
 
   // The columns that state a launch date, read from what the cells hold. Runs after the
   // channel pass so it can only take columns that pass gave up on.

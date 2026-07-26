@@ -6,6 +6,23 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A peak roll rate of 179.99 deg/s on five real files, and it was the roll ANGLE.** Found
+  while checking whether an AltimeterCloud export deserves a named parser: the generic mapper
+  reads a column called `roll` as a rate, which is right for a logger that writes one
+  roll-rate column and wrong for anything that solves an attitude — there `pitch`, `roll` and
+  `yaw` are Euler angles and the rates are in `gyro_x/y/z`. Every AltimeterCloud file in the
+  corpus reported 179.99 deg/s, which is the largest value a ±180° angle column can hold and
+  a *completely plausible* rocket roll rate. A wrong number that looks right is the worst
+  kind. **The discriminator is the siblings, not the name:** pitch and yaw mean nothing as
+  rates, so their presence settles what roll is. Those files now report no roll rate at all —
+  which axis of a three-axis gyro is the roll axis is logger-specific, and saying nothing is
+  the honest answer — while the one genuine corpus roll-rate channel (a TeleMega at
+  2,000 deg/s on the 121 km flight) is untouched. **Still open, from the same look:** an
+  AltimeterCloud export still goes through the mapper by hand though Debrief reads it well
+  (apogee to 0.0% on five files), and its `bmp_temp(x100)` column would read 100× high if it
+  were ever populated. A named parser is the fix for both, and the header is distinctive
+  enough to detect on.
+
 - **Debrief was reporting Mach 4.08 on a flight that reached 4,661 ft.** Found while measuring
   whether the multi-flight chooser was unblocked (it isn't — see below). The Eggtimer
   early-deploy anomaly read a barometric peak of **4,483 ft/s** over a 4,661 ft apogee, shown

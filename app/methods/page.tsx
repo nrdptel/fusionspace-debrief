@@ -411,6 +411,16 @@ export default function MethodsPage() {
             too much of it bleeds energy and can drive coning, so it&apos;s worth a look. It reads a
             roll column you map (or one a logger labels &ldquo;roll&rdquo;); a bare three-axis gyro
             is left alone, since which axis is roll is logger-specific.
+          {' '}
+            A column named just <span className="font-mono">roll</span> is only a rate when it
+            isn&apos;t an angle, and the siblings settle which: where <span className="font-mono">pitch</span>{' '}
+            and <span className="font-mono">yaw</span> sit beside it, all three are Euler angles from
+            an attitude solution and the rates are in the gyro columns. Debrief used to read a peak
+            roll rate of <strong>179.99&nbsp;deg/s</strong> off every AltimeterCloud file in the
+            corpus — the largest value a ±180° angle column holds, and a thoroughly plausible-looking
+            rocket roll rate. No roll rate is reported for those files now: which axis of a
+            three-axis gyro is the roll axis is logger-specific, and saying nothing is the honest
+            answer.
           </Method>
           <Method title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the
