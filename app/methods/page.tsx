@@ -650,9 +650,20 @@ export default function MethodsPage() {
             worked. These documentation pages are cached on install too, <em>with the code each one
             needs to come up</em> — a cached document alone is not a page, and a route whose scripts
             are missing shows an error instead of itself — so the methods and the limitations are
-            readable at the field with no bars, as themselves rather than as the home page. Only
-            Debrief&apos;s own static files are stored, locally; no flight log is ever cached,
-            uploaded, or sent anywhere.
+            readable at the field with no bars, as themselves rather than as the home page.
+            <br />
+            <br />
+            Three ways an offline page used to show you the wrong one, all closed. Tapping a link
+            rather than reloading makes the app fetch the route&apos;s data file, not its document —
+            with no signal that failed, and the browser fell back to the data file&apos;s own address,
+            so you landed on <code>/methods/index.txt</code> looking at the home page; those files are
+            cached now. An address without its trailing slash (<code>/validation</code> rather than{' '}
+            <code>/validation/</code>) is normally squared up by the server, which isn&apos;t there
+            offline, so both forms are looked up. And a page that genuinely was never opened on this
+            device now says exactly that, names the address, and points you at the part of Debrief
+            that does work with no signal — instead of quietly showing the home page under someone
+            else&apos;s address. Only Debrief&apos;s own static files are stored, locally; no flight
+            log is ever cached, uploaded, or sent anywhere.
           </Method>
           <Method title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS),

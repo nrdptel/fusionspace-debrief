@@ -344,3 +344,65 @@ test('installing the worker caches the chunks each docs page needs, not just its
   });
   expect(missing).toEqual([]);
 });
+
+// Waiting for the install to finish, not just for the worker to control the page — the
+// precache fetches every route in parallel and cutting the network mid-install is how this
+// suite has gone red on CI before. Waits on the LAST thing installed, so the whole set is in.
+async function precacheReady(page: import('@playwright/test').Page) {
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+  await page.waitForFunction(
+    async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg || reg.installing || reg.waiting || !reg.active) return false;
+      for (const k of await caches.keys()) {
+        const cache = await caches.open(k);
+        const all = await Promise.all(
+          ['/methods/', '/privacy/', '/methods/index.txt'].map((u) =>
+            cache.match(new URL(u, location.href).href, { ignoreVary: true }),
+          ),
+        );
+        if (all.every(Boolean)) return true;
+      }
+      return false;
+    },
+    null,
+    { timeout: 20000 },
+  );
+}
+
+test('an offline page is the page its address names, or says it is missing', async ({ page, context }) => {
+  await page.goto('/');
+  await precacheReady(page);
+  await context.setOffline(true);
+
+  // The site is built with trailingSlash, so a server 308s /validation to /validation/.
+  // Offline there is no server: this form used to miss the cache and fall through to the
+  // shell, which came up as the ANALYZER under the /validation address — the app looking
+  // like it worked while showing the wrong page.
+  await page.goto('/validation', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: 'How Debrief is validated', level: 1 })).toBeVisible();
+
+  // And a route that genuinely was never opened says so, names the address, and offers the
+  // part of Debrief that does work with no signal — instead of silently showing the home page.
+  const res = await page.goto('/some/route/never/visited/', { waitUntil: 'domcontentloaded' });
+  expect(res?.status()).toBe(503);
+  await expect(page.getByRole('heading', { name: /isn’t available offline/, level: 1 })).toBeVisible();
+  await expect(page.getByText('/some/route/never/visited/')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Debrief' })).toBeVisible();
+});
+
+test('an in-app link still navigates offline, instead of landing on the RSC payload', async ({ page, context }) => {
+  await page.goto('/');
+  await precacheReady(page);
+  await context.setOffline(true);
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  // The App Router fetches `/methods/index.txt?_rsc=<per-build buster>` for this. Without
+  // that payload cached, the fetch fails, Next falls back to a browser navigation — to the
+  // payload URL — and the flyer ends up at /methods/index.txt looking at the home page.
+  await page.getByRole('link', { name: /methods/i }).first().click();
+  await expect(page.getByRole('heading', { name: 'Where the numbers come from', level: 1 })).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe('/methods/');
+});
