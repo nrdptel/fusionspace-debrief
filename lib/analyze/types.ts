@@ -68,6 +68,13 @@ export interface FlightMetrics {
    *  the burnout velocity IS the max velocity by construction, which the readings say rather
    *  than printing one number twice under two labels. */
   burnoutSource: 'measured' | 'derived' | null;
+  /** True when the burnout sample IS the max-velocity sample, so `burnoutVelocity` and
+   *  `maxVelocity` are one reading printed under two labels. That is the ordinary case on a
+   *  'derived' burnout (located at the peak by construction) but happens on a 'measured' one
+   *  too — the axial trace crosses zero exactly where the speed peaks, so a real accelerometer
+   *  crossing can land on that same sample. Every surface that shows both figures says so,
+   *  rather than letting one number read as two instruments agreeing. */
+  burnoutAtVelocityPeak: boolean;
   coastTime: number | null; // s, burnout → apogee
   /** How much of a drag-free coast the rocket achieved: the actual coast height
    *  gain (apogee − burnout altitude) over the vacuum coast a body would gain from

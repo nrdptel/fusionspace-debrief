@@ -285,13 +285,27 @@ export default function MethodsPage() {
             climb off the pad and burnout is taken at peak velocity, where a coasting rocket&apos;s
             speed turns over.
           {' '}
-            Which matters for what <em>burnout velocity</em> then is. Off a signed accelerometer it
-            is an independent reading of a different instant; off the velocity peak it is the same
-            instant as <em>max velocity</em>, so the two readings are one number under two labels —
-            said on the tile and in every report rather than left to look like two measurements
-            agreeing. An AltimeterCloud export is the case in point: its own summary puts burnout
-            2.7–5.0% below its peak speed, which is the gap between two definitions of the instant,
-            not two readings of a speed.
+            That search stops at the <em>speed peak</em>, not at apogee, because net acceleration is
+            zero at the peak and negative after it — so a rocket cannot still be under thrust past
+            it. The bound is what keeps a later, larger jolt from being read as the boost: on four
+            corpus flights the biggest axial reading between liftoff and apogee is the apogee
+            ejection charge, not the motor, and searching that far took the &ldquo;crossing after the
+            boost peak&rdquo; from the charge settling. That put a 39.9&nbsp;s burn time and a
+            1.9&nbsp;m/s burnout speed on a flight whose motor burned 5.8&nbsp;s and whose real
+            burnout speed was its 581&nbsp;m/s peak — with the burnout altitude, coast time and boost
+            average all taken from the same wrong instant.
+          {' '}
+            Which matters for what <em>burnout velocity</em> then is. Where the burnout sample is the
+            peak sample, it is <em>max velocity</em> under a second label — one number in two rows —
+            and the tile and every report say so rather than letting it look like two measurements
+            agreeing. That is so by construction when burnout came from the peak, and it happens on
+            an accelerometer reading too, since the axial trace crosses zero exactly where the speed
+            peaks. Where the crossing lands earlier it is a genuinely separate instant and is left to
+            stand on its own: one corpus flight crosses a single sample before its peak, 118.06
+            against 118.09&nbsp;m/s — the same displayed number, two real instants. An AltimeterCloud
+            export shows the other side of it: its own summary puts burnout 2.7–5.0% below its peak
+            speed, which is the gap between two definitions of the instant, not two readings of a
+            speed.
           </Method>
           <Method title="Rail-exit velocity">
             How fast the rocket was moving when it cleared the rail (you pick the rail length) — found by

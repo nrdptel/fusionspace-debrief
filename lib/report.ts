@@ -194,7 +194,7 @@ export function headlineRows(
     rows.push([
       'Burnout velocity',
       fmtSpeed(m.burnoutVelocity, sys) +
-        (m.burnoutSource === 'derived' ? ' at the velocity peak — the same instant as max velocity' : ''),
+        (m.burnoutAtVelocityPeak ? ' at the velocity peak — the same instant as max velocity' : ''),
     ]);
   if (m.coastTime != null) rows.push(['Coast to apogee', fmtTime(m.coastTime)]);
   if (m.coastEfficiency != null) {
@@ -986,10 +986,14 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     burnTime: sec(m.burnTime),
     burnoutAltitude: len(m.burnoutAltitude),
     burnoutVelocity: spd(m.burnoutVelocity),
-    // How burnout was located, because it decides what `burnoutVelocity` is: 'measured' off a
-    // signed accelerometer crossing zero, or 'derived' from the velocity peak — in which case
-    // it is the same instant, and the same number, as `maxVelocity`.
+    // How burnout was located: 'measured' off a signed accelerometer crossing zero, or
+    // 'derived' from the velocity peak because no crossing was found before it.
     burnoutSource: m.burnoutSource,
+    // Whether `burnoutVelocity` and `maxVelocity` are the same sample, so a consumer doesn't
+    // read one number under two keys as two independent measurements. True by construction on
+    // a 'derived' burnout, and true on a 'measured' one whenever the axial crossing lands on
+    // the peak — which is where it physically belongs.
+    burnoutAtVelocityPeak: m.burnoutAtVelocityPeak,
     coastTime: sec(m.coastTime),
     coastEfficiency: m.coastEfficiency != null ? round(m.coastEfficiency, 3) : null,
     dragLossAltitude: len(m.dragLossAltitude),

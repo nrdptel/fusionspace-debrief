@@ -856,6 +856,118 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
   });
 });
 
+// Burnout is the end of thrust, and thrust cannot still be acting after the speed has peaked.
+// The thrust-end search used to run to APOGEE, so on a flight whose biggest signed-axial
+// reading is the apogee ejection charge rather than the motor, the "crossing after the boost
+// peak" was the charge settling — and burnout landed a few tenths of a second before apogee,
+// taking the burn time, burnout altitude, burnout velocity, coast time and boost average with
+// it. Four corpus flights were exactly that.
+describe('burnout is the end of thrust, not the apogee charge', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // file → the real burn, and the "burn" the search-to-apogee rule reported instead.
+  const WAS_THE_CHARGE: { file: string; burnS: number; wasBurnS: number; boVel: number; wasBoVel: number }[] = [
+    {
+      file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv',
+      burnS: 5.8,
+      wasBurnS: 39.85,
+      boVel: 581,
+      wasBoVel: 2,
+    },
+    {
+      file: 'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv',
+      burnS: 5.06,
+      wasBurnS: 22.34,
+      boVel: 332,
+      wasBoVel: 10,
+    },
+    {
+      file: 'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.csv',
+      burnS: 2.6,
+      wasBurnS: 12.99,
+      boVel: 118,
+      wasBoVel: 4,
+    },
+    {
+      file: 'altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__easymega_data.csv',
+      burnS: 3.72,
+      wasBurnS: 11.28,
+      boVel: 103,
+      wasBoVel: 13,
+    },
+  ];
+  for (const c of WAS_THE_CHARGE) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — a ${c.wasBurnS}s "burn" ending at ${c.wasBoVel} m/s was the charge; the motor burned ${c.burnS}s to ${c.boVel} m/s`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const m = loaded!.analysis.metrics;
+      expect(m.burnTime, `${short}: a burn time is reported`).not.toBeNull();
+      expect(m.burnTime!, `${short}: reads the motor, not the charge`).toBeCloseTo(c.burnS, 1);
+      expect(m.burnoutVelocity!, `${short}: burnout speed is the boost's, not a nose-over`).toBeCloseTo(c.boVel, -1);
+    });
+  }
+
+  it('never reports a burnout that is still under thrust past the speed peak, on any corpus flight', { timeout: 60_000 }, () => {
+    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
+    let checked = 0;
+    for (const file of files) {
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const m = loaded.analysis.metrics;
+      const bo = loaded.analysis.events.find((e) => e.type === 'burnout');
+      if (m.burnTime == null || !bo || !Number.isFinite(m.maxVelocity)) continue;
+      checked++;
+      // Thrust ends at or before the speed peak — never after it.
+      expect(
+        m.burnoutVelocity!,
+        `${file}: burnout speed ${m.burnoutVelocity?.toFixed(0)} exceeds the flight's peak ${m.maxVelocity.toFixed(0)}`,
+      ).toBeLessThanOrEqual(m.maxVelocity + 0.5);
+      // And a "burn" occupying nearly the whole climb is the signature of the bug above.
+      expect(
+        m.burnTime / m.timeToApogee,
+        `${file}: a ${m.burnTime.toFixed(1)}s burn over a ${m.timeToApogee.toFixed(1)}s climb is a nose-over, not a motor`,
+      ).toBeLessThan(0.9);
+    }
+    expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+  });
+
+  it('flags the burnout reading that is literally the max-velocity sample', { timeout: 60_000 }, () => {
+    // The flag means one SAMPLE, not two close values — so where it is set the two figures
+    // must be bit-identical, and the surfaces can say "the same instant" without lying. A
+    // crossing one sample before the peak (corpus sg1.1: 118.06 against 118.09) is a genuinely
+    // different instant that happens to round to the same displayed number, and is not flagged.
+    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
+    let flagged = 0;
+    let checked = 0;
+    for (const file of files) {
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const m = loaded.analysis.metrics;
+      if (m.burnoutVelocity == null || !Number.isFinite(m.maxVelocity)) continue;
+      checked++;
+      if (!m.burnoutAtVelocityPeak) continue;
+      flagged++;
+      expect(m.burnoutVelocity, `${file}: flagged as the peak sample but the two figures differ`).toBe(m.maxVelocity);
+    }
+    expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+    // The case exists in the corpus — otherwise this guards nothing.
+    expect(flagged, 'some corpus flight reports burnout at the velocity peak').toBeGreaterThan(0);
+  });
+});
+
 // Coast efficiency measures the climb from BURNOUT, so it has to use the same burnout
 // height the flight reports — the corrected one. It used to read the raw barometric sample,
 // which on a transonic boost is exactly where the shock over the static port drives the
