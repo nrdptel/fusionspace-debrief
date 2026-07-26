@@ -6,6 +6,87 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **RANK 1 NEXT: `liftoffTWR` may be a full 1.0 low on every AltusMetrum flight, against a rule the
+  code itself cites.** `lib/analyze/index.ts:1556` computes `liftoffTWR = mean(acceleration)/G0`,
+  which is thrust-to-weight only if `acceleration` is *specific force* (a sensor at rest reads
+  **+1 g**). **Verified at the file level:** the AltusMetrum `acceleration` column reads **−0.00 on
+  the pad** (`SG1.2-Sustainer-November-TeleMega.csv`, first five rows), i.e. it is kinematic —
+  gravity already removed — where JollyLogic reads 0.993 g, AltimeterCloud −1000 mG and Blue Raven
+  −0.99 g at rest. If that column reaches `liftoffTWR` unnormalised the reading is exactly
+  **T/W − 1**. Reported figures against that: Stargazer1 3.26:1 (4.26 true), Kairos 5.29:1 (6.29),
+  Endurance 2.43:1 (3.43) — and the code's own comment cites the **5:1 rail-departure rule**, so the
+  error is in the direction that makes a safe flight look unsafe. **NOT yet verified through the
+  pipeline** — check whether `acceleration` is normalised to specific force between the parser and
+  the metric before believing the numbers. This is a pure-corpus sweep (no flyer input), so it is
+  checkable today. Same root cause is claimed for the drag Cd (`lib/drag.ts:108`, gravity branch
+  keyed off `accelerationSource`, which only records that an accel *channel* existed) with inflation
+  factors ×1.47 to ×10.97 across 8 AltusMetrum flights — also unverified through the pipeline.
+- **The corpus has a descent ledger nobody has lifted.** `manifest.csv` carries a
+  `stated_descent_rates` column populated on **9 of 61** rows (mercury ×6, blueraven jan18,
+  fwgps, entacore ×3), and `expected.json` asserts **only** apogee ×17, maxVelocity ×3, maxAccel ×2
+  — **no descent contract exists anywhere**. Strongest single item found: the PerfectFlite pair
+  `perfectflite__issuiuc-intrepid3tf2-20230305__AL0/AL1` is **two independent StratoLogger SLCFs on
+  one flight** whose stated drogue rates are **68.7 vs 68.8 ft/s — 0.15% apart** — with the devices'
+  own leg boundaries in the header (Drogue At 26.95 s, Main At 236.30 s) and a stated main of
+  19.1 ft/s. That is golden-value quality and it is the ground truth the descent method needs.
+  Blue Raven jan18 states drogue −55.9 / main −29.0 ft/s and has a Featherweight GPS recording of
+  the same flight — the one fixture with both a device figure and a second instrument on the same
+  legs. **Caveat found while reading it:** the drogue channel fires ~12.4 s after apogee, so an
+  apogee→main chord (77.6 ft/s) and a deploy→main chord (59.4 ft/s) are different questions, and
+  the device's −55.9 matches the latter. Any descent contract has to say which boundary it means.
+- **The saved report substitutes the whole-descent average into landing energy without the caveat
+  the screen carries.** `lib/report.ts:77` and `:1103` both do `m.mainDescentRate ?? m.wholeDescentRate`
+  for `landingEnergyJoules`, while `components/LandingEnergy.tsx:48-49` sets a `wholeDescent` flag and
+  says so on screen. Energy goes as v², so where the whole-descent average is well above the main
+  rate the exported document overstates the joules by that ratio squared — on the document a cert
+  write-up and a club energy limit are read from. Same substitution, caveat on one surface only.
+- **Ground truth for the descent rate finally exists, and Debrief reads 13.6–16.7% off it.** The
+  three AltimeterCloud corpus flights state their own descent velocity, and the cross-check that
+  is supposed to compare it never fires — it reads the null `mainDescentRate`, and still does: the
+  fix was written, gated green and **withdrawn in review** (see HANDOFF for why, and for how to do
+  it properly). Measured with that change applied locally: `greeneggs3-1888` device **6.21** vs Debrief **5.17 m/s (−16.7%)`,
+  `lilnuke4alt-1786` **5.71** vs **6.49 (+13.6%)**, `lilnuke4alt-1796` **5.63** vs **6.49
+  (+15.4%)**. Debrief reads HIGH on two and LOW on one, so this is spread, not a signed bias — but
+  it is the first device-stated descent figure the rank-1 divergence can be judged against. Three
+  points is thin; the next move is to find more loggers that write a descent figure (grep the
+  corpus for summary blocks) before changing the method.
+- **The descent-rate/chord divergence: mechanism found, and the window hypothesis is now also
+  disproved.** Reproduced the sweep exactly — **9 of 26 corpus legs disagree with their own chord
+  slope by >5%** (TeleMetrum drogue +16.4%, SG1.1 main +11.0% / drogue +6.2%, lemiv-l3 main
+  +10.8%, fwgps jan10 drogue −21.3%, Kairos whole +5.2%, meraki2 LR drogue −22.7%, eggtimer
+  drogue −60.6%, jan18 LR whole −6.6%). **Hypothesis tested and disproved:** `lib/analyze/index.ts:1310`
+  sizes the 0.6 s descent smoother with `windowFor(dt, 0.6)` off the GLOBAL median dt while the
+  very next lines compute `descentDt` for exactly that reason — and **13 of 35 analysable
+  fixtures** carry an inflated window as a result, up to **12x** (7.0 s of real time on
+  `fwgps__trf-lemiv-l3`, 6.1 s on two EasyMega files). Sizing it from `descentDt` instead makes the
+  divergence **worse — 9 legs become 10** (fwgps drogue −21.3% → −28.9%, and it moves the leg
+  boundaries: TeleMetrum drogue 107.0 s → 151.0 s, because `mainIdx` is picked off the same
+  smoothed series). Reverted rather than shipped. **The window bug is still real and worth fixing
+  on its own terms** — it just is not what causes the chord gap.
+  **What the decomposition does point at**, per-leg, comparing chord / sample-mean / time-weighted
+  mean of the velocity series: on SG1.1 the sampling is even (max gap 0.10 s, 1–2% of the leg) and
+  the sample mean (12.26, 8.48) matches the chord (12.72, 8.52) — yet the *reported* figures are
+  13.51 and 9.46, above both. So the gap is not weighting and not gaps: it is that `descent` is a
+  **centred** moving average of `baroVel`, so samples within ±half a window of a leg boundary
+  already blend the leg either side of it. Both legs are biased toward each other, worst exactly at
+  deployment. The lemiv-l3 main leg is **1.7 s against a 0.6 s window** (+10.8%) and SG1.1's main is
+  18.2 s (+11.0%) — the two shortest main legs are the two worst main-leg errors. Next pass:
+  exclude a half-window at each end of a leg before averaging, or read a leg shorter than ~2x the
+  window as its chord slope outright, and judge the result against the three device figures above.
+- **`baroVel` is not always barometric, and two things downstream claim it is.**
+  `lib/analyze/index.ts:644-647` documents "a barometric vertical velocity, always" but assigns
+  `velocity` verbatim when `velocitySource === 'baro'` — which on a baro-only altimeter that ships
+  a velocity column is the DEVICE's column, not a derivative of the altitude it is checked against.
+  `lib/compare.ts:325-330` then states the cross-check's premise as "altitude-derived on every
+  logger (no source mix)", which is false on that path. Unverified against a specific fixture —
+  found by reading, not reproduced.
+- **`signal.ts:148` — `derivative` writes a literal `0` on a duplicate timestamp**, and `0` is
+  finite so `mean` counts it as a real sample, pulling a leg rate toward zero with no warning
+  (`medianDt` filters duplicates out, so nothing else notices). Unreproduced on a real fixture.
+- **The free-fall ceiling is applied to the main leg using the APOGEE altitude**
+  (`lib/analyze/index.ts:1384,1391`), so a main leg on a 3 km flight is capped at ~242 m/s rather
+  than the ~60 its own deploy altitude would give — the guard meant to catch derived-signal
+  artefacts is several times too loose on the leg most likely to have one.
 - **The recompute sweep's remaining wave-2 flags, triaged but not chased.** After the burnout fix,
   the exact-identity checks (`timeToApogee == burnTime + coastTime`, `flightTime == toApogee +
   descentTime`, leg durations vs `descentTime`) come back **clean across 46 fixtures**. Two classes

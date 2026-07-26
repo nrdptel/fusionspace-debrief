@@ -29,9 +29,22 @@ export default function FlightTimeline({
   const total = phases.reduce((s, p) => s + p.duration, 0);
   if (phases.length < 2 || total <= 0) return null;
 
-  // A descent-rate sub-label where the phase has one.
+  // A descent-rate sub-label where the phase has one. `flightPhases` emits `drogue` +
+  // `main` where it resolved a deployment and a single `descent` where it did not — and in
+  // that second case the rate is `wholeDescentRate`, because `mainDescentRate` is null by
+  // construction (a whole-descent average must never be published under the label a flyer
+  // sizes a parachute against). Reading `mainDescentRate` for the `descent` key therefore
+  // left the one chip that prints a duration and a rate side by side showing the duration
+  // alone — on most descents, since the corpus resolves a main on only 7 of 25.
   const rateFor = (p: Phase): string | null => {
-    const r = p.key === 'drogue' ? metrics.drogueDescentRate : p.key === 'main' || p.key === 'descent' ? metrics.mainDescentRate : null;
+    const r =
+      p.key === 'drogue'
+        ? metrics.drogueDescentRate
+        : p.key === 'main'
+          ? metrics.mainDescentRate
+          : p.key === 'descent'
+            ? metrics.wholeDescentRate
+            : null;
     return r != null && Number.isFinite(r) ? fmtSpeed(r, sys) : null;
   };
 
