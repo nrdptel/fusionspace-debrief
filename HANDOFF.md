@@ -2,7 +2,7 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — 3 increments so far, each verified and pushed on its own
+## This run — 3 shipped increments, each verified and pushed on its own
 
 Shipped on the session's working branch, which started level with `origin/main` at `0b48c3b`, and
 landed onto `main` by pull request.
@@ -14,7 +14,36 @@ landed onto `main` by pull request.
 | `32b2e6c` | Count what the corpus suite proved, not what it visited | The runner now refuses a fixture carrying golden values it never analyses, and states its split: **61 fixtures = 37 analysed + 7 mapped-but-unanalysable + 9 parse-only + 8 rejected**, analysed held to a floor. Verified by planting a golden value on the `.rff` and watching the guard name it. |
 
 Local gate green before every push: **639 unit tests** (51 files, incl. **91 corpus** tests against
-the real corpus — confirmed running by name, not skipped), `npm run build`, **170 e2e**.
+the real corpus — confirmed running by name, not skipped), `npm run build`, **170 e2e**. CI ran on
+the pull request (`frontend` + `e2e`) and was green; it does not run on a push to a working branch.
+
+**One increment was investigated and deliberately NOT shipped** — a descent-rate divergence found by
+the same recompute technique. The obvious fix was implemented, measured, disproved and reverted
+rather than shipped on a rationale that did not hold; the finding and the dead end are both in
+BACKLOG under *Correctness / honesty*, because a descent rate is what a flyer sizes a parachute
+against and it must not be changed on a guess.
+
+### Done-check, as run
+
+- **Recompute sweep, 46 analysable fixtures: 2 findings, both explained** — a post-apogee noise
+  spike 2.4% above the reported apogee (recorded in BACKLOG), and an ascent-gap withhold that the
+  analysis already warns about. The coast findings this run fixed are gone from the same sweep.
+- **Cold walk of the built export of `38f43bd`**: methods page carries the corrected-burnout
+  account; on screen `Coast efficiency 24%` beside `Burnout altitude 564 ft`; and — a surface this
+  run had not driven — the **saved report export** reads `Coast efficiency 24% (drag cost
+  18,282 ft)` beside `Burnout altitude 564 ft`, so the fix reaches the exports and not just the
+  screen.
+- **Production gap**: `debrief.fusionspace.co` answers 200 and serves `0b48c3b` — the pre-run state,
+  without the corrected-burnout text. Everything this run did reaches production only when the pull
+  request merges to `main`.
+- **Benchmark, the drag reading vs OpenRocket**: OpenRocket reports drag as a **Cd-versus-Mach
+  curve** and breaks it out **per component** (nose, body, fins, base). Debrief reports one median
+  Cd over a coast window with the Mach range beside it. Ours is a *measurement* of the flown
+  airframe and theirs is a model, so they are not the same claim — but a flyer comparing a build
+  against a sim wants the shape of the curve, and a single median cannot show the transonic rise
+  that is the whole reason Cd is interesting. The window bounds are already computed
+  (`lib/drag.ts` carries `vLow`/`vHigh`/`machLow`/`machHigh`), so a binned Cd-vs-Mach read is
+  reachable from what the coast already gives.
 
 ## Environment notes
 
