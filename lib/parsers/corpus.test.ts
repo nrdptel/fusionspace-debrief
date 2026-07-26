@@ -539,6 +539,11 @@ describe('a record that ends at rest above the pad is not a landing', () => {
       const m = loaded!.analysis.metrics;
       expect(m.descentTime, `${short}: no descent time`).toBeNull();
       expect(m.flightTime, `${short}: no flight time`).toBeNull();
+      // …and the flyer is told why. A tile that is simply absent, among warnings about
+      // baselines and sample rates that explain something else, is not an explanation.
+      const why = loaded!.analysis.warnings.find((w) => /never reaches the ground/.test(w));
+      expect(why, `${short}: says why the landing is withheld`).toBeTruthy();
+      expect(why, `${short}: names the height it stopped at`).toMatch(/\d+ m above the pad/);
     });
   }
 });

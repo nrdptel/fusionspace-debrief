@@ -576,7 +576,11 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
         ...(spliced ? [spliced.warning] : []),
         // The first copy's own "record stops short" note is replaced by the splice: it says
         // no flight time or descent rate is read, which is no longer true of this flight.
-        ...(spliced ? first.warnings.filter((w) => !/holds the climb but not the descent/.test(w)) : first.warnings),
+        ...(spliced
+          ? first.warnings.filter(
+              (w) => !/holds the climb but not the descent|never reaches the ground/.test(w),
+            )
+          : first.warnings),
       ],
     };
   }
@@ -1233,6 +1237,22 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   }
   if (apogeeIdx >= n - 2) {
     warnings.push('The log appears to end at or before apogee — descent numbers may be missing.');
+  }
+  // The other way a landing goes unread: the record holds the whole fall — long enough that
+  // the vacuum test above is satisfied — and then stops with the rocket still well up. Four
+  // corpus records do this, ending between 2.0% and 7.5% of their own apogee above the pad,
+  // one of them 307 m up. Debrief was withholding the landing, the flight time and the descent
+  // time on all four and saying NOTHING about it: the tiles simply weren't there, among
+  // warnings about baselines and sample rates that explain something else. A withheld number
+  // has to say why it is withheld, so this says it, with the height it stopped at.
+  if (descentRecorded && !landingFound && apogeeIdx < n - 2) {
+    let lowest = Infinity;
+    for (let i = apogeeIdx; i < n; i++) if (Number.isFinite(altClean[i]) && altClean[i] < lowest) lowest = altClean[i];
+    if (Number.isFinite(lowest) && apogeeAlt > 0) {
+      warnings.push(
+        `The record covers the descent but never reaches the ground — the lowest it gets after apogee is ${Math.round(lowest)} m above the pad, ${((lowest / apogeeAlt) * 100).toFixed(1)}% of this flight's own apogee. That may be the log stopping early or the barometer's zero having drifted over a long descent, and the record doesn't settle which, so no landing is marked and flight time and descent time are left unread rather than measured to wherever it happens to stop.`,
+      );
+    }
   }
 
   // --- Deployments & descent rates -----------------------------------------

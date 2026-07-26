@@ -6,6 +6,20 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Four corpus flights had no flight time and Debrief never said why.** Followed directly
+  from the at-rest landing work: those records hold the whole descent — long enough to
+  satisfy the vacuum test — and then stop with the rocket still 2.0% to 7.5% of its own apogee
+  up, one of them **307 m**. Withholding the landing is right. Saying nothing about it is not:
+  the Flight time and Descent time tiles were simply absent, surrounded by warnings about
+  ground baselines and sample rates that explain something else entirely, so the flyer's only
+  clue was a gap where a number should be. **A withheld number has to say why it is withheld —
+  that is the spine, and this was four files failing it.** The note now names the height:
+  "the lowest it gets after apogee is 307 m above the pad, 7.5% of this flight's own apogee",
+  and says the record does not settle whether that is the log stopping early or the
+  barometer's zero drifting over a long descent — because it doesn't. It is suppressed on a
+  doubled recording whose second copy supplied the descent, where it would no longer be true.
+  Now asserted on all four, and the assert fails on all four with the note removed.
+
 - **Per-recording assembly, within one file — shipped, and a different device checks it.** The
   Blue Raven jan10 file holds one flight twice: the copy that starts on the pad is cut 3.3 s
   after apogee, and the copy that runs to the ground starts in the trough with no pad of its
