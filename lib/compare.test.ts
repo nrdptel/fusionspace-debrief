@@ -376,3 +376,56 @@ describe('undatedNote — the files that state nothing', () => {
     expect(undatedNote(split, 2)).toBe('');
   });
 });
+
+// A main leg and a whole-descent average are different quantities, and the comparison must
+// never put them in one row. Four recordings of one corpus flight did exactly that: three
+// resolved a main deployment and read 24.6, 26.7 and 30.9 ft/s over the leg after it, while
+// the fourth resolved none and read 71.3 ft/s over the whole descent. Sharing one key, the
+// cross-check reported a 121.6% disagreement between four instruments that agreed on the
+// drogue to 2.1% — they had not disagreed, they had measured different things.
+describe('a whole-descent average is not a main descent rate', () => {
+  const withRates = (main: number | null, whole: number | null, drogue: number | null) =>
+    ({
+      metrics: {
+        apogeeAltitude: 3576,
+        drogueDescentRate: drogue,
+        mainDescentRate: main,
+        wholeDescentRate: whole,
+      } as FlightMetrics,
+    }) as CompareFlight;
+
+  it('cross-checks each against its own kind, never against the other', () => {
+    const flights = [
+      withRates(7.5, null, 22.1), // resolved a main
+      withRates(8.1, null, 21.9), // resolved a main
+      withRates(9.4, null, 21.9), // resolved a main
+      withRates(null, 21.7, null), // resolved none — the whole descent
+    ];
+    const rows = crossCheck(flights);
+    const main = rows.find((r) => r.key === 'mainDescentRate');
+    const whole = rows.find((r) => r.key === 'wholeDescentRate');
+
+    // The three main legs are compared with each other and agree.
+    expect(main, 'the main legs are cross-checked').toBeTruthy();
+    expect(main!.max).toBeCloseTo(9.4, 5);
+    expect(main!.min).toBeCloseTo(7.5, 5);
+    // …and the whole-descent figure is nowhere near them, so it must not be in that row.
+    expect(main!.max).toBeLessThan(21);
+
+    // One recording cannot cross-check anything on its own, so the whole-descent row is
+    // absent rather than a single value dressed up as agreement.
+    expect(whole).toBeUndefined();
+  });
+
+  it('would report a false disagreement if the two shared a row', () => {
+    // The same four numbers with the outlier put in the main column — what shipped before.
+    const wrong = crossCheck([
+      withRates(7.5, null, 22.1),
+      withRates(8.1, null, 21.9),
+      withRates(9.4, null, 21.9),
+      withRates(21.7, null, null),
+    ]);
+    const main = wrong.find((r) => r.key === 'mainDescentRate')!;
+    expect(main.spreadPct).toBeGreaterThan(100);
+  });
+});

@@ -98,13 +98,28 @@ export default function MethodsPage() {
             reads zero <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is
             not a landing and never splits a file.
           {' '}
-            Debrief reads the <strong>first</strong> flight in the file, and keeps doing so even
-            where a later copy looks more complete: reading the later one was tried and measured on
-            a Blue Raven that holds the same flight twice, and it moved the apogee from
-            10,245&nbsp;ft to 10,723 against the device&apos;s own stated 10,266 — the second copy
-            begins at the trough with no quiet pad window to take a ground baseline from. A right
-            apogee is not worth trading for a right descent; what the first copy lacks is said
-            instead.
+            Debrief reads the <strong>first</strong> flight in the file, and the climb always comes
+            from it, because it is the copy that starts on the pad. Reading a later copy
+            <em>instead</em> was tried and measured on a Blue Raven that holds the same flight twice,
+            and it moved the apogee from 10,245&nbsp;ft to 10,723 against the device&apos;s own stated
+            10,266 — the second copy begins at the trough with no quiet pad window of its own, and
+            measuring it against that trough is what put it 456&nbsp;ft out.
+          </Method>
+          <Method title="The same flight written twice">
+            A doubled download is not two flights, and saying so matters: telling its owner to
+            &ldquo;split the file and read the others&rdquo; hands them the same flight again. The
+            test is the apogee measured against <strong>one datum</strong> — the file&apos;s own pad
+            baseline, because it is one altitude column and the second copy has no business taking a
+            reference from the trough between the copies. On that datum the two corpus Blue Ravens
+            agree to <strong>0.21%</strong> and <strong>0.00%</strong>, while a file whose second
+            segment is a documented barometric artefact is <strong>92%</strong> away. Where the copy
+            that starts on the pad <em>stops before the rocket lands</em>, the descent clock is read
+            from the other copy on that shared datum — the same segment that read 10,723&nbsp;ft
+            against itself reads <strong>10,267</strong> against the file, one foot from the
+            device&apos;s own figure. A separate Featherweight GPS recording of that flight times the
+            descent at 64.40&nbsp;s against the assembled 64.76&nbsp;s. Descent <em>rates</em> are not
+            carried across: a time needs two instants both copies agree on, a rate needs the
+            deployment structure between them.
           </Method>
           <Method title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
@@ -383,6 +398,21 @@ export default function MethodsPage() {
             as a <em>main descent</em>: a number a flyer might size a parachute against. Those legs
             are left unread with a note saying why, and every genuine reading in the corpus sits far
             inside its own ceiling — the fastest, 148&nbsp;ft/s, against 924.
+          </Method>
+          <Method title="A main descent rate, or the whole descent">
+            A <strong>main descent rate</strong> is measured over the leg after a main deployment,
+            and Debrief now reports one only where it actually found that deployment in the record.
+            Where it did not, there is no main leg to measure — what the record supports is the
+            average from apogee to landing, which is reported under its own name and never as a
+            main. The difference is not cosmetic: over the corpus, <strong>18 of 25</strong>{' '}
+            descending flights had no detected main deployment, and the figures being published
+            under that label ran from 17.0 to <strong>148.5&nbsp;ft/s</strong> against a
+            20–50&nbsp;ft/s band for the seven that genuinely resolved one. It also reached the
+            comparison: four recordings of one flight agreed on the drogue to <strong>2.1%</strong>{' '}
+            while their &ldquo;main descent rate&rdquo; cross-check read a{' '}
+            <strong>121.6%</strong> disagreement — three had measured a main leg and the fourth had
+            measured the whole descent. They had not disagreed; they had measured different things,
+            and the two are now separate readings that are only ever compared with their own kind.
           </Method>
           <Method title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a

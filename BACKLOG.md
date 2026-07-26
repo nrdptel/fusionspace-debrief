@@ -32,9 +32,26 @@ memory, so a later pass doesn't have to rediscover them.
   nine times inside the closest refusal. Whether those four are a barometer's zero wandering
   or a log simply stopping is not something the record settles, so the claim isn't made. All
   four are now a corpus test, and it fails on every one of them with the bound removed.
-  **Still open from this pass:** a descent rate is published as "main" whenever no main
-  deployment is detected, even where it is plainly the whole-descent average — the jan10 pair
-  is the proof, and it is a labelling bug independent of any splice.
+  **Found from this pass and fixed next — see below.**
+
+- **A "main descent rate" was being reported on flights where no main deployment was ever
+  detected, and it reached the comparison as a false 121.6% disagreement.** Followed straight
+  from the splice above. Where no deployment splits the descent, the whole apogee-to-landing
+  average was written into `mainDescentRate` — over the corpus, **18 of 25** descending flights,
+  with figures from **17.0 to 148.5 ft/s** against a **20–50 ft/s** band for the seven that
+  genuinely resolved a main. *(The on-screen tile already softened the label to "Descent rate"
+  when no drogue leg existed, so this was less visible than I first wrote it up; the surfaces
+  that carried it unqualified were the comparison table, the cross-check and the JSON.)*
+  **The concrete wrong number is on the comparison**, which is where it matters most: the
+  trf-lemiv-l3 flight has four recordings, three of which resolve a main and read 24.6, 26.7
+  and 30.9 ft/s over the leg after it, while the fourth resolves none and reads 71.3 ft/s over
+  the whole descent. In one row that is a **121.6% spread** — the same four files agree on the
+  *drogue* to **2.1%**. The panel was accusing four instruments of disagreeing when they had
+  measured different things. `wholeDescentRate` is now its own reading, cross-checked only
+  against its own kind, with its own row, report line and JSON field, and the landing-energy
+  and parachute-Cd cards say when the speed they used is a whole-descent average.
+  **The invariant that holds it:** a reported main descent rate must have a detected main
+  deployment behind it — 25 corpus fixtures fail that with the old behaviour.
 
 - **Debrief was telling two Blue Raven owners their file held more than one flight, and it
   held one.** Both corpus Blue Ravens are a download written twice, and the note they got —

@@ -74,7 +74,7 @@ function landingEnergyRow(
   recovery: RecoveryFigures | undefined,
 ): [string, string] | null {
   if (recovery?.descendingMassKg == null) return null;
-  const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null);
+  const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? m.wholeDescentRate ?? null);
   if (joules == null) return null;
   const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
   const massDisp = (recovery.descendingMassKg / MASS_TO_KG[massUnit]).toFixed(massUnit === 'oz' ? 1 : 0);
@@ -197,8 +197,11 @@ export function headlineRows(
     rows.push(['Coast efficiency', `${Math.round(m.coastEfficiency * 100)}%${drag}`]);
   }
   if (m.drogueDescentRate != null) rows.push(['Drogue descent', fmtSpeed(m.drogueDescentRate, sys)]);
+  if (m.wholeDescentRate != null) {
+    rows.push(['Descent rate', `${fmtSpeed(m.wholeDescentRate, sys)} — averaged apogee to landing, no deployment change is in the record`]);
+  }
   if (m.mainDescentRate != null) {
-    rows.push([m.drogueDescentRate != null ? 'Main descent' : 'Descent rate', fmtSpeed(m.mainDescentRate, sys)]);
+    rows.push(['Main descent', fmtSpeed(m.mainDescentRate, sys)]);
   }
   const copyNote = m.descentSource === 'second-copy' ? ' — from this file’s second copy of the flight' : '';
   if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime) + copyNote]);
@@ -681,6 +684,7 @@ export function compareMetricRows(
     { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—'), value: (m) => m.burnoutAltitude ?? NaN },
     { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—'), value: (m) => m.drogueDescentRate ?? NaN },
     { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—'), value: (m) => m.mainDescentRate ?? NaN },
+    { label: 'Descent rate (whole)', get: (m) => (m.wholeDescentRate != null ? fmtSpeed(m.wholeDescentRate, sys) : '—'), value: (m) => m.wholeDescentRate ?? NaN },
     { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—'), value: (m) => m.flightTime ?? NaN },
   ];
   // Tilt at burnout only when at least one flight carried an attitude solution —
@@ -983,6 +987,7 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     dragLossAltitude: len(m.dragLossAltitude),
     drogueDescentRate: spd(m.drogueDescentRate),
     mainDescentRate: spd(m.mainDescentRate),
+    wholeDescentRate: spd(m.wholeDescentRate),
     descentTime: sec(m.descentTime),
     flightTime: sec(m.flightTime),
     descentSource: m.descentSource,
@@ -1080,7 +1085,7 @@ export function analysisJson(
   // the ones actually entered are included.
   if (recovery) {
     const rec: Record<string, unknown> = {};
-    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? null) : null;
+    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? m.wholeDescentRate ?? null) : null;
     if (joules != null && recovery.descendingMassKg != null) {
       const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
       rec.descendingMass = { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit };

@@ -42,7 +42,11 @@ export default function LandingEnergy({
   onMassKg: (kg: number | null) => void;
 }) {
   const unit = massUnit(sys);
-  const rate = metrics.mainDescentRate; // landing descent rate (m/s), measured
+  // The touchdown speed: the main leg where the record resolved a deployment, otherwise the
+  // whole descent — which, on a record showing no deployment change, is the same descent all
+  // the way down as far as it can tell. Named as such rather than silently equated.
+  const rate = metrics.mainDescentRate ?? metrics.wholeDescentRate;
+  const wholeDescent = metrics.mainDescentRate == null && metrics.wholeDescentRate != null;
 
   const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);
 
@@ -121,6 +125,7 @@ export default function LandingEnergy({
           shows even before a mass is entered, giving the gut-feel "how hard". */}
       {drop != null && rate != null && (
         <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+          {wholeDescent && 'Averaged over the whole descent — no deployment change is in this record. '}
           Touched down at <span className="font-medium">{fmtSpeed(rate, sys)}</span> — the speed of a free-fall drop from{' '}
           <span className="font-medium">{fmtLength(drop, sys)}</span>.
         </p>

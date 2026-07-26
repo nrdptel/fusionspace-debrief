@@ -164,6 +164,30 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
   // Descent rates are downward (positive); the main is the slow chute.
   if (m.drogueDescentRate != null) expect(m.drogueDescentRate, ctx('drogue ≥ 0')).toBeGreaterThanOrEqual(0);
   if (m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≥ 0')).toBeGreaterThanOrEqual(0);
+  if (m.wholeDescentRate != null) expect(m.wholeDescentRate, ctx('whole descent ≥ 0')).toBeGreaterThanOrEqual(0);
+  // A MAIN descent rate has to have come from a detected main deployment. Without one there
+  // is no main leg to measure, and what gets reported is the whole apogee-to-landing average
+  // wearing the label a flyer sizes a parachute against — 18 of the corpus's 25 descending
+  // flights were doing exactly that, from 17.0 to 148.5 ft/s, against a 20–50 ft/s band for
+  // the seven that genuinely resolved one. It also put that average in the same cross-check
+  // row as other recordings' real main legs (a false 121.6% disagreement on one flight).
+  if (m.mainDescentRate != null) {
+    expect(
+      a.events.some((e) => e.type === 'main'),
+      ctx(`a main descent rate of ${m.mainDescentRate.toFixed(1)} m/s needs a detected main deployment`),
+    ).toBe(true);
+  }
+  // A main leg and a whole-descent average are different quantities and never both apply: the
+  // second exists precisely because no deployment was found to split the descent at. Holding
+  // both would mean one of them is the other wearing a label it hasn't earned.
+  expect(
+    m.mainDescentRate != null && m.wholeDescentRate != null,
+    ctx('a flight has a main leg OR a whole-descent average, never both'),
+  ).toBe(false);
+  expect(
+    m.drogueDescentRate != null && m.wholeDescentRate != null,
+    ctx('a drogue leg means the descent was split, so there is no whole-descent average'),
+  ).toBe(false);
   if (m.drogueDescentRate != null && m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≤ drogue')).toBeLessThanOrEqual(m.drogueDescentRate + 0.5);
   // …and neither can beat a vacuum. The rocket is at rest at apogee, so nothing after it
   // exceeds √(2·g·h) — no drag model, no mass, nothing to tune. "main ≤ drogue" alone cannot
@@ -172,7 +196,7 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
   // every one of them printed as a rate a flyer might size a chute against.
   if (Number.isFinite(apo) && apo > 0) {
     const freeFall = Math.sqrt(2 * G0 * apo);
-    for (const [what, v] of [['drogue', m.drogueDescentRate], ['main', m.mainDescentRate]] as const) {
+    for (const [what, v] of [['drogue', m.drogueDescentRate], ['main', m.mainDescentRate], ['whole-descent', m.wholeDescentRate]] as const) {
       if (v != null) expect(v, ctx(`${what} ${v.toFixed(1)} m/s beats a vacuum fall from ${apo.toFixed(0)} m (${freeFall.toFixed(0)} m/s)`)).toBeLessThanOrEqual(freeFall);
     }
   }

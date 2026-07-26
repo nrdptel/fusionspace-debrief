@@ -70,7 +70,16 @@ export interface FlightMetrics {
   /** Altitude drag cost over the coast (m): the vacuum coast height minus the
    *  actual gain. The companion to coastEfficiency; null when that is. */
   dragLossAltitude: number | null;
-  drogueDescentRate: number | null; // m/s (positive = downward)
+  drogueDescentRate: number | null;
+  /**
+   * The average descent rate from apogee to landing, set ONLY where no deployment change was
+   * found in the record — so there is no main leg to measure and this is what the descent did
+   * as a whole. It is a real measurement, but it is not a main descent rate, and the two must
+   * never share a field: four recordings of one corpus flight cross-checked to a 121.6%
+   * "disagreement" when three of them contributed a main leg (24.6–30.9 ft/s) and the fourth
+   * contributed this (71.3 ft/s). They did not disagree; they measured different things.
+   */
+  wholeDescentRate: number | null; // m/s (positive = downward)
   mainDescentRate: number | null; // m/s
   descentTime: number | null; // s, apogee → landing
   flightTime: number | null; // s, liftoff → landing

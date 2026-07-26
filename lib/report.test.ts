@@ -176,8 +176,10 @@ describe('report exports', () => {
 
   it('carries landing energy into the exports when a descending mass is supplied', () => {
     // ½·m·v² off the measured landing descent rate — the cert-card figure. 1.2 kg.
+    // The fixture resolves no deployment, so its touchdown speed is the whole-descent
+    // average; the energy reads off whichever of the two the record supports.
     const recovery = { descendingMassKg: 1.2 };
-    const rate = analysis.metrics.mainDescentRate!;
+    const rate = (analysis.metrics.mainDescentRate ?? analysis.metrics.wholeDescentRate)!;
     const expectedJ = 0.5 * 1.2 * rate * rate;
 
     const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery);

@@ -992,15 +992,15 @@ export default function FlightReport({
 
         {/* Landing energy belongs with recovery — it reads off the measured landing
             descent rate, so it's only shown when the log actually descended to it. */}
-        {metrics.mainDescentRate != null && (
+        {(metrics.mainDescentRate ?? metrics.wholeDescentRate) != null && (
           <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
         )}
 
         {/* Parachute Cd reads off the terminal main descent — shown with landing
             energy, the other recovery measurement that needs the descending mass. */}
-        {metrics.mainDescentRate != null && (
+        {(metrics.mainDescentRate ?? metrics.wholeDescentRate) != null && (
           <ParachuteCd
-            descentRate={metrics.mainDescentRate}
+            descentRate={(metrics.mainDescentRate ?? metrics.wholeDescentRate) as number}
             // Ground-level air density (first finite sample) — the main descends low,
             // where density is near the pad's, so this is the right ρ for terminal v.
             airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}

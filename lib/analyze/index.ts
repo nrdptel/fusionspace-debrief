@@ -1326,11 +1326,16 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   };
   let drogueDescentRate: number | null = null;
   let mainDescentRate: number | null = null;
+  // The whole descent as one figure, where the record shows no deployment to split it at.
+  // It used to be written into `mainDescentRate`, which put a drogue-and-main average under
+  // the label a flyer sizes a parachute against and — worse — let it be cross-checked against
+  // other recordings' actual main legs. See `wholeDescentRate`.
+  let wholeDescentRate: number | null = null;
   if (mainIdx !== null && cameDown) {
     drogueDescentRate = legRate(apogeeIdx, mainIdx);
     mainDescentRate = legRate(mainIdx, landingIdx);
   } else if (cameDown) {
-    mainDescentRate = legRate(apogeeIdx, landingIdx);
+    wholeDescentRate = legRate(apogeeIdx, landingIdx);
   }
   if (descentAboveFreeFall) {
     warnings.push(
@@ -1609,6 +1614,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     dragLossAltitude,
     drogueDescentRate,
     mainDescentRate,
+    wholeDescentRate,
     descentTime: landingFound ? landingTime - apogeeTime : null,
     flightTime: liftoffFound && landingFound ? landingTime - liftoffTime : null,
     // One flight, one record — the doubled-recording branch overwrites this where the

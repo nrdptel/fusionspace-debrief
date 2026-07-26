@@ -302,7 +302,7 @@ describe('implausible velocity guard', () => {
     expect(a.series.velocityImplausible).toBe(true);
     // Apogee, timings and the descent still read off the altitude.
     expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
-    expect(a.metrics.mainDescentRate).toBeGreaterThan(0);
+    expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
   });
 
   it('leaves a clean ascent alone (no negative dip to find)', () => {
@@ -396,7 +396,7 @@ describe('implausible velocity guard', () => {
     expect(a.warnings.some((x) => /implausibly fast/.test(x))).toBe(false);
     // Apogee and the descent are read off the altitude and are untouched.
     expect(a.metrics.apogeeAltitude).toBeCloseTo(1800, 0);
-    expect(a.metrics.mainDescentRate).toBeGreaterThan(0);
+    expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
   });
 
   it('leaves a barometric speed the accelerometer supports alone', () => {
@@ -764,12 +764,13 @@ describe('a log that stops at apogee', () => {
     const a = analyzeFlight(trimmed);
     expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
     expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.metrics.wholeDescentRate).toBeNull();
     expect(a.metrics.drogueDescentRate).toBeNull();
   });
 
   it('still reads the descent on a log that has one', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
-    expect(a.metrics.mainDescentRate).toBeGreaterThan(0);
+    expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
   });
 });
 
@@ -1201,8 +1202,8 @@ describe('analyzeFlight (barometric)', () => {
 
   it('reports a sensible descent rate', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
-    expect(a.metrics.mainDescentRate).toBeGreaterThan(10);
-    expect(a.metrics.mainDescentRate).toBeLessThan(20);
+    expect(a.metrics.wholeDescentRate).toBeGreaterThan(10);
+    expect(a.metrics.wholeDescentRate).toBeLessThan(20);
   });
 
   it('withholds a descent rate that beats a vacuum fall from apogee', () => {
@@ -1230,6 +1231,7 @@ describe('analyzeFlight (barometric)', () => {
     const a = analyzeFlight(broken);
     const ceiling = Math.sqrt(2 * 9.80665 * (a.metrics.apogeeAltitude ?? 0));
     expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.metrics.wholeDescentRate).toBeNull();
     if (a.metrics.drogueDescentRate != null) expect(a.metrics.drogueDescentRate).toBeLessThanOrEqual(ceiling);
     // …and it says why, rather than leaving a bare dash.
     expect(a.warnings.some((w) => /vacuum/.test(w))).toBe(true);
@@ -1276,6 +1278,7 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.flightTime).toBeNull();
     expect(a.metrics.descentTime).toBeNull();
     expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.metrics.wholeDescentRate).toBeNull();
     expect(a.events.some((e) => e.type === 'landing')).toBe(false);
     expect(a.warnings.some((w) => /holds the climb but not the descent/.test(w))).toBe(true);
   });
@@ -1304,6 +1307,7 @@ describe('analyzeFlight (barometric)', () => {
     const a = analyzeFlight(cut);
     expect(a.metrics.drogueDescentRate).toBeGreaterThan(20); // the long leg still reads
     expect(a.metrics.mainDescentRate).toBeNull(); // the sliver does not
+    expect(a.metrics.wholeDescentRate).toBeNull(); // the sliver does not
   });
 
   it('locates the design points: max-velocity & max-Q altitudes', () => {
@@ -1516,6 +1520,7 @@ describe('reading the descent from a file’s second copy of one flight', () => 
     const a = analyzeFlight(cutFirstCopy());
     expect(a.metrics.descentTime).not.toBeNull();
     expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.metrics.wholeDescentRate).toBeNull();
     expect(a.metrics.drogueDescentRate).toBeNull();
   });
 

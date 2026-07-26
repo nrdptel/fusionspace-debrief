@@ -327,6 +327,11 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // read a modest gap as ordinary spread, not a fault.
     { key: 'drogueDescentRate', label: 'drogue descent rate', get: (m) => m.drogueDescentRate },
     { key: 'mainDescentRate', label: 'main descent rate', get: (m) => m.mainDescentRate },
+    // Kept apart from the main leg on purpose. Four recordings of one corpus flight read
+    // 24.6, 30.9 and 26.7 ft/s over their main legs while the fourth resolved no deployment
+    // and read 71.3 ft/s over the whole descent; sharing a key reported that as a 121.6%
+    // disagreement between instruments that had measured different things.
+    { key: 'wholeDescentRate', label: 'whole-descent rate', get: (m) => m.wholeDescentRate },
   ];
   const out: Agreement[] = [];
   for (const s of specs) {

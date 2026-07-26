@@ -103,9 +103,15 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     });
   if (m.drogueDescentRate != null)
     out.push({ label: 'Drogue descent', value: fmtSpeed(m.drogueDescentRate, sys) });
+  if (m.wholeDescentRate != null)
+    out.push({
+      label: 'Descent rate',
+      value: fmtSpeed(m.wholeDescentRate, sys),
+      sub: 'averaged apogee to landing — no deployment change is in the record',
+    });
   if (m.mainDescentRate != null)
     out.push({
-      label: m.drogueDescentRate != null ? 'Main descent' : 'Descent rate',
+      label: 'Main descent',
       value: fmtSpeed(m.mainDescentRate, sys),
     });
   // Where this file held the same flight twice and the copy that starts on the pad stopped
