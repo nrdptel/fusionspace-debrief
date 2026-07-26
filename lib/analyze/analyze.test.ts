@@ -1159,6 +1159,36 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.mainDescentRate).toBeLessThan(20);
   });
 
+  it('withholds a descent rate that beats a vacuum fall from apogee', () => {
+    // A discontinuity in the altitude record — a segment boundary, a pressure glitch,
+    // a logger that resumes on another baseline — puts an enormous excursion into the
+    // derived velocity, and the mean over the leg inherits it. Three real corpus files
+    // reported exactly this as a "main descent": 16,495, 8,303 and 749 ft/s, printed as a
+    // rate a flyer might size a chute against. The rocket is at rest at apogee, so nothing
+    // after it can exceed √(2·g·h) — an exact ceiling with nothing to tune.
+    const { flight } = syntheticBaroFlight();
+    const alt = Float64Array.from(flight.channels[0].values);
+    const dt = 0.05;
+    const apIdx = alt.indexOf(Math.max(...alt));
+    const apogee = alt[apIdx];
+    // A sustained ramp, not a single spike — the spike filter removes one bad sample, and
+    // rightly: that is not the shape this artefact has. The record comes down from apogee
+    // to the ground in two seconds, which is a mean of ~800 m/s against a ceiling of
+    // √(2·g·h) ≈ 177 m/s. Nothing in the physics allows it, whatever the sensor says.
+    const fallSamples = Math.round(2 / dt);
+    for (let i = apIdx + 1; i < alt.length; i++) {
+      const k = i - apIdx;
+      alt[i] = k <= fallSamples ? apogee * (1 - k / fallSamples) : 0;
+    }
+    const broken: RawFlight = { ...flight, channels: [{ ...flight.channels[0], values: alt }] };
+    const a = analyzeFlight(broken);
+    const ceiling = Math.sqrt(2 * 9.80665 * (a.metrics.apogeeAltitude ?? 0));
+    expect(a.metrics.mainDescentRate).toBeNull();
+    if (a.metrics.drogueDescentRate != null) expect(a.metrics.drogueDescentRate).toBeLessThanOrEqual(ceiling);
+    // …and it says why, rather than leaving a bare dash.
+    expect(a.warnings.some((w) => /vacuum/.test(w))).toBe(true);
+  });
+
   it('withholds a descent leg the record only holds a sliver of', () => {
     // A log that loses power in mid-air moments after the main fires: the samples left
     // average to almost nothing, which is the end of the record rather than a descent.

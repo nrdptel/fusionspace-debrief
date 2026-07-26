@@ -1035,11 +1035,29 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
   // 1,877 ft, and the 26 samples left over average to 2 ft/s against its partner
   // recording's 57 ft/s on the same flight. Two feet per second is not a descent; it is
   // the end of the record, and the honest reading is no reading.
+  //
+  // And a descent cannot be faster than falling from apogee in a vacuum. At apogee the
+  // rocket is at rest — that is what apogee means — so conservation of energy caps every
+  // speed after it at √(2·g·h): no drag model, no mass, nothing to tune, the same argument
+  // the coast-efficiency read uses in the other direction. A leg whose mean comes out above
+  // that ceiling is not a recovery rate; it is a derived-signal artefact, and three real
+  // corpus files produced one — a Blue Raven reading 16,495 ft/s, an Eggtimer 8,303 ft/s and
+  // another 749 ft/s, all printed as a "main descent" a flyer might size a chute against.
+  // Every genuine corpus reading sits far inside its own ceiling (the fastest, 148 ft/s,
+  // against 924). Withheld with a reason rather than shown, because a descent rate is a
+  // reading of a recovery system and a wrong one is worse than none.
+  const freeFallLimit = apogeeAlt > 0 ? Math.sqrt(2 * G0 * apogeeAlt) : Infinity;
+  let descentAboveFreeFall = false;
   const legRate = (from: number, to: number): number | null => {
     if (!(to > from + 1)) return null;
     const drop = altClean[from] - altClean[to];
     if (!(drop > Math.max(3, Math.abs(altClean[from]) * 0.1))) return null;
-    return downward(mean(descent, from + 1, to));
+    const rate = downward(mean(descent, from + 1, to));
+    if (rate != null && rate > freeFallLimit) {
+      descentAboveFreeFall = true;
+      return null;
+    }
+    return rate;
   };
   let drogueDescentRate: number | null = null;
   let mainDescentRate: number | null = null;
@@ -1048,6 +1066,13 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     mainDescentRate = legRate(mainIdx, landingIdx);
   } else if (cameDown) {
     mainDescentRate = legRate(apogeeIdx, landingIdx);
+  }
+  if (descentAboveFreeFall) {
+    warnings.push(
+      `A descent rate read faster than this flight could fall from ${Math.round(apogeeAlt)} m in a vacuum ` +
+        `(${Math.round(freeFallLimit)} m/s), so it isn’t a rate the rocket can have had — something in the ` +
+        `altitude record jumps. That leg is left unread rather than shown.`,
+    );
   }
 
   // --- Events ---------------------------------------------------------------

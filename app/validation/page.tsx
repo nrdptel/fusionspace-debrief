@@ -64,7 +64,11 @@ export default function ValidationPage() {
             downward and the main is slower than the drogue; a coast never beats a vacuum (the height
             gained from burnout to apogee cannot exceed the v²/2g a drag-free body would gain, or the
             three figures aren&apos;t from one instant of one flight — the corpus&apos;s highest is
-            82%); thrust-to-weight off the pad is a sane launch number; a battery&apos;s low never
+            82%); <strong>no descent rate beats a vacuum fall from apogee</strong> (√(2·g·h) — the
+            guard that caught three real logs reporting a &ldquo;main descent&rdquo; of 16,495, 8,303
+            and 749&nbsp;ft/s, which the older &ldquo;main is slower than the drogue&rdquo; check
+            could not see because those flights had no drogue leg to compare against);
+            thrust-to-weight off the pad is a sane launch number; a battery&apos;s low never
             exceeds its resting start. A metric that
             contradicts itself trips these guards even when there is no ground truth to compare
             against — the kind of bug a single golden number can miss.

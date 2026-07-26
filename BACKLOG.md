@@ -6,6 +6,26 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Debrief was printing a 16,495 ft/s "main descent rate" on a real corpus file, and two
+  more besides.** Found by sweeping every corpus flight's descent legs rather than by a
+  report: a Blue Raven read **16,495 ft/s**, an Eggtimer **8,303 ft/s** and another
+  **749 ft/s** — Mach 15, Mach 7.5 and Mach 0.67, each printed under the label a flyer sizes
+  a parachute against. Every one passed the whole suite, because the only bound on a descent
+  rate was *relative*: "main is slower than the drogue". All three flights have no drogue leg,
+  so there was nothing to be slower than, and no absolute check existed at all. The cause is
+  the leg rate being a **mean** of the derived descent speed, which a discontinuity in the
+  altitude record destroys (a segment boundary, a pressure glitch, a logger resuming on
+  another baseline). **The fix is an exact physical ceiling, not a tolerance:** the rocket is
+  at rest at apogee, so nothing after it exceeds √(2·g·h) — the same energy argument the
+  coast-efficiency read already uses in the other direction, with no drag model, no mass and
+  nothing to tune. Swept: exactly those three legs are withheld (with a note saying why) and
+  **no other corpus reading moves at all**; the fastest genuine reading, 148 ft/s, sits
+  against a 924 ft/s ceiling. Now a standing corpus invariant, and a unit test that reports
+  1,037 m/s without the guard. **Noticed on the way and not chased:** the same Blue Raven file
+  also reports an 18.3 s flight time for a 10,245 ft flight, which the same vacuum argument
+  refutes (the fall alone is ≥ 25.2 s) — it is the multi-flight segmentation cutting the
+  record short, and it deserves its own pass.
+
 - **Per-stage assembly: measured the obvious detector first, and the corpus refutes it.** The
   corpus does hold genuine two-stage pairs — `iss-kairos-20240323` (booster TeleMega +
   sustainer TeleMega telemetry) and `iss-sg1.2-20231118` (booster StratoLogger + sustainer

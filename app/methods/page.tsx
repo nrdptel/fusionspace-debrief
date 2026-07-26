@@ -327,6 +327,19 @@ export default function MethodsPage() {
             1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
             same flight reads 57. Two feet per second is the end of the record, not a descent.
           </Method>
+          <Method title="A descent rate that beats a vacuum">
+            The rocket is at rest at apogee — that is what apogee means — so nothing after it can be
+            travelling faster than a free fall from that height in a vacuum,{' '}
+            <span className="font-mono">√(2·g·h)</span>. No drag model, no mass, nothing to tune: it
+            is the same energy argument the coast-efficiency read uses in the other direction. A leg
+            whose average comes out above that ceiling is not a recovery rate, it is a jump in the
+            altitude record showing up in the speed derived from it — a segment boundary, a pressure
+            glitch, a logger resuming on a different baseline. Three logs in the corpus produced one,
+            reading <strong>16,495</strong>, <strong>8,303</strong> and <strong>749&nbsp;ft/s</strong>{' '}
+            as a <em>main descent</em>: a number a flyer might size a parachute against. Those legs
+            are left unread with a note saying why, and every genuine reading in the corpus sits far
+            inside its own ceiling — the fastest, 148&nbsp;ft/s, against 924.
+          </Method>
           <Method title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
             north-up, equal-scale map and reads off how far and which way the rocket landed, and the

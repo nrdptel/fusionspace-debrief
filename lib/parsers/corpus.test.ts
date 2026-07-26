@@ -165,6 +165,17 @@ function assertInvariants(a: ReturnType<typeof analyzeFlight>, name: string): vo
   if (m.drogueDescentRate != null) expect(m.drogueDescentRate, ctx('drogue ≥ 0')).toBeGreaterThanOrEqual(0);
   if (m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≥ 0')).toBeGreaterThanOrEqual(0);
   if (m.drogueDescentRate != null && m.mainDescentRate != null) expect(m.mainDescentRate, ctx('main ≤ drogue')).toBeLessThanOrEqual(m.drogueDescentRate + 0.5);
+  // …and neither can beat a vacuum. The rocket is at rest at apogee, so nothing after it
+  // exceeds √(2·g·h) — no drag model, no mass, nothing to tune. "main ≤ drogue" alone cannot
+  // see this: with no drogue leg to compare against, three real corpus files reported a main
+  // descent of 16,495, 8,303 and 749 ft/s, every one of them a derived-signal artefact and
+  // every one of them printed as a rate a flyer might size a chute against.
+  if (Number.isFinite(apo) && apo > 0) {
+    const freeFall = Math.sqrt(2 * G0 * apo);
+    for (const [what, v] of [['drogue', m.drogueDescentRate], ['main', m.mainDescentRate]] as const) {
+      if (v != null) expect(v, ctx(`${what} ${v.toFixed(1)} m/s beats a vacuum fall from ${apo.toFixed(0)} m (${freeFall.toFixed(0)} m/s)`)).toBeLessThanOrEqual(freeFall);
+    }
+  }
   // The clock adds up: boost + coast = time to apogee; ascent + descent = flight.
   if (m.burnTime != null && m.coastTime != null && Number.isFinite(m.timeToApogee))
     expect(Math.abs(m.burnTime + m.coastTime - m.timeToApogee), ctx('burn + coast = timeToApogee')).toBeLessThanOrEqual(Math.max(0.5, m.timeToApogee * 0.1));
