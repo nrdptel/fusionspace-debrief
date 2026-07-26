@@ -24,10 +24,12 @@ test('a rocketeer compares two flights end to end', async ({ page, context }) =>
 
   // Mixed velocity sources → the baro flight is marked, with an explaining note.
   await expect(page.getByText(/\(baro\)/).first()).toBeVisible();
-  await expect(page.getByText(/derived from altitude rather than logged/)).toBeVisible();
-  // …and the cross-check itself is honest that a mixed measured/derived agreement is
-  // the looser bound.
-  await expect(page.getByText(/mix a measured value with one derived from altitude/)).toBeVisible();
+  await expect(page.getByText(/differentiated out of the altitude rather than logged/)).toBeVisible();
+  // …and the cross-check itself says which way a mixed measured/derived spread is wrong.
+  // On every corpus pair that carries both, the derived peak reads HIGH, so the spread
+  // overstates the disagreement — calling it "the looser bound" pointed the other way.
+  await expect(page.getByText(/mix a value the device measured with one differentiated out of an/)).toBeVisible();
+  await expect(page.getByText(/overstates the disagreement rather than bounding it/)).toBeVisible();
 
   // Every overlay channel renders and titles itself correctly.
   const channel = async (button: string, heading: RegExp | string) => {

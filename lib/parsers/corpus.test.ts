@@ -685,3 +685,49 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
     expect(m.transonicUnconfirmed, 'a measured speed still settles it').toBe(false);
   });
 });
+
+// The direction of the mixed-source caveat, which the comparison and every export state.
+// Where one recording of a flight measured the speed and another differentiated it out of
+// an altitude, the derived one reads HIGH — never soft. Four corpus pairs, and all four
+// agree; the caveat used to say the opposite, which tells a flyer to treat the inflated
+// figure as a lower bound.
+describe('a speed differentiated out of an altitude reads high, not soft', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const PAIRS: { name: string; measured: string; derived: string }[] = [
+    {
+      name: 'trf-f1-jan18: Blue Raven vs the ground-station GPS',
+      measured: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
+      derived: 'featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv',
+    },
+    {
+      name: 'trf-lemiv-l3: Blue Raven vs the tracker GPS',
+      measured: 'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+      derived: 'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv',
+    },
+    {
+      name: 'trf-lemiv-l3: Blue Raven vs the Proton baro',
+      measured: 'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+      derived: 'generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv',
+    },
+    {
+      name: 'trf-lemiv-l3: Blue Raven vs the Quantum baro',
+      measured: 'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+      derived: 'generic-csv/genericcsv__trf-lemiv-l3__Quantum-FW_format.csv',
+    },
+  ];
+  for (const p of PAIRS) {
+    it(p.name, () => {
+      const meas = loadForCompare(p.measured);
+      const der = loadForCompare(p.derived);
+      expect(meas, `${p.measured} is in the corpus and parses`).toBeTruthy();
+      expect(der, `${p.derived} is in the corpus and parses`).toBeTruthy();
+      expect(meas!.analysis.metrics.maxVelocitySource).toBe('device');
+      expect(der!.analysis.metrics.maxVelocitySource).toBe('baro');
+      const ratio = der!.analysis.metrics.maxVelocity! / meas!.analysis.metrics.maxVelocity!;
+      expect(ratio, `derived/measured = ${ratio.toFixed(3)} — a derived peak must not read soft`).toBeGreaterThan(1);
+    });
+  }
+});

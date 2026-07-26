@@ -549,8 +549,9 @@ export default function CompareView({
                 <>
                   {' '}
                   <span className="text-zinc-500 dark:text-zinc-400">
-                    *the recordings mix a measured value with one derived from altitude, which reads
-                    softer at the peak — so read that agreement as the looser bound.
+                    *the recordings mix a value the device measured with one differentiated out of an
+                    altitude, which reads high at the peak — 5% to 110% high on the corpus flights that
+                    carry both — so that spread overstates the disagreement rather than bounding it.
                   </span>
                 </>
               )}
@@ -727,8 +728,8 @@ export default function CompareView({
 
       {baroMix && (
         <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="font-mono">(baro)</span> — derived from altitude rather than logged by the
-          device, so it reads softer at peak speed; compare those values with that in mind.
+          <span className="font-mono">(baro)</span> — differentiated out of the altitude rather than
+          logged by the device, so its peak reads high, not soft; compare those values with that in mind.
         </p>
       )}
 

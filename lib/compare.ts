@@ -177,9 +177,11 @@ export interface Agreement {
   spreadPct: number;
   count: number;
   /** True when the contributing flights don't all share one measurement source —
-   *  e.g. one max speed is device-measured and another is altitude-derived. A
-   *  derived peak reads softer, so some of the spread is method, not flight, and the
-   *  agreement should be read as the looser bound. */
+   *  e.g. one max speed is device-measured and another is altitude-derived. Some of the
+   *  spread is then method, not flight, and it has a direction: on all four corpus pairs
+   *  where one recording measured the speed and another differentiated it out of an
+   *  altitude, the derived one reads HIGH — by 5%, 23%, 31% and 110%. So a mixed spread
+   *  overstates the disagreement rather than bounding it. */
   mixedSource: boolean;
   /** True when at least one contributing value is a floor rather than the true peak —
    *  today an accelerometer that saturated at its full-scale limit. Its real peak is
@@ -305,7 +307,8 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // Two recordings of one flight saw the same climb, so it should match tightly.
     { key: 'timeToApogee', label: 'time to apogee', get: (m) => (Number.isFinite(m.timeToApogee) ? m.timeToApogee : null) },
     // Velocity can be device-measured on one flight and altitude-derived on another;
-    // a derived peak reads softer, so a mixed cross-check is flagged (mixedSource).
+    // a derived peak reads high (never low, on the corpus), so a mixed cross-check is
+    // flagged (mixedSource).
     { key: 'maxVelocity', label: 'max speed', get: (m) => m.maxVelocity, source: (m) => m.maxVelocitySource },
     // Peak acceleration, when two recordings both carry it — a redundant-altimeter
     // check on the g the airframe felt. Baro-derived acceleration is a soft second

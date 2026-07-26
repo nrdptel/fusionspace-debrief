@@ -796,7 +796,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
       .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const mixed = agree.some((a) => a.mixedSource)
-      ? ' \\*The recordings mix a measured value with one derived from altitude, which reads softer at the peak — so read that agreement as the looser bound.'
+      ? ' \\*The recordings mix a value the device measured with one differentiated out of an altitude, which reads HIGH at the peak — 5% to 110% high on the corpus flights that carry both — so that spread overstates the disagreement rather than bounding it.'
       : '';
     const sat = agree.some((a) => a.saturated)
       ? ' †One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
@@ -827,7 +827,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
   }
 
   if (compareHasBaroMix(flights)) {
-    out.push('', '_(baro) — derived from altitude rather than logged by the device, so it reads softer at peak speed._');
+    out.push('', '_(baro) — differentiated out of the altitude rather than logged by the device, so its peak reads high, not soft._');
   }
   if (compareHasClippedAccel(flights)) {
     out.push(
@@ -873,7 +873,7 @@ export function compareHtml(
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const foot = [
       agree.some((a) => a.mixedSource)
-        ? '*The recordings mix a measured value with one derived from altitude, which reads softer at the peak — so read that agreement as the looser bound.'
+        ? '*The recordings mix a value the device measured with one differentiated out of an altitude, which reads HIGH at the peak — 5% to 110% high on the corpus flights that carry both — so that spread overstates the disagreement rather than bounding it.'
         : '',
       agree.some((a) => a.saturated)
         ? '†One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
@@ -904,7 +904,7 @@ export function compareHtml(
   const metricsHtml = `<section><h2>Metrics</h2><table><thead>${head}</thead><tbody>${body}</tbody></table></section>`;
 
   const foots = [
-    compareHasBaroMix(flights) ? '(baro) — derived from altitude rather than logged by the device, so it reads softer at peak speed.' : '',
+    compareHasBaroMix(flights) ? '(baro) — differentiated out of the altitude rather than logged by the device, so its peak reads high, not soft.' : '',
     compareHasClippedAccel(flights)
       ? '(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor; the highest-acceleration mark is withheld.'
       : '',
