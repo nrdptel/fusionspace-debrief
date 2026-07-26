@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
-import { crossCheck, statedDaySplit, statedDaysPhrase, DIFFERENT_DAYS_CAVEAT } from '@/lib/compare';
+import { crossCheck, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT } from '@/lib/compare';
 import { accelInG, lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
@@ -517,7 +517,8 @@ export default function CompareView({
             <p className="mt-1 text-zinc-600 dark:text-zinc-400">
               {otherDays ? (
                 <>
-                  The files date these on different days — {statedDaysPhrase(otherDays, stem)} — so
+                  The files date these on different days — {statedDaysPhrase(otherDays, stem)}
+                  {undatedNote(otherDays, flights.length)} — so
                   what follows is how far apart they are, not how closely two recordings of one
                   flight agree. They differ by{' '}
                 </>

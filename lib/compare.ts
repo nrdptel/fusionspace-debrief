@@ -258,12 +258,33 @@ export function statedDaysPhrase(days: StatedDay[], label: (name: string) => str
 }
 
 /**
+ * How many of the compared files state a day at all — because the verdict rests on the ones
+ * that do, and a reader counting columns will notice if it doesn't add up.
+ *
+ * Comparing three flights where only two carry a date, the panel read "The files date these
+ * on different days — 30 Oct 2021 (…), 11 May 2024 (…)", naming two days beside three
+ * columns and leaving the third to be wondered about. It states the count now: the file with
+ * no date is not evidence either way, and saying so is the same honesty as the caveat below.
+ */
+export function statedDayCount(days: StatedDay[]): number {
+  return days.reduce((n, d) => n + d.names.length, 0);
+}
+
+/**
  * The caveat that must sit beside every different-days reading, on every surface. The
  * reading rests on the stated dates and nothing else, and a clock that was never set states
  * a wrong day — so the one alternative explanation is named rather than left for the flyer
  * to think of. It also says why the numbers can't break the tie: see `statedDaySplit`, where
  * the corpus measurement behind that claim is recorded.
  */
+/** "…and the third states none", where some of the compared files carry no date. Empty when
+ *  every one of them does, so the common case reads exactly as before. */
+export function undatedNote(days: StatedDay[], flights: number): string {
+  const undated = flights - statedDayCount(days);
+  if (undated <= 0) return '';
+  return ` The other ${undated === 1 ? 'file states' : `${undated} files state`} no date, so ${undated === 1 ? 'it is' : 'they are'} not evidence either way.`;
+}
+
 export const DIFFERENT_DAYS_CAVEAT =
   'That reads off the stated dates alone. If you flew these as one flight, a device clock is wrong — Debrief reports the day each file states and never corrects it, and the readings cannot settle it, because different flights can agree as closely as two recordings of one.';
 

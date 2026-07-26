@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, crossCheck, differentFlightDays, statedDaySplit, statedDaysPhrase, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
+import { resample, buildComparison, crossCheck, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
 import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
@@ -351,5 +351,28 @@ describe('statedDaySplit — the evidence, not just the verdict', () => {
       const fs = stamps.map((s, i) => flight(`f${i}.csv`, s ?? undefined));
       expect(!!statedDaySplit(fs)).toBe(!!differentFlightDays(fs));
     }
+  });
+});
+
+describe('undatedNote — the files that state nothing', () => {
+  const at = (stamp: string): FlownAt => ({ stamp, zone: 'UTC' });
+  const flight = (name: string, stamp?: string): CompareFlight =>
+    ({ name, metrics: metrics(1000), ...(stamp ? { flownAt: at(stamp) } : {}) }) as CompareFlight;
+
+  it('says how many files carry no date, so the count adds up', () => {
+    // Comparing three flights where only two are dated, the panel named two days beside
+    // three columns and left the third to be wondered about.
+    const split = statedDaySplit([
+      flight('a.csv', '2021-10-30T20:07'),
+      flight('b.csv', '2024-05-11T14:09'),
+      flight('c.csv'),
+    ])!;
+    expect(undatedNote(split, 3)).toMatch(/other file states no date/);
+    expect(undatedNote(split, 4)).toMatch(/other 2 files state no date/);
+  });
+
+  it('says nothing at all when every compared file is dated', () => {
+    const split = statedDaySplit([flight('a.csv', '2021-10-30T20:07'), flight('b.csv', '2024-05-11T14:09')])!;
+    expect(undatedNote(split, 2)).toBe('');
   });
 });

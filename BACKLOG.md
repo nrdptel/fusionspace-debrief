@@ -6,6 +6,14 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Found by the cold walk: the different-days panel named two dates beside three columns.**
+  Comparing a launch day where only some files carry a date, the panel read "The files date
+  these on different days — 30 Oct 2021 (…), 11 May 2024 (…)" over a three-flight table, and
+  left the reader to wonder what the third one said. It states the count now — "the other file
+  states no date, so it is not evidence either way" — on the screen, in the Markdown and in
+  the HTML. A file with no date is not evidence in either direction, which is the same honesty
+  as the caveat beside it, and it was being left implicit.
+
 - **A peak roll rate of 179.99 deg/s on five real files, and it was the roll ANGLE.** Found
   while checking whether an AltimeterCloud export deserves a named parser: the generic mapper
   reads a column called `roll` as a rate, which is right for a logger that writes one
