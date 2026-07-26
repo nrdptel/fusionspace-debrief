@@ -796,3 +796,84 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
     expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
   });
 });
+
+// Coast efficiency measures the climb from BURNOUT, so it has to use the same burnout
+// height the flight reports — the corrected one. It used to read the raw barometric sample,
+// which on a transonic boost is exactly where the shock over the static port drives the
+// trace away from the true pressure. Two corpus mach-busters were charged or credited for a
+// climb they never made, and a third had a percentage printed off an altitude the analysis
+// was already refusing to show.
+describe('coast efficiency measures the climb from the burnout height the flight reports', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // file → the efficiency off the corrected burnout height, and what the raw sample gave.
+  const CORRECTED: { file: string; pct: number; wasPct: number; rawAltM: number; altM: number }[] = [
+    {
+      file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
+      pct: 12.2,
+      wasPct: 14.9,
+      rawAltM: -93.5,
+      altM: 482.5,
+    },
+    {
+      file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
+      pct: 23.9,
+      wasPct: 15.6,
+      rawAltM: 774.8,
+      altM: 171.9,
+    },
+  ];
+  for (const c of CORRECTED) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — ${c.wasPct}% off a ${c.rawAltM} m sample, ${c.pct}% off the ${c.altM} m burnout`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const m = loaded!.analysis.metrics;
+      expect(m.coastEfficiency, `${short}: an efficiency is reported`).not.toBeNull();
+      expect(m.coastEfficiency! * 100, `${short}: reads the corrected burnout height`).toBeCloseTo(c.pct, 0);
+      // The raw sample the reading used to come off is genuinely the impossible one — so
+      // this pins the bug, not just the number.
+      const bo = loaded!.analysis.events.find((e) => e.type === 'burnout');
+      expect(loaded!.analysis.series.altitude[bo!.index], `${short}: the raw sample is still the contradicted one`).toBeCloseTo(c.rawAltM, 0);
+      expect(m.burnoutAltitude!, `${short}: and the reported burnout height is the corrected one`).toBeCloseTo(c.altM, 0);
+    });
+  }
+
+  it('is withheld wherever the burnout height itself is', () => {
+    // A TeleMega whose baro reads 286 m BELOW the pad at a burnout doing 596 m/s. The
+    // burnout altitude was already withheld there; the efficiency derived from it was not,
+    // so the page showed "Coast efficiency 47%" beside a burnout altitude of "—".
+    const loaded = loadForCompare('altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv');
+    expect(loaded, 'the TeleMega is in the corpus and parses').toBeTruthy();
+    const m = loaded!.analysis.metrics;
+    expect(m.burnoutAltitude, 'the burnout height is unreadable on this flight').toBeNull();
+    expect(m.coastEfficiency, 'so nothing derived from it is reported either').toBeNull();
+    expect(m.dragLossAltitude, 'including the drag cost').toBeNull();
+  });
+
+  it('never reports an efficiency without the burnout height it is measured from, on any corpus flight', { timeout: 60_000 }, () => {
+    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
+    let checked = 0;
+    for (const file of files) {
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const m = loaded.analysis.metrics;
+      if (m.coastEfficiency == null) continue;
+      checked++;
+      expect(m.burnoutAltitude, `${file}: an efficiency with no burnout height behind it`).not.toBeNull();
+      // And it must be the arithmetic of the two figures the flight actually shows, so the
+      // percentage on screen can always be checked against the numbers beside it.
+      const vacuum = (m.burnoutVelocity! * m.burnoutVelocity!) / (2 * G0);
+      const gain = m.apogeeAltitude - m.burnoutAltitude!;
+      expect(m.coastEfficiency!, `${file}: does not match the burnout height and speed it reports`).toBeCloseTo(Math.min(1, gain / vacuum), 3);
+    }
+    expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+  });
+});

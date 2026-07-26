@@ -309,7 +309,16 @@ export default function MethodsPage() {
             the altitude drag cost. Pure energy conservation on the flown numbers, no aerodynamic
             model. It assumes a near-vertical flight (a tilted one reads lower, since some coast went
             sideways) and rides on the burnout velocity, so it&apos;s withheld when that&apos;s too
-            soft to trust.
+            soft to trust. It measures the climb from the same burnout altitude shown beside it —
+            the corrected one, where a barometric trace contradicted itself through the transonic
+            push and the logger&apos;s own inertial solution stood in. That correction matters most
+            exactly here, because burnout falls inside the stretch a shock over the static port
+            distorts: two corpus mach-busters read &minus;93&nbsp;m (below the pad) and 774&nbsp;m at
+            burnouts whose corrected heights are 482&nbsp;m and 172&nbsp;m, which moved their
+            efficiencies from 14.9% to 12.2% and from 15.6% to 23.9%. Where the trace contradicts
+            itself and no inertial solution can stand in, the burnout altitude is withheld — and so
+            is this, rather than reporting a percentage measured from a height the record cannot
+            state.
           </Method>
           <Method title="Ejection delay">
             For a motor-ejection flight, the ideal motor delay is the coast time — the interval
