@@ -45,11 +45,17 @@ against the real corpus — confirmed running, not skipped), `npm run build`, **
    how the ground-station file passed for as long as it did while being unanalysable. That
    skip is invisible in the output. Make it visible (log the count, or fail on an unexplained
    skip) and then look at what it has been hiding.
-3. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px
+3. **CSV export: column selection, a field separator, and a comments block.** Benchmarked
+   this run against OpenRocket's *Export data* tab; all three are things theirs has and ours
+   doesn't, and the separator is the sharp one — the corpus holds semicolon-delimited European
+   exports Debrief reads correctly and cannot write, so a comma-decimal-locale flyer opens our
+   CSV in Excel and gets one column. Recorded but not started; every CSV writer (report data,
+   compare chart-data, copy-table) has to move together. See BACKLOG's benchmark section.
+4. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px
    viewport behind a 32 px fade, so `Save bundle` is undiscoverable. Needs a sheet, which the
    app doesn't have yet; it is the one cold-walk finding this run left unfixed, deliberately,
    because the current shape is a considered trade rather than an oversight.
-4. **A clock column as a time base in the generic mapper.** `clockSeconds`/`dayNumber` and the
+5. **A clock column as a time base in the generic mapper.** `clockSeconds`/`dayNumber` and the
    midnight-rollover rule already exist in `lib/parsers/featherweightGps.ts`; lifting them into
    `lib/flight/build` unlocks any file whose only clock is a wall clock. Left deliberately —
    no corpus file needs it now that the one that did has a named parser, and a capability with

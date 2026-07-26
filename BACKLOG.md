@@ -1084,6 +1084,28 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Benchmarked against the mature tools
 
+- **OpenRocket's data export against Debrief's, and theirs has three things ours doesn't.**
+  Benchmarked the report's `Save .csv` (`analyzedDataCsv`) against OpenRocket's *Export data*
+  tab ([user guide](https://openrocket.readthedocs.io/en/latest/user_guide/advanced_flight_simulation.html)).
+  Debrief wins on breadth of what lands in the file — every recorded channel plus the six
+  derived curves, in the displayed unit, in one export, with the recorded labels quoted and
+  defanged. What OpenRocket has that we don't:
+  1. **Column selection.** Theirs picks which of 50+ values go into the file. Ours writes all
+     of them, always. The report already has a readings chooser and a figures chooser; the
+     data CSV has neither, which is the North Star's "pull exactly the tables you need" going
+     unmet on the one export a flyer takes into a spreadsheet.
+  2. **A field separator you can choose** — comma, semicolon, space or tab. Ours is comma-only,
+     and this is not a preference: the corpus itself holds semicolon-delimited European
+     exports (an Eggtimer and an RRC3) that Debrief *reads* correctly. A flyer in a
+     comma-decimal locale opens our export in Excel and gets one column. Reading a locale we
+     cannot write is asymmetric in the wrong direction.
+  3. **An optional comments block** carrying field descriptions and the flight events. Ours
+     writes a bare header row; the flyer's own report label and notes, and the events Debrief
+     detected, don't ride along, so a CSV opened a month later doesn't say which flight it is.
+  All three are one increment's worth of work on `analyzedDataCsv` plus the compare chart-data
+  CSV and the copy-table path — every CSV writer has to move together, or one export disagrees
+  with another about what a decimal point is.
+
 Where AltosUI, the vendor apps and Excel still do a job better than Debrief does:
 
 - **Benchmarked the explorer against OpenRocket's Plot Data tab** (from its own docs, not
