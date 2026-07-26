@@ -18,6 +18,16 @@
       "note": "Key-value device summary — recognised and explained rather than mapped."
     },
     {
+      "file": "featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "featherweight-gps-gs"
+      },
+      "requireChannels": ["altitude", "latitude", "longitude"],
+      "assert": [{ "metric": "apogee", "value": 6295.75, "unit": "ft", "tolPct": 1 }],
+      "note": "Featherweight GPS ground-station export. Was kind:mapping and never analysed — it states no elapsed time, so the mapper had no time base to offer and the file was a dead end, and the roles it did guess were the receiver's own position rather than the rocket's. Now a named parser: the time base is the DATE+TIME wall clock and the flight is the TRACKER columns. The assert is the Blue Raven's stated 6,295.75 ft on the same flight — a barometer against a GPS, 0.5% apart."
+    },
+    {
       "file": "featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_summary_04-12-2025_12_45_50_.csv",
       "expect": {
         "kind": "reject",

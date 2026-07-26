@@ -641,7 +641,14 @@ export default function MethodsPage() {
             export (the key-and-value file Featherweight&apos;s app saves beside a Blue Raven or GPS log)
             holds headline figures and no flight record, so Debrief names it, reads its figures back to
             you, and points you at the log file that has the flight — where those same figures become
-            the device&apos;s side of the cross-check. The RRC3 export names no units, so — like a metric-configured Eggtimer — its
+            the device&apos;s side of the cross-check. A Featherweight GPS has two exports and they are
+            not the same file: the tracker&apos;s own log, and the <em>ground station&apos;s</em> record of
+            what it received. The second holds two positions per row — the receiver&apos;s and the
+            rocket&apos;s — so the flight is read from the <code>TRACKER</code> columns and never from the
+            receiver sitting in the field, and since that export states no elapsed time at all, its time
+            base is built from the <code>DATE</code>+<code>TIME</code> wall clock it does state. Its gaps
+            are lost radio packets rather than a paused logger, and it says so.
+            The RRC3 export names no units, so — like a metric-configured Eggtimer — its
             altitude is ambiguous between feet and metres; Debrief settles it from physics, reading the
             altitude in whichever unit matches the apogee its own barometric-pressure column implies.
             Files are read with the browser&apos;s own file API and never uploaded.

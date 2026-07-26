@@ -260,7 +260,12 @@ of parsing and analysis runs locally.
   is derived from the barometric pressure channel.
 - **Featherweight GPS** — the GPS tracker log (`UTCTIME,UNIXTIME,ALT,LAT,LON,…`),
   re-sorted onto a monotonic clock; altitude is the (coarser) GPS reading, and the lat/lon
-  track drives the recovery view.
+  track drives the recovery view. The **ground-station** export of the same tracker
+  (`TRACKER,DATE,TIME,GS Lat,…,TRACKER Lat,TRACKER Lon,TRACKER Alt asl,…`) is read too:
+  every row holds the receiver's position beside the rocket's, so the flight is taken from
+  the `TRACKER` columns, and — because that export states no elapsed time at all — the time
+  base is built from its `DATE`+`TIME` wall clock. A gap in it is a gap in radio reception,
+  not a gap in the flight, and Debrief says so.
 - **MissileWorks RRC3** — the mDACS text export (`Time, Altitude, Pressure, Velocity,
   Temperature, Events, Voltages`), in both the US flavour (tab-delimited, feet) and the
   European one (semicolon-delimited, comma decimals, metric). The header names no unit, so
