@@ -559,6 +559,16 @@ export default function MethodsPage() {
             follows you across loggers and restores only the channels the flight in front of you
             actually has. Kept on this device, like the rest of Debrief&apos;s state.
           </Method>
+          <Method title="Which events are called out">
+            Debrief marks liftoff, burnout, apogee, the deployments and landing on the explorer&apos;s
+            plot — and you can turn any of them off. That is not a nicety on a real record: measured
+            across the corpus, <strong>28 of 30</strong> flights have two markers inside 6% of the
+            plotted span, the tightest a burnout and an apogee <strong>0.10%</strong> apart on a
+            99-second record, because the boost is a few seconds inside a log that runs for minutes.
+            Only the events this flight actually has get a control, everything is on until you say
+            otherwise, and the choice is kept on this device. The chart&apos;s accessible name lists
+            whichever are currently marked, so the markers reach a screen reader too.
+          </Method>
           <Method title="Built-in views">
             Four views are there on the first visit, before anything is saved: altitude &amp; speed,
             speed &amp; acceleration, Mach &amp; max-Q, and the recorded altitude under the one

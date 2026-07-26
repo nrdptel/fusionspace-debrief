@@ -9,6 +9,8 @@ import {
   MAX_PRESET_NAME,
   BUILTIN_VIEWS,
   builtinViews,
+  loadHiddenEvents,
+  saveHiddenEvents,
   type PlotView,
 } from './plotView';
 
@@ -179,5 +181,25 @@ describe('built-in view names', () => {
 
   it('stay short enough to read as a chip', () => {
     for (const v of BUILTIN_VIEWS) expect(v.name.length).toBeLessThanOrEqual(MAX_PRESET_NAME);
+  });
+});
+
+describe('which events are called out on the plot', () => {
+  beforeEach(stubStorage);
+
+  it('shows everything by default, so nothing has to be opted into', () => {
+    expect(loadHiddenEvents()).toEqual([]);
+  });
+
+  it('remembers what was hidden, without duplicates', () => {
+    saveHiddenEvents(['burnout', 'drogue', 'burnout']);
+    expect(loadHiddenEvents().sort()).toEqual(['burnout', 'drogue']);
+  });
+
+  it('survives junk in storage rather than losing the plot', () => {
+    window.localStorage.setItem('debrief.hiddenEvents', '"not an array"');
+    expect(loadHiddenEvents()).toEqual([]);
+    window.localStorage.setItem('debrief.hiddenEvents', '["apogee", 7, null]');
+    expect(loadHiddenEvents()).toEqual(['apogee']);
   });
 });

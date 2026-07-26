@@ -228,3 +228,36 @@ function writePresets(next: PlotPreset[]): PlotPreset[] {
   }
   return next;
 }
+
+// Which flight events are called out on the plot. Debrief draws all of them, which OpenRocket
+// does not — its plot dialog lets you pick — and measured over the corpus that is not an edge
+// case: 28 of 30 flights have two markers inside 6% of the plotted span, the tightest a
+// burnout and an apogee 0.10% apart on a 99-second record. The collision is almost always
+// liftoff→burnout, because the boost is a few seconds inside a record minutes long.
+//
+// Stored as the set that is HIDDEN, so the default (nothing stored) shows everything and a
+// logger that starts reporting a new event type shows it without anyone opting in.
+
+const HIDDEN_EVENTS_KEY = 'debrief.hiddenEvents';
+
+export function loadHiddenEvents(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(HIDDEN_EVENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === 'string');
+  } catch {
+    return [];
+  }
+}
+
+export function saveHiddenEvents(hidden: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(HIDDEN_EVENTS_KEY, JSON.stringify([...new Set(hidden)]));
+  } catch {
+    /* storage blocked — the choice still applies to this view */
+  }
+}

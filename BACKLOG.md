@@ -569,6 +569,36 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Closed the other half of the OpenRocket plot-tab benchmark, and the corpus said the
+  crowding is the normal case rather than an edge one.** Debrief drew every flight event on
+  the explorer's plot; OpenRocket lets you pick. Measured the collision before building
+  anything — for each corpus flight, the tightest gap between two consecutive markers as a
+  fraction of the plotted span (a label needs roughly 6% to itself):
+
+  | | |
+  |---|---|
+  | flights with two markers inside 6% of the span | **28 of 30** |
+  | tightest of all | **0.10%** — burnout→apogee on a 99 s record |
+  | most common colliding pair | liftoff→burnout, on 20 of them |
+
+  So this is not about a rare four-events-in-six-seconds flight: the boost is a few seconds
+  inside a record that runs for minutes on nearly every log. One chip per event type the
+  flight actually has, everything on until the flyer says otherwise (so a logger that starts
+  reporting a new event type shows it without anyone opting in — the store holds what is
+  *hidden*), kept on this device.
+  **Found while testing it, and worth more than the feature:** the markers are drawn on the
+  canvas, so the chart's accessible name said what channels were plotted and *nothing* about
+  what was called out on them — a screen reader got no hint the events existed at all. The
+  name now lists whichever are marked, which is also the only honest way to assert the toggle
+  works.
+  **And the same one-word-two-meanings trap as the built-in views, on the same screen:** the
+  sample table's "Jump to" row already has a button reading *Burnout* that scrolls the table
+  to that sample. Two buttons, one word, different jobs. The chip stays one word (the "Events"
+  label and the colour dot beside it say which row it belongs to) and its *accessible* name
+  carries the action — "Stop marking burnout on the plot" — so assistive tech isn't offered
+  two identical Burnout buttons a few centimetres apart. Worth noting the pattern: this is
+  twice in one run that adding a control to the explorer collided with an existing word.
+
 - **Found by the cold walk on a phone: a panel that opened off the side of the screen.** The
   per-quantity units popover is anchored to the right of its trigger, which is right on a
   desktop — there is room to its left — and wrong at 375 px, where the trigger sits at
@@ -918,7 +948,7 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   builds from scratch. **Done** — see below.
   **(2) choosing which flight events are called out on the plot** — OpenRocket lets you pick;
   Debrief draws all of them, which crowds the boost on a flight with four events in six
-  seconds. Not built.
+  seconds. **Done** — see below. Both halves of this benchmark are now closed.
 
 - **Closed the "standard plots" half of the OpenRocket benchmark, and the corpus decided what
   they could honestly be.** Four built-in views, there on the first visit: *Altitude & speed*,

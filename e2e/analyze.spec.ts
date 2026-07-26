@@ -800,3 +800,41 @@ test('a GPS flight saves as KML for Google Earth', async ({ page }) => {
   expect(triples.length).toBeGreaterThan(20);
   expect(triples.some((t) => Number(t.split(',')[2]) > 100)).toBe(true);
 });
+
+// Which flight events are called out on the plot — the other half of the OpenRocket plot-tab
+// benchmark. Debrief drew all of them, and measured over the corpus that crowds nearly every
+// flight: 28 of 30 have two markers inside 6% of the plotted span, the tightest a burnout and
+// an apogee 0.10% apart on a 99-second record.
+test('the explorer lets you choose which events are called out', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // The markers are drawn on the canvas, so the chart's accessible name is what says which
+  // are called out — the same sentence a screen reader gets.
+  const chart = page.locator('[aria-label^="Line chart of"]').first();
+  // Named by what it does, not just by the event: the sample table's "Jump to" row below has
+  // a "Burnout" button that scrolls the table instead.
+  const burnout = page.getByRole('button', { name: /marking burnout on the plot|^Mark burnout on the plot$/i });
+
+  // Everything is on to start with — nothing has to be opted into.
+  await expect(burnout).toHaveAttribute('aria-pressed', 'true');
+  await expect(chart).toHaveAttribute('aria-label', /Events marked:.*burnout/);
+
+  // Turn it off, and the marker goes with it.
+  await burnout.click();
+  await expect(burnout).toHaveAttribute('aria-pressed', 'false');
+  await expect(chart).not.toHaveAttribute('aria-label', /burnout/);
+  await expect(chart).toHaveAttribute('aria-label', /Events marked:.*apogee/);
+  // Apogee is untouched — this picks one event, not all of them.
+  await expect(page.getByRole('button', { name: /marking apogee on the plot/i })).toHaveAttribute('aria-pressed', 'true');
+
+  // …and the choice survives a reload and the next flight, like the saved view does.
+  await page.reload();
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  const burnoutAgain = page.getByRole('button', { name: /burnout on the plot/i });
+  await expect(burnoutAgain).toHaveAttribute('aria-pressed', 'false');
+  await burnoutAgain.click();
+  await expect(page.getByRole('button', { name: /burnout on the plot/i })).toHaveAttribute('aria-pressed', 'true');
+});

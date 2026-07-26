@@ -11,6 +11,8 @@ import {
   savePreset,
   deletePreset,
   builtinViews,
+  loadHiddenEvents,
+  saveHiddenEvents,
   MAX_PRESETS,
   MAX_PRESET_NAME,
   type PlotPreset,
@@ -180,9 +182,34 @@ export default function ChannelExplorer({
     });
   }, [yKeys, byKey, seriesData, sys]);
 
+  // Which events are called out. All of them, until the flyer says otherwise — measured over
+  // the corpus, 28 of 30 flights have two markers inside 6% of the plotted span (the tightest
+  // a burnout and an apogee 0.10% apart on a 99-second record), because the boost is a few
+  // seconds inside a record minutes long. OpenRocket lets you pick; this is that.
+  const [hiddenEvents, setHiddenEvents] = useState<string[]>([]);
+  useEffect(() => setHiddenEvents(loadHiddenEvents()), []);
+  const toggleEvent = (type: string) => {
+    setHiddenEvents((prev) => {
+      const next = prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type];
+      saveHiddenEvents(next);
+      return next;
+    });
+  };
+  // One chip per event type this flight actually has, in flight order — never a control for
+  // something the record doesn't contain.
+  const eventTypes = useMemo(() => {
+    const seen = new Set(events.map((e) => e.type));
+    return (['liftoff', 'burnout', 'apogee', 'drogue', 'main', 'landing'] as const).filter((t) => seen.has(t));
+  }, [events]);
+
   const markers = useMemo<ChartMarker[]>(
-    () => (xIsTime ? events.map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] })) : []),
-    [xIsTime, events],
+    () =>
+      xIsTime
+        ? events
+            .filter((e) => !hiddenEvents.includes(e.type))
+            .map((e) => ({ x: e.time, label: e.label.toLowerCase(), color: EVENT_COLOR[e.type] }))
+        : [],
+    [xIsTime, events, hiddenEvents],
   );
 
   if (selected.length === 0) return null;
@@ -404,6 +431,45 @@ export default function ChannelExplorer({
         )}
       </div>
 
+      {/* Which events are drawn */}
+      {xIsTime && eventTypes.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Events</span>
+          {eventTypes.map((t) => {
+            const on = !hiddenEvents.includes(t);
+            const name = t[0].toUpperCase() + t.slice(1);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                // The sample table's "Jump to" row a little further down has a button reading
+                // "Burnout" too, and it does something else entirely — it scrolls the table to
+                // that sample. The visible chip stays one word because the "Events" label and
+                // the colour dot next to it say which row this is; the accessible name carries
+                // the action, so a screen reader isn't offered two identical "Burnout" buttons.
+                aria-label={on ? `Stop marking ${name.toLowerCase()} on the plot` : `Mark ${name.toLowerCase()} on the plot`}
+                onClick={() => toggleEvent(t)}
+                title={on ? `Stop calling out ${name.toLowerCase()} on the plot` : `Call out ${name.toLowerCase()} on the plot`}
+                className={`inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium transition ${
+                  on
+                    ? 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
+                    : 'border-dashed border-zinc-300 bg-transparent text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: on ? EVENT_COLOR[t] : 'transparent', boxShadow: on ? undefined : 'inset 0 0 0 1px currentColor' }}
+                />
+                {name}
+              </button>
+            );
+          })}
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">kept on this device</span>
+        </div>
+      )}
+
       {/* Export what's plotted */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" onClick={savePng} title="Save the current plot as a PNG" className={ACTION_BTN}>
@@ -449,7 +515,13 @@ export default function ChannelExplorer({
           xFmt={xIsTime ? undefined : num}
           xLabel={xIsTime ? 'time' : xName}
           xSorted={xIsTime}
-          ariaLabel={`Line chart of ${selected.map((c) => c.label).join(', ')} against ${xName}.`}
+          // The event markers are drawn on the canvas, so without naming them here a screen
+          // reader is told the chart exists and nothing about what is called out on it — and
+          // now that the flyer can turn them off, the name has to say which are actually on.
+          ariaLabel={
+            `Line chart of ${selected.map((c) => c.label).join(', ')} against ${xName}.` +
+            (markers.length > 0 ? ` Events marked: ${markers.map((m) => m.label).join(', ')}.` : '')
+          }
           onView={onView}
         />
       </div>
