@@ -526,6 +526,57 @@ const ENDS_AT_REST_ABOVE_THE_PAD: { file: string; pct: string }[] = [
   { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv', pct: '2.02% — 168 m up' },
 ];
 
+// A log that did not start on the pad carries every height with the same offset, and the
+// record's own resting end says how big it is. The PerfectFlite AL0 file is the one that can
+// be checked: Debrief reads a 4,957 m apogee where the device's summary states 4,686 — a
+// 271 m disagreement, on a record that comes to rest 270 m above where it began. Subtracting
+// that gives 4,687 m, 0.9 m from the device's own figure.
+//
+// Debrief states the offset rather than applying it: a reading corrected until it agrees with
+// the cross-check that was meant to test it is agreement dressed up, and only one corpus file
+// carries a summary to check against at all.
+describe('a log that did not start on the pad says how far out its heights are', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const AL0 = 'perfectflite/perfectflite__issuiuc-intrepid3tf2-20230305__AL0 march launch data.pf2';
+  it('names the offset, and the device summary confirms its size', () => {
+    const loaded = loadForCompare(AL0);
+    expect(loaded, 'AL0 is in the corpus and parses').toBeTruthy();
+    const a = loaded!.analysis;
+
+    const note = a.warnings.find((w) => /doesn't start on the pad, and it comes to rest/.test(w));
+    expect(note, 'the offset is stated').toBeTruthy();
+    expect(note, 'with the metres and the direction').toMatch(/\d+ m above where the record begins/);
+
+    // The size it states is the size the device's own summary implies, which is the whole
+    // reason this is a diagnosis and not a guess.
+    const rows = compareReported(loaded!.analysis.metrics ? (loadReported(AL0) ?? []) : [], a.metrics);
+    const apoRow = rows.find((r) => r.reported.metric === 'apogeeAltitude' && r.hasComputed);
+    expect(apoRow, 'the device states an apogee').toBeTruthy();
+    const gap = a.metrics.apogeeAltitude - apoRow!.reported.value;
+    const h = a.series.altitude;
+    let rest = Infinity;
+    const apoEv = a.events.find((e) => e.type === 'apogee')!;
+    for (let i = apoEv.index; i < h.length; i++) if (Number.isFinite(h[i]) && h[i] < rest) rest = h[i];
+    // 271.3 m of disagreement against a 270.4 m resting height: the same number.
+    expect(
+      Math.abs(gap - rest),
+      `apogee gap ${gap.toFixed(1)} m vs resting height ${rest.toFixed(1)} m`,
+    ).toBeLessThan(2);
+  });
+});
+
+/** The device's own summary block for a corpus file, or null. */
+function loadReported(file: string) {
+  const path = CORPUS + file;
+  if (!existsSync(path)) return null;
+  const text = decodeBytes(new Uint8Array(readFileSync(path)));
+  const res = importFlight({ name: file.split('/').pop() as string, text });
+  return res.kind === 'flight' ? (res.flight.reported ?? null) : null;
+}
+
 describe('a record that ends at rest above the pad is not a landing', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});

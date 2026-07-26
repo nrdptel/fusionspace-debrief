@@ -1255,6 +1255,31 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     }
   }
 
+  // Where the ground baseline was already doubted AND the record comes to rest well away from
+  // zero, the two facts are one fact: the log did not start on the pad, so every height in it
+  // is offset by however far the resting end sits from where the record began. A rocket at
+  // rest is on the ground, and an observed ground is better evidence than a pad window the
+  // record never contained.
+  //
+  // The corpus makes the size of this concrete. One PerfectFlite log reads a 4,957 m apogee
+  // where the device's own summary states 4,686 — a 271 m, 5.79% disagreement, on a file whose
+  // record comes to rest 270 m above where it started. Subtracting that resting height gives
+  // 4,687 m: 0.9 m from the device's figure, on the only file here that carries one.
+  //
+  // Debrief states the offset rather than applying it. The device's summary is the check that
+  // this is right, and a reading corrected until it matches its own cross-check is agreement
+  // dressed up — so the flyer is told the number and what it means, and the two reads stay
+  // independent.
+  if (!padDataLikely && landingIdx > apogeeIdx && apogeeAlt > 0) {
+    const rest = altClean[landingIdx];
+    if (Number.isFinite(rest) && Math.abs(rest) > apogeeAlt * 0.01) {
+      const dir = rest > 0 ? 'high' : 'low';
+      warnings.push(
+        `This log doesn't start on the pad, and it comes to rest ${Math.abs(Math.round(rest))} m ${rest > 0 ? 'above' : 'below'} where the record begins — ${Math.abs((rest / apogeeAlt) * 100).toFixed(1)}% of the apogee. A rocket at rest is on the ground, so that resting height is where the ground actually is, and every altitude here (apogee included) reads about ${Math.abs(Math.round(rest))} m too ${dir}. Debrief reports what the record says rather than shifting it: subtract that to get heights above the ground it landed on.`,
+      );
+    }
+  }
+
   // --- Deployments & descent rates -----------------------------------------
   // Descent speed (positive downward) from the baro velocity, lightly smoothed.
   const descent = movingAverage(

@@ -6,6 +6,28 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A 5.79% apogee error that the flight's own record can diagnose, and the device's summary
+  confirms the size of it to 0.9 m.** Found by sweeping every corpus file that carries a device
+  summary against Debrief's independent read. Four metrics, and one outlier: a PerfectFlite
+  log reads **4,957.0 m** where the device states **4,685.7 m** — a **271.3 m** gap, where
+  every other apogee in that sweep agrees to **0.04%** or better. The diagnosis is in the same
+  file: it is one of the logs Debrief already says "doesn't appear to start on the pad", and
+  its record comes to rest **270.4 m** above where the record begins. **The 271.3 and the 270.4
+  are the same number.** The log started in the air, so every height in it carries that offset;
+  subtracting it gives **4,686.6 m**, which is **0.9 m** from the device's own figure.
+  **What shipped is the sentence, not the shift.** Debrief names the offset, says a rocket at
+  rest is on the ground so that resting height is where the ground actually is, and tells the
+  flyer to subtract it. It does not apply it, for two reasons worth keeping: only one corpus
+  file carries a summary to check a correction against, and **a reading corrected until it
+  matches the cross-check meant to test it is agreement dressed up** — the same principle that
+  kept the +1.00 g acceleration convention un-"fixed".
+  **The next move, fully measured:** the rule "where the baseline is already doubted AND the
+  record comes to rest, take the ground from the resting end rather than the opening samples"
+  uses no device number and would move apogee on the corpus files listed by the sweep
+  (AL0 −270 m, xprs2015 −307, endurance −94, eggtimer-aris +32, missileworks-stacarl2 +40,
+  sg1.1 +3). AL0 is the only one with an external check and it improves 300-fold. Shipping it
+  wants a second corroborated file — a GPS altitude on one of the others would do it.
+
 - **Four corpus flights had no flight time and Debrief never said why.** Followed directly
   from the at-rest landing work: those records hold the whole descent — long enough to
   satisfy the vacuum test — and then stop with the rocket still 2.0% to 7.5% of its own apogee
