@@ -46,6 +46,18 @@ pull request and was green; it does not run on a push to a working branch.
   `tail`, not the suite — a red run looked green here. Echo `${PIPESTATUS[0]}`.
 - **CI does not run on a working branch.** `.github/workflows/test.yml` fires on push to `main` and
   on `pull_request` only, so the PR is what makes CI run at all.
+- **Do not merge before CI reports.** This run did, twice, and the first merge put `main` red at
+  `809cd2a` — the unit job exited 1 on `[vitest-worker]: Timeout calling "onTaskUpdate"` while all
+  645 tests passed. That failure mode is invisible to a local gate: it comes from long blocking test
+  bodies starving vitest's reporter, and only shows up on a slower runner. Fixed in `f662637` by
+  making the whole-corpus invariants share ONE pass (36 s → 24 s locally). **If you add a sweep that
+  parses the whole corpus, extend `corpusReads()` instead of writing a fresh pass** — five passes is
+  what tipped it over.
+- **The runners in this environment stall.** Several `test.yml` runs sat `in_progress` for 30+
+  minutes when a normal run is ~4 min, while `deploy-cloudflare.yml` completed fine in the same
+  window. Budget for that: open the PR early so CI has time, and check
+  `list_workflow_runs` by parsing the payload as **JSON** — a regex over the raw blob straddles
+  adjacent records and will report the wrong run's conclusion (it did here).
 - **`npm run fetch-fixtures` returns 401 here.** The companion repo is checked out at
   `/home/user/debrief-fixtures`: `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`.
   Confirm the corpus suite reports ~91 tests — one that skips itself prints much like one that passed.
