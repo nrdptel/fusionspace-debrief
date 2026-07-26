@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 
+const fixture = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
+
 // Debrief is built to be read on a phone at the field. uPlot binds only mouse
 // events, so the charts had no touch zoom at all; this covers the two-finger
 // pinch (and double-tap reset) added on top. The explorer's stats heading flips
@@ -117,6 +119,12 @@ test('the compare surface is thumb-sized too', async ({ page }) => {
   });
   expect(small, `controls under 44 px tall on the compare page:\n${small.join('\n')}`).toEqual([]);
 
+  // A <label> wrapping a file input is a button in everything but tag name, and the one on
+  // this page is its primary call to action. Excluded from the selector above, it sat at
+  // 152x36 and nothing measured it.
+  const cta = await page.getByText('Choose flight logs', { exact: true }).boundingBox();
+  expect(cta!.height, 'the "Choose flight logs" call to action').toBeGreaterThanOrEqual(44);
+
   // And nothing on the page pushes past the viewport — the row that lost its file name
   // to a five-column squeeze was overflowing, not just crowded.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -187,4 +195,46 @@ test('a popover opens fully on screen, not off the side of it', async ({ page })
     expect(r, `"${label}" row is rendered`).toBeTruthy();
     expect(r!.x, `"${label}" starts at x=${Math.round(r!.x)}`).toBeGreaterThanOrEqual(0);
   }
+});
+
+// The floor once flights are actually IN the comparison, which nothing measured: every touch
+// test on this surface stopped at the picker, so the loaded view — the one a flyer spends
+// their time in — was never seen at 390 px. It was hiding a whole feature there: the column
+// reorder controls were `hidden sm:flex`, so putting a comparison in a deliberate order was
+// a pointer-only capability with no touch path at all.
+test('a loaded comparison is thumb-sized, and orderable, on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles([
+    fixture('altusmetrum-telemetrum.csv'),
+    fixture('featherweight-gps.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: /Comparing 2 flights/ })).toBeVisible({ timeout: 25000 });
+
+  // The comparison is what this page is now about, so it carries the page's h1 — the site
+  // header steps aside on /compare, and loading the flights used to leave no h1 at all.
+  await expect(page.getByRole('heading', { level: 1, name: /Comparing 2 flights/ })).toBeVisible();
+
+  const moves = page.getByRole('button', { name: /Move .+ (left|right)/ });
+  expect(await moves.count()).toBeGreaterThan(0);
+  const box = await moves.first().boundingBox();
+  expect(box!.height, 'the column-reorder controls').toBeGreaterThanOrEqual(44);
+  // And they work from a thumb: moving the second column left puts it first.
+  const before = await page.getByRole('columnheader').allInnerTexts();
+  await page.getByRole('button', { name: /Move featherweight-gps left/ }).click();
+  await expect
+    .poll(async () => (await page.getByRole('columnheader').allInnerTexts()).join('|'))
+    .not.toBe(before.join('|'));
+
+  const small = await page.evaluate(() => {
+    const out: string[] = [];
+    const sel = 'button, select, summary, [role=button], nav a';
+    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
+    }
+    return out;
+  });
+  expect(small, `controls under 44 px tall in a loaded comparison:\n${small.join('\n')}`).toEqual([]);
 });

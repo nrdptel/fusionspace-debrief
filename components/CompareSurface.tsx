@@ -275,6 +275,7 @@ export default function CompareSurface() {
         onSetUnits={setUnits}
         onBack={back}
         backLabel="← Compare other flights"
+        headingLevel="h1"
         mappable={mappable.map((m) => m.name)}
         onMapFile={onMapFile}
       />
@@ -347,7 +348,7 @@ export default function CompareSurface() {
           Drop {MAX_COMPARE} or fewer and they&apos;re compared straight away; they go into the
           logbook below on the way through, and never leave this device.
         </p>
-        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
+        <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
           Choose flight logs
           <input
             type="file"

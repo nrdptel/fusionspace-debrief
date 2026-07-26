@@ -62,6 +62,7 @@ export default function CompareView({
   backLabel = '← Back to a single flight',
   permalink,
   mappable,
+  headingLevel = 'h2',
   onMapFile,
 }: {
   comparison: Comparison;
@@ -79,10 +80,15 @@ export default function CompareView({
   permalink?: string;
   /** Files dropped alongside these flights that need their columns mapped, by name. */
   mappable?: string[];
+  /** Which level "Comparing N flights" sits at. It is the page's subject on /compare, where
+   *  the site header steps aside — and a section of the analyze page, which keeps its own
+   *  h1. Defaults to the latter, so only the surface that owns the page asks for h1. */
+  headingLevel?: 'h1' | 'h2';
   /** Open the mapper on one of them; it rejoins this comparison when mapped. */
   onMapFile?: (name: string) => void;
 }) {
   const dark = useIsDark();
+  const Heading = headingLevel;
   const [figureDark, toggleFigureDark] = useFigureDark();
   const { time, flights: loaded } = comparison;
   // Keyed off the set, not the order, so re-sorting the table doesn't rebuild the
@@ -402,9 +408,9 @@ export default function CompareView({
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">
+        <Heading className="text-xl font-semibold tracking-tight">
           Comparing {flights.length} flight{flights.length === 1 ? '' : 's'}
-        </h2>
+        </Heading>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Aligned at liftoff (t = 0, or the start of the log when no liftoff was detected) and
           resampled onto a shared time base. Read locally — never uploaded.
@@ -596,16 +602,21 @@ export default function CompareView({
               {flights.map((f, i) => (
                 <th key={f.id} scope="col" className="px-1.5 py-2 text-right align-bottom sm:px-3">
                   {flights.length > 1 && (
-                    <span className="mb-0.5 hidden items-center justify-end gap-0.5 sm:flex print:hidden">
+                    <span className="mb-0.5 flex items-center justify-end gap-0.5 print:hidden">
                       {/* Buttons, not drag handles: a thumb on a phone and a keyboard both
-                          reach these, and a drag target on a table header reaches neither. */}
+                          reach these, and a drag target on a table header reaches neither.
+                          They used to be `hidden sm:flex`, which meant the only way to put a
+                          comparison in a deliberate order was a pointer — the feature simply
+                          did not exist on the device a flyer has at the field. A thumb needs
+                          the 44 px floor; a pointer doesn't, and 44 px of chrome above every
+                          column would crowd a desktop table, so the size follows the screen. */}
                       <button
                         type="button"
                         onClick={() => move(f.id, -1)}
                         disabled={i === 0}
                         aria-label={`Move ${stem(f.name)} left`}
                         title="Move left"
-                        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                        className="flex h-11 w-11 items-center justify-center rounded text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
                       >
                         ◀
                       </button>
@@ -615,7 +626,7 @@ export default function CompareView({
                         disabled={i === flights.length - 1}
                         aria-label={`Move ${stem(f.name)} right`}
                         title="Move right"
-                        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                        className="flex h-11 w-11 items-center justify-center rounded text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
                       >
                         ▶
                       </button>
