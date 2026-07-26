@@ -6,6 +6,73 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Max-Q was being read off deployment transients, and one flight reported a load case 117x
+  the real one.** Found by sanity-checking a new file's numbers against first principles: a
+  ground-station GPS log reported 3.0 kPa where the ascent peak was 1.5. The rule was the peak
+  of ½ρv² over the *whole record*, and q squares the speed — so a velocity that swings hard
+  NEGATIVE counts as airspeed, and the place that happens is the deployment transient. Six of
+  the 34 corpus flights that report a max-Q took it from such a sample: 47,321.8 kPa against an
+  ascent peak of 404.1 on the 121 km flight (v = −8,970 m/s), then 401.4→60.3, 266.3→83.8,
+  230.0→103.4, 218.6→99.7, 3.0→1.5. Max-Q is presented as "the structural load case … a real
+  design point", so this was a wrong number where a flyer sizes an airframe. It now reads over
+  the same window as the peak speed it comes from — liftoff to apogee, climbing — which is
+  where the load case has always lived; 27 of the remaining 33 are unchanged to within 0.1%,
+  and a record with no ascent gets no max-Q at all. **Worth noticing about the method:** the
+  bug was invisible to every golden-value assert, because no fixture asserted max-Q. What
+  caught it was comparing a reported metric against an independent recomputation from the same
+  series — a shape worth reusing on the other derived readings.
+
+- **Debrief was confirming supersonic flight off a GPS-derived speed, and the corpus refutes
+  the reasoning.** A Mach-1 crossing was flagged unconfirmed only for a *barometric* speed, on
+  the argument that nothing distorts a GPS through the transonic region the way a shock over a
+  static port distorts a barometer. True, and beside the point: the error in a GPS speed comes
+  from differentiating a coarse, lagging altitude. Both corpus GPS flights that a second
+  instrument also recorded run HIGH — Mach 1.46 (1,631 ft/s at 0.7 Hz) where a Blue Raven on
+  that same flight measured Mach 1.14 (1,243 ft/s at 50 Hz), and 1,466 ft/s at 2.1 Hz where
+  the tracker's own summary states 1,340. +28% and +9%. A crossing is now confirmed only by a
+  speed the device measured. The caveat also had to change sensor: the old wording explained a
+  pressure port and then offered GPS as the thing that would settle it, which told a GPS flyer
+  a wrong story ending in a recommendation this refutes. `derivedVelocityFrom` carries which
+  altitude a derived speed came from, and the sentence branches on it everywhere it appears.
+
+- **"A derived peak reads softer" — it reads HIGH, on four corpus pairs out of four.** The
+  comparison flags a cross-check mixing a measured value with an altitude-derived one, and told
+  the flyer to "read that agreement as the looser bound". Derived over measured, same flight:
+  1.31 (Blue Raven vs ground-station GPS), 1.05 (Blue Raven vs tracker GPS), 2.10 (vs Proton
+  baro), 1.23 (vs Quantum baro). None soft. The word told a flyer to treat an inflated figure
+  as a floor, and to read a spread that one side inflates as if it bounded the disagreement
+  from below — it does the reverse. Corrected on the comparison screen, in the Markdown, text
+  and HTML exports, in both the footnote and the "(baro)" legend, and pinned by a corpus
+  regression pair by pair. **Also still true and unchased:** the same "softer" framing survives
+  in the *file-level* provenance sentences ("Velocity was derived from altitude, so it is a
+  smoothed estimate") — accurate, but it would be stronger for saying which way the peak errs.
+
+- **A real corpus file could not be analysed at all, and the corpus test stepped around it.**
+  The Featherweight GPS *ground-station* export states no elapsed time anywhere — its only
+  clock is DATE + TIME — so the column mapper had no time base to offer and the Analyze button
+  never enabled. The roles it did guess were the wrong end of the radio link: `GS Lat/Lon/Alt`
+  come first in the row, so a receiver sitting in the field would have been read as the flight.
+  Now a named parser reading the TRACKER columns off a wall-clock time base; apogee 6,264 ft
+  against the Blue Raven's stated 6,295.75 on the same flight (0.50%), and 6,286 ft from the
+  committed fixture (0.16%). The corpus entry was `kind: mapping` with no asserts and the
+  suite's mapping branch skips analysis when there is no `time` role — so it passed, in green,
+  having examined nothing. **Worth a sweep:** how many other `kind: mapping` fixtures are being
+  skipped that way rather than asserted.
+
+- **Open, and now cheap: let a clock column be the time base in the generic mapper.** The
+  ground-station parser has `clockSeconds`/`dayNumber` and the midnight-rollover rule already;
+  lifting them into `lib/flight/build` would let ANY file whose only clock is a wall clock
+  analyse — a shape common in phone-app exports. Not done in the same pass because no corpus
+  file needs it any more (the one that did now has a named parser), and a capability with no
+  real file behind it is worth building deliberately rather than as a rider.
+
+- **Noticed while sweeping the GPS files, not chased:** the ground-station export carries
+  `HORZV`/`VERTV`, GPS Doppler velocities and a genuine measurement — better data than the
+  altitude differentiated. Not read, because the unit is not stated anywhere in the file and
+  541 is as plausible in ft/s as in mph for that flight. A documented unit (or a file whose
+  numbers settle it) would make it the honest velocity source for these logs, and would fix the
+  +31% at its root rather than caveating it.
+
 - **A 5.79% apogee error that the flight's own record can diagnose, and the device's summary
   confirms the size of it to 0.9 m.** Found by sweeping every corpus file that carries a device
   summary against Debrief's independent read. Four metrics, and one outlier: a PerfectFlite
@@ -604,6 +671,51 @@ memory, so a later pass doesn't have to rediscover them.
   lat/lon without a Doppler speed, that would be too generous.
 
 ## Craft & product feel
+
+- **The comparison surface named the one file most worth adding and gave you nothing to press.**
+  Drop a launch day's folder on `/compare` and anything Debrief doesn't auto-detect got
+  "needs its columns mapped, which happens on the analyze page" — while the heading said
+  "Comparing 2 flights" for a three-file drop. The affordance already existed: `CompareView` has
+  taken `mappable` + `onMapFile` since the analyze page's batch drop learned this, and the
+  comparison surface simply never passed them. The mapper opens in place now and the mapped
+  flight is appended to the comparison's own address. `lib/mapped` is the shared half that was
+  missing — the pair to `lib/reopen`.
+
+- **Three ways an offline page showed you a different page, all of which read as success.**
+  `/validation` without its trailing slash fell through to the shell and came up as the
+  analyzer under that address; tapping an in-app link fetched the route's RSC payload
+  (`/methods/index.txt?_rsc=…`, which the buster kept out of the cache), failed, and Next's own
+  fallback landed the flyer on `/methods/index.txt`; and the last-resort fallback was the home
+  page served under whatever was asked for. Now: both slash forms looked up, payloads
+  precached and matched without the buster, and an honest 503 that names the address. **Still
+  open from the same look:** Next's prefetcher fires against a dead network on every render, so
+  an offline session logs a steady stream of `net::ERR_FAILED` — harmless, but it is noise in
+  the one console a bug report would come from.
+
+- **"Share link" was always enabled and failed on an ordinary 220 KB log** — a share link
+  carries the whole file in the URL — and the failure named "Save chart", which is not a button
+  on the page. The answer is worked out when the report opens (the same gzip, once per flight
+  instead of once per press) and the control says it: "Too big to link". Deliberately not
+  disabled — a disabled button on a phone has no hover to read and does nothing on a tap.
+
+- **The column reorder did not exist on a phone**, `hidden sm:flex`, so a comparison could only
+  be put in a deliberate order with a pointer; and a *loaded* comparison had no `<h1>` at all,
+  because the surface's own heading was replaced by an h2 when the flights arrived. Both found
+  by measuring the loaded view at 390 px, which no test had ever done — every touch test on
+  that surface stopped at the picker.
+
+- **Still open, and a real design call rather than a bug: the report's file-export strip is
+  861 px of controls in a 380 px viewport.** Nine saves behind a 32 px fade, so `Save bundle`
+  and `Figure: light` are undiscoverable on a phone. The current shape is a considered
+  trade — a horizontal strip keeps the flight's numbers high instead of four stacked rows —
+  and the honest fix is neither: one "Save…" control opening a sheet that lists all nine with
+  what each is for. That wants a sheet component the app doesn't have yet.
+
+- **Unresolved, needs a second look: "Copy summary" showed no "Copied ✓" on an emulated phone**
+  while the same click works on the desktop viewport and in the existing e2e test. Either the
+  clipboard write is being denied without hitting the catch, or the confirmation is rendering
+  somewhere a phone never sees. Worth ten minutes with a real device profile before assuming
+  it is only a headless-permissions artefact.
 
 - **Closed the other half of the OpenRocket plot-tab benchmark, and the corpus said the
   crowding is the normal case rather than an edge one.** Debrief drew every flight event on
