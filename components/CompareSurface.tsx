@@ -7,6 +7,11 @@ import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogb
 import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
 import { useLogbook } from './useLogbook';
 import { ingestFiles } from '@/lib/ingest';
+import { importFlight } from '@/lib/parsers';
+import { flightFromMapping } from '@/lib/mapped';
+import type { AnalyzedTable } from '@/lib/flight/columns';
+import type { ColumnMapping } from '@/lib/flight/build';
+import ColumnMapper from './ColumnMapper';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
 
@@ -27,9 +32,21 @@ export default function CompareSurface() {
   const logbook = useLogbook();
   const [sys, setSys] = useState<UnitChoice>('imperial');
   const [comparison, setComparison] = useState<Comparison | null>(null);
-  const [state, setState] = useState<'picking' | 'loading' | 'ready'>('picking');
+  const [state, setState] = useState<'picking' | 'loading' | 'ready' | 'mapping'>('picking');
   const [note, setNote] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  /** Files from the last drop that aren't a format Debrief knows but do hold columns of
+   *  numbers. Kept so this surface can offer the mapper on them, rather than naming them in
+   *  a sentence and sending the flyer to another page to start the drop over. */
+  const [mappable, setMappable] = useState<{ name: string; text: string }[]>([]);
+  /** The file currently open in the mapper, and the comparison it goes back to. */
+  const [mapping, setMapping] = useState<{
+    fileName: string;
+    text: string;
+    table: AnalyzedTable;
+    suggested: ColumnMapping[];
+    addToIds: string[];
+  } | null>(null);
 
   // Units are a whole-app choice, remembered on this device and carried in the URL — the
   // same rules as the analyze page, read the same way, so a link opens reading alike.
@@ -129,17 +146,23 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable, summaries } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, summaries } = await ingestFiles(list, MAX_COMPARE);
       logbook.refresh();
+
+      const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
+      // A file that needs mapping is only offered when the flights it would join have an
+      // address — that address is what it rejoins them at. Without one, it goes back to
+      // being named in the left-out sentence.
+      const offerable = ids.length >= 2 ? mappableFiles : [];
+      setMappable(offerable);
 
       const left = [
         ...skipped.map((s) => `${s.name} — ${s.why}`),
-        ...mappable.map((m) => `${m.name} — needs its columns mapped, which happens on the analyze page`),
+        ...(offerable.length > 0 ? [] : mappableFiles.map((m) => `${m.name} — needs its columns mapped, one file at a time`)),
         ...summaries.map((x) => `${x.name} — a device summary for “${x.figures.rocket}”, not a flight record`),
       ];
       const leftNote = left.length > 0 ? ` Left out: ${left.join('; ')}.` : '';
 
-      const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
       if (ids.length >= 2) {
         void load(ids, true, leftNote.trim() || undefined);
         return;
@@ -161,7 +184,86 @@ export default function CompareSurface() {
     setComparison(null);
     setState('picking');
     setNote(null);
+    setMappable([]);
   }, []);
+
+  /**
+   * Open the mapper on one file from this drop, without leaving the surface.
+   *
+   * The comparison this file rejoins is named by the ids already in the address bar, so
+   * mapping it is a round trip rather than a departure: the flyer stays on the page they
+   * dropped a launch day onto. It used to be a sentence — "needs its columns mapped, which
+   * happens on the analyze page" — with nothing to press, on the one surface whose whole job
+   * is assembling a set.
+   */
+  const onMapFile = useCallback(
+    (name: string) => {
+      const file = mappable.find((m) => m.name === name);
+      const addToIds = idsFromParam(new URLSearchParams(window.location.search).get('ids'));
+      if (!file || addToIds.length < 2) return;
+      try {
+        const result = importFlight({ name: file.name, text: file.text });
+        if (result.kind !== 'mapping') {
+          setNote(`${file.name} could not be opened for mapping.`);
+          return;
+        }
+        setMapping({ fileName: file.name, text: file.text, table: result.table, suggested: result.suggested, addToIds });
+        setState('mapping');
+      } catch (err) {
+        setNote(err instanceof Error ? err.message : `Could not read ${file.name}.`);
+      }
+    },
+    [mappable],
+  );
+
+  /** Back out of the mapper: the comparison is still at its own address, so return to it
+   *  rather than to an empty drop zone, and leave the file on offer to try again. */
+  const cancelMapping = useCallback(() => {
+    setMapping(null);
+    setState(comparison ? 'ready' : 'picking');
+  }, [comparison]);
+
+  const onMappingSubmit = useCallback(
+    async (mappings: ColumnMapping[]) => {
+      if (!mapping) return;
+      const { fileName, text, table, addToIds } = mapping;
+      setState('loading');
+      try {
+        const { save } = await flightFromMapping(fileName, text, table, mappings);
+        // Awaited: the id it was saved under is what names it in the comparison, and with
+        // no id there is nothing to add — say so rather than appear to have dropped it.
+        const id = await save;
+        logbook.refresh();
+        setMapping(null);
+        setMappable((prev) => prev.filter((m) => m.name !== fileName));
+        if (!id) {
+          setState(comparison ? 'ready' : 'picking');
+          setNote(`${fileName} was read, but this browser wouldn’t store it, so it can’t join the comparison.`);
+          return;
+        }
+        await load([...addToIds, id], true);
+      } catch (err) {
+        setMapping(null);
+        setState(comparison ? 'ready' : 'picking');
+        setNote(err instanceof Error ? err.message : `Could not analyze ${fileName}.`);
+      }
+    },
+    [mapping, comparison, load, logbook],
+  );
+
+  if (state === 'mapping' && mapping) {
+    return (
+      <div className="mx-auto w-full max-w-5xl">
+        <ColumnMapper
+          table={mapping.table}
+          suggested={mapping.suggested}
+          fileName={mapping.fileName}
+          onCancel={cancelMapping}
+          onSubmit={onMappingSubmit}
+        />
+      </div>
+    );
+  }
 
   if (state === 'ready' && comparison) {
     return (
@@ -173,6 +275,8 @@ export default function CompareSurface() {
         onSetUnits={setUnits}
         onBack={back}
         backLabel="← Compare other flights"
+        mappable={mappable.map((m) => m.name)}
+        onMapFile={onMapFile}
       />
     );
   }

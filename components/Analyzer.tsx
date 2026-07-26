@@ -6,6 +6,7 @@ import { importRecent } from '@/lib/reopen';
 import { ingestFiles, MAX_BYTES } from '@/lib/ingest';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
+import { flightFromMapping } from '@/lib/mapped';
 import type { RawFlight } from '@/lib/flight/types';
 import { analyzeAsync } from '@/lib/analyze/runner';
 import type { FlightAnalysis } from '@/lib/analyze/types';
@@ -367,28 +368,10 @@ export default function Analyzer() {
       const { fileName, table, text, addToIds } = state;
       const set = beginLoad();
       try {
-        const flight = buildFlight({
-          source: fileName,
-          format: 'csv',
-          formatLabel: 'Generic CSV',
-          headers: table.headers,
-          dataRows: table.dataRows,
-          mappings,
-          reported: table.reported,
-        });
         set({ phase: 'loading' });
-        const analysis = await analyzeAsync(flight);
-        const save = saveRecent({
-          name: fileName,
-          formatLabel: 'Generic CSV',
-          apogeeM: analysis.metrics.apogeeAltitude ?? null,
-          maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
-          ...(flight.flownAt ? { flownAt: flight.flownAt } : {}),
-          // The answer, kept with the file. This is what lets the flight be reopened, and
-          // joined to a comparison by id, without asking for the mapping again.
-          mapping: mappings.map((m) => ({ index: m.index, role: m.role, unit: m.unit })),
-          text,
-        });
+        // Shared with the comparison surface, which opens the same mapper on a file from a
+        // launch day's folder — see lib/mapped.
+        const { flight, analysis, save } = await flightFromMapping(fileName, text, table, mappings);
         // Mapped out of a batch drop: put it back with the flights it arrived with, at the
         // comparison's own address. Awaited, because the id it was saved under is what
         // names it there — and if the save didn't happen there is nothing to add it to, so

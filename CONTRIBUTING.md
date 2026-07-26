@@ -22,6 +22,10 @@ the browser.
   take a drop read it through this, so they can't disagree about a launch day.
 - `lib/reopen` — re-reading a flight the logbook holds, applying a hand-made column mapping
   where it has one. Every surface that reopens a flight goes through it.
+- `lib/mapped` — the other half of that pair: turning a mapping the flyer just confirmed into
+  an analysed flight and a logbook entry `reopen` can read back. Both surfaces that open the
+  column mapper — the analyze page and the comparison — go through it, so they can't drift on
+  the format label, the stored mapping shape, or what the entry carries.
 - `lib/analyze/` — the analysis pipeline (spike rejection, event detection,
   apogee/velocity/descent rates).
 - `lib/flight/`, `lib/units`, `lib/share`, `lib/report` — the canonical flight

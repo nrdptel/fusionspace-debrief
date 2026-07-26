@@ -152,10 +152,45 @@ test('the compare surface says which dropped files it could not use', async ({ p
   await page.getByLabel('Choose flight logs to compare').setInputFiles([
     fixture('altusmetrum-telemetrum.csv'),
     fixture('blueraven-app-lr.csv'),
-    // A file that needs the column mapper — which happens on the analyze page, so it is
-    // named and explained rather than silently dropped.
+    // A device summary: headline figures and no flight record, so it is named and
+    // explained rather than silently dropped.
+    fixture('blueraven-app.summary.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await expect(page.getByText(/blueraven-app\.summary\.csv — a device summary/)).toBeVisible();
+});
+
+// A launch day's folder mixes loggers Debrief knows with ones it doesn't, and the file it
+// doesn't know is exactly the one a flyer most wants in the comparison. This surface used to
+// name it in a sentence — "needs its columns mapped, which happens on the analyze page" —
+// with nothing to press, on the one surface whose whole job is assembling a set.
+test('a file that needs mapping joins the comparison without leaving the surface', async ({ page }) => {
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles([
+    fixture('altusmetrum-telemetrum.csv'),
+    fixture('featherweight-gps.csv'),
     fixture('perfectflite-stratologger.csv'),
   ]);
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
-  await expect(page.getByText(/perfectflite-stratologger\.csv — needs its columns mapped/)).toBeVisible();
+
+  // Offered by name, as an action.
+  const mapIt = page.getByRole('button', { name: /^Map perfectflite-stratologger/ });
+  await expect(mapIt).toBeVisible();
+  await mapIt.click();
+
+  // The mapper opens in place — the comparison keeps its address, so this is a round trip
+  // and not a departure.
+  await expect(page.getByRole('button', { name: /^Analyze/ })).toBeEnabled();
+  expect(new URL(page.url()).pathname).toBe('/compare');
+  const before = new URL(page.url()).searchParams.get('ids')!.split(',');
+  expect(before).toHaveLength(2);
+
+  await page.getByRole('button', { name: /^Analyze/ }).click();
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  // …and the flight it became is in the address, so the three-flight view reloads.
+  const after = new URL(page.url()).searchParams.get('ids')!.split(',');
+  expect(after).toHaveLength(3);
+  expect(after.slice(0, 2)).toEqual(before);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
 });
