@@ -569,6 +569,18 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **Found by the cold walk on a phone: a panel that opened off the side of the screen.** The
+  per-quantity units popover is anchored to the right of its trigger, which is right on a
+  desktop — there is room to its left — and wrong at 375 px, where the trigger sits at
+  x=102–201 and a 240 px panel therefore ran from **−39 px** to 201. The 39 px that fell off
+  the left is the whole label column: "Altitude", "Speed", "Acceleration", "Temperature",
+  "Pressure". **Nothing that watched the document could see it** — `scrollWidth` stayed at
+  375, because an element overflowing to the *left* creates no scroll. The existing phone
+  tests check tap-target size and document overflow, and both were green through this.
+  Anchored to the viewport below `sm` now (12 px each side, measured 12→363), unchanged above
+  it, and the regression test asserts the panel's box AND that each label row starts at x ≥ 0
+  — it reports "panel starts at x=-39" with the fix removed.
+
 - **Seven cards on the report are a sentence and one small input, and a desktop was giving
   each of them 1,232 px.** Measured: rail exit, drag Cd, ejection delay, main-deploy altitude,
   landing energy, parachute Cd and drogue Cd, stacked full-width, took **1,031 px of vertical

@@ -159,3 +159,32 @@ test('the column mapper is usable one-handed', async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+// A panel that opens off the side of the screen. The per-quantity units popover is anchored
+// to the right of its trigger, which is right on a desktop and wrong on a phone: found by
+// opening it cold at 375 px, where it ran from −39 px to 201 and cut off the whole left
+// column — the one holding "Altitude", "Speed" and the rest of the labels. The page itself
+// never scrolled sideways, so nothing that watches document width could see it.
+test('a popover opens fully on screen, not off the side of it', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 780 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  const summary = page.locator('summary').filter({ hasText: 'per quantity' }).first();
+  await summary.scrollIntoViewIfNeeded();
+  await summary.click();
+
+  const panel = page.locator('details', { has: summary }).locator('div').first();
+  const box = (await panel.boundingBox())!;
+  expect(box.x, `panel starts at x=${Math.round(box.x)}`).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width, `panel ends at x=${Math.round(box.x + box.width)}`).toBeLessThanOrEqual(375);
+
+  // …and every label inside it is on screen, which is the thing that was actually lost.
+  for (const label of ['Altitude', 'Speed', 'Acceleration']) {
+    const row = panel.locator('label').filter({ hasText: label }).first();
+    const r = await row.boundingBox();
+    expect(r, `"${label}" row is rendered`).toBeTruthy();
+    expect(r!.x, `"${label}" starts at x=${Math.round(r!.x)}`).toBeGreaterThanOrEqual(0);
+  }
+});

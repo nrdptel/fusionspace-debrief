@@ -74,7 +74,12 @@ export default function UnitsControl({
         >
           per quantity
         </summary>
-        <div className="absolute right-0 z-20 mt-1 w-60 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        {/* Right-anchored to the trigger on a desktop, where there is room to its left. On a
+            phone there isn't: measured at 375 px the panel ran from −39 px to 201, cutting off
+            the whole left column — which is the one holding "Altitude", "Speed" and the rest of
+            the labels. Below sm it is anchored to the viewport instead, so it fits wherever the
+            control has wrapped to. */}
+        <div className="absolute right-0 z-20 mt-1 w-60 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:w-auto dark:border-zinc-700 dark:bg-zinc-900">
           <div className="space-y-2">
             {CHOICES.map((c) => (
               <label key={c.key} className="flex items-center justify-between gap-2 text-xs">
