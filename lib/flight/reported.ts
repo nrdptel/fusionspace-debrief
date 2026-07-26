@@ -84,6 +84,37 @@ export interface ReportedComparison {
   agree: boolean;
   /** Three-way read of the agreement; null when there's nothing to compare. */
   status: AgreementStatus | null;
+  /** Set when the two figures are the same reading under two conventions: the device
+   *  reports acceleration net of gravity, Debrief the specific force the accelerometer
+   *  actually measured. See `gravityConvention`. */
+  gravityConvention?: boolean;
+}
+
+/**
+ * Is this "disagreement" just the two ways of saying acceleration?
+ *
+ * An accelerometer at rest on the pad reads 1 g: that is the specific force it measures, and
+ * it is what Debrief reports, because it is the g the airframe feels and the number a
+ * structures check wants. A device can instead report acceleration net of gravity — what the
+ * rocket is being accelerated BY — which is exactly 1 g lower on the boost axis. Neither is
+ * wrong, and the difference is not measurement spread.
+ *
+ * Every AltimeterCloud file in the corpus shows it, and shows it exactly: Debrief reads
+ * 316.76, 314.07, 314.76 m/s² against the device's 306.95, 304.26, 304.96 — **+1.00 g on
+ * every one**, to two decimals. That regularity is the evidence. Presented as a 3.2%
+ * disagreement it teaches a flyer to discount the cross-check; named, it is a corroboration
+ * stronger than the percentage suggests, because two independent reads landing exactly one
+ * gravity apart is not what noise does.
+ *
+ * Deliberately NOT used to adjust either figure into agreement — both are reported as each
+ * instrument states them, and the note explains the gap rather than closing it.
+ */
+function isGravityConvention(metric: ReportedValue['metric'], computed: number, device: number): boolean {
+  if (metric !== 'maxAcceleration') return false;
+  const gap = computed - device;
+  // Within a twentieth of a g of exactly one g — tight enough that only the convention
+  // produces it, and scale-free because it is an absolute offset, not a fraction.
+  return Math.abs(gap - G0) <= G0 * 0.05;
 }
 
 /** Pair each device-reported figure with Debrief's own read of the same metric —
@@ -99,6 +130,7 @@ export function compareReported(reported: ReportedValue[], metrics: FlightMetric
     const wide = (WIDE_TOLERANCE[r.metric] ?? AGREE_FRACTION) * 100;
     const status: AgreementStatus | null =
       deltaPct == null ? null : agree ? 'agree' : deltaPct <= wide ? 'consistent' : 'differ';
-    return { reported: r, computed, hasComputed, deltaPct, agree, status };
+    const gravityConvention = hasComputed && isGravityConvention(r.metric, computed, r.value);
+    return { reported: r, computed, hasComputed, deltaPct, agree, status, ...(gravityConvention ? { gravityConvention } : {}) };
   });
 }

@@ -87,3 +87,42 @@ describe('compareReported', () => {
     expect(c.hasComputed).toBe(false);
   });
 });
+
+describe('the gravity convention, not a disagreement', () => {
+  const at = (value: number): ReportedValue => ({ metric: 'maxAcceleration', label: 'Max acceleration', value });
+  const metrics = (maxAcceleration: number) => ({ maxAcceleration }) as FlightMetrics;
+
+  it('names an exact one-gravity gap for what it is', () => {
+    // Every AltimeterCloud file in the corpus lands here: Debrief 316.76 m/s² against the
+    // device's 306.95, and 314.07 against 304.26 — +1.00 g to two decimals, every time. An
+    // accelerometer at rest reads 1 g; Debrief reports that specific force and the device
+    // reports acceleration net of gravity. Shown as a bare 3.2%, it teaches a flyer to
+    // discount the cross-check.
+    const [c] = compareReported([at(306.95)], metrics(316.76));
+    expect(c.gravityConvention).toBe(true);
+    expect(c.deltaPct).toBeGreaterThan(3); // the raw percentage is unchanged and still shown
+  });
+
+  it('is not claimed for a gap that merely happens to be small', () => {
+    // 3.2% of a different peak is 3.2% — the claim is about an exact gravity, not a band.
+    const [near] = compareReported([at(100)], metrics(103.2));
+    expect(near.gravityConvention).toBeFalsy();
+    // …nor for two gravities, nor for the device reading higher.
+    expect(compareReported([at(300)], metrics(300 + 2 * 9.80665))[0].gravityConvention).toBeFalsy();
+    expect(compareReported([at(300)], metrics(300 - 9.80665))[0].gravityConvention).toBeFalsy();
+  });
+
+  it('applies to acceleration only — a 1 m/s² gap in a speed is just a gap', () => {
+    const [c] = compareReported(
+      [{ metric: 'maxVelocity', label: 'Max velocity', value: 100 }],
+      { maxVelocity: 109.80665 } as FlightMetrics,
+    );
+    expect(c.gravityConvention).toBeFalsy();
+  });
+
+  it('neither figure is adjusted into the other', () => {
+    const [c] = compareReported([at(306.95)], metrics(316.76));
+    expect(c.reported.value).toBe(306.95);
+    expect(c.computed).toBe(316.76);
+  });
+});

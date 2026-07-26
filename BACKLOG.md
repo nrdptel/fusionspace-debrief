@@ -6,6 +6,24 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Settled the open question about the AltimeterCloud acceleration gap: it is a convention,
+  and the cross-check now says so.** The backlog has carried "decide which the cross-check
+  should compare and say so" for a while. Measured across every corpus file that carries a
+  device summary: Debrief reads 316.76, 314.07 and 314.76 m/s² against the device's 306.95,
+  304.26 and 304.96 — **+1.00 g on every one, to two decimals**. An accelerometer at rest
+  reads 1 g; Debrief reports that specific force (the g the airframe felt, which is the number
+  a structures check wants) and the device reports acceleration net of gravity. **Decided:
+  keep Debrief's convention and name the difference — do not adjust either figure into the
+  other**, because a cross-check that quietly closes its own gap is agreement dressed up.
+  Shown as a bare 3.2%, it teaches a flyer to discount the panel; named, two independent reads
+  landing exactly one gravity apart is a corroboration stronger than the percentage. On the
+  screen, in the .txt/.md/.html, and as `gravityConvention` in `debrief.flight/1` (additive,
+  present-and-false elsewhere so a consumer checks a key it knows). **Noticed while sweeping,
+  not chased:** an AltimeterCloud's own `burnoutVelocity` differs from Debrief's by 5.0% on
+  one file and 2.7–3.6% on the others while `maxVelocity` agrees to 0.0% on all of them — the
+  device and Debrief are picking a different instant for burnout, not reading a different
+  speed.
+
 - **An 18.3-second flight time for a 10,245 ft flight, and the fix I nearly shipped for it was
   a regression.** The Blue Raven that holds one flight twice cuts its first copy at apogee, so
   the "landing" the detector finds is the record restarting — 0.08 s after the peak — and

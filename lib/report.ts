@@ -245,16 +245,22 @@ function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoic
  *  read, and how closely they agree. Empty when the file carried no summary. */
 function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: UnitChoice): [string, string, string, string][] {
   if (!flight.reported?.length) return [];
-  return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status }) => {
+  return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => {
     const pct = deltaPct == null ? '' : deltaPct < 0.05 ? '≈0' : `${deltaPct.toFixed(deltaPct < 10 ? 1 : 0)}%`;
     const agreement =
       status == null
         ? 'not computed'
-        : status === 'agree'
-          ? `agree (${pct})`
-          : status === 'consistent'
-            ? `consistent (${pct})`
-            : `differ (${pct})`;
+        : // The same reading under two conventions rather than a disagreement — the device
+          // reports acceleration net of gravity, Debrief the specific force the accelerometer
+          // measured. A document that printed the percentage alone would file the difference
+          // as measurement spread, which is exactly what it isn't.
+          gravityConvention
+          ? 'agree — exactly 1 g apart (the device reports acceleration net of gravity; Debrief the force the airframe felt)'
+          : status === 'agree'
+            ? `agree (${pct})`
+            : status === 'consistent'
+              ? `consistent (${pct})`
+              : `differ (${pct})`;
     return [r.label, fmtReported(r.metric, r.value, sys), hasComputed ? fmtReported(r.metric, computed, sys) : '—', agreement];
   });
 }
@@ -1043,13 +1049,17 @@ export function analysisJson(
   // The logger's own reported summary and how Debrief's read compares — only when
   // the file carried one.
   if (flight.reported?.length) {
-    doc.loggerSummary = compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status }) => ({
+    doc.loggerSummary = compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => ({
       label: r.label,
       metric: r.metric,
       logger: reportedNum(r.metric, r.value),
       debrief: hasComputed ? reportedNum(r.metric, computed) : null,
       agreementPct: deltaPct == null ? null : round(deltaPct, 1),
       agreement: status,
+      // Additive: a consumer reading `agreementPct` alone would file a definitional 1 g
+      // offset as measurement spread. Present and false where it doesn't apply, so a reader
+      // checks a key it knows.
+      gravityConvention: !!gravityConvention,
     }));
   }
 

@@ -24,13 +24,17 @@ export default function DeviceSummary({
   metrics: FlightMetrics;
   sys: UnitChoice;
 }) {
-  const rows = compareReported(reported, metrics).map(({ reported: r, computed, hasComputed: has, deltaPct, status }) => ({
-    r,
-    computed,
-    has,
-    deltaPct,
-    status,
-  }));
+  const rows = compareReported(reported, metrics).map(
+    ({ reported: r, computed, hasComputed: has, deltaPct, status, gravityConvention }) => ({
+      r,
+      computed,
+      has,
+      deltaPct,
+      status,
+      gravityConvention,
+    }),
+  );
+  const anyGravity = rows.some((x) => x.gravityConvention);
 
   return (
     <section
@@ -55,7 +59,7 @@ export default function DeviceSummary({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ r, computed, has, deltaPct, status }) => (
+            {rows.map(({ r, computed, has, deltaPct, status, gravityConvention }) => (
               <tr key={r.metric} className="border-t border-zinc-200 dark:border-zinc-800">
                 <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{r.label}</td>
                 <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">{fmt(r.metric, r.value, sys)}</td>
@@ -65,6 +69,13 @@ export default function DeviceSummary({
                 <td className="py-1.5">
                   {status == null ? (
                     <span className="text-zinc-500 dark:text-zinc-400">not computed</span>
+                  ) : gravityConvention ? (
+                    <span
+                      title="The same reading under two conventions, not a disagreement: an accelerometer at rest reads 1 g, which Debrief reports (the force the airframe felt) and this device subtracts (what the rocket was accelerated by). The two figures are exactly one gravity apart."
+                      className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                    >
+                      agree · exactly 1 g apart*
+                    </span>
                   ) : status === 'agree' ? (
                     <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                       agree · {deltaPct! < 0.05 ? '≈0' : deltaPct!.toFixed(1)}%
@@ -87,6 +98,15 @@ export default function DeviceSummary({
           </tbody>
         </table>
       </div>
+      {anyGravity && (
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          *An accelerometer at rest on the pad reads 1&nbsp;g. Debrief reports that specific force —
+          the g the airframe felt — and this device reports acceleration net of gravity, what the
+          rocket was accelerated <em>by</em>. Neither is wrong, and the gap is the convention rather
+          than measurement spread: the two land exactly one gravity apart, which is not what noise
+          does. Both are shown as each instrument states them; neither is adjusted into the other.
+        </p>
+      )}
     </section>
   );
 }

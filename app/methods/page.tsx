@@ -418,6 +418,16 @@ export default function MethodsPage() {
             left out rather than guessed at. Only figures that line up against something Debrief
             measures are read — a GPS summary&apos;s &ldquo;distance at apogee&rdquo; is downrange,
             not altitude, and mapping it would invent a disagreement out of a sound read.
+          {' '}
+            One difference there is worth naming, because it looks like a disagreement and isn&apos;t:
+            an accelerometer at rest on the pad reads <strong>1&nbsp;g</strong>. Debrief reports that
+            specific force — the g the airframe felt, which is the number a structures check wants —
+            while some devices report acceleration net of gravity, what the rocket was accelerated{' '}
+            <em>by</em>. Every AltimeterCloud file in the corpus shows it exactly: 316.76 m/s² against
+            the device&apos;s 306.95, 314.07 against 304.26, +1.00&nbsp;g every time. Two independent
+            reads landing precisely one gravity apart is not what noise does, so the cross-check says
+            so rather than printing a 3.2% gap and leaving you to wonder. Neither figure is adjusted
+            into the other: both are shown as each instrument states them.
           </Method>
           <Method title="When the flight flew">
             Where the file says, Debrief reads the flight&apos;s own date and time and shows it beside
