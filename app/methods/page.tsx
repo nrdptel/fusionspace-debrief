@@ -529,6 +529,18 @@ export default function MethodsPage() {
             follows you across loggers and restores only the channels the flight in front of you
             actually has. Kept on this device, like the rest of Debrief&apos;s state.
           </Method>
+          <Method title="Built-in views">
+            Four views are there on the first visit, before anything is saved: altitude &amp; speed,
+            speed &amp; acceleration, Mach &amp; max-Q, and the recorded altitude under the one
+            Debrief reads. They name only Debrief&apos;s own derived channels, never a column from
+            your file — one logger&apos;s <code>Batt(V)</code> is another&apos;s{' '}
+            <code>Battery</code>, so a built-in written against a column label would be right for
+            one device and quietly wrong for the next. A built-in appears only where the flight has{' '}
+            <em>every</em> channel it names: a barometric-only log is not offered
+            &ldquo;speed &amp; acceleration&rdquo;, because a view that silently drops half its
+            series is a different plot under the same name. Saving a view of your own under one of
+            those names replaces it.
+          </Method>
           <Method title="A file Debrief doesn&apos;t recognize">
             An unrecognized export goes to the column mapper, where you say which column is
             which — and Debrief <strong>keeps that answer</strong> with the flight. Reopening it

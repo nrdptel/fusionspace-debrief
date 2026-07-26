@@ -311,6 +311,40 @@ test('the explorer remembers how you set it up', async ({ page }) => {
   await expect(chart()).toHaveAttribute('aria-label', /Altitude \(AGL\), Velocity against Time/);
 });
 
+// Built-in views: the gap against OpenRocket, whose plot dialog ships quick-select preset
+// configurations. Debrief's named views were all flyer-made, so a first-time visitor opened
+// the explorer on one channel and built from scratch. These are here on the first visit — and
+// only where the flight has every channel the view names.
+test('the explorer opens with built-in views, and withholds one the flight cannot show', async ({ page }) => {
+  const chart = () => page.locator('[aria-label^="Line chart of"]').first();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // There on the first visit, with nothing saved.
+  await expect(page.getByRole('button', { name: 'Altitude & speed', exact: true })).toBeVisible();
+
+  // Each one plots what its name says. The sample is a TeleMetrum: it has a measured
+  // acceleration, so all four are offered.
+  await page.getByRole('button', { name: 'Mach & max-Q', exact: true }).click();
+  await expect(chart()).toHaveAttribute('aria-label', /Mach, Dynamic pressure against Time/);
+  await page.getByRole('button', { name: 'Speed & acceleration', exact: true }).click();
+  await expect(chart()).toHaveAttribute('aria-label', /Velocity, Acceleration against Time/);
+  await page.getByRole('button', { name: 'Raw vs cleaned', exact: true }).click();
+  await expect(chart()).toHaveAttribute('aria-label', /Altitude \(raw\), Altitude \(AGL\) against Time/);
+
+  // A PNut is barometric only. "Speed & acceleration" names an acceleration it does not have,
+  // so it is not offered at all rather than shown as a one-series plot under a name that
+  // promises two.
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Altitude & speed', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Speed & acceleration', exact: true })).toHaveCount(0);
+});
+
 // Named views: OpenRocket keeps several plot configurations and AltosUI saved graphs, and a
 // flyer checking the same few things on every flight of a season wants them by name rather
 // than rebuilt each time. Kept on this device, and applied wherever the flight has those

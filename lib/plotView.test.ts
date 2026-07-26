@@ -7,6 +7,8 @@ import {
   deletePreset,
   MAX_PRESETS,
   MAX_PRESET_NAME,
+  BUILTIN_VIEWS,
+  builtinViews,
   type PlotView,
 } from './plotView';
 
@@ -104,5 +106,78 @@ describe('named views', () => {
     window.localStorage.setItem('debrief.plotPresets', '[{"name":"ok","y":["d-velocity"]},{"y":["no name"]}]');
     expect(loadPresets().map((p) => p.name)).toEqual(['ok']);
     expect(loadPresets()[0].x).toBe('time');
+  });
+});
+
+// The channel sets the corpus actually produces: every analysable flight has altitude, raw
+// altitude and velocity; 30 of 34 add Mach and dynamic pressure; 16 of 34 add a measured
+// acceleration. A baro-only logger is the case a built-in must not overreach on.
+const BARO_ONLY = [
+  { key: 'd-altitude', label: 'Altitude (AGL)' },
+  { key: 'd-altitude-raw', label: 'Altitude (raw)' },
+  { key: 'd-velocity', label: 'Velocity' },
+];
+const WITH_AIR = [...BARO_ONLY, { key: 'd-mach', label: 'Mach' }, { key: 'd-q', label: 'Dynamic pressure' }];
+const EVERYTHING = [...WITH_AIR, { key: 'd-acceleration', label: 'Acceleration' }];
+
+describe('built-in views', () => {
+  it('offers every one on a flight that has every channel', () => {
+    expect(builtinViews(EVERYTHING).map((v) => v.name)).toEqual(BUILTIN_VIEWS.map((v) => v.name));
+  });
+
+  it('withholds a view rather than plotting half of it', () => {
+    // "Speed & acceleration" names both. A baro-only flight has the first, so a forgiving
+    // resolve would hand back a one-series plot under a name that promises two. Same for the
+    // Mach/max-Q pair on a flight where the velocity was judged impossible.
+    expect(builtinViews(BARO_ONLY).map((v) => v.name)).toEqual(['Altitude & speed', 'Raw vs cleaned']);
+    expect(builtinViews(WITH_AIR).map((v) => v.name)).not.toContain('Speed & acceleration');
+    expect(builtinViews(WITH_AIR).map((v) => v.name)).toContain('Mach & max-Q');
+  });
+
+  it('offers nothing when the flight has no derived channels at all', () => {
+    expect(builtinViews([{ key: 'r-0', label: 'Batt_Volts' }])).toEqual([]);
+  });
+
+  it("lets a flyer's own view of the same name replace the built-in", () => {
+    const mine = { name: ' mach & MAX-q ', y: ['d-altitude'], x: 'time' };
+    const names = builtinViews(EVERYTHING, [mine]).map((v) => v.name);
+    expect(names).not.toContain('Mach & max-Q');
+    expect(names).toContain('Altitude & speed');
+  });
+
+  it('names only channels with stable keys, so no built-in depends on a logger label', () => {
+    // A recorded channel is stored as `l:<label>`, and one logger's "Batt(V)" is another's
+    // "Battery" — a built-in written against a label would be right on one device and
+    // silently wrong on the next.
+    for (const v of BUILTIN_VIEWS) {
+      for (const id of v.y) expect(id.startsWith('d-')).toBe(true);
+      expect(v.y.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(v.y).size).toBe(v.y.length);
+      expect(v.about.length).toBeGreaterThan(0);
+    }
+    expect(new Set(BUILTIN_VIEWS.map((v) => v.name.toLowerCase())).size).toBe(BUILTIN_VIEWS.length);
+  });
+
+  it('resolves through the same path a saved view does', () => {
+    const boost = BUILTIN_VIEWS.find((v) => v.name === 'Speed & acceleration')!;
+    expect(resolveView(boost, EVERYTHING)).toEqual(['d-velocity', 'd-acceleration']);
+  });
+});
+
+// A view names WHICH channels to plot; the chart's zoom row names WHEN to look. They sit a
+// few centimetres apart on the same screen, so a word cannot mean both — the first draft
+// called the velocity/acceleration view "Boost", which is already the zoom preset that frames
+// liftoff to burnout, and the page ended up with two different buttons reading "Boost".
+// (The zoom labels are built in components/FlightReport.tsx.)
+const ZOOM_LABELS = ['Flight', 'Boost', 'Ascent', 'Descent', 'Full record'];
+
+describe('built-in view names', () => {
+  it('do not collide with the chart’s zoom windows', () => {
+    const zoom = new Set(ZOOM_LABELS.map((l) => l.toLowerCase()));
+    for (const v of BUILTIN_VIEWS) expect(zoom.has(v.name.toLowerCase())).toBe(false);
+  });
+
+  it('stay short enough to read as a chip', () => {
+    for (const v of BUILTIN_VIEWS) expect(v.name.length).toBeLessThanOrEqual(MAX_PRESET_NAME);
   });
 });

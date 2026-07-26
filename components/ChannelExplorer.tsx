@@ -10,6 +10,7 @@ import {
   loadPresets,
   savePreset,
   deletePreset,
+  builtinViews,
   MAX_PRESETS,
   MAX_PRESET_NAME,
   type PlotPreset,
@@ -92,6 +93,10 @@ export default function ChannelExplorer({
   const [naming, setNaming] = useState(false);
   const [presetName, setPresetName] = useState('');
   useEffect(() => setPresets(loadPresets()), []);
+  // …and a handful that are here on the first visit, so the explorer opens on something
+  // worth looking at rather than on whatever channel happened to be first. Only the ones
+  // this flight has every channel for.
+  const builtins = useMemo(() => builtinViews(channels, presets), [channels, presets]);
   const applyPreset = (p: PlotPreset) => {
     const restored = resolveView(p, channels);
     if (restored.length > 0) setYKeys(restored);
@@ -317,6 +322,17 @@ export default function ChannelExplorer({
       {/* Named views */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Views</span>
+        {builtins.map((b) => (
+          <button
+            key={b.name}
+            type="button"
+            onClick={() => applyPreset(b)}
+            title={b.about}
+            className="inline-flex min-h-[1.75rem] items-center rounded-md border border-dashed border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-300 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
+          >
+            {b.name}
+          </button>
+        ))}
         {presets.map((p) => (
           <span
             key={p.name}
@@ -375,10 +391,16 @@ export default function ChannelExplorer({
             </button>
           )
         )}
-        {presets.length > 0 && (
+        {presets.length > 0 ? (
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             kept on this device · a view applies wherever the flight has those channels
           </span>
+        ) : (
+          builtins.length > 0 && (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              built in · offered where this flight has every channel they name
+            </span>
+          )
         )}
       </div>
 

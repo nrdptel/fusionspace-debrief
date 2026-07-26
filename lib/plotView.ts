@@ -106,6 +106,75 @@ export interface PlotPreset extends PlotView {
   name: string;
 }
 
+// Built-in views. The named views above are all flyer-made, which means a first-time visitor
+// opens the explorer on a single channel and builds from scratch — the gap against
+// OpenRocket, whose plot dialog ships quick-select preset configurations so a new user gets a
+// useful plot before knowing what to ask for.
+//
+// These name only Debrief's own derived channels, never a recorded one: a recorded channel is
+// stored by its logger's label, and "Batt(V)" on one device is "Battery" on the next, so a
+// built-in written against labels would be right for one logger and silently wrong for the
+// rest. How often each is actually available, measured over the 34 analysable corpus flights:
+// altitude, raw altitude and velocity on 34; Mach and dynamic pressure on 30 (both withheld
+// when the velocity is judged impossible); measured acceleration on 16.
+//
+// A built-in is offered only where the flight has EVERY channel it names. A view that quietly
+// drops half its series is a different view under the same name: "Speed & acceleration"
+// plotting velocity alone on a baro-only log promises two readings and shows one.
+//
+// The names also have to stay clear of the chart's zoom row, which frames a time window
+// ('Flight', 'Boost', 'Ascent', 'Descent') a few centimetres away. A view says WHICH channels,
+// the zoom says WHEN; one word must not mean both.
+
+export interface BuiltinView extends PlotPreset {
+  /** Why a flyer would open this one — the chip's tooltip. */
+  about: string;
+}
+
+export const BUILTIN_VIEWS: readonly BuiltinView[] = [
+  {
+    name: 'Altitude & speed',
+    y: ['d-altitude', 'd-velocity'],
+    x: 'time',
+    about: 'How high and how fast, against time — the plot of the whole flight',
+  },
+  {
+    name: 'Speed & acceleration',
+    y: ['d-velocity', 'd-acceleration'],
+    x: 'time',
+    about: 'Speed against measured acceleration — what the motor did, and when it stopped',
+  },
+  {
+    name: 'Mach & max-Q',
+    y: ['d-mach', 'd-q'],
+    x: 'time',
+    about: 'Mach number and dynamic pressure — the transonic region and the peak air load',
+  },
+  {
+    name: 'Raw vs cleaned',
+    y: ['d-altitude-raw', 'd-altitude'],
+    x: 'time',
+    about: 'The altitude as recorded under the altitude Debrief reads — exactly what spike removal took out',
+  },
+];
+
+/**
+ * The built-in views this flight can actually show, in order.
+ *
+ * Two rules, both about not misleading: a view appears only when every channel it names is
+ * present, and a flyer's own saved view of the same name wins — re-saving a name is how you
+ * replace a built-in, not how you end up with two chips reading the same word.
+ */
+export function builtinViews(
+  channels: { key: string; label: string }[],
+  saved: PlotPreset[] = [],
+): BuiltinView[] {
+  const taken = new Set(saved.map((p) => p.name.trim().toLowerCase()));
+  return BUILTIN_VIEWS.filter(
+    (v) => !taken.has(v.name.toLowerCase()) && resolveView(v, channels).length === v.y.length,
+  );
+}
+
 function readPresets(): PlotPreset[] {
   if (typeof window === 'undefined') return [];
   try {

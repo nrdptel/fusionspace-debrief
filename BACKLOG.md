@@ -827,11 +827,31 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   **(1) "standard plots"** — OpenRocket ships quick-select preset configurations, so a new
   user gets a useful plot before knowing what to ask for; Debrief's named views are all
   flyer-made, so the explorer opens on whatever it opened on last and a first-time visitor
-  builds from scratch. A handful of built-in views (the boost, the deployments, the airframe's
-  health) shipped as defaults would close it, and the machinery already exists.
+  builds from scratch. **Done** — see below.
   **(2) choosing which flight events are called out on the plot** — OpenRocket lets you pick;
   Debrief draws all of them, which crowds the boost on a flight with four events in six
-  seconds. Neither is built.
+  seconds. Not built.
+
+- **Closed the "standard plots" half of the OpenRocket benchmark, and the corpus decided what
+  they could honestly be.** Four built-in views, there on the first visit: *Altitude & speed*,
+  *Speed & acceleration*, *Mach & max-Q*, *Raw vs cleaned*. **They name only Debrief's own
+  derived channels, never a recorded one** — a recorded channel is stored by its logger's
+  label, so a built-in written against `Batt(V)` would be right for one device and silently
+  wrong for the next. Measured over the 34 analysable corpus flights, which is what set the
+  four: altitude, raw altitude and velocity on **34/34**; Mach and dynamic pressure on
+  **30/34** (both withheld when the velocity is judged impossible); a measured acceleration on
+  **16/34**. **The rule is all-or-nothing:** a view appears only where the flight has *every*
+  channel it names, because a "Speed & acceleration" that quietly drops the acceleration on a
+  baro-only log is a different plot under a name that promises two — asserted end-to-end
+  against a PerfectFlite PNut, which is offered three of the four. A flyer's own saved view of
+  the same name wins, so re-saving is how you replace one.
+  **Caught while wiring it up, and it was a real ambiguity rather than a test problem:** the
+  velocity/acceleration view was first called "Boost", which is *already* the chart's zoom
+  preset framing liftoff to burnout — the page had two different buttons reading "Boost" a few
+  centimetres apart. A view names *which channels*; the zoom row names *when*. One word cannot
+  mean both, and a test now holds the two vocabularies apart.
+  **Still open from this:** a *speed vs height* view (x is not time) — the explorer supports
+  any channel on x and no built-in uses it yet.
 
 - **Benchmarked the recovery view against AltosUI and shipped the gap: KML for Google
   Earth.** Read AltosUI's own documentation rather than going from memory. Two things it has
