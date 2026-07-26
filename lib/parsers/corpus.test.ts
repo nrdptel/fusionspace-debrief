@@ -247,6 +247,20 @@ function runFixture(fx: Fixture) {
     // Only when the auto-mapping found the essentials and the read isn't a known issue.
     const hasTime = roles.includes('time');
     const hasAltitude = roles.includes('altitude') || roles.includes('pressure');
+    // A fixture the auto-mapping can't find a time base or a height in is never analysed —
+    // and used to leave through this branch printing exactly like one that was. That is how
+    // the Featherweight ground-station file stayed green for as long as it did while being
+    // unanalysable. The skip itself is legitimate (seven corpus fixtures are raw binary
+    // downloads the generic mapper reads zero columns from), but a golden value written on
+    // one is not: it would sit in the contract looking armed and assert nothing. Refuse that
+    // combination outright, so the only way to pin a number on a fixture is one the runner
+    // actually checks.
+    if (!hasTime || !hasAltitude) {
+      expect(
+        fx.assert ?? [],
+        `${name}: carries golden values but is never analysed (roles: ${roles.filter((r) => r !== 'ignore').join(', ') || 'none'}) — the asserts would silently do nothing`,
+      ).toHaveLength(0);
+    }
     if (!fx.knownIssue && hasTime && hasAltitude) {
       const mappings = t.columns.filter((c) => c.role !== 'ignore').map((c) => ({ index: c.index, role: c.role, unit: c.unit }));
       const flight = buildFlight({
@@ -331,6 +345,51 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
   for (const fx of byFile.values()) {
     it(`${fx.file}${fx.knownIssue ? ' [known issue: parse-only]' : ''}`, () => runFixture(fx));
   }
+
+  // What the suite above actually proved, counted. Every branch of the runner can `return`
+  // before it asserts anything, and a fixture that leaves early prints identically to one
+  // that was analysed end to end — so "61 passed" has never meant "61 flights checked".
+  // This states the split out loud and fails if the analysed count drops, which is the
+  // direction that matters: a parser regression that turns a read flight into an unmappable
+  // one would otherwise show up as a still-green suite.
+  it('says how many fixtures it actually analysed, not just how many it visited', { timeout: 120_000 }, () => {
+    let analysed = 0;
+    const parseOnly: string[] = [];
+    const steppedAround: string[] = [];
+    const rejected: string[] = [];
+    for (const fx of byFile.values()) {
+      const name = fx.file.split('/').pop() as string;
+      if (fx.expect.kind === 'reject') {
+        rejected.push(name);
+        continue;
+      }
+      if (fx.knownIssue) {
+        parseOnly.push(name);
+        continue;
+      }
+      let res;
+      try {
+        res = importFlight({ name, text: decodeBytes(new Uint8Array(readFileSync(CORPUS + fx.file))) });
+      } catch {
+        parseOnly.push(name);
+        continue;
+      }
+      if (res.kind === 'flight') {
+        analysed++;
+      } else if (res.kind === 'mapping') {
+        const roles = res.table.columns.map((c) => c.role);
+        if (roles.includes('time') && (roles.includes('altitude') || roles.includes('pressure'))) analysed++;
+        else steppedAround.push(name);
+      }
+    }
+    const summary = `${byFile.size} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
+    // The stepped-around set is raw binary downloads the generic mapper reads no columns
+    // from — an AltOS .eeprom, an Entacore .bin/.xtra, an RRC3 .rff. They belong in the
+    // corpus (the app has a screen that names exactly these and says to export CSV), but
+    // they prove nothing about the analysis, so they are counted apart from what does.
+    expect(analysed, summary).toBeGreaterThanOrEqual(37);
+    expect(steppedAround.length, summary).toBeLessThanOrEqual(7);
+  });
 });
 
 /** Load one corpus file to an analysed flight (named parser, else the generic mapper),
@@ -792,6 +851,87 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
         m.maxDynamicPressure,
         `${file}: reported ${(m.maxDynamicPressure / 1000).toFixed(1)} kPa exceeds the climbing peak ${(best / 1000).toFixed(1)} kPa`,
       ).toBeLessThanOrEqual(best * 1.001);
+    }
+    expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+  });
+});
+
+// Coast efficiency measures the climb from BURNOUT, so it has to use the same burnout
+// height the flight reports — the corrected one. It used to read the raw barometric sample,
+// which on a transonic boost is exactly where the shock over the static port drives the
+// trace away from the true pressure. Two corpus mach-busters were charged or credited for a
+// climb they never made, and a third had a percentage printed off an altitude the analysis
+// was already refusing to show.
+describe('coast efficiency measures the climb from the burnout height the flight reports', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // file → the efficiency off the corrected burnout height, and what the raw sample gave.
+  const CORRECTED: { file: string; pct: number; wasPct: number; rawAltM: number; altM: number }[] = [
+    {
+      file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
+      pct: 12.2,
+      wasPct: 14.9,
+      rawAltM: -93.5,
+      altM: 482.5,
+    },
+    {
+      file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
+      pct: 23.9,
+      wasPct: 15.6,
+      rawAltM: 774.8,
+      altM: 171.9,
+    },
+  ];
+  for (const c of CORRECTED) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — ${c.wasPct}% off a ${c.rawAltM} m sample, ${c.pct}% off the ${c.altM} m burnout`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const m = loaded!.analysis.metrics;
+      expect(m.coastEfficiency, `${short}: an efficiency is reported`).not.toBeNull();
+      expect(m.coastEfficiency! * 100, `${short}: reads the corrected burnout height`).toBeCloseTo(c.pct, 0);
+      // The raw sample the reading used to come off is genuinely the impossible one — so
+      // this pins the bug, not just the number.
+      const bo = loaded!.analysis.events.find((e) => e.type === 'burnout');
+      expect(loaded!.analysis.series.altitude[bo!.index], `${short}: the raw sample is still the contradicted one`).toBeCloseTo(c.rawAltM, 0);
+      expect(m.burnoutAltitude!, `${short}: and the reported burnout height is the corrected one`).toBeCloseTo(c.altM, 0);
+    });
+  }
+
+  it('is withheld wherever the burnout height itself is', () => {
+    // A TeleMega whose baro reads 286 m BELOW the pad at a burnout doing 596 m/s. The
+    // burnout altitude was already withheld there; the efficiency derived from it was not,
+    // so the page showed "Coast efficiency 47%" beside a burnout altitude of "—".
+    const loaded = loadForCompare('altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv');
+    expect(loaded, 'the TeleMega is in the corpus and parses').toBeTruthy();
+    const m = loaded!.analysis.metrics;
+    expect(m.burnoutAltitude, 'the burnout height is unreadable on this flight').toBeNull();
+    expect(m.coastEfficiency, 'so nothing derived from it is reported either').toBeNull();
+    expect(m.dragLossAltitude, 'including the drag cost').toBeNull();
+  });
+
+  it('never reports an efficiency without the burnout height it is measured from, on any corpus flight', { timeout: 60_000 }, () => {
+    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
+    let checked = 0;
+    for (const file of files) {
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const m = loaded.analysis.metrics;
+      if (m.coastEfficiency == null) continue;
+      checked++;
+      expect(m.burnoutAltitude, `${file}: an efficiency with no burnout height behind it`).not.toBeNull();
+      // And it must be the arithmetic of the two figures the flight actually shows, so the
+      // percentage on screen can always be checked against the numbers beside it.
+      const vacuum = (m.burnoutVelocity! * m.burnoutVelocity!) / (2 * G0);
+      const gain = m.apogeeAltitude - m.burnoutAltitude!;
+      expect(m.coastEfficiency!, `${file}: does not match the burnout height and speed it reports`).toBeCloseTo(Math.min(1, gain / vacuum), 3);
     }
     expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
   });

@@ -1539,12 +1539,24 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // energy conservation on the flown numbers, no aerodynamic model. Skipped when
   // the velocity is too soft to trust (an underestimate makes the "actual" exceed
   // the vacuum coast, which is unphysical) or there's no real coast.
+  //
+  // The burnout height here is `altAt`, the same corrected reading the burnout altitude
+  // itself reports — not the raw `altClean` sample. On a transonic boost the shock over the
+  // static port drives the trace away from the true pressure, and burnout sits squarely in
+  // that stretch: two corpus mach-busters read −93 m (below the pad) and 774 m at a burnout
+  // whose corrected heights are 482 m and 172 m. Taking the raw sample credited one flight
+  // with climbing out of a hole and charged the other for a climb it never made, so the
+  // coast efficiency printed beside the corrected burnout altitude disagreed with it —
+  // 14.9% against 12.2% one way, 15.6% against 23.9% the other. Where the trace contradicts
+  // itself and no inertial solution can stand in, `altAt` is NaN and the reading is withheld
+  // by the guard below rather than computed off an altitude the analysis has already
+  // rejected; the existing self-contradiction warning says why.
   let coastEfficiency: number | null = null;
   let dragLossAltitude: number | null = null;
   if (burnoutIdx !== null && !velocityImplausible) {
     const vBo = velocity[burnoutIdx];
     const vacuumGain = Number.isFinite(vBo) ? (vBo * vBo) / (2 * G0) : NaN;
-    const actualGain = apogeeAlt - altClean[burnoutIdx];
+    const actualGain = apogeeAlt - altAt(burnoutIdx);
     if (vBo > 20 && vacuumGain > 0 && actualGain > 0 && actualGain <= vacuumGain * 1.05) {
       coastEfficiency = Math.min(1, actualGain / vacuumGain);
       dragLossAltitude = Math.max(0, vacuumGain - actualGain);

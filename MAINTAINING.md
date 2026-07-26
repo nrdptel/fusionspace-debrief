@@ -50,7 +50,18 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
 - **The clone may be shallow.** Check `git rev-parse --is-shallow-repository` before quoting any
   commit count or file history — on a shallow clone both are a window, not the record.
 - **Playwright** may need a pre-installed Chromium in a sandbox (`PLAYWRIGHT_CHROMIUM_PATH` is read by
-  `playwright.config.ts`); don't run `playwright install` where the image already provides one.
+  `playwright.config.ts`) — but only if it is the **same revision** this Playwright expects. Check
+  before pointing at one:
+  ```bash
+  node -e "console.log(require('playwright-core').chromium.executablePath())"   # the build it wants
+  ```
+  An image that ships a *nearby* revision is the trap: the suite runs and quietly behaves
+  differently. On `chromium-1194` against Playwright 1.61.1 (which wants 1228),
+  `context.setOffline(true)` stopped applying to service-worker fetches and the PWA offline test
+  failed with a 404 where it asserts 503 — a wrong red that reads exactly like a routing
+  regression. `playwright.config.ts` now compares the revisions and throws with that reason, so
+  trust the error over the old advice: run `npx playwright install chromium` when the image's
+  build doesn't match, rather than forcing the mismatched one.
 - **Throwaway probes** are named `*-tmp.*` and gitignored. Check the glob covers the exact name you
   chose, and delete them before you finish.
 
