@@ -353,36 +353,13 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
   // direction that matters: a parser regression that turns a read flight into an unmappable
   // one would otherwise show up as a still-green suite.
   it('says how many fixtures it actually analysed, not just how many it visited', { timeout: 120_000 }, () => {
-    let analysed = 0;
-    const parseOnly: string[] = [];
-    const steppedAround: string[] = [];
-    const rejected: string[] = [];
-    for (const fx of byFile.values()) {
-      const name = fx.file.split('/').pop() as string;
-      if (fx.expect.kind === 'reject') {
-        rejected.push(name);
-        continue;
-      }
-      if (fx.knownIssue) {
-        parseOnly.push(name);
-        continue;
-      }
-      let res;
-      try {
-        res = importFlight({ name, text: decodeBytes(new Uint8Array(readFileSync(CORPUS + fx.file))) });
-      } catch {
-        parseOnly.push(name);
-        continue;
-      }
-      if (res.kind === 'flight') {
-        analysed++;
-      } else if (res.kind === 'mapping') {
-        const roles = res.table.columns.map((c) => c.role);
-        if (roles.includes('time') && (roles.includes('altitude') || roles.includes('pressure'))) analysed++;
-        else steppedAround.push(name);
-      }
-    }
-    const summary = `${byFile.size} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
+    const reads = corpusReads();
+    const short = (f: string) => f.split('/').pop() as string;
+    const analysed = reads.filter((r) => r.reach === 'analysed').length;
+    const steppedAround = reads.filter((r) => r.reach === 'stepped-around').map((r) => short(r.file));
+    const parseOnly = reads.filter((r) => r.reach === 'parse-only');
+    const rejected = reads.filter((r) => r.reach === 'rejected');
+    const summary = `${reads.length} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
     // The stepped-around set is raw binary downloads the generic mapper reads no columns
     // from — an AltOS .eeprom, an Entacore .bin/.xtra, an RRC3 .rff. They belong in the
     // corpus (the app has a screen that names exactly these and says to export CSV), but
@@ -408,6 +385,85 @@ function loadForCompare(file: string): CompareInput | null {
     flight = buildFlight({ source: file, format: 'generic', formatLabel: 'Generic CSV', headers: res.table.headers, dataRows: res.table.dataRows, mappings, reported: res.table.reported });
   } else return null;
   return { id: file, name: file, formatLabel: 'x', analysis: analyzeFlight(flight) };
+}
+
+/** One fixture, reduced to the scalars the whole-corpus invariants need. */
+interface CorpusRead {
+  file: string;
+  /** How far the runner gets with this fixture — the same branches `runFixture` takes. */
+  reach: 'analysed' | 'stepped-around' | 'parse-only' | 'rejected';
+  metrics: ReturnType<typeof analyzeFlight>['metrics'] | null;
+  /** Peak ½ρv² over climbing samples at or before apogee — what a reported max-Q is held to. */
+  bestClimbQ: number;
+  hasBurnoutEvent: boolean;
+}
+
+let corpusReadCache: CorpusRead[] | null = null;
+
+/**
+ * ONE pass over every corpus fixture, shared by every whole-corpus invariant below.
+ *
+ * Each of those sweeps used to parse and analyse all 61 files itself. At five sweeps that was
+ * five full passes of roughly ten seconds each, and on a CI runner the suite spent 65 s almost
+ * entirely inside blocking loops — which starved vitest's reporter channel and failed the job
+ * with `[vitest-worker]: Timeout calling "onTaskUpdate"` while all 645 tests passed. A green
+ * suite that exits 1 is worse than a red one, because the failure names nothing that is wrong.
+ *
+ * Only scalars are kept — the metrics object and one derived number per file, never the sample
+ * arrays — so the cache costs almost nothing and the sweeps below stay independent tests with
+ * their own names and their own failure messages.
+ */
+function corpusReads(): CorpusRead[] {
+  if (corpusReadCache) return corpusReadCache;
+  const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+  const byFile = new Map(spec.fixtures.map((f) => [f.file, f]));
+  if (existsSync(OVERRIDES)) {
+    const overrides = (JSON.parse(readFileSync(OVERRIDES, 'utf8')) as { fixtures: Fixture[] }).fixtures ?? [];
+    for (const ov of overrides) if (existsSync(CORPUS + ov.file)) byFile.set(ov.file, ov);
+  }
+  const out: CorpusRead[] = [];
+  for (const fx of byFile.values()) {
+    const base: CorpusRead = { file: fx.file, reach: 'parse-only', metrics: null, bestClimbQ: 0, hasBurnoutEvent: false };
+    if (fx.expect.kind === 'reject') {
+      out.push({ ...base, reach: 'rejected' });
+      continue;
+    }
+    let loaded: CompareInput | null = null;
+    try {
+      loaded = loadForCompare(fx.file);
+    } catch {
+      out.push(base);
+      continue;
+    }
+    if (!loaded) {
+      // Present but unmappable (a raw binary the generic mapper reads no columns from), or
+      // absent from this corpus release. `loadForCompare` returns null for both.
+      out.push({ ...base, reach: existsSync(CORPUS + fx.file) ? 'stepped-around' : 'parse-only' });
+      continue;
+    }
+    const { metrics, series, events } = loaded.analysis;
+    const apogeeT = events.find((e) => e.type === 'apogee')?.time ?? Infinity;
+    let bestClimbQ = 0;
+    for (let i = 0; i < series.velocity.length; i++) {
+      const v = series.velocity[i];
+      const rho = series.airDensity[i];
+      if (!Number.isFinite(v) || v <= 0 || !Number.isFinite(rho)) continue;
+      if (series.time[i] > apogeeT) break;
+      const q = 0.5 * rho * v * v;
+      if (q > bestClimbQ) bestClimbQ = q;
+    }
+    out.push({
+      file: fx.file,
+      // A knownIssue file still analyses; it is just not asserted by `runFixture`. For the
+      // count below, what matters is whether the pipeline could read it at all.
+      reach: fx.knownIssue ? 'parse-only' : 'analysed',
+      metrics,
+      bestClimbQ,
+      hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
+    });
+  }
+  corpusReadCache = out;
+  return out;
 }
 
 // Independent recordings of ONE flight, same stage (redundant altimeters), that must
@@ -821,36 +877,17 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
   }
 
   it('never reads max-Q off a descending or post-apogee sample, on any corpus flight', { timeout: 60_000 }, () => {
-    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
     let checked = 0;
-    for (const file of files) {
-      // A file Debrief deliberately refuses (a Blue Raven high-rate log, a device summary)
-      // throws its guidance rather than parsing — not a max-Q at all, so skip it.
-      let loaded: ReturnType<typeof loadForCompare>;
-      try {
-        loaded = loadForCompare(file);
-      } catch {
-        continue;
-      }
-      if (!loaded) continue;
-      const { metrics: m, series: s } = loaded.analysis;
-      if (m.maxDynamicPressure == null || m.maxDynamicPressureAltitude == null) continue;
+    // A file Debrief deliberately refuses (a Blue Raven high-rate log, a device summary) never
+    // reaches an analysis at all, so it carries no metrics and no max-Q to check.
+    for (const { file, metrics: m, bestClimbQ } of corpusReads()) {
+      if (!m || m.maxDynamicPressure == null || m.maxDynamicPressureAltitude == null) continue;
       checked++;
       // The reported q has to be reachable from a climbing sample at or before apogee.
-      let best = 0;
-      const apogeeT = loaded.analysis.events.find((e) => e.type === 'apogee')?.time ?? Infinity;
-      for (let i = 0; i < s.velocity.length; i++) {
-        const v = s.velocity[i];
-        const rho = s.airDensity[i];
-        if (!Number.isFinite(v) || v <= 0 || !Number.isFinite(rho)) continue;
-        if (s.time[i] > apogeeT) break;
-        const q = 0.5 * rho * v * v;
-        if (q > best) best = q;
-      }
       expect(
         m.maxDynamicPressure,
-        `${file}: reported ${(m.maxDynamicPressure / 1000).toFixed(1)} kPa exceeds the climbing peak ${(best / 1000).toFixed(1)} kPa`,
-      ).toBeLessThanOrEqual(best * 1.001);
+        `${file}: reported ${(m.maxDynamicPressure / 1000).toFixed(1)} kPa exceeds the climbing peak ${(bestClimbQ / 1000).toFixed(1)} kPa`,
+      ).toBeLessThanOrEqual(bestClimbQ * 1.001);
     }
     expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
   });
@@ -911,19 +948,9 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
   }
 
   it('never reports a burnout that is still under thrust past the speed peak, on any corpus flight', { timeout: 60_000 }, () => {
-    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
     let checked = 0;
-    for (const file of files) {
-      let loaded: ReturnType<typeof loadForCompare>;
-      try {
-        loaded = loadForCompare(file);
-      } catch {
-        continue;
-      }
-      if (!loaded) continue;
-      const m = loaded.analysis.metrics;
-      const bo = loaded.analysis.events.find((e) => e.type === 'burnout');
-      if (m.burnTime == null || !bo || !Number.isFinite(m.maxVelocity)) continue;
+    for (const { file, metrics: m, hasBurnoutEvent } of corpusReads()) {
+      if (!m || m.burnTime == null || !hasBurnoutEvent || !Number.isFinite(m.maxVelocity)) continue;
       checked++;
       // Thrust ends at or before the speed peak — never after it.
       expect(
@@ -944,19 +971,10 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
     // must be bit-identical, and the surfaces can say "the same instant" without lying. A
     // crossing one sample before the peak (corpus sg1.1: 118.06 against 118.09) is a genuinely
     // different instant that happens to round to the same displayed number, and is not flagged.
-    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
     let flagged = 0;
     let checked = 0;
-    for (const file of files) {
-      let loaded: ReturnType<typeof loadForCompare>;
-      try {
-        loaded = loadForCompare(file);
-      } catch {
-        continue;
-      }
-      if (!loaded) continue;
-      const m = loaded.analysis.metrics;
-      if (m.burnoutVelocity == null || !Number.isFinite(m.maxVelocity)) continue;
+    for (const { file, metrics: m } of corpusReads()) {
+      if (!m || m.burnoutVelocity == null || !Number.isFinite(m.maxVelocity)) continue;
       checked++;
       if (!m.burnoutAtVelocityPeak) continue;
       flagged++;
@@ -1025,18 +1043,9 @@ describe('coast efficiency measures the climb from the burnout height the flight
   });
 
   it('never reports an efficiency without the burnout height it is measured from, on any corpus flight', { timeout: 60_000 }, () => {
-    const files = (JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] }).fixtures.map((f) => f.file);
     let checked = 0;
-    for (const file of files) {
-      let loaded: ReturnType<typeof loadForCompare>;
-      try {
-        loaded = loadForCompare(file);
-      } catch {
-        continue;
-      }
-      if (!loaded) continue;
-      const m = loaded.analysis.metrics;
-      if (m.coastEfficiency == null) continue;
+    for (const { file, metrics: m } of corpusReads()) {
+      if (!m || m.coastEfficiency == null) continue;
       checked++;
       expect(m.burnoutAltitude, `${file}: an efficiency with no burnout height behind it`).not.toBeNull();
       // And it must be the arithmetic of the two figures the flight actually shows, so the
