@@ -37,7 +37,9 @@ test('the report toolbar keeps the primary actions in view on a phone', async ({
   // into their own labelled strip (which scrolls aside) instead of stacking four rows
   // deep and burying the flight's own numbers.
   await expect(page.getByRole('button', { name: 'Copy summary' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Share link' })).toBeVisible();
+  // The sample is ~850 KB, past what fits in a URL fragment, so the share control names
+  // that up front rather than waiting to be pressed — see audit.spec.ts.
+  await expect(page.getByRole('button', { name: 'Too big to link' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
   await expect(page.getByText('Save a file:')).toBeVisible();
   expect(await pageSpills(page)).toBe(false);

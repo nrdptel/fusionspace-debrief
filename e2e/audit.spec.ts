@@ -127,14 +127,26 @@ test('the report export buttons work (txt, csv, png) and copy confirms', async (
   await expect(page.getByRole('button', { name: 'Copied ✓' })).toBeVisible();
 });
 
-test('a flight too large to share says so instead of failing', async ({ page, context }) => {
+// A share link carries the whole file inside the URL, so past a certain size there is no
+// link to build — and "Share link", always enabled, made that discoverable only by pressing
+// it, on flights as ordinary as a 220 KB altimeter log. The answer is now worked out when
+// the report opens and shown on the button itself.
+test('a flight too large to share says so before you press it', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/');
   // The bundled sample is ~850 KB — far past what fits in a URL fragment.
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Share link' }).click();
-  await expect(page.getByText(/too large to share/i)).toBeVisible();
+  const tooBig = page.getByRole('button', { name: 'Too big to link' });
+  await expect(tooBig).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Share link' })).toHaveCount(0);
+  // Still pressable — a disabled button on a phone has no hover to read and does nothing on
+  // a tap — and pressing it names controls that actually exist. The old message pointed at
+  // "Save chart", which is not a button on this page.
+  await tooBig.click();
+  await expect(page.getByText(/too big to fit inside a link/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save .html' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save bundle' })).toBeVisible();
 });
 
 test('share link round-trips a small flight through the URL fragment', async ({ page, context }) => {

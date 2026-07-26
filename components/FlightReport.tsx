@@ -129,6 +129,12 @@ export default function FlightReport({
   const [copied, setCopied] = useState(false);
   const [copiedTable, setCopiedTable] = useState<'yes' | 'no' | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  /** Whether this flight fits in a link, and the payload if it does — worked out once when
+   *  the report opens rather than when the button is pressed. A share link carries the whole
+   *  file inside the URL, so past a certain size there is no link to build; offering a
+   *  button that is always enabled and fails on an ordinary flight (a 220 KB corpus log is
+   *  already too big) makes that discoverable only by pressing it. */
+  const [sharePayload, setSharePayload] = useState<{ ok: true; url: string } | { ok: false } | null>(null);
   const [bundleMsg, setBundleMsg] = useState<string | null>(null);
 
   // An optional label (rocket, motor, flight number) and free-text notes the flyer
@@ -189,20 +195,49 @@ export default function FlightReport({
   const gpsLat = getChannel(flight, 'latitude');
   const gpsLon = getChannel(flight, 'longitude');
 
-  async function shareLink() {
-    setShareMsg('Building link…');
-    try {
-      const payload = await encodeFlight(flight.source, sourceText);
-      const url = shareUrl(window.location.origin, window.location.pathname, payload);
-      if (url.length > MAX_SHARE_URL) {
-        setShareMsg('This flight is too large to share as a link — use Save chart or Copy summary instead.');
-        return;
+  // Build the link once, when the report opens, so the button can say whether there is one
+  // before it is pressed. The work is the same gzip the click used to do; doing it here
+  // costs it once per flight instead of once per press, and it is what turns "press and find
+  // out" into a control that states its own condition. Cancelled if the flight changes
+  // underneath it, so a slow encode can't answer for the wrong flight.
+  useEffect(() => {
+    let live = true;
+    setSharePayload(null);
+    setShareMsg(null);
+    (async () => {
+      try {
+        const payload = await encodeFlight(flight.source, sourceText);
+        const url = shareUrl(window.location.origin, window.location.pathname, payload);
+        if (live) setSharePayload(url.length > MAX_SHARE_URL ? { ok: false } : { ok: true, url });
+      } catch {
+        if (live) setSharePayload({ ok: false });
       }
-      await navigator.clipboard.writeText(url);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [flight.source, sourceText]);
+
+  async function shareLink() {
+    if (sharePayload === null) {
+      setShareMsg('Still working out whether this flight fits in a link — try again in a moment.');
+      return;
+    }
+    // Not disabled, deliberately: a disabled button on a phone is a dead end — there is no
+    // hover to read a title from and nothing happens on a tap. The label says the answer
+    // before it is pressed, and pressing it explains what to do instead.
+    if (!sharePayload.ok) {
+      setShareMsg(
+        'This log is too big to fit inside a link — a share link carries the whole file in the URL. Save .html below is the same report as one file you can send, and Save bundle packs the report, the charts and the data together.',
+      );
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(sharePayload.url);
       setShareMsg('Link copied — the flight rides inside it; nothing was uploaded.');
       setTimeout(() => setShareMsg(null), 4000);
     } catch {
-      setShareMsg('Couldn’t build a share link in this browser.');
+      setShareMsg('Couldn’t write to the clipboard in this browser — the exports below all save a file instead.');
     }
   }
 
@@ -573,10 +608,16 @@ export default function FlightReport({
             <button
               type="button"
               onClick={shareLink}
-              title="Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded"
+              title={
+                sharePayload === null
+                  ? 'Working out whether this flight fits in a link…'
+                  : sharePayload.ok
+                    ? 'Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded'
+                    : 'This log is too big to fit inside a link. Save .html or Save bundle below sends the whole report instead.'
+              }
               className={ACTION_BTN}
             >
-              Share link
+              {sharePayload?.ok === false ? 'Too big to link' : 'Share link'}
             </button>
             <button
               type="button"
