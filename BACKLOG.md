@@ -6,6 +6,31 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Debrief was reporting Mach 4.08 on a flight that reached 4,661 ft.** Found while measuring
+  whether the multi-flight chooser was unblocked (it isn't — see below). The Eggtimer
+  early-deploy anomaly read a barometric peak of **4,483 ft/s** over a 4,661 ft apogee, shown
+  as a headline with a transonic caveat but shown. Its sister file reading 2,671 ft/s over
+  958 ft (the ARIS in-air breakup) did the same. The existing guards missed both: the absolute
+  bound ("beyond any rocket") lets Mach 4 through, and the accelerometer bracket needs an
+  accelerometer, which neither file has. **The check they fail is against the flight's own
+  climb:** from the peak-speed point a drag-free coast gains v²/2g and drag only takes from
+  that, so what the flight actually gained as a fraction of that vacuum coast is what drag
+  cost. Measured across **33 corpus flights it spans 6.3%–81.7%** — wide and continuous — and
+  **those two sit at 0.1%**. The bound is 1%: six times below the lowest genuine reading, ten
+  times above the two refused, and stated with that basis rather than as a bare threshold. It
+  applies only to a *derived* speed, where velocity and altitude are one channel disagreeing
+  with itself; a device speed and the altitude are two instruments and that is a cross-check,
+  not a guard. Three files now withhold; no genuine reading moved.
+- **The multi-flight chooser is still blocked, and the new guards make that concrete.** The
+  backlog's note said what would unblock "read the other flights in this file": a test that
+  separates a second flight from a second spike. Ran every segment of every multi-flight
+  corpus file through the analysis with the vacuum guards in place, and they point the WRONG
+  way. On the Eggtimer anomaly, the **documented baro artefact (segment 1, 8,696 ft) trips
+  zero guards** while the real flight (segment 0, 4,661 ft) trips one; on the Blue Raven the
+  copy with no pad window trips zero while the correct copy trips two. A chooser built on
+  "which segment looks cleanest" would hand the flyer the artefact. Physical coherence is not
+  the discriminator — a smooth artefact is smoother than a real flight with a spike in it.
+
 - **"Burnout velocity" and "Max velocity" were the same number under two labels, and nothing
   said so.** Followed from the cross-check sweep: on every AltimeterCloud file Debrief's
   burnout velocity equals its max velocity *exactly* — 62.83/62.83, 156.91/156.91,

@@ -1189,6 +1189,28 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.warnings.some((w) => /vacuum/.test(w))).toBe(true);
   });
 
+  it('withholds a barometric speed that contradicts the flight’s own climb', () => {
+    // A jump in the altitude trace puts an enormous slope into the speed derived from it.
+    // Two corpus files read Mach 4.08 over a 4,661 ft apogee and 2,671 ft/s over 958 ft —
+    // speeds whose drag-free coast would have carried the rocket a hundred times higher
+    // than it went. Measured across 33 corpus flights, what a flight actually gains from
+    // its peak-speed point spans 6.3%–81.7% of that vacuum coast; those two sit at 0.1%.
+    const { flight } = syntheticBaroFlight();
+    const alt = Float64Array.from(flight.channels[0].values);
+    const apIdx = alt.indexOf(Math.max(...alt));
+    // A one-sample-wide spike is filtered; a short sustained step is what a trace that
+    // jumps looks like, and it makes the derived speed enormous without moving apogee.
+    const at = Math.round(apIdx * 0.4);
+    for (let i = at; i < at + 6; i++) alt[i] += 4000;
+    const a = analyzeFlight({ ...flight, channels: [{ ...flight.channels[0], values: alt }] });
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.mach).toBeNull();
+    expect(a.metrics.burnoutVelocity).toBeNull();
+    expect(a.warnings.some((w) => /contradicts this flight's own climb/.test(w))).toBe(true);
+    // The climb itself is still read.
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+  });
+
   it('withholds the clock when the record stops before the rocket came down', () => {
     // A logger that writes the same flight twice can cut one copy short. The segmenter sees
     // "climbed, came back to the ground, climbed again" either way, so the first copy's

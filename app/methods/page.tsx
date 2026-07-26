@@ -343,6 +343,22 @@ export default function MethodsPage() {
             1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
             same flight reads 57. Two feet per second is the end of the record, not a descent.
           </Method>
+          <Method title="A barometric speed the climb refutes">
+            A speed derived from the altitude trace can be checked against that same trace. From
+            the point the speed peaks, a drag-free coast would gain{' '}
+            <span className="font-mono">v²/2g</span>, and drag only ever takes from that — so what
+            the flight <em>actually</em> gained from there, as a fraction of that vacuum coast, is
+            what drag cost. Across 33 corpus flights it runs from <strong>6.3% to 81.7%</strong>: a
+            wide, continuous spread, because airframes differ. Two files sit at{' '}
+            <strong>0.1%</strong> — an Eggtimer anomaly reading Mach 4.08 over a 4,661&nbsp;ft
+            apogee, and an in-air breakup reading 2,671&nbsp;ft/s over 958&nbsp;ft. A speed whose
+            coast would have carried the rocket a hundred times higher than it went is the slope of
+            a trace that jumped, not a speed, and it is withheld with the arithmetic shown. The
+            bound sits at 1%: six times below the lowest genuine reading, ten times above the two
+            refused. It applies only to a <em>derived</em> speed, where the velocity and the
+            altitude are one channel disagreeing with itself — a device-measured speed and the
+            altitude are two instruments, and which to believe is not a guard&apos;s call.
+          </Method>
           <Method title="A record that stops in the air">
             A flight time and a descent need a descent to be <em>in</em> the record, and the same
             vacuum argument says when it isn&apos;t: a body cannot fall from{' '}

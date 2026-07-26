@@ -938,10 +938,37 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     maxVelocity > accelCeiling * ACCEL_CEILING_MARGIN;
   const beyondAccelRatio = velocityBeyondAccel ? maxVelocity / accelCeiling : NaN;
 
+  // A third way a derived speed gives itself away, on a flight with no accelerometer to
+  // bracket it: the climb it implies against the climb that happened. From the peak-speed
+  // point a drag-free coast gains v²/2g, and drag only ever takes from that — so the ratio
+  // of what the flight actually gained to that vacuum coast is what drag cost. Across 33
+  // corpus flights it spans **6.3% to 81.7%**, a wide and continuous spread. Two files sit
+  // at **0.1%**: an Eggtimer anomaly reading Mach 4.08 over a 4,661 ft apogee (200 ft gained
+  // from the peak-speed point), and an in-air breakup reading 2,671 ft/s over 958 ft. A
+  // barometric speed whose vacuum coast is a hundred times the climb is not a speed the
+  // flight had; it is the slope of a trace that jumped. The bound sits at 1% — six times
+  // below the lowest genuine reading and ten times above the two refused — and it is stated
+  // with that basis rather than as a bare threshold.
+  //
+  // Only for a DERIVED speed. A barometric velocity is the derivative of the very altitude
+  // trace it is being checked against, so a contradiction is that one channel disagreeing
+  // with itself. A device-measured speed and the altitude are two instruments, and which to
+  // believe is not this guard's call — the cross-check surfaces that disagreement instead.
+  const COAST_RATIO_FLOOR = 0.01;
+  const vacuumFromPeak = Number.isFinite(maxVelocity) ? (maxVelocity * maxVelocity) / (2 * G0) : NaN;
+  const climbFromPeak =
+    maxVelIdx >= 0 && Number.isFinite(altClean[maxVelIdx]) ? altClean[apogeeIdx] - altClean[maxVelIdx] : NaN;
+  const velocityOutclimbsItself =
+    velocitySource !== 'device' &&
+    Number.isFinite(vacuumFromPeak) &&
+    vacuumFromPeak > 0 &&
+    Number.isFinite(climbFromPeak) &&
+    climbFromPeak / vacuumFromPeak < COAST_RATIO_FLOOR;
+
   let velocityImplausible = false;
   if (
     Number.isFinite(maxVelocity) &&
-    (maxVelocity > IMPLAUSIBLE_VELOCITY || velocityNoiseDominated || velocityBeyondAccel)
+    (maxVelocity > IMPLAUSIBLE_VELOCITY || velocityNoiseDominated || velocityBeyondAccel || velocityOutclimbsItself)
   ) {
     velocityImplausible = true;
     maxVelocity = NaN;
@@ -1495,6 +1522,10 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     const mach = (v: number) => (series.speedOfSound > 0 ? (v / series.speedOfSound).toFixed(2) : '—');
     warnings.push(
       `The barometric speed reads about ${beyondAccelRatio.toFixed(1)}× faster than this flight’s own accelerometer allows, so it is not a speed. Integrating the measured g from liftoff, with every measured g credited as vertical — which makes it a generous ceiling, since a tilted airframe puts only part of its thrust into the climb — the rocket cannot have passed about Mach ${mach(accelCeiling)}, and the unpowered climb from the end of thrust to apogee needs at least about Mach ${mach(coastFloor)}, so the flight’s own records bracket its top speed between those two. What the barometer reads instead is the shock over its pressure port through the transonic push. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off a figure the rest of the record contradicts; apogee, timings and the descent still read normally.`,
+    );
+  } else if (velocityOutclimbsItself) {
+    warnings.push(
+      `The barometric speed contradicts this flight's own climb. From the point it peaks, a drag-free coast at that speed would gain about ${Math.round(vacuumFromPeak)} m — the flight gained ${Math.round(climbFromPeak)} m from there, which is ${(100 * (climbFromPeak / vacuumFromPeak)).toFixed(1)}% of it, where a real flight loses somewhere between a fifth and nineteen twentieths of that climb to drag (6.3–81.7% across this corpus). A speed that would have carried the rocket a hundred times higher than it went is the slope of a trace that jumped, not a speed. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.`,
     );
   } else if (velocityImplausible) {
     warnings.push(

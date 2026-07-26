@@ -68,8 +68,10 @@ export default function ValidationPage() {
             guard that caught three real logs reporting a &ldquo;main descent&rdquo; of 16,495, 8,303
             and 749&nbsp;ft/s, which the older &ldquo;main is slower than the drogue&rdquo; check
             could not see because those flights had no drogue leg to compare against);
-            thrust-to-weight off the pad is a sane launch number; a battery&apos;s low never
-            exceeds its resting start. A metric that
+            a derived speed never implies a climb a hundred times the one that happened (the same
+            energy argument pointed at the velocity: the corpus spans 6.3–81.7% of the drag-free
+            coast, and the two refused sit at 0.1%); thrust-to-weight off the pad is a sane launch
+            number; a battery&apos;s low never exceeds its resting start. A metric that
             contradicts itself trips these guards even when there is no ground truth to compare
             against — the kind of bug a single golden number can miss.
           </p>
