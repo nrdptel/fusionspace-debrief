@@ -254,6 +254,14 @@ export default function MethodsPage() {
             where axial acceleration falls back through zero. With baro only, liftoff is the first real
             climb off the pad and burnout is taken at peak velocity, where a coasting rocket&apos;s
             speed turns over.
+          {' '}
+            Which matters for what <em>burnout velocity</em> then is. Off a signed accelerometer it
+            is an independent reading of a different instant; off the velocity peak it is the same
+            instant as <em>max velocity</em>, so the two readings are one number under two labels —
+            said on the tile and in every report rather than left to look like two measurements
+            agreeing. An AltimeterCloud export is the case in point: its own summary puts burnout
+            2.7–5.0% below its peak speed, which is the gap between two definitions of the instant,
+            not two readings of a speed.
           </Method>
           <Method title="Rail-exit velocity">
             How fast the rocket was moving when it cleared the rail (you pick the rail length) — found by

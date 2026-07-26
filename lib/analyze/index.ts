@@ -1379,6 +1379,8 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     // Reads the velocity trace directly, so it inherits an impossible velocity even
     // when burnout was pinned off the accelerometer — withheld with the rest.
     burnoutVelocity: burnoutIdx !== null && !velocityImplausible ? velocity[burnoutIdx] : null,
+    burnoutSource:
+      burnoutIdx === null ? null : accelerationSource === 'device' && !accelerationResultant ? 'measured' : 'derived',
     coastTime: burnoutIdx !== null ? apogeeTime - time[burnoutIdx] : null,
     coastEfficiency,
     dragLossAltitude,

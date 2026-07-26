@@ -184,7 +184,12 @@ export function headlineRows(
   }
   if (m.burnTime != null) rows.push(['Burn time', fmtTime(m.burnTime)]);
   if (m.burnoutAltitude != null) rows.push(['Burnout altitude', fmtLength(m.burnoutAltitude, sys)]);
-  if (m.burnoutVelocity != null) rows.push(['Burnout velocity', fmtSpeed(m.burnoutVelocity, sys)]);
+  if (m.burnoutVelocity != null)
+    rows.push([
+      'Burnout velocity',
+      fmtSpeed(m.burnoutVelocity, sys) +
+        (m.burnoutSource === 'derived' ? ' at the velocity peak — the same instant as max velocity' : ''),
+    ]);
   if (m.coastTime != null) rows.push(['Coast to apogee', fmtTime(m.coastTime)]);
   if (m.coastEfficiency != null) {
     const drag = m.dragLossAltitude != null ? ` (drag cost ${fmtLength(m.dragLossAltitude, sys)})` : '';
@@ -967,6 +972,10 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     burnTime: sec(m.burnTime),
     burnoutAltitude: len(m.burnoutAltitude),
     burnoutVelocity: spd(m.burnoutVelocity),
+    // How burnout was located, because it decides what `burnoutVelocity` is: 'measured' off a
+    // signed accelerometer crossing zero, or 'derived' from the velocity peak — in which case
+    // it is the same instant, and the same number, as `maxVelocity`.
+    burnoutSource: m.burnoutSource,
     coastTime: sec(m.coastTime),
     coastEfficiency: m.coastEfficiency != null ? round(m.coastEfficiency, 3) : null,
     dragLossAltitude: len(m.dragLossAltitude),

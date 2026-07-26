@@ -6,6 +6,18 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **"Burnout velocity" and "Max velocity" were the same number under two labels, and nothing
+  said so.** Followed from the cross-check sweep: on every AltimeterCloud file Debrief's
+  burnout velocity equals its max velocity *exactly* — 62.83/62.83, 156.91/156.91,
+  159.42/159.42 — because without a signed axial accelerometer burnout is taken at the
+  velocity peak, so the two readings are one instant. The event was already provenance-
+  labelled `derived` in the model; the *readings* were not, so a report showed two rows with
+  the same figure, which reads as two measurements agreeing. `burnoutSource` is now on the
+  metrics, the tile and the report row say "at the velocity peak — the same instant as max
+  velocity", and `debrief.flight/1` carries it. The device's own summary puts burnout
+  2.7–5.0% below its peak speed on those same files: that gap is two definitions of the
+  instant, not two readings of a speed, and it is the reason this was worth naming.
+
 - **Settled the open question about the AltimeterCloud acceleration gap: it is a convention,
   and the cross-check now says so.** The backlog has carried "decide which the cross-check
   should compare and say so" for a while. Measured across every corpus file that carries a

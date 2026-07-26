@@ -80,7 +80,14 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   if (m.burnoutAltitude != null)
     out.push({ label: 'Burnout altitude', value: fmtLength(m.burnoutAltitude, sys) });
   if (m.burnoutVelocity != null)
-    out.push({ label: 'Burnout velocity', value: fmtSpeed(m.burnoutVelocity, sys) });
+    out.push({
+      label: 'Burnout velocity',
+      value: fmtSpeed(m.burnoutVelocity, sys),
+      // Where burnout was taken from the velocity peak rather than a signed accelerometer
+      // crossing zero, this reading IS the max velocity — the same number under a second
+      // label, which reads as two measurements agreeing unless it says otherwise.
+      sub: m.burnoutSource === 'derived' ? 'at the velocity peak — the same instant as max velocity' : undefined,
+    });
   if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
   if (m.coastEfficiency != null)
     out.push({

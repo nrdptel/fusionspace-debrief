@@ -10,6 +10,7 @@ const EVERYTHING: FlightMetrics = {
   apogeeAltitude: 2841,
   timeToApogee: 24.6,
   maxVelocity: 341,
+  burnoutSource: 'measured' as const,
   maxVelocitySource: 'device',
   maxVelocityAltitude: 620,
   mach: 1.02,
@@ -160,5 +161,27 @@ describe('the screen and the saved report agree on which readings exist', () => 
     expect(rows).not.toContain('Thrust-to-weight');
     expect(rows).not.toContain('Battery low');
     expect(rows).toContain('Apogee');
+  });
+});
+
+describe('a burnout velocity that is the max velocity', () => {
+  it('says so on the tile when burnout came from the velocity peak', () => {
+    // Without a signed axial accelerometer, burnout is taken at the velocity peak — so the
+    // burnout velocity IS the max velocity, the same number under a second label. Left bare
+    // it reads as two measurements agreeing. Every AltimeterCloud file in the corpus is this
+    // case: 156.91 m/s in both rows.
+    const derived = metricTiles({ ...EVERYTHING, burnoutSource: 'derived', burnoutVelocity: 156.91, maxVelocity: 156.91 }, 'metric');
+    const tile = derived.find((t) => t.label === 'Burnout velocity');
+    expect(tile?.sub).toMatch(/same instant as max velocity/);
+
+    const measured = metricTiles({ ...EVERYTHING, burnoutSource: 'measured', burnoutVelocity: 150, maxVelocity: 156.91 }, 'metric');
+    expect(measured.find((t) => t.label === 'Burnout velocity')?.sub).toBeUndefined();
+  });
+
+  it('carries the same qualifier into the saved report', () => {
+    const rows = headlineRows({ ...EVERYTHING, burnoutSource: 'derived', burnoutVelocity: 156.91, maxVelocity: 156.91 }, 'metric');
+    expect(rows.find(([l]) => l === 'Burnout velocity')?.[1]).toMatch(/same instant as max velocity/);
+    const measured = headlineRows({ ...EVERYTHING, burnoutSource: 'measured', burnoutVelocity: 150 }, 'metric');
+    expect(measured.find(([l]) => l === 'Burnout velocity')?.[1]).not.toMatch(/same instant/);
   });
 });

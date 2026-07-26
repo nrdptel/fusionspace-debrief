@@ -56,6 +56,11 @@ export interface FlightMetrics {
   burnTime: number | null; // s
   burnoutAltitude: number | null; // m AGL
   burnoutVelocity: number | null; // m/s
+  /** How burnout was located: 'measured' from a signed axial accelerometer crossing zero,
+   *  or 'derived' from the velocity peak when no such channel exists. On a 'derived' flight
+   *  the burnout velocity IS the max velocity by construction, which the readings say rather
+   *  than printing one number twice under two labels. */
+  burnoutSource: 'measured' | 'derived' | null;
   coastTime: number | null; // s, burnout → apogee
   /** How much of a drag-free coast the rocket achieved: the actual coast height
    *  gain (apogee − burnout altitude) over the vacuum coast a body would gain from

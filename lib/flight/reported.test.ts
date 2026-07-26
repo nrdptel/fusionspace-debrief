@@ -89,7 +89,7 @@ describe('compareReported', () => {
 });
 
 describe('the gravity convention, not a disagreement', () => {
-  const at = (value: number): ReportedValue => ({ metric: 'maxAcceleration', label: 'Max acceleration', value });
+  const at = (value: number): ReportedValue => ({ metric: 'maxAcceleration', label: 'Max acceleration', value, source: 'device' });
   const metrics = (maxAcceleration: number) => ({ maxAcceleration }) as FlightMetrics;
 
   it('names an exact one-gravity gap for what it is', () => {
@@ -114,7 +114,7 @@ describe('the gravity convention, not a disagreement', () => {
 
   it('applies to acceleration only — a 1 m/s² gap in a speed is just a gap', () => {
     const [c] = compareReported(
-      [{ metric: 'maxVelocity', label: 'Max velocity', value: 100 }],
+      [{ metric: 'maxVelocity', label: 'Max velocity', value: 100, source: 'device' }],
       { maxVelocity: 109.80665 } as FlightMetrics,
     );
     expect(c.gravityConvention).toBeFalsy();
