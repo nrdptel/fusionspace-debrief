@@ -2,48 +2,37 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — 3 shipped increments, each verified and pushed on its own
+## This run — 1 increment, and it was the biggest correctness find yet
 
-Shipped on the session's working branch, which started level with `origin/main` at `0b48c3b`, and
+Shipped on the session's working branch, which started level with `origin/main` at `0499a29`, and
 landed onto `main` by pull request.
 
 | SHA | What | How it was verified |
 |---|---|---|
-| `f48bc17` | Measure the coast from the burnout height the flight reports | Coast efficiency and drag cost read the raw baro sample at burnout while the burnout altitude beside them uses the corrected one. Two mach-busters read **−93 m** (below the pad) and **774 m** at burnouts whose corrected heights are 482 m and 172 m: **14.9% → 12.2%** and **15.6% → 23.9%**. A TeleMega reading 286 m below the pad at a 596 m/s burnout printed "47%" beside a burnout altitude of "—"; now withheld with it. **26 of 28** flights that report an efficiency unchanged. 4 regressions, all 4 fail against the old rule. Driven in the browser: 12% beside 1,583 ft, 24% beside 564 ft. |
-| `c42aeac` | Fail loudly when the pre-installed Chromium is the wrong build | See *Environment* below — this one cost a wrong diagnosis. Verified three ways: 1194 throws, explicit 1228 runs, unset runs. |
-| `32b2e6c` | Count what the corpus suite proved, not what it visited | The runner now refuses a fixture carrying golden values it never analyses, and states its split: **61 fixtures = 37 analysed + 7 mapped-but-unanalysable + 9 parse-only + 8 rejected**, analysed held to a floor. Verified by planting a golden value on the `.rff` and watching the guard name it. |
+| `a0ad11d` | Read burnout off the motor, not the apogee charge | The thrust-end search ran to **apogee**, so on a flight whose biggest signed-axial reading is the apogee ejection charge rather than the motor, burnout landed a few tenths of a second before apogee. **Four corpus flights.** One reported a **39.85 s burn**, a **1.9 m/s burnout velocity** and an 8,292 m burnout altitude (7 m under its own apogee) for a motor that burned **5.8 s to 581 m/s**; the others reported "burns" occupying **95–99% of their climbs**. Bounded the search at the velocity peak (net accel is zero there, negative after — thrust cannot act past it). The four now read 5.80 / 5.06 / 2.60 / 3.72 s with boost averages of 100.5 / 72.1 / 45.0 / 31.8 m/s² in place of 0.2–2.6. **The other 34 are unchanged.** 5 regressions, all 5 fail against the old bound. Driven in the browser: 5.8 s, 1,906 ft/s, 10.2 g, 34.6 s coast. |
 
-Local gate green before every push: **639 unit tests** (51 files, incl. **91 corpus** tests against
-the real corpus — confirmed running by name, not skipped), `npm run build`, **170 e2e**. CI ran on
-the pull request (`frontend` + `e2e`) and was green; it does not run on a push to a working branch.
+Two honesty consequences came with it: `burnoutSource` said `measured` whenever a signed axial
+*channel* existed even where the velocity-peak proxy actually stood in, and the "this is the max
+velocity under a second label" note was gated on that label — so a real accelerometer crossing that
+lands on the peak printed **580.86 m/s twice** with nothing to say the rows are one sample. The
+analysis now carries `burnoutAtVelocityPeak` and the tile, the saved report and the JSON export all
+read it. It means one *sample*, not two close values.
 
-**One increment was investigated and deliberately NOT shipped** — a descent-rate divergence found by
-the same recompute technique. The obvious fix was implemented, measured, disproved and reverted
-rather than shipped on a rationale that did not hold; the finding and the dead end are both in
-BACKLOG under *Correctness / honesty*, because a descent rate is what a flyer sizes a parachute
-against and it must not be changed on a guess.
+Local gate green before the push: **645 unit tests** (51 files, incl. **91 corpus** tests against the
+real corpus — confirmed running by name, not skipped), `npm run build`, **170 e2e**. CI ran on the
+pull request and was green; it does not run on a push to a working branch.
 
 ### Done-check, as run
 
-- **Recompute sweep, 46 analysable fixtures: 2 findings, both explained** — a post-apogee noise
-  spike 2.4% above the reported apogee (recorded in BACKLOG), and an ascent-gap withhold that the
-  analysis already warns about. The coast findings this run fixed are gone from the same sweep.
-- **Cold walk of the built export of `38f43bd`**: methods page carries the corrected-burnout
-  account; on screen `Coast efficiency 24%` beside `Burnout altitude 564 ft`; and — a surface this
-  run had not driven — the **saved report export** reads `Coast efficiency 24% (drag cost
-  18,282 ft)` beside `Burnout altitude 564 ft`, so the fix reaches the exports and not just the
-  screen.
-- **Production gap**: `debrief.fusionspace.co` answers 200 and serves `0b48c3b` — the pre-run state,
-  without the corrected-burnout text. Everything this run did reaches production only when the pull
-  request merges to `main`.
-- **Benchmark, the drag reading vs OpenRocket**: OpenRocket reports drag as a **Cd-versus-Mach
-  curve** and breaks it out **per component** (nose, body, fins, base). Debrief reports one median
-  Cd over a coast window with the Mach range beside it. Ours is a *measurement* of the flown
-  airframe and theirs is a model, so they are not the same claim — but a flyer comparing a build
-  against a sim wants the shape of the curve, and a single median cannot show the transonic rise
-  that is the whole reason Cd is interesting. The window bounds are already computed
-  (`lib/drag.ts` carries `vLow`/`vHigh`/`machLow`/`machHigh`), so a binned Cd-vs-Mach read is
-  reachable from what the coast already gives.
+- **Recompute sweep wave 2, 46 fixtures.** The exact-identity checks — `timeToApogee == burnTime +
+  coastTime`, `flightTime == toApogee + descentTime`, drogue+main legs vs `descentTime` — are
+  **clean across all 46** after the fix. The two remaining flag classes were triaged as not-bugs and
+  recorded in BACKLOG: a Δv check that needs a drag term before it can accuse anything, and a TWR
+  check whose window did not match the code's (replicating the real 0.2 s window reproduces the
+  reported figure exactly).
+- **Cold walk** of the built export: the four flights' readings are physically sensible on screen,
+  and the methods page carries the corrected account.
+- **Production**: `debrief.fusionspace.co` served `0499a29` before this landed.
 
 ## Environment notes
 
@@ -51,48 +40,43 @@ against and it must not be changed on a guess.
   `/opt/pw-browsers/chromium` is `chromium-1194`; `@playwright/test` 1.61.1 wants **1228**. On 1194,
   `context.setOffline(true)` stops applying to service-worker fetches, so the PWA offline test gets
   the server's 404 where it asserts 503 — which reads exactly like a routing regression in `sw.js`.
-  It is not. Run `npx playwright install chromium` (~2 min, installs 1228 alongside) and do **not**
-  set `PLAYWRIGHT_CHROMIUM_PATH`. `playwright.config.ts` now throws on a revision mismatch, so trust
-  that error. Check what it wants with:
-  `node -e "console.log(require('playwright-core').chromium.executablePath())"`
+  It is not. Run `npx playwright install chromium` (~2 min) and do **not** set
+  `PLAYWRIGHT_CHROMIUM_PATH`. `playwright.config.ts` throws on a revision mismatch; trust that error.
 - **A piped gate hides its exit code.** `npm run test:e2e 2>&1 | tail -20` reports the exit status of
   `tail`, not the suite — a red run looked green here. Echo `${PIPESTATUS[0]}`.
-- **CI does not run on this branch.** `.github/workflows/test.yml` fires on push to `main` and on
-  `pull_request` only. The full local gate is the only gate until a PR is open.
+- **CI does not run on a working branch.** `.github/workflows/test.yml` fires on push to `main` and
+  on `pull_request` only, so the PR is what makes CI run at all.
 - **`npm run fetch-fixtures` returns 401 here.** The companion repo is checked out at
-  `/home/user/debrief-fixtures`, so: `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`.
+  `/home/user/debrief-fixtures`: `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`.
   Confirm the corpus suite reports ~91 tests — one that skips itself prints much like one that passed.
-- **The clone is shallow** (`git rev-parse --is-shallow-repository` → true), so any commit count or
-  file history is a window, not the record.
-- `npm install` is needed on a fresh container. Kill any hand-started `npx serve` before Playwright.
+- **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **Git identity defaults wrong on a fresh container** — it does *not* come up as the project's
-  author, and a whole session of mis-attributed commits is only fixable by rewriting pushed
-  history. Check `git config user.name` / `user.email` and set them before the first commit:
-  `git config user.name "Neer Patel"; git config user.email "135655563+nrdptel@users.noreply.github.com"`
+  author, and a session of mis-attributed commits is only fixable by rewriting pushed history. Check
+  `git config user.name` / `user.email` before the first commit.
+- **A harness may append an attribution footer to a PR body.** It did on both PRs this branch has
+  opened. Read the body back after posting and strip it, per the zero-trace invariant.
 
 ## Pick up first, and why
 
-1. **Finish the independent-recompute sweep.** The technique that found the coast bug — recompute a
-   reported metric from `analysis.series` and diff it corpus-wide — was applied this run to apogee,
-   max velocity, Mach, max/min acceleration, coast efficiency, burnout velocity, max-Q, the transonic
-   crossing and time-to-apogee. **46 fixtures, and after the coast fix the only remaining flags are
-   explained** (an ascent-gap withhold; a descent noise spike). Not yet swept: rail-exit velocity,
-   landing energy, the drag Cd, `peakRollRate`/`rollRevolutions`, `liftoffTWR`, `avgBoostAcceleration`
-   and the descent-rate legs. Same shape, and it has paid twice now.
-2. **`altClean` vs `altAt` elsewhere.** The coast bug was one consumer reading the raw sample where
-   the reported figure uses the corrected one. Lines 1082 (`coastGain` → `coastFloor`) and 1119
-   (`climbFromPeak`) still read `altClean` — deliberately, since both are *guards* that detect the
-   barometer contradicting itself and would be circular on a repaired trace. Worth a written
-   decision either way; right now the distinction lives only in this note.
-3. **CSV export: column selection, a field separator, and a comments block.** Benchmarked against
+1. **The descent legs still diverge from their own chord slope by −58% to +17%** — 10 of 38 corpus
+   legs, unpinned by any golden value. The sample-weighting hypothesis was tested and **disproved**
+   last run (details in BACKLOG). Remaining suspects: `descent` is a 0.6 s moving average of a
+   smoothed *derivative*, unreliable across multi-second gaps; and short legs (one main leg is
+   **1.7 s** against a 0.6 s window) are dominated by the smoothing. **Needs a ground truth first** —
+   a device's own stated descent rate, or a second recording of the same flight. This is the
+   rank-1 damage case (a flyer sizes a parachute against it) and must not be changed on a guess.
+2. **Sweep the remaining unswept readings the same way** — rail-exit velocity, landing energy and
+   the drag Cd take flyer-supplied inputs so they need a different harness than the corpus sweep,
+   but the technique (recompute independently, diff corpus-wide) has now found three real bugs:
+   max-Q, coast efficiency, and this burnout.
+3. **TWR rests on two samples at 10 Hz and says so nowhere.** The 0.2 s averaging window is
+   sample-count-blind; on a slow logger it averages two readings and is reported to 1 decimal like
+   any other figure. Either widen it, or say what it rests on.
+4. **CSV export: column selection, a field separator, and a comments block.** Benchmarked against
    OpenRocket's *Export data* tab; the separator is the sharp one — the corpus holds semicolon-
    delimited European exports Debrief reads correctly and cannot write, so a comma-decimal-locale
-   flyer opens our CSV in Excel and gets one column. Every CSV writer (report data, compare
-   chart-data, copy-table) has to move together.
-4. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
+   flyer opens our CSV in Excel and gets one column.
+5. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
    behind a 32 px fade, so `Save bundle` is undiscoverable. Needs a sheet, which the app lacks.
-5. **A clock column as a time base in the generic mapper.** `clockSeconds`/`dayNumber` and the
-   midnight-rollover rule exist in `lib/parsers/featherweightGps.ts`; lifting them into
-   `lib/flight/build` unlocks any file whose only clock is a wall clock.
 
 BACKLOG.md carries the rest, newest first.

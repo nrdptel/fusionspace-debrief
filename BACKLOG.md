@@ -6,6 +6,17 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The recompute sweep's remaining wave-2 flags, triaged but not chased.** After the burnout fix,
+  the exact-identity checks (`timeToApogee == burnTime + coastTime`, `flightTime == toApogee +
+  descentTime`, leg durations vs `descentTime`) come back **clean across 46 fixtures**. Two classes
+  of flag remain and were judged not-bugs: (a) **PHYS-DV** — comparing `avgBoostAcceleration ×
+  burnTime` against `burnoutVelocity` diverges by up to +85% on the 121 km flight, which is drag and
+  gravity loss over a long boost, not an error; the check needs a drag term before it can accuse
+  anything. (b) **TWR** — reported thrust-to-weight differs from a naive 20-sample average off the
+  pad on 7 flights, but replicating the code's own 0.2 s window reproduces the reported figure
+  exactly (endurance TeleMetrum: 2.430 both ways, dt = 0.1 s so the window is *2 samples*). The
+  reported number is right; what is worth a look is that a 0.2 s window on a 10 Hz logger averages
+  two samples, so TWR there rests on very little and says so nowhere.
 - **A reported descent rate can disagree with its own leg's drop-over-duration by −58% to +17%, and
   the cause is NOT sample weighting.** Swept all 46 analysable corpus fixtures, comparing each
   reported leg rate against the chord slope of the leg it names —
