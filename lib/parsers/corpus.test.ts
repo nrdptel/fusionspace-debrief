@@ -247,6 +247,20 @@ function runFixture(fx: Fixture) {
     // Only when the auto-mapping found the essentials and the read isn't a known issue.
     const hasTime = roles.includes('time');
     const hasAltitude = roles.includes('altitude') || roles.includes('pressure');
+    // A fixture the auto-mapping can't find a time base or a height in is never analysed —
+    // and used to leave through this branch printing exactly like one that was. That is how
+    // the Featherweight ground-station file stayed green for as long as it did while being
+    // unanalysable. The skip itself is legitimate (seven corpus fixtures are raw binary
+    // downloads the generic mapper reads zero columns from), but a golden value written on
+    // one is not: it would sit in the contract looking armed and assert nothing. Refuse that
+    // combination outright, so the only way to pin a number on a fixture is one the runner
+    // actually checks.
+    if (!hasTime || !hasAltitude) {
+      expect(
+        fx.assert ?? [],
+        `${name}: carries golden values but is never analysed (roles: ${roles.filter((r) => r !== 'ignore').join(', ') || 'none'}) — the asserts would silently do nothing`,
+      ).toHaveLength(0);
+    }
     if (!fx.knownIssue && hasTime && hasAltitude) {
       const mappings = t.columns.filter((c) => c.role !== 'ignore').map((c) => ({ index: c.index, role: c.role, unit: c.unit }));
       const flight = buildFlight({
@@ -331,6 +345,51 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
   for (const fx of byFile.values()) {
     it(`${fx.file}${fx.knownIssue ? ' [known issue: parse-only]' : ''}`, () => runFixture(fx));
   }
+
+  // What the suite above actually proved, counted. Every branch of the runner can `return`
+  // before it asserts anything, and a fixture that leaves early prints identically to one
+  // that was analysed end to end — so "61 passed" has never meant "61 flights checked".
+  // This states the split out loud and fails if the analysed count drops, which is the
+  // direction that matters: a parser regression that turns a read flight into an unmappable
+  // one would otherwise show up as a still-green suite.
+  it('says how many fixtures it actually analysed, not just how many it visited', { timeout: 120_000 }, () => {
+    let analysed = 0;
+    const parseOnly: string[] = [];
+    const steppedAround: string[] = [];
+    const rejected: string[] = [];
+    for (const fx of byFile.values()) {
+      const name = fx.file.split('/').pop() as string;
+      if (fx.expect.kind === 'reject') {
+        rejected.push(name);
+        continue;
+      }
+      if (fx.knownIssue) {
+        parseOnly.push(name);
+        continue;
+      }
+      let res;
+      try {
+        res = importFlight({ name, text: decodeBytes(new Uint8Array(readFileSync(CORPUS + fx.file))) });
+      } catch {
+        parseOnly.push(name);
+        continue;
+      }
+      if (res.kind === 'flight') {
+        analysed++;
+      } else if (res.kind === 'mapping') {
+        const roles = res.table.columns.map((c) => c.role);
+        if (roles.includes('time') && (roles.includes('altitude') || roles.includes('pressure'))) analysed++;
+        else steppedAround.push(name);
+      }
+    }
+    const summary = `${byFile.size} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
+    // The stepped-around set is raw binary downloads the generic mapper reads no columns
+    // from — an AltOS .eeprom, an Entacore .bin/.xtra, an RRC3 .rff. They belong in the
+    // corpus (the app has a screen that names exactly these and says to export CSV), but
+    // they prove nothing about the analysis, so they are counted apart from what does.
+    expect(analysed, summary).toBeGreaterThanOrEqual(37);
+    expect(steppedAround.length, summary).toBeLessThanOrEqual(7);
+  });
 });
 
 /** Load one corpus file to an analysed flight (named parser, else the generic mapper),
