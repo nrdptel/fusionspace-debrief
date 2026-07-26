@@ -1458,3 +1458,76 @@ describe('analyzeFlight (barometric)', () => {
     expect(b.series.speedOfSound).toBeGreaterThan(345); // warmer air → faster sound than the 15 °C day
   });
 });
+
+describe('reading the descent from a file’s second copy of one flight', () => {
+  /**
+   * One flight written twice, where the FIRST copy is cut just after apogee — a logger
+   * restarting mid-flight, which is what the corpus Blue Raven does. The second copy runs to
+   * the ground, and starts in the trough with no pad window of its own.
+   */
+  function cutFirstCopy(secondScale = 1): RawFlight {
+    const one = syntheticBaroFlight().flight;
+    const src = one.channels[0].values;
+    const dt = one.time[1] - one.time[0];
+    const n = src.length;
+    // Where the first copy stops: a little past the peak.
+    let peakI = 0;
+    for (let i = 0; i < n; i++) if (src[i] > src[peakI]) peakI = i;
+    const stop = peakI + 4;
+    const time: number[] = [];
+    const alt: number[] = [];
+    for (let i = 0; i < stop; i++) { time.push(one.time[i]); alt.push(src[i]); }
+    // A short stretch at the ground between the copies, then the whole flight again.
+    for (let i = 0; i < 10; i++) { time.push(time[time.length - 1] + dt); alt.push(0); }
+    for (let i = 0; i < n; i++) { time.push(time[time.length - 1] + dt); alt.push(src[i] * secondScale); }
+    return {
+      ...one,
+      time: Float64Array.from(time),
+      channels: [{ ...one.channels[0], values: Float64Array.from(alt) }],
+    };
+  }
+
+  it('fills in the clock the first copy could not record, and says where it came from', () => {
+    const whole = analyzeFlight(syntheticBaroFlight().flight);
+    const a = analyzeFlight(cutFirstCopy());
+
+    // The climb still comes from the copy that starts on the pad — nothing moved.
+    // Cutting the first copy four samples past its peak moves the detected apogee by at most
+    // one 0.05 s sample (0.03 m of height) — the climb is the first copy's, unchanged.
+    expect(a.metrics.apogeeAltitude).toBeCloseTo(whole.metrics.apogeeAltitude, 1);
+    expect(Math.abs(a.metrics.timeToApogee - whole.metrics.timeToApogee)).toBeLessThanOrEqual(0.051);
+
+    // …and the descent the first copy stops short of is read from the second.
+    expect(a.metrics.descentSource).toBe('second-copy');
+    expect(a.metrics.descentTime).toBeGreaterThan(0);
+    expect(a.metrics.descentTime!).toBeCloseTo(whole.metrics.descentTime!, 0);
+    // Flight time is composed, so it adds up — the same invariant the corpus enforces.
+    expect(a.metrics.flightTime!).toBeCloseTo(a.metrics.timeToApogee + a.metrics.descentTime!, 5);
+    expect(a.warnings.some((w) => /descent CLOCK is read from the second copy/.test(w))).toBe(true);
+    // The note about holding the climb but not the descent no longer applies to this flight.
+    expect(a.warnings.some((w) => /holds the climb but not the descent/.test(w))).toBe(false);
+  });
+
+  it('does not take the descent RATES across', () => {
+    // A descent time needs two instants both copies agree on. A rate needs the deployment
+    // structure between them, and an unresolved one averages the whole descent into a figure
+    // published under the label a flyer sizes a parachute against — on the corpus flight this
+    // comes from, 48.2 m/s where the GPS recording it separately reads a 6.2 m/s main.
+    const a = analyzeFlight(cutFirstCopy());
+    expect(a.metrics.descentTime).not.toBeNull();
+    expect(a.metrics.mainDescentRate).toBeNull();
+    expect(a.metrics.drogueDescentRate).toBeNull();
+  });
+
+  it('leaves an ordinary single-record flight labelled as one', () => {
+    expect(analyzeFlight(syntheticBaroFlight().flight).metrics.descentSource).toBe('same-record');
+  });
+
+  it('will not splice when the two copies are different flights', () => {
+    // The same cut first copy, but the second climbs half as high again: two flights, and
+    // the second one's descent is not this flight's descent.
+    const a = analyzeFlight(cutFirstCopy(1.5));
+    expect(a.metrics.descentSource).toBeNull();
+    expect(a.metrics.descentTime).toBeNull();
+  });
+});

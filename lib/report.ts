@@ -200,14 +200,15 @@ export function headlineRows(
   if (m.mainDescentRate != null) {
     rows.push([m.drogueDescentRate != null ? 'Main descent' : 'Descent rate', fmtSpeed(m.mainDescentRate, sys)]);
   }
-  if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime)]);
+  const copyNote = m.descentSource === 'second-copy' ? ' — from this file’s second copy of the flight' : '';
+  if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime) + copyNote]);
   const landing = landingEnergyRow(m, sys, recovery);
   if (landing) rows.push(landing);
   const deploy = mainDeployRow(sys, recovery);
   if (deploy) rows.push(deploy);
   const ejection = ejectionDelayRow(recovery);
   if (ejection) rows.push(ejection);
-  if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime)]);
+  if (m.flightTime != null) rows.push(['Flight time', fmtTime(m.flightTime) + copyNote]);
   if (m.tiltAtBurnout != null) rows.push(['Tilt at burnout', `${Math.round(m.tiltAtBurnout)}° off vertical`]);
   if (m.groundTemperature != null) rows.push(['Ground temp', fmtTemp(m.groundTemperature, sys)]);
   if (m.peakRollRate != null)
@@ -984,6 +985,7 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     mainDescentRate: spd(m.mainDescentRate),
     descentTime: sec(m.descentTime),
     flightTime: sec(m.flightTime),
+    descentSource: m.descentSource,
     groundTemperature: m.groundTemperature != null ? round(tempIn(m.groundTemperature, sys), 1) : null,
     batteryStartV: m.batteryStartV != null ? round(m.batteryStartV, 2) : null,
     batteryMinV: m.batteryMinV != null ? round(m.batteryMinV, 2) : null,

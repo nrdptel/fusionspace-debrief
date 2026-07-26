@@ -6,6 +6,36 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Per-recording assembly, within one file — shipped, and a different device checks it.** The
+  Blue Raven jan10 file holds one flight twice: the copy that starts on the pad is cut 3.3 s
+  after apogee, and the copy that runs to the ground starts in the trough with no pad of its
+  own. On the file's shared datum (the previous entry) the second copy peaks at 10,267 ft
+  against the first's 10,245, so it is the same flight — and Debrief now reads the descent
+  clock from it. **The check is a separate instrument:** a Featherweight GPS recorded the same
+  flight and times the descent at **64.40 s** against the spliced **64.76 s** — 0.36 s apart,
+  on two devices, one of them assembled from two copies. Flight time is composed rather than
+  taken (time-to-apogee from copy 1 plus descent time from copy 2), so it adds up by
+  construction. `descentSource` is on the metrics, on the tile, in the saved report and in
+  `debrief.flight/1`; the whole corpus sweep moves exactly two rows and no apogee anywhere.
+  **The clock comes across; the RATES do not.** A descent time needs two instants both copies
+  agree on. A rate needs the deployment structure between them, and the second copy resolves
+  no main here — so the whole descent would average into **48.2 m/s** published under the
+  label a flyer sizes a parachute against, while the GPS recording of that same flight reads a
+  50.7 m/s drogue and a **6.2 m/s** main. Refusing to carry the rate is the whole difference
+  between assembling a flight and inventing one.
+  **Found on the way, and it was my own bug before it was a feature:** the first cut of the
+  "the record ends at rest, so it landed" fallback dropped the near-the-ground requirement
+  entirely, and made Debrief report a landing for a record that **stops 307 m in the air**
+  (xprs2015). At rest is not enough — a landing is a return to the ground, and the ground is
+  where the record started. Four corpus records end at rest between **2.02% and 7.47%** of
+  their own apogee above the pad; the two that are read end at **0.23%** and **0.25%**, nearly
+  nine times inside the closest refusal. Whether those four are a barometer's zero wandering
+  or a log simply stopping is not something the record settles, so the claim isn't made. All
+  four are now a corpus test, and it fails on every one of them with the bound removed.
+  **Still open from this pass:** a descent rate is published as "main" whenever no main
+  deployment is detected, even where it is plainly the whole-descent average — the jan10 pair
+  is the proof, and it is a labelling bug independent of any splice.
+
 - **Debrief was telling two Blue Raven owners their file held more than one flight, and it
   held one.** Both corpus Blue Ravens are a download written twice, and the note they got —
   "read the others by splitting the file, or export them separately from your altimeter's

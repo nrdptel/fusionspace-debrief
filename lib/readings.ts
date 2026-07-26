@@ -108,8 +108,12 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
       label: m.drogueDescentRate != null ? 'Main descent' : 'Descent rate',
       value: fmtSpeed(m.mainDescentRate, sys),
     });
-  if (m.descentTime != null) out.push({ label: 'Descent time', value: fmtTime(m.descentTime) });
-  if (m.flightTime != null) out.push({ label: 'Flight time', value: fmtTime(m.flightTime) });
+  // Where this file held the same flight twice and the copy that starts on the pad stopped
+  // before the rocket landed, the clock came from the other copy. Two readings from two
+  // recordings, shown as such rather than merged silently into the rest.
+  const fromCopy = m.descentSource === 'second-copy' ? 'from this file’s second copy of the flight' : undefined;
+  if (m.descentTime != null) out.push({ label: 'Descent time', value: fmtTime(m.descentTime), sub: fromCopy });
+  if (m.flightTime != null) out.push({ label: 'Flight time', value: fmtTime(m.flightTime), sub: fromCopy });
   if (m.groundTemperature != null)
     out.push({ label: 'Ground temp', value: fmtTemp(m.groundTemperature, sys) });
   // Battery: the lowest it sagged to, with the resting voltage alongside so a

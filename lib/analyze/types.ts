@@ -74,6 +74,14 @@ export interface FlightMetrics {
   mainDescentRate: number | null; // m/s
   descentTime: number | null; // s, apogee → landing
   flightTime: number | null; // s, liftoff → landing
+  /**
+   * Which recording the descent readings above came from. `'same-record'` is the ordinary
+   * case — one flight, one record, everything read from it. `'second-copy'` means this file
+   * held the same flight written twice, the copy that starts on the pad stops before the
+   * rocket lands, and the descent was read from the other copy. The climb, the apogee and
+   * every reading above them still come from the first copy. Null when no descent was read.
+   */
+  descentSource: 'same-record' | 'second-copy' | null;
   groundTemperature: number | null; // °C
   /** Battery voltage when the logger recorded it: the resting voltage at the start
    *  and the lowest it sagged to. A big drop hints at a weak pack — a common cause

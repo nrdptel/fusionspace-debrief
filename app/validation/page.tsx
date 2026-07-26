@@ -294,6 +294,30 @@ export default function ValidationPage() {
               quiet pad window has no datum to share and is refused before the peaks are compared.
             </li>
             <li>
+              Where that first copy <strong>stops before the rocket lands</strong>, the descent clock is
+              read from the second copy — the same flight, on the same datum — and every reading at or
+              above apogee still comes from the copy that starts on the pad. The check is a different
+              instrument: a Featherweight GPS recorded the corpus flight this applies to separately and
+              times the descent at <strong>64.40&nbsp;s</strong> against the assembled{' '}
+              <strong>64.76&nbsp;s</strong>. The <em>rates</em> are not carried across — a descent time
+              needs two instants both copies agree on, while a rate needs the deployment structure
+              between them, and on that flight an unresolved main would average a 50.7&nbsp;m/s drogue
+              and a 6.2&nbsp;m/s main into one 48.2&nbsp;m/s figure under the label a flyer sizes a
+              parachute against.
+            </li>
+            <li>
+              A record that ends <strong>at rest but above the pad</strong> is not a landing. A rocket in
+              the air is climbing or falling — it cannot hold an altitude — so a trace that has stopped
+              changing has reached the ground, which is how a landing is read where a barometer&apos;s
+              zero has wandered a few metres over a long descent. At rest is not enough on its own,
+              though: a landing is a return to <em>the ground</em>, and the ground is where the record
+              started. Four corpus records end at rest between <strong>2.02%</strong> and{' '}
+              <strong>7.47%</strong> of their own apogee above the pad — one of them 307&nbsp;m up — and
+              whether that is drift or a log simply stopping is not something the record settles, so no
+              landing, flight time or descent time is read from them. The two that are read end 0.23%
+              and 0.25% up.
+            </li>
+            <li>
               The <strong>altitude a reading happened at</strong> is withheld when the record
               contradicts it — below the pad, or well below a height already passed, neither of which a
               climbing rocket can do. It is the transonic barometric artefact, and it strikes exactly

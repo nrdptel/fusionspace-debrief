@@ -363,6 +363,84 @@ function recordedTwice(altitude: Float64Array, cut: number, padDataLikely: boole
   return Math.abs(rest - first) / first <= RECORDED_TWICE_AGREEMENT;
 }
 
+/** What the second copy of a doubled recording can supply, and the sentence that says so. */
+interface SplicedDescent {
+  metrics: Pick<FlightMetrics, 'descentTime' | 'flightTime' | 'descentSource'>;
+  warning: string;
+}
+
+/**
+ * Read the descent from the second copy of a flight this file holds twice.
+ *
+ * Called only where `recordedTwice` already established that the two copies are one flight —
+ * and only where the first copy WITHHELD its descent, so nothing this returns can displace a
+ * reading. The ascent, the apogee and every design point stay with the copy that starts on
+ * the pad; what comes back is the clock and the rates that hang off a touchdown.
+ *
+ * The second copy is analysed against the FILE's datum rather than its own. That is the whole
+ * difference between this and the attempt that was reverted: measured against the trough it
+ * starts in, the corpus Blue Raven's second copy reads 10,723 ft; measured against the file's
+ * pad it reads 10,267 ft, one foot from the device's own stated 10,266.
+ *
+ * Flight time is composed rather than taken: the ascent was timed on the first copy and the
+ * descent on the second, so it is time-to-apogee plus descent time. Reading the second copy's
+ * own liftoff-to-landing would time a different copy's climb.
+ *
+ * The CLOCK comes across; the descent RATES do not. A descent time needs two instants both
+ * copies agree on — apogee and touchdown — while a rate needs the deployment structure
+ * between them, and where the second copy resolves no main deployment the whole descent is
+ * averaged into one figure published under the label a flyer sizes a parachute against. This
+ * same flight says how wrong that would be: the Featherweight GPS that recorded it separately
+ * reads a 50.7 m/s drogue leg and a 6.2 m/s main, where the Blue Raven's second copy averages
+ * them to 48.2 m/s. So the rates stay withheld, and the warning says the clock is what moved.
+ *
+ * Barometric-only records are left alone. Altitude derived from pressure takes its reference
+ * from the pad PRESSURE, which a datum in metres cannot correct, and a half-corrected
+ * reference is worse than none.
+ */
+function descentFromSecondCopy(
+  flight: RawFlight,
+  first: FlightAnalysis,
+  cut: number,
+  datum: number,
+  hasAltitudeChannel: boolean,
+): SplicedDescent | null {
+  if (!hasAltitudeChannel) return null;
+  // Only where the first copy has no descent to speak of. `descentTime` is null exactly when
+  // no landing was marked, which is what `descentIsInTheRecord` decides.
+  if (first.metrics.descentTime != null) return null;
+  if (!Number.isFinite(first.metrics.timeToApogee)) return null;
+
+  let second: FlightAnalysis;
+  try {
+    second = analyzeFlight(sliceFlight(flight, cut, flight.time.length), 1, datum);
+  } catch {
+    return null; // too few samples, no channels — the first copy stands on its own
+  }
+  const m = second.metrics;
+  if (m.descentTime == null || !(m.descentTime > 0)) return null;
+  // The two copies must still agree on the flight they are describing. `recordedTwice`
+  // compared the raw peaks; this compares what the ANALYSIS made of them — the spike-cleaned
+  // trace, which is the number a flyer actually sees. The two can only part company on a
+  // single-sample spike that cleaning removes, and no corpus file or synthetic separates
+  // them, so this branch is defensive and untested rather than covered.
+  const apo = first.metrics.apogeeAltitude;
+  if (!(apo > 0) || !Number.isFinite(m.apogeeAltitude)) return null;
+  if (Math.abs(m.apogeeAltitude - apo) / apo > RECORDED_TWICE_AGREEMENT) return null;
+
+  return {
+    metrics: {
+      descentTime: m.descentTime,
+      flightTime: first.metrics.timeToApogee + m.descentTime,
+      descentSource: 'second-copy',
+    },
+    warning:
+      `The first copy stops before the rocket lands, so the descent CLOCK is read from the second copy of the same flight in this file — ` +
+      `measured against the file's own pad baseline it reaches apogee within ${((Math.abs(m.apogeeAltitude - apo) / apo) * 100).toFixed(1)}% of the first copy's ` +
+      `${Math.round(apo)} m. Descent time and flight time come from that second copy; the climb, the apogee and every reading above them come from the first.`,
+  };
+}
+
 /** The flight from `start` to `end` (exclusive): the time base and every channel, sliced
  *  together so the model stays consistent. */
 function sliceFlight(flight: RawFlight, start: number, end: number): RawFlight {
@@ -402,7 +480,16 @@ function formatSeconds(s: number): string {
   return `${s < 10 ? s.toFixed(1) : Math.round(s)} s`;
 }
 
-export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
+/**
+ * @param depth  recursion guard for the multi-segment branch below.
+ * @param datum  a ground reference to use INSTEAD of this record's own pad window, in the
+ *   altitude channel's raw units. Only the multi-segment branch passes it, and only to read
+ *   the second copy of a doubled recording: that copy starts in the trough between the two
+ *   and has no pad of its own, so measuring it against itself is what made an earlier
+ *   attempt read 10,723 ft where the device said 10,266. It is one altitude column, so the
+ *   file's datum is the second copy's datum too.
+ */
+export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
   const n = time.length;
@@ -429,15 +516,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     throw new Error('This file has no altitude or pressure data to analyze.');
   }
 
-  // Pad baseline from the quiet pre-launch window (see `padBaseline`).
-  const { baseEnd, offset: baseOffset } = padBaseline(altitude, dt);
+  // Pad baseline from the quiet pre-launch window (see `padBaseline`) — unless a caller
+  // handed us the file's own datum, which only the doubled-recording branch does.
+  const { baseEnd, offset: ownOffset } = padBaseline(altitude, dt);
+  const baseOffset = datum ?? ownOffset;
   for (let i = 0; i < n; i++) altitude[i] -= baseOffset;
 
   // If there's no real quiet window, the file probably starts mid-flight, so the
   // baseline (and anything measured against it) can't be fully trusted.
   const baselineNoise = stdev(altitude, 0, baseEnd);
   const minQuiet = Math.max(5, Math.round(0.4 / (dt || 0.1)));
-  const padDataLikely = baseEnd >= minQuiet;
+  // A supplied datum came from a real pad window by construction — the caller checked.
+  const padDataLikely = datum != null || baseEnd >= minQuiet;
   if (!padDataLikely) {
     warnings.push(
       'The log doesn’t appear to start on the pad, so the ground baseline is approximate — altitude AGL and any ground reading may be offset.',
@@ -465,13 +555,28 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     // their owner to "read the others by splitting the file" would hand them the same flight
     // again, and telling them the file holds more than one flight is simply false.
     const twice = recordedTwice(altitude, secondFlightAt, padDataLikely);
+    // Per-recording assembly, within one file. The first copy is the one that starts on the
+    // pad, so the climb is read from it and the apogee never moves. But a logger that
+    // restarts mid-flight can cut that copy before the rocket lands — the corpus Blue Raven
+    // stops 3.3 s after apogee — and the descent is then sitting in the second copy, which
+    // runs to the ground. Take it from there, on the file's datum.
+    //
+    // This can only fill in readings the first copy WITHHOLDS. It never moves one it
+    // reports: apogee, the climb and every ascent reading come from the first copy either
+    // way, and the second copy is consulted only where `descentIsInTheRecord` already
+    // refused to read a landing.
+    const spliced = twice ? descentFromSecondCopy(flight, first, secondFlightAt, baseOffset, !!altCh) : null;
+    const base = spliced ? { ...first, metrics: { ...first.metrics, ...spliced.metrics } } : first;
     return {
-      ...first,
+      ...base,
       warnings: [
         twice
           ? `This file holds the same flight written twice — the record returns to the ground and climbs again to the same height (within ${(RECORDED_TWICE_AGREEMENT * 100).toFixed(0)}%, measured against this file's own pad baseline). Debrief read the first copy (the opening ${opening} of the file), which is the one that starts on the pad. There is no second flight to read.`
           : `This file holds more than one flight — the record returns to the ground and climbs again. Debrief analyzed the first (the opening ${opening} of the file) and ignored the rest; read the others by splitting the file, or export them separately from your altimeter's software.`,
-        ...first.warnings,
+        ...(spliced ? [spliced.warning] : []),
+        // The first copy's own "record stops short" note is replaced by the splice: it says
+        // no flight time or descent rate is read, which is no longer true of this flight.
+        ...(spliced ? first.warnings.filter((w) => !/holds the climb but not the descent/.test(w)) : first.warnings),
       ],
     };
   }
@@ -1072,6 +1177,47 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
       }
     }
   }
+  // …and where that finds nothing, a record can still end with the rocket demonstrably down:
+  // the trace stops changing. The detector above asks for the trace to come within 2 m of the
+  // pad, which a barometer 108 s from its own reference does not always do — the corpus Blue
+  // Raven's second copy settles at 7.2 m and stays inside 3.5 m peak-to-peak for its last
+  // three seconds while its descent had been running at 47 m/s. A rocket in the air is either
+  // climbing or falling; it cannot hold an altitude. So a tail that has stopped moving,
+  // relative to the descent that this same flight was just doing, is the ground.
+  //
+  // Only consulted where the primary detector found nothing, so it can add a landing but
+  // never move one. The comparison is against the flight's own descent rather than a fixed
+  // number of metres, so it means the same thing on a 600 ft sport flight and a 27,000 ft one.
+  const AT_REST_FRACTION = 0.05;
+  const AT_REST_SECONDS = 2;
+  // …and at rest is not enough on its own: a landing is a return to THE GROUND, and the
+  // ground is where this record started. Four corpus records end at rest between 2.0% and
+  // 7.5% of their own apogee above the pad — one of them 307 m up — and whether that is a
+  // barometer's zero wandering or the log simply stopping is not something the record
+  // settles. So the claim isn't made. The two that are admitted end 0.23% and 0.25% up,
+  // nearly nine times inside the closest refusal, and the bound is a fraction of the
+  // flight's own height so it means the same thing at 600 ft and at 27,000.
+  const AT_REST_HEIGHT = 0.01;
+  if (landingIdx >= n - 1 && apogeeIdx < n - 2) {
+    let tailStart = -1;
+    for (let i = apogeeIdx + 1; i < n; i++) {
+      if (time[n - 1] - time[i] <= AT_REST_SECONDS) { tailStart = i; break; }
+    }
+    if (tailStart > apogeeIdx + 1 && Number.isFinite(altClean[tailStart]) && Number.isFinite(altClean[n - 1])) {
+      const beforeSpan = time[tailStart] - time[apogeeIdx];
+      const tailSpan = time[n - 1] - time[tailStart];
+      const descentBefore = beforeSpan > 0 ? (altClean[apogeeIdx] - altClean[tailStart]) / beforeSpan : 0;
+      const tailRate = tailSpan > 0 ? Math.abs(altClean[n - 1] - altClean[tailStart]) / tailSpan : Infinity;
+      const restHeight = Math.abs(altClean[n - 1]);
+      if (
+        descentBefore > 0 &&
+        tailRate < descentBefore * AT_REST_FRACTION &&
+        restHeight <= altClean[apogeeIdx] * AT_REST_HEIGHT
+      ) {
+        landingIdx = tailStart;
+      }
+    }
+  }
   const landingTime = time[landingIdx];
   // A landing needs a descent to have happened before it. Where the record stops sooner
   // after apogee than a vacuum fall from that height would take (see `descentIsInTheRecord`),
@@ -1465,6 +1611,9 @@ export function analyzeFlight(flight: RawFlight, depth = 0): FlightAnalysis {
     mainDescentRate,
     descentTime: landingFound ? landingTime - apogeeTime : null,
     flightTime: liftoffFound && landingFound ? landingTime - liftoffTime : null,
+    // One flight, one record — the doubled-recording branch overwrites this where the
+    // descent had to be read from the file's second copy.
+    descentSource: landingFound ? 'same-record' : null,
     groundTemperature,
     batteryStartV,
     batteryMinV,

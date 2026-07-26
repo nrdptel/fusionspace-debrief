@@ -488,3 +488,71 @@ describe('a file that holds the same flight twice says so', () => {
     });
   }
 });
+
+// A record that stops at rest, well above the pad, is not a landing. Four corpus records do
+// exactly that — the altitude flattens and the file ends between 2.0% and 7.5% of the
+// flight's own apogee up, one of them 307 m in the air. Whether that is a barometer's zero
+// wandering over a long descent or the log simply stopping is not something the record
+// settles, so no landing, flight time or descent time is read from them. (The two records
+// that DO end at rest near the ground, 0.23% and 0.25% up, are read — see the jan10 pair.)
+const ENDS_AT_REST_ABOVE_THE_PAD: { file: string; pct: string }[] = [
+  { file: 'missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Data.txt', pct: '7.47% — 307 m up' },
+  { file: 'perfectflite/perfectflite__issuiuc-intrepid3tf2-20230305__AL0 march launch data.pf2', pct: '5.45% — 270 m up' },
+  { file: 'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv', pct: '3.29% — 94 m up' },
+  { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv', pct: '2.02% — 168 m up' },
+];
+
+describe('a record that ends at rest above the pad is not a landing', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  for (const c of ENDS_AT_REST_ABOVE_THE_PAD) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} (${c.pct})`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const m = loaded!.analysis.metrics;
+      expect(m.descentTime, `${short}: no descent time`).toBeNull();
+      expect(m.flightTime, `${short}: no flight time`).toBeNull();
+    });
+  }
+});
+
+// …and the flight this all exists for. One Blue Raven file holds the jan10 flight twice: the
+// copy that starts on the pad is cut 3.3 s after apogee, and the copy that runs to the ground
+// starts in the trough with no pad of its own. Read on the file's shared datum, the second
+// copy supplies the descent clock. The check that it is right is a different device: a
+// Featherweight GPS recorded the same flight and lands within a second of it.
+describe('the descent clock read from a file’s second copy', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  it('agrees with the separate GPS recording of the same flight', () => {
+    const br = loadForCompare('blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv');
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan10__GPSTrk05467_01-10-2026_14_55_35.csv');
+    expect(br, 'the Blue Raven is in the corpus').toBeTruthy();
+    expect(gps, 'the Featherweight GPS is in the corpus').toBeTruthy();
+    const b = br!.analysis.metrics;
+    const g = gps!.analysis.metrics;
+
+    // The clock came from the other copy, and says so.
+    expect(b.descentSource).toBe('second-copy');
+    expect(b.descentTime, 'a descent time is read').not.toBeNull();
+    // The rates did not come across — an unresolved deployment would average this flight's
+    // 50.7 m/s drogue and 6.2 m/s main into one figure labelled "main".
+    expect(b.mainDescentRate, 'no descent rate is taken from the second copy').toBeNull();
+    expect(b.drogueDescentRate).toBeNull();
+
+    // Two devices, one flight: the descent they timed has to be the same descent.
+    expect(g.descentTime, 'the GPS timed the descent too').not.toBeNull();
+    expect(
+      Math.abs(b.descentTime! - g.descentTime!),
+      `descent time: Blue Raven ${b.descentTime!.toFixed(2)} s vs GPS ${g.descentTime!.toFixed(2)} s`,
+    ).toBeLessThan(2);
+
+    // The climb still comes from the copy that starts on the pad, so flight time adds up.
+    expect(Math.abs(b.timeToApogee + b.descentTime! - b.flightTime!)).toBeLessThan(0.01);
+  });
+});
