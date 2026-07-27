@@ -702,6 +702,23 @@ export function compareMetricRows(
     { label: 'Descent rate (whole)', get: (m) => (m.wholeDescentRate != null ? fmtSpeed(m.wholeDescentRate, sys) : '—'), value: (m) => m.wholeDescentRate ?? NaN },
     { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—'), value: (m) => m.flightTime ?? NaN },
   ];
+  // When the main fired, measured from each flight's own liftoff. This is the row the
+  // redundant-altimeter case is actually for: two bays on one airframe agree on apogee and
+  // still fire seconds apart, and until now the comparison could show the agreement but not
+  // the disagreement — the deploy time existed only on each flight's separate timeline,
+  // where lining two of them up meant doing the arithmetic by hand. Only when some flight
+  // has one, so a fleet of baro-only logs doesn't grow a column of dashes.
+  if (flights.some((f) => f.metrics.mainDeployTime != null)) {
+    // Beside the main descent rate rather than appended after the totals: the rows read
+    // roughly in flight order, and "when the main fired" belongs with "how fast it came
+    // down under it", not after flight time.
+    const at = specs.findIndex((s) => s.label === 'Main descent');
+    specs.splice(at >= 0 ? at : specs.length, 0, {
+      label: 'Main deploy at',
+      get: (m) => (m.mainDeployTime != null ? fmtTime(m.mainDeployTime) : '—'),
+      value: (m) => m.mainDeployTime ?? NaN,
+    });
+  }
   // Tilt at burnout only when at least one flight carried an attitude solution —
   // otherwise the row would be all "—" for the (common) loggers without one.
   if (flights.some((f) => f.metrics.tiltAtBurnout != null)) {

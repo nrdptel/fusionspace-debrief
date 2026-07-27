@@ -22,9 +22,11 @@ one-second thrust tail past the peak, **bounded in time, not samples** — a los
 drops seconds between rows, and as a sample count it reached a crossing five minutes downrange on the
 Kairos sustainer.
 
-Gap across the nine signed-axial flights: **0.05–0.40 s**. `burnoutSource: 'measured'` went **2 of 9
-→ 8 of 9**; `burnoutAtVelocityPeak` true → false on all six recovered, so burnout velocity is no
-longer max velocity printed twice. `burnTime` re-centred: irec2023 5.80→5.88 (**its second logger on
+Gap across the **fourteen** signed-axial flights: **0.05–0.40 s**. `burnoutSource: 'measured'` went
+**2 of 14 → 13 of 14** (intrepid2 never crosses); `burnoutAtVelocityPeak` true → false on all **seven** recovered, so burnout velocity is
+no longer max velocity printed twice. The seventh — the Kairos sustainer, gap 0.22 s — was missed by
+the commit's own measurement and is recorded in BACKLOG with the numbers it moved; the sweep bug
+behind the miscount is recorded there too. `burnTime` re-centred: irec2023 5.80→5.88 (**its second logger on
 the same flight independently reads 5.88**), kairos 5.06→5.13, sg1.1 2.69→3.09, stargazer1
 3.72→3.78. Tolerances unchanged. A new corpus invariant holds burnout to a crossing computed
 independently from `analysis.series`; **falsified** — reverting the bound fails it with `the axial
@@ -74,10 +76,15 @@ longest string measures **246 px against 250 px**, so it fit by four pixels.
   An earlier handoff's note that nothing identifies the deployed commit is stale.
 - **`npm run fetch-fixtures` returns 401 here.** The companion repo is at `/home/user/debrief-fixtures`:
   `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. `corpus.test.ts` reports **103 tests**.
-- **A bare `importFlight` sweep silently analyses NOTHING for generic-CSV fixtures** — they return
-  `kind: 'mapping'` and need `buildFlight`. Such a sweep prints "0 findings" over ~23 named-parser
-  files while **46** are actually readable. Copy `loadForCompare` out of `corpus.test.ts`. This cost a
-  wrong all-clear twice this run, once on a finding that turned out to be real.
+- **An ad-hoc corpus sweep gets the wrong answer in TWO independent ways; copy `corpusReads()` and
+  `loadForCompare()` out of `corpus.test.ts` rather than rolling one.** (1) A bare `importFlight`
+  sweep silently analyses NOTHING for generic-CSV fixtures — they return `kind: 'mapping'` and need
+  `buildFlight` — so it prints "0 findings" over ~23 named-parser files while **46** are readable.
+  (2) Filtering `expected.json` on `expect.kind === 'flight'` **without merging
+  `lib/parsers/corpus-overrides.json`** drops five more: the Kairos sustainer, which the stale
+  `expected.json` still calls `mapping` and the committed override calls `flight`, plus the four
+  generic-CSV mapper-path flights. Between them these cost a wrong all-clear twice this run and a
+  **wrong corpus count published on the methods page** (nine signed-axial flights; it is fourteen).
 - **The image's Chromium is the wrong build.** Run `npx playwright install chromium` (~2 min); do not
   set `PLAYWRIGHT_CHROMIUM_PATH`. `playwright.config.ts` throws on a mismatch — trust that error.
 - **Do not run the gate while a fan-out is live.** 4 cores; a 3-agent workflow puts load average near
@@ -90,8 +97,13 @@ longest string measures **246 px against 250 px**, so it fit by four pixels.
   inflated the gate. Use absolute paths or `cd` explicitly.
 - **A piped gate hides its exit code** — echo `${PIPESTATUS[0]}`, not `$?`.
 - **CI does not run on a working branch.** `test.yml` fires on push to `main` and on `pull_request`,
-  so the PR is what makes CI run. It reported green in ~4 minutes each time this run — the "runners
-  stall for 30+ minutes" note from the previous handoff did not hold today.
+  so the PR is what makes CI run. All four PRs this run went green in **~1.5 min (frontend) and
+  ~4 min (e2e)**; the previous handoff's "runners stall for 30+ minutes" did not reproduce.
+- **`get_check_runs` reports a job `in_progress` for minutes after it has actually finished.** On the
+  last PR both jobs completed at 13:09:15 and 13:12:07 and the API was still returning `in_progress`
+  at 13:16. Read `completed_at` on the returned records rather than trusting `status` — this cost
+  several minutes of waiting for a run that was already green, and nearly produced a wrong
+  environment note claiming the runners stall.
 - **Playwright's `.click()` can time out on the "Compare N flights" button** while the element is
   present, enabled, in viewport and unobscured (`elementFromPoint` returns the button itself). A
   programmatic `.click()` works and navigates correctly. Likely an actionability/stability check, but

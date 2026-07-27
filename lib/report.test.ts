@@ -350,6 +350,32 @@ describe('comparison report', () => {
     expect(apogee.spreadPct).toBeLessThan(7);
   });
 
+  it('compares when the main fired, and only when some flight recorded it', () => {
+    // The redundant-altimeter question the comparison could not answer: two bays agreeing
+    // on apogee and still firing seconds apart. The deploy time existed on each flight's
+    // own timeline, where lining two of them up meant doing the arithmetic by hand.
+    const withMain = comparison.flights.map((f, i) => ({
+      ...f,
+      metrics: { ...f.metrics, mainDeployTime: 92.8 + i * 27.8 },
+    }));
+    const rows = compareMetricRows(withMain, 'metric');
+    const labels = rows.map((r) => r.label);
+    const main = rows.find((r) => r.label === 'Main deploy at')!;
+    expect(main, 'the row exists when a flight recorded a main deploy').toBeTruthy();
+    expect(main.values).toEqual([92.8, 120.6]);
+    // Rows read roughly in flight order, so it sits with the main descent it precedes
+    // rather than after the flight totals.
+    expect(labels.indexOf('Main deploy at')).toBe(labels.indexOf('Main descent') - 1);
+
+    // And it stays off the table entirely for a fleet of logs that never detected one,
+    // rather than adding a column of dashes.
+    const without = compareMetricRows(
+      comparison.flights.map((f) => ({ ...f, metrics: { ...f.metrics, mainDeployTime: null } })),
+      'metric',
+    );
+    expect(without.map((r) => r.label)).not.toContain('Main deploy at');
+  });
+
   it('carries the raw figures beside the formatted cells, in flight order', () => {
     // What the table sorts its flight columns by — the same numbers the cells format,
     // so the on-screen order can't disagree with the values shown.

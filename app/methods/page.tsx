@@ -322,9 +322,9 @@ export default function MethodsPage() {
             acceleration as specific force, the g the airframe felt, so dv/dt is the trace minus
             gravity: the speed peak is where the trace passes <em>+1 g</em>, while thrust = drag —
             the end of thrust — is where it passes <em>zero</em>, reached a little later as the motor
-            tails off. Across the corpus&apos;s nine signed-axial flights that gap runs
+            tails off. Across the corpus&apos;s fourteen signed-axial flights that gap runs
             0.05–0.40&nbsp;s. A search ending at the peak stopped one instant short of the event it
-            defines, and six of those nine fell back to the speed peak because of it.
+            defines, and seven of those fourteen fell back to the speed peak because of it.
           {' '}
             It is still bounded, because a later, larger jolt must not be read as the boost: on four
             corpus flights the biggest axial reading between liftoff and apogee is the apogee

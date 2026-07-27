@@ -42,6 +42,10 @@ const EVERYTHING: FlightMetrics = {
   peakRollRate: 720,
   rollRevolutions: 14.2,
   tiltAtBurnout: 7,
+  mainDeployTime: 168,
+  derivedVelocityFrom: null,
+  wholeDescentRate: 12.8,
+  descentSource: 'same-record',
   gpsApogeeAltitude: 2_795,
   gpsApogeeTime: 24.9,
   gpsAscentFixes: 24,
@@ -158,6 +162,9 @@ describe('the screen and the saved report agree on which readings exist', () => 
       peakRollRate: null,
       rollRevolutions: null,
       tiltAtBurnout: null,
+      mainDeployTime: null,
+      wholeDescentRate: null,
+      descentSource: null,
       groundTemperature: null,
     };
     const tiles = metricTiles(sparse, 'metric').map((t) => t.label);

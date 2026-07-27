@@ -1034,10 +1034,10 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
     // The search bound, not the threshold, is what makes this reachable. On specific force
     // the velocity peak IS the +1 g crossing (dv/dt = a − g), so thrust = drag comes after
     // it; a search that ends at the peak can never find the sample it is looking for, and
-    // six of the corpus's nine signed-axial flights silently fell through to the velocity-
-    // peak proxy for exactly that reason. This holds the two apart: where a genuine crossing
+    // seven of the corpus's fourteen signed-axial flights silently fell through to the
+    // velocity-peak proxy for exactly that reason. This holds the two apart: where a genuine crossing
     // exists inside the window, burnout must be MEASURED from it and must not be the peak
-    // sample. Re-narrowing the bound flips those six back to 'derived' and fails here.
+    // sample. Re-narrowing the bound flips those seven back to 'derived' and fails here.
     let withCrossing = 0;
     for (const { file, metrics: m, axialZeroCrossingT } of corpusReads()) {
       if (!m || m.burnTime == null || !Number.isFinite(axialZeroCrossingT)) continue;
@@ -1047,7 +1047,7 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
         `${file}: the axial trace crosses zero at t=${axialZeroCrossingT.toFixed(2)}s but burnout was not read from it`,
       ).toBe('measured');
     }
-    // The case exists in the corpus — otherwise this guards nothing. Eight of the nine
+    // The case exists in the corpus — otherwise this guards nothing. Thirteen of the fourteen
     // signed-axial flights cross; intrepid2's trace never falls through zero at all.
     expect(withCrossing, 'some corpus flight has a real axial zero-crossing').toBeGreaterThan(4);
   });
