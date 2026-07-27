@@ -6,6 +6,34 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **RANK 1 NEXT — the burnout zero-crossing is structurally unreachable on a specific-force trace,
+  and normalising the channel exposed it.** `lib/analyze/index.ts` searches for `signedAccel[i] <= 0`
+  but bounds the search at `maxVelIdx`, and the velocity peak is by definition where `dv/dt = 0`,
+  i.e. where the specific force equals **exactly +1 g**. So on a correct trace the test can never
+  fire, and **3 of 10 AltusMetrum flights dropped from `burnoutSource: 'measured'` to `'derived'`**
+  when the channel was put on the right convention. The threshold should be **`<= G0`** — "thrust no
+  longer supports the weight" — which is reachable inside the bound and would also restore measured
+  provenance to the already-specific-force families, which have been silently falling back to the
+  velocity peak all along. Measured consequences of the crossing slipping a sample where it does
+  still fire: endurance `burnTime 2.80 → 2.90 s`, `burnoutAltitude 454 → 488 m`; intrepid1
+  `burnoutAltitude 125 → 103 m (−17.5%)`.
+- **The drag Cd halved on the AltusMetrum family, and that is the correction landing.**
+  `lib/drag.ts:108` takes `dragPerMass = -a`, which is drag only when `a` is specific force; on the
+  old gravity-removed trace it was `D/m + g`, overstating drag by a full gravity. Measured after
+  normalisation: irec2023 easymega **0.63 → 0.35**, sg1.2 **1.80 → 0.97**, kairos sustainer
+  **0.92 → 0.44**. **Do NOT add a second `+G0` in drag.ts** — the double-count lived in the channel
+  and is now gone. The old figures were the wrong ones.
+- **`lib/drag.ts:105,109,113` — the Cd sample filters are absolute** (`v < vFloor`,
+  `dragPerMass > 0`, `cd > 3`), so shifting the trace moves which samples qualify, wildly: the
+  sample count went **147 → 527** on sg1.1 and **6 → 466** on stargazer1. The reported
+  velocity/Mach window for the Cd read changes even where Cd itself barely does. Worth making the
+  window explicit rather than a by-product of three thresholds.
+- **The accel-ceiling integral is now CORRECT and must be left alone.** `((a0+a1)/2 - G0)*step`
+  assumes specific force, which the channel now is; removing that `-G0` "to stop double-counting"
+  would re-break every logger that was always on the right convention. The double-count lived in the
+  channel. Note **no corpus flight currently reaches this code** (all ten have
+  `velocitySource === 'device'`), so it is unguarded by the corpus.
+
 - **The 1 g convention fix landed at the channel; the goldens could not arbitrate it.**
   `maxAccel` asserts sit at 83.6 ±6% (Kairos) and 62.3 ±6% (Stargazer1); the corrected readings are
   84.59 and 63.25, so **both pass either way** — the tolerance is wider than the whole defect. Those
