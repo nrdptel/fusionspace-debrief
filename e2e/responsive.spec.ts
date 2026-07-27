@@ -9,7 +9,13 @@ import path from 'node:path';
 const fx = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
 const WIDTH = 360;
 
-test.use({ viewport: { width: WIDTH, height: 760 } });
+// `hasTouch` matters as much as the width here. The only Playwright project is
+// devices['Desktop Chrome'], which is `hasTouch: false`, so `@media (pointer: coarse)` in
+// app/globals.css — the rule that gives every button, select and download link a 44 px
+// minimum height — was OFF for this whole file. Every assertion below was measuring
+// controls at their desktop height: a layout no phone ever gets, and the one place the
+// touch floor could have been caught spilling the page.
+test.use({ viewport: { width: WIDTH, height: 760 }, hasTouch: true });
 
 /** True if the document scrolls horizontally (the failure we're guarding). */
 const pageSpills = (page: import('@playwright/test').Page) =>

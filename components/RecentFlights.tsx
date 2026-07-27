@@ -260,14 +260,24 @@ export default function RecentFlights({
               }`}
             >
               <div className="flex items-center gap-3 px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={isSel}
-                  disabled={!isSel && atCap}
-                  onChange={() => toggle(r.id)}
-                  aria-label={`Select ${r.name} to compare`}
-                  className="h-5 w-5 shrink-0 accent-indigo-600 disabled:opacity-40 sm:h-4 sm:w-4"
-                />
+                {/* The tick is the control the whole comparison journey starts with, and a
+                    bare 20 px checkbox is the one interactive element the global touch floor
+                    cannot reach: `@media (pointer: coarse)` in globals.css exempts
+                    input[type=checkbox] on purpose, because stretching the BOX to 44 px would
+                    draw a giant square. So the label carries the tap area instead — 44 px of
+                    it, pulled back by an equal negative margin so the row lays out exactly as
+                    before and the tick still draws at 20 px. Above sm: a pointer device needs
+                    none of it and the wrapper dissolves. */}
+                <label className="-m-3 flex shrink-0 cursor-pointer items-center justify-center p-3 sm:m-0 sm:cursor-auto sm:p-0">
+                  <input
+                    type="checkbox"
+                    checked={isSel}
+                    disabled={!isSel && atCap}
+                    onChange={() => toggle(r.id)}
+                    aria-label={`Select ${r.name} to compare`}
+                    className="h-5 w-5 shrink-0 accent-indigo-600 disabled:opacity-40 sm:h-4 sm:w-4"
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => onOpen(r.id)}

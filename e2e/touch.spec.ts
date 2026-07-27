@@ -76,10 +76,14 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
 
   const small = await page.evaluate(() => {
     const out: string[] = [];
-    const sel =
-      'button, select, summary, [role=button], nav a, input:not([type=checkbox]):not([type=radio]):not([type=range])';
+    // A checkbox is NOT exempt here, unlike in the CSS. globals.css skips checkboxes from
+    // the 44 px floor because stretching the BOX would draw a giant square — but what a
+    // thumb has to hit is the target, not the box, and the target is the wrapping <label>.
+    // Exempting them from the measurement too is why the logbook's compare tick sat at
+    // 20x20 with no label at all and nothing caught it.
+    const sel = 'button, select, summary, [role=button], nav a, input:not([type=range])';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
-      const r = el.getBoundingClientRect();
+      const r = (el.closest('label') ?? el).getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue; // hidden (e.g. the sr-only file input)
       if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
     }
@@ -108,10 +112,14 @@ test('the compare surface is thumb-sized too', async ({ page }) => {
 
   const small = await page.evaluate(() => {
     const out: string[] = [];
-    const sel =
-      'button, select, summary, [role=button], nav a, input:not([type=checkbox]):not([type=radio]):not([type=range])';
+    // A checkbox is NOT exempt here, unlike in the CSS. globals.css skips checkboxes from
+    // the 44 px floor because stretching the BOX would draw a giant square — but what a
+    // thumb has to hit is the target, not the box, and the target is the wrapping <label>.
+    // Exempting them from the measurement too is why the logbook's compare tick sat at
+    // 20x20 with no label at all and nothing caught it.
+    const sel = 'button, select, summary, [role=button], nav a, input:not([type=range])';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
-      const r = el.getBoundingClientRect();
+      const r = (el.closest('label') ?? el).getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
     }
