@@ -56,7 +56,38 @@ describe('flightCardStats', () => {
     const gps: FlightMetrics = { ...base, maxAcceleration: NaN, mach: null };
     const labels = flightCardStats(gps, 'imperial').map((s) => s.label);
     expect(labels).toEqual(['Apogee', 'Max velocity', 'Flight time']);
-    expect(flightCardStats(gps, 'imperial')[1].sub).toBeUndefined(); // no Mach sub when mach is null
+    // No Mach where Mach is unknown — but the provenance stands on its own, because the
+    // card leaves the device and a bare speed on it reads as a measurement either way.
+    expect(flightCardStats(gps, 'imperial')[1].sub).toBe('measured');
+  });
+
+  it('never puts an unqualified speed or acceleration on a card that leaves the device', () => {
+    // The card is share-only: it exists to be posted to a club chat or a forum. Nine corpus
+    // flights used to put a SUPERSONIC claim on one with nothing beside it, every one of
+    // them differentiated out of an altitude rather than measured — the loudest reading
+    // Mach 2.64 where the flight's own device summary, a second altimeter, a GPS and an L3
+    // cert PDF all say Mach 1.3. The grid tile said "derived" the whole time.
+    const derived: FlightMetrics = { ...base, maxVelocitySource: 'baro', accelerationSource: 'baro', mach: 2.64 };
+    const stats = flightCardStats(derived, 'metric');
+    expect(stats.find((s) => s.label === 'Max velocity')?.sub).toBe('Mach 2.64 · derived');
+    expect(stats.find((s) => s.label === 'Max accel')?.sub).toBe('derived');
+
+    const measured = flightCardStats(base, 'metric');
+    expect(measured.find((s) => s.label === 'Max velocity')?.sub).toBe('Mach 0.6 · measured');
+    expect(measured.find((s) => s.label === 'Max accel')?.sub).toBe('measured');
+
+    // A railed accelerometer reports a floor, not the truth, and the card says so too.
+    const clipped = flightCardStats({ ...base, accelClipped: true }, 'metric');
+    expect(clipped.find((s) => s.label === 'Max accel')?.sub).toBe('measured · may be clipped');
+
+    // Whatever the log, no headline figure on the card is ever bare.
+    for (const m of [base, derived, { ...base, accelClipped: true }]) {
+      for (const s of flightCardStats(m, 'metric')) {
+        if (s.label === 'Max velocity' || s.label === 'Max accel') {
+          expect(s.sub, `${s.label} states its provenance`).toMatch(/measured|derived/);
+        }
+      }
+    }
   });
 
   it('drops flight time when the log ends at apogee', () => {

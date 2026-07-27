@@ -99,7 +99,16 @@ function drawCard(
     ctx.fillText(s.value, x, statTop + (i === 0 ? 58 : 50));
     if (s.sub) {
       ctx.fillStyle = MUTED;
-      ctx.font = `500 18px ${sans}`;
+      // Fit the sub to its column the same way the value above it is fitted. It used to
+      // hold at most "Mach 0.6" and drew at a fixed size; now it carries the provenance
+      // too ("Mach 2.64 · derived", "measured · may be clipped"), which is wider than a
+      // quarter of the card at 18 px and would otherwise run into the next stat.
+      let subSize = 18;
+      do {
+        ctx.font = `500 ${subSize}px ${sans}`;
+        if (ctx.measureText(s.sub).width <= avail) break;
+        subSize -= 1;
+      } while (subSize > 11);
       ctx.fillText(s.sub, x, statTop + 84);
     }
   });

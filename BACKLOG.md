@@ -32,6 +32,17 @@ memory, so a later pass doesn't have to rediscover them.
   `Accel_Z` rests at **0.0** on the pad (gravity-removed) while a real Blue Raven's axial `Accel_X`
   rests at **−0.99 g** (specific force). One hard-coded convention flag is wrong for one of them, and
   it would encode Eggtimer's convention into the Blue Raven parser for the sake of a single file.
+- **Liftoff moved one sample on two flights when the accel channel went onto specific force, and
+  `liftoffTWR` moved with it — measured, understood, and the NEW figure is the right one.** Recorded
+  so a later pass does not "fix" it back. The gate is `acceleration[i] > 2 * G0`, an absolute test on
+  a trace that shifted by +9.807. Pre-shift margin below the gate at the sample before liftoff:
+  **stargazer1 0.98 and sg1.1 2.46 m/s²** — the only two flights the shift could cross; the other
+  eight flagged sit 16.02–20.11 below and could not. Liftoff moved sg1.1 idx 24→23 (t 0.24→0.23 s)
+  and stargazer1 idx 14→13 (0.14→0.13 s), and TWR followed because its window hangs off `liftoffRef`:
+  sg1.1 **8.11 → 7.90**, stargazer1 **4.29 → 4.23**. On specific force `> 2 g` means one g of net
+  climb, which is what the threshold is meant to say; on the old gravity-removed trace it silently
+  meant two. So the later-firing old reading was the wrong one. Note 4.29 appears only in commit
+  7b2f446's message and on no shipped page.
 - **Two recordings of one flight disagree about whether it went supersonic.** `iss-endurance-20211030`:
   the TeleMetrum reads 315.1 m/s (Mach 0.93), its StratoLogger on the same flight reads 410.8 m/s
   (Mach 1.19) — 23.3% apart, straddling Mach 1. Apogee agrees to 0.5% (2841 vs 2828 m). The corpus
