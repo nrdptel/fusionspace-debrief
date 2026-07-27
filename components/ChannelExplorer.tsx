@@ -23,6 +23,7 @@ import { plotSvg } from '@/lib/svgChart';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitChoice } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import EventChips, { eventTypesPresent } from './EventChips';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
@@ -197,10 +198,7 @@ export default function ChannelExplorer({
   };
   // One chip per event type this flight actually has, in flight order — never a control for
   // something the record doesn't contain.
-  const eventTypes = useMemo(() => {
-    const seen = new Set(events.map((e) => e.type));
-    return (['liftoff', 'burnout', 'apogee', 'drogue', 'main', 'landing'] as const).filter((t) => seen.has(t));
-  }, [events]);
+  const eventTypes = useMemo(() => eventTypesPresent(events.map((e) => e.type)), [events]);
 
   const markers = useMemo<ChartMarker[]>(
     () =>
@@ -431,43 +429,10 @@ export default function ChannelExplorer({
         )}
       </div>
 
-      {/* Which events are drawn */}
-      {xIsTime && eventTypes.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Events</span>
-          {eventTypes.map((t) => {
-            const on = !hiddenEvents.includes(t);
-            const name = t[0].toUpperCase() + t.slice(1);
-            return (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={on}
-                // The sample table's "Jump to" row a little further down has a button reading
-                // "Burnout" too, and it does something else entirely — it scrolls the table to
-                // that sample. The visible chip stays one word because the "Events" label and
-                // the colour dot next to it say which row this is; the accessible name carries
-                // the action, so a screen reader isn't offered two identical "Burnout" buttons.
-                aria-label={on ? `Stop marking ${name.toLowerCase()} on the plot` : `Mark ${name.toLowerCase()} on the plot`}
-                onClick={() => toggleEvent(t)}
-                title={on ? `Stop calling out ${name.toLowerCase()} on the plot` : `Call out ${name.toLowerCase()} on the plot`}
-                className={`inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium transition ${
-                  on
-                    ? 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
-                    : 'border-dashed border-zinc-300 bg-transparent text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: on ? EVENT_COLOR[t] : 'transparent', boxShadow: on ? undefined : 'inset 0 0 0 1px currentColor' }}
-                />
-                {name}
-              </button>
-            );
-          })}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">kept on this device</span>
-        </div>
+      {/* Which events are drawn — the same control, and the same stored answer, as the
+          comparison overlay uses one surface over. */}
+      {xIsTime && (
+        <EventChips types={eventTypes} hidden={hiddenEvents} onToggle={toggleEvent} className="mt-3" />
       )}
 
       {/* Export what's plotted */}

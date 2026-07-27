@@ -10,8 +10,10 @@ import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
 import { loadHidden, loadOrder, moveReading, saveHidden, saveOrder, toggleHidden } from '@/lib/reportProfile';
-import { loadCompareChannel, saveCompareChannel } from '@/lib/plotView';
+import { loadCompareChannel, saveCompareChannel, loadHiddenEvents, saveHiddenEvents } from '@/lib/plotView';
 import ReadingChooser from './ReadingChooser';
+import EventChips, { eventTypesPresent } from './EventChips';
+import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
@@ -212,9 +214,38 @@ export default function CompareView({
   const baroMix = compareHasBaroMix(flights);
   const clippedAccel = compareHasClippedAccel(flights);
 
+  // Which events are called out, from the same stored answer the single-flight explorer uses —
+  // a flyer who turned landing off there does not find it back here.
+  const [hiddenEvents, setHiddenEvents] = useState<string[]>([]);
+  useEffect(() => setHiddenEvents(loadHiddenEvents()), []);
+  const toggleEvent = (type: EventType) => {
+    setHiddenEvents((prev) => {
+      const next = prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type];
+      saveHiddenEvents(next);
+      return next;
+    });
+  };
+  const eventTypes = useMemo(() => eventTypesPresent(flights.flatMap((f) => f.events.map((e) => e.type))), [flights]);
+
   // Memoized so an Analyzer re-render (e.g. a background recents refresh) doesn't
   // change these prop identities and rebuild the chart, resetting any zoom.
-  const liftoffMarker = useMemo<ChartMarker[]>(() => [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }], [dark]);
+  //
+  // Liftoff is one shared marker at x=0, because that is where every flight was aligned. Every
+  // OTHER event is drawn per flight, in that flight's own colour, which is the whole point: two
+  // bays that agree on apogee can still fire main a second and a half apart, and the table can
+  // only tell you the number where the overlay shows you the gap. The chart already staggers
+  // labels that would crowd, so a set that agrees reads as one thick line rather than a mess.
+  const markers = useMemo<ChartMarker[]>(() => {
+    const out: ChartMarker[] = [{ x: 0, label: 'liftoff', color: dark ? '#a1a1aa' : '#52525b' }];
+    for (const f of flights) {
+      for (const e of f.events) {
+        if (hiddenEvents.includes(e.type)) continue;
+        out.push({ x: e.t, label: e.label.toLowerCase(), color: f.color });
+      }
+    }
+    // Left to right, so the label stagger sees them in the order it draws them.
+    return out.sort((a, b) => a.x - b.x);
+  }, [flights, hiddenEvents, dark]);
 
   // Pick which quantity to overlay across flights. All three are derived for
   // every analyzed flight, so they overlay cleanly regardless of logger.
@@ -339,7 +370,7 @@ export default function CompareView({
       })),
       xLabel: 'Time after liftoff (s)',
       leftLabel: m.unit ? `${m.label} (${m.unit})` : m.label,
-      markers: liftoffMarker.map((mk) => ({ x: mk.x, label: mk.label, color: mk.color })),
+      markers: markers.map((mk) => ({ x: mk.x, label: mk.label, color: mk.color })),
       dark: figureDark,
     });
   const saveChartSvg = () => {
@@ -840,7 +871,7 @@ export default function CompareView({
             <Chart
               time={time}
               series={metricSeries}
-              markers={liftoffMarker}
+              markers={markers}
               dark={dark}
               height={320}
               fmt={metricFmt}
@@ -850,6 +881,10 @@ export default function CompareView({
           </div>
         </ChartBlock>
       </div>
+
+      {/* Which events are called out, in each flight's own colour. "Flight events" rather than
+          "Events", because "Events" beside a table of several flights reads as a column heading. */}
+      <EventChips types={eventTypes} hidden={hiddenEvents} onToggle={toggleEvent} label="Flight events" />
 
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         Hover to read every flight at the same instant · drag across the chart to zoom (pinch on
