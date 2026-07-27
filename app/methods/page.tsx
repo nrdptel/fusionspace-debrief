@@ -293,6 +293,24 @@ export default function MethodsPage() {
             which is T/W either way. Where a record starts too late to hold a resting stretch the
             ratio is left unread, and says why, rather than published a point out.
           </Method>
+          <Method title="What an accelerometer channel means">
+            Debrief reports <strong>specific force</strong> everywhere — what the sensor actually
+            measures, and the g the airframe felt, which is the number a structures check wants. An
+            accelerometer sitting still on the pad reads <strong>+1&nbsp;g</strong>, not zero.
+            Loggers do not agree on this: AltusMetrum&apos;s{' '}
+            <code>acceleration</code> column has that gravity already taken out and rests at{' '}
+            <strong>~0</strong>. The same row of one of its files proves it — the column reads
+            &minus;0.98 while the device&apos;s own <code>accel_x</code> body axis reads 9.78 on that
+            same sample. Read as specific force, such a channel is a full g low in{' '}
+            <em>every</em> reading taken off it: the peak g, the boost average, the thrust-to-weight,
+            the drag coefficient, and the accelerometer speed ceiling — which subtracts a gravity
+            itself, so gravity came off twice. Ten corpus flights carried it. The importer for that
+            format now marks the column, and the analysis adds the gravity back before anything is
+            read from it, so a peak of 62.3&nbsp;g reads 63.3 and a boost average of 3.24 reads 4.24.
+            Note that a device&apos;s own app may show you the other convention for the same flight;
+            the difference is exactly one gravity, and it is a choice of definition rather than a
+            disagreement about the measurement.
+          </Method>
           <Method title="Liftoff & burnout">
             With an accelerometer, liftoff is the first sustained kick above about 2 g and burnout is
             where axial acceleration falls back through zero. With baro only, liftoff is the first real

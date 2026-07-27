@@ -685,6 +685,42 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
       if (Number.isFinite(v) && Math.abs(v) > Math.abs(ext)) ext = v;
     }
     if (ext < 0) for (let i = 0; i < signedAccel.length; i++) signedAccel[i] = -signedAccel[i];
+
+    // Put the trace on Debrief's convention: SPECIFIC FORCE, the thing an accelerometer
+    // actually measures, which reads +1 g standing still on the pad.
+    //
+    // Loggers do not agree on this. AltusMetrum's `acceleration` column has the pad's 1 g
+    // already taken out and rests at ~0 — the same row reads −0.98 there while its own
+    // `accel_x` body axis reads 9.78. Read as specific force, such a channel is a full g
+    // low in EVERY reading taken off it, and the corpus shows all of them: the peak g, the
+    // boost average, the drag Cd, the thrust-to-weight, the accel-ceiling integral (which
+    // subtracts G0 itself, so gravity came off twice), and the burnout crossing — a
+    // gravity-removed trace crosses zero at the velocity peak rather than at the end of
+    // thrust, because dv/dt = 0 is exactly where it sits.
+    //
+    // A stationary accelerometer on a vertical rocket reads +1 g; that is not a convention
+    // but a fact about the sensor, so the quiet pad window fixes the offset outright. This
+    // corrects a sensor's resting bias by the same stroke, which is why an already
+    // specific-force logger still shifts by the tenth of a g it was actually out by.
+    // Must come AFTER the sign flip: on an aft-mounted sensor, adding g first and then
+    // flipping would give −(a + g), moving the trace the wrong way.
+    //
+    // Only where the window is genuinely still. `baseEnd` ends at the first sample the
+    // altitude has climbed off the pad, so a record that opens under thrust yields a
+    // short, moving window — spread that away and leave the trace alone rather than
+    // shifting a good one by a number read off a rocket already flying.
+    // Put the trace on Debrief's convention: SPECIFIC FORCE. Only the channel it came from
+    // can say whether it is already there — a record that opens after the motor lit holds no
+    // resting sample to read the convention off, and most of this family's do exactly that.
+    // So the parser flags it and the analyzer adds the g back, keeping file-format knowledge
+    // in the importer where the architecture puts it.
+    //
+    // The resultant, where there is one, is √(Σaₖ²) over raw body axes and already rests at
+    // +1 g; it is not the flagged channel and is deliberately left alone.
+    if (accCh.gravityRemoved) {
+      for (let i = 0; i < signedAccel.length; i++) signedAccel[i] += G0;
+    }
+
     if (resultant) {
       acceleration = resultant; // ≥2 body axes → report the resultant magnitude
       accelerationResultant = true;

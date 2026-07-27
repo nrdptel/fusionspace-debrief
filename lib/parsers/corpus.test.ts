@@ -922,7 +922,12 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
     },
     {
       file: 'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.csv',
-      burnS: 2.6,
+      // 2.60 before the accel channel was put on Debrief's specific-force convention.
+      // A gravity-removed trace crosses zero where dv/dt = 0 — the velocity peak — while a
+      // specific-force one crosses it a little later, at the end of thrust proper. The
+      // tolerance is unchanged; only the centre moved, and the guarantee this case exists
+      // for (that the reading is the motor and not the 12.99 s apogee charge) is untouched.
+      burnS: 2.69,
       wasBurnS: 12.99,
       boVel: 118,
       wasBoVel: 4,

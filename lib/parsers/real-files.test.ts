@@ -6,6 +6,7 @@ import { analyzeTable } from '../flight/columns';
 import { buildFlight } from '../flight/build';
 import { parseTable } from '../csv';
 import { analyzeFlight } from '../analyze';
+import { G0 } from '../units';
 import { getChannel } from '../flight/types';
 import { convert } from '../units';
 import { summaryMarkdown } from '../report';
@@ -320,5 +321,41 @@ describe('thrust-to-weight is read against the rocket’s own resting value', ()
     const { a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
     expect(a.metrics.liftoffTWR).toBeNull();
     expect(a.warnings.join(' ')).toContain('resting value');
+  });
+});
+
+describe('an accelerometer channel logged net of gravity', () => {
+  // AltOS writes `acceleration` with the pad's 1 g already taken out, so it rests at ~0
+  // where an accelerometer's own specific force is +1 g. Debrief reports specific force
+  // everywhere — the g the airframe felt — so the parser flags the column and the analyzer
+  // adds that g back. Read as-is it made EVERY acceleration reading off this family a full
+  // g low: the peak, the boost average, the thrust-to-weight, the drag Cd, and the
+  // accel-ceiling integral, which subtracts G0 itself and so removed gravity twice.
+  it('is flagged by the parser, so the analyzer can put it back', () => {
+    const r = importFlight({ name: 'TeleMetrum.csv', text: read('altusmetrum-telemetrum.csv') });
+    if (r.kind !== 'flight') throw new Error('did not auto-detect');
+    const axial = r.flight.channels.find((c) => c.kind === 'accelAxial');
+    expect(axial, 'the axial channel is parsed').toBeTruthy();
+    expect(axial!.gravityRemoved, 'AltOS acceleration is flagged net of gravity').toBe(true);
+  });
+
+  it('is not claimed for a logger that already reports specific force', () => {
+    const r = importFlight({ name: 'altimetercloud.csv', text: read('altimetercloud-mercury.csv') });
+    if (r.kind !== 'flight') throw new Error('did not auto-detect');
+    for (const c of r.flight.channels) {
+      if (c.kind === 'accelAxial' || c.kind === 'accelTotal') {
+        expect(c.gravityRemoved, `${c.label} is already specific force`).toBeFalsy();
+      }
+    }
+  });
+
+  it('reads +1 g on the pad once the analyzer has normalised it', () => {
+    // The proof that the correction landed: the trace the analysis works from must sit at
+    // one gravity while the rocket is still on the rail, whatever the file wrote.
+    const { r, a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
+    const raw = r.flight.channels.find((c) => c.kind === 'accelAxial')!.values;
+    const axial = a.series.axialAccel;
+    expect(raw[0]).toBeLessThan(G0 / 2); // the file itself rests near zero
+    expect(axial[0] - raw[0]).toBeCloseTo(G0, 6); // …and the analysis put the gravity back
   });
 });

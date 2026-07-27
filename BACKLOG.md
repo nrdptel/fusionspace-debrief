@@ -6,6 +6,53 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **RANK 1 NEXT — the burnout zero-crossing is structurally unreachable on a specific-force trace,
+  and normalising the channel exposed it.** `lib/analyze/index.ts` searches for `signedAccel[i] <= 0`
+  but bounds the search at `maxVelIdx`, and the velocity peak is by definition where `dv/dt = 0`,
+  i.e. where the specific force equals **exactly +1 g**. So on a correct trace the test can never
+  fire, and **3 of 10 AltusMetrum flights dropped from `burnoutSource: 'measured'` to `'derived'`**
+  when the channel was put on the right convention. The threshold should be **`<= G0`** — "thrust no
+  longer supports the weight" — which is reachable inside the bound and would also restore measured
+  provenance to the already-specific-force families, which have been silently falling back to the
+  velocity peak all along. Measured consequences of the crossing slipping a sample where it does
+  still fire: endurance `burnTime 2.80 → 2.90 s`, `burnoutAltitude 454 → 488 m`; intrepid1
+  `burnoutAltitude 125 → 103 m (−17.5%)`.
+- **The drag Cd halved on the AltusMetrum family, and that is the correction landing.**
+  `lib/drag.ts:108` takes `dragPerMass = -a`, which is drag only when `a` is specific force; on the
+  old gravity-removed trace it was `D/m + g`, overstating drag by a full gravity. Measured after
+  normalisation: irec2023 easymega **0.63 → 0.35**, sg1.2 **1.80 → 0.97**, kairos sustainer
+  **0.92 → 0.44**. **Do NOT add a second `+G0` in drag.ts** — the double-count lived in the channel
+  and is now gone. The old figures were the wrong ones.
+- **`lib/drag.ts:105,109,113` — the Cd sample filters are absolute** (`v < vFloor`,
+  `dragPerMass > 0`, `cd > 3`), so shifting the trace moves which samples qualify, wildly: the
+  sample count went **147 → 527** on sg1.1 and **6 → 466** on stargazer1. The reported
+  velocity/Mach window for the Cd read changes even where Cd itself barely does. Worth making the
+  window explicit rather than a by-product of three thresholds.
+- **The accel-ceiling integral is now CORRECT and must be left alone.** `((a0+a1)/2 - G0)*step`
+  assumes specific force, which the channel now is; removing that `-G0` "to stop double-counting"
+  would re-break every logger that was always on the right convention. The double-count lived in the
+  channel. Note **no corpus flight currently reaches this code** (all ten have
+  `velocitySource === 'device'`), so it is unguarded by the corpus.
+
+- **The 1 g convention fix landed at the channel; the goldens could not arbitrate it.**
+  `maxAccel` asserts sit at 83.6 ±6% (Kairos) and 62.3 ±6% (Stargazer1); the corrected readings are
+  84.59 and 63.25, so **both pass either way** — the tolerance is wider than the whole defect. Those
+  values were almost certainly copied from the device's own tool, which shows the gravity-removed
+  figure, so they encode the OLD convention. Worth regenerating them against the specific-force
+  reading and tightening the tolerance, or the net stays blind to a repeat.
+- **`burnTime` moved on the AltusMetrum family and nothing independent pins it.** sg1.1 went
+  2.60 → **2.69 s** because a gravity-removed trace crosses zero where dv/dt = 0 (the velocity peak)
+  while a specific-force one crosses slightly later, at the end of thrust. The corpus regression's
+  2.6 was itself produced by the code, not sourced — no motor designation or certified burn time is
+  recorded in `manifest.csv` for it. **Ground truth wanted:** the motor's published burn time for
+  these flights would settle it and would make a real golden value.
+- **Several AltusMetrum flights now fall back to the velocity peak for burnout** (`burnoutAtVelocityPeak`
+  flips to true on endurance, sg1.1 and intrepid1). That is not new behaviour, it is the behaviour
+  every specific-force logger already had: on a correct trace the axial reading is still positive at
+  the velocity peak (it equals g there), so the "falls through zero" search finds nothing inside its
+  search bound and the labelled fallback takes over. Worth asking whether the burnout rule should
+  search past the velocity peak on a specific-force trace rather than always landing on the fallback.
+
 - **RANK 1 NEXT — the 1 g convention error is FIXED ONLY FOR TWR; four more readings still carry it.**
   This run corrected `liftoffTWR` by differencing against the pad. The root cause is the channel, so
   every other consumer of the same AltusMetrum trace is still a full g low, measured:
