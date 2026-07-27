@@ -36,17 +36,33 @@ memory, so a later pass doesn't have to rediscover them.
   transient. Pre-existing, not caused by the convention change (62.25/24.03 before), but a
   deployment shock that equals the whole flight's peak acceleration is not a deployment shock.
 
-- **RANK 1 NEXT — the burnout zero-crossing is structurally unreachable on a specific-force trace,
-  and normalising the channel exposed it.** `lib/analyze/index.ts` searches for `signedAccel[i] <= 0`
-  but bounds the search at `maxVelIdx`, and the velocity peak is by definition where `dv/dt = 0`,
-  i.e. where the specific force equals **exactly +1 g**. So on a correct trace the test can never
-  fire, and **3 of 10 AltusMetrum flights dropped from `burnoutSource: 'measured'` to `'derived'`**
-  when the channel was put on the right convention. The threshold should be **`<= G0`** — "thrust no
-  longer supports the weight" — which is reachable inside the bound and would also restore measured
-  provenance to the already-specific-force families, which have been silently falling back to the
-  velocity peak all along. Measured consequences of the crossing slipping a sample where it does
-  still fire: endurance `burnTime 2.80 → 2.90 s`, `burnoutAltitude 454 → 488 m`; intrepid1
-  `burnoutAltitude 125 → 103 m (−17.5%)`.
+- **DONE (differently) — the burnout zero-crossing was unreachable, but the proposed `<= G0` fix was
+  wrong and would have regressed the honesty guarantee.** The diagnosis held: the crossing could not
+  fire. The prescription did not. On specific force `dv/dt = a − g`, so `a <= G0` **is** the velocity
+  peak, identically — adopting it would have relabelled the velocity-peak proxy as
+  `burnoutSource: 'measured'`, which is exactly the "one sample, two labels" dishonesty the comment at
+  `lib/analyze/index.ts` already fought once. Measured: on the two flights whose trace is cleanest
+  (irec2023 easymega/telemega) `<= G0` fires at t=6.03 s, *the velocity-peak sample itself*.
+  The real defect was the SEARCH BOUND. Thrust = drag (`a = 0`) necessarily comes *after* the +1 g
+  crossing, so ending the search at the peak stopped one instant short of the event. Measured gap
+  across the nine signed-axial flights: 0.05–0.40 s (stargazer1 0.05, kairos 0.07, irec2023
+  0.08/0.09, sg1.2 0.11, sg1.1 0.40). Fixed by allowing a one-second thrust tail past the peak,
+  bounded in time rather than samples. `measured` went 2 → 8 of 9; `burnoutAtVelocityPeak` went true →
+  false on all six recovered flights, so `burnoutVelocity` is no longer `maxVelocity` under a second
+  label. Corpus `burnTime` re-centred: irec2023 5.80→5.88 (its second logger independently reads 5.88),
+  kairos 5.06→5.13, sg1.1 2.69→3.09, stargazer1 3.72→3.78. Tolerances unchanged.
+
+- **The burnout search runs UNBOUNDED on any flight whose speed was withheld as implausible.**
+  `lib/analyze/index.ts:1180` sets `maxVelIdx = -1` when `velocityImplausible`, and the bound reads
+  that as "no velocity peak" and falls back to `apogeeIdx` — so both the boost-peak search and the
+  crossing search span the whole climb, the exact case the bound exists to prevent. Measured over the
+  corpus (via the mapper path — a bare `importFlight` sweep silently skips these and reports zero):
+  **4 of 14 signed-axial flights**, all generic-CSV — discovery-L1, penguin-L1, swiss-cheese-L1,
+  the-gardener-L1. Latent today, not a wrong number: on all four the first crossing after the boost
+  peak is the real motor (burnout 0.77–0.92 s against apogees at 9.2–11.7 s). It becomes a wrong
+  number the moment such a file carries an ejection charge larger than its motor peak, and the
+  `apogeeIdx - burnoutIdx < 2` backstop is two samples — 0.02 s on a 100 Hz logger. Unchanged by the
+  thrust-tail fix (when `velPeakEnd == apogeeIdx` the old and new loop ranges are identical).
 - **The drag Cd halved on the AltusMetrum family, and that is the correction landing.**
   `lib/drag.ts:108` takes `dragPerMass = -a`, which is drag only when `a` is specific force; on the
   old gravity-removed trace it was `D/m + g`, overstating drag by a full gravity. Measured after
