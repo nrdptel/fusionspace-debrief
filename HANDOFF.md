@@ -108,8 +108,12 @@ is the mistake the *previous* run's handoff names, repeated. Cause: a sweep that
 
 ## Environment notes
 
-- **Git identity defaults to the harness's, not the project's.** Wrong again this run (`Claude
-  <noreply@anthropic.com>`); set before the first commit. Check every time.
+- **Git identity defaults to the harness's, not the project's.** It was wrong again this run and had
+  to be set before the first commit — `git config user.name "Neer Patel"` and
+  `user.email "135655563+nrdptel@users.noreply.github.com"`. Check both every time; a whole session
+  of mis-attributed commits is only fixable by rewriting pushed history. Do not paste the wrong value
+  into a file to illustrate it — that puts the trace in the repo, which is the thing the invariant
+  forbids. (It happened this run and was caught by the closing sweep.)
 - **The harness appends an attribution footer to a PR body.** It did on all three PRs and was
   stripped each time, per the ZERO ASSISTANT TRACE invariant. Read every PR body back after posting.
   GitHub also swallows bare `<label>`-style tag text in a body as HTML — write it without the angle
