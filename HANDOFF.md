@@ -35,6 +35,15 @@ is recorded for the flight — so it could not arbitrate. The tolerance was NOT 
 guarantee the case exists for (that the reading is the motor, not the 12.99 s apogee charge) is
 untouched. BACKLOG asks for the motor's published burn time as real ground truth.
 
+**Found after the merge, by a review pass that landed late — read this first.** The change moved
+`peakAccel` (deployment shock) on every AltusMetrum flight and I did not measure it before shipping.
+It is an ABSOLUTE magnitude, so it shifts by ±1 g with the sign of the window's dominant sample, and
+on one flight a different sample is selected outright: endurance apogee **1.47 → 0.58 g (−61%)**,
+its main **0.67 → 1.36 g (+103%)**. The new figures are on the right convention, but they are
+unmeasured in the shipped commit and belong on the validation page. A second, latent defect came
+with it: a dead all-zero accel column now reads as a live +1 g trace, because the chart's liveness
+guard tests `v !== 0` on the normalised series. Both are in BACKLOG with numbers.
+
 **And the goldens are blind to this class of bug:** the two `maxAccel` asserts pass at ±6% both
 before and after a full 1 g correction. Recorded.
 
@@ -70,29 +79,31 @@ before and after a full 1 g correction. Recorded.
 
 ## Pick up first, and why
 
-1. **Regenerate the two `maxAccel` goldens against the specific-force reading and tighten them.**
+1. **Fix the burnout threshold (`<= G0`, not `<= 0`) and the liveness guard**, the two defects this
+   run introduced or exposed — see BACKLOG. Both are small and both are in shipped code.
+2. **Regenerate the two `maxAccel` goldens against the specific-force reading and tighten them.**
    At ±6% they pass before and after a whole 1 g correction, so the corpus net cannot catch this
    class of defect at all. 84.59 g (Kairos) and 63.25 g (Stargazer1) are the current readings.
-2. **Get the motor's published burn time for the AltusMetrum flights.** `burnTime` moved 2.60→2.69 s
+3. **Get the motor's published burn time for the AltusMetrum flights.** `burnTime` moved 2.60→2.69 s
    on sg1.1 for a principled reason, but nothing independent pins it — the old value came from the
    code itself. A certified burn time would make a real golden value.
-3. **The liftoff threshold is still convention-blind** — `acceleration[i] > 2 * G0` is absolute. It
+4. **The liftoff threshold is still convention-blind** — `acceleration[i] > 2 * G0` is absolute. It
    now sees a normalised trace on the AltusMetrum family, so its meaning changed there too; check
    whether liftoff moved on any flight and whether the threshold should be relative to the resting
    value.
-4. **Should burnout search past the velocity peak?** On a correct specific-force trace the axial
+5. **Should burnout search past the velocity peak?** On a correct specific-force trace the axial
    reading equals g at the velocity peak and only falls through zero after it, outside the current
    search bound — so the accelerometer crossing never fires and the labelled fallback always takes
    over. That is now true for every family, consistently, but it may be leaving a real reading on
    the table.
-5. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file).
+6. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file).
    Multi-pass: `ChannelKind` has no event kind and `ROLE_TO_KIND` is closed, so every deployment
    boundary in the corpus is parsed and thrown away. BACKLOG lists all five sources.
-6. **Pin the four-altimeter descent chord** (0.12% agreement across 4 recordings of one flight) as
+7. **Pin the four-altimeter descent chord** (0.12% agreement across 4 recordings of one flight) as
    the first descent golden value — `expected.json` still asserts no descent rate anywhere.
-7. **CSV export: column selection, a field separator, a comments block.** The read side sniffs the
+8. **CSV export: column selection, a field separator, a comments block.** The read side sniffs the
    delimiter (`lib/csv.ts:11`); the write side hard-codes `,` in three places (`lib/csv.ts:175`,
    `lib/explore.ts:65`, `lib/report.ts:600`), so a comma-decimal-locale flyer gets one column.
-8. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport.
+9. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport.
 
 BACKLOG.md carries the rest, newest first.

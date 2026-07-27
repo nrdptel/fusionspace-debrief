@@ -6,6 +6,36 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Deployment shock moved on every AltusMetrum flight and the shipped change did not measure it.**
+  Found by a review pass AFTER the merge, then reproduced directly. `peakAccel` is
+  `peakAbsInWindow(acceleration, …)` — an ABSOLUTE magnitude — so putting the trace on specific
+  force moves it by **±1 g depending on the sign of the window's dominant sample**, not +1 g.
+  Measured, before → after: intrepid2 29.44 → 30.44, sg1.1 apogee 24.03 → 25.03 but its main
+  27.46 → **26.46**, irec2023 6.60 → 5.60, stargazer1 62.25 → 63.25. Worst case, a *different sample
+  is selected entirely*: endurance apogee **1.47 → 0.58 g (−61%)** and its main **0.67 → 1.36 g
+  (+103%)**. AltimeterCloud is unchanged on all six, as it should be. The new figures are on the
+  right convention — a shock is the force the airframe felt, and near apogee the old trace carried a
+  −1 g free-fall baseline that inflated |a| — but this was shipped unmeasured and belongs in the
+  validation page with these numbers.
+- **A dead all-zero acceleration column now reads as a live +1 g trace on a flagged parser.**
+  `components/FlightReport.tsx` gates the chart on `series.acceleration.some(v => Number.isFinite(v)
+  && v !== 0)`. On a `gravityRemoved` channel every zero becomes +9.81, so an unrecorded or dead
+  channel passes the "has acceleration data" test and renders a flat 1 g curve as though it were
+  measured. No corpus file trips it (all ten carry real data), so it is latent — but it is a defect
+  introduced by the normalisation and the guard should test the RAW channel, or the parser should
+  not flag an all-zero column.
+- **Two more absolute tests that the normalisation moved, both latent:** `maxDeceleration` requires
+  `signedAccel[maxDecIdx] < 0`, so a flight whose worst reading sits between −1 g and 0 now reports
+  no deceleration at all — kairos-sustainer is **1.95 g** from that cliff (−2.95 → −1.95). And the
+  clip gate `maxAcceleration > G0` exists to reject a near-zero quiet channel, a premise that is a
+  fact about the RAW trace; a flagged channel resting at 0 now peaks above 1 g by construction. The
+  saturation test itself is offset-invariant (it compares against the trace's own max), so clipping
+  detection is unaffected — verified false→false on all ten.
+- **`peakAccel` equals `maxAcceleration` exactly on two flights** (stargazer1 63.25 g, sg1.1
+  25.03 g), i.e. the "apogee shock" window is selecting the boost peak rather than a deployment
+  transient. Pre-existing, not caused by the convention change (62.25/24.03 before), but a
+  deployment shock that equals the whole flight's peak acceleration is not a deployment shock.
+
 - **RANK 1 NEXT — the burnout zero-crossing is structurally unreachable on a specific-force trace,
   and normalising the channel exposed it.** `lib/analyze/index.ts` searches for `signedAccel[i] <= 0`
   but bounds the search at `maxVelIdx`, and the velocity peak is by definition where `dv/dt = 0`,
