@@ -49,9 +49,15 @@ These mirror CI (`.github/workflows/test.yml`); all must pass.
 
 ```bash
 npm test            # vitest unit tests (parsers + analysis)
-npm run build       # also type-checks the whole app (CI gate)
+npm run build       # also type-checks the whole repo, tests included (CI gate)
 npm run test:e2e    # Playwright (incl. an axe accessibility audit)
 ```
+
+Next's own build only type-checks what the app imports, so the **test** files were never checked
+by the gate and their `FlightMetrics` fixtures had quietly drifted four fields behind the real type —
+a fixture that isn't the shape it claims silently stops exercising the readings built from the
+fields it's missing. `npm run build` now runs `tsc --noEmit` over the whole repo first (an npm
+`prebuild`, ~3 s), so the gate is still the same three commands and a drifted fixture fails it.
 
 ## Which build is live
 

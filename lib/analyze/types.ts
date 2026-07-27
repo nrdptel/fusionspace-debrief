@@ -121,6 +121,14 @@ export interface FlightMetrics {
    *  a straight boost; a large one flags weathercocking). Read straight from the
    *  logger's own tilt channel at burnout, not derived. Null without both. */
   tiltAtBurnout: number | null;
+  /** When the main deployed, in seconds AFTER LIFTOFF rather than from the file's own
+   *  zero — so several recordings of one flight can be lined up against each other on a
+   *  comparison, which is the whole point of having it as a metric rather than reading it
+   *  off each flight's timeline separately. Null without both a liftoff and a detected
+   *  main. There is deliberately no drogue equivalent: Debrief does not detect drogue
+   *  deployment, it assumes the drogue leg starts at apogee (see BACKLOG), and a null
+   *  column would read as "no drogue" rather than "not measured". */
+  mainDeployTime: number | null;
   /** Apogee as the GPS receiver recorded it, where the file carries a GPS altitude —
    *  a second, independent altitude recording (a different sensor, indifferent to the
    *  weather and to the shock over a static port that ruins a barometer transonically).

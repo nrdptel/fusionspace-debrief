@@ -1810,6 +1810,9 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     accelerationSource,
     accelClipped,
     liftoffTWR,
+    // Measured from liftoff, like burnTime beside it, so it is comparable across
+    // recordings that each start their clock somewhere different.
+    mainDeployTime: mainIdx !== null && mainIdx >= 0 && liftoffFound ? time[mainIdx] - liftoffTime : null,
     burnTime: burnoutIdx !== null && liftoffFound ? time[burnoutIdx] - liftoffTime : null,
     burnoutAltitude: burnoutIdx !== null ? nullIfNaN(altAt(burnoutIdx)) : null,
     // Reads the velocity trace directly, so it inherits an impossible velocity even
