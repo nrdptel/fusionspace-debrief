@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { flightCardStats } from './flightCard';
+import { metricTiles } from './readings';
 import type { FlightMetrics } from './analyze/types';
 
 const base: FlightMetrics = {
@@ -63,6 +64,31 @@ describe('flightCardStats', () => {
     // No Mach where Mach is unknown — but the provenance stands on its own, because the
     // card leaves the device and a bare speed on it reads as a measurement either way.
     expect(flightCardStats(gps, 'imperial')[1].sub).toBe('measured');
+  });
+
+  it('honours the flyer’s show/hide choice, by the label the chooser actually stores', () => {
+    // The card ignored the chooser entirely: hiding every reading in the grid and in every
+    // report still left all four stats on the shareable image — the one artifact that
+    // leaves the device kept printing what the flyer had turned off everywhere else.
+    expect(flightCardStats(base, 'metric', []).map((s) => s.label)).toEqual([
+      'Apogee',
+      'Max velocity',
+      'Max accel',
+      'Flight time',
+    ]);
+
+    // The trap is the label. The card prints "Max accel" because four stats share its
+    // width, while the chooser stores the grid's "Max acceleration" — so filtering on what
+    // the card DRAWS would silently miss it. It filters on the canonical reading instead.
+    const hidden = ['Max acceleration', 'Flight time'];
+    expect(flightCardStats(base, 'metric', hidden).map((s) => s.label)).toEqual(['Apogee', 'Max velocity']);
+
+    // Every card stat names a reading the grid also names, or the two can never agree
+    // about what "hidden" means.
+    const gridLabels = metricTiles(base, 'metric').map((t) => t.label);
+    for (const s of flightCardStats(base, 'metric')) {
+      expect(gridLabels, `the card's "${s.label}" maps to a reading the grid knows`).toContain(s.reading);
+    }
   });
 
   it('never puts an unqualified speed or acceleration on a card that leaves the device', () => {

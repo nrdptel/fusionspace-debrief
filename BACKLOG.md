@@ -1064,13 +1064,12 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
-- **The flight card ignores the reading chooser entirely.** `flightCardStats` (`lib/flightCard.ts`)
-  takes no `hidden` argument and `components/FlightCard.tsx` passes none, so hiding every readable row
-  in the chooser still leaves all four stats — Apogee, Max velocity, Max accel, Flight time — on the
-  card. The grid and every report honour `visibleRows` (`lib/reportProfile.ts`); the card is the one
-  surface that does not, and it is the one most likely to be shared. A control that silently does not
-  apply. Note the card's own labels do not all exist as chooser rows ("Max accel" is not a chooser
-  label), so wiring it up needs a label mapping, not just a passed-through list.
+- **DONE — the flight card honours the reading chooser.** It took no `hidden` argument at all, so
+  hiding a reading everywhere else still left it on the one artifact that leaves the device. Wired
+  through `visibleRows`, with the label trap the note predicted: the card prints "Max accel" (four
+  stats share its width) while the chooser stores the grid's "Max acceleration", so a `CardStat` now
+  carries `reading` — the canonical label — beside the one it draws, and filters on that. A test
+  holds every card stat's `reading` against the grid's labels so the two cannot drift.
 - **Playwright cannot click the "Compare N flights" button** even though it is present, enabled, in
   the viewport and unobscured — `document.elementFromPoint` at its centre returns the button itself,
   and a programmatic `.click()` navigates correctly to `/compare?ids=…`. A 30 s actionability timeout

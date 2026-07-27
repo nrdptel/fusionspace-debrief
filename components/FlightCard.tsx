@@ -29,9 +29,12 @@ function drawCard(
     metrics: FlightMetrics;
     sys: UnitChoice;
     xRange?: [number, number];
+    /** The readings this flyer has turned off — the card honours the same list the grid
+     *  and every report do, so a hidden reading does not reappear on the shareable image. */
+    hidden?: string[];
   },
 ) {
-  const { stem, formatLabel, series, metrics, sys, xRange } = data;
+  const { stem, formatLabel, series, metrics, sys, xRange, hidden } = data;
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -77,7 +80,7 @@ function drawCard(
   ctx.fillText(chipText, chipX + 14, chipY + 23);
 
   // Stat blocks.
-  const stats = flightCardStats(metrics, sys);
+  const stats = flightCardStats(metrics, sys, hidden);
   const cols = stats.length;
   const blockW = (W - PAD * 2) / cols;
   const statTop = PAD + 110;
@@ -238,6 +241,7 @@ export default function FlightCard({
   stem,
   formatLabel,
   xRange,
+  hidden,
 }: {
   series: FlightSeries;
   metrics: FlightMetrics;
@@ -247,14 +251,17 @@ export default function FlightCard({
   /** The window the report's charts are framed on, so the card draws the same flight
    *  they do rather than the whole record. */
   xRange?: [number, number];
+  /** The readings this flyer has turned off, from the same stored profile the grid and
+   *  every report read. */
+  hidden?: string[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange });
-  }, [series, metrics, sys, stem, formatLabel, xRange]);
+    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange, hidden });
+  }, [series, metrics, sys, stem, formatLabel, xRange, hidden]);
 
   const save = useCallback(() => {
     canvasRef.current?.toBlob((blob) => blob && download(blob, `${stem}-card.png`));

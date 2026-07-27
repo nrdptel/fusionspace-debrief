@@ -6,9 +6,17 @@
 import type { FlightMetrics } from './analyze/types';
 import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from './display';
 import type { UnitChoice } from './display';
+import { visibleRows } from './reportProfile';
 
 export interface CardStat {
+  /** What the card prints. Short on purpose — four of these share the card's width, so
+   *  "Max accel" where the grid has room for "Max acceleration". */
   label: string;
+  /** The canonical reading label, as the grid and every report name it. The flyer's
+   *  show/hide choice is stored against THIS, so the card has to carry it separately from
+   *  the label it draws — otherwise hiding "Max acceleration" would silently miss the card's
+   *  "Max accel" and the one artifact that leaves the device would keep printing it. */
+  reading: string;
   value: string;
   sub?: string;
 }
@@ -27,12 +35,13 @@ export interface CardStat {
  *  a second altimeter, a GPS and an L3 cert PDF all say Mach 1.3. The grid tile beside it
  *  said "derived" the whole time. The altitude the peak occurred at is dropped — the grid
  *  has room for it, a card does not, and the provenance is the part that changes the claim. */
-export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice): CardStat[] {
-  const stats: CardStat[] = [{ label: 'Apogee', value: fmtLength(metrics.apogeeAltitude, sys) }];
+export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice, hidden?: string[]): CardStat[] {
+  const stats: CardStat[] = [{ label: 'Apogee', reading: 'Apogee', value: fmtLength(metrics.apogeeAltitude, sys) }];
   if (Number.isFinite(metrics.maxVelocity)) {
     const src = metrics.maxVelocitySource === 'device' ? 'measured' : 'derived';
     stats.push({
       label: 'Max velocity',
+      reading: 'Max velocity',
       value: fmtSpeed(metrics.maxVelocity, sys),
       sub: metrics.mach ? `${fmtMach(metrics.mach)} · ${src}` : src,
     });
@@ -40,6 +49,7 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice): CardSt
   if (Number.isFinite(metrics.maxAcceleration)) {
     stats.push({
       label: 'Max accel',
+      reading: 'Max acceleration',
       value: fmtAccel(metrics.maxAcceleration, sys),
       sub:
         metrics.accelerationSource === 'device'
@@ -50,7 +60,9 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice): CardSt
     });
   }
   if (metrics.flightTime != null) {
-    stats.push({ label: 'Flight time', value: fmtTime(metrics.flightTime) });
+    stats.push({ label: 'Flight time', reading: 'Flight time', value: fmtTime(metrics.flightTime) });
   }
-  return stats;
+  // The flyer's show/hide choice drives the grid and every report; the card honoured none
+  // of it, so a reading hidden everywhere else still went out on the shareable image.
+  return visibleRows(stats, (s) => s.reading, hidden);
 }
