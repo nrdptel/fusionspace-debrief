@@ -256,6 +256,14 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // leave cross-origin alone
 
+  // The build marker is the one same-origin GET that must never come from the cache.
+  // Everything else here is content-hashed or a page whose staleness costs one visit;
+  // /version.json exists to answer "which commit is this?", and a cached copy would
+  // answer that confidently and wrongly for as long as the cache lived. Left to the
+  // network entirely: offline it simply fails, which is the honest answer — you cannot
+  // know what the server is serving while you cannot reach it.
+  if (url.pathname === '/version.json') return;
+
   // Navigations: serve the cached page immediately where there is one, and refresh it in
   // the background. This used to try the network first and fall back only when the fetch
   // failed, which makes every offline navigation wait for a network attempt to give up

@@ -406,3 +406,56 @@ test('an in-app link still navigates offline, instead of landing on the RSC payl
   await expect(page.getByRole('heading', { name: 'Where the numbers come from', level: 1 })).toBeVisible();
   expect(new URL(page.url()).pathname).toBe('/methods/');
 });
+
+// The build marker. The site is a static export on a CDN with content-hashed asset
+// names, so without this there is nothing in the served output that says which commit
+// is live — and comparing chunk names against a local build does not answer it, because
+// an identical source tree builds to different hashes in CI than it does locally.
+test('the deployed build says which commit it is', async ({ page }) => {
+  const res = await page.request.get('/version.json');
+  expect(res.ok()).toBeTruthy();
+  const v = await res.json();
+  // A marker that cannot identify the build is worse than none, so require the fields
+  // rather than accepting whatever the stamp happened to write.
+  expect(typeof v.commit).toBe('string');
+  expect(v.commit.length).toBeGreaterThan(6);
+  expect(v.short).toBe(v.commit.slice(0, 7));
+  expect(Number.isFinite(Date.parse(v.builtAt))).toBe(true);
+});
+
+test('the build marker is never served from the cache', async ({ page, context }) => {
+  // A stale version marker answers "which commit is this?" confidently and wrongly, so the
+  // service worker leaves /version.json to the network.
+  //
+  // The order here is the whole test. Every other same-origin GET is cache-first, so a
+  // worker WITHOUT the bypass would cache this response the first time it is fetched — and
+  // only then does going offline tell the two apart. Checking straight after page load
+  // proves nothing, because nothing requests /version.json during a normal load, so it is
+  // absent from the cache either way. (Written the useless way first, and caught by
+  // deleting the bypass and watching the test still pass.)
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker?.ready);
+  const online = await page.evaluate(() => fetch('/version.json').then((r) => r.ok));
+  expect(online).toBe(true);
+
+  const cached = await page.evaluate(async () => {
+    const keys = await caches.keys();
+    for (const k of keys) {
+      const c = await caches.open(k);
+      if (await c.match('/version.json')) return true;
+    }
+    return false;
+  });
+  expect(cached).toBe(false);
+
+  await context.setOffline(true);
+  const offline = await page.evaluate(() =>
+    fetch('/version.json')
+      .then((r) => (r.ok ? 'served-anyway' : `status-${r.status}`))
+      .catch(() => 'network-error'),
+  );
+  await context.setOffline(false);
+  // Offline it simply fails, which is the honest answer — you cannot know what the server
+  // is serving while you cannot reach it.
+  expect(offline).toBe('network-error');
+});

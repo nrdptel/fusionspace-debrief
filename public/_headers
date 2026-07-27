@@ -11,3 +11,8 @@
 # picked up promptly rather than served stale.
 /sw.js
   Cache-Control: no-cache
+
+# The build marker must never be served stale — a version endpoint that answers
+# confidently and wrongly is worse than not having one.
+/version.json
+  Cache-Control: no-store

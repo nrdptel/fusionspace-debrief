@@ -6,6 +6,74 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **RANK 1 NEXT — the 1 g convention error is FIXED ONLY FOR TWR; four more readings still carry it.**
+  This run corrected `liftoffTWR` by differencing against the pad. The root cause is the channel, so
+  every other consumer of the same AltusMetrum trace is still a full g low, measured:
+  - **`avgBoostAcceleration`** (`lib/analyze/index.ts:~1699`) — Stargazer1 **3.24 g reported vs 4.24
+    true (+31%)**, sg1.2 4.54 vs 5.54 (+22%), sg1.1 4.59 vs 5.59. A *larger relative* error than TWR
+    on low-thrust flights, and it feeds the report and the JSON export.
+  - **`maxAcceleration`** (`~:985`) — Kairos **83.6 vs 84.6**, Endurance 18.8 vs 19.8. Note the
+    corpus golden value `maxAccel 83.6 ±6%` was written FROM the buggy reading, and its tolerance is
+    wide enough to hide the correction either way — it cannot arbitrate.
+  - **The drag Cd** (`lib/drag.ts:108`) — the gravity branch keys off `accelerationSource === 'device'`,
+    which records only that a channel existed, not its convention. On an AltusMetrum coast
+    `a = −(drag/m + g)`, so `−a` overstates drag by g: Cd **1.799 → 0.968 (×1.86)** on sg1.2,
+    **0.637 → 0.369 (×1.73)** on irec telemega. This is the number a flyer takes to a sim.
+  - **The accel-ceiling integral** (`~:1074`) subtracts G0 from the same trace, so on AltusMetrum
+    gravity comes off **twice**; the ceiling then collapses below the coast floor and `:1087-1092`
+    silently discards it — while naming "logged net of gravity" as a possible cause. The pipeline
+    already suspects this and says nothing.
+  **The proper fix is one change, not four:** normalise the channel to specific force once (a
+  parser-set convention flag, or a resting-value normalisation applied to `acceleration`/`signedAccel`
+  where a pad stretch exists), after which TWR's local differencing becomes redundant. Deliberately
+  not attempted in the same pass as the TWR fix — it moves `maxAcceleration` on nine flights and
+  deserves its own corpus diff.
+  **Also note the family contradicts itself:** `altusmetrum__reddit-meraki2-121km__Mega38-1_TeleMega.csv`
+  falls through to the GENERIC mapper, which picks up `accel_x/y/z` rather than the `acceleration`
+  column — so it rests at 1.001 g and is on the *right* convention. One AltusMetrum flight is
+  correct and nine are not, purely by which code path claimed the file.
+  **And the regression net cannot catch it:** `lib/parsers/corpus.test.ts:83` guards only
+  `liftoffTWR >= 1`, which a T/W − 1 reading satisfies for any rocket above 2:1.
+
+- **The liftoff threshold is convention-blind in exactly the way TWR was** (fixed this run for TWR
+  only). `lib/analyze/index.ts:~820` detects liftoff as `acceleration[i] > 2 * G0` — an absolute
+  threshold on a channel whose zero point differs by a full g between loggers. On a specific-force
+  channel that means 2 g of net thrust; on a gravity-removed one it means **3 g**. Demonstrated on
+  a synthetic: the same motion under the two conventions detects liftoff at different samples and
+  moved the reported TWR by **0.93** before the fix isolated it. Same cure — threshold on the
+  reading's rise above its own resting value.
+- **Nothing carries an accelerometer's CONVENTION, and that is the architectural hole under the TWR
+  bug.** `lib/flight/types.ts:32` — a `Channel` has kind/label/unit/values and no provenance or
+  convention flag; `lib/flight/build.ts:129` applies only `u.toCanonical(v)`, a pure linear scale
+  (only temperature has an offset). So the analyzer cannot know whether an accel channel is
+  specific force or gravity-removed. `lib/flight/reported.ts:117` already models this exact
+  distinction as `isGravityConvention` — but for the DEVICE-SUMMARY cross-check, on the wrong side
+  of the pipeline. This run sidestepped it by differencing against the flight's own pad, which needs
+  no flag; the flag is still the better long-term answer, and would recover the **3 AltusMetrum
+  flights now withheld** because their records start too late to contain a resting stretch.
+- **AltusMetrum's own specific-force channel is in the file and never mapped.**
+  `lib/parsers/altusmetrum.ts:88,153` map only `acceleration` (gravity removed); the same rows carry
+  `accel_x` reading 9.78–9.86 m/s² at rest — the real specific force. Mapping the body axes would
+  give a true resultant AND fix the withheld flights. Two entry points, same omission.
+- **Every deployment boundary in the corpus is parsed and thrown away, so the drogue-leg definition
+  cannot currently be fixed.** `lib/flight/types.ts:8` has no deployment/event `ChannelKind` and
+  `ROLE_TO_KIND` (`lib/flight/build.ts:118`) is closed, so these are all dropped at parse time:
+  Blue Raven `Apo_fired`/`Main_fired`/`Apo_Volts`/`Main_Volts` (`lib/parsers/blueraven.ts:125`);
+  AltusMetrum `state_name`, which is *required to detect the format* then never mapped
+  (`lib/parsers/altusmetrum.ts:25` vs `:81`) — **9 corpus files carry the drogue/main boundary as
+  literal text**; RRC3's `Events` column, used only to filter rows then dropped
+  (`lib/parsers/missileworksRrc3.ts:97`); PerfectFlite's `Drogue At:`/`Main At:` preamble lines
+  (`lib/parsers/perfectflite.ts:34` matches only `^Apogee:`). This is why the 31% apogee-vs-deploy
+  gap is a multi-pass job: a new kind + role + per-parser mappings must land before the analysis can
+  move the boundary at all.
+- **Prefer the deploy VOLTS edge over the fired latch on Blue Raven.** On
+  `blueraven__trf-f1machbuster-jan18` the `Apo_Volts` continuity drop is at **t=27.32 s** while the
+  `Apo_fired` latch lags **1.5 s** to 28.82 s — and the device's own summary states "Time to Apo
+  channel fire, 27.3 sec", matching the volts. Unverified by me; from a reading pass.
+- **`deviceSummary.ts:75` has no key for a stated drogue or main descent rate**, so the corpus's
+  only device-stated drogue figure (Blue Raven jan18 summary, lines 29/31: drogue −55.9, main −29.0
+  ft/s) is discarded — the exact ground truth the drogue-boundary question needs.
+
 - **RANK 1 NEXT: `liftoffTWR` may be a full 1.0 low on every AltusMetrum flight, against a rule the
   code itself cites.** `lib/analyze/index.ts:1556` computes `liftoffTWR = mean(acceleration)/G0`,
   which is thrust-to-weight only if `acceleration` is *specific force* (a sensor at rest reads

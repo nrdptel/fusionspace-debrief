@@ -62,14 +62,16 @@ describe('real files — Altus Metrum TeleMetrum', () => {
     const { r, a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
     const md = summaryMarkdown(r.flight, a, 'imperial');
     expect(a.metrics.avgBoostAcceleration).not.toBeNull();
-    expect(a.metrics.liftoffTWR).not.toBeNull();
     expect(a.metrics.coastEfficiency).not.toBeNull();
-    for (const label of ['Avg acceleration', 'Thrust-to-weight', 'Coast efficiency']) {
+    for (const label of ['Avg acceleration', 'Coast efficiency']) {
       expect(md, `${label} belongs in the report`).toContain(`| ${label} |`);
     }
+    // Thrust-to-weight is not among them for THIS file, and that is the correct reading of
+    // it: the telemetry stream opens with the state machine already in `boost`, so there is
+    // no resting sample to measure the accelerometer's convention against. The same
+    // guarantee is pinned below on a file that does have a pad.
     // …with the context the tile carries, not a bare number.
     expect(md).toMatch(/\| Avg acceleration \| [^|]*over the boost/);
-    expect(md).toMatch(/\| Thrust-to-weight \| [\d.]+:1 off the pad/);
     expect(md).toMatch(/\| Coast efficiency \| \d+%/);
   });
 
@@ -289,5 +291,34 @@ describe('real files — the generic mapper reads the launch date the named pars
 
   it('a file that states no date still gets none through the mapper', () => {
     expect(throughMapper('perfectflite-stratologger.csv')).toBeUndefined();
+  });
+});
+
+describe('thrust-to-weight is read against the rocket’s own resting value', () => {
+  // Loggers disagree about what an accelerometer channel means. A true specific-force
+  // channel reads +1 g on the pad; AltusMetrum's `acceleration` has that 1 g already
+  // removed and rests at ~0. Dividing the second by g yields T/W − 1 — a full point low
+  // on the figure quoted against the 5:1 rail-departure rule. Differencing against the
+  // flight's own resting reading cancels the convention instead of tabulating it.
+
+  it('reads a specific-force logger, and puts it in the report', () => {
+    const { r, a } = apogeeFt(read('altimetercloud-mercury.csv'), 'altimetercloud.csv');
+    expect(a.metrics.liftoffTWR).not.toBeNull();
+    // A vehicle that left the pad lifted more than it weighed. The old form could not
+    // state this as a check, because a gravity-removed channel legitimately produced
+    // values below 1 — which was the bug, wearing the appearance of a valid reading.
+    expect(a.metrics.liftoffTWR!).toBeGreaterThan(1);
+    const md = summaryMarkdown(r.flight, a, 'imperial');
+    expect(md, 'Thrust-to-weight belongs in the report').toMatch(/\| Thrust-to-weight \| [\d.]+:1 off the pad/);
+  });
+
+  it('withholds it, with a reason, where the record has no resting stretch', () => {
+    // This telemetry stream opens with the state machine already in `boost`, so nothing
+    // in the file says what the channel reads at rest and the convention is unknowable.
+    // A number a full point out is worse than no number on a figure quoted against a
+    // safety rule — but a tile that is simply absent explains nothing, so it says why.
+    const { a } = apogeeFt(read('altusmetrum-telemetrum.csv'), 'TeleMetrum.csv');
+    expect(a.metrics.liftoffTWR).toBeNull();
+    expect(a.warnings.join(' ')).toContain('resting value');
   });
 });
