@@ -165,7 +165,7 @@ const DESCENT_ONSET_S = 3;
  *  tails off rather than stopping dead, and on specific force the two instants are distinct:
  *  the velocity peak is where the axial trace passes +1 g (dv/dt = a − g), while thrust =
  *  drag — the end of thrust — is where it passes 0, necessarily a little later. Measured
- *  across the corpus's nine signed-axial flights, that gap is 0.05–0.40 s; a full second
+ *  across the corpus's fourteen signed-axial flights, that gap is 0.05–0.40 s; a full second
  *  covers it with margin. It stays far short of the apogee ejection charge the search bound
  *  exists to exclude: on every flight the window matters to, the crossing lands 8.1–34.5 s
  *  before apogee. */
@@ -1214,10 +1214,11 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // acceleration as specific force, so dv/dt = a − g: the velocity peak is by definition
     // where the axial trace passes +1 g, while thrust = drag (a = 0) — the end of thrust
     // being searched for — is only reached a little later, as the motor tails off. Ending at
-    // the peak stopped one instant short of the event: six of the corpus's nine signed-axial
-    // flights cross zero 0.05–0.40 s past it (stargazer1 0.05, kairos 0.07, irec2023
-    // 0.08/0.09, sg1.2 0.11, sg1.1 0.40) and every one fell through to the velocity-peak
-    // proxy, reporting max velocity a second time under the burnout label.
+    // the peak stopped one instant short of the event: seven of the corpus's fourteen
+    // signed-axial flights cross zero 0.05–0.40 s past it (stargazer1 0.05, kairos booster
+    // 0.07, irec2023 0.08/0.09, sg1.2 0.11, kairos sustainer 0.22, sg1.1 0.40) and every one
+    // fell through to the velocity-peak proxy, reporting max velocity a second time under
+    // the burnout label.
     //
     // One second of tail covers that with margin and stays far clear of the charge: on every
     // flight the window matters to, the crossing lands 8.1–34.5 s before apogee. Measured in

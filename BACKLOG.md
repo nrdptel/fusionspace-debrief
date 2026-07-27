@@ -6,6 +6,24 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The thrust-tail fix moved a SEVENTH flight that its own commit did not measure or name, and
+  the corpus is FOURTEEN signed-axial flights, not nine.** Found by a review pass after the merge,
+  then reproduced. `altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv`
+  crosses zero 0.22 s past its speed peak and moved with the rest: `burnoutSource` derived →
+  **measured**, `burnTime` 4.62 → **4.84 s**, `burnoutAltitude` 1007 → **1087 m (+7.9%)**,
+  `burnoutVelocity` 366.25 → 363.06, `avgBoostAcceleration` 81.03 → 77.27, `coastTime` 22.99 →
+  22.77, `coastEfficiency` 0.4442 → 0.4401, `dragLossAltitude` 3801.19 → 3762.66. The reading is
+  sound — the axial trace runs 20.99 → 5.93 → −5.63 across those samples, and +80 m in 0.22 s at
+  ~364 m/s is self-consistent — and the design constant is untouched, 0.22 s sitting inside the
+  quoted 0.05–0.40 s and its 22.77 s to apogee inside the quoted 8.1–34.5 s. Counts corrected in
+  `lib/analyze/index.ts`, `app/methods/page.tsx` and `lib/parsers/corpus.test.ts`.
+  **The cause is a sweep bug worth not repeating.** Filtering `expected.json` on
+  `expect.kind === 'flight'` **without merging `corpus-overrides.json`** drops exactly five files:
+  the Kairos sustainer (the stale `expected.json` still calls it `mapping`; the committed override
+  says `flight`) and the four generic-CSV mapper-path flights. 14 − 5 = 9, which is why every sweep
+  agreed with itself and all of them were wrong. `corpusReads()` in `corpus.test.ts` merges the
+  overrides; any ad-hoc sweep must too.
+
 - **A doubled baro speed reads Mach 2.64 on a flight that went Mach 1.3 — caveated, but the tile
   still shows the number.** `generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv` reads
   **895.4 m/s, Mach 2.64**. Ground truth is **1470.76 ft/s = 448.3 m/s, Mach 1.3**, agreed by the
