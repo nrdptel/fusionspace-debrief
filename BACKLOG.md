@@ -32,6 +32,17 @@ memory, so a later pass doesn't have to rediscover them.
   `Accel_Z` rests at **0.0** on the pad (gravity-removed) while a real Blue Raven's axial `Accel_X`
   rests at **−0.99 g** (specific force). One hard-coded convention flag is wrong for one of them, and
   it would encode Eggtimer's convention into the Blue Raven parser for the sake of a single file.
+- **NOT A DEFECT, checked and closed — the burnout tile and the altitude chart legitimately
+  disagree on two Blue Raven flights.** Measured: jan10 burnout tile 482.5 m against a plotted
+  −93.5 m at the same index (opposite signs, 576 m apart); jan18 tile 171.9 m against a plotted
+  774.8 m (603 m apart). Both are transonic flights where `altAt()` substitutes the logger's own
+  inertial solution because the barometric trace contradicts itself through the shock. The
+  substitution is right — a boosting rocket is not 93 m underground — and it is disclosed:
+  `lib/analyze/index.ts:1929` warns in as many words that "the altitude chart still shows the
+  barometric trace as recorded, and you can plot the inertial one against it in the explorer."
+  Only 2 of 46 corpus flights diverge at all. Do not "fix" the chart to match the tile; the baro
+  curve is a real recording and plotting a substituted value as though it were measured would be
+  the actual defect.
 - **Liftoff moved one sample on two flights when the accel channel went onto specific force, and
   `liftoffTWR` moved with it — measured, understood, and the NEW figure is the right one.** Recorded
   so a later pass does not "fix" it back. The gate is `acceleration[i] > 2 * G0`, an absolute test on
