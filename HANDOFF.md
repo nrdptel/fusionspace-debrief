@@ -5,8 +5,9 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 ## This run — burnout is read where it actually is, and every surface says how
 
 Branch restarted from `origin/main` at `563c54b`; production was serving exactly that SHA at session
-start, so there was no gap to close. Four increments shipped, all merged to `main` and all live:
-`d7b1bf8`, `5c552c0`, `8e1c846` (production `/version.json` confirmed at `8e1c846`).
+start, so there was no gap to close. **Six increments shipped, every one merged to `main` and live** —
+`d7b1bf8`, `5c552c0`, `8e1c846`, `5f44822`, `442947e`, `cf1678b`. Production `/version.json` confirmed
+at `cf1678b` = `origin/main`, so nothing is pending and nothing is stranded on a branch.
 
 ### 1. The burnout crossing was searched for on the wrong side of the speed peak — `d7b1bf8`
 
@@ -54,14 +55,55 @@ target, not the box. Measuring it caught the logbook's compare tick at **20×20 
 altitude. The grid said "derived" the whole time. The card sub is now fitted to its column too: the
 longest string measures **246 px against 250 px**, so it fit by four pixels.
 
+### 5. The comparison can say when the main fired, and the gate now checks the tests — `442947e`
+
+Two bays on one airframe agree on apogee and still fire seconds apart; the comparison could show the
+agreement but not the disagreement, because deploy time lived only on each flight's own timeline.
+`mainDeployTime` carries it, measured from liftoff like `burnTime`, and a **Main deploy at** row sits
+beside the main descent rate it precedes. Driven live: `92.8 s | 120.6 s | 26%`. No drogue equivalent
+on purpose — Debrief does not detect drogue deployment, and a null column would read as "no drogue"
+rather than "not measured".
+
+Adding the field exposed why the last three additions went unnoticed: **`next build` only type-checks
+what the app imports**, so the test files were never checked and their `FlightMetrics` fixtures had
+drifted **four fields** behind the real type. `tsc --noEmit` now runs as a `prebuild` (~3 s), so the
+gate is still three commands and a drifted fixture fails it.
+
+### 6. The card honours the reading chooser — `cf1678b`
+
+`flightCardStats` took no `hidden` argument at all, so a reading turned off everywhere else still
+went out on the shareable image. The trap was the label: the card prints "Max accel" while the
+chooser stores the grid's "Max acceleration", so filtering on the drawn label would have missed
+exactly the reading most worth suppressing while appearing to work. A `CardStat` now carries
+`reading` beside `label`, and a test holds every card stat's `reading` against the grid's labels.
+
+### A correction to increment 1, found after it merged — `442947e`
+
+A review pass caught that the commit's own measurement was short. The corpus holds **fourteen**
+signed-axial flights, not nine, and **seven** moved, not six — a count that had reached four
+committed places including the public methods page. The un-enumerated seventh is the Kairos
+sustainer: `burnTime` 4.62 → 4.84 s, `burnoutAltitude` 1007 → 1087 m (+7.9%), plus the coast figures.
+The reading is sound and `BURNOUT_TAIL_S` is untouched, but shipping a movement without measuring it
+is the mistake the *previous* run's handoff names, repeated. Cause: a sweep that filtered
+`expected.json` without merging `corpus-overrides.json`, which drops exactly five files.
+
 ### Done-check
 
 - **Corpus sweep: 46 fixtures analysed, 0 findings.** Every reported headline recomputed against the
   range its own series can produce — apogee, max velocity, max/min acceleration, burnout altitude and
   velocity, and burn time against time-to-apogee.
-- **Cold walk** of the built export of `8e1c846`: the report's burnout readings all read `measured`;
-  the comparison journey (tick → *Compare 2 flights* → table) drives end to end and shows the
-  `(speed peak)` tag on the mixed set only. Production `/version.json` = `8e1c846` = `origin/main`.
+- **Cold walk** of the built export: the report's burnout readings all read `measured`; the
+  comparison journey (tick → *Compare 2 flights* → table) drives end to end and shows the
+  `(speed peak)` tag on the mixed set only; the card renders with provenance on both figures.
+  Production `/version.json` = `cf1678b` = `origin/main`, checked after the last merge.
+- **Benchmarked the comparison surface** against AltosUI, the Featherweight interface program,
+  PerfectFlite DataCap, Eggtimer (which ships no plotter and points owners at Excel), OpenRocket and
+  RockSim. Debrief is ahead on cross-vendor comparison, automatic liftoff alignment, provenance
+  honesty and report-grade export of the comparison itself. **The sharpest gap is per-flight event
+  markers on the overlay** — AltosUI graphs "events recorded by the flight computer" and OpenRocket
+  calls flight events out on its plots, while `buildComparison()` throws every detected event away
+  except the liftoff used for t=0. Increment 5 answered the most actionable slice of that as a table
+  row; the overlay markers are still open and are the next move on this surface.
 - **BACKLOG corrected** where this run invalidated it — see the two "checked and closed" entries.
 
 ## Environment notes
@@ -120,13 +162,15 @@ longest string measures **246 px against 250 px**, so it fit by four pixels.
    BACKLOG so they are not walked again (the file is parsed as a Blue Raven, not column-mapped; and
    mapping its `Accel_Z` is unsafe because its convention differs from a real Blue Raven's — the
    Proton rests at 0.0 g, a real Blue Raven's axial axis at −0.99 g).
-2. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
+2. **Per-flight event markers on the comparison overlay** — the benchmark's sharpest gap, and small.
+   `buildComparison()` already has every detected event and keeps only `liftoffDetected`; drawing
+   burnout/apogee/main per flight in that flight's colour would let a flyer SEE one bay firing later
+   than another instead of reading it off a row. Watch the density: 6 flights x 4 events is a lot of
+   markers, so it likely wants the events the set actually disagrees about.
+3. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
    `apogeeIdx`, so **4 of 14** signed-axial flights search the whole climb — the exact case the bound
    exists to prevent. Latent: all four still find the real motor (burnout 0.77–0.92 s against apogees
    at 9.2–11.7 s). Unchanged by this run's fix.
-3. **The card ignores the reading chooser.** `flightCardStats` takes no `hidden` argument and
-   `FlightCard.tsx` passes none, so hiding every row in the chooser still leaves all four stats on
-   the card. A control that silently does not apply.
 4. **A dead all-zero accelerometer column reads as a live +1 g trace** on a `gravityRemoved` parser,
    and reports `maxAcceleration` 0 → 9.81 as *measured*. Latent — 0 of 46 corpus flights trip it —
    but the guard lives on one surface out of six and tests the normalised array rather than the raw
