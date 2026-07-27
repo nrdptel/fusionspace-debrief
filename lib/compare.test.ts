@@ -235,6 +235,42 @@ describe('buildComparison', () => {
     expect(cmp.flights[1].liftoffDetected).toBe(false);
   });
 
+  it('carries each flight’s events onto the shared clock, so the overlay can line them up', () => {
+    // The point of the comparison: two bays that agree on apogee can still fire main seconds
+    // apart, and until the events reached the overlay only the table could say so. Each flight
+    // starts its clock somewhere different, so an event is carried as seconds after ITS OWN
+    // liftoff — the same zero every flight is aligned to.
+    const withEvents = (id: string, t0: number, mainAt: number): CompareInput => ({
+      ...input(id, t0, 100),
+      analysis: {
+        ...analysis(t0, 100),
+        events: [
+          { type: 'liftoff', label: 'Liftoff', time: t0, index: 2, altitude: 50, provenance: 'measured' },
+          { type: 'apogee', label: 'Apogee', time: t0 + 1, index: 3, altitude: 100, provenance: 'derived' },
+          { type: 'main', label: 'Main deploy', time: t0 + mainAt, index: 4, altitude: 50, provenance: 'derived' },
+        ],
+      },
+    });
+    // Same flight profile, pad clocks 3 s apart, mains 0.4 s apart.
+    const cmp = buildComparison([withEvents('a', 2, 1.6), withEvents('b', 5, 2.0)]);
+
+    // Liftoff is NOT carried per flight — every flight is aligned there, so a per-flight marker
+    // would be a stack of lines on x=0 saying nothing.
+    for (const f of cmp.flights) {
+      expect(f.events.some((e) => e.type === 'liftoff')).toBe(false);
+    }
+
+    // The differing pad clocks are gone; what survives is the real 0.4 s difference.
+    const mainOf = (i: number) => cmp.flights[i].events.find((e) => e.type === 'main')!.t;
+    expect(mainOf(0)).toBeCloseTo(1.6, 6);
+    expect(mainOf(1)).toBeCloseTo(2.0, 6);
+    expect(mainOf(1) - mainOf(0)).toBeCloseTo(0.4, 6);
+
+    // And an event both flights share lands on the same instant, so agreement reads as agreement.
+    const apogeeOf = (i: number) => cmp.flights[i].events.find((e) => e.type === 'apogee')!.t;
+    expect(apogeeOf(0)).toBeCloseTo(apogeeOf(1), 6);
+  });
+
   it('resamples altitude, velocity and acceleration onto the shared grid', () => {
     const cmp = buildComparison([input('a', 2, 100), input('b', 5, 200)]);
     for (const f of cmp.flights) {

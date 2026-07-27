@@ -157,8 +157,16 @@ export default function Chart({
       ctx.save();
       ctx.lineWidth = 1;
       ctx.font = '10px var(--font-geist-mono, monospace)';
-      let prevCx = -Infinity;
-      let stagger = 0;
+      // Where each label row is free again — the x its last label ended at. A label goes on the
+      // lowest row whose text has run out before this marker, which is the only rule that
+      // actually guarantees no overlap.
+      //
+      // The previous rule dropped a line whenever a marker came within a fixed 64 px of the one
+      // before it and wrapped back to the top every third label. Both halves fail once a plot
+      // carries more than a couple of markers: 64 px is a guess about text it never measured, and
+      // the wrap put the fourth crowded label straight back on top of the first. A comparison
+      // overlay draws every flight's events, so on two flights a burnout landed on a burnout.
+      const rowFreeFrom: number[] = [];
       for (const m of markers) {
         const cx = Math.round(u.valToPos(m.x, 'x', true));
         if (cx < u.bbox.left || cx > u.bbox.left + u.bbox.width) continue;
@@ -170,10 +178,12 @@ export default function Chart({
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = m.color;
-        // Drop the label a line when it would crowd the previous one.
-        stagger = cx - prevCx < 64 ? (stagger + 1) % 3 : 0;
-        ctx.fillText(m.label, cx + 3, u.bbox.top + 11 + stagger * 12);
-        prevCx = cx;
+        const textX = cx + 3;
+        const end = textX + ctx.measureText(m.label).width + 6; // 6 px of air before the next
+        let row = rowFreeFrom.findIndex((freeFrom) => textX >= freeFrom);
+        if (row < 0) row = rowFreeFrom.length;
+        rowFreeFrom[row] = end;
+        ctx.fillText(m.label, textX, u.bbox.top + 11 + row * 12);
       }
       ctx.restore();
     };

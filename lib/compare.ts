@@ -5,7 +5,7 @@
 // the resampling is what makes the overlay possible at all.
 
 import { formatFlownDay, type FlownAt } from './flight/flownAt';
-import type { FlightAnalysis, FlightMetrics } from './analyze/types';
+import type { EventType, FlightAnalysis, FlightMetrics } from './analyze/types';
 
 // Distinct, colour-blind-friendly-ish strokes; one per flight, in order. Caps the
 // number of flights a comparison shows (more than this gets visually unreadable).
@@ -44,6 +44,16 @@ export interface CompareFlight {
   /** Whether a real liftoff was detected. When false the flight is aligned at its
    *  first sample instead of a true t=0, so the overlay says so. */
   liftoffDetected: boolean;
+  /** This flight's own detected events, on the SHARED time base — seconds after its liftoff,
+   *  the same zero every other flight is aligned to — so the overlay can draw them against
+   *  each other. That is the question a comparison is for and the one the table cannot answer
+   *  as directly: two bays agreeing on apogee and firing main a second and a half apart is a
+   *  thing you see, not a row you read.
+   *
+   *  Liftoff is deliberately absent. Every flight is aligned AT its liftoff, so a per-flight
+   *  liftoff marker is a stack of lines on x=0 saying nothing; the overlay draws one shared
+   *  liftoff marker there instead. */
+  events: { type: EventType; label: string; t: number }[];
   metrics: FlightMetrics;
 }
 
@@ -160,6 +170,10 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       mach: resample(rels[idx], mach, grid),
       dynamicPressure: resample(rels[idx], q, grid),
       liftoffDetected: it.analysis.events.some((e) => e.type === 'liftoff'),
+      // Rebased onto the shared zero, the same subtraction the series went through above.
+      events: it.analysis.events
+        .filter((e) => e.type !== 'liftoff' && Number.isFinite(e.time))
+        .map((e) => ({ type: e.type, label: e.label, t: e.time - liftoffTime(it.analysis) })),
       metrics,
     };
   });
