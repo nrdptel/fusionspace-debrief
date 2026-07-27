@@ -85,11 +85,13 @@ timing-sensitive tests under CPU contention (see below) and needs a quiet re-run
 
 ## Pick up first, and why
 
-1. **The doubled speed — RANK 1, a wrong number a flyer acts on.**
-   `genericcsv__trf-lemiv-l3__Proton-FW_format.csv` reports **Mach 2.64** on a flight whose ground
-   truth is **Mach 1.3** (+99.7%, essentially exactly double), and nothing withholds it. Its sibling
-   recording of the same flight reads Mach 1.55. Both agree on apogee to the metre, so the altitude
-   is sound and the speed is not. Full detail and the ground-truth chain in BACKLOG, top entry.
+1. **Use the second recording Debrief already holds.** `Proton-FW_format.csv` reports **Mach 2.64**
+   on a flight whose ground truth is **Mach 1.3**; its sibling recording of the same flight reads
+   Mach 1.55, and both agree on apogee to the metre. The transonic warning already fires and names
+   this reading, so it is caveated rather than silently wrong — but the tile still shows Mach 2.64
+   while a cross-check sitting in the same logbook says otherwise. Two dead ends are recorded in
+   BACKLOG so they are not walked again (the file is parsed as a Blue Raven, not column-mapped; and
+   mapping its `Accel_Z` is unsafe because its convention differs from a real Blue Raven's).
 2. **Finish shipping increment 2** — committed, needs a quiet full e2e then push.
 3. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
    `apogeeIdx`, so 4 of 14 signed-axial flights search the whole climb. Latent (all four still find

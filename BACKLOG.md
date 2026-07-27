@@ -6,18 +6,32 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
-- **RANK 1 NEXT — a doubled speed ships as Mach 2.64 on a flight that went Mach 1.3, unwithheld.**
-  `generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv` reads **895.4 m/s, Mach 2.64**. Ground
-  truth for that flight is **1470.76 ft/s = 448.3 m/s, Mach 1.3**, agreed by the Blue Raven device
-  summary, the post-flight report, an L3 certification PDF, a Featherweight GPS and the Eggtimer
-  sensors — about as strong as the corpus gets. The error is **+99.7%, essentially exactly double**,
-  which is the signature of a derivative taken over half the true interval. Its sibling recording of
-  the same flight, `Quantum-FW_format.csv`, reads 525.5 m/s (Mach 1.55), +17%. **Both agree on apogee
-  to the metre (3576 m) and with ground truth**, so the altitude traces are sound and the fault is in
-  the speed. `series.velocityImplausible` is **false** on both, so nothing is withheld and the
-  supersonic claim is presented plainly — the one number on the page a flyer acts on for cert
-  paperwork and waiver. Both are generic CSVs through the column mapper (`kind: 'mapping'`), so a
-  sweep using bare `importFlight` analyses neither and reports all-clear; use `loadForCompare`.
+- **A doubled baro speed reads Mach 2.64 on a flight that went Mach 1.3 — caveated, but the tile
+  still shows the number.** `generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv` reads
+  **895.4 m/s, Mach 2.64**. Ground truth is **1470.76 ft/s = 448.3 m/s, Mach 1.3**, agreed by the
+  Blue Raven device summary, the post-flight report, an L3 certification PDF, a Featherweight GPS and
+  the Eggtimer sensors. The sibling recording of the same flight, `Quantum-FW_format.csv`, reads
+  525.5 m/s (Mach 1.55). **Both agree on apogee to the metre (3576 m)**, so the altitude is sound and
+  only the speed is not.
+  **Already handled, in part — do not re-file this as unflagged.** `lib/analyze/index.ts:1877` warns
+  at Mach ≥ 0.9 on a baro speed and *names this very reading* ("Mach 2.64 against a measured 1.22"),
+  saying it can neither confirm supersonic nor bound the real speed. So the invariant's "name the
+  direction and size" is met. What is still open is whether a caveated **Mach 2.64 tile** is the
+  right presentation when a second recording of the same flight is in the logbook saying 1.55 —
+  a cross-check Debrief holds and does not use here.
+  **Mechanism, measured:** the Proton baro trace stalls and catches up through the Mach-1 crossing —
+  raw ft AGL t=1.80:620, 1.85:635, 1.90:655, then **1.95:899 (+244 ft in one 0.05 s sample)**,
+  2.00:1100. It holds ~500 ft/s while the sibling already shows 1600–2000 ft/s, then repays the whole
+  deficit in two samples. Debrief's smoothing has only ~0.2 s of support and cannot span it. Not a
+  time-base fault: 634 rows, dt exactly 0.050 s, zero duplicate or non-monotonic timestamps.
+  **Two dead ends, recorded so they are not walked again.** (1) These files are NOT column-mapped —
+  `importFlight` returns `kind:'flight'`, `format:'blueraven'`, because the reformatting gave Eggtimer
+  data Featherweight column names and `findAppHeader` (`lib/parsers/blueraven.ts:34-50`) needs only
+  `flight_time` + one marker, and `velocity_up` is a marker. (2) Mapping the file's `Accel_Z` column
+  in `blueraven.ts` to re-arm the `velocityBeyondAccel` guard **is not a safe fix**: the Proton's
+  `Accel_Z` rests at **0.0** on the pad (gravity-removed) while a real Blue Raven's axial `Accel_X`
+  rests at **−0.99 g** (specific force). One hard-coded convention flag is wrong for one of them, and
+  it would encode Eggtimer's convention into the Blue Raven parser for the sake of a single file.
 - **Two recordings of one flight disagree about whether it went supersonic.** `iss-endurance-20211030`:
   the TeleMetrum reads 315.1 m/s (Mach 0.93), its StratoLogger on the same flight reads 410.8 m/s
   (Mach 1.19) — 23.3% apart, straddling Mach 1. Apogee agrees to 0.5% (2841 vs 2828 m). The corpus
