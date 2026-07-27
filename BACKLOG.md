@@ -6,6 +6,25 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The 1 g convention fix landed at the channel; the goldens could not arbitrate it.**
+  `maxAccel` asserts sit at 83.6 ±6% (Kairos) and 62.3 ±6% (Stargazer1); the corrected readings are
+  84.59 and 63.25, so **both pass either way** — the tolerance is wider than the whole defect. Those
+  values were almost certainly copied from the device's own tool, which shows the gravity-removed
+  figure, so they encode the OLD convention. Worth regenerating them against the specific-force
+  reading and tightening the tolerance, or the net stays blind to a repeat.
+- **`burnTime` moved on the AltusMetrum family and nothing independent pins it.** sg1.1 went
+  2.60 → **2.69 s** because a gravity-removed trace crosses zero where dv/dt = 0 (the velocity peak)
+  while a specific-force one crosses slightly later, at the end of thrust. The corpus regression's
+  2.6 was itself produced by the code, not sourced — no motor designation or certified burn time is
+  recorded in `manifest.csv` for it. **Ground truth wanted:** the motor's published burn time for
+  these flights would settle it and would make a real golden value.
+- **Several AltusMetrum flights now fall back to the velocity peak for burnout** (`burnoutAtVelocityPeak`
+  flips to true on endurance, sg1.1 and intrepid1). That is not new behaviour, it is the behaviour
+  every specific-force logger already had: on a correct trace the axial reading is still positive at
+  the velocity peak (it equals g there), so the "falls through zero" search finds nothing inside its
+  search bound and the labelled fallback takes over. Worth asking whether the burnout rule should
+  search past the velocity peak on a specific-force trace rather than always landing on the fallback.
+
 - **RANK 1 NEXT — the 1 g convention error is FIXED ONLY FOR TWR; four more readings still carry it.**
   This run corrected `liftoffTWR` by differencing against the pad. The root cause is the channel, so
   every other consumer of the same AltusMetrum trace is still a full g low, measured:

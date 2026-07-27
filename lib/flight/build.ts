@@ -13,6 +13,8 @@ export interface ColumnMapping {
   role: ColumnRole;
   /** Source unit label; if null the values are assumed already canonical. */
   unit: string | null;
+  /** For an acceleration column the logger writes net of gravity (see `Channel`). */
+  gravityRemoved?: boolean;
 }
 
 const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore' | DateRole>, ChannelKind> = {
@@ -135,6 +137,7 @@ export function buildFlight(opts: BuildOptions): RawFlight {
       // through the unit converter (tilt has no KIND_QUANTITY, so it's kept as-is).
       unit: kind === 'voltage' ? 'V' : kind === 'latitude' || kind === 'longitude' || kind === 'tilt' ? '°' : expected ? CANONICAL[expected] : '',
       values,
+      ...(m.gravityRemoved ? { gravityRemoved: true } : {}),
     };
   });
 

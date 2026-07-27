@@ -37,6 +37,12 @@ export interface Channel {
   unit: string;
   /** Values aligned 1:1 with the flight's `time` array. NaN marks a gap. */
   values: Float64Array;
+  /** Set on an acceleration channel whose logger already removed gravity, so it reads 0
+   *  sitting on the pad instead of the +1 g an accelerometer actually senses. Debrief
+   *  reports SPECIFIC FORCE everywhere — the g the airframe felt — so the analyzer adds
+   *  that g back. Only a parser can know this: it is a property of the file format, not
+   *  something the numbers reveal on a record that opens after the motor lit. */
+  gravityRemoved?: boolean;
 }
 
 /** A headline figure the logger computed and wrote into the file itself — its own

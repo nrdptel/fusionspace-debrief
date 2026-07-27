@@ -2,37 +2,41 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — two increments, one of them a wrong number on a safety reading
+## This run — closed the 1 g accelerometer-convention defect at the channel
 
-The session's branch restarted from `origin/main` at `488db50` (the previous run's PR was squashed
-in, so the branch's old commits were already-merged history).
+Branch restarted from `origin/main` at `7b2f446` (the previous PR was squashed in).
 
-| What | How it was verified |
-|---|---|
-| **Say which commit the deployed site is running.** `npm run build` stamps `public/version.json` (GITHUB_SHA in CI, `git rev-parse` locally, plus a `dirty` flag); generated, never committed. | Nothing in the served output identified the build, and the obvious workaround does not work — an identical tree builds to *different* chunk hashes in CI than locally, so comparing file names compares build environments, not commits. Both caches deliberately bypass it (`no-store` header + an explicit service-worker rule) because a stale marker answers confidently and wrongly. 2 e2e checks, both falsified. |
-| **Read thrust-to-weight against the rocket's own resting value.** | `liftoffTWR` was `mean(accel)/g`, which is T/W only if the channel is SPECIFIC FORCE (+1 g at rest). AltusMetrum's `acceleration` has gravity already removed and rests at ~0, so it yielded exactly **T/W − 1** — a full point low on the figure the code quotes against the **5:1 rail-departure rule**. Measured: 8 AltusMetrum flights rest at −0.79…+1.34 m/s²; 6 AltimeterCloud flights rest at 9.60…10.05. The same AltusMetrum row proves it — `acceleration` reads −0.98 while its own `accel_x` reads 9.78. **After: AltimeterCloud unchanged (≤0.03 drift), AltusMetrum corrected — Stargazer1 3.27→4.29, Kairos 3.89→4.98, intrepid2 25.10→26.10.** Three flights cross the 5:1 line. |
+The last run corrected `liftoffTWR` alone by differencing against the pad. The root cause was the
+CHANNEL, so the peak g, the boost average, the drag Cd and the accel-ceiling integral were all still
+a full g out. This closes it in one place.
 
-**Why differencing rather than a per-logger table.** Write the channel as `specific force − O` for an
-unknown offset O (0 for specific force, g for gravity-removed). At rest `a_pad = g − O`; under
-vertical boost `a_boost = T/m − O`. The offset cancels: `(a_boost − a_pad)/g + 1 = T/W`, exactly,
-for either convention, with no threshold to tune and no format knowledge in the analyzer. Pinned by
-a synthetic that runs the same motion under both conventions and requires the same answer — it
-fails against the old form by **1.0000000000000018**.
+**How.** Debrief reports SPECIFIC FORCE everywhere — an accelerometer at rest reads +1 g. AltOS
+writes `acceleration` net of gravity, resting at ~0. A `Channel` now carries `gravityRemoved`, the
+AltusMetrum parser sets it on both its entry points, and the analyzer adds the g back straight after
+the sign flip (order matters: adding first would give −(a+g) on an aft-mounted sensor).
 
-**SCOPE, STATED PLAINLY — this fixed one consumer of a channel-level bug, not the bug.** The same
-1 g error still sits in **`avgBoostAcceleration`** (Stargazer1 3.24 g vs 4.24 true, **+31%** — a
-larger relative error than TWR), **`maxAcceleration`** (Kairos 83.6 vs 84.6), **the drag Cd**
-(`lib/drag.ts:108`; 1.799 → 0.968, ×1.86 on sg1.2 — the number a flyer takes to a sim), and the
-accel-ceiling integral, which removes gravity **twice** on this family. So a report now shows a
-resting-differenced TWR beside a max acceleration that is still a point low: internally inconsistent,
-and that is the top item to close. It was left for its own pass on purpose — the one-change fix
-normalises the channel and moves `maxAcceleration` on nine flights, which needs its own corpus diff,
-and there were 30 minutes left. BACKLOG carries the measurements.
+**Why a parser flag and not a measurement.** Two self-calibrating designs were built and rejected
+first. Reading the resting value from the altitude's pad window is wrong — on one flight that window
+spans 81 samples averaging **27 m/s²**, i.e. the boost, because a rocket is well into its climb
+before the barometer has moved the 6 m that ends the baseline. Scanning for the quietest half-second
+in the accel itself is sound but reaches only **1 of 10** of these flights: most AltusMetrum records
+open at or after ignition and hold no resting stretch at all. Only the importer can know the
+convention, which is where the architecture puts format knowledge anyway.
 
-**The cost, stated plainly:** 3 AltusMetrum flights whose records start after liftoff have no
-resting stretch, so the convention is unknowable and TWR is now **withheld with a stated reason**
-rather than published a point out. They previously printed a wrong number. BACKLOG carries the two
-routes that would recover them (a channel-side convention flag, or mapping AltusMetrum's `accel_x`).
+**Effect, measured over the corpus.** All 10 AltusMetrum flights move by exactly +1.00 g on the peak
+and the boost average (62.25→63.25 g, 3.24→4.24 g). The 6 AltimeterCloud flights are **untouched** —
+the strongest evidence the rule is right, since they were already on the convention. `burnTime`
+shifts slightly (sg1.1 2.60→2.69 s) because a gravity-removed trace crosses zero at the velocity
+peak while a specific-force one crosses just after, at the end of thrust.
+
+**What this cost, stated plainly.** One corpus regression's expected `burnTime` had to be
+re-centred, 2.6 → 2.69. That value was produced by the code rather than sourced — no motor burn time
+is recorded for the flight — so it could not arbitrate. The tolerance was NOT loosened and the
+guarantee the case exists for (that the reading is the motor, not the 12.99 s apogee charge) is
+untouched. BACKLOG asks for the motor's published burn time as real ground truth.
+
+**And the goldens are blind to this class of bug:** the two `maxAccel` asserts pass at ±6% both
+before and after a full 1 g correction. Recorded.
 
 ## Environment notes
 
@@ -66,32 +70,29 @@ routes that would recover them (a channel-side convention flag, or mapping Altus
 
 ## Pick up first, and why
 
-1. **Finish the 1 g convention fix at the channel** — `avgBoostAcceleration`, `maxAcceleration`,
-   the drag Cd and the accel ceiling are all still a full g out on AltusMetrum. One normalisation
-   closes all four and makes TWR's local differencing redundant. Measurements in BACKLOG.
-2. **The liftoff threshold has the same convention blindness TWR just had** —
-   `acceleration[i] > 2 * G0` is absolute, so it means 2 g of net thrust on one logger and 3 g on
-   another. Same cure (threshold on the rise above the resting value). Measured to move a reported
-   TWR by 0.93 on a synthetic.
-3. **Give a `Channel` a convention flag** (`lib/flight/types.ts:32`), set by each parser. It is the
-   architectural hole under this run's bug — `build.ts:129` applies only a linear unit scale, so the
-   analyzer cannot know what an accel channel means. It would also recover the 3 flights now
-   withheld. `lib/flight/reported.ts:117` already models the distinction on the wrong side.
-4. **Map AltusMetrum's `accel_x/y/z`** — its true specific-force body axes are in the same file and
-   dropped at parse time. Gives a genuine resultant and fixes the withheld flights.
-5. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file). Now
-   known to be multi-pass: every deployment boundary in the corpus is parsed and thrown away because
-   `ChannelKind` has no event kind and `ROLE_TO_KIND` is closed. BACKLOG lists all five sources,
-   including 9 AltusMetrum files that carry it as literal `state_name` text.
+1. **Regenerate the two `maxAccel` goldens against the specific-force reading and tighten them.**
+   At ±6% they pass before and after a whole 1 g correction, so the corpus net cannot catch this
+   class of defect at all. 84.59 g (Kairos) and 63.25 g (Stargazer1) are the current readings.
+2. **Get the motor's published burn time for the AltusMetrum flights.** `burnTime` moved 2.60→2.69 s
+   on sg1.1 for a principled reason, but nothing independent pins it — the old value came from the
+   code itself. A certified burn time would make a real golden value.
+3. **The liftoff threshold is still convention-blind** — `acceleration[i] > 2 * G0` is absolute. It
+   now sees a normalised trace on the AltusMetrum family, so its meaning changed there too; check
+   whether liftoff moved on any flight and whether the threshold should be relative to the resting
+   value.
+4. **Should burnout search past the velocity peak?** On a correct specific-force trace the axial
+   reading equals g at the velocity peak and only falls through zero after it, outside the current
+   search bound — so the accelerometer crossing never fires and the labelled fallback always takes
+   over. That is now true for every family, consistently, but it may be leaving a real reading on
+   the table.
+5. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file).
+   Multi-pass: `ChannelKind` has no event kind and `ROLE_TO_KIND` is closed, so every deployment
+   boundary in the corpus is parsed and thrown away. BACKLOG lists all five sources.
 6. **Pin the four-altimeter descent chord** (0.12% agreement across 4 recordings of one flight) as
    the first descent golden value — `expected.json` still asserts no descent rate anywhere.
-7. **CSV export: column selection, a field separator, a comments block.** The corpus holds
-   semicolon-delimited European exports Debrief reads correctly and cannot write, so a
-   comma-decimal-locale flyer opens our CSV in Excel and gets one column. The read side already
-   sniffs the delimiter (`lib/csv.ts:11`); the write side hard-codes `,` in three places
-   (`lib/csv.ts:175`, `lib/explore.ts:65`, `lib/report.ts:600`).
-8. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
-   behind a 32 px fade, so `Save bundle` is undiscoverable. Needs a sheet, which the app lacks.
+7. **CSV export: column selection, a field separator, a comments block.** The read side sniffs the
+   delimiter (`lib/csv.ts:11`); the write side hard-codes `,` in three places (`lib/csv.ts:175`,
+   `lib/explore.ts:65`, `lib/report.ts:600`), so a comma-decimal-locale flyer gets one column.
+8. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport.
 
-BACKLOG.md carries the rest, newest first — including several reading-only findings marked
-unreproduced.
+BACKLOG.md carries the rest, newest first.

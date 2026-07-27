@@ -79,13 +79,19 @@ function parseTelemetry(input: ParseInput, rows: string[][]): RawFlight {
   }
 
   const mappings: ColumnMapping[] = [];
-  const add = (index: number, role: ColumnMapping['role'], unit: string | null) => {
-    if (index >= 0) mappings.push({ index, role, unit });
+  const add = (index: number, role: ColumnMapping['role'], unit: string | null, gravityRemoved?: boolean) => {
+    if (index >= 0) mappings.push({ index, role, unit, ...(gravityRemoved ? { gravityRemoved } : {}) });
   };
   add(tickIdx, 'time', 's');
   add(col('height'), 'altitude', 'm');
   add(col('speed'), 'velocity', 'm/s');
-  add(col('acceleration'), 'accelAxial', 'm/s²');
+  // AltOS writes `acceleration` net of gravity: it reads ~0 sitting on the pad, where an
+  // accelerometer's own specific force is +1 g. The same rows prove it — one file reads
+  // -0.98 here while its `accel_x` body axis reads 9.78 on the same sample. Debrief reports
+  // specific force throughout, so flag it and let the analyzer add that g back; read as-is
+  // it makes every acceleration reading off this family a full g low, including the
+  // thrust-to-weight quoted against the 5:1 rail rule.
+  add(col('acceleration'), 'accelAxial', 'm/s²', true);
   add(col('v_batt'), 'voltage', 'v');
 
   return buildFlight({
@@ -145,12 +151,13 @@ export const altusMetrumParser: Parser = {
       return -1;
     };
     const mappings: ColumnMapping[] = [];
-    const add = (index: number, role: ColumnMapping['role'], unit: string | null) => {
-      if (index >= 0) mappings.push({ index, role, unit });
+    const add = (index: number, role: ColumnMapping['role'], unit: string | null, gravityRemoved?: boolean) => {
+      if (index >= 0) mappings.push({ index, role, unit, ...(gravityRemoved ? { gravityRemoved } : {}) });
     };
     add(col('time'), 'time', 's');
     add(col('height'), 'altitude', 'm');
-    add(col('acceleration'), 'accelAxial', 'm/s²');
+    // Net of gravity here too — see the note on the telemetry branch above.
+    add(col('acceleration'), 'accelAxial', 'm/s²', true);
     add(col('accel_speed', 'speed', 'baro_speed'), 'velocity', 'm/s');
     add(col('temperature'), 'temperature', 'c');
     add(col('battery_voltage'), 'voltage', 'v');
