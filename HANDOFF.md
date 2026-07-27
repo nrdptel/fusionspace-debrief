@@ -2,108 +2,108 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — closed the 1 g accelerometer-convention defect at the channel
+## This run — burnout is read where it actually is, and every reading taken there says so
 
-Branch restarted from `origin/main` at `7b2f446` (the previous PR was squashed in).
+Branch restarted from `origin/main` at `563c54b` (production was serving exactly that SHA at session
+start — no gap).
 
-The last run corrected `liftoffTWR` alone by differencing against the pad. The root cause was the
-CHANNEL, so the peak g, the boost average, the drag Cd and the accel-ceiling integral were all still
-a full g out. This closes it in one place.
+### 1. The burnout crossing was searched for on the wrong side of the speed peak — shipped
 
-**How.** Debrief reports SPECIFIC FORCE everywhere — an accelerometer at rest reads +1 g. AltOS
-writes `acceleration` net of gravity, resting at ~0. A `Channel` now carries `gravityRemoved`, the
-AltusMetrum parser sets it on both its entry points, and the analyzer adds the g back straight after
-the sign flip (order matters: adding first would give −(a+g) on an aft-mounted sensor).
+The last run's BACKLOG called this RANK 1 and prescribed changing the threshold to `<= G0`. **That
+prescription was wrong and would have regressed an honesty guarantee.** The diagnosis was right: the
+crossing could not fire. But on specific force `dv/dt = a − g`, so `a <= G0` **is** the velocity peak,
+identically — adopting it relabels the velocity-peak proxy as `measured`. Measured proof: on the two
+cleanest traces (irec2023 easymega/telemega) `<= G0` fires at t=6.03 s, *the peak sample itself*.
 
-**Why a parser flag and not a measurement.** Two self-calibrating designs were built and rejected
-first. Reading the resting value from the altitude's pad window is wrong — on one flight that window
-spans 81 samples averaging **27 m/s²**, i.e. the boost, because a rocket is well into its climb
-before the barometer has moved the 6 m that ends the baseline. Scanning for the quietest half-second
-in the accel itself is sound but reaches only **1 of 10** of these flights: most AltusMetrum records
-open at or after ignition and hold no resting stretch at all. Only the importer can know the
-convention, which is where the architecture puts format knowledge anyway.
+The real defect was the **search bound**. Thrust = drag (`a = 0`) necessarily comes *after* the +1 g
+crossing, so ending the search at the peak stopped one instant short of the event. Fixed by allowing
+a one-second thrust tail past the peak, **bounded in time, not samples** — a lossy telemetry capture
+drops seconds between rows, and as a sample count it reached a crossing five minutes downrange on the
+Kairos sustainer.
 
-**Effect, measured over the corpus.** All 10 AltusMetrum flights move by exactly +1.00 g on the peak
-and the boost average (62.25→63.25 g, 3.24→4.24 g). The 6 AltimeterCloud flights are **untouched** —
-the strongest evidence the rule is right, since they were already on the convention. `burnTime`
-shifts slightly (sg1.1 2.60→2.69 s) because a gravity-removed trace crosses zero at the velocity
-peak while a specific-force one crosses just after, at the end of thrust.
+Measured gap across the nine signed-axial flights: **0.05–0.40 s** (stargazer1 0.05, kairos 0.07,
+irec2023 0.08/0.09, sg1.2 0.11, sg1.1 0.40). `burnoutSource: 'measured'` went **2 of 9 → 8 of 9**;
+`burnoutAtVelocityPeak` went true → false on all six recovered, so burnout velocity is no longer max
+velocity printed twice. `burnTime` re-centred: irec2023 5.80→5.88 (**its second logger on the same
+flight independently reads 5.88**), kairos 5.06→5.13, sg1.1 2.69→3.09, stargazer1 3.72→3.78.
+Tolerances unchanged.
 
-**What this cost, stated plainly.** One corpus regression's expected `burnTime` had to be
-re-centred, 2.6 → 2.69. That value was produced by the code rather than sourced — no motor burn time
-is recorded for the flight — so it could not arbitrate. The tolerance was NOT loosened and the
-guarantee the case exists for (that the reading is the motor, not the 12.99 s apogee charge) is
-untouched. BACKLOG asks for the motor's published burn time as real ground truth.
+A new corpus invariant holds burnout to a crossing computed independently from `analysis.series`, so
+re-narrowing the bound fails the suite. **Falsified**: reverting the bound fails it with
+`the axial trace crosses zero at t=6.11s but burnout was not read from it`.
 
-**Found after the merge, by a review pass that landed late — read this first.** The change moved
-`peakAccel` (deployment shock) on every AltusMetrum flight and I did not measure it before shipping.
-It is an ABSOLUTE magnitude, so it shifts by ±1 g with the sign of the window's dominant sample, and
-on one flight a different sample is selected outright: endurance apogee **1.47 → 0.58 g (−61%)**,
-its main **0.67 → 1.36 g (+103%)**. The new figures are on the right convention, but they are
-unmeasured in the shipped commit and belong on the validation page. A second, latent defect came
-with it: a dead all-zero accel column now reads as a live +1 g trace, because the chart's liveness
-guard tests `v !== 0` on the normalised series. Both are in BACKLOG with numbers.
+The methods page asserted the exact physics error this fixes ("net acceleration is zero at the peak
+and negative after it", "the trace crosses zero exactly where the speed peaks"). Corrected.
 
-**And the goldens are blind to this class of bug:** the two `maxAccel` asserts pass at ±6% both
-before and after a full 1 g correction. Recorded.
+### 2. Every reading taken at burnout now states how burnout was located — part-way through
+
+`burnoutSource` existed, was exported to JSON, and appeared on **no human surface**: burn time and
+burnout altitude shipped bare on the grid, the report and every text export, so the only reader who
+could tell a measured burn time from an inferred one was a machine. Increment 1 made the label
+meaningful (2 → 8 measured), which made the gap worth closing.
+
+`burnoutSub`/`burnoutVelocitySub` in `lib/readings.ts`, used by the grid and imported by
+`lib/report.ts` for the report rows and every text export. The comparison table tags `(speed peak)`
+**only when the compared set mixes the two**, matching its existing `baroTag` pattern — a burn time
+read off an accelerometer and one taken at the speed peak are different instants, and lining them up
+in a column without saying so reads as like-for-like. The identity note ("the same instant as max
+velocity") stays on the burnout SPEED alone, where the number literally duplicates another on the
+page; repeating it down three consecutive rows bought nothing.
+
+**Status: shipped.** Full gate green on a quiet box — 51 files / 653 tests, build exit 0, 172 e2e
+passed. The e2e run before it failed two timing-sensitive tests under CPU contention; they passed in
+isolation and passed again once the fan-out was stopped (see below).
 
 ## Environment notes
 
-- **Git identity defaults to the harness's, not the project's.** It came up wrong again this run and
-  had to be set before the first commit. Check `git config user.name` / `user.email` every time.
+- **Git identity defaults to the harness's, not the project's.** Wrong again this run (`Claude
+  <noreply@anthropic.com>`); set before the first commit. Check every time.
+- **The harness appends an attribution footer to a PR body.** It did on PR #10 and was stripped, per
+  the ZERO ASSISTANT TRACE invariant. Read every PR body back after posting.
+- **`/version.json` exists now and answers "which build is live"** — `curl -s
+  https://debrief.fusionspace.co/version.json`. The previous handoff's note that nothing identifies
+  the deployed commit is stale; CONTRIBUTING.md documents it.
 - **`npm run fetch-fixtures` returns 401 here.** The companion repo is at `/home/user/debrief-fixtures`:
-  `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. Confirm `corpus.test.ts` reports
-  **102 tests** — one that skips itself prints much like one that passed.
-- **The image's Chromium is the wrong build and fails silently.** `/opt/pw-browsers/chromium` is
-  1194; Playwright 1.61.1 wants 1228. Run `npx playwright install chromium` (~2 min); do not set
-  `PLAYWRIGHT_CHROMIUM_PATH`. `playwright.config.ts` throws on a mismatch — trust that error.
-- **`pkill -f "npx serve"` kills its own shell**, because the pattern matches the command line
-  running it. The gate exits 144 with no output and looks like a crash. Use `pgrep -af serve` and
-  kill by pid, or just don't — Playwright's `reuseExistingServer` handles it.
+  `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. `corpus.test.ts` reports **103 tests**
+  now (was 102; this run added one).
+- **A bare `importFlight` sweep silently analyses NOTHING for generic-CSV fixtures** — they come back
+  `kind: 'mapping'` and need `buildFlight`. A sweep that skips them prints "0 findings" over the ~23
+  named-parser files while 46 are actually readable. Copy `loadForCompare` out of `corpus.test.ts`.
+  This cost a wrong all-clear this run, twice.
+- **The image's Chromium is the wrong build.** Run `npx playwright install chromium` (~2 min); do not
+  set `PLAYWRIGHT_CHROMIUM_PATH`. `playwright.config.ts` throws on a mismatch — trust that error.
+- **Do not run the gate while a fan-out is live.** 4 cores; a 3-agent workflow puts load average near
+  8 and the e2e suite fails timing-sensitive tests that pass in isolation. See BACKLOG › Hardening.
+- **A `*-tmp.test.ts` probe is picked up by vitest** and inflates the gate's numbers (52 files / 653
+  tests with one present, 51 / 652 without). Delete probes *before* the gate run you intend to quote.
 - **A piped gate hides its exit code** — echo `${PIPESTATUS[0]}`, not `$?`.
-- **A `*-tmp.test.ts` probe is picked up by vitest** and inflates the gate's own numbers (55 files /
-  652 tests with four probes present, 51 / 648 without). Delete probes *before* the gate run you
-  intend to quote.
-- **Nothing identifies which commit production is serving.** No `/version.json`, no build SHA in the
-  HTML or `sw.js`. The done-check asks for the gap between the SHA you shipped and what is live, and
-  it currently cannot be answered except by matching a content-hashed chunk name out of the served
-  HTML against a local build. A tiny build-stamped marker would fix this permanently.
-- **CI does not run on a working branch.** `.github/workflows/test.yml` fires on push to `main` and
-  on `pull_request` only, so the PR is what makes CI run at all. `deploy-cloudflare.yml` fires on
-  push to `main`. **Do not merge before CI reports.**
-- **The runners in this environment stall** — budget for 30+ minute `in_progress` runs and open the
-  PR early. Parse `list_workflow_runs` as JSON; a regex over the raw blob straddles records.
-- **The box has 4 cores**, so a parallel fan-out runs about two agents at a time. Six agents took
-  longer than the 30-minute harvest window; dispatch three or four, not six.
+- **The Bash working directory persists between calls** and a workflow launch can move it. Two
+  commands this run ran against the fixtures repo by accident and reported "no tests found". Use
+  absolute paths or `cd` explicitly.
+- **CI does not run on a working branch.** `test.yml` fires on push to `main` and on `pull_request`
+  only, so the PR is what makes CI run at all. It reported green on PR #10 in ~4 minutes this run.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 
 ## Pick up first, and why
 
-1. **Fix the burnout threshold (`<= G0`, not `<= 0`) and the liveness guard**, the two defects this
-   run introduced or exposed — see BACKLOG. Both are small and both are in shipped code.
-2. **Regenerate the two `maxAccel` goldens against the specific-force reading and tighten them.**
-   At ±6% they pass before and after a whole 1 g correction, so the corpus net cannot catch this
-   class of defect at all. 84.59 g (Kairos) and 63.25 g (Stargazer1) are the current readings.
-3. **Get the motor's published burn time for the AltusMetrum flights.** `burnTime` moved 2.60→2.69 s
-   on sg1.1 for a principled reason, but nothing independent pins it — the old value came from the
-   code itself. A certified burn time would make a real golden value.
-4. **The liftoff threshold is still convention-blind** — `acceleration[i] > 2 * G0` is absolute. It
-   now sees a normalised trace on the AltusMetrum family, so its meaning changed there too; check
-   whether liftoff moved on any flight and whether the threshold should be relative to the resting
-   value.
-5. **Should burnout search past the velocity peak?** On a correct specific-force trace the axial
-   reading equals g at the velocity peak and only falls through zero after it, outside the current
-   search bound — so the accelerometer crossing never fires and the labelled fallback always takes
-   over. That is now true for every family, consistently, but it may be leaving a real reading on
-   the table.
-6. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file).
-   Multi-pass: `ChannelKind` has no event kind and `ROLE_TO_KIND` is closed, so every deployment
-   boundary in the corpus is parsed and thrown away. BACKLOG lists all five sources.
-7. **Pin the four-altimeter descent chord** (0.12% agreement across 4 recordings of one flight) as
-   the first descent golden value — `expected.json` still asserts no descent rate anywhere.
-8. **CSV export: column selection, a field separator, a comments block.** The read side sniffs the
-   delimiter (`lib/csv.ts:11`); the write side hard-codes `,` in three places (`lib/csv.ts:175`,
-   `lib/explore.ts:65`, `lib/report.ts:600`), so a comma-decimal-locale flyer gets one column.
-9. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport.
+1. **Use the second recording Debrief already holds.** `Proton-FW_format.csv` reports **Mach 2.64**
+   on a flight whose ground truth is **Mach 1.3**; its sibling recording of the same flight reads
+   Mach 1.55, and both agree on apogee to the metre. The transonic warning already fires and names
+   this reading, so it is caveated rather than silently wrong — but the tile still shows Mach 2.64
+   while a cross-check sitting in the same logbook says otherwise. Two dead ends are recorded in
+   BACKLOG so they are not walked again (the file is parsed as a Blue Raven, not column-mapped; and
+   mapping its `Accel_Z` is unsafe because its convention differs from a real Blue Raven's).
+2. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
+   `apogeeIdx`, so 4 of 14 signed-axial flights search the whole climb. Latent (all four still find
+   the real motor) but it is the exact case the bound exists to prevent. BACKLOG has the numbers.
+3. **The 44 px touch floor is never tested.** `responsive.spec.ts` runs without `hasTouch`, so the
+   coarse-pointer rule is off and every phone-layout assertion measures desktop-height controls.
+4. **A dead all-zero accelerometer column reads as a live +1 g trace** on a `gravityRemoved` parser,
+   and reports `maxAcceleration` 0 → 9.81 as *measured*. Latent — 0 of 23 corpus flights trip it —
+   but the guard is on one surface out of six and tests the normalised array rather than the raw one.
+5. **`altAt()` and `series.altitude` disagree about the same instant** — burnout altitude 171.9 m
+   against a plotted 774.8 m on one Blue Raven flight, and opposite signs on another. Unverified.
+6. **Regenerate the two `maxAccel` goldens.** At ±6% they pass before and after a whole 1 g
+   correction, so the corpus net cannot catch that class of defect at all.
 
 BACKLOG.md carries the rest, newest first.

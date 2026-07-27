@@ -161,6 +161,16 @@ const ASCENT_NOISE_FRACTION = 0.2;
  *  through zero) had an apogee pulled 28 s early by one brief excursion. */
 const DESCENT_ONSET_S = 3;
 
+/** How far past the velocity peak the burnout zero-crossing may be looked for. The motor
+ *  tails off rather than stopping dead, and on specific force the two instants are distinct:
+ *  the velocity peak is where the axial trace passes +1 g (dv/dt = a − g), while thrust =
+ *  drag — the end of thrust — is where it passes 0, necessarily a little later. Measured
+ *  across the corpus's nine signed-axial flights, that gap is 0.05–0.40 s; a full second
+ *  covers it with margin. It stays far short of the apogee ejection charge the search bound
+ *  exists to exclude: on every flight the window matters to, the crossing lands 8.1–34.5 s
+ *  before apogee. */
+const BURNOUT_TAIL_S = 1;
+
 /** How far past the ceiling its own accelerometer allows a barometric speed must read
  *  before the barometer is judged wrong rather than merely soft. The ceiling —
  *  ∫(a − g)dt from liftoff, taking the measured specific force as if it pointed straight
@@ -1191,25 +1201,34 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // for a genuine signed axial channel — a multi-axis logger's noisy body axis
     // can stay positive past burnout and cross zero only at ejection, so those
     // fall through to the velocity-peak proxy below.
-    // The search ends at the VELOCITY PEAK, not at apogee. Net acceleration is zero at the
-    // peak and negative after it, so a rocket cannot still be under thrust past it — and
-    // searching to apogee let the boost peak be found in the wrong event entirely. On three
-    // corpus flights the largest signed-axial reading between liftoff and apogee is the
-    // apogee ejection charge (187.8, 235.7 and 819.7 m/s²), not the motor; the crossing
-    // "after the boost peak" was then the charge settling, and burnout landed a few tenths
-    // of a second before apogee. That put a 39.85 s burn time, a 1.9 m/s burnout velocity
-    // and an 8,292 m burnout altitude (7 m under the apogee) on a flight whose motor burned
-    // for a few seconds and whose real burnout speed was near its 580.9 m/s peak.
+    // The search is bounded, because the largest signed-axial reading between liftoff and
+    // apogee is not always the motor: on three corpus flights it is the apogee ejection
+    // charge (187.8, 235.7 and 819.7 m/s²), and a search running that far took its "crossing
+    // after the boost peak" from the charge settling. That put a 39.85 s burn time, a 1.9 m/s
+    // burnout velocity and an 8,292 m burnout altitude (7 m under the apogee) on a flight
+    // whose motor burned under six seconds to near its 580.9 m/s peak. The guard below was
+    // meant to catch that but is measured in SAMPLES — two of them is 0.02 s on a 100 Hz
+    // logger — so bounding the search is the fix and the guard stays as a backstop.
     //
-    // The existing guard below was meant to catch exactly this but is measured in SAMPLES:
-    // two of them is 0.02 s on a 100 Hz logger, so a burnout half a second before apogee
-    // passed it. Bounding the search physically is the fix; the guard stays as a backstop.
-    const searchEnd = maxVelIdx > liftoffRef ? maxVelIdx : apogeeIdx;
-    const peak = argMax(signedAccel, liftoffRef, searchEnd + 1);
-    // Inclusive of the endpoint: the axial trace crosses zero AT the velocity peak, so an
-    // exclusive bound missed the very sample the crossing lands on and fell through to the
-    // proxy below on flights where the accelerometer had the answer.
-    for (let i = peak; i <= searchEnd; i++) {
+    // But the bound belongs a short way PAST the velocity peak, not at it. Debrief reads
+    // acceleration as specific force, so dv/dt = a − g: the velocity peak is by definition
+    // where the axial trace passes +1 g, while thrust = drag (a = 0) — the end of thrust
+    // being searched for — is only reached a little later, as the motor tails off. Ending at
+    // the peak stopped one instant short of the event: six of the corpus's nine signed-axial
+    // flights cross zero 0.05–0.40 s past it (stargazer1 0.05, kairos 0.07, irec2023
+    // 0.08/0.09, sg1.2 0.11, sg1.1 0.40) and every one fell through to the velocity-peak
+    // proxy, reporting max velocity a second time under the burnout label.
+    //
+    // One second of tail covers that with margin and stays far clear of the charge: on every
+    // flight the window matters to, the crossing lands 8.1–34.5 s before apogee. Measured in
+    // TIME rather than samples — a lossy radio-telemetry capture drops seconds between rows,
+    // so a sample count off the nominal dt is a different window on every file, and on the
+    // corpus's Kairos sustainer telemetry it reached a crossing five minutes downrange.
+    const velPeakEnd = maxVelIdx > liftoffRef ? maxVelIdx : apogeeIdx;
+    // The boost peak is always before the velocity peak, so look for it there.
+    const peak = argMax(signedAccel, liftoffRef, velPeakEnd + 1);
+    const tailEnd = time[velPeakEnd] + BURNOUT_TAIL_S;
+    for (let i = peak; i <= apogeeIdx && time[i] <= tailEnd; i++) {
       if (signedAccel[i] <= 0) {
         burnoutIdx = i;
         burnoutFromAccel = true;

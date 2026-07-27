@@ -41,6 +41,36 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
   return parts.join(' · ');
 }
 
+/** How burnout was located, in the same voice the peak speed and peak acceleration already
+ *  use. Every reading taken AT that instant — the burn time, the altitude and the speed at
+ *  burnout — inherits it, because all three are only as direct as the instant they were read
+ *  at: 'measured' means a signed axial trace fell through zero at the end of thrust,
+ *  'derived' means no such crossing existed and the speed peak stood in for it.
+ *
+ *  Exported because lib/report.ts needs the identical sentence. The two reading lists are
+ *  deliberately written separately (see the note at the top of this file), but what a
+ *  provenance label MEANS is one fact, and it was previously two copies of one string that
+ *  could drift apart silently. */
+export function burnoutSub(m: FlightMetrics): string | undefined {
+  if (m.burnoutSource == null) return undefined;
+  // Naming the fallback rather than just saying "derived" is the useful half: it tells a
+  // flyer WHICH instant the reading was taken at, which is what makes the burn time and the
+  // burnout altitude inherit it too.
+  return m.burnoutSource === 'derived' ? 'derived from the speed peak' : 'measured';
+}
+
+/** The burnout SPEED additionally carries the identity note, because it is the one burnout
+ *  reading whose number is literally another number already on the page: where burnout is
+ *  the peak sample, this row and the max-velocity row are one measurement printed twice, and
+ *  left bare they read as two instruments agreeing. The other two burnout readings get the
+ *  provenance alone — a duration is not a duplicate of anything, and repeating the full
+ *  sentence down three consecutive rows buys nothing. */
+export function burnoutVelocitySub(m: FlightMetrics): string | undefined {
+  const base = burnoutSub(m);
+  if (base == null) return undefined;
+  return m.burnoutAtVelocityPeak ? `${base} — the same instant as max velocity` : base;
+}
+
 export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   const out: Tile[] = [
     {
@@ -76,19 +106,14 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({ label: 'Avg acceleration', value: fmtAccel(m.avgBoostAcceleration, sys), sub: 'over the boost' });
   if (m.liftoffTWR != null)
     out.push({ label: 'Thrust-to-weight', value: `${m.liftoffTWR.toFixed(1)}:1`, sub: 'off the pad' });
-  if (m.burnTime != null) out.push({ label: 'Burn time', value: fmtTime(m.burnTime) });
+  // All three burnout readings carry the same provenance, because all three are read at the
+  // one instant burnout was located at — a burn time is only as measured as the burnout that
+  // ends it, and a burnout altitude only as measured as the sample it is taken from.
+  if (m.burnTime != null) out.push({ label: 'Burn time', value: fmtTime(m.burnTime), sub: burnoutSub(m) });
   if (m.burnoutAltitude != null)
-    out.push({ label: 'Burnout altitude', value: fmtLength(m.burnoutAltitude, sys) });
+    out.push({ label: 'Burnout altitude', value: fmtLength(m.burnoutAltitude, sys), sub: burnoutSub(m) });
   if (m.burnoutVelocity != null)
-    out.push({
-      label: 'Burnout velocity',
-      value: fmtSpeed(m.burnoutVelocity, sys),
-      // Where the burnout sample IS the max-velocity sample, this reading is the max velocity
-      // under a second label — which reads as two measurements agreeing unless it says
-      // otherwise. That is so by construction on a 'derived' burnout, and happens on a
-      // 'measured' one too, since the axial trace crosses zero exactly where the speed peaks.
-      sub: m.burnoutAtVelocityPeak ? 'at the velocity peak — the same instant as max velocity' : undefined,
-    });
+    out.push({ label: 'Burnout velocity', value: fmtSpeed(m.burnoutVelocity, sys), sub: burnoutVelocitySub(m) });
   if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
   if (m.coastEfficiency != null)
     out.push({

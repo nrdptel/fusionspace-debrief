@@ -6,6 +6,38 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A doubled baro speed reads Mach 2.64 on a flight that went Mach 1.3 — caveated, but the tile
+  still shows the number.** `generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv` reads
+  **895.4 m/s, Mach 2.64**. Ground truth is **1470.76 ft/s = 448.3 m/s, Mach 1.3**, agreed by the
+  Blue Raven device summary, the post-flight report, an L3 certification PDF, a Featherweight GPS and
+  the Eggtimer sensors. The sibling recording of the same flight, `Quantum-FW_format.csv`, reads
+  525.5 m/s (Mach 1.55). **Both agree on apogee to the metre (3576 m)**, so the altitude is sound and
+  only the speed is not.
+  **Already handled, in part — do not re-file this as unflagged.** `lib/analyze/index.ts:1877` warns
+  at Mach ≥ 0.9 on a baro speed and *names this very reading* ("Mach 2.64 against a measured 1.22"),
+  saying it can neither confirm supersonic nor bound the real speed. So the invariant's "name the
+  direction and size" is met. What is still open is whether a caveated **Mach 2.64 tile** is the
+  right presentation when a second recording of the same flight is in the logbook saying 1.55 —
+  a cross-check Debrief holds and does not use here.
+  **Mechanism, measured:** the Proton baro trace stalls and catches up through the Mach-1 crossing —
+  raw ft AGL t=1.80:620, 1.85:635, 1.90:655, then **1.95:899 (+244 ft in one 0.05 s sample)**,
+  2.00:1100. It holds ~500 ft/s while the sibling already shows 1600–2000 ft/s, then repays the whole
+  deficit in two samples. Debrief's smoothing has only ~0.2 s of support and cannot span it. Not a
+  time-base fault: 634 rows, dt exactly 0.050 s, zero duplicate or non-monotonic timestamps.
+  **Two dead ends, recorded so they are not walked again.** (1) These files are NOT column-mapped —
+  `importFlight` returns `kind:'flight'`, `format:'blueraven'`, because the reformatting gave Eggtimer
+  data Featherweight column names and `findAppHeader` (`lib/parsers/blueraven.ts:34-50`) needs only
+  `flight_time` + one marker, and `velocity_up` is a marker. (2) Mapping the file's `Accel_Z` column
+  in `blueraven.ts` to re-arm the `velocityBeyondAccel` guard **is not a safe fix**: the Proton's
+  `Accel_Z` rests at **0.0** on the pad (gravity-removed) while a real Blue Raven's axial `Accel_X`
+  rests at **−0.99 g** (specific force). One hard-coded convention flag is wrong for one of them, and
+  it would encode Eggtimer's convention into the Blue Raven parser for the sake of a single file.
+- **Two recordings of one flight disagree about whether it went supersonic.** `iss-endurance-20211030`:
+  the TeleMetrum reads 315.1 m/s (Mach 0.93), its StratoLogger on the same flight reads 410.8 m/s
+  (Mach 1.19) — 23.3% apart, straddling Mach 1. Apogee agrees to 0.5% (2841 vs 2828 m). The corpus
+  already has a case for "a speed differentiated out of an altitude reads high"; this is the same
+  mechanism landing on the wrong side of a threshold a flyer reads as a yes/no.
+
 - **Deployment shock moved on every AltusMetrum flight and the shipped change did not measure it.**
   Found by a review pass AFTER the merge, then reproduced directly. `peakAccel` is
   `peakAbsInWindow(acceleration, …)` — an ABSOLUTE magnitude — so putting the trace on specific
@@ -36,17 +68,33 @@ memory, so a later pass doesn't have to rediscover them.
   transient. Pre-existing, not caused by the convention change (62.25/24.03 before), but a
   deployment shock that equals the whole flight's peak acceleration is not a deployment shock.
 
-- **RANK 1 NEXT — the burnout zero-crossing is structurally unreachable on a specific-force trace,
-  and normalising the channel exposed it.** `lib/analyze/index.ts` searches for `signedAccel[i] <= 0`
-  but bounds the search at `maxVelIdx`, and the velocity peak is by definition where `dv/dt = 0`,
-  i.e. where the specific force equals **exactly +1 g**. So on a correct trace the test can never
-  fire, and **3 of 10 AltusMetrum flights dropped from `burnoutSource: 'measured'` to `'derived'`**
-  when the channel was put on the right convention. The threshold should be **`<= G0`** — "thrust no
-  longer supports the weight" — which is reachable inside the bound and would also restore measured
-  provenance to the already-specific-force families, which have been silently falling back to the
-  velocity peak all along. Measured consequences of the crossing slipping a sample where it does
-  still fire: endurance `burnTime 2.80 → 2.90 s`, `burnoutAltitude 454 → 488 m`; intrepid1
-  `burnoutAltitude 125 → 103 m (−17.5%)`.
+- **DONE (differently) — the burnout zero-crossing was unreachable, but the proposed `<= G0` fix was
+  wrong and would have regressed the honesty guarantee.** The diagnosis held: the crossing could not
+  fire. The prescription did not. On specific force `dv/dt = a − g`, so `a <= G0` **is** the velocity
+  peak, identically — adopting it would have relabelled the velocity-peak proxy as
+  `burnoutSource: 'measured'`, which is exactly the "one sample, two labels" dishonesty the comment at
+  `lib/analyze/index.ts` already fought once. Measured: on the two flights whose trace is cleanest
+  (irec2023 easymega/telemega) `<= G0` fires at t=6.03 s, *the velocity-peak sample itself*.
+  The real defect was the SEARCH BOUND. Thrust = drag (`a = 0`) necessarily comes *after* the +1 g
+  crossing, so ending the search at the peak stopped one instant short of the event. Measured gap
+  across the nine signed-axial flights: 0.05–0.40 s (stargazer1 0.05, kairos 0.07, irec2023
+  0.08/0.09, sg1.2 0.11, sg1.1 0.40). Fixed by allowing a one-second thrust tail past the peak,
+  bounded in time rather than samples. `measured` went 2 → 8 of 9; `burnoutAtVelocityPeak` went true →
+  false on all six recovered flights, so `burnoutVelocity` is no longer `maxVelocity` under a second
+  label. Corpus `burnTime` re-centred: irec2023 5.80→5.88 (its second logger independently reads 5.88),
+  kairos 5.06→5.13, sg1.1 2.69→3.09, stargazer1 3.72→3.78. Tolerances unchanged.
+
+- **The burnout search runs UNBOUNDED on any flight whose speed was withheld as implausible.**
+  `lib/analyze/index.ts:1180` sets `maxVelIdx = -1` when `velocityImplausible`, and the bound reads
+  that as "no velocity peak" and falls back to `apogeeIdx` — so both the boost-peak search and the
+  crossing search span the whole climb, the exact case the bound exists to prevent. Measured over the
+  corpus (via the mapper path — a bare `importFlight` sweep silently skips these and reports zero):
+  **4 of 14 signed-axial flights**, all generic-CSV — discovery-L1, penguin-L1, swiss-cheese-L1,
+  the-gardener-L1. Latent today, not a wrong number: on all four the first crossing after the boost
+  peak is the real motor (burnout 0.77–0.92 s against apogees at 9.2–11.7 s). It becomes a wrong
+  number the moment such a file carries an ejection charge larger than its motor peak, and the
+  `apogeeIdx - burnoutIdx < 2` backstop is two samples — 0.02 s on a 100 Hz logger. Unchanged by the
+  thrust-tail fix (when `velPeakEnd == apogeeIdx` the old and new loop ranges are identical).
 - **The drag Cd halved on the AltusMetrum family, and that is the correction landing.**
   `lib/drag.ts:108` takes `dragPerMass = -a`, which is drag only when `a` is specific force; on the
   old gravity-removed trace it was `D/m + g`, overstating drag by a full gravity. Measured after
@@ -1336,6 +1384,23 @@ memory, so a later pass doesn't have to rediscover them.
   action, say) and move them into one.
 
 ## Hardening
+
+- **The 44 px touch floor is never exercised by any test that measures a phone layout.**
+  `playwright.config.ts:66-71` defines exactly one project, `devices['Desktop Chrome']`, which is
+  `hasTouch: false` — so `@media (pointer: coarse)` (`app/globals.css:40`, the rule that sets
+  `min-height: 44px` on every button, select, `a[download]` and `[role=button]`) is **off**.
+  `e2e/touch.spec.ts:11` opts in with `test.use({ hasTouch: true })`, but `e2e/responsive.spec.ts:12`
+  — the suite that checks the 360 px phone layout fits — does not. So every "fits the viewport"
+  assertion measures controls at their desktop height, i.e. a layout no phone ever gets, and a
+  regression that breaks the touch floor passes green. Adding `hasTouch: true` to responsive.spec.ts
+  is the one-line version; a second Playwright project is the thorough one.
+- **The e2e suite flakes under CPU contention and its failures read like real regressions.** On this
+  4-core box, running the suite while a 3-agent fan-out was live (load average ~8) failed
+  `e2e/analyze.spec.ts:575 "the wait says what it is reading"` and
+  `e2e/touch.spec.ts:35 "a two-finger pinch zooms the chart"`; both pass in isolation and both passed
+  172/172 twice on an idle box. Both are timing-sensitive (a loading-state assertion and a gesture).
+  Do not run the gate concurrently with a fan-out, and do not read a failure under load as a finding
+  without re-running it quiet.
 
 - **The offline docs test went red on CI again, and this time the cause is closed with a test
   that fails without the fix.** Same shape as the four before it: `/methods/` came up offline

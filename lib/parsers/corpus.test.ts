@@ -396,6 +396,12 @@ interface CorpusRead {
   /** Peak ½ρv² over climbing samples at or before apogee — what a reported max-Q is held to. */
   bestClimbQ: number;
   hasBurnoutEvent: boolean;
+  /** Time (s) at which a genuine signed-axial trace falls through zero — thrust = drag, the
+   *  end of thrust — searched from the boost peak to one second past the speed peak, exactly
+   *  the window the analyzer allows. NaN when the flight has no signed axial channel or the
+   *  trace never crosses. Derived here, in the shared pass, so an invariant can hold the
+   *  analyzer's burnout to it without keeping every flight's series alive in the cache. */
+  axialZeroCrossingT: number;
 }
 
 let corpusReadCache: CorpusRead[] | null = null;
@@ -423,7 +429,14 @@ function corpusReads(): CorpusRead[] {
   }
   const out: CorpusRead[] = [];
   for (const fx of byFile.values()) {
-    const base: CorpusRead = { file: fx.file, reach: 'parse-only', metrics: null, bestClimbQ: 0, hasBurnoutEvent: false };
+    const base: CorpusRead = {
+      file: fx.file,
+      reach: 'parse-only',
+      metrics: null,
+      bestClimbQ: 0,
+      hasBurnoutEvent: false,
+      axialZeroCrossingT: NaN,
+    };
     if (fx.expect.kind === 'reject') {
       out.push({ ...base, reach: 'rejected' });
       continue;
@@ -452,6 +465,38 @@ function corpusReads(): CorpusRead[] {
       const q = 0.5 * rho * v * v;
       if (q > bestClimbQ) bestClimbQ = q;
     }
+    // Where the signed axial trace falls through zero — computed from the series alone, so
+    // the invariant below tests the analyzer's answer rather than restating how it got there.
+    let axialZeroCrossingT = NaN;
+    if (series.accelerationSource === 'device' && !series.accelerationResultant) {
+      const { axialAccel: axial, velocity: vel, time: t } = series;
+      const apogeeIdx = events.find((e) => e.type === 'apogee')?.index ?? axial.length - 1;
+      let velIdx = -1;
+      let best = -Infinity;
+      for (let i = 0; i <= apogeeIdx && i < vel.length; i++) {
+        if (Number.isFinite(vel[i]) && vel[i] > best) {
+          best = vel[i];
+          velIdx = i;
+        }
+      }
+      if (velIdx >= 0) {
+        let boostPeak = 0;
+        let bp = -Infinity;
+        for (let i = 0; i <= velIdx; i++) {
+          if (Number.isFinite(axial[i]) && axial[i] > bp) {
+            bp = axial[i];
+            boostPeak = i;
+          }
+        }
+        for (let i = boostPeak; i <= apogeeIdx && i < axial.length; i++) {
+          if (t[i] - t[velIdx] > 1) break; // the same one-second thrust tail the analyzer allows
+          if (axial[i] <= 0) {
+            axialZeroCrossingT = t[i];
+            break;
+          }
+        }
+      }
+    }
     out.push({
       file: fx.file,
       // A knownIssue file still analyses; it is just not asserted by `runFixture`. For the
@@ -460,6 +505,7 @@ function corpusReads(): CorpusRead[] {
       metrics,
       bestClimbQ,
       hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
+      axialZeroCrossingT,
     });
   }
   corpusReadCache = out;
@@ -905,36 +951,49 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
     return;
   }
   // file → the real burn, and the "burn" the search-to-apogee rule reported instead.
+  //
+  // Each `burnS` below moved once more when the crossing search was allowed to run a short
+  // way past the velocity peak. That is not a re-centring for its own sake: on specific
+  // force dv/dt = a − g, so the velocity peak is exactly where the trace passes +1 g, while
+  // thrust = drag — the end of thrust these cases assert — is where it passes 0, necessarily
+  // later. Bounding the search AT the peak therefore stopped it one instant short of the
+  // event it defines, and these four flights were reporting the velocity-peak proxy instead
+  // (burnoutVelocity equal to maxVelocity to the last decimal, flagged burnoutAtVelocityPeak).
+  // They now read a distinct, measured sample. Tolerances are unchanged, and the guarantee
+  // these cases exist for — the reading is the motor, not the 11–40 s apogee charge — keeps
+  // an order of magnitude of margin.
   const WAS_THE_CHARGE: { file: string; burnS: number; wasBurnS: number; boVel: number; wasBoVel: number }[] = [
     {
       file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv',
-      burnS: 5.8,
+      // 5.80 (the velocity peak) → 5.88. Its TeleMega, an independent logger on the same
+      // flight, independently reads 5.88 — the strongest cross-check the corpus offers.
+      burnS: 5.88,
       wasBurnS: 39.85,
       boVel: 581,
       wasBoVel: 2,
     },
     {
       file: 'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv',
-      burnS: 5.06,
+      burnS: 5.13, // 5.06 was the velocity peak
       wasBurnS: 22.34,
       boVel: 332,
       wasBoVel: 10,
     },
     {
       file: 'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.csv',
-      // 2.60 before the accel channel was put on Debrief's specific-force convention.
-      // A gravity-removed trace crosses zero where dv/dt = 0 — the velocity peak — while a
-      // specific-force one crosses it a little later, at the end of thrust proper. The
-      // tolerance is unchanged; only the centre moved, and the guarantee this case exists
-      // for (that the reading is the motor and not the 12.99 s apogee charge) is untouched.
-      burnS: 2.69,
+      // 2.60 → 2.69 when the accel channel went onto Debrief's specific-force convention,
+      // then → 3.09 when the search could reach the crossing at all. This flight has the
+      // longest thrust tail in the corpus: 0.40 s from the velocity peak to thrust = drag,
+      // against 0.05–0.11 s for the rest. No motor is recorded for it, so nothing external
+      // pins the figure — BACKLOG still asks for a published burn time.
+      burnS: 3.09,
       wasBurnS: 12.99,
       boVel: 118,
       wasBoVel: 4,
     },
     {
       file: 'altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__easymega_data.csv',
-      burnS: 3.72,
+      burnS: 3.78, // 3.72 was the velocity peak
       wasBurnS: 11.28,
       boVel: 103,
       wasBoVel: 13,
@@ -969,6 +1028,28 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
       ).toBeLessThan(0.9);
     }
     expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+  });
+
+  it('reads burnout off the accelerometer wherever the trace actually crosses zero', { timeout: 60_000 }, () => {
+    // The search bound, not the threshold, is what makes this reachable. On specific force
+    // the velocity peak IS the +1 g crossing (dv/dt = a − g), so thrust = drag comes after
+    // it; a search that ends at the peak can never find the sample it is looking for, and
+    // six of the corpus's nine signed-axial flights silently fell through to the velocity-
+    // peak proxy for exactly that reason. This holds the two apart: where a genuine crossing
+    // exists inside the window, burnout must be MEASURED from it and must not be the peak
+    // sample. Re-narrowing the bound flips those six back to 'derived' and fails here.
+    let withCrossing = 0;
+    for (const { file, metrics: m, axialZeroCrossingT } of corpusReads()) {
+      if (!m || m.burnTime == null || !Number.isFinite(axialZeroCrossingT)) continue;
+      withCrossing++;
+      expect(
+        m.burnoutSource,
+        `${file}: the axial trace crosses zero at t=${axialZeroCrossingT.toFixed(2)}s but burnout was not read from it`,
+      ).toBe('measured');
+    }
+    // The case exists in the corpus — otherwise this guards nothing. Eight of the nine
+    // signed-axial flights cross; intrepid2's trace never falls through zero at all.
+    expect(withCrossing, 'some corpus flight has a real axial zero-crossing').toBeGreaterThan(4);
   });
 
   it('flags the burnout reading that is literally the max-velocity sample', { timeout: 60_000 }, () => {
