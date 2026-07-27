@@ -50,8 +50,9 @@ in a column without saying so reads as like-for-like. The identity note ("the sa
 velocity") stays on the burnout SPEED alone, where the number literally duplicates another on the
 page; repeating it down three consecutive rows bought nothing.
 
-**Status: committed locally, NOT pushed.** Unit + build green; the e2e run that gated it failed two
-timing-sensitive tests under CPU contention (see below) and needs a quiet re-run before it ships.
+**Status: shipped.** Full gate green on a quiet box — 51 files / 653 tests, build exit 0, 172 e2e
+passed. The e2e run before it failed two timing-sensitive tests under CPU contention; they passed in
+isolation and passed again once the fan-out was stopped (see below).
 
 ## Environment notes
 
@@ -92,18 +93,17 @@ timing-sensitive tests under CPU contention (see below) and needs a quiet re-run
    while a cross-check sitting in the same logbook says otherwise. Two dead ends are recorded in
    BACKLOG so they are not walked again (the file is parsed as a Blue Raven, not column-mapped; and
    mapping its `Accel_Z` is unsafe because its convention differs from a real Blue Raven's).
-2. **Finish shipping increment 2** — committed, needs a quiet full e2e then push.
-3. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
+2. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
    `apogeeIdx`, so 4 of 14 signed-axial flights search the whole climb. Latent (all four still find
    the real motor) but it is the exact case the bound exists to prevent. BACKLOG has the numbers.
-4. **The 44 px touch floor is never tested.** `responsive.spec.ts` runs without `hasTouch`, so the
+3. **The 44 px touch floor is never tested.** `responsive.spec.ts` runs without `hasTouch`, so the
    coarse-pointer rule is off and every phone-layout assertion measures desktop-height controls.
-5. **A dead all-zero accelerometer column reads as a live +1 g trace** on a `gravityRemoved` parser,
+4. **A dead all-zero accelerometer column reads as a live +1 g trace** on a `gravityRemoved` parser,
    and reports `maxAcceleration` 0 → 9.81 as *measured*. Latent — 0 of 23 corpus flights trip it —
    but the guard is on one surface out of six and tests the normalised array rather than the raw one.
-6. **`altAt()` and `series.altitude` disagree about the same instant** — burnout altitude 171.9 m
+5. **`altAt()` and `series.altitude` disagree about the same instant** — burnout altitude 171.9 m
    against a plotted 774.8 m on one Blue Raven flight, and opposite signs on another. Unverified.
-7. **Regenerate the two `maxAccel` goldens.** At ±6% they pass before and after a whole 1 g
+6. **Regenerate the two `maxAccel` goldens.** At ±6% they pass before and after a whole 1 g
    correction, so the corpus net cannot catch that class of defect at all.
 
 BACKLOG.md carries the rest, newest first.
