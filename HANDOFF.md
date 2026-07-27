@@ -19,6 +19,16 @@ for either convention, with no threshold to tune and no format knowledge in the 
 a synthetic that runs the same motion under both conventions and requires the same answer — it
 fails against the old form by **1.0000000000000018**.
 
+**SCOPE, STATED PLAINLY — this fixed one consumer of a channel-level bug, not the bug.** The same
+1 g error still sits in **`avgBoostAcceleration`** (Stargazer1 3.24 g vs 4.24 true, **+31%** — a
+larger relative error than TWR), **`maxAcceleration`** (Kairos 83.6 vs 84.6), **the drag Cd**
+(`lib/drag.ts:108`; 1.799 → 0.968, ×1.86 on sg1.2 — the number a flyer takes to a sim), and the
+accel-ceiling integral, which removes gravity **twice** on this family. So a report now shows a
+resting-differenced TWR beside a max acceleration that is still a point low: internally inconsistent,
+and that is the top item to close. It was left for its own pass on purpose — the one-change fix
+normalises the channel and moves `maxAcceleration` on nine flights, which needs its own corpus diff,
+and there were 30 minutes left. BACKLOG carries the measurements.
+
 **The cost, stated plainly:** 3 AltusMetrum flights whose records start after liftoff have no
 resting stretch, so the convention is unknowable and TWR is now **withheld with a stated reason**
 rather than published a point out. They previously printed a wrong number. BACKLOG carries the two
@@ -56,28 +66,31 @@ routes that would recover them (a channel-side convention flag, or mapping Altus
 
 ## Pick up first, and why
 
-1. **The liftoff threshold has the same convention blindness TWR just had** —
+1. **Finish the 1 g convention fix at the channel** — `avgBoostAcceleration`, `maxAcceleration`,
+   the drag Cd and the accel ceiling are all still a full g out on AltusMetrum. One normalisation
+   closes all four and makes TWR's local differencing redundant. Measurements in BACKLOG.
+2. **The liftoff threshold has the same convention blindness TWR just had** —
    `acceleration[i] > 2 * G0` is absolute, so it means 2 g of net thrust on one logger and 3 g on
    another. Same cure (threshold on the rise above the resting value). Measured to move a reported
    TWR by 0.93 on a synthetic.
-2. **Give a `Channel` a convention flag** (`lib/flight/types.ts:32`), set by each parser. It is the
+3. **Give a `Channel` a convention flag** (`lib/flight/types.ts:32`), set by each parser. It is the
    architectural hole under this run's bug — `build.ts:129` applies only a linear unit scale, so the
    analyzer cannot know what an accel channel means. It would also recover the 3 flights now
    withheld. `lib/flight/reported.ts:117` already models the distinction on the wrong side.
-3. **Map AltusMetrum's `accel_x/y/z`** — its true specific-force body axes are in the same file and
+4. **Map AltusMetrum's `accel_x/y/z`** — its true specific-force body axes are in the same file and
    dropped at parse time. Gives a genuine resultant and fixes the withheld flights.
-4. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file). Now
+5. **The drogue leg still starts at apogee, not at deployment** (a 31% gap on a real file). Now
    known to be multi-pass: every deployment boundary in the corpus is parsed and thrown away because
    `ChannelKind` has no event kind and `ROLE_TO_KIND` is closed. BACKLOG lists all five sources,
    including 9 AltusMetrum files that carry it as literal `state_name` text.
-5. **Pin the four-altimeter descent chord** (0.12% agreement across 4 recordings of one flight) as
+6. **Pin the four-altimeter descent chord** (0.12% agreement across 4 recordings of one flight) as
    the first descent golden value — `expected.json` still asserts no descent rate anywhere.
-6. **CSV export: column selection, a field separator, a comments block.** The corpus holds
+7. **CSV export: column selection, a field separator, a comments block.** The corpus holds
    semicolon-delimited European exports Debrief reads correctly and cannot write, so a
    comma-decimal-locale flyer opens our CSV in Excel and gets one column. The read side already
    sniffs the delimiter (`lib/csv.ts:11`); the write side hard-codes `,` in three places
    (`lib/csv.ts:175`, `lib/explore.ts:65`, `lib/report.ts:600`).
-7. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
+8. **The report's file-export strip on a phone** — 861 px of nine controls in a 380 px viewport
    behind a 32 px fade, so `Save bundle` is undiscoverable. Needs a sheet, which the app lacks.
 
 BACKLOG.md carries the rest, newest first — including several reading-only findings marked

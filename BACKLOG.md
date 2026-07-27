@@ -6,6 +6,35 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **RANK 1 NEXT — the 1 g convention error is FIXED ONLY FOR TWR; four more readings still carry it.**
+  This run corrected `liftoffTWR` by differencing against the pad. The root cause is the channel, so
+  every other consumer of the same AltusMetrum trace is still a full g low, measured:
+  - **`avgBoostAcceleration`** (`lib/analyze/index.ts:~1699`) — Stargazer1 **3.24 g reported vs 4.24
+    true (+31%)**, sg1.2 4.54 vs 5.54 (+22%), sg1.1 4.59 vs 5.59. A *larger relative* error than TWR
+    on low-thrust flights, and it feeds the report and the JSON export.
+  - **`maxAcceleration`** (`~:985`) — Kairos **83.6 vs 84.6**, Endurance 18.8 vs 19.8. Note the
+    corpus golden value `maxAccel 83.6 ±6%` was written FROM the buggy reading, and its tolerance is
+    wide enough to hide the correction either way — it cannot arbitrate.
+  - **The drag Cd** (`lib/drag.ts:108`) — the gravity branch keys off `accelerationSource === 'device'`,
+    which records only that a channel existed, not its convention. On an AltusMetrum coast
+    `a = −(drag/m + g)`, so `−a` overstates drag by g: Cd **1.799 → 0.968 (×1.86)** on sg1.2,
+    **0.637 → 0.369 (×1.73)** on irec telemega. This is the number a flyer takes to a sim.
+  - **The accel-ceiling integral** (`~:1074`) subtracts G0 from the same trace, so on AltusMetrum
+    gravity comes off **twice**; the ceiling then collapses below the coast floor and `:1087-1092`
+    silently discards it — while naming "logged net of gravity" as a possible cause. The pipeline
+    already suspects this and says nothing.
+  **The proper fix is one change, not four:** normalise the channel to specific force once (a
+  parser-set convention flag, or a resting-value normalisation applied to `acceleration`/`signedAccel`
+  where a pad stretch exists), after which TWR's local differencing becomes redundant. Deliberately
+  not attempted in the same pass as the TWR fix — it moves `maxAcceleration` on nine flights and
+  deserves its own corpus diff.
+  **Also note the family contradicts itself:** `altusmetrum__reddit-meraki2-121km__Mega38-1_TeleMega.csv`
+  falls through to the GENERIC mapper, which picks up `accel_x/y/z` rather than the `acceleration`
+  column — so it rests at 1.001 g and is on the *right* convention. One AltusMetrum flight is
+  correct and nine are not, purely by which code path claimed the file.
+  **And the regression net cannot catch it:** `lib/parsers/corpus.test.ts:83` guards only
+  `liftoffTWR >= 1`, which a T/W − 1 reading satisfies for any rocket above 2:1.
+
 - **The liftoff threshold is convention-blind in exactly the way TWR was** (fixed this run for TWR
   only). `lib/analyze/index.ts:~820` detects liftoff as `acceleration[i] > 2 * G0` — an absolute
   threshold on a channel whose zero point differs by a full g between loggers. On a specific-force
