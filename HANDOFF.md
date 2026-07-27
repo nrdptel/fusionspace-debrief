@@ -97,8 +97,13 @@ longest string measures **246 px against 250 px**, so it fit by four pixels.
   inflated the gate. Use absolute paths or `cd` explicitly.
 - **A piped gate hides its exit code** — echo `${PIPESTATUS[0]}`, not `$?`.
 - **CI does not run on a working branch.** `test.yml` fires on push to `main` and on `pull_request`,
-  so the PR is what makes CI run. It reported green in ~4 minutes each time this run — the "runners
-  stall for 30+ minutes" note from the previous handoff did not hold today.
+  so the PR is what makes CI run. All four PRs this run went green in **~1.5 min (frontend) and
+  ~4 min (e2e)**; the previous handoff's "runners stall for 30+ minutes" did not reproduce.
+- **`get_check_runs` reports a job `in_progress` for minutes after it has actually finished.** On the
+  last PR both jobs completed at 13:09:15 and 13:12:07 and the API was still returning `in_progress`
+  at 13:16. Read `completed_at` on the returned records rather than trusting `status` — this cost
+  several minutes of waiting for a run that was already green, and nearly produced a wrong
+  environment note claiming the runners stall.
 - **Playwright's `.click()` can time out on the "Compare N flights" button** while the element is
   present, enabled, in viewport and unobscured (`elementFromPoint` returns the button itself). A
   programmatic `.click()` works and navigates correctly. Likely an actionability/stability check, but
