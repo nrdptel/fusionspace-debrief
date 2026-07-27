@@ -6,6 +6,24 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **RANK 1 NEXT — a doubled speed ships as Mach 2.64 on a flight that went Mach 1.3, unwithheld.**
+  `generic-csv/genericcsv__trf-lemiv-l3__Proton-FW_format.csv` reads **895.4 m/s, Mach 2.64**. Ground
+  truth for that flight is **1470.76 ft/s = 448.3 m/s, Mach 1.3**, agreed by the Blue Raven device
+  summary, the post-flight report, an L3 certification PDF, a Featherweight GPS and the Eggtimer
+  sensors — about as strong as the corpus gets. The error is **+99.7%, essentially exactly double**,
+  which is the signature of a derivative taken over half the true interval. Its sibling recording of
+  the same flight, `Quantum-FW_format.csv`, reads 525.5 m/s (Mach 1.55), +17%. **Both agree on apogee
+  to the metre (3576 m) and with ground truth**, so the altitude traces are sound and the fault is in
+  the speed. `series.velocityImplausible` is **false** on both, so nothing is withheld and the
+  supersonic claim is presented plainly — the one number on the page a flyer acts on for cert
+  paperwork and waiver. Both are generic CSVs through the column mapper (`kind: 'mapping'`), so a
+  sweep using bare `importFlight` analyses neither and reports all-clear; use `loadForCompare`.
+- **Two recordings of one flight disagree about whether it went supersonic.** `iss-endurance-20211030`:
+  the TeleMetrum reads 315.1 m/s (Mach 0.93), its StratoLogger on the same flight reads 410.8 m/s
+  (Mach 1.19) — 23.3% apart, straddling Mach 1. Apogee agrees to 0.5% (2841 vs 2828 m). The corpus
+  already has a case for "a speed differentiated out of an altitude reads high"; this is the same
+  mechanism landing on the wrong side of a threshold a flyer reads as a yes/no.
+
 - **Deployment shock moved on every AltusMetrum flight and the shipped change did not measure it.**
   Found by a review pass AFTER the merge, then reproduced directly. `peakAccel` is
   `peakAbsInWindow(acceleration, …)` — an ABSOLUTE magnitude — so putting the trace on specific
@@ -1352,6 +1370,23 @@ memory, so a later pass doesn't have to rediscover them.
   action, say) and move them into one.
 
 ## Hardening
+
+- **The 44 px touch floor is never exercised by any test that measures a phone layout.**
+  `playwright.config.ts:66-71` defines exactly one project, `devices['Desktop Chrome']`, which is
+  `hasTouch: false` — so `@media (pointer: coarse)` (`app/globals.css:40`, the rule that sets
+  `min-height: 44px` on every button, select, `a[download]` and `[role=button]`) is **off**.
+  `e2e/touch.spec.ts:11` opts in with `test.use({ hasTouch: true })`, but `e2e/responsive.spec.ts:12`
+  — the suite that checks the 360 px phone layout fits — does not. So every "fits the viewport"
+  assertion measures controls at their desktop height, i.e. a layout no phone ever gets, and a
+  regression that breaks the touch floor passes green. Adding `hasTouch: true` to responsive.spec.ts
+  is the one-line version; a second Playwright project is the thorough one.
+- **The e2e suite flakes under CPU contention and its failures read like real regressions.** On this
+  4-core box, running the suite while a 3-agent fan-out was live (load average ~8) failed
+  `e2e/analyze.spec.ts:575 "the wait says what it is reading"` and
+  `e2e/touch.spec.ts:35 "a two-finger pinch zooms the chart"`; both pass in isolation and both passed
+  172/172 twice on an idle box. Both are timing-sensitive (a loading-state assertion and a gesture).
+  Do not run the gate concurrently with a fan-out, and do not read a failure under load as a finding
+  without re-running it quiet.
 
 - **The offline docs test went red on CI again, and this time the cause is closed with a test
   that fails without the fix.** Same shape as the four before it: `/methods/` came up offline

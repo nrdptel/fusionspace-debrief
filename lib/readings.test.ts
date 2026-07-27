@@ -191,16 +191,38 @@ describe('a burnout velocity that is the max velocity', () => {
     expect(tile?.sub).toMatch(/same instant as max velocity/);
 
     // A genuine accelerometer crossing that lands somewhere else is two readings, and says
-    // nothing extra.
+    // only how it was located.
     const measured = metricTiles({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: false, burnoutVelocity: 150, maxVelocity: 156.91 }, 'metric');
-    expect(measured.find((t) => t.label === 'Burnout velocity')?.sub).toBeUndefined();
+    expect(measured.find((t) => t.label === 'Burnout velocity')?.sub).toBe('measured');
 
-    // …but a MEASURED crossing can land on the peak too — the axial trace crosses zero exactly
-    // where the speed peaks, which is where burnout physically is. Two corpus AltusMetrum
-    // flights are this case, and gating the note on `burnoutSource` alone left them printing
-    // 580.86 m/s twice with nothing to say the two rows are one sample.
+    // …but a MEASURED crossing can still land on the peak sample: the axial trace passes +1 g
+    // at the speed peak and zero a little after it, so on a flight whose thrust tail is
+    // shorter than one sample the two coincide. Two corpus AltusMetrum flights are this case,
+    // and gating the note on `burnoutSource` alone left them printing 580.86 m/s twice with
+    // nothing to say the two rows are one sample.
     const measuredAtPeak = metricTiles({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: true, burnoutVelocity: 580.86, maxVelocity: 580.86 }, 'metric');
     expect(measuredAtPeak.find((t) => t.label === 'Burnout velocity')?.sub).toMatch(/same instant as max velocity/);
+  });
+
+  it('labels every reading taken at burnout, not just the speed', () => {
+    // A burn time is only as measured as the burnout that ends it, and a burnout altitude
+    // only as measured as the sample it is read from — so all three carry the provenance,
+    // on the page and in the saved document alike. They shipped bare on every human surface
+    // while `burnoutSource` went out in the JSON export, so the one reader who could tell a
+    // measured burn time from an inferred one was a machine.
+    for (const source of ['measured', 'derived'] as const) {
+      const m = { ...EVERYTHING, burnoutSource: source, burnoutAtVelocityPeak: source === 'derived' };
+      const tiles = metricTiles(m, 'metric');
+      const rows = headlineRows(m, 'metric');
+      for (const label of ['Burn time', 'Burnout altitude', 'Burnout velocity']) {
+        expect(tiles.find((t) => t.label === label)?.sub, `${label} tile states how burnout was located`).toMatch(
+          source === 'measured' ? /measured/ : /derived/,
+        );
+        expect(rows.find(([l]) => l === label)?.[1], `${label} report row states how burnout was located`).toMatch(
+          source === 'measured' ? /measured/ : /derived/,
+        );
+      }
+    }
   });
 
   it('carries the same qualifier into the saved report', () => {

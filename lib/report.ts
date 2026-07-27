@@ -34,6 +34,7 @@ import {
   type Comparison,
   type CompareFlight,
 } from './compare';
+import { burnoutSub, burnoutVelocitySub } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -188,14 +189,16 @@ export function headlineRows(
         : ['Supersonic', `crossed Mach 1${at}, ${fmtTime(m.transonicTime)} after liftoff`],
     );
   }
-  if (m.burnTime != null) rows.push(['Burn time', fmtTime(m.burnTime)]);
-  if (m.burnoutAltitude != null) rows.push(['Burnout altitude', fmtLength(m.burnoutAltitude, sys)]);
-  if (m.burnoutVelocity != null)
-    rows.push([
-      'Burnout velocity',
-      fmtSpeed(m.burnoutVelocity, sys) +
-        (m.burnoutAtVelocityPeak ? ' at the velocity peak — the same instant as max velocity' : ''),
-    ]);
+  // The same provenance the grid shows, from the same helper — all three readings are taken
+  // at the one instant burnout was located at, so none of them is more direct than it.
+  const boSub = burnoutSub(m);
+  const boTail = boSub ? ` — ${boSub}` : '';
+  if (m.burnTime != null) rows.push(['Burn time', fmtTime(m.burnTime) + boTail]);
+  if (m.burnoutAltitude != null) rows.push(['Burnout altitude', fmtLength(m.burnoutAltitude, sys) + boTail]);
+  if (m.burnoutVelocity != null) {
+    const boVelSub = burnoutVelocitySub(m);
+    rows.push(['Burnout velocity', fmtSpeed(m.burnoutVelocity, sys) + (boVelSub ? ` — ${boVelSub}` : '')]);
+  }
   if (m.coastTime != null) rows.push(['Coast to apogee', fmtTime(m.coastTime)]);
   if (m.coastEfficiency != null) {
     const drag = m.dragLossAltitude != null ? ` (drag cost ${fmtLength(m.dragLossAltitude, sys)})` : '';
@@ -658,6 +661,13 @@ export function compareMetricRows(
   const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
   const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
     mixed && source === 'baro' && finite ? ' (baro)' : '';
+  // Same idea for the burnout readings: a burn time or burnout altitude read off an
+  // accelerometer crossing and one taken at the speed peak are two different instants, so
+  // lining them up in a column without saying which is which reads as a like-for-like
+  // comparison. Tagged only when the set actually mixes the two — where every flight was
+  // located the same way, the tag on every cell would be noise.
+  const boMixed = new Set(flights.map((f) => f.metrics.burnoutSource).filter((s) => s != null)).size > 1;
+  const boTag = (m: FlightMetrics) => (boMixed && m.burnoutSource === 'derived' ? ' (speed peak)' : '');
   // A saturated peak is a floor, so a clipped cell is tagged and — since the true
   // maximum is unknown — the row's "highest" crown is withheld: which flight actually
   // pulled the most g can't be settled when one reading railed at its limit.
@@ -685,8 +695,8 @@ export function compareMetricRows(
       rankBlocked: anyClipped,
     },
     { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), value: (m) => m.maxDynamicPressure ?? NaN, rank: true },
-    { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) : '—'), value: (m) => m.burnTime ?? NaN },
-    { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) : '—'), value: (m) => m.burnoutAltitude ?? NaN },
+    { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) + boTag(m) : '—'), value: (m) => m.burnTime ?? NaN },
+    { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) + boTag(m) : '—'), value: (m) => m.burnoutAltitude ?? NaN },
     { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—'), value: (m) => m.drogueDescentRate ?? NaN },
     { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—'), value: (m) => m.mainDescentRate ?? NaN },
     { label: 'Descent rate (whole)', get: (m) => (m.wholeDescentRate != null ? fmtSpeed(m.wholeDescentRate, sys) : '—'), value: (m) => m.wholeDescentRate ?? NaN },
