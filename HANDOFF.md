@@ -2,109 +2,58 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — burnout is read where it actually is, and every surface says how
+## This run — the comparison overlay shows the events, and a lost search bound is back
 
-Branch restarted from `origin/main` at `563c54b`; production was serving exactly that SHA at session
-start, so there was no gap to close. **Six increments shipped, every one merged to `main` and live** —
-`d7b1bf8`, `5c552c0`, `8e1c846`, `5f44822`, `442947e`, `cf1678b`. Production `/version.json` confirmed
-at `cf1678b` = `origin/main`, so nothing is pending and nothing is stranded on a branch.
+Branch restarted from `origin/main` at `cd94d89`; production was serving exactly that SHA at session
+start, so there was no gap. Two increments: `cc22793` merged and live, `3571167` on the branch
+awaiting CI on PR #19.
 
-### 1. The burnout crossing was searched for on the wrong side of the speed peak — `d7b1bf8`
+### 1. Each flight's events, drawn on the comparison overlay — `cc22793`
 
-The last run's BACKLOG called this RANK 1 and prescribed changing the threshold to `<= G0`. **That
-prescription was wrong and would have regressed an honesty guarantee.** The diagnosis held — the
-crossing could not fire — but on specific force `dv/dt = a − g`, so `a <= G0` **is** the velocity
-peak, identically. Adopting it relabels the velocity-peak proxy as `measured`. Measured proof: on the
-two cleanest traces (irec2023 easymega/telemega) `<= G0` fires at t=6.03 s, *the peak sample itself*.
+The sharpest gap in the previous run's benchmark. `buildComparison()` had every detected event and
+kept only `liftoffDetected`; the overlay marked t=0 and nothing else, so *did these two bays do the
+same things at the same moments* could only be read off the table a row at a time.
 
-The real defect was the **search bound**. Thrust = drag (`a = 0`) necessarily comes *after* the +1 g
-crossing, so ending the search at the peak stopped one instant short of the event. Fixed with a
-one-second thrust tail past the peak, **bounded in time, not samples** — a lossy telemetry capture
-drops seconds between rows, and as a sample count it reached a crossing five minutes downrange on the
-Kairos sustainer.
+Each flight now carries its events on the shared clock — rebased onto the same liftoff zero the
+series were aligned to — and the overlay draws them in that flight's colour. Driven live: one
+recording's main at ~93 s against the other's at ~120 s, visible as a gap rather than a subtraction.
+Liftoff is deliberately not carried per flight; every flight is aligned there.
 
-Gap across the **fourteen** signed-axial flights: **0.05–0.40 s**. `burnoutSource: 'measured'` went
-**2 of 14 → 13 of 14** (intrepid2 never crosses); `burnoutAtVelocityPeak` true → false on all **seven** recovered, so burnout velocity is
-no longer max velocity printed twice. The seventh — the Kairos sustainer, gap 0.22 s — was missed by
-the commit's own measurement and is recorded in BACKLOG with the numbers it moved; the sweep bug
-behind the miscount is recorded there too. `burnTime` re-centred: irec2023 5.80→5.88 (**its second logger on
-the same flight independently reads 5.88**), kairos 5.06→5.13, sg1.1 2.69→3.09, stargazer1
-3.72→3.78. Tolerances unchanged. A new corpus invariant holds burnout to a crossing computed
-independently from `analysis.series`; **falsified** — reverting the bound fails it with `the axial
-trace crosses zero at t=6.11s but burnout was not read from it`.
+Which events are called out comes from `debrief.hiddenEvents`, the same stored answer the
+single-flight explorer uses, and the chips that set it are now one `EventChips` component both
+surfaces render rather than thirty lines of markup copied.
 
-### 2. Every reading taken at burnout now says how burnout was located — `d7b1bf8`
+**The label placement had to be fixed first.** The old rule dropped a line whenever a marker came
+within a fixed 64 px of the previous one and wrapped every third label — a guess about text it never
+measured, and a wrap that put the fourth crowded label back on the first. With every flight's events
+drawn, a burnout landed on a burnout. Labels now take the lowest row whose text has actually run out,
+measured with `measureText`. At 390 px the sample comparison uses **four rows** and nothing collides.
+This is shared chart code, so the report and explorer got it too — both re-walked, unchanged.
 
-`burnoutSource` reached exactly one reader: the JSON export. `burnoutSub`/`burnoutVelocitySub` in
-`lib/readings.ts`, imported by `lib/report.ts`. The comparison tags `(speed peak)` **only when the
-compared set mixes the two**, matching its existing `baroTag`. Verified live on the comparison
-surface: `Burn time | 1 s (speed peak) | 1.6 s | 40%`.
+### 2. The burnout search bound survives a withheld speed — `3571167`
 
-### 3. A checkbox's touch target is now measured, and the compare tick has one — `5c552c0`
+The crossing search takes its bound from the velocity peak, and that bound is what keeps the apogee
+ejection charge out of the window. A flight whose speed is judged impossible lost it: the judgement
+nulled `maxVelIdx` along with `maxVelocity`, the search read that as "no peak" and ran the whole
+climb. **4 of the corpus's 14** signed-axial flights are in that state.
 
-Two blind spots hiding each other. `e2e/responsive.spec.ts` ran without `hasTouch`, so
-`@media (pointer: coarse)` — the 44 px floor — was **off** for the whole file; it had been measuring
-desktop-height controls. And both thumb-target sweeps copied the CSS rule's checkbox exemption into
-their own selector. That exemption is right in CSS and wrong in a test: what a thumb hits is the
-target, not the box. Measuring it caught the logbook's compare tick at **20×20 px with no label**.
+The judgement is about the peak's MAGNITUDE; where the trace turned over is a separate fact. Keeping
+the index and withholding only the value shrinks the window on those four from 9.2–11.7 s to under
+two, and — measured over all fourteen with the overrides merged — **not one reported burnout moves**.
 
-### 4. The card — the one surface that leaves the device — carries provenance — `8e1c846`
-
-**13 of 46** corpus flights put a *derived* speed on a shareable card with the label stripped, and
-**nine were supersonic claims** (Mach 2.64, 2.52 ×2, 2.21), every one differentiated out of an
-altitude. The grid said "derived" the whole time. The card sub is now fitted to its column too: the
-longest string measures **246 px against 250 px**, so it fit by four pixels.
-
-### 5. The comparison can say when the main fired, and the gate now checks the tests — `442947e`
-
-Two bays on one airframe agree on apogee and still fire seconds apart; the comparison could show the
-agreement but not the disagreement, because deploy time lived only on each flight's own timeline.
-`mainDeployTime` carries it, measured from liftoff like `burnTime`, and a **Main deploy at** row sits
-beside the main descent rate it precedes. Driven live: `92.8 s | 120.6 s | 26%`. No drogue equivalent
-on purpose — Debrief does not detect drogue deployment, and a null column would read as "no drogue"
-rather than "not measured".
-
-Adding the field exposed why the last three additions went unnoticed: **`next build` only type-checks
-what the app imports**, so the test files were never checked and their `FlightMetrics` fixtures had
-drifted **four fields** behind the real type. `tsc --noEmit` now runs as a `prebuild` (~3 s), so the
-gate is still three commands and a drifted fixture fails it.
-
-### 6. The card honours the reading chooser — `cf1678b`
-
-`flightCardStats` took no `hidden` argument at all, so a reading turned off everywhere else still
-went out on the shareable image. The trap was the label: the card prints "Max accel" while the
-chooser stores the grid's "Max acceleration", so filtering on the drawn label would have missed
-exactly the reading most worth suppressing while appearing to work. A `CardStat` now carries
-`reading` beside `label`, and a test holds every card stat's `reading` against the grid's labels.
-
-### A correction to increment 1, found after it merged — `442947e`
-
-A review pass caught that the commit's own measurement was short. The corpus holds **fourteen**
-signed-axial flights, not nine, and **seven** moved, not six — a count that had reached four
-committed places including the public methods page. The un-enumerated seventh is the Kairos
-sustainer: `burnTime` 4.62 → 4.84 s, `burnoutAltitude` 1007 → 1087 m (+7.9%), plus the coast figures.
-The reading is sound and `BURNOUT_TAIL_S` is untouched, but shipping a movement without measuring it
-is the mistake the *previous* run's handoff names, repeated. Cause: a sweep that filtered
-`expected.json` without merging `corpus-overrides.json`, which drops exactly five files.
+**The test added alongside does NOT guard this**, and says so in as many words: all four flights read
+the same either way because their charge is smaller than their motor, and reverting the fix leaves
+the suite green (checked). BACKLOG records what a fixture that could guard it would need.
 
 ### Done-check
 
-- **Corpus sweep: 46 fixtures analysed, 0 findings.** Every reported headline recomputed against the
-  range its own series can produce — apogee, max velocity, max/min acceleration, burnout altitude and
-  velocity, and burn time against time-to-apogee.
-- **Cold walk** of the built export: the report's burnout readings all read `measured`; the
-  comparison journey (tick → *Compare 2 flights* → table) drives end to end and shows the
-  `(speed peak)` tag on the mixed set only; the card renders with provenance on both figures.
-  Production `/version.json` = `cf1678b` = `origin/main`, checked after the last merge.
-- **Benchmarked the comparison surface** against AltosUI, the Featherweight interface program,
-  PerfectFlite DataCap, Eggtimer (which ships no plotter and points owners at Excel), OpenRocket and
-  RockSim. Debrief is ahead on cross-vendor comparison, automatic liftoff alignment, provenance
-  honesty and report-grade export of the comparison itself. **The sharpest gap is per-flight event
-  markers on the overlay** — AltosUI graphs "events recorded by the flight computer" and OpenRocket
-  calls flight events out on its plots, while `buildComparison()` throws every detected event away
-  except the liftoff used for t=0. Increment 5 answered the most actionable slice of that as a table
-  row; the overlay markers are still open and are the next move on this surface.
-- **BACKLOG corrected** where this run invalidated it — see the two "checked and closed" entries.
+- **Corpus suite green at 104 tests** (was 103), the whole-corpus invariants included.
+- **Cold walk** of the built export on all three chart surfaces — comparison, report, explorer —
+  plus the comparison journey end to end. Production `/version.json` = `cc22793` after increment 1.
+- **Benchmark**: increment 1 closes the top gap the previous run's comparison benchmark named. The
+  remaining items from it are unstarted and still in the queue below.
+- **BACKLOG corrected** — the event-marker entry is now DONE, and the new bound entry states its own
+  missing guard rather than implying coverage.
 
 ## Environment notes
 
@@ -121,7 +70,7 @@ is the mistake the *previous* run's handoff names, repeated. Cause: a sweep that
 - **`/version.json` answers "which build is live"** — `curl -s https://debrief.fusionspace.co/version.json`.
   An earlier handoff's note that nothing identifies the deployed commit is stale.
 - **`npm run fetch-fixtures` returns 401 here.** The companion repo is at `/home/user/debrief-fixtures`:
-  `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. `corpus.test.ts` reports **103 tests**.
+  `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. `corpus.test.ts` reports **104 tests**.
 - **An ad-hoc corpus sweep gets the wrong answer in TWO independent ways; copy `corpusReads()` and
   `loadForCompare()` out of `corpus.test.ts` rather than rolling one.** (1) A bare `importFlight`
   sweep silently analyses NOTHING for generic-CSV fixtures — they return `kind: 'mapping'` and need
@@ -133,9 +82,12 @@ is the mistake the *previous* run's handoff names, repeated. Cause: a sweep that
   **wrong corpus count published on the methods page** (nine signed-axial flights; it is fourteen).
 - **The image's Chromium is the wrong build.** Run `npx playwright install chromium` (~2 min); do not
   set `PLAYWRIGHT_CHROMIUM_PATH`. `playwright.config.ts` throws on a mismatch — trust that error.
-- **Do not run the gate while a fan-out is live.** 4 cores; a 3-agent workflow puts load average near
-  8 and the e2e suite fails timing-sensitive tests that pass in isolation and pass again once quiet.
-  Two failures were chased this run that were pure contention.
+- **Do not run the gate while a fan-out is live, and a control run under different load proves
+  NOTHING.** 4 cores; a fan-out agent driving its own Playwright puts load near 8, and the e2e suite
+  then fails 8, then 78, then 18 tests — a different subset each time. This run that was chased a long
+  way: a clean-tree control passed 172/172 and looked like proof the change was at fault, but the
+  control had simply run in a quiet window. The same change passed 172/172 once the fan-out was
+  stopped. Re-run the control under the SAME load, or stop the fan-out first and re-run both.
 - **A `*-tmp.test.ts` probe is picked up by vitest** and inflates the gate's numbers. Delete probes
   *before* the gate run you intend to quote.
 - **The Bash working directory persists between calls** and a workflow launch can move it. A
@@ -166,19 +118,20 @@ is the mistake the *previous* run's handoff names, repeated. Cause: a sweep that
    BACKLOG so they are not walked again (the file is parsed as a Blue Raven, not column-mapped; and
    mapping its `Accel_Z` is unsafe because its convention differs from a real Blue Raven's — the
    Proton rests at 0.0 g, a real Blue Raven's axial axis at −0.99 g).
-2. **Per-flight event markers on the comparison overlay** — the benchmark's sharpest gap, and small.
-   `buildComparison()` already has every detected event and keeps only `liftoffDetected`; drawing
-   burnout/apogee/main per flight in that flight's colour would let a flyer SEE one bay firing later
-   than another instead of reading it off a row. Watch the density: 6 flights x 4 events is a lot of
-   markers, so it likely wants the events the set actually disagrees about.
-3. **The burnout search runs unbounded when the speed was withheld.** `maxVelIdx = -1` falls back to
-   `apogeeIdx`, so **4 of 14** signed-axial flights search the whole climb — the exact case the bound
-   exists to prevent. Latent: all four still find the real motor (burnout 0.77–0.92 s against apogees
-   at 9.2–11.7 s). Unchanged by this run's fix.
-4. **A dead all-zero accelerometer column reads as a live +1 g trace** on a `gravityRemoved` parser,
-   and reports `maxAcceleration` 0 → 9.81 as *measured*. Latent — 0 of 46 corpus flights trip it —
-   but the guard lives on one surface out of six and tests the normalised array rather than the raw
-   one, so the flag defeats it.
+2. **A dead all-zero accelerometer column reads as a live +1 g trace.** Re-confirmed this run with
+   numbers: on a `gravityRemoved` channel the unconditional `+= G0` turns an all-zero column into a
+   flat +1 g trace, so `maxAcceleration` reports **9.80665 = 1.0000 g** and `liftoffTWR` **1.0000**
+   as MEASURED. **Six** surfaces branch on `accelerationSource === 'device'` and would publish it;
+   exactly one (FlightReport) carries a liveness guard, and that is the one the shift defeats,
+   because it tests the array AFTER the shift. Latent — 0 of 46 corpus files are all-zero — but the
+   guard belongs on the RAW channel at the source, which fixes all six at once.
+3. **Give the burnout bound a fixture that can fail.** See BACKLOG: needs a log whose apogee charge
+   outreads its motor AND whose speed is withheld. A synthetic must get past the device-velocity
+   gate, which rejected a hand-built `velocity` channel outright.
+4. **The rest of the comparison benchmark**, unstarted: overlay the raw logged channels (each accel
+   axis, gyro, pressure, GPS altitude, voltage) rather than only the five derived ones — the channel
+   explorer already does this for one flight, and the comparison is the one surface that does not
+   offer it, which is where the "why do these two disagree" question actually gets asked.
 5. **Regenerate the two `maxAccel` goldens.** At ±6% they pass before and after a whole 1 g
    correction, so the corpus net cannot catch that class of defect at all.
 

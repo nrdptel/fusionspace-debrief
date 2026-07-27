@@ -396,6 +396,12 @@ interface CorpusRead {
   /** Peak ½ρv² over climbing samples at or before apogee — what a reported max-Q is held to. */
   bestClimbQ: number;
   hasBurnoutEvent: boolean;
+  /** True when the analyzer judged this flight's speed impossible and withheld it. The
+   *  burnout crossing search takes its bound from the speed peak, so this is the state in
+   *  which that bound is most likely to be missing. */
+  velocityWithheld: boolean;
+  /** Seconds from liftoff to apogee — what a burn time is held against. */
+  timeToApogeeS: number;
   /** Time (s) at which a genuine signed-axial trace falls through zero — thrust = drag, the
    *  end of thrust — searched from the boost peak to one second past the speed peak, exactly
    *  the window the analyzer allows. NaN when the flight has no signed axial channel or the
@@ -435,6 +441,8 @@ function corpusReads(): CorpusRead[] {
       metrics: null,
       bestClimbQ: 0,
       hasBurnoutEvent: false,
+      velocityWithheld: false,
+      timeToApogeeS: NaN,
       axialZeroCrossingT: NaN,
     };
     if (fx.expect.kind === 'reject') {
@@ -505,6 +513,8 @@ function corpusReads(): CorpusRead[] {
       metrics,
       bestClimbQ,
       hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
+      velocityWithheld: series.velocityImplausible === true,
+      timeToApogeeS: metrics.timeToApogee,
       axialZeroCrossingT,
     });
   }
@@ -1028,6 +1038,32 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
       ).toBeLessThan(0.9);
     }
     expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
+  });
+
+  it('keeps burnout clear of apogee even where the flight’s own speed was withheld', { timeout: 60_000 }, () => {
+    // A burnout is the motor, so it sits in the first part of the climb rather than against
+    // apogee. Held tighter here than the whole-corpus 0.9 check, on the subset where the
+    // crossing search has the least to bound it: these flights' own speed was judged
+    // impossible, so the analyzer withheld it.
+    //
+    // Stated plainly, because it would be easy to read this as more than it is: it does NOT
+    // guard the search bound itself. All four flights in this state read the same burnout with
+    // the bound present or absent, because their apogee charge happens to be smaller than
+    // their motor — reverting the bound leaves this green. Guarding the bound needs a fixture
+    // whose charge outreads its motor AND whose speed is withheld, which the corpus has not
+    // got; BACKLOG records that gap.
+    let withheld = 0;
+    for (const { file, metrics: m, velocityWithheld, timeToApogeeS } of corpusReads()) {
+      if (!m || m.burnTime == null || !Number.isFinite(timeToApogeeS) || timeToApogeeS <= 0) continue;
+      if (!velocityWithheld) continue;
+      withheld++;
+      expect(
+        m.burnTime / timeToApogeeS,
+        `${file}: a ${m.burnTime.toFixed(2)}s burn on a ${timeToApogeeS.toFixed(1)}s climb is the charge, not the motor`,
+      ).toBeLessThan(0.5);
+    }
+    // The case exists in the corpus — otherwise this guards nothing.
+    expect(withheld, 'some corpus flight has its speed withheld and still reports a burnout').toBeGreaterThan(2);
   });
 
   it('reads burnout off the accelerometer wherever the trace actually crosses zero', { timeout: 60_000 }, () => {

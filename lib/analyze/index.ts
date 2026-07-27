@@ -1170,6 +1170,8 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     Number.isFinite(climbFromPeak) &&
     climbFromPeak / vacuumFromPeak < COAST_RATIO_FLOOR;
 
+  // Captured before the judgement below can null it out.
+  const peakVelIdxBeforeJudgement = maxVelIdx;
   let velocityImplausible = false;
   if (
     Number.isFinite(maxVelocity) &&
@@ -1179,6 +1181,15 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     maxVelocity = NaN;
     maxVelIdx = -1;
   }
+  // Where the speed turned over, kept even where the speed ITSELF has just been withheld.
+  // The judgement above is about the MAGNITUDE of maxVelocity — a peak that is noise, or one
+  // beyond what the flight's own accelerometer allows. WHERE the trace turned over is a
+  // separate fact, and even a coarse one bounds "the motor had stopped by here" far better
+  // than the whole climb does. Throwing it away with the value left the burnout crossing
+  // search running all the way to apogee on 4 of the corpus's 14 signed-axial flights — the
+  // exact case that bound exists to prevent, with the apogee ejection charge inside the
+  // window it was meant to exclude. Identical to `maxVelIdx` whenever the speed stands.
+  const velTurnoverIdx = velocityImplausible ? peakVelIdxBeforeJudgement : maxVelIdx;
   // Let the explorer and the comparison overlay see the same judgement, so they can
   // withhold the Mach and dynamic-pressure curves derived from an impossible velocity.
   series.velocityImplausible = velocityImplausible;
@@ -1225,7 +1236,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // TIME rather than samples — a lossy radio-telemetry capture drops seconds between rows,
     // so a sample count off the nominal dt is a different window on every file, and on the
     // corpus's Kairos sustainer telemetry it reached a crossing five minutes downrange.
-    const velPeakEnd = maxVelIdx > liftoffRef ? maxVelIdx : apogeeIdx;
+    const velPeakEnd = velTurnoverIdx > liftoffRef ? velTurnoverIdx : apogeeIdx;
     // The boost peak is always before the velocity peak, so look for it there.
     const peak = argMax(signedAccel, liftoffRef, velPeakEnd + 1);
     const tailEnd = time[velPeakEnd] + BURNOUT_TAIL_S;

@@ -6,6 +6,22 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The burnout search bound is fixed but UNGUARDED — the corpus cannot hold it.** The crossing
+  search takes its bound from the velocity peak, and a flight whose speed is judged impossible used
+  to lose that bound entirely: `maxVelIdx = -1` was read as "no peak" and the search ran the whole
+  climb, with the apogee ejection charge inside the window the bound exists to exclude. Fixed by
+  keeping the peak's INDEX when only its VALUE is withheld — the judgement is about magnitude, and
+  where the trace turned over is a separate fact. Measured over all **14** signed-axial flights
+  (overrides merged): **not one reported burnout moves**, while the window on the four affected
+  files shrinks from the whole climb (9.2–11.7 s) to under ~2 s.
+  **What is missing is a test that can fail.** All four flights in that state read the same burnout
+  with the bound present or absent, because their charge happens to read smaller than their motor —
+  reverting the fix leaves the suite green, verified. Guarding it needs a fixture whose apogee charge
+  outreads its motor AND whose speed is withheld. Two ways to get one: add such a log to
+  debrief-fixtures, or build a synthetic — note a synthetic must get past the device-velocity
+  gate, which rejected a hand-built `velocity` channel outright (`velocitySource` came back `baro`,
+  so an implausible spike never reached `maxVelocity`).
+
 - **The thrust-tail fix moved a SEVENTH flight that its own commit did not measure or name, and
   the corpus is FOURTEEN signed-axial flights, not nine.** Found by a review pass after the merge,
   then reproduced. `altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv`
