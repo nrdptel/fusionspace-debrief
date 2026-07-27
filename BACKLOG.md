@@ -1046,6 +1046,20 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **The flight card ignores the reading chooser entirely.** `flightCardStats` (`lib/flightCard.ts`)
+  takes no `hidden` argument and `components/FlightCard.tsx` passes none, so hiding every readable row
+  in the chooser still leaves all four stats — Apogee, Max velocity, Max accel, Flight time — on the
+  card. The grid and every report honour `visibleRows` (`lib/reportProfile.ts`); the card is the one
+  surface that does not, and it is the one most likely to be shared. A control that silently does not
+  apply. Note the card's own labels do not all exist as chooser rows ("Max accel" is not a chooser
+  label), so wiring it up needs a label mapping, not just a passed-through list.
+- **Playwright cannot click the "Compare N flights" button** even though it is present, enabled, in
+  the viewport and unobscured — `document.elementFromPoint` at its centre returns the button itself,
+  and a programmatic `.click()` navigates correctly to `/compare?ids=…`. A 30 s actionability timeout
+  with all of those true usually means the element never settles. Worth confirming it is not a
+  continuous re-render on the compare page: that would be invisible on a desktop and cost battery on
+  a phone at the pad.
+
 - **The comparison surface named the one file most worth adding and gave you nothing to press.**
   Drop a launch day's folder on `/compare` and anything Debrief doesn't auto-detect got
   "needs its columns mapped, which happens on the analyze page" — while the heading said
