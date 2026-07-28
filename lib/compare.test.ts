@@ -340,7 +340,7 @@ describe('buildComparison', () => {
 
   it('withholds the Mach and dynamic-pressure overlay curves for an impossible velocity', () => {
     const bad = input('bad', 2, 100);
-    bad.analysis = { ...bad.analysis, series: { ...bad.analysis.series, velocityImplausible: true } };
+    bad.analysis = { ...bad.analysis, series: { ...bad.analysis.series, velocityUnusable: true } };
     const cmp = buildComparison([bad, input('ok', 2, 200)]);
     // The flagged flight draws no Mach or dynamic-pressure curve…
     expect(cmp.flights[0].mach.every((v) => Number.isNaN(v))).toBe(true);

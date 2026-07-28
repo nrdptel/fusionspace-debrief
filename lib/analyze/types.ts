@@ -185,12 +185,21 @@ export interface FlightSeries {
   /** Air density at each sample (kg/m³), from a ground-anchored standard
    *  atmosphere — the ρ behind the dynamic-pressure channel. */
   airDensity: Float64Array;
-  /** True when the velocity peak was physically impossible (a mis-scaled or
-   *  misidentified column, or corrupt data), so the headline max velocity, Mach and
-   *  max-Q were withheld. The velocity trace is still exposed for diagnosis, but the
-   *  Mach and dynamic-pressure DERIVED from it are not — plotting them would present a
-   *  curve the analysis has already judged impossible. */
-  velocityImplausible?: boolean;
+  /** True when the analysis WITHHELD the peak speed — for ANY reason. The velocity trace is
+   *  still exposed for diagnosis, but nothing derived from it may be published: not the Mach
+   *  or dynamic-pressure headlines, not those columns in the data CSV, not those curves in
+   *  the explorer or on a comparison overlay, and not the speed beside an event.
+   *
+   *  Deliberately ONE flag rather than one per reason. It used to be named for a single
+   *  reason — a peak that was physically impossible — and when a second reason arrived (an
+   *  ascent with a hole the record doesn't cover) the five places downstream went on testing
+   *  the first one. The result was a report whose headline read "Max velocity withheld" three
+   *  lines above an events table printing 5,901 ft/s, a data CSV shipping Mach 5.671 and
+   *  322.64 psi, and a comparison overlay drawing that Mach 5.67 curve against the same
+   *  flight's device-measured 1.88. WHY it was withheld is a separate fact and lives where it
+   *  belongs, on `FlightMetrics.maxVelocityWithheld`; this is the one bit every consumer of a
+   *  velocity-derived figure needs, and there is only one of it. */
+  velocityUnusable?: boolean;
 }
 
 export interface FlightAnalysis {

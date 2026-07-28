@@ -143,7 +143,7 @@ export function buildPlotChannels(flight: RawFlight, series: FlightSeries): Plot
   // the velocity was judged physically impossible, since the analysis already
   // withheld the Mach and max-Q headlines derived from it (the velocity trace itself
   // stays, so a mis-scaled column can still be seen and diagnosed).
-  const velUsable = !series.velocityImplausible;
+  const velUsable = !series.velocityUnusable;
   if (velUsable && Number.isFinite(series.speedOfSound) && series.speedOfSound > 0) {
     const mach = new Float64Array(series.velocity.length);
     // Against the local speed of sound at each height (colder, slower aloft), like the report.

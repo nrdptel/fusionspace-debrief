@@ -10,7 +10,8 @@ import { getChannel, type ChannelKind, type ReportedValue } from '../flight/type
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { landedInRecord, landingRate, metricTiles } from '../readings';
-import { headlineRows } from '../report';
+import { analyzedDataCsv, headlineRows, summaryText } from '../report';
+import { buildPlotChannels } from '../explore';
 import { groundTrack, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
@@ -540,7 +541,7 @@ function corpusReads(): CorpusRead[] {
       metrics,
       bestClimbQ,
       hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
-      velocityWithheld: series.velocityImplausible === true,
+      velocityWithheld: series.velocityUnusable === true,
       timeToApogeeS: metrics.timeToApogee,
       axialZeroCrossingT,
     });
@@ -983,6 +984,77 @@ describe('the figures a device summary states, and the ones it states badly', ()
     // …and a speed is never classified as an acceleration, which is the failure mode.
     expect(REPORTED_QUANTITY.drogueDescentRate).toBe('speed');
     expect(REPORTED_QUANTITY.mainDescentRate).toBe('speed');
+  });
+});
+
+// A peak speed the analysis WITHHELD must not reappear anywhere downstream of it. The
+// headline honoured the withholding; five other surfaces tested a differently-named flag and
+// did not. On `fwgps__trf-f1machbuster-jan10__GPSTrk05467` that produced a report whose
+// headline read "Max velocity withheld — the ascent has a stretch the record doesn't cover"
+// three lines above an events table printing 5,901 ft/s, a data CSV shipping a mach column
+// peaking at 5.671 and a dynamic-pressure column at 322.64 psi, an explorer offering both
+// curves, and a comparison overlay drawing that Mach 5.67 against the same flight's
+// device-MEASURED 1.88 from a Blue Raven. This holds every surface at once, over the whole
+// corpus, so a sixth surface cannot quietly opt out of it either.
+describe('a withheld peak speed stays withheld, on every surface', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+
+  it('publishes nothing derived from a velocity the analysis refused', () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    let checked = 0;
+    for (const fx of spec.fixtures) {
+      if (fx.expect.kind !== 'flight' || !existsSync(CORPUS + fx.file)) continue;
+      // The flight itself, not just its analysis — the exporters need both.
+      let flight;
+      let a;
+      try {
+        const res = importFlight({
+          name: fx.file.split('/').pop() as string,
+          text: decodeBytes(new Uint8Array(readFileSync(CORPUS + fx.file))),
+        });
+        if (res.kind !== 'flight') continue;
+        flight = res.flight;
+        a = analyzeFlight(flight);
+      } catch {
+        continue;
+      }
+      // Selected on the HEADLINE's own decision — a peak that was not published — and
+      // deliberately NOT on `series.velocityUnusable`. Selecting on the flag under test makes
+      // the whole invariant vacuous: clear the flag and the flight simply drops out of the
+      // sweep. Checked by reverting the producer to its old one-reason form, which PASSED.
+      if (Number.isFinite(a.metrics.maxVelocity)) continue;
+      checked++;
+      const short = fx.file.split('/').pop() as string;
+
+      // The headline, which was always right.
+      expect(a.metrics.mach, `${short}: no Mach headline`).toBeNull();
+      expect(a.metrics.maxDynamicPressure, `${short}: no max-Q headline`).toBeNull();
+
+      // The event table in every export, and on screen.
+      const txt = summaryText(flight, a, 'imperial');
+      for (const e of a.events) {
+        const v = a.series.velocity[e.index];
+        if (!Number.isFinite(v) || Math.abs(v) < 50) continue;
+        const ftps = Math.round(v * 3.280839895).toLocaleString('en-US');
+        expect(txt, `${short}: the events table does not print ${ftps} ft/s`).not.toContain(`${ftps} ft/s`);
+      }
+
+      // The data CSV — the one artefact a flyer pastes into a cert document.
+      const csv = analyzedDataCsv(flight, a, 'imperial');
+      const header = csv.split('\n')[0];
+      expect(header, `${short}: no mach column`).not.toMatch(/(^|,)"?mach/i);
+      expect(header, `${short}: no dynamic-pressure column`).not.toMatch(/dynamic pressure/i);
+
+      // The explorer's offered channels.
+      const offered = buildPlotChannels(flight, a.series).map((c) => c.key);
+      expect(offered, `${short}: no Mach curve offered`).not.toContain('d-mach');
+      expect(offered, `${short}: no dynamic-pressure curve offered`).not.toContain('d-q');
+    }
+    // Named so a fixture entering or leaving this state is a visible change.
+    expect(checked, 'the corpus has flights whose peak speed is withheld').toBeGreaterThan(0);
   });
 });
 

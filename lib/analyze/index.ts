@@ -1297,7 +1297,9 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   const velTurnoverIdx = velocityImplausible ? peakVelIdxBeforeJudgement : maxVelIdx;
   // Let the explorer and the comparison overlay see the same judgement, so they can
   // withhold the Mach and dynamic-pressure curves derived from an impossible velocity.
-  series.velocityImplausible = velocityImplausible;
+  // Either reason withholds the peak, so either reason makes everything derived from the
+  // velocity unpublishable. See the note on `velocityUnusable` in ./types.ts.
+  series.velocityUnusable = velocityImplausible || ascentGapBreaksPeak;
 
   // --- Burnout --------------------------------------------------------------
   // With accel: thrust end — acceleration first falls through zero after the

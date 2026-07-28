@@ -144,7 +144,7 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
     const q = new Float64Array(series.velocity.length);
     // A velocity judged impossible had its Mach and max-Q headlines withheld; don't
     // draw the overlay curves derived from it either (the velocity line still shows).
-    const velUsable = !series.velocityImplausible;
+    const velUsable = !series.velocityUnusable;
     for (let i = 0; i < mach.length; i++) {
       const v = series.velocity[i];
       const sos = series.speedOfSoundProfile[i]; // local speed of sound at each height
