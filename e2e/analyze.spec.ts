@@ -117,6 +117,18 @@ test('the channel explorer overlays channels and plots any axis', async ({ page 
   await expect(page.getByText(/Right axis:/)).toBeVisible();
   await expect(page.locator('.uplot canvas').first()).toBeVisible();
 
+  // Both axes are taken now, so a third unit has nowhere to go. It stays in the menu and
+  // says so: the list used to FILTER those out, and on a Blue Raven it dropped from eleven
+  // entries to five with Mach, dynamic pressure, battery, temperature and tilt simply gone —
+  // under a panel whose own line is "Plot any channel your logger recorded".
+  const add = page.getByLabel('Add a channel to the plot');
+  const blocked = add.locator('option[disabled]');
+  expect(await blocked.count(), 'the third-unit channels are still listed').toBeGreaterThan(0);
+  await expect(blocked.first()).toContainText(/needs a third axis/);
+  // …and the ones that CAN go on are still enabled, so this is a reason, not a lockout.
+  const free = add.locator('option:not([disabled])');
+  expect(await free.count(), 'same-unit channels remain addable').toBeGreaterThan(1);
+
   // Put a channel on the X axis (not time) — the path note appears and the Δ/rate
   // columns (meaningless off a time axis) are hidden.
   await page.getByLabel('X axis channel').selectOption({ label: 'Altitude (AGL)' });

@@ -140,15 +140,26 @@ with the whole block in view, and run the jan10 splice test and the ends-at-rest
   Both jobs ran ~1.5 min (frontend) and ~4 min (e2e) all run.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 
+### After the merge — a second PR
+
+Four more increments landed on the branch after PR #23 merged, as PR #24: the vendor-tool benchmark
+recorded in `BACKLOG.md` with sources; the channel explorer no longer removing channels from its own
+menu (eleven entries to five on a Blue Raven, silently) and instead saying why each is blocked; the
+cross-check speaking up when two recordings **disagree about whether a charge fired** rather than
+emitting no descent row at all; and the report's two unnamed blocks — the metric grid and "Worth
+knowing" — getting the headings that make them reachable by heading navigation.
+
 ## Pick up first, and why
 
 1. **The landing block, as its own pass** — see *Attempted and reverted* above. It is the largest
    remaining wrong number: 55 ft/s published against a device-stated 29.0.
-2. **A metric only ONE recording carries is dropped from the cross-check in silence.** `crossCheck`
-   skips a spec with `contrib.length < 2`, right for "too few to corroborate", wrong when the recordings
-   *disagree about whether the thing happened*. On `trf-f1-jan18` the Blue Raven reports a whole-descent
-   rate and no main while the Featherweight GPS reports a drogue AND a main, so the panel emits no
-   descent row at all. Still unverified.
+2. **Merge the Blue Raven's high-rate file into its low-rate flight.** The benchmark's top finding and
+   the highest-leverage thing available: max acceleration, thrust-to-weight, deployment shock and roll
+   rate are permanently blank on the most widely flown modern HPR altimeter, while the numbers sit in a
+   sibling file the flyer already has — the cross-check literally prints
+   `Max acceleration · 72.9 g · — · not computed`. The multi-file plumbing exists (low-rate + device
+   summary pairs today), so this extends a mechanism rather than inventing one. See BACKLOG for the
+   full ranked benchmark.
 3. **Make the comparison and report captions actually stick.** The copy is honest now; sticky is the
    feature. A comparison's label belongs to its id-set, not to the device, so it needs a key design —
    the logbook's per-flight `note` (IndexedDB, `lib/recents.ts:117`) is the precedent, not localStorage.

@@ -809,7 +809,9 @@ export default function FlightReport({
           aria-live="polite"
           className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
         >
-          <p className="mb-1 font-medium text-amber-900 dark:text-amber-100">Worth knowing</p>
+          <h3 id="worth-knowing" className="mb-1 text-sm font-medium text-amber-900 dark:text-amber-100">
+            Worth knowing
+          </h3>
           <ul className="space-y-1">
             {warnings.map((w, i) => (
               <li key={i}>{w}</li>
@@ -820,7 +822,9 @@ export default function FlightReport({
 
       {notes.length > 0 && (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
-          <p className="mb-1 font-medium text-zinc-700 dark:text-zinc-300">How this file was read</p>
+          <h3 id="how-this-file-was-read" className="mb-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            How this file was read
+          </h3>
           <ul className="space-y-1">
             {notes.map((w, i) => (
               <li key={i}>{w}</li>
@@ -829,7 +833,15 @@ export default function FlightReport({
         </div>
       )}
 
-      <MetricGrid metrics={metrics} sys={sys} hidden={hidden} onToggle={toggleReading} />
+      <section aria-labelledby="readings-heading">
+        <h3
+          id="readings-heading"
+          className="mb-3 text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300"
+        >
+          Readings
+        </h3>
+        <MetricGrid metrics={metrics} sys={sys} hidden={hidden} onToggle={toggleReading} />
+      </section>
 
       {/* The ascent readings that take a figure from the flyer. Each is a sentence and one
           input, and stacked full-width on a desktop they were 1,232 px wide apiece for a

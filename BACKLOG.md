@@ -6,6 +6,68 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The report has no in-page navigation across nine phone-screens.** Measured: **5,472 px** at
+  1440 px and **7,710 px** at 390 px, with **zero** `a[href^="#"]` anywhere in it. A flyer comes back
+  to a saved report to check one number and has to scroll past everything to reach Events, Recovery or
+  Explore the data, and cannot link a clubmate to a section. The blocking half is now done — every
+  major block has a stable id and a heading, including the metric grid and "Worth knowing", which had
+  neither — so what remains is the strip itself: which sections to list (they vary per flight; no
+  Recovery without GPS, no Landing energy without a descent rate), and making it work one-handed at
+  390 px without eating a screen of its own.
+
+- **DONE — the channel explorer removed channels from its own menu instead of saying why.** On the
+  Blue Raven low-rate file, plotting a velocity beside the altitude dropped the Add-channel menu from
+  **eleven entries to five** — `Mach`, `Dynamic pressure`, `Batt_Volts`, `Temperature_(F)` and
+  `Tilt_Angle_(deg)` gone — under a panel whose own line is "Plot any channel your logger recorded".
+  The two-axis limit is real; filtering the menu by it silently was the defect. They stay listed and
+  disabled now, each naming what is in the way. The **third axis itself** is still a genuine gap
+  against FIP and OpenRocket — see the benchmark entry above.
+
+- **BENCHMARK against the vendor tools, run this session against the live surfaces and their manuals.**
+  What theirs has that ours doesn't, on reading ONE flight, worst first. Nothing here asks Debrief to
+  simulate, predict or upload; the PerfectFlite DataCap comparison found nothing Debrief lacks.
+  - **[L] The Blue Raven's high-rate file is refused, so four of our own headline readings are
+    permanently blank on the most widely flown modern HPR altimeter.** Featherweight's own UI treats a
+    flight as its three files together (summary + 50 Hz LR + 500 Hz HR). Debrief rejects the HR file
+    with guidance, and LR+HR dropped together gives "Only one of those 2 files could be read as a
+    flight"; LR alone then says "no accelerometer channel was recorded" and the cross-check prints
+    `Max acceleration · 72.9 g · — · not computed`. So max acceleration, thrust-to-weight, deployment
+    shock and roll rate are blank while the numbers sit in a sibling file the flyer already has.
+    **The multi-file plumbing already exists** — LR + the device summary pairs correctly today and
+    produces the cross-check panel — so this extends a mechanism rather than inventing one. Highest
+    leverage of anything in this list.
+  - **[M] Pyro voltages and firing flags are dropped by every parser.** FIP and AltosUI both plot them
+    ("verify exactly what the altimeter was firing, when, and why"; "visual indication if the igniters
+    fail before being fired"). Debrief's explorer offers Baro AGL, inertial altitude, Velocity_Up,
+    battery, temperature and tilt and nothing else; TeleMega's populated `drogue_voltage`,
+    `main_voltage`, `igniter_a–d`, `pyro` and `state_name` are equally absent, and the column mapper
+    has no role to map them to. "Did the charge fire, when, and did it have continuity?" is the first
+    question after any recovery anomaly. See the "deployment boundaries are parsed and thrown away"
+    entry below — same root, and it is the blocker for the drogue/main split too.
+  - **[M] The Blue Raven's 3-D solution is mapped only as Velocity_Up and Tilt_Angle.**
+    `Velocity_DR/CR`, `Inertial_DR/CR_position`, `Future_Angle` and `Roll_Angle` never reach the
+    explorer, so downrange distance and lean direction need GPS that many flights don't carry.
+  - **[M] AltosUI graphs the raw `.eeprom` directly; Debrief refuses it** and tells the flyer to export
+    CSV from their altimeter's own software first — so Debrief can never be the only tool an AltOS
+    flyer opens. (AltosUI itself notes telemetry files "produce poor graphs" next to the eeprom.)
+  - **[M] No time cursor linking the charts, the sample table and the ground track.** AltosUI's Replay
+    shares flight time between map and graph. Debrief has per-chart hover and a table that follows
+    zoom, so you cannot step to one instant and read every channel AND the ground position together.
+  - **[M] The ground track has no per-phase colour, no hover readout and no measure tool** (AltosUI's
+    Map tab has all three, incl. a distance tool). "Where was it at 40 s, and how far is that from the
+    road" needs an export to Google Earth today.
+  - **[M] The smoothing width is fixed and a baro-only log gets no acceleration trace at all.** AltosUI
+    exposes a filter width ("a larger value smooths the data more") and computes both speed and
+    acceleration from barometric data on accelerometer-less altimeters. A StratoLogger or Eggtimer
+    flyer gets no acceleration curve and no noise/detail trade.
+  - **[S] The channel explorer caps at two distinct units.** Verified: with one ft and one ft/s channel
+    plotted, `Batt_Volts`, `Temperature_(F)`, `Mach` and dynamic pressure vanish from the Add-channel
+    list. FIP and OpenRocket both put many series of mixed units on one time axis — which is exactly
+    the pyro-voltage-against-altitude diagnostic view.
+  - **[S] No numeric axis-range entry and no per-axis Y zoom.** Drag zooms X only, with five presets.
+    You cannot set an identical window across two reports, or expand a flat 3.7–3.9 V battery trace
+    beside a 6,000 ft altitude.
+
 - **A deploy latch is per-COPY, which the "deployment boundaries are parsed and thrown away" entry
   below needs to account for.** Measured on `blueraven__trf-f1machbuster-jan18` LR: `Apo_fired`,
   `3rd_fired` and `4th_fired` each show **three** transitions (0→1, 1→0, 0→1), not one latch,
@@ -120,7 +182,16 @@ memory, so a later pass doesn't have to rediscover them.
   within … 193% on burn time" is not English. The lede is now chosen by the same threshold that
   colours a row amber, from one shared helper rather than the three copies that render it.
 
-- **A metric only ONE recording carries is dropped from the cross-check in silence.** `crossCheck`
+- **DONE — a metric only one recording carried was dropped from the cross-check in silence.**
+  Reproduced on `trf-f1-jan18`: the Blue Raven reads **54.8 ft/s** over the whole descent with no
+  deployment change in its record, the Featherweight GPS resolved a **drogue at 74.6** and a **main at
+  20.5**, so each of the three descent keys has one contributor, all three are skipped, and the panel
+  emitted **no descent row** — while cross-checking exactly two readings (apogee, time to apogee) with
+  no sign anything was missing. The other two same-flight groups in the corpus both get descent rows,
+  so it showed only on the pair worth chasing. Keeping the keys apart is still right; what was missing
+  is that a disagreement about WHETHER a deployment happened is not the same absence as too few to
+  corroborate. `recoveryDisagreement` now states it, and stays quiet when a descent row is already
+  checked or the recordings agree. Original entry: `crossCheck`
   skips a spec with `contrib.length < 2`, which is right for "too few to corroborate" but wrong when
   the recordings *disagree about whether the thing happened*. On `trf-f1-jan18` the Blue Raven
   reports a whole-descent rate and no main while the Featherweight GPS reports a drogue AND a main —
