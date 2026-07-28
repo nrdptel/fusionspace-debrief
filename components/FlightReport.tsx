@@ -569,6 +569,15 @@ export default function FlightReport({
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
   const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration, sys)}` : ''}.`;
 
+  // Where liftoff falls on the log's own clock, when that isn't zero — the Events list is on
+  // that clock and every reading is on seconds-since-liftoff, so the offset is what tells a
+  // reader the two are describing the same instant. Null where the file already starts at
+  // liftoff and the note would say nothing.
+  const liftoffOnLogClock = (() => {
+    const l = events.find((e) => e.type === 'liftoff');
+    return l && Number.isFinite(l.time) && l.time >= 0.05 ? l.time : null;
+  })();
+
   // Where a flyer can jump to. The report runs 5,472 px on a desktop and 7,710 px — nine
   // screens — on a phone, and carried no in-page links at all, so coming back to check one
   // number meant scrolling past everything and there was no way to send a clubmate to a
@@ -1040,9 +1049,23 @@ export default function FlightReport({
 
       {/* Event legend */}
       <div>
-        <h3 id="events" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
-          Events
-        </h3>
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 id="events" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+            Events
+          </h3>
+          {/* These times are the log's own clock, which is what the charts are drawn against —
+              so an event lines up with the trace above it. The readings are seconds since
+              liftoff, which is what a flyer quotes. On a file whose clock doesn't start at
+              liftoff those are two different numbers for one instant, and neither was named:
+              the ground-station GPS log puts apogee at 973.0 s here and 13.0 s in the grid,
+              and 27 of the corpus's 45 flights disagree by half a second or more. Naming the
+              clock and where liftoff falls on it reconciles them without moving either. */}
+          {liftoffOnLogClock != null && (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              log clock · liftoff at {fmtTime(liftoffOnLogClock)}
+            </span>
+          )}
+        </div>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((e) => (
             <div

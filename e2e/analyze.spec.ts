@@ -892,3 +892,39 @@ test('the timeline says what its span actually covers', async ({ page }) => {
   await expect(spanCut).toContainText('liftoff to the end of the record');
   await expect(spanCut).not.toContainText('liftoff to landing');
 });
+
+// One instant, two clocks, neither named. The Events list is on the log's own clock, which is
+// what the charts are drawn against; every reading is on seconds-since-liftoff, which is what
+// a flyer quotes. On a file whose clock doesn't start at liftoff those are different numbers
+// for the same moment — the ground-station GPS log put apogee at 973.0 s in Events and 13.0 s
+// in the grid, and 27 of the corpus's 45 flights disagree by half a second or more.
+test('the events list names its clock, so it reconciles with the readings', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altimetercloud-mercury.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // The note names the clock and where liftoff falls on it.
+  const note = await page.evaluate(() => {
+    const h = document.getElementById('events');
+    const s = h?.parentElement?.querySelector('span');
+    return s?.textContent?.trim() ?? '';
+  });
+  expect(note, `events clock note: ${note}`).toMatch(/log clock · liftoff at [\d.,]+ s/);
+  const liftoff = Number((note.match(/liftoff at ([\d.,]+) s/) ?? [])[1]?.replace(/,/g, ''));
+  expect(liftoff, 'this fixture does not start at liftoff, which is the point').toBeGreaterThan(1);
+
+  // …and the two clocks reconcile: the grid's time-to-apogee plus the offset is the Events one.
+  const grid = await page.locator('div.grid').first().innerText();
+  const toApogee = Number((grid.match(/([\d.,]+) s to apogee/) ?? [])[1]?.replace(/,/g, ''));
+  expect(Number.isFinite(toApogee), `grid should state a time to apogee; got: ${grid.slice(0, 80)}`).toBe(true);
+  const apogeeOnLogClock = await page.evaluate(() => {
+    const h = document.getElementById('events');
+    const block = h?.parentElement?.parentElement;
+    const row = [...(block?.querySelectorAll('div') ?? [])].find((d) => /^Apogee\b/.test((d as HTMLElement).innerText ?? ''));
+    return Number(((row as HTMLElement)?.innerText.match(/([\d.,]+)\s*s/) ?? [])[1]?.replace(/,/g, ''));
+  });
+  expect(Number.isFinite(apogeeOnLogClock), 'the events list states an apogee time').toBe(true);
+  expect(Math.abs(liftoff + toApogee - apogeeOnLogClock), `${liftoff} + ${toApogee} should be ${apogeeOnLogClock}`).toBeLessThan(0.6);
+});
