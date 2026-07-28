@@ -23,6 +23,13 @@ export interface FlightMetrics {
   apogeeAltitude: number; // m AGL
   timeToApogee: number; // s from liftoff
   maxVelocity: number; // m/s
+  /** Why there is no peak speed, when there isn't one. 'gap' — the ascent has a stretch the
+   *  record doesn't cover, so the top speed may fall inside it and a derivative across it is
+   *  a spike, not a reading. 'implausible' — the trace produced a speed the analysis judged
+   *  impossible. null — the log carries no speed and none could be derived, which is the only
+   *  case where "not in this log" is true. The first two are Debrief declining to report a
+   *  number from data that IS there, and a tile saying the log lacks it is actively wrong. */
+  maxVelocityWithheld: 'gap' | 'implausible' | null;
   maxVelocitySource: 'device' | 'baro';
   maxVelocityAltitude: number; // m AGL where max velocity occurred
   mach: number | null;

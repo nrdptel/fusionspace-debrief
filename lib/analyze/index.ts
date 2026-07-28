@@ -1045,30 +1045,55 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // t=962.01–965.01 and the smoothed derivative bridges them: 268.0, 497.0, 496.4,
   // 268.7 m/s where the climb either side averages 288 m/s (149.7 m at t=961.03 to
   // 1584.0 m at t=966.00). 497.0 m/s became the reported peak — and, at Mach 1.46, a
-  // supersonic reading — off four rows the record does not contain. Its own clock gap is
-  // 4.98 s against a 5·dt bound of 5.0 s, so it missed by 20 ms; counting samples rather
-  // than seconds is what makes the rule say what it means.
+  // supersonic reading — off four rows the record does not contain. The clock never skips:
+  // its largest ascent step is 2.068 s, which clears the 1.5 s test but not the 5·dt one
+  // (dt ≈ 1 s), so the old rule was never close to firing. Counting samples is what makes
+  // the rule say what it means, and the 4.98 s below is the span between the fixes that
+  // BRACKET the hole, not a gap in the clock.
   // Two or more consecutive samples, because a first derivative needs a neighbour and a
-  // single dropped fix still has one; and more than 1.5 s, the same span the clock rule
-  // uses, because a hole shorter than that cannot hide a peak.
+  // single dropped fix still has one; more than 1.5 s, the same span the clock rule uses,
+  // because a hole shorter than that cannot hide a peak; and more than three times this
+  // record's own altitude cadence, so a logger that simply writes fixes sparsely is not
+  // read as one that dropped them.
   let ascentGapBreaksPeak = false;
   if (velocitySource === 'baro') {
-    let prevUsable = -1;
-    for (let i = Math.max(1, liftoffRef); i <= apogeeIdx && i < n; i++) {
+    const start = Math.max(1, liftoffRef);
+    for (let i = start; i <= apogeeIdx && i < n; i++) {
       const g = time[i] - time[i - 1];
       if (Number.isFinite(g) && g > 1.5 && dt > 0 && g > 5 * dt) {
         ascentGapBreaksPeak = true;
         break;
       }
-      if (!Number.isFinite(altitudeRaw[i])) continue;
-      if (prevUsable >= 0) {
-        const span = time[i] - time[prevUsable];
-        if (i - prevUsable - 1 >= 2 && Number.isFinite(span) && span > 1.5) {
+    }
+    // The altitude samples themselves, and the steps between them. Seeded from the last
+    // usable sample BEFORE the ascent so a hole at the very start is bracketed like any
+    // other — without it a log whose fixes drop out right at liftoff is never examined.
+    const usable: number[] = [];
+    for (let k = start - 1; k >= 0; k--) {
+      if (Number.isFinite(altitudeRaw[k])) {
+        usable.push(k);
+        break;
+      }
+    }
+    for (let i = start; i <= apogeeIdx && i < n; i++) if (Number.isFinite(altitudeRaw[i])) usable.push(i);
+    // A hole is a step much longer than this record's OWN altitude cadence — not merely
+    // longer than its row cadence. A logger that writes a fix every third row has a
+    // two-row "hole" between every pair of fixes and no dropout at all; measuring against
+    // the median step is what tells the two apart, so a sparse cadence isn't withheld with
+    // a dropout's explanation.
+    const steps: number[] = [];
+    for (let j = 1; j < usable.length; j++) steps.push(time[usable[j]] - time[usable[j - 1]]);
+    const finiteSteps = steps.filter((s) => Number.isFinite(s) && s > 0).sort((a, b) => a - b);
+    const typical = finiteSteps.length ? finiteSteps[finiteSteps.length >> 1] : NaN;
+    if (!ascentGapBreaksPeak && Number.isFinite(typical)) {
+      for (let j = 1; j < usable.length; j++) {
+        const span = time[usable[j]] - time[usable[j - 1]];
+        const missing = usable[j] - usable[j - 1] - 1;
+        if (missing >= 2 && Number.isFinite(span) && span > 1.5 && span > 3 * typical) {
           ascentGapBreaksPeak = true;
           break;
         }
       }
-      prevUsable = i;
     }
   }
 
@@ -1636,14 +1661,16 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // true and it is beside the point: the error in a GPS speed comes from differentiating a
   // coarse, lagging altitude, not from the transonic region, and the corpus measures it.
   // Where a GPS flight has a second instrument recording it, Debrief's GPS-derived peak
-  // lands above the measurement: 1,466 ft/s at 2.1 Hz (Mach 1.32) against a Blue Raven's
-  // measured 1,401 ft/s (Mach 1.22) on the same flight, and above that tracker's own
-  // stated 1,340 ft/s. +5% and +9%. The two barometric derived speeds on that flight run
-  // +23% and +110%. A reading that is high by an amount nothing on the file bounds is not
-  // one that settles whether a flight went supersonic.
-  // The corpus used to appear to say +28%, from a ground-station GPS log whose peak was
-  // differentiated across four missing fixes; that peak is withheld now, and with it the
-  // only evidence for a GPS error that large.
+  // lands above the measurement: 1,466 ft/s at 2.1 Hz against a Blue Raven's measured
+  // 1,401 ft/s on the same flight (+5% on the speeds, +8% comparing the two Mach figures),
+  // and above that tracker's own stated 1,340 ft/s (+9%). Every derived peak the corpus can
+  // check runs the same way — the barometric ones on that flight by +23% and +110%, and a
+  // PerfectFlite baro against an AltusMetrum inertial on the endurance flight by +30%. A
+  // reading that is high by an amount nothing on the file bounds is not one that settles
+  // whether a flight went supersonic.
+  // The corpus used to appear to say +28% for GPS specifically, from a ground-station log
+  // whose peak was differentiated across four missing fixes; that peak is withheld now.
+  // Quote a speed ratio or a Mach ratio, but say which — they differ by three points here.
   const transonicUnconfirmed = transonicTime !== null && velocitySource === 'baro';
 
   // --- Battery (when the logger recorded it) -------------------------------
@@ -1856,6 +1883,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     apogeeAltitude: apogeeAlt,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
     maxVelocity,
+    maxVelocityWithheld: Number.isFinite(maxVelocity) ? null : ascentGapBreaksPeak ? 'gap' : velocityImplausible ? 'implausible' : null,
     maxVelocitySource: velocitySource,
     maxVelocityAltitude,
     mach,
@@ -1956,7 +1984,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // still differentiated from it, and the corpus says a coarse GPS altitude differentiated
     // puts the peak high rather than soft.
     warnings.push(
-      `The peak speed (about Mach ${mach.toFixed(2)}) is worked out from the GPS altitude rather than measured. Nothing distorts a GPS through the transonic region the way a shock over a pressure port distorts a barometer, but differentiating a coarse, lagging GPS altitude runs the peak high: on the corpus GPS flight a second instrument also recorded, this read comes out above the measurement — 1,466 ft/s (Mach 1.32) where a Blue Raven on the same flight measured 1,401 ft/s (Mach 1.22), and above the tracker's own stated 1,340 ft/s. That is +5% against the measurement and +9% against its own summary, and a barometric derived speed on that same flight runs +23% and +110%. So it doesn't confirm the rocket went supersonic, and it isn't a floor under how fast it actually went.`,
+      `The peak speed (about Mach ${mach.toFixed(2)}) is worked out from the GPS altitude rather than measured. Nothing distorts a GPS through the transonic region the way a shock over a pressure port distorts a barometer, but differentiating a coarse, lagging GPS altitude runs the peak high: on the corpus GPS flight a second instrument also recorded, this read comes out above the measurement — 1,466 ft/s where a Blue Raven on the same flight measured 1,401 ft/s, and above the tracker's own stated 1,340 ft/s: +5% and +9% on the speeds, or +8% comparing the two Mach figures. Every derived peak the corpus can check runs the same way, the barometric ones by +23%, +30% and +110%. So it doesn't confirm the rocket went supersonic, and it isn't a floor under how fast it actually went.`,
     );
   }
   if (sampleHz > 0 && sampleHz < 5 && velocitySource === 'baro') {

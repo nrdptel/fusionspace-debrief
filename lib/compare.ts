@@ -192,10 +192,10 @@ export interface Agreement {
   count: number;
   /** True when the contributing flights don't all share one measurement source —
    *  e.g. one max speed is device-measured and another is altitude-derived. Some of the
-   *  spread is then method, not flight, and it has a direction: on all three corpus pairs
+   *  spread is then method, not flight, and it has a direction: on all four corpus pairs
    *  where one recording measured the speed and another differentiated it out of an
-   *  altitude, the derived one reads HIGH — by 5%, 23% and 110%. So a mixed spread
-   *  overstates the disagreement rather than bounding it. */
+   *  altitude, the derived one reads HIGH — by 5%, 23%, 30% and 110% on the speeds. So a
+   *  mixed spread overstates the disagreement rather than bounding it. */
   mixedSource: boolean;
   /** True when at least one contributing value is a floor rather than the true peak —
    *  today an accelerometer that saturated at its full-scale limit. Its real peak is

@@ -166,6 +166,16 @@ export function headlineRows(
   if (Number.isFinite(m.maxVelocity)) {
     const mach = m.mach ? ` (${fmtMach(m.mach)})` : '';
     rows.push(['Max velocity', fmtSpeed(m.maxVelocity, sys) + mach]);
+  } else if (m.maxVelocityWithheld != null) {
+    // A saved report that simply omits the row says the flight had no peak speed. It had
+    // one; Debrief declined to report it, and the document has to carry that distinction
+    // as the screen does.
+    rows.push([
+      'Max velocity',
+      m.maxVelocityWithheld === 'gap'
+        ? 'withheld — the ascent has a stretch the record doesn’t cover, so the top speed may fall inside it'
+        : 'withheld — the speed this trace gives is not physically possible',
+    ]);
   }
   if (Number.isFinite(m.maxAcceleration)) rows.push(['Max acceleration', fmtAccel(m.maxAcceleration, sys)]);
   // These four were on screen and in no saved report — so a flyer who read the

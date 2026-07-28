@@ -33,7 +33,14 @@ export interface Tile {
  *  the max-acceleration tile shows it, so a headline number never reads as more
  *  direct than it is. */
 function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
-  if (!Number.isFinite(m.maxVelocity)) return 'not in this log';
+  if (!Number.isFinite(m.maxVelocity)) {
+    // "Not in this log" is only true when the file carries no speed at all. Where Debrief
+    // withheld one it is the opposite of true — the data is there and the reading was
+    // declined — and a withheld number has to say why it was withheld.
+    if (m.maxVelocityWithheld === 'gap') return 'withheld — the ascent has a stretch the record doesn’t cover';
+    if (m.maxVelocityWithheld === 'implausible') return 'withheld — the speed this trace gives is not physically possible';
+    return 'not in this log';
+  }
   const parts: string[] = [];
   if (m.mach) parts.push(fmtMach(m.mach));
   if (Number.isFinite(m.maxVelocityAltitude)) parts.push(`at ${fmtLength(m.maxVelocityAltitude, sys)}`);

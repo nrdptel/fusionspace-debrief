@@ -190,11 +190,13 @@ export default function ValidationPage() {
               A <strong>GPS</strong> altitude or track is good only to a few metres, and a velocity
               derived from it is rough; acceleration off it isn&apos;t meaningful and is withheld. The
               roughness has a measured direction: on the corpus GPS flight a second instrument also
-              recorded, the GPS-derived peak lands <em>above</em> the measurement — Mach&nbsp;1.32
-              against a Blue Raven&apos;s measured 1.22 on the same flight (+5%), and 1,466&nbsp;ft/s
-              against the tracker&apos;s own stated 1,340&nbsp;ft/s (+9%). So a GPS peak past
+              recorded, the GPS-derived peak lands <em>above</em> the measurement — 1,466&nbsp;ft/s
+              against a Blue Raven&apos;s measured 1,401&nbsp;ft/s on the same flight (+5%), and above
+              the tracker&apos;s own stated 1,340&nbsp;ft/s (+9%). Comparing the two Mach figures
+              instead — 1.32 against 1.22 — gives +8%, because Mach also carries the air the peak was
+              read in; both are quoted here as speed ratios unless said otherwise. So a GPS peak past
               Mach&nbsp;0.9 is flagged like a barometric one and never counted as proof of a supersonic
-              flight. A second GPS log reads +28% by the same comparison, but its peak is
+              flight. A second GPS log read +31% by the same speed comparison, but its peak was
               differentiated across four missing fixes and is withheld rather than reported — the
               figure it produced is not evidence of anything.
             </li>

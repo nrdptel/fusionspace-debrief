@@ -12,6 +12,7 @@ const EVERYTHING: FlightMetrics = {
   maxVelocity: 341,
   burnoutSource: 'measured' as const,
   burnoutAtVelocityPeak: false,
+  maxVelocityWithheld: null,
   maxVelocitySource: 'device',
   maxVelocityAltitude: 620,
   mach: 1.02,

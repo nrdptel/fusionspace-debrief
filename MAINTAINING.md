@@ -541,8 +541,9 @@ How it reaches CI:
   is withheld rather than printed as noise — **and a withheld number says why it is withheld**, because
   a tile that is simply absent explains nothing. Never manufacture precision the data lacks. Accuracy
   claims are a range with their basis, not a flattering single number. When a caveat names an error,
-  name its DIRECTION and size where the corpus can measure them — "runs high by 9–31%" is a warning a
-  flyer can act on; "approximate" is not. Several recordings of one flight are independent measurements
+  name its DIRECTION and size where the corpus can measure them — "runs high by 5–110%" is a warning a
+  flyer can act on; "approximate" is not. Say which basis a ratio is on: the same pair reads +5% on the
+  speeds and +8% on the Mach numbers, and quoting one under the other's name is its own wrong claim. Several recordings of one flight are independent measurements
   that can disagree, never a consensus dressed as certainty. Keep the visible "what Debrief isn't"
   disclaimer. Defer to the logger, the flyer, and the RSO.
 

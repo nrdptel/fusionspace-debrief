@@ -892,10 +892,21 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
     // against a measured 427.0. This used to be asserted on the jan18 ground-station log
     // at >1.2, which read 497.0 m/s — a peak differentiated across four missing fixes.
     // That file's peak is withheld now, so the number the claim rests on is this one, and
-    // it is +5%, not +31%. The published figure moved with it.
+    // it is +5% on the speeds (+8% comparing the two Mach figures), not the +31% that log
+    // produced. The published GPS figure moved with it; the +30% endurance pair below is a
+    // separate, real measurement and was never part of the withdrawn claim.
     const ratio = g.maxVelocity! / b.maxVelocity!;
-    expect(ratio, `the GPS peak runs high, not soft (${ratio.toFixed(3)})`).toBeGreaterThan(1.02);
-    expect(ratio, 'and by the measured amount, not the withdrawn one').toBeLessThan(1.10);
+    // Bounded both ways and tightly, because five surfaces publish this as "+5%": a band
+    // wide enough to admit +2% or +10% would let the stated figure drift off the measurement
+    // without failing. Measured 1.0464.
+    expect(ratio, `the GPS peak runs high, not soft (${ratio.toFixed(4)})`).toBeGreaterThan(1.03);
+    expect(ratio, `and by the published amount (${ratio.toFixed(4)})`).toBeLessThan(1.06);
+    // The Mach ratio is a different number on the same pair — 1.0831 — and the docs quote
+    // both. Pinned so nobody re-labels one with the other's value, which is how "+5%" ended
+    // up printed beside "Mach 1.32 against 1.22" in the first place.
+    const machRatio = g.mach! / b.mach!;
+    expect(machRatio, `the Mach ratio is its own figure (${machRatio.toFixed(4)})`).toBeGreaterThan(1.07);
+    expect(machRatio, 'and is not the speed ratio').toBeLessThan(1.10);
     // …and the flyer is told so, in the language of the sensor that produced it — the
     // barometric shock-over-the-port warning would name the wrong failure here.
     const why = gps!.analysis.warnings.find((w) => /worked out from the GPS altitude/.test(w));
@@ -912,7 +923,10 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
     const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv');
     expect(gps, 'the ground-station log is in the corpus').toBeTruthy();
     const m = gps!.analysis.metrics;
-    const { time, altitude } = gps!.analysis.series;
+    // altitudeRaw is what the guard reads. `altitude` happens to carry the same holes today,
+    // so asserting on it would pass while the guard's actual input changed underneath.
+    const { time, altitudeRaw } = gps!.analysis.series;
+    const altitude = altitudeRaw;
     // The hole is real and the clock runs straight through it.
     let apo = 0;
     for (let i = 0; i < altitude.length; i++) if (Number.isFinite(altitude[i]) && altitude[i] > altitude[apo]) apo = i;
@@ -930,7 +944,11 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
     expect(m.maxVelocity, 'no peak speed').toBeNaN();
     expect(m.mach, 'so no Mach, and no bare supersonic claim').toBeNull();
     expect(m.maxDynamicPressure, 'and no max-Q, which squares the same speed').toBeNull();
-    expect(m.transonicTime).toBeNull();
+    // transonicTime was already null here before the guard — the crossing search needs a
+    // finite speed of sound at the peak index and the hole denies it one — so asserting it
+    // proves nothing about the guard. What the guard has to produce is a REASON, so the
+    // tile can say the reading was withheld rather than "not in this log", which is false.
+    expect(m.maxVelocityWithheld, 'the withholding names itself, for the tile and the report').toBe('gap');
     // And it says why, rather than the tile simply being absent.
     expect(gps!.analysis.warnings.some((w) => /gap in the sampled ascent/i.test(w)), 'the withholding explains itself').toBe(true);
   });
@@ -953,17 +971,24 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
 
 // The direction of the mixed-source caveat, which the comparison and every export state.
 // Where one recording of a flight measured the speed and another differentiated it out of
-// an altitude, the derived one reads HIGH — never soft. Three corpus pairs, and all three
+// an altitude, the derived one reads HIGH — never soft. Four corpus pairs, and all four
 // agree; the caveat used to say the opposite, which tells a flyer to treat the inflated
-// figure as a lower bound. A fourth pair was here — the jan18 ground-station GPS — and it
-// is gone because that peak is withheld now, not because it disagreed: it read highest of
-// all four, off four missing fixes, and it was inflating the published spread.
+// figure as a lower bound. A fifth was here — the jan18 ground-station GPS — and it is gone
+// because that peak is withheld now, not because it disagreed: it read off four missing
+// fixes and was inflating the published spread. The endurance pair below replaced it in the
+// enumeration and is the honest +30%: a barometric peak against an inertial one, no gaps,
+// two recordings whose apogees agree to 45 ft.
 describe('a speed differentiated out of an altitude reads high, not soft', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
     return;
   }
   const PAIRS: { name: string; measured: string; derived: string }[] = [
+    {
+      name: 'iss-endurance: the AltusMetrum inertial vs the PerfectFlite baro',
+      measured: 'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv',
+      derived: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv',
+    },
     {
       name: 'trf-lemiv-l3: Blue Raven vs the tracker GPS',
       measured: 'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
