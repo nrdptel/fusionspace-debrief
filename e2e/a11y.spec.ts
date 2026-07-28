@@ -166,6 +166,39 @@ test('the report can be navigated by section, with no link to a section it doesn
 // scroll-margin the targets carry in app/globals.css. Measured on a phone, where the strip is
 // at its tallest (62 px, every link held to the 44 px touch floor) and the report at its
 // longest.
+// A pinned strip that lists eight places and marks none of them is a map with no "you are
+// here". The marker is `aria-current="location"` — the token that means a position in a
+// document, so a screen reader says "current location" on the one chip that is and nothing
+// on the rest — and it agrees with the jump by construction: a heading counts as reached
+// once it is at or above the place a jump to it would put it, read off the element's own
+// scroll-margin rather than a number written down twice.
+test('the section strip says which section you are in', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  const nav = page.getByRole('navigation', { name: /Jump to a section/ });
+  const marked = nav.locator('a[aria-current="location"]');
+
+  // At the top of the report nothing has been reached, and saying "Worth knowing" there
+  // would be a claim about where the reader is that isn't true yet.
+  await expect(marked, 'nothing is current before the first heading').toHaveCount(0);
+
+  // Follow each link; the chip you pressed is the one that lights up.
+  for (const label of ['Readings', 'Events', 'Explore', 'Flight card']) {
+    const link = nav.getByRole('link', { name: label });
+    if (!(await link.count())) continue;
+    await link.click();
+    await expect(marked, `exactly one chip is current after jumping to ${label}`).toHaveCount(1);
+    await expect(marked, `${label} is the current section after jumping to it`).toHaveText(label);
+  }
+
+  // …and it tracks a plain scroll too, not only a click.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(marked).toHaveCount(1);
+});
+
 test('the section strip stays reachable six screens down, and jumps land clear of it', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');

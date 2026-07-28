@@ -30,11 +30,13 @@ memory, so a later pass doesn't have to rediscover them.
   copy's opening pad samples. Both copies of that flight stop 250 m up, so it now withholds the landing,
   the clock and the energy and says why. Census assert 6 → 7.
 
-- **DONE — the section strip scrolls away with the page.** It now pins (`sticky top-0`), which costs
-  nothing until you have scrolled past where it already sat, with a 4.5rem scroll-margin on the targets
-  sized to the tallest the strip gets (62 px at 390 px, not the 42 px desktop average). What is still
-  open is **current-section state**: six screens down it lists eight places without marking which one
-  you are in. Original entry: measured **5,472 px** at
+- **DONE — the section strip scrolls away with the page, and then didn't say where you were.** It now
+  pins (`sticky top-0`), which costs nothing until you have scrolled past where it already sat, with a
+  4.5rem scroll-margin on the targets sized to the tallest the strip gets (62 px at 390 px, not the
+  42 px desktop average). And it marks the section you are standing in with `aria-current="location"`,
+  measured against each target's OWN scroll-margin — measuring against the pinned strip's bottom edge
+  was off by one section on every jump, because that margin deliberately parks a jumped-to heading
+  below the strip. Nothing is current above the first heading. Original entry: measured **5,472 px** at
   1440 px and **7,710 px** at 390 px, with **zero** `a[href^="#"]` anywhere in it. A flyer comes back
   to a saved report to check one number and has to scroll past everything to reach Events, Recovery or
   Explore the data, and cannot link a clubmate to a section. The blocking half is now done — every

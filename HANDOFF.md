@@ -239,27 +239,30 @@ version of the assert would not have.
 
 ## Pick up first, and why
 
-1. **Merge the Blue Raven's high-rate file into its low-rate flight.** The benchmark's top finding and
-   the highest-leverage thing available: max acceleration, thrust-to-weight, deployment shock and roll
-   rate are permanently blank on the most widely flown modern HPR altimeter, while the numbers sit in a
-   sibling file the flyer already has — the cross-check literally prints
-   `Max acceleration · 72.9 g · — · not computed`. The multi-file plumbing exists (low-rate + device
-   summary pairs today), so this extends a mechanism rather than inventing one. See BACKLOG for the
-   full ranked benchmark.
+1. **Merge the Blue Raven's high-rate file into its low-rate flight.** Still the top item, and now
+   fully surveyed — BACKLOG carries every measurement, so this starts from facts rather than a plan.
+   The load-bearing ones: HR and LR share a zero EXACTLY on `Flight_Time_(s)` (0.000 s), but
+   `buildFlight` rebases each file to its own first sample and they differ, leaving them **0.062 s —
+   31 HR samples — apart** after building; never align on the LR wall clock (4,493 distinct stamps
+   for 12,489 rows); the LR file holds the flight twice with `Flight_Time` counting monotonically
+   across a join where the wall clock jumps back 124.880 s; `ChannelKind` has no gyro or quaternion
+   slot; and `lib/explore.ts:171-178` SILENTLY skips a channel of the wrong length.
 2. **Make the comparison and report captions actually stick.** The copy is honest now; sticky is the
    feature. A comparison's label belongs to its id-set, not to the device, so it needs a key design —
-   the logbook's per-flight `note` (IndexedDB, `lib/recents.ts:117`) is the precedent, not localStorage.
-3. **Deployment boundaries are parsed and thrown away across four parser families** — see BACKLOG. The
-   deploy latches are per-COPY on a file holding its flight twice, and the cut between copies is now
-   placed at the join rather than a few samples into the next copy's pad, so that hazard is smaller
-   than it was — but it is still per-copy, so read `nextFlightStart` before trusting a latch index.
-4. **jan18's main descent is in neither copy.** Both stop at 250 m — right where the main would have
-   deployed — so Debrief has no main leg to read and the device's own 29.0 ft/s has nothing to be
-   cross-checked against. Worth a look at whether the sibling files for that flight (the Featherweight
-   GPS recorded it separately and reads a 50.7 m/s drogue and a 6.2 m/s main) can supply it, which is
-   the same multi-file mechanism as (1).
-5. **The strip pins, but it does not say where you ARE.** No current-section state, so six screens down
-   it lists eight places without marking which one you are in.
+   the logbook's per-flight `note` (IndexedDB, `lib/recents.ts`) is the precedent, and `summaryText`
+   is now a second one: keep the SOURCE, re-derive the answer.
+3. **Deployment boundaries are parsed and thrown away across four parser families** — see BACKLOG.
+   The deploy latches are per-COPY on a file holding its flight twice, so read `nextFlightStart`
+   before trusting a latch index.
+4. **jan18's main descent is in neither copy.** Both stop at 250 m — above the 696 ft the device's own
+   summary says the main fired at — so Debrief has no main leg to read. The summary's own figure is
+   now surfaced (`Drogue descent · 56 ft/s`) and the main one is named as unusable because the device
+   wrote its unit as "feet". The Featherweight GPS recorded the same flight separately and reads a
+   50.7 m/s drogue and a 6.2 m/s main; whether that can supply it is the same multi-file mechanism
+   as (1).
+5. **The device summary states more than Debrief takes.** `Apo channel max accel,115.8 Gs` and
+   `Main channel max accel,187.5 Gs` are deployment shock, which Debrief has a concept for
+   (`FlightEvent.peakAccel`) and no `ReportedValue` slot for. `Max landing accel,280.0 Gs` likewise.
 
 BACKLOG.md carries the rest, newest first.
 
