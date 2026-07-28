@@ -36,7 +36,7 @@ import {
   type Comparison,
   type CompareFlight,
 } from './compare';
-import { apogeeSub, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate } from './readings';
+import { apogeeSub, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -85,7 +85,10 @@ function landingEnergyRow(
     systemOf(sys) === 'metric'
       ? `${Math.round(joules)} J`
       : `${joulesToFtLbf(joules).toFixed(joulesToFtLbf(joules) < 100 ? 1 : 0)} ft·lbf`;
-  return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)`];
+  const basis = landingRateIsWholeDescent(m)
+    ? ' — off the whole-descent average, as no deployment change is in the record'
+    : '';
+  return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)${basis}`];
 }
 
 /** The main-deploy verification row, when the flyer entered the altitude they set: how the

@@ -3,6 +3,7 @@ import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
 import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
 import { buildComparison, type CompareInput } from './compare';
+import { landingRateIsWholeDescent } from './readings';
 
 function tinyFlight(): RawFlight {
   const dt = 0.05;
@@ -231,7 +232,7 @@ describe('report exports', () => {
     expect(txt).toMatch(/Landing energy\s+[\d.]+ ft·lbf \(at [\d.]+ oz descending\)/);
 
     const md = summaryMarkdown(flight, analysis, 'metric', 1_700_000_000_000, undefined, recovery);
-    expect(md).toMatch(/\| Landing energy \| \d+ J \(at \d+ g descending\) \|/);
+    // Prefix, not the whole cell: the value carries a basis caveat when the rate is a\n    // whole-descent average, and pinning the cell exactly would fail on that rather than on\n    // the figure this assert is about.\n    expect(md).toMatch(/\| Landing energy \| \d+ J \(at \d+ g descending\)/);
 
     const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery));
     expect(doc.recovery.landingEnergyJoules).toBeCloseTo(expectedJ, 0);
@@ -444,6 +445,27 @@ describe('report exports', () => {
         expect(Math.abs(row.logger - asPrinted), `${where}: JSON ${row.logger} vs report ${asPrinted}`).toBeLessThan(1);
       }
     }
+  });
+
+  // Energy goes as v², so a landing energy computed off a whole-descent average rather than a
+  // resolved main leg is a different claim, and the card has said so on screen since it was
+  // written. The saved report — the document a cert write-up and a club energy limit are read
+  // from — printed the joules bare. Same reading, one caveat, both surfaces.
+  it('says when a landing energy came off the whole-descent average', () => {
+    const a = analyzeFlight(accelFlight_);
+    expect(landingRateIsWholeDescent(a.metrics), 'this fixture lands with no main resolved').toBe(true);
+    const recovery = { descendingMassKg: 0.9 };
+    const txt = summaryText(accelFlight_, a, 'metric', 1, undefined, recovery);
+    const row = txt.split('\n').find((l) => /Landing energy/.test(l));
+    expect(row, 'the report carries the row at all').toBeTruthy();
+    expect(row, 'and says what the figure is off').toMatch(/whole-descent average/);
+
+    // A flight that resolved a main says nothing of the kind — this is a distinction, not a
+    // sentence bolted onto every report.
+    const withMain = { ...a, metrics: { ...a.metrics, mainDescentRate: 6 } } as typeof a;
+    expect(landingRateIsWholeDescent(withMain.metrics)).toBe(false);
+    const txt2 = summaryText(accelFlight_, withMain, 'metric', 1, undefined, recovery);
+    expect(txt2.split('\n').find((l) => /Landing energy/.test(l))).not.toMatch(/whole-descent average/);
   });
 
   it('carries an optional report label and notes into the text, Markdown and JSON exports', () => {

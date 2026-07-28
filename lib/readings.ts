@@ -71,6 +71,16 @@ export function landingRate(m: FlightMetrics): number | null {
   return m.mainDescentRate ?? m.wholeDescentRate ?? null;
 }
 
+/** True when that rate is the whole descent averaged rather than a resolved main leg — the
+ *  flight landed, but no deployment change is in the record, so the figure is the same
+ *  descent all the way down as far as this file can tell. Energy goes as v², so a document
+ *  that prints the joules without saying which is a document that reads more precise than
+ *  it is: the screen has said so since the card was written, and the saved report — the one
+ *  a cert write-up and a club energy limit are read from — did not. */
+export function landingRateIsWholeDescent(m: FlightMetrics): boolean {
+  return landedInRecord(m) && m.mainDescentRate == null && m.wholeDescentRate != null;
+}
+
 /** How burnout was located, in the same voice the peak speed and peak acceleration already
  *  use. Every reading taken AT that instant — the burn time, the altitude and the speed at
  *  burnout — inherits it, because all three are only as direct as the instant they were read

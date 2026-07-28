@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
-import { landedInRecord, landingRate } from '@/lib/readings';
+import { landedInRecord, landingRate, landingRateIsWholeDescent } from '@/lib/readings';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
@@ -51,7 +51,7 @@ export default function LandingEnergy({
   // up is a drogue-leg figure, and squaring it into a landing energy a flyer sizes a canopy
   // against is the kind of confident wrong number this tool exists not to print.
   const rate = landingRate(metrics);
-  const wholeDescent = metrics.mainDescentRate == null && metrics.wholeDescentRate != null;
+  const wholeDescent = landingRateIsWholeDescent(metrics);
   const stoppedAbove = !landedInRecord(metrics) && metrics.wholeDescentRate != null;
 
   const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);

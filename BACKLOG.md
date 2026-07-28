@@ -6,18 +6,13 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
-- **The Blue Raven writes its own deployment flags and no parser reads them.** `Apo_fired`,
-  `Main_fired`, `3rd_fired` and `4th_fired` are real columns in the low-rate CSV (cols 37-40) and
-  `grep -n "fired" lib/parsers/blueraven.ts` returns nothing. These are the DEVICE's own record of
-  what it commanded — a measurement, not an inference — and Debrief currently derives deployment
-  from the altitude trace alone. Reading them would give a main-deploy altitude directly, beside
-  Debrief's own read, exactly the side-by-side cross-check the product is built around.
-  **Not as simple as it looks, which is why it wasn't taken this run.** On the jan18 LR file
-  `Apo_fired`, `3rd_fired` and `4th_fired` each show THREE transitions (0→1, 1→0, 0→1) rather than
-  a single latch, because the file holds the flight twice and the second copy re-arms them;
-  `Main_fired` shows one, on the final row. So consuming these columns means deciding which copy a
-  flag belongs to — the same-flight splitter region that the seam finding above says needs its own
-  pass. Do that first, then this.
+- **A deploy latch is per-COPY, which the "deployment boundaries are parsed and thrown away" entry
+  below needs to account for.** Measured on `blueraven__trf-f1machbuster-jan18` LR: `Apo_fired`,
+  `3rd_fired` and `4th_fired` each show **three** transitions (0→1, 1→0, 0→1), not one latch,
+  because the file holds the flight twice and the second copy re-arms them; `Main_fired` shows one,
+  on the final row. So whoever lifts those columns has to decide which copy a flag belongs to —
+  which lands in the same-flight splitter, the region the seam entry below says needs its own pass.
+  Sequence it that way round.
 
 - **DONE — a peak speed differentiated across four missing GPS fixes was the reported headline, and
   the published accuracy claim rested on it.** The guard that withholds a derived peak over an ascent
@@ -95,7 +90,7 @@ memory, so a later pass doesn't have to rediscover them.
   10:50:44.600), so the fix is the cut, not the detector. Note `wholeDescentRate` is not gated on a
   landing being found even after the correct cut — the counterfactual still returned 51.0 ft/s.
 
-- **The Recovery card claims a landing on a log that ends at apogee.** Verified, not fixed.
+- **DONE — the Recovery card claimed a landing on a log that ends at apogee.**
   `altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv` — 285 samples, 2.84 s, last sample
   **1,081.6 m AGL at 322.1 m/s, still climbing**. `FlightReport.tsx:1073` renders `GroundTrack` on
   `gpsLat && gpsLon` alone and `lib/gps.ts:332` takes the last valid fix as the resting place
@@ -103,7 +98,10 @@ memory, so a later pass doesn't have to rediscover them.
   track, "Walk from the pad toward W (267°)", and GPX/KML waypoints literally named `Landing`.
   `landedInRecord` is the gate this needs.
 
-- **Apogee is the only primary tile with no provenance sub-label and no truncation flag.** On the
+- **DONE — apogee was the only primary tile with no provenance sub-label and no truncation flag.**
+  Fixed by `apogeeIsFloor` + `apogeeSub`, on the grid and in the saved report; two corpus flights
+  (intrepid1, intrepid2) now read "at least this high — the log ends at its own peak". Original
+  entry below. On the
   truncated TeleMetrum log it reads "APOGEE 3,548 ft / 2.6 s to apogee" as flat fact while the analyzer
   has already raised "The log appears to end at or before apogee". Neighbouring tiles carry 1–2
   provenance chips; the one number everybody copies out carries none.
@@ -422,10 +420,15 @@ memory, so a later pass doesn't have to rediscover them.
   legs. **Caveat found while reading it:** the drogue channel fires ~12.4 s after apogee, so an
   apogee→main chord (77.6 ft/s) and a deploy→main chord (59.4 ft/s) are different questions, and
   the device's −55.9 matches the latter. Any descent contract has to say which boundary it means.
-- **The saved report substitutes the whole-descent average into landing energy without the caveat
-  the screen carries.** `lib/report.ts:77` and `:1103` both do `m.mainDescentRate ?? m.wholeDescentRate`
-  for `landingEnergyJoules`, while `components/LandingEnergy.tsx:48-49` sets a `wholeDescent` flag and
-  says so on screen. Energy goes as v², so where the whole-descent average is well above the main
+- **DONE — the saved report substituted the whole-descent average into landing energy without the
+  caveat the screen carries.** Both halves are closed: the substitution itself is gated on
+  `landingRate`, which is null where the record never reached the ground (so six flights that were
+  publishing a touchdown energy now publish none), and where the flight DID land with no deployment
+  change resolved, the report row now carries the same basis the card shows. Both surfaces read the
+  one `landingRateIsWholeDescent` helper rather than repeating the condition. Original entry:
+  `lib/report.ts:77` and `:1103` both did `m.mainDescentRate ?? m.wholeDescentRate`
+  for `landingEnergyJoules`, while `components/LandingEnergy.tsx:48-49` set a `wholeDescent` flag and
+  said so on screen. Energy goes as v², so where the whole-descent average is well above the main
   rate the exported document overstates the joules by that ratio squared — on the document a cert
   write-up and a club energy limit are read from. Same substitution, caveat on one surface only.
 - **CORRECTED — the AltimeterCloud "13.6–16.7% error" is the DEVICE disagreeing with itself, not
