@@ -6,6 +6,16 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **DONE — the data CSV stated a Mach and a dynamic pressure the rest of the app withholds.**
+  `analyzedDataCsv` computed both per sample with no `velocityImplausible` gate, while its two
+  siblings (`lib/explore.ts:146`, `lib/compare.ts:147`) and the headline metrics all withhold them on
+  a speed judged impossible. Measured: **10 of 46** corpus flights withhold the speed on screen and
+  **all ten** exported a Mach — sta-carl2 at **362.4** and **1.79e8 kPa**, seb-earlydeploy 4.1, and
+  then the dangerous ones, a perfectly believable **1.7, 1.6 and 1.3**. A wrong number that looks
+  right is worse than an absurd one, and the CSV is the artefact a flyer pastes into a spreadsheet or
+  a cert document. Both columns are now omitted entirely when the speed is withheld; the velocity
+  column stays, exactly as its trace stays on screen, so a mis-scaled column can still be diagnosed.
+
 - **The burnout search bound is fixed but UNGUARDED — the corpus cannot hold it.** The crossing
   search takes its bound from the velocity peak, and a flight whose speed is judged impossible used
   to lose that bound entirely: `maxVelIdx = -1` was read as "no peak" and the search ran the whole
