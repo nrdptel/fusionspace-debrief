@@ -7,12 +7,11 @@ import type { FlightMetrics } from '@/lib/analyze/types';
 import type { ReportedValue } from '@/lib/flight/types';
 import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
-import { compareReported } from '@/lib/flight/reported';
+import { compareReported, REPORTED_QUANTITY } from '@/lib/flight/reported';
 
 function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
-  if (metric === 'apogeeAltitude') return fmtLength(si, sys);
-  if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);
-  return fmtAccel(si, sys);
+  const q = REPORTED_QUANTITY[metric];
+  return q === 'length' ? fmtLength(si, sys) : q === 'speed' ? fmtSpeed(si, sys) : fmtAccel(si, sys);
 }
 
 export default function DeviceSummary({

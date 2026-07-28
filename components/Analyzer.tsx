@@ -283,9 +283,14 @@ export default function Analyzer() {
         // stated for itself wins — that one came from the flight record.
         const already = new Set((target.flight.reported ?? []).map((v) => v.metric));
         const added = s.figures.reported.filter((v) => !already.has(v.metric));
+        // …and what the summary stated but Debrief could not use rides across too, as a note
+        // on the flight rather than a silence. A figure the device wrote with the wrong unit
+        // is a fact about the flyer's own file, and the number is theirs either way.
+        const summaryNotes = s.figures.notes.filter((n) => !target.flight.notes.includes(n));
         target.flight = {
           ...target.flight,
           ...(added.length ? { reported: [...(target.flight.reported ?? []), ...added] } : {}),
+          ...(summaryNotes.length ? { notes: [...target.flight.notes, ...summaryNotes] } : {}),
           ...(target.flight.flownAt ?? s.figures.flownAt ? { flownAt: target.flight.flownAt ?? s.figures.flownAt } : {}),
         };
         paired.push(`${s.name} → ${target.name}`);

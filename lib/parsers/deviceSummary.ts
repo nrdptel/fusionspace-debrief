@@ -71,41 +71,95 @@ function readSummary(text: string): Summary | null {
  *  resolve is dropped rather than guessed at.
  *
  *  Deliberately small. "Distance at apogee" is downrange, not altitude, and mapping it would
- *  invent a cross-check that contradicts a sound read. */
-const SUMMARY_KEYS: Record<string, { metric: ReportedValue['metric']; label: string; quantity: string }> = {
+ *  invent a cross-check that contradicts a sound read — and the horizontal velocities a GPS
+ *  summary states are not the vertical speeds Debrief reads, so they stay out for the same
+ *  reason.
+ *
+ *  `magnitude` marks a figure the device writes SIGNED, downward-negative: it states a main
+ *  descent as "-29.0" where Debrief's main descent rate is a downward speed. Compared as
+ *  magnitudes, the same way the AltimeterCloud key already is (lib/flight/reported.ts). */
+const SUMMARY_KEYS: Record<
+  string,
+  { metric: ReportedValue['metric']; label: string; quantity: string; magnitude?: true }
+> = {
   'max altitude': { metric: 'apogeeAltitude', label: 'Apogee', quantity: 'length' },
   'max velocity': { metric: 'maxVelocity', label: 'Max velocity', quantity: 'speed' },
   'max vertical velocity': { metric: 'maxVelocity', label: 'Max velocity', quantity: 'speed' },
   'max motor burn acceleration': { metric: 'maxAcceleration', label: 'Max acceleration', quantity: 'accel' },
+  // The two descent rates. These are the numbers a flyer sizes a parachute against and shows
+  // an RSO, and on a record that stops before the ground they are the ONLY ones there are —
+  // the corpus Blue Raven `jan18` stops 250 m up, above where its own summary says the main
+  // fired, so Debrief has no main leg to read and the device's figure is all the flight has.
+  'drogue descent rate': { metric: 'drogueDescentRate', label: 'Drogue descent', quantity: 'speed', magnitude: true },
+  'main chute descent rate': { metric: 'mainDescentRate', label: 'Main descent', quantity: 'speed', magnitude: true },
 };
 
-/** A stated "4034.98 feet" as canonical SI, or null when the number or the unit isn't
- *  readable — an unconvertible figure is left out, never assumed to be in feet. */
-function statedValue(raw: string, quantity: string): number | null {
+/** How a stated figure read: its SI value, or which way it failed. The caller needs the
+ *  difference, because a unit that doesn't match the quantity is a fact about the FILE worth
+ *  telling the flyer, while a row that isn't a number at all is just a row. */
+type Stated =
+  | { ok: true; si: number }
+  | { ok: false; why: 'not-a-number' }
+  | { ok: false; why: 'wrong-quantity'; unit: string }
+  | { ok: false; why: 'zero' };
+
+/** A stated "4034.98 feet" as canonical SI — never assumed to be in feet. The unit is read
+ *  from the value, as a Featherweight summary writes it ("700.36 feet/sec", "24.1 Gs"), and a
+ *  figure whose unit names a different quantity than the metric is is left out rather than
+ *  guessed at. A stated ZERO is left out too: a device that fills a row it has no measurement
+ *  for writes 0.0, and "your main came down at 0 ft/s" under a device label is a wrong claim,
+ *  not a missing one. Both corpus Blue Ravens show it — one states 0.0 for every deployment
+ *  figure it has. */
+function statedValue(raw: string, quantity: string, magnitude?: true): Stated {
   const m = /^\s*(-?[\d.,]+)\s*(.*)$/.exec(raw);
-  if (!m) return null;
+  if (!m) return { ok: false, why: 'not-a-number' };
   const n = parseNumber(m[1]);
-  if (!Number.isFinite(n)) return null;
-  const unit = resolveUnit(m[2].replace(/[()]/g, '').trim());
-  if (!unit || unit.quantity !== quantity) return null;
-  return unit.toCanonical(n);
+  if (!Number.isFinite(n)) return { ok: false, why: 'not-a-number' };
+  // Zero first, and deliberately BEFORE the unit is looked at. A row the device has no
+  // measurement for carries no measurement whatever unit it is written in, and complaining
+  // about the unit of a 0.0 is noise: the corpus Blue Raven `lemiv-l3` writes
+  // `Main chute descent rate,0.0 feet` — both wrong at once, and only the zero matters.
+  // Zero in any unit is zero, so this needs no conversion.
+  if (n === 0) return { ok: false, why: 'zero' };
+  const unitText = m[2].replace(/[()]/g, '').trim();
+  const unit = resolveUnit(unitText);
+  if (!unit) return { ok: false, why: 'not-a-number' };
+  if (unit.quantity !== quantity) return { ok: false, why: 'wrong-quantity', unit: unitText };
+  const si = unit.toCanonical(n);
+  return { ok: true, si: magnitude ? Math.abs(si) : si };
 }
 
 /** What a dropped device-summary file contributes to the flight it belongs to: the device's
- *  own headline figures (for the side-by-side cross-check, never merged into Debrief's read)
- *  and the launch date it states. Returns null when the text isn't a summary at all. */
-export function summaryFigures(text: string): { rocket: string; reported: ReportedValue[]; flownAt?: FlownAt } | null {
+ *  own headline figures (for the side-by-side cross-check, never merged into Debrief's read),
+ *  the launch date it states, and a note for anything it stated that could not be used.
+ *  Returns null when the text isn't a summary at all. */
+export function summaryFigures(
+  text: string,
+): { rocket: string; reported: ReportedValue[]; notes: string[]; flownAt?: FlownAt } | null {
   const summary = readSummary(text);
   if (!summary) return null;
   const reported: ReportedValue[] = [];
+  const notes: string[] = [];
   const seen = new Set<string>();
   for (const [key, value] of summary.rows) {
     const def = SUMMARY_KEYS[norm(key)];
     if (!def || seen.has(def.metric)) continue;
-    const si = statedValue(value, def.quantity);
-    if (si == null) continue;
+    const stated = statedValue(value, def.quantity, def.magnitude);
+    if (!stated.ok) {
+      // A figure withheld because of the FILE says why, rather than vanishing. This is not
+      // hypothetical: the corpus Blue Raven writes `Main chute descent rate,-29.0 feet` —
+      // a rate with a length for a unit — and that row is the main descent speed, the one
+      // number a flyer sizes a canopy against. Debrief will not decide the device meant
+      // feet per second; it hands the flyer what the file actually says.
+      if (stated.why === 'wrong-quantity') {
+        notes.push(
+          `The device summary states “${key.trim()}: ${value.trim()}”, but “${stated.unit}” is not a ${def.quantity}, so this figure is left out of the cross-check rather than guessed at. Read it against your device's own documentation.`,
+        );
+      }
+      continue;
+    }
     seen.add(def.metric);
-    reported.push({ metric: def.metric, label: def.label, value: si, source: 'device' });
+    reported.push({ metric: def.metric, label: def.label, value: stated.si, source: 'device' });
   }
   // The launch date, where the summary states one. A GPS summary writes an explicit UTC
   // stamp; a Blue Raven writes its own clock as a separate date and time of day.
@@ -116,7 +170,7 @@ export function summaryFigures(text: string): { rocket: string; reported: Report
     const local = row('launch time local time zone');
     if (local) flownAt = flownAtFromText(local, 'logger');
   }
-  return { rocket: summary.rocket ?? 'this device', reported, ...(flownAt ? { flownAt } : {}) };
+  return { rocket: summary.rocket ?? 'this device', reported, notes, ...(flownAt ? { flownAt } : {}) };
 }
 
 export const deviceSummaryParser: Parser = {

@@ -53,6 +53,24 @@ export function extractReportedSummary(metadataRows: string[][]): ReportedValue[
   return out;
 }
 
+/** Which quantity each reported metric is. A `Record` over the union rather than a chain of
+ *  comparisons, so adding a metric to `ReportedValue` fails to compile until it is classified
+ *  here. It lives beside the type rather than in a renderer because the cross-check is
+ *  rendered THREE times — the on-screen panel, the formatted report and the JSON export — and
+ *  each used to decide this for itself. The JSON copy tested only `maxVelocity` and let
+ *  everything else fall through to the acceleration converter, so a device's own burnout
+ *  velocity and descent rate (both speeds, both carried by every AltimeterCloud file) were
+ *  divided by g before being printed under `units.speed`. The on-screen panel had the same
+ *  chain, and would have done the same to the drogue rate the moment one existed. */
+export const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'speed' | 'accel'> = {
+  apogeeAltitude: 'length',
+  maxVelocity: 'speed',
+  burnoutVelocity: 'speed',
+  mainDescentRate: 'speed',
+  drogueDescentRate: 'speed',
+  maxAcceleration: 'accel',
+};
+
 /** Within this fraction the device's figure and Debrief's read agree tightly — the
  *  right bar for a well-defined peak (apogee, or a velocity read at one instant). */
 export const AGREE_FRACTION = 0.05;
@@ -66,6 +84,7 @@ export const AGREE_FRACTION = 0.05;
 const CONSISTENT_FRACTION = 0.2;
 const WIDE_TOLERANCE: Partial<Record<ReportedValue['metric'], number>> = {
   mainDescentRate: CONSISTENT_FRACTION,
+  drogueDescentRate: CONSISTENT_FRACTION,
 };
 
 /** How a device figure and Debrief's independent read line up: a tight `agree`, a
