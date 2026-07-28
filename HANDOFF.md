@@ -220,7 +220,8 @@ turned out not to be in the landing block at all.
 helped on arrival and not once you were deep in a report that runs **7,907 px — 9.4 screens — at
 390 px**. `sticky top-0` rather than `fixed` is how it earns the room it holds: until you have scrolled
 past where it already sat it costs nothing. Opaque against the page background (hit-tested at its own
-centre while content scrolls beneath it), sideways-scrolling still, static in print. The jump targets
+centre while content scrolls beneath it), sideways-scrolling still, gone in print, where every
+section is already on the paper. The jump targets
 carry a **4.5rem** scroll-margin — sized to the TALLEST the strip gets, 62 px at 390 px where the
 coarse-pointer rule holds every link to the 44 px touch floor, not the 42 px desktop average. 3.5rem was
 tried first and left a phone's heading 6 px underneath, which the browser walk caught and the first

@@ -610,7 +610,7 @@ export default function FlightReport({
           (see the id list in app/globals.css). */}
       <nav
         aria-label="Jump to a section of this report"
-        className="sticky top-0 z-20 -mx-1 overflow-x-auto bg-white px-1 py-2 print:static print:hidden dark:bg-zinc-950"
+        className="sticky top-0 z-20 -mx-1 overflow-x-auto bg-white px-1 py-2 print:hidden dark:bg-zinc-950"
       >
         <ul className="flex w-max items-center gap-1.5 text-xs">
           {jumpTo.map((j) => (
