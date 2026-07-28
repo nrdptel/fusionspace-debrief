@@ -308,13 +308,18 @@ function padBaseline(altitude: Float64Array, dt: number): { baseEnd: number; off
  * apogee lands in the second copy while liftoff sits in the first, so time-to-apogee came
  * out 39.6 s where the GPS recording the same flight puts apogee 19.3 s after liftoff.
  */
-function nextFlightStart(altitude: Float64Array): number | null {
+function nextFlightStart(altitude: Float64Array, time: Float64Array): number | null {
   const n = altitude.length;
   let peak = 0;
   for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) peak = altitude[i];
   if (!(peak > 0)) return null;
   const high = peak * 0.5; // "really flew" — half the record's own best
   const ground = Math.max(3, peak * 0.05); // back on the deck
+  // A body released at the record's own peak reaches the ground at √(2gh) and no faster, so
+  // a step into the ground band quicker than that is not something this rocket did. Doubled
+  // for barometric headroom; the three corpus files that trip it clear the doubled bound by
+  // 9.6x, 32x and 315x, while a synthetic pair's genuine 25 m/s touchdown is 4x inside it.
+  const arrivedTooFast = 2 * Math.sqrt(2 * G0 * peak);
   let flew = false; // has the record climbed high yet?
   let landed = -1; // …and come back down
   for (let i = 0; i < n; i++) {
@@ -326,14 +331,35 @@ function nextFlightStart(altitude: Float64Array): number | null {
       if (h >= high) flew = true;
       else if (flew && h <= ground) landed = i;
     } else if (h >= high) {
-      // Up again after coming down: another flight is in this file. Cut at the LOW POINT
-      // between the two — the first sample of the trough — rather than where the record
-      // crossed the ground band. The band is a fraction of the file's own highest flight,
-      // so on a lower one it sits well up the descent, and cutting there would end the
-      // first flight before it landed and start the next one already in the air, with its
-      // pad baseline taken from a rocket still coming down (20 m out on a synthetic pair,
-      // enough to hide a third flight entirely). The trough gives the first flight its
-      // touchdown and the next one the quiet stretch its baseline is measured from.
+      // Up again after coming down: another flight is in this file.
+      //
+      // First, did the record DESCEND into that ground band, or jump into it? A logger that
+      // restarts mid-flight writes the next copy's pad straight after the last sample of the
+      // one before, and the join is a fall no rocket could have taken. Cutting at the trough
+      // there hands the first copy the NEXT copy's pad samples, and the landing detector
+      // takes one: on the corpus Blue Raven `jan18 LR` the trace is still at 823.2 ft and the
+      // sample 0.020 s later is −3.4 ft, a step of 41,330 ft/s on a flight whose descent ran
+      // at 55. From that came a 122.90 s flight time and a 55 ft/s descent rate published
+      // against the device's own stated 29.0 — a 3.6x error in the landing energy read off it.
+      // The first copy ends AT the join, and what it then lacks (it stops 250.9 m up, 13.1%
+      // of its own apogee) is withheld and said, or supplied by the second copy where the
+      // file holds one flight twice.
+      let before = landed - 1;
+      while (before >= 0 && !Number.isFinite(altitude[before])) before--;
+      if (
+        before >= 0 &&
+        time[landed] > time[before] &&
+        (altitude[before] - altitude[landed]) / (time[landed] - time[before]) > arrivedTooFast
+      ) {
+        return landed >= 4 ? landed : null;
+      }
+      // Otherwise cut at the LOW POINT between the two — the first sample of the trough —
+      // rather than where the record crossed the ground band. The band is a fraction of the
+      // file's own highest flight, so on a lower one it sits well up the descent, and cutting
+      // there would end the first flight before it landed and start the next one already in
+      // the air, with its pad baseline taken from a rocket still coming down (20 m out on a
+      // synthetic pair, enough to hide a third flight entirely). The trough gives the first
+      // flight its touchdown and the next one the quiet stretch its baseline is measured from.
       let low = Infinity;
       for (let k = landed; k < i; k++) if (Number.isFinite(altitude[k]) && altitude[k] < low) low = altitude[k];
       let cut = landed;
@@ -575,7 +601,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // from 10,245 ft to 10,723 against the device's own stated 10,266 and a GPS's 10,409.
   // Trading a right apogee for a right descent is not a trade worth making. What the first
   // copy genuinely lacks is said instead, below.
-  const secondFlightAt = nextFlightStart(altitude);
+  const secondFlightAt = nextFlightStart(altitude, time);
   if (secondFlightAt != null && depth === 0) {
     const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1);
     const opening = formatSeconds(time[secondFlightAt] - time[0]);

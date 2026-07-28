@@ -1605,6 +1605,67 @@ describe('reading the descent from a file’s second copy of one flight', () => 
     expect(analyzeFlight(syntheticBaroFlight().flight).metrics.descentSource).toBe('same-record');
   });
 
+  /** The same doubled recording, but the first copy is cut PART-WAY DOWN rather than just
+   *  after apogee — still hundreds of metres in the air, which is what the corpus Blue Raven
+   *  `jan18 LR` does at 823.2 ft.
+   *
+   *  The pad the second copy opens on WANDERS, as a barometer's does: the corpus file reads
+   *  −1.0, +0.5, +0.5, −0.1 over its first four samples. That matters to what this reproduces.
+   *  With a dead-flat zero between the copies the trough's low point IS the join, so cutting
+   *  at either lands in the same place and nothing is handed across. It is the wander that
+   *  puts the low point a few samples in — and those few samples are the next copy's pad,
+   *  sitting inside the first copy for the landing detector to find. */
+  function cutFirstCopyInTheAir(fracOfApogee: number): RawFlight {
+    const one = syntheticBaroFlight().flight;
+    const src = one.channels[0].values;
+    const dt = one.time[1] - one.time[0];
+    const n = src.length;
+    let peakI = 0;
+    for (let i = 0; i < n; i++) if (src[i] > src[peakI]) peakI = i;
+    let stop = peakI;
+    while (stop < n && src[stop] > src[peakI] * fracOfApogee) stop++;
+    const wander = [0.2, 0.4, -0.3, 0.5, 0.1, -0.2, -1.5, 0.3, -0.4, 0.2];
+    const time: number[] = [];
+    const alt: number[] = [];
+    for (let i = 0; i < stop; i++) { time.push(one.time[i]); alt.push(src[i]); }
+    for (const w of wander) { time.push(time[time.length - 1] + dt); alt.push(w); }
+    for (let i = 0; i < n; i++) { time.push(time[time.length - 1] + dt); alt.push(src[i]); }
+    return {
+      ...one,
+      time: Float64Array.from(time),
+      channels: [{ ...one.channels[0], values: Float64Array.from(alt) }],
+    };
+  }
+
+  it('does not read a touchdown off the next copy’s pad', () => {
+    // The file boundary is a fall no rocket took. Cutting at the low point of the trough that
+    // follows handed the first copy the NEXT copy's pad samples, and the landing detector took
+    // one: on the corpus Blue Raven `jan18 LR` that was a −3.4 ft sample 0.020 s after the
+    // trace was still at 823.2 ft, a step of 41,330 ft/s on a flight whose descent ran at 55.
+    // A 122.90 s flight time and a 55 ft/s descent rate were published off it, against the
+    // device's own stated 29.0 ft/s main — a 3.6x error in the landing energy read from it.
+    const a = analyzeFlight(cutFirstCopyInTheAir(0.13));
+
+    // No landing is read from the first copy, because it does not hold one.
+    expect(a.events.some((e) => e.type === 'landing')).toBe(false);
+    expect(a.metrics.descentSource).not.toBe('same-record');
+    // …and the record says so, in the flight's own terms.
+    expect(a.warnings.some((w) => /never reaches the ground/.test(w) || /second copy/.test(w))).toBe(true);
+    // The climb is still the first copy's — the cut moved, nothing else did.
+    const whole = analyzeFlight(syntheticBaroFlight().flight);
+    expect(a.metrics.apogeeAltitude).toBeCloseTo(whole.metrics.apogeeAltitude, 1);
+  });
+
+  it('still cuts at the trough where the first flight really did land', () => {
+    // The bound only refuses a step no rocket could have taken. A genuine touchdown — this
+    // synthetic lands at its 15 m/s parachute rate, 14x inside the bound — is untouched, and
+    // the cut stays at the trough so the next segment gets a pad window of its own.
+    const a = analyzeFlight(cutFirstCopyInTheAir(0));
+    expect(a.metrics.descentSource).toBe('same-record');
+    expect(a.events.some((e) => e.type === 'landing')).toBe(true);
+    expect(a.metrics.flightTime).toBeGreaterThan(0);
+  });
+
   it('will not splice when the two copies are different flights', () => {
     // The same cut first copy, but the second climbs half as high again: two flights, and
     // the second one's descent is not this flight's descent.
