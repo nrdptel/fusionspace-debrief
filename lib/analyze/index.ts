@@ -29,6 +29,25 @@ function windowFor(dt: number, seconds: number): number {
   return Math.max(3, Math.min(401, w | 1)); // odd, bounded
 }
 
+/**
+ * Whether a channel holds a measurement at all, rather than a column the logger wrote and
+ * never filled. A dead column is exactly zero at every sample (or has no finite sample), and
+ * that is not what an accelerometer records: at rest it senses +1 g, and on a gravity-removed
+ * channel it sits at ~0 with the sensor's own noise on it — tenths, hundredths, but not an
+ * unbroken run of exact zeros over an entire flight.
+ *
+ * The distinction matters because a dead column is not harmless. Its zeros pass through the
+ * gravity-removed normalisation as a flat +9.80665, and every reading taken off it is then a
+ * fabricated 1.0000 g reported as MEASURED — a peak acceleration, a boost average, a
+ * thrust-to-weight of exactly 1.00 — on all six surfaces that ask `accelerationSource`.
+ */
+function hasLiveSamples(values: ArrayLike<number>): boolean {
+  for (let i = 0; i < values.length; i++) {
+    if (Number.isFinite(values[i]) && values[i] !== 0) return true;
+  }
+  return false;
+}
+
 /** The axial-acceleration channel to analyze. A single-axis logger has one, and
  *  that's it. A multi-axis logger (accel_x/y/z body axes) maps them all to
  *  accelAxial, and which one is "axial" depends on how the airframe sat in the
@@ -671,8 +690,19 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   let signedAccel: Float64Array;
   let accelerationSource: 'device' | 'baro';
   let accelerationResultant = false;
-  const accCh = pickAxialChannel(flight) ?? getChannel(flight, 'accelTotal');
-  const resultant = axialResultant(flight);
+  // A dead column is treated as no accelerometer at all, HERE, rather than guarded at each
+  // surface that reads one. Six of them branch on `accelerationSource === 'device'` — the
+  // metric grid, the report and its exports, the explorer, the comparison overlay, the share
+  // card and the drag Cd — and exactly one carried a liveness check, which tested the array
+  // AFTER the gravity-removed shift had already turned the zeros into a flat +1 g. So the
+  // one guard that existed was the one the shift defeated. Deciding it at the source means
+  // the flight simply has no measured acceleration, which every surface already handles.
+  //
+  // `pickAxialChannel` returns the largest-excursion axis, so if the picked one is dead every
+  // axis is, and the resultant built from them is dead too — one check covers both.
+  const accChRaw = pickAxialChannel(flight) ?? getChannel(flight, 'accelTotal');
+  const accCh = accChRaw && hasLiveSamples(accChRaw.values) ? accChRaw : undefined;
+  const resultant = accCh ? axialResultant(flight) : null;
   if (altitudeSource === 'gps') {
     acceleration = new Float64Array(n).fill(NaN);
     signedAccel = acceleration;
