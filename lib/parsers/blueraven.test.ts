@@ -177,3 +177,66 @@ describe('Blue Raven inertial altitude', () => {
     expect(inert!.label).not.toBe(baro!.label);
   });
 });
+
+// The inertial channel is a second recording of the same height and the analysis leans on it
+// through the transonic push — but it is an INTEGRATION written into a field that wraps, and
+// carried whole it was plotted in the explorer and written into the data CSV long after it
+// stopped being an altitude. Measured on the corpus, on the copy Debrief analyses: jan18 runs
+// to -151,147 ft (reading -64,762 ft where the barometer reads 823), lemiv and meraki hit
+// exactly +/-32,767 ft, and jan10 drifts to -2,781 ft and stays credible.
+describe('the inertial altitude, where it stops being one', () => {
+  /** A flight whose inertial column diverges from the barometric one after apogee. */
+  function withInertial(inert: (i: number, baroFt: number) => number): string {
+    const head = 'Flight_Time_(s),Baro_Altitude_AGL_(feet),Inertial_Altitude,Velocity_Up,Batt_Volts';
+    const rows: string[] = [head];
+    for (let i = 0; i < 400; i++) {
+      const t = (i - 40) * 0.02;
+      // up to 1,000 ft by t=2 s, back down by t=7 s
+      const baro = t <= 0 ? 0 : t < 2 ? 1000 * (t / 2) : Math.max(0, 1000 * (1 - (t - 2) / 5));
+      rows.push([t.toFixed(2), baro.toFixed(1), inert(i, baro).toFixed(1), '0', '4.0'].join(','));
+    }
+    return rows.join('\n');
+  }
+
+  function asFlight(name: string, text: string) {
+    const r = importFlight({ name, text });
+    if (r.kind !== 'flight') throw new Error(`expected a flight, got ${r.kind}`);
+    return r.flight;
+  }
+
+  it('keeps a channel that only drifts', () => {
+    // jan10's case: +9% at apogee and never far from the barometer. Nothing is cut.
+    const f = asFlight('BlRv_drift_LR.csv', withInertial((i, b) => b * 1.09));
+    const ch = f.channels.find((c) => c.kind === 'altitudeInertial')!;
+    expect([...ch.values].every((v) => Number.isFinite(v))).toBe(true);
+    expect(f.notes.some((n) => /stops being readable/.test(n))).toBe(false);
+  });
+
+  it('cuts a channel that walks away from the barometer by more than the whole flight', () => {
+    // jan18's case: no wrap, just an integrator running away. The bound is the flight's own
+    // height — two recordings of one flight that differ by more than the whole flight are not
+    // a second opinion.
+    const f = asFlight('BlRv_runaway_LR.csv', withInertial((i, b) => (i < 200 ? b : b - (i - 200) * 40)));
+    const ch = f.channels.find((c) => c.kind === 'altitudeInertial')!;
+    const live = [...ch.values].filter((v) => Number.isFinite(v)).length;
+    expect(live).toBeGreaterThan(150); // the climb survives
+    expect(live).toBeLessThan(ch.values.length); // the runaway does not
+    expect(f.notes.some((n) => /stops being readable/.test(n))).toBe(true);
+  });
+
+  it('cuts at a 2^16 ft step, which is a counter wrapping rather than a rocket moving', () => {
+    // meraki's and lemiv's case. 65,536 ft in one 20 ms sample is 3.3 million ft/s.
+    const f = asFlight('BlRv_wrap_LR.csv', withInertial((i, b) => (i < 150 ? b : b - 65536)));
+    const ch = f.channels.find((c) => c.kind === 'altitudeInertial')!;
+    expect(Number.isFinite(ch.values[149])).toBe(true);
+    expect(Number.isFinite(ch.values[150])).toBe(false);
+    expect(f.notes.some((n) => /stops being readable/.test(n))).toBe(true);
+  });
+
+  it('says where it stopped and what the two recordings read there', () => {
+    const f = asFlight('BlRv_wrap_LR.csv', withInertial((i, b) => (i < 150 ? b : b - 65536)));
+    const note = f.notes.find((n) => /stops being readable/.test(n))!;
+    expect(note).toMatch(/\d+\.\d s into this record/);
+    expect(note).toMatch(/where the barometer reads/);
+  });
+});
