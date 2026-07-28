@@ -65,7 +65,15 @@ test('a paired device summary survives a reload and comes back with the flight',
 
   const panel = page.getByRole('region', { name: /logger.s own summary/i });
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
+  await expect(panel.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Apogee', exact: true }) })).toContainText('4,035 ft');
+  // The deployment shocks the device states. This log carries no accelerometer at all — every
+  // Blue Raven low-rate file is like that — so Debrief has nothing of its own to put beside
+  // them, and they were being dropped on the floor rather than shown.
+  await expect(panel.getByRole('row').filter({ hasText: 'Apogee deployment shock' })).toContainText('51.7 g');
+  await expect(panel.getByRole('row').filter({ hasText: 'Main deployment shock' })).toContainText('67.8 g');
+  // …and the ground impact this same file states (6.4 Gs) is NOT among them: it is a landing,
+  // not a flight load, and there is nothing in Debrief it lines up against.
+  await expect(panel.getByText('Max landing accel')).toHaveCount(0);
 
   // Come back to it the way a flyer does: a fresh load of the page, then the logbook.
   await page.goto('/');
@@ -77,7 +85,7 @@ test('a paired device summary survives a reload and comes back with the flight',
   // not restored from numbers frozen at whatever version wrote them.
   const again = page.getByRole('region', { name: /logger.s own summary/i });
   await expect(again).toBeVisible();
-  await expect(again.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
+  await expect(again.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Apogee', exact: true }) })).toContainText('4,035 ft');
   // …and so is the sentence explaining the figure it could not use.
   await expect(page.getByText(/Main chute descent rate/)).toBeVisible();
 
@@ -92,7 +100,7 @@ test('a paired device summary survives a reload and comes back with the flight',
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   const third = page.getByRole('region', { name: /logger.s own summary/i });
   await expect(third, 'the pairing survives being re-saved by its own reopen').toBeVisible();
-  await expect(third.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
+  await expect(third.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Apogee', exact: true }) })).toContainText('4,035 ft');
 });
 
 // Same files, same rules, either surface. The pairing used to live inside the analyze page,

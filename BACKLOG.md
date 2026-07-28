@@ -97,8 +97,23 @@ memory, so a later pass doesn't have to rediscover them.
     - **The LR file's second copy is the real hazard.** Its `Flight_Time` keeps counting monotonically
       across the join (−1.96 → 247.8 s, no backward step) while the wall clock jumps back **124.880 s**
       at row 6244. The device Liftoff flag rises TWICE, at t=0.000 and t=124.880. So past LR t≈122.9 the
-      same physical instant is +124.880 s on the LR clock. The HR file has no second copy. Any merge
-      must be against the FIRST copy only — which the analyzer already isolates (`nextFlightStart`).
+      same physical instant is +124.880 s on the LR clock. Any merge must be against the FIRST copy
+      only — which the analyzer already isolates (`nextFlightStart`).
+    - **CORRECTION — "the HR file has no second copy" was WRONG, and it was wrong in the way that
+      matters.** That claim, published here and in PR #29, was inferred from `Flight_Time` being
+      monotonic. It is: **0 backward steps** across all 93,164 rows, and the wall clock has 93,164
+      distinct stamps with zero drift. Neither marks the seam, and that is exactly why the inference
+      was invalid. Re-measured directly: **45,768 of 93,164 rows (49.1%)** repeat an earlier row's
+      sensor columns byte-for-byte, at fixed lags of **30,654 samples (61.308 s)**, **14,139
+      (28.278 s)** and **44,793 (89.586 s)** — the device re-emits blocks of the flight. The seam that
+      IS visible is the attitude solution: the quaternion returns to the exact identity
+      `1.00000,0.00000,0.00000,0.00000` at **t = 26.256, 59.286 and 87.564 s** (and at the file start,
+      −2.022). jan10 shows the same shape; the l3 and meraki HR files do not.
+      **The consequence is a wrong number, not a missing one.** Aligned naively on raw `Flight_Time`,
+      the LR latches `Apo_fired` at t = 28.82 s, where the HR row is a re-read of true t = 0.542 s
+      carrying **45.71 g of motor burn** — so Debrief would print a 45.7 g apogee deployment shock,
+      labelled MEASURED, for an event the device's own summary states pulled **115.8 Gs**. A merge
+      must detect the re-emitted blocks and refuse rather than trust a monotonic clock.
     - **LR and HR agree on liftoff to 66 ms**, and that gap is detector latency, not a timebase
       disagreement: the 500 Hz accelerometer sees ignition immediately (threshold-insensitive — 1.2 g
       through 10 g all give t = −0.068 to −0.064 s) while LR cannot resolve better than its 0.02 s

@@ -50,7 +50,18 @@ export interface Channel {
  *  so it can be shown beside Debrief's independent read as a cross-check, never
  *  blended into it. `metric` names the analysis field it lines up against. */
 export interface ReportedValue {
-  metric: 'apogeeAltitude' | 'maxVelocity' | 'maxAcceleration' | 'burnoutVelocity' | 'mainDescentRate' | 'drogueDescentRate';
+  metric:
+    | 'apogeeAltitude'
+    | 'maxVelocity'
+    | 'maxAcceleration'
+    | 'burnoutVelocity'
+    | 'mainDescentRate'
+    | 'drogueDescentRate'
+    /** The deployment shock — the snatch as a charge fires and the recovery gear comes taut.
+     *  Debrief measures these as `peakAccel` on the apogee and main events; a device summary
+     *  states them outright. */
+    | 'apogeeShock'
+    | 'mainShock';
   /** Human label as Debrief presents it, e.g. "Apogee". */
   label: string;
   /** The value in canonical SI (m, m/s, m/s²), converted from the file's unit. */

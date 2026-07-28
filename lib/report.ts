@@ -283,9 +283,14 @@ function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoic
 
 /** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
  *  read, and how closely they agree. Empty when the file carried no summary. */
-function crossCheckRows(flight: RawFlight, m: FlightAnalysis['metrics'], sys: UnitChoice): [string, string, string, string][] {
+function crossCheckRows(
+  flight: RawFlight,
+  m: FlightAnalysis['metrics'],
+  events: FlightAnalysis['events'],
+  sys: UnitChoice,
+): [string, string, string, string][] {
   if (!flight.reported?.length) return [];
-  return compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => {
+  return compareReported(flight.reported, m, events).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => {
     const pct = deltaPct == null ? '' : deltaPct < 0.05 ? '≈0' : `${deltaPct.toFixed(deltaPct < 10 ? 1 : 0)}%`;
     const agreement =
       status == null
@@ -367,7 +372,7 @@ export function summaryText(
     }
   }
 
-  const xrows = crossCheckRows(flight, analysis.metrics, sys);
+  const xrows = crossCheckRows(flight, analysis.metrics, analysis.events, sys);
   if (xrows.length) {
     lines.push('');
     lines.push('Logger’s own summary (cross-check)');
@@ -441,7 +446,7 @@ export function summaryMarkdown(
     }
   }
 
-  const xrows = crossCheckRows(flight, analysis.metrics, sys);
+  const xrows = crossCheckRows(flight, analysis.metrics, analysis.events, sys);
   if (xrows.length) {
     out.push('', '## Logger’s own summary (cross-check)', '', '| Reading | Logger | Debrief | Agreement |', '| --- | --- | --- | --- |');
     for (const [label, device, debrief, agreement] of xrows) {
@@ -566,7 +571,7 @@ export function summaryHtml(
     })
     .join('');
 
-  const xrows = crossCheckRows(flight, analysis.metrics, sys);
+  const xrows = crossCheckRows(flight, analysis.metrics, analysis.events, sys);
   const crossRows = xrows.map(([l, d, b, a]) => `<tr><td>${esc(l)}</td><td>${esc(d)}</td><td>${esc(b)}</td><td>${esc(a)}</td></tr>`).join('');
   const gpsRow = gpsCrossRow(analysis.metrics, sys);
   const gpsHtml = gpsRow
@@ -1151,7 +1156,7 @@ export function analysisJson(
   // The logger's own reported summary and how Debrief's read compares — only when
   // the file carried one.
   if (flight.reported?.length) {
-    doc.loggerSummary = compareReported(flight.reported, m).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => ({
+    doc.loggerSummary = compareReported(flight.reported, m, analysis.events).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => ({
       label: r.label,
       metric: r.metric,
       logger: reportedNum(r.metric, r.value),

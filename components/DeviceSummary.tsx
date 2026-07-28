@@ -5,6 +5,7 @@
 
 import type { FlightMetrics } from '@/lib/analyze/types';
 import type { ReportedValue } from '@/lib/flight/types';
+import type { FlightEvent } from '@/lib/analyze/types';
 import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { compareReported, REPORTED_QUANTITY } from '@/lib/flight/reported';
@@ -17,13 +18,17 @@ function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): stri
 export default function DeviceSummary({
   reported,
   metrics,
+  events,
   sys,
 }: {
   reported: ReportedValue[];
   metrics: FlightMetrics;
+  /** The flight's events — the deployment shocks Debrief measures live on them, not on
+   *  `metrics`, so the cross-check needs both to compare a device's stated shock. */
+  events: FlightEvent[];
   sys: UnitChoice;
 }) {
-  const rows = compareReported(reported, metrics).map(
+  const rows = compareReported(reported, metrics, events).map(
     ({ reported: r, computed, hasComputed: has, deltaPct, status, gravityConvention }) => ({
       r,
       computed,

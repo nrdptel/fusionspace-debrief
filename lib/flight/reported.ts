@@ -9,7 +9,7 @@
 // row is never mistaken for a reading. Unknown formats simply yield nothing.
 
 import type { ReportedValue } from './types';
-import type { FlightMetrics } from '../analyze/types';
+import type { FlightEvent, FlightMetrics } from '../analyze/types';
 import { parseNumber } from '../csv';
 import { G0 } from '../units';
 
@@ -69,7 +69,24 @@ export const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'spee
   mainDescentRate: 'speed',
   drogueDescentRate: 'speed',
   maxAcceleration: 'accel',
+  apogeeShock: 'accel',
+  mainShock: 'accel',
 };
+
+/** Where Debrief's own read of a reported metric comes from.
+ *
+ *  Most are a field on `FlightMetrics`. The two deployment shocks are not: Debrief measures them
+ *  as `peakAccel` on the apogee and main EVENTS (lib/analyze/index.ts:1608), which is the right
+ *  home for them — a shock is a reading taken AT an instant, and the event is that instant. So the
+ *  lookup goes through here rather than indexing the metrics object directly, and no field is
+ *  invented on `FlightMetrics` purely to give a cross-check something to point at.
+ *
+ *  16 of the 32 corpus flights that analyse end to end already carry one. */
+function computedFor(metric: ReportedValue['metric'], metrics: FlightMetrics, events: FlightEvent[]): number {
+  if (metric === 'apogeeShock') return events.find((e) => e.type === 'apogee')?.peakAccel ?? NaN;
+  if (metric === 'mainShock') return events.find((e) => e.type === 'main')?.peakAccel ?? NaN;
+  return metrics[metric] ?? NaN;
+}
 
 /** Within this fraction the device's figure and Debrief's read agree tightly — the
  *  right bar for a well-defined peak (apogee, or a velocity read at one instant). */
@@ -138,11 +155,15 @@ function isGravityConvention(metric: ReportedValue['metric'], computed: number, 
 
 /** Pair each device-reported figure with Debrief's own read of the same metric —
  *  the shared basis for the on-screen cross-check and the exported report. */
-export function compareReported(reported: ReportedValue[], metrics: FlightMetrics): ReportedComparison[] {
+export function compareReported(
+  reported: ReportedValue[],
+  metrics: FlightMetrics,
+  events: FlightEvent[] = [],
+): ReportedComparison[] {
   return reported.map((r) => {
     // Some analysis fields (burnout velocity, main descent) are null when the flight
     // didn't have them; treat that as "nothing to compare" (NaN), not a zero.
-    const computed = metrics[r.metric] ?? NaN;
+    const computed = computedFor(r.metric, metrics, events);
     const hasComputed = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
     const deltaPct = hasComputed ? Math.abs((computed - r.value) / r.value) * 100 : null;
     const agree = deltaPct != null && deltaPct <= AGREE_FRACTION * 100;

@@ -92,6 +92,18 @@ const SUMMARY_KEYS: Record<
   // fired, so Debrief has no main leg to read and the device's figure is all the flight has.
   'drogue descent rate': { metric: 'drogueDescentRate', label: 'Drogue descent', quantity: 'speed', magnitude: true },
   'main chute descent rate': { metric: 'mainDescentRate', label: 'Main descent', quantity: 'speed', magnitude: true },
+  // The deployment shocks. Debrief measures these itself wherever the logger recorded
+  // acceleration — `peakAccel` on the apogee and main events, on 16 of the 32 corpus flights
+  // that analyse end to end — and a Blue Raven states them for every flight, including the ones
+  // whose log carries no accelerometer at all. Both channels' figures, side by side, is exactly
+  // what this panel is for.
+  //
+  // `Max landing accel` is deliberately NOT here, and it is the row a careless reading would
+  // take. It is the ground impact — 280.0 Gs on the corpus jan18 — not a flight load, and there
+  // is nothing in Debrief it lines up against. Publishing it beside the deployment shocks would
+  // put a landing among the flight's loads.
+  'apo channel max accel': { metric: 'apogeeShock', label: 'Apogee deployment shock', quantity: 'accel' },
+  'main channel max accel': { metric: 'mainShock', label: 'Main deployment shock', quantity: 'accel' },
 };
 
 /** How a stated figure read: its SI value, or which way it failed. The caller needs the

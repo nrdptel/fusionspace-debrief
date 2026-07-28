@@ -166,6 +166,48 @@ describe('summaryFigures', () => {
     expect(s.notes).toEqual([]);
   });
 
+  it('reads both deployment shocks, and refuses the landing impact', () => {
+    // Debrief measures deployment shock itself wherever the logger recorded acceleration —
+    // `peakAccel` on the apogee and main events, on 16 of the 32 corpus flights that analyse
+    // end to end. A Blue Raven STATES them for every flight, including the ones whose log
+    // carries no accelerometer at all, which is every Blue Raven low-rate file.
+    //
+    // `Max landing accel` is the row a careless reading would take with them. It is the ground
+    // impact, not a flight load, and there is nothing in Debrief it lines up against.
+    const s = summaryFigures(
+      [
+        'Rocket Name,Shocker',
+        'Firmware,abc 01/01/2024',
+        'Max Altitude,6295.75 feet',
+        'Apo channel max accel,115.8 Gs',
+        'Main channel max accel,187.5 Gs',
+        'Max landing accel,280.0 Gs',
+      ].join('\n'),
+    )!;
+    const by = Object.fromEntries(s.reported.map((r) => [r.metric, r.value]));
+    expect(by.apogeeShock).toBeCloseTo(115.8 * 9.80665, 1);
+    expect(by.mainShock).toBeCloseTo(187.5 * 9.80665, 1);
+    // The landing impact is not a reported metric at all — no slot, deliberately.
+    expect(s.reported.map((r) => r.label)).not.toContain('Max landing accel');
+    expect(s.reported).toHaveLength(3); // apogee + the two shocks
+  });
+
+  it('takes no shock at all from a summary that states only the landing impact', () => {
+    // The assert above, on its own, proves nothing: mapping `Max landing accel` to either
+    // shock metric is silently swallowed by the dedupe, because the row above it has already
+    // claimed that metric. Checked by reverting, which PASSED. This is the case that cannot
+    // be masked — the landing row alone, with no shock row to hide behind.
+    const s = summaryFigures(
+      [
+        'Rocket Name,Lander',
+        'Firmware,abc 01/01/2024',
+        'Max Altitude,6295.75 feet',
+        'Max landing accel,280.0 Gs',
+      ].join('\n'),
+    )!;
+    expect(s.reported.map((r) => r.metric)).toEqual(['apogeeAltitude']);
+  });
+
   it('is null for anything that isn’t a summary', () => {
     expect(summaryFigures('Time (s),Altitude (ft)\n0,0\n0.1,5\n')).toBeNull();
   });

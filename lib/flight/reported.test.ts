@@ -126,3 +126,52 @@ describe('the gravity convention, not a disagreement', () => {
     expect(c.computed).toBe(316.76);
   });
 });
+
+// A deployment shock is a reading taken AT an instant, and Debrief keeps it where that
+// instant lives: `peakAccel` on the apogee and main events, not on `FlightMetrics`. So the
+// cross-check resolves this one metric through the events. No corpus file exercises the
+// comparison — every logger that STATES a shock (Blue Raven, via its summary) writes a log
+// with no accelerometer in it, and every logger Debrief MEASURES one from states none — so
+// the path is covered here or it is covered nowhere.
+describe('a deployment shock, which lives on an event rather than on the metrics', () => {
+  const ev = (type: 'apogee' | 'main', peakAccel?: number) =>
+    ({ type, label: type, time: 1, index: 1, altitude: 100, provenance: 'derived' as const, ...(peakAccel != null ? { peakAccel } : {}) });
+  const stated = (metric: 'apogeeShock' | 'mainShock', g: number): ReportedValue => ({
+    metric,
+    label: metric === 'apogeeShock' ? 'Apogee deployment shock' : 'Main deployment shock',
+    value: g * G0,
+    source: 'device',
+  });
+
+  it('compares the device’s figure against the shock Debrief measured at that event', () => {
+    const [c] = compareReported([stated('apogeeShock', 115.8)], {} as FlightMetrics, [ev('apogee', 118 * G0), ev('main', 187 * G0)]);
+    expect(c.hasComputed).toBe(true);
+    expect(c.computed / G0).toBeCloseTo(118, 3);
+    // ~1.9% apart: inside the tight band, so this reads as agreement.
+    expect(c.status).toBe('agree');
+  });
+
+  it('picks the right event for each of the two shocks', () => {
+    const events = [ev('apogee', 20 * G0), ev('main', 90 * G0)];
+    const [apo] = compareReported([stated('apogeeShock', 20)], {} as FlightMetrics, events);
+    const [main] = compareReported([stated('mainShock', 90)], {} as FlightMetrics, events);
+    expect(apo.computed / G0).toBeCloseTo(20, 3);
+    expect(main.computed / G0).toBeCloseTo(90, 3);
+  });
+
+  it('has nothing to compare when the flight recorded no acceleration', () => {
+    // Every Blue Raven low-rate flight: the device states the shock, the log has no
+    // accelerometer, so Debrief's column is empty rather than zero.
+    const [c] = compareReported([stated('mainShock', 187.5)], {} as FlightMetrics, [ev('apogee'), ev('main')]);
+    expect(c.hasComputed).toBe(false);
+    expect(c.computed).toBeNaN();
+    expect(c.status).toBeNull();
+  });
+
+  it('does not fall back to a metrics field of the same name', () => {
+    // The lookup must go through the events. If it indexed `metrics` it would find nothing
+    // here and silently report "not computed" on a flight that measured a shock.
+    const [c] = compareReported([stated('apogeeShock', 50)], { apogeeShock: 999 } as unknown as FlightMetrics, [ev('apogee', 50 * G0)]);
+    expect(c.computed / G0).toBeCloseTo(50, 3);
+  });
+});
