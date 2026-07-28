@@ -757,8 +757,8 @@ export default function FlightReport({
             />
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Appears at the top of the text, Markdown and JSON exports and the printed card. Kept on
-            your device; a new flight clears it.
+            Appears at the top of the text, Markdown and JSON exports and the printed card. Held for
+            this view only — save an export before you leave or reload, or it goes.
           </p>
         </div>
       </details>

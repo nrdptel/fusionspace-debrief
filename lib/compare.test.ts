@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, crossCheck, crossCheckLede, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
+import { resample, buildComparison, crossCheck, crossCheckLede, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight, distinguishingLabels } from './compare';
 import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
@@ -508,5 +508,44 @@ describe('a whole-descent average is not a main descent rate', () => {
     ]);
     const main = wrong.find((r) => r.key === 'mainDescentRate')!;
     expect(main.spreadPct).toBeGreaterThan(100);
+  });
+});
+
+// Four recordings of one flight share everything but a short tail, so a column header
+// clamped to 160 px painted the identical string for all four and the colour dot was the
+// only thing telling them apart — on the surface whose whole job is picking a reading out
+// of the column you meant. The label is computed against the set on screen, so what it
+// keeps is whatever distinguishes THESE files from each other.
+describe('distinguishingLabels', () => {
+  it('elides what a set of recordings shares and keeps what tells them apart', () => {
+    const out = distinguishingLabels([
+      'mercury__altimetercloud-lilnuke4alt-1784__1784.csv',
+      'mercury__altimetercloud-lilnuke4alt-1785__1785.csv',
+      'mercury__altimetercloud-lilnuke4alt-1786__1786.csv',
+    ]);
+    expect(new Set(out).size, 'all three are distinct').toBe(3);
+    for (const l of out) expect(l.length).toBeLessThan(20);
+    expect(out[0]).toContain('1784');
+    expect(out[1]).toContain('1785');
+    // The shared head is gone, so the difference is near the front where a clamp can show it.
+    for (const l of out) expect(l).not.toContain('altimetercloud');
+  });
+
+  it('leaves a mixed set alone, because nothing is shared to drop', () => {
+    const names = [
+      'blueraven__trf-lemiv-l3__BlRv_SN1537_LR.csv',
+      'fwgps__trf-lemiv-l3__GPSTrk05305.csv',
+      'altusmetrum__issuiuc-endurance__TeleMetrum.csv',
+    ];
+    expect(distinguishingLabels(names)).toEqual(names.map((n) => n.replace(/\.[^.]+$/, '')));
+  });
+
+  it('never elides down to a stub, and passes a single flight through', () => {
+    // Two names differing only in the last character would leave one char after eliding;
+    // the whole stem is better than something a flyer cannot match back to a file.
+    const out = distinguishingLabels(['launchday-flight-a.csv', 'launchday-flight-b.csv']);
+    for (const l of out) expect(l.length).toBeGreaterThan(3);
+    expect(distinguishingLabels(['only-one.csv'])).toEqual(['only-one']);
+    expect(distinguishingLabels([])).toEqual([]);
   });
 });
