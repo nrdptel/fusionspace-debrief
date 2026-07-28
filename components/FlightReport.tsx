@@ -24,7 +24,7 @@ import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import { copyTable } from '@/lib/copyTable';
-import { landingRate } from '@/lib/readings';
+import { landedInRecord, landingRate } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
@@ -1077,6 +1077,7 @@ export default function FlightReport({
 
       {gpsLat && gpsLon && (
         <GroundTrack
+          landed={landedInRecord(metrics)}
           lat={gpsLat.values}
           lon={gpsLon.values}
           sys={sys}

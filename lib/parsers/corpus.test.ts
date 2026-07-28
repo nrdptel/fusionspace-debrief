@@ -9,6 +9,7 @@ import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { landedInRecord, landingRate, metricTiles } from '../readings';
+import { groundTrack, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 
@@ -769,6 +770,61 @@ describe('a record that ends at rest above the pad is not a landing', () => {
       expect(why, `${short}: names the height it stopped at`).toMatch(/\d+ m above the pad/);
     });
   }
+});
+
+// The recovery card and the GPS exports are the one place a reading turns into a physical
+// instruction: walk that way. `recoveryStats` takes the last valid fix as the resting place
+// unconditionally, and the card rendered on nothing more than lat/lon existing — so a log
+// that ends at apogee got "Landed from pad: 10 ft · Bearing 267° W", a landing cross on the
+// track, "Walk from the pad toward W", and GPX/KML waypoints literally named "Landing". The
+// intrepid2 telemetry log is 285 samples and 2.84 s long and its last sample is 1,081.6 m
+// AGL doing 322.1 m/s, still climbing.
+/** The raw flight for a corpus file, for the tests that need its channels. */
+function loadRawFlight(file: string) {
+  const path = CORPUS + file;
+  if (!existsSync(path)) return null;
+  const text = decodeBytes(new Uint8Array(readFileSync(path)));
+  const res = importFlight({ name: file.split('/').pop() as string, text });
+  return res.kind === 'flight' ? res.flight : null;
+}
+
+describe('a last GPS fix is only a landing if the record reached the ground', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const FILE = 'altusmetrum/altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv';
+
+  it('the recovery exports name the point for what it is', () => {
+    const loaded = loadForCompare(FILE);
+    const flight = loadRawFlight(FILE);
+    expect(loaded && flight, 'the truncated telemetry log is in the corpus').toBeTruthy();
+    const a = loaded!.analysis;
+
+    // The premise: this record really does stop in the air, still going up.
+    expect(landedInRecord(a.metrics), 'no landing was found').toBe(false);
+    const alt = a.series.altitude;
+    expect(alt[alt.length - 1], 'and the last sample is a long way up').toBeGreaterThan(500);
+
+    const lat = getChannel(flight!, 'latitude');
+    const lon = getChannel(flight!, 'longitude');
+    expect(lat && lon, 'it carries GPS, which is why the card renders at all').toBeTruthy();
+    const track = groundTrack(lat!.values, lon!.values);
+    const stats = track ? recoveryStats(track) : null;
+    expect(stats, 'the track still has a last fix — that part is real').toBeTruthy();
+
+    const landed = landedInRecord(a.metrics);
+    const gpx = trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, landed);
+    const kml = trackKml('x', lat!.values, lon!.values, undefined, stats!.landingIndex, landed);
+    expect(gpx, 'the GPX waypoint does not claim a landing').not.toMatch(/<name>Landing<\/name>/);
+    expect(kml, 'nor does the KML placemark').not.toMatch(/<name>Landing<\/name>/);
+    expect(gpx, 'and says what the point actually is').toMatch(/Last fix \(record ends in the air\)/);
+    expect(kml).toMatch(/Last fix \(record ends in the air\)/);
+
+    // The other direction: a flight that did reach the ground still gets a Landing waypoint,
+    // so this is a distinction rather than a blanket removal.
+    expect(trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, true)).toMatch(/<name>Landing<\/name>/);
+  });
 });
 
 // The same record, read one step further out: the analyzer withholds the flight time and the

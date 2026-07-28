@@ -107,9 +107,14 @@ function xmlEscape(s: string): string {
 }
 
 /** A GPX 1.1 document for the flight: the ground track as a <trk>, plus a
- *  <wpt> at the landing point so a phone/handheld can navigate straight to it.
- *  Lat/lon only (the recovery walk is on the ground); gaps in the fix are skipped. */
-export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, landingIndex: number): string {
+ *  <wpt> at the last fix so a phone/handheld can navigate straight to it.
+ *  Lat/lon only (the recovery walk is on the ground); gaps in the fix are skipped.
+ *
+ *  `landed` says whether that last fix is a landing. On a record that stops in the air it
+ *  is not: a log that ends at apogee still has a last fix, and it sits directly over the
+ *  pad — a waypoint called "Landing" there sends a flyer to walk ten feet for a rocket that
+ *  was 3,548 ft up. The point is still worth exporting, under the name it has earned. */
+export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, landingIndex: number, landed = true): string {
   const n = Math.min(lat.length, lon.length);
   const fix = (v: number) => v.toFixed(6);
   const pts: string[] = [];
@@ -119,7 +124,7 @@ export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, lan
   }
   const wpt =
     landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
-      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>Landing</name>\n  </wpt>\n`
+      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${landed ? 'Landing' : 'Last fix (record ends in the air)'}</name>\n  </wpt>\n`
       : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -152,6 +157,8 @@ export function trackKml(
   lon: Float64Array,
   altitudeM: Float64Array | undefined,
   landingIndex: number,
+  /** Whether the last fix is a landing — see `trackGpx`. */
+  landed = true,
 ): string {
   const n = Math.min(lat.length, lon.length);
   const coords: string[] = [];
@@ -160,9 +167,9 @@ export function trackKml(
     const h = altitudeM && Number.isFinite(altitudeM[i]) ? Math.max(0, altitudeM[i]) : 0;
     coords.push(`${lon[i].toFixed(6)},${lat[i].toFixed(6)},${h.toFixed(1)}`);
   }
-  const landed =
+  const placemark =
     landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
-      ? `    <Placemark>\n      <name>Landing</name>\n      <Point><coordinates>${lon[landingIndex].toFixed(6)},${lat[landingIndex].toFixed(6)},0</coordinates></Point>\n    </Placemark>\n`
+      ? `    <Placemark>\n      <name>${landed ? 'Landing' : 'Last fix (record ends in the air)'}</name>\n      <Point><coordinates>${lon[landingIndex].toFixed(6)},${lat[landingIndex].toFixed(6)},0</coordinates></Point>\n    </Placemark>\n`
       : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -173,7 +180,7 @@ export function trackKml(
     '      <LineStyle><color>ff5e63e0</color><width>2</width></LineStyle>\n' +
     '      <PolyStyle><color>335e63e0</color></PolyStyle>\n' +
     '    </Style>\n' +
-    landed +
+    placemark +
     '    <Placemark>\n' +
     `      <name>${xmlEscape(name)}</name>\n` +
     '      <styleUrl>#track</styleUrl>\n' +
