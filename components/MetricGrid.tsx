@@ -81,8 +81,9 @@ export default function MetricGrid({
               <>
                 a speed worked out from a GPS altitude can&apos;t confirm supersonic flight. Nothing distorts a GPS
                 through the transonic region, but differentiating a coarse, lagging altitude runs the peak high — on
-                both corpus GPS flights a second instrument also recorded, this read came out above the measurement.
-                An accelerometer or an inertial solution would settle it.
+                the corpus GPS flight a second instrument also recorded, this read came out about 5% above the
+                measurement, and 9% above the tracker&apos;s own stated figure. An accelerometer or an inertial
+                solution would settle it.
               </>
             ) : (
               <>

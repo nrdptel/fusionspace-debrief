@@ -1037,14 +1037,38 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // reading Mach 5 over a 3 km apogee). Where that happens, the ascent-velocity peaks
   // are withheld below rather than fabricated. A device-logged velocity isn't
   // differentiated, so it's immune; a gap in the descent leaves the ascent intact.
+  // A gap in the ascent is a gap in the SAMPLED ALTITUDE, not only in the clock. A
+  // ground-station GPS log keeps writing a row every second through a dropout — the same
+  // cadence, an empty altitude field — so the clock stays continuous while the data the
+  // derivative needs is simply absent, and the test below used to see nothing wrong.
+  // `fwgps__trf-f1machbuster-jan18__GPS_GS03748` loses four consecutive fixes at
+  // t=962.01–965.01 and the smoothed derivative bridges them: 268.0, 497.0, 496.4,
+  // 268.7 m/s where the climb either side averages 288 m/s (149.7 m at t=961.03 to
+  // 1584.0 m at t=966.00). 497.0 m/s became the reported peak — and, at Mach 1.46, a
+  // supersonic reading — off four rows the record does not contain. Its own clock gap is
+  // 4.98 s against a 5·dt bound of 5.0 s, so it missed by 20 ms; counting samples rather
+  // than seconds is what makes the rule say what it means.
+  // Two or more consecutive samples, because a first derivative needs a neighbour and a
+  // single dropped fix still has one; and more than 1.5 s, the same span the clock rule
+  // uses, because a hole shorter than that cannot hide a peak.
   let ascentGapBreaksPeak = false;
   if (velocitySource === 'baro') {
+    let prevUsable = -1;
     for (let i = Math.max(1, liftoffRef); i <= apogeeIdx && i < n; i++) {
       const g = time[i] - time[i - 1];
       if (Number.isFinite(g) && g > 1.5 && dt > 0 && g > 5 * dt) {
         ascentGapBreaksPeak = true;
         break;
       }
+      if (!Number.isFinite(altitudeRaw[i])) continue;
+      if (prevUsable >= 0) {
+        const span = time[i] - time[prevUsable];
+        if (i - prevUsable - 1 >= 2 && Number.isFinite(span) && span > 1.5) {
+          ascentGapBreaksPeak = true;
+          break;
+        }
+      }
+      prevUsable = i;
     }
   }
 
@@ -1611,11 +1635,15 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // through Mach 1 the way a shock over a static port distorts a barometer. That much is
   // true and it is beside the point: the error in a GPS speed comes from differentiating a
   // coarse, lagging altitude, not from the transonic region, and the corpus measures it.
-  // On both GPS flights a second instrument also recorded, Debrief's GPS-derived peak
-  // lands above the measurement — Mach 1.46 (1,631 ft/s at 0.7 Hz) where a Blue Raven on
-  // the same flight measured Mach 1.14 (1,243 ft/s at 50 Hz), and 1,466 ft/s at 2.1 Hz
-  // where that tracker's own summary states 1,340 ft/s. +28% and +9%: a reading that can
-  // be a third high is not one that settles whether a flight went supersonic.
+  // Where a GPS flight has a second instrument recording it, Debrief's GPS-derived peak
+  // lands above the measurement: 1,466 ft/s at 2.1 Hz (Mach 1.32) against a Blue Raven's
+  // measured 1,401 ft/s (Mach 1.22) on the same flight, and above that tracker's own
+  // stated 1,340 ft/s. +5% and +9%. The two barometric derived speeds on that flight run
+  // +23% and +110%. A reading that is high by an amount nothing on the file bounds is not
+  // one that settles whether a flight went supersonic.
+  // The corpus used to appear to say +28%, from a ground-station GPS log whose peak was
+  // differentiated across four missing fixes; that peak is withheld now, and with it the
+  // only evidence for a GPS error that large.
   const transonicUnconfirmed = transonicTime !== null && velocitySource === 'baro';
 
   // --- Battery (when the logger recorded it) -------------------------------
@@ -1928,7 +1956,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // still differentiated from it, and the corpus says a coarse GPS altitude differentiated
     // puts the peak high rather than soft.
     warnings.push(
-      `The peak speed (about Mach ${mach.toFixed(2)}) is worked out from the GPS altitude rather than measured. Nothing distorts a GPS through the transonic region the way a shock over a pressure port distorts a barometer, but differentiating a coarse, lagging GPS altitude runs the peak high: on both corpus GPS flights that a second instrument also recorded, this read comes out above the measurement — Mach 1.46 where a Blue Raven on the same flight measured Mach 1.14, and 1,466 ft/s where the tracker's own summary states 1,340 ft/s. So it doesn't confirm the rocket went supersonic, and it isn't a floor under how fast it actually went.`,
+      `The peak speed (about Mach ${mach.toFixed(2)}) is worked out from the GPS altitude rather than measured. Nothing distorts a GPS through the transonic region the way a shock over a pressure port distorts a barometer, but differentiating a coarse, lagging GPS altitude runs the peak high: on the corpus GPS flight a second instrument also recorded, this read comes out above the measurement — 1,466 ft/s (Mach 1.32) where a Blue Raven on the same flight measured 1,401 ft/s (Mach 1.22), and above the tracker's own stated 1,340 ft/s. That is +5% against the measurement and +9% against its own summary, and a barometric derived speed on that same flight runs +23% and +110%. So it doesn't confirm the rocket went supersonic, and it isn't a floor under how fast it actually went.`,
     );
   }
   if (sampleHz > 0 && sampleHz < 5 && velocitySource === 'baro') {

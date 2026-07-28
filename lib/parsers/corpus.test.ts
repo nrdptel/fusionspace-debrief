@@ -820,25 +820,63 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
     return;
   }
 
-  it('reads high against the instrument that measured the same flight (Mach 1.46 vs 1.14)', () => {
-    const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv');
-    const br = loadForCompare('blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv');
-    expect(gps, 'the ground-station log is in the corpus').toBeTruthy();
+  it('reads high against the instrument that measured the same flight (Mach 1.32 vs 1.22)', () => {
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv');
+    const br = loadForCompare('blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv');
+    expect(gps, 'the tracker log is in the corpus').toBeTruthy();
     expect(br, 'the Blue Raven is in the corpus').toBeTruthy();
     const g = gps!.analysis.metrics;
     const b = br!.analysis.metrics;
     // The Blue Raven's speed is a measurement (its own velocity channel); the GPS one is
-    // this altitude differentiated at about 1 Hz.
+    // this altitude differentiated at about 2 Hz.
     expect(br!.analysis.series.velocitySource).toBe('device');
     expect(gps!.analysis.series.velocitySource).toBe('baro');
     expect(gps!.analysis.series.altitudeSource).toBe('gps');
-    // The gap between them is the whole point: 31% on the speed, and it is one-directional.
-    expect(g.maxVelocity! / b.maxVelocity!, 'the GPS peak runs high, not soft').toBeGreaterThan(1.2);
+    // The gap between them is the whole point, and it is one-directional: 446.8 m/s
+    // against a measured 427.0. This used to be asserted on the jan18 ground-station log
+    // at >1.2, which read 497.0 m/s — a peak differentiated across four missing fixes.
+    // That file's peak is withheld now, so the number the claim rests on is this one, and
+    // it is +5%, not +31%. The published figure moved with it.
+    const ratio = g.maxVelocity! / b.maxVelocity!;
+    expect(ratio, `the GPS peak runs high, not soft (${ratio.toFixed(3)})`).toBeGreaterThan(1.02);
+    expect(ratio, 'and by the measured amount, not the withdrawn one').toBeLessThan(1.10);
     // …and the flyer is told so, in the language of the sensor that produced it — the
     // barometric shock-over-the-port warning would name the wrong failure here.
     const why = gps!.analysis.warnings.find((w) => /worked out from the GPS altitude/.test(w));
     expect(why, 'the GPS peak says what it is').toBeTruthy();
     expect(why, 'and which way its error runs').toMatch(/runs the peak high/);
+  });
+
+  // The ground-station log that used to carry the claim above. Its ascent drops four
+  // consecutive fixes while the 1 Hz clock keeps ticking, and the smoothed derivative
+  // bridged them into a 497.0 m/s peak — Mach 1.46, above the 378.9 m/s the Blue Raven
+  // measured on the same flight. A gap in the sampled ascent withholds the peak, and the
+  // clock-only test could not see this one, so it reported a fabricated headline instead.
+  it('withholds a peak differentiated across missing fixes, rather than reporting it', () => {
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv');
+    expect(gps, 'the ground-station log is in the corpus').toBeTruthy();
+    const m = gps!.analysis.metrics;
+    const { time, altitude } = gps!.analysis.series;
+    // The hole is real and the clock runs straight through it.
+    let apo = 0;
+    for (let i = 0; i < altitude.length; i++) if (Number.isFinite(altitude[i]) && altitude[i] > altitude[apo]) apo = i;
+    let run = 0;
+    let longest = 0;
+    for (let i = 1; i <= apo; i++) {
+      if (!Number.isFinite(altitude[i])) longest = Math.max(longest, ++run);
+      else run = 0;
+    }
+    expect(longest, 'four consecutive ascent samples carry no altitude').toBe(4);
+    let biggestClockGap = 0;
+    for (let i = 1; i <= apo; i++) biggestClockGap = Math.max(biggestClockGap, time[i] - time[i - 1]);
+    expect(biggestClockGap, 'while the clock never skips more than a couple of seconds').toBeLessThan(3);
+    // So every reading built on that peak is withheld, not printed.
+    expect(m.maxVelocity, 'no peak speed').toBeNaN();
+    expect(m.mach, 'so no Mach, and no bare supersonic claim').toBeNull();
+    expect(m.maxDynamicPressure, 'and no max-Q, which squares the same speed').toBeNull();
+    expect(m.transonicTime).toBeNull();
+    // And it says why, rather than the tile simply being absent.
+    expect(gps!.analysis.warnings.some((w) => /gap in the sampled ascent/i.test(w)), 'the withholding explains itself').toBe(true);
   });
 
   it('flags the crossing it does detect instead of asserting it', () => {
@@ -859,20 +897,17 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
 
 // The direction of the mixed-source caveat, which the comparison and every export state.
 // Where one recording of a flight measured the speed and another differentiated it out of
-// an altitude, the derived one reads HIGH — never soft. Four corpus pairs, and all four
+// an altitude, the derived one reads HIGH — never soft. Three corpus pairs, and all three
 // agree; the caveat used to say the opposite, which tells a flyer to treat the inflated
-// figure as a lower bound.
+// figure as a lower bound. A fourth pair was here — the jan18 ground-station GPS — and it
+// is gone because that peak is withheld now, not because it disagreed: it read highest of
+// all four, off four missing fixes, and it was inflating the published spread.
 describe('a speed differentiated out of an altitude reads high, not soft', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
     return;
   }
   const PAIRS: { name: string; measured: string; derived: string }[] = [
-    {
-      name: 'trf-f1-jan18: Blue Raven vs the ground-station GPS',
-      measured: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
-      derived: 'featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv',
-    },
     {
       name: 'trf-lemiv-l3: Blue Raven vs the tracker GPS',
       measured: 'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
@@ -917,7 +952,6 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
     { file: 'blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv', kPa: 404.1, wasKPa: 47321.8 },
     { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 83.8, wasKPa: 266.3 },
     { file: 'eggtimer/eggtimer__euroc-skyward-lynx__log.csv', kPa: 103.4, wasKPa: 230.0 },
-    { file: 'featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv', kPa: 1.5, wasKPa: 3.0 },
     { file: 'missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv', kPa: 60.3, wasKPa: 401.4 },
     { file: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv', kPa: 99.7, wasKPa: 218.6 },
   ];
