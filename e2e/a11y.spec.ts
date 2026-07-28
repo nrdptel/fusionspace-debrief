@@ -94,3 +94,30 @@ test('a11y: comparison view', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await audit(page, 'comparison');
 });
+
+// Heading navigation is how a screen-reader user skims a long document, and this report is
+// 5,472 px on a desktop and 7,710 px — nine screens — on a phone. Two of its blocks had no
+// heading at all: the metric grid, which is the headline numbers and the reason the page
+// exists, and the "Worth knowing" warnings, which is where the caveats live. Both were
+// styled paragraphs, so skipping by heading went straight past them.
+test('a11y: the report’s own sections are reachable by heading', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // The headline numbers announce themselves…
+  await expect(page.getByRole('heading', { name: 'Readings', exact: true })).toBeVisible();
+  // …and so does the caveat block, when the flight has caveats.
+  const worth = page.getByRole('heading', { name: 'Worth knowing', exact: true });
+  if ((await worth.count()) > 0) await expect(worth.first()).toBeVisible();
+
+  // Every heading in the report body is h2 or h3 — no level is skipped on the way down, so
+  // a screen reader's outline matches what a sighted reader sees.
+  const levels = await page
+    .locator('main :is(h1,h2,h3,h4,h5,h6)')
+    .evaluateAll((els) => els.map((e) => Number(e.tagName.slice(1))));
+  expect(levels.length).toBeGreaterThan(8);
+  for (let i = 1; i < levels.length; i++) {
+    expect(levels[i] - levels[i - 1], `heading level jumps from h${levels[i - 1]} to h${levels[i]}`).toBeLessThanOrEqual(1);
+  }
+});
