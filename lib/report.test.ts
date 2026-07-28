@@ -28,9 +28,21 @@ function tinyFlight(): RawFlight {
   };
 }
 
+/** The same flight with a measured axial channel, so the acceleration column and the
+ *  acceleration metrics exist at all. The boost ramps 40 → 80 m/s² rather than sitting
+ *  flat, so the boost average is a different number from the peak and an assert on one
+ *  cannot pass on the other's value. */
+function accelFlight(): RawFlight {
+  const f = tinyFlight();
+  const n = f.time.length;
+  const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 40 + (40 * (i - 40)) / 40 : 0));
+  return { ...f, channels: [...f.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
+}
+
 describe('report exports', () => {
   const flight = tinyFlight();
   const analysis = analyzeFlight(flight);
+  const accelFlight_ = accelFlight();
 
   it('analyzedDataCsv leads with the derived columns and one row per sample', () => {
     const csv = analyzedDataCsv(flight, analysis, 'imperial');
@@ -71,12 +83,19 @@ describe('report exports', () => {
     expect(analyzedDataCsv(flight, analysis, 'metric').split('\n')[0]).toContain('mach');
   });
 
-  it('includes the acceleration column when the logger measured it', () => {
-    const n = flight.time.length;
-    const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 80 : 0)); // a boost pulse
-    const withAccel: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
-    const csv = analyzedDataCsv(withAccel, analyzeFlight(withAccel), 'imperial');
-    expect(csv.split('\n')[0]).toContain('acceleration (g)');
+  it('includes the acceleration column when the logger measured it, in the chosen unit', () => {
+    const a = analyzeFlight(accelFlight_);
+    expect(analyzedDataCsv(accelFlight_, a, 'imperial').split('\n')[0]).toContain('acceleration (g)');
+
+    // The column follows the per-quantity choice like every other one — a bundle whose
+    // .json says m/s² and whose .csv says g is one flight carried in two units.
+    const csv = analyzedDataCsv(accelFlight_, a, { length: 'm', speed: 'm/s', accel: 'm/s²', temp: '°C', pressure: 'kPa' });
+    const cols = csv.split('\n')[0].split(',');
+    const at = cols.indexOf('acceleration (m/s²)');
+    expect(at, 'the header names the chosen unit').toBeGreaterThan(-1);
+    // …and the numbers underneath it moved with the label, rather than staying in g.
+    const peak = Math.max(...csv.split('\n').slice(1).map((r) => Number(r.split(',')[at]) || 0));
+    expect(peak).toBeGreaterThan(50); // ~80 m/s²; it would read ~8 if still in g
   });
 
   it('switches CSV units with the system', () => {
@@ -328,31 +347,53 @@ describe('report exports', () => {
   // flyer who picks m/s² gets a number a script reads as m/s² — this holds the declared unit
   // and the emitted magnitude side by side so they cannot drift apart again.
   it('analysisJson emits acceleration in the unit it declares, whichever was chosen', () => {
-    const n = flight.time.length;
-    const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 80 : 0)); // a boost pulse
-    const withAccel: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
-    const a = analyzeFlight(withAccel);
+    const a = analyzeFlight(accelFlight_);
     const si = a.metrics.maxAcceleration;
-    expect(Number.isFinite(si)).toBe(true); // the assert below is worthless on a null
+    expect(Number.isFinite(si)).toBe(true); // the asserts below are worthless on a null
+    // A ramped boost, so the average is genuinely below the peak — a flat pulse makes
+    // avgBoost === max and the second assert passes on the first one's number.
+    expect(a.metrics.avgBoostAcceleration).toBeLessThan(si - 1);
 
     const base = { length: 'm', speed: 'm/s', temp: '°C', pressure: 'kPa' } as const;
-    // The factor from SI to each unit, so a wrong conversion cannot pass by coincidence.
-    for (const [unit, perMs2] of [
-      ['g', 1 / 9.80665],
-      ['m/s²', 1],
-      ['ft/s²', 1 / 0.3048],
+    // The factor from SI to each unit, so a wrong conversion cannot pass by coincidence,
+    // and the tolerance is exactly the last decimal the export writes in that unit —
+    // not a fixed epsilon that the rounding alone could consume.
+    for (const [unit, perMs2, step] of [
+      ['g', 1 / 9.80665, 0.01],
+      ['m/s²', 1, 0.1],
+      ['ft/s²', 1 / 0.3048, 0.1],
     ] as const) {
-      const doc = JSON.parse(analysisJson(withAccel, a, { ...base, accel: unit }));
+      const doc = JSON.parse(analysisJson(accelFlight_, a, { ...base, accel: unit }));
       expect(doc.units.acceleration).toBe(unit);
-      expect(doc.metrics.maxAcceleration).toBeCloseTo(si * perMs2, 1);
-      expect(doc.metrics.avgBoostAcceleration).toBeCloseTo(a.metrics.avgBoostAcceleration! * perMs2, 1);
+      expect(Math.abs(doc.metrics.maxAcceleration - si * perMs2)).toBeLessThan(step);
+      expect(Math.abs(doc.metrics.avgBoostAcceleration - a.metrics.avgBoostAcceleration! * perMs2)).toBeLessThan(step);
+    }
+
+    // Every acceleration-valued key at once, rather than the two named above: read the
+    // document twice and require each to sit in the ratio between the two units, or to be
+    // absent from both. That covers maxDeceleration and an event's peak shock — which no
+    // named assert reaches on every fixture — and fails if a new one arrives unconverted.
+    const inG = JSON.parse(analysisJson(accelFlight_, a, { ...base, accel: 'g' }));
+    const inMs2 = JSON.parse(analysisJson(accelFlight_, a, { ...base, accel: 'm/s²' }));
+    const accelKeys = ['maxAcceleration', 'avgBoostAcceleration', 'maxDeceleration'] as const;
+    for (const k of accelKeys) {
+      if (inG.metrics[k] == null) {
+        expect(inMs2.metrics[k]).toBeNull();
+        continue;
+      }
+      expect(inMs2.metrics[k] / inG.metrics[k]).toBeCloseTo(9.80665, 1);
+    }
+    for (let i = 0; i < inG.events.length; i++) {
+      const g = inG.events[i].peakAcceleration;
+      if (g == null || Math.abs(g) < 0.5) continue; // a ratio on near-zero is all rounding
+      expect(inMs2.events[i].peakAcceleration / g).toBeCloseTo(9.80665, 1);
     }
 
     // And the comparison export, which declares its units from the same helper.
     const cmp = buildComparison([{ id: 'a', name: 'a.csv', formatLabel: 'Test', analysis: a }] satisfies CompareInput[]);
     const doc = JSON.parse(compareJson(cmp, { ...base, accel: 'ft/s²' }));
     expect(doc.units.acceleration).toBe('ft/s²');
-    expect(doc.flights[0].metrics.maxAcceleration).toBeCloseTo(si / 0.3048, 1);
+    expect(Math.abs(doc.flights[0].metrics.maxAcceleration - si / 0.3048)).toBeLessThan(0.1);
   });
 
   it('carries an optional report label and notes into the text, Markdown and JSON exports', () => {

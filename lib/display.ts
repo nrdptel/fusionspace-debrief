@@ -60,6 +60,13 @@ export function isSystem(choice: UnitChoice, sys: UnitSystem): boolean {
  *  acceleration in m/s² is hundreds and wants none. */
 const PLACES: Record<string, number> = { g: 1, 'm/s²': 0, 'ft/s²': 0, psi: 1, kPa: 1 };
 
+/** Decimal places a unit is read at, for a caller that rounds a number itself rather
+ *  than taking a formatted string — a chart's axis ticks and hover readout, say, which
+ *  must land on the same figure as the label beside them. */
+export function placesFor(unit: string): number {
+  return PLACES[unit] ?? 0;
+}
+
 function round(v: number, places: number): string {
   if (!Number.isFinite(v)) return '—';
   const f = Math.pow(10, places);

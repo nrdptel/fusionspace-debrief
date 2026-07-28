@@ -37,8 +37,13 @@ test('a unit can be chosen per quantity, and it reaches every surface', async ({
   // The button stops claiming a named system.
   await expect(page.getByRole('button', { name: /Units:/ })).toContainText('custom');
 
-  // The chart axis follows.
+  // The chart axes follow — every one of them. Acceleration is checked separately from
+  // velocity because it was the quantity that didn't: its heading read "Acceleration (g)"
+  // whatever was picked, while the tile beside it and the chart's own accessible
+  // description both said m/s², so the curve and the number describing it disagreed.
   await expect(page.getByRole('heading', { name: /Velocity \(mph\)/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Acceleration \(m\/s²\)/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Acceleration \(g\)/ })).toHaveCount(0);
 
   // …and so does the saved report: the file must not disagree with the screen.
   const [dl] = await Promise.all([

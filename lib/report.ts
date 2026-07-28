@@ -608,7 +608,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
     'time (s)',
     `altitude (${L.length} AGL)`,
     `velocity (${L.speed})`,
-    ...(hasAccel ? ['acceleration (g)'] : []),
+    ...(hasAccel ? [`acceleration (${L.accel})`] : []),
     ...(velUsable ? ['mach', `dynamic pressure (${pUnit})`] : []),
     ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
   ].join(',');
@@ -623,7 +623,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
         time[i].toFixed(3),
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
         cell(Number(speedIn(velocity[i], sys).toFixed(1))),
-        ...(hasAccel ? [cell(Number(accelInG(acceleration[i]).toFixed(2)))] : []),
+        ...(hasAccel ? [cell(Number(accelIn(acceleration[i], sys).toFixed(2)))] : []),
         ...(velUsable ? [cell(Number(mach.toFixed(3))), cell(Number(pressureIn(q, sys).toFixed(2)))] : []),
         ...recorded.map((c) => sig6(c.toDisplay(c.values[i], sys))),
       ].join(','),
@@ -971,11 +971,11 @@ function jsonConv(sys: UnitChoice) {
   // Acceleration follows the chosen unit, because `jsonUnits` declares that unit beside it.
   // It used to convert to g unconditionally — so a flyer who picked m/s² for a drag write-up
   // got `units.acceleration: "m/s²"` next to a figure in g: 15.62 where the number is 153.14,
-  // a factor of 9.81 (32.17 in ft/s²) inside a file meant to be read by a script. Every other
-  // surface already agrees — the metric grid, the explorer and the comparison convert with
-  // `accelIn`, and the data CSV writes g and says "(g)" in its header. Two decimals on g is
-  // ~0.02 g; the hundreds-scale units get one, so the exported precision is comparable
-  // whichever was picked rather than three digits of noise.
+  // a factor of 9.81 (32.17 in ft/s²) inside a file meant to be read by a script. Every
+  // surface converts with `accelIn` now — the metric grid, the explorer, the comparison, the
+  // two charts and the data CSV. Two decimals on g is a 0.098 m/s² step and the hundreds-scale
+  // units take one, a 0.1 step, so the exported resolution is the same figure whichever was
+  // picked rather than three digits of noise.
   const accPlaces = unitsOf(sys).accel === 'g' ? 2 : 1;
   return {
     round,

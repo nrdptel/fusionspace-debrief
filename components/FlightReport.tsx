@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
-import { accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, speedIn, systemOf, unitsOf } from '@/lib/display';
+import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
 import { formatFlownAt } from '@/lib/flight/flownAt';
@@ -431,9 +431,16 @@ export default function FlightReport({
         name: `${stem}-acceleration.svg`,
         svg: plotSvg({
           x: series.time,
-          series: [{ label: `${series.accelerationResultant ? 'Total ' : ''}Acceleration (g)`, color: '#f59e0b', axis: 'left', values: Array.from(series.acceleration, (a) => accelInG(a)) }],
+          series: [
+            {
+              label: `${series.accelerationResultant ? 'Total ' : ''}Acceleration (${unitsOf(sys).accel})`,
+              color: '#f59e0b',
+              axis: 'left',
+              values: Array.from(series.acceleration, (a) => accelIn(a, sys)),
+            },
+          ],
           xLabel: 'Time (s)',
-          leftLabel: 'g',
+          leftLabel: unitsOf(sys).accel,
           markers: markerDefs,
           dark: figureDark,
           ...(chartRange ? { xRange: chartRange } : {}),
@@ -547,7 +554,7 @@ export default function FlightReport({
   const accSeries = useMemo(() => [{ label: 'acceleration', values: series.acceleration, stroke: '#f59e0b' }], [series.acceleration]);
   const altFmt = useCallback((v: number) => round(lengthIn(v, sys), 0), [sys]);
   const velFmt = useCallback((v: number) => round(speedIn(v, sys), 0), [sys]);
-  const accFmt = useCallback((v: number) => round(accelInG(v), 1), [sys]);
+  const accFmt = useCallback((v: number) => round(accelIn(v, sys), placesFor(unitsOf(sys).accel)), [sys]);
 
   // Every channel worth plotting, for the flexible explorer below.
   const plotChannels = useMemo(() => buildPlotChannels(flight, series), [flight, series]);
@@ -910,7 +917,7 @@ export default function FlightReport({
 
         {hasAccel && (
           <ChartBlock
-            title={series.accelerationResultant ? 'Total acceleration (g)' : 'Acceleration (g)'}
+            title={`${series.accelerationResultant ? 'Total acceleration' : 'Acceleration'} (${unitsOf(sys).accel})`}
             note={
               series.accelerationResultant
                 ? 'resultant of the logged axes'
