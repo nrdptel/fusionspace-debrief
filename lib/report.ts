@@ -592,13 +592,22 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   // charted), so shipping a column of it into a data export would just hand a cert doc
   // hundreds of g of garbage. The velocity column (a usable first derivative) stays.
   const hasAccel = analysis.series.accelerationSource === 'device';
+  // Mach and dynamic pressure are derived from the velocity, so they go the same way it does.
+  // Where the analysis judged the speed physically impossible it withholds both headlines, the
+  // explorer stops offering the curves and the comparison overlay stops drawing them — but this
+  // writer computed them per sample regardless, so the one artefact a flyer pastes into a
+  // spreadsheet or a cert document was the one place the withheld figure reappeared. Ten of the
+  // corpus's 46 flights are in that state and every one of them exported a Mach: 362.4 and
+  // 1.79e8 kPa on the loudest, but also a perfectly believable 1.7, 1.6 and 1.3 — and a
+  // believable wrong number is the dangerous one. The velocity column itself stays, exactly as
+  // its trace stays on screen, so a mis-scaled column can still be seen and diagnosed.
+  const velUsable = !analysis.series.velocityImplausible;
   const header = [
     'time (s)',
     `altitude (${L.length} AGL)`,
     `velocity (${L.speed})`,
     ...(hasAccel ? ['acceleration (g)'] : []),
-    'mach',
-    `dynamic pressure (${pUnit})`,
+    ...(velUsable ? ['mach', `dynamic pressure (${pUnit})`] : []),
     ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
   ].join(',');
   const rows = [header];
@@ -613,8 +622,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
         cell(Number(speedIn(velocity[i], sys).toFixed(1))),
         ...(hasAccel ? [cell(Number(accelInG(acceleration[i]).toFixed(2)))] : []),
-        cell(Number(mach.toFixed(3))),
-        cell(Number(pressureIn(q, sys).toFixed(2))),
+        ...(velUsable ? [cell(Number(mach.toFixed(3))), cell(Number(pressureIn(q, sys).toFixed(2)))] : []),
         ...recorded.map((c) => sig6(c.toDisplay(c.values[i], sys))),
       ].join(','),
     );

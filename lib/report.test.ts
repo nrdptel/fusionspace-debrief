@@ -45,6 +45,32 @@ describe('report exports', () => {
     expect(lines[1].split(',')[0]).toBe('0.000');
   });
 
+  it('drops mach and dynamic pressure from the data CSV when the speed was withheld', () => {
+    // Both are derived from the velocity, so they go the same way it does. The screen, the
+    // explorer and the comparison overlay all withhold them on an impossible speed; this
+    // writer computed them anyway, so the one artefact a flyer pastes into a spreadsheet was
+    // the one place the withheld figure came back. Ten of the corpus's 46 flights are in that
+    // state, and their CSVs stated Mach 362.4 down to a perfectly believable 1.3.
+    const n = flight.time.length;
+    // A velocity channel with an impossible stretch — enough samples to survive spike filtering.
+    const vel = Float64Array.from({ length: n }, (_, i) => (i > 100 && i < 140 ? 9000 : 50));
+    const wild: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: vel }] };
+    const wildAnalysis = analyzeFlight(wild);
+    expect(wildAnalysis.series.velocityImplausible, 'the fixture really does get its speed withheld').toBe(true);
+    expect(wildAnalysis.metrics.mach, 'the screen withholds Mach').toBeNull();
+
+    const csv = analyzedDataCsv(wild, wildAnalysis, 'metric');
+    const header = csv.split('\n')[0];
+    expect(header, 'no mach column').not.toContain('mach');
+    expect(header, 'no dynamic-pressure column').not.toContain('dynamic pressure');
+    // The velocity column stays, exactly as its trace stays on screen, so a mis-scaled
+    // column can still be seen and diagnosed.
+    expect(header).toContain('velocity');
+
+    // And a flight whose speed stands keeps both columns.
+    expect(analyzedDataCsv(flight, analysis, 'metric').split('\n')[0]).toContain('mach');
+  });
+
   it('includes the acceleration column when the logger measured it', () => {
     const n = flight.time.length;
     const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 80 : 0)); // a boost pulse
