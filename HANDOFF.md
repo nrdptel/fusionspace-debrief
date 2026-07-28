@@ -140,7 +140,7 @@ with the whole block in view, and run the jan10 splice test and the ends-at-rest
   Both jobs ran ~1.5 min (frontend) and ~4 min (e2e) all run.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 
-### After the merge — a second PR
+### After the merges — PRs #24 and #25
 
 Four more increments landed on the branch after PR #23 merged, as PR #24: the vendor-tool benchmark
 recorded in `BACKLOG.md` with sources; the channel explorer no longer removing channels from its own
@@ -148,6 +148,18 @@ menu (eleven entries to five on a Blue Raven, silently) and instead saying why e
 cross-check speaking up when two recordings **disagree about whether a charge fired** rather than
 emitting no descent row at all; and the report's two unnamed blocks — the metric grid and "Worth
 knowing" — getting the headings that make them reachable by heading navigation.
+
+Then PR #25: the report can be **navigated by section**. It runs 5,472 px on a desktop and 7,710 px —
+nine screens — on a phone and carried **zero** in-page links, so coming back to check one number meant
+scrolling past everything and no section could be linked to. The strip lists only what this flight has
+(8 links on a TeleMega with GPS, 7 on a Blue Raven low-rate, 6 on an AltimeterCloud), sits at 46 px on
+a phone with every link already at the touch floor, and every section that lacked an anchor has one.
+
+**Falsifying that one took two goes, and it is the lesson of the run.** The first attempt made the
+Recovery link unconditional and the test still passed, because the fixture it used carries lat/lon so
+the link was not dead there. The second time an assert was green while proving nothing — the other was
+the explorer's, where the falsification ran the wrong test by name. Falsify against the case the
+assert is *about*, and check the failure message names it.
 
 ## Pick up first, and why
 
