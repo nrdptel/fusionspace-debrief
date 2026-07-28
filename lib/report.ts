@@ -4,6 +4,7 @@
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 import {
+  accelIn,
   accelInG,
   fmtAccel,
   fmtLength,
@@ -967,11 +968,20 @@ export function compareHtml(
  *  structured export rounds and converts identically. */
 function jsonConv(sys: UnitChoice) {
   const round = (v: number, p: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(p)) : null);
+  // Acceleration follows the chosen unit, because `jsonUnits` declares that unit beside it.
+  // It used to convert to g unconditionally — so a flyer who picked m/s² for a drag write-up
+  // got `units.acceleration: "m/s²"` next to a figure in g: 15.62 where the number is 153.14,
+  // a factor of 9.81 (32.17 in ft/s²) inside a file meant to be read by a script. Every other
+  // surface already agrees — the metric grid, the explorer and the comparison convert with
+  // `accelIn`, and the data CSV writes g and says "(g)" in its header. Two decimals on g is
+  // ~0.02 g; the hundreds-scale units get one, so the exported precision is comparable
+  // whichever was picked rather than three digits of noise.
+  const accPlaces = unitsOf(sys).accel === 'g' ? 2 : 1;
   return {
     round,
     len: (v: number | null) => (v == null ? null : round(lengthIn(v, sys), 1)),
     spd: (v: number | null) => (v == null ? null : round(speedIn(v, sys), 1)),
-    acc: (v: number | null) => (v == null ? null : round(accelInG(v), 2)),
+    acc: (v: number | null) => (v == null ? null : round(accelIn(v, sys), accPlaces)),
     sec: (v: number | null) => (v == null ? null : round(v, 2)),
     prs: (v: number | null) => (v == null ? null : round(pressureIn(v, sys), 2)),
   };

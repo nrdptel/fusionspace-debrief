@@ -323,6 +323,38 @@ describe('report exports', () => {
     expect(typeof doc.loggerSummary[0].agreementPct).toBe('number');
   });
 
+  // Both named systems declare acceleration in g, so every other JSON test here agrees with
+  // the export no matter what it converts to. The unit is chosen per quantity, though, and a
+  // flyer who picks m/s² gets a number a script reads as m/s² — this holds the declared unit
+  // and the emitted magnitude side by side so they cannot drift apart again.
+  it('analysisJson emits acceleration in the unit it declares, whichever was chosen', () => {
+    const n = flight.time.length;
+    const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 80 : 0)); // a boost pulse
+    const withAccel: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
+    const a = analyzeFlight(withAccel);
+    const si = a.metrics.maxAcceleration;
+    expect(Number.isFinite(si)).toBe(true); // the assert below is worthless on a null
+
+    const base = { length: 'm', speed: 'm/s', temp: '°C', pressure: 'kPa' } as const;
+    // The factor from SI to each unit, so a wrong conversion cannot pass by coincidence.
+    for (const [unit, perMs2] of [
+      ['g', 1 / 9.80665],
+      ['m/s²', 1],
+      ['ft/s²', 1 / 0.3048],
+    ] as const) {
+      const doc = JSON.parse(analysisJson(withAccel, a, { ...base, accel: unit }));
+      expect(doc.units.acceleration).toBe(unit);
+      expect(doc.metrics.maxAcceleration).toBeCloseTo(si * perMs2, 1);
+      expect(doc.metrics.avgBoostAcceleration).toBeCloseTo(a.metrics.avgBoostAcceleration! * perMs2, 1);
+    }
+
+    // And the comparison export, which declares its units from the same helper.
+    const cmp = buildComparison([{ id: 'a', name: 'a.csv', formatLabel: 'Test', analysis: a }] satisfies CompareInput[]);
+    const doc = JSON.parse(compareJson(cmp, { ...base, accel: 'ft/s²' }));
+    expect(doc.units.acceleration).toBe('ft/s²');
+    expect(doc.flights[0].metrics.maxAcceleration).toBeCloseTo(si / 0.3048, 1);
+  });
+
   it('carries an optional report label and notes into the text, Markdown and JSON exports', () => {
     const meta = { label: 'Nimbus IV · J450 · Flight 3', notes: 'Gusty; drogue at apogee.\nMain a touch low.' };
     const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, meta);
