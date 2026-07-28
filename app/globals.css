@@ -113,3 +113,23 @@ html {
     max-width: 100% !important;
   }
 }
+
+/* The flight report's section strip pins to the top of the viewport once you scroll past it
+   (components/FlightReport.tsx). A heading jumped to from that strip would otherwise land
+   underneath it, so every one of its targets clears the strip's own height. The list is the
+   `jumpTo` ids, in the order the strip lists them; an e2e assert measures a jumped-to heading
+   against the strip so a renamed id cannot leave this behind silently.
+
+   The clearance is the tallest the strip gets, not the average: 62 px at 390 px, where the
+   coarse-pointer rule above holds every link to the 44 px touch floor, against 42 px on a
+   desktop. 56 px was tried and left a phone's heading 6 px underneath. */
+#worth-knowing,
+#readings-heading,
+#flight-timeline,
+#altitude-chart,
+#events,
+#ground-track,
+#explore-the-data,
+#flight-card-heading {
+  scroll-margin-top: 4.5rem;
+}
