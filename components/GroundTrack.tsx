@@ -205,7 +205,9 @@ export default function GroundTrack({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Recovery</h3>
+        <h3 id="ground-track" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+          Recovery
+        </h3>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">north up · from GPS</span>
       </div>
 

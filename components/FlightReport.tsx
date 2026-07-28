@@ -569,9 +569,43 @@ export default function FlightReport({
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
   const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration, sys)}` : ''}.`;
 
+  // Where a flyer can jump to. The report runs 5,472 px on a desktop and 7,710 px — nine
+  // screens — on a phone, and carried no in-page links at all, so coming back to check one
+  // number meant scrolling past everything and there was no way to send a clubmate to a
+  // section. Only the sections this flight actually has are listed: a baro-only log has no
+  // acceleration chart, a log without GPS has no recovery, and offering a link to either
+  // would be the "control that fails only when pressed" this manual warns about.
+  const jumpTo: { id: string; label: string }[] = [
+    ...(warnings.length > 0 ? [{ id: 'worth-knowing', label: 'Worth knowing' }] : []),
+    { id: 'readings-heading', label: 'Readings' },
+    { id: 'flight-timeline', label: 'Timeline' },
+    { id: 'altitude-chart', label: 'Charts' },
+    { id: 'events', label: 'Events' },
+    ...(gpsLat && gpsLon ? [{ id: 'ground-track', label: 'Recovery' }] : []),
+    { id: 'explore-the-data', label: 'Explore' },
+    { id: 'flight-card-heading', label: 'Flight card' },
+  ];
+
   return (
     <div className="space-y-8">
       <h2 className="sr-only">Flight report for {flight.source}</h2>
+      {/* Scrolls sideways rather than wrapping to a second row on a phone, like the "Save a
+          file" strip — a jump bar that costs a screen of its own to read is not a fix for a
+          long page. Hidden in print, where every section is already on the paper. */}
+      <nav aria-label="Jump to a section of this report" className="-mx-1 overflow-x-auto px-1 print:hidden">
+        <ul className="flex w-max items-center gap-1.5 text-xs">
+          {jumpTo.map((j) => (
+            <li key={j.id}>
+              <a
+                href={`#${j.id}`}
+                className="inline-flex shrink-0 items-center rounded-md border border-zinc-200 bg-white px-2.5 py-1 font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+              >
+                {j.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
       {/* Print-only masthead: a printed card should still say what it is. */}
       <div className="hidden print:block">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Debrief · Flight Report</p>
@@ -893,7 +927,7 @@ export default function FlightReport({
         </div>
       )}
       <div className="space-y-6">
-        <ChartBlock title={`Altitude (${unitsOf(sys).length} AGL)`}>
+        <ChartBlock id="altitude-chart" title={`Altitude (${unitsOf(sys).length} AGL)`}>
           <div ref={altChartRef}>
             <Chart
               time={series.time}
@@ -911,6 +945,7 @@ export default function FlightReport({
         </ChartBlock>
 
         <ChartBlock
+          id="velocity-chart"
           title={`Velocity (${unitsOf(sys).speed})`}
           note={series.velocitySource === 'device' ? 'logged by the device' : 'derived from altitude'}
         >
@@ -930,6 +965,7 @@ export default function FlightReport({
 
         {hasAccel && (
           <ChartBlock
+            id="acceleration-chart"
             title={`${series.accelerationResultant ? 'Total acceleration' : 'Acceleration'} (${unitsOf(sys).accel})`}
             note={
               series.accelerationResultant
@@ -1004,7 +1040,9 @@ export default function FlightReport({
 
       {/* Event legend */}
       <div>
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Events</h3>
+        <h3 id="events" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+          Events
+        </h3>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((e) => (
             <div
@@ -1122,11 +1160,13 @@ export default function FlightReport({
   );
 }
 
-function ChartBlock({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function ChartBlock({ id, title, note, children }: { id?: string; title: string; note?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">{title}</h3>
+        <h3 id={id} className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+          {title}
+        </h3>
         {note && <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>}
       </div>
       {children}

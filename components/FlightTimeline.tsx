@@ -52,7 +52,9 @@ export default function FlightTimeline({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Flight timeline</h3>
+        <h3 id="flight-timeline" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+          Flight timeline
+        </h3>
         {/* The span is only "to landing" when the record reached the ground. It is the
             caption on the one widget claiming to summarise the whole flight, and it read
             "2.6 s liftoff to landing" on a 3,548 ft log whose last sample is still climbing

@@ -273,7 +273,9 @@ export default function ChannelExplorer({
 
   return (
     <div>
-      <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Explore the data</h3>
+      <h3 id="explore-the-data" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+        Explore the data
+      </h3>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Plot any channel your logger recorded — overlay a few, and choose what goes on each axis.
       </p>
