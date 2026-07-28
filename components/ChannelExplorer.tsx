@@ -220,12 +220,23 @@ export default function ChannelExplorer({
   // be the empty string (a unitless channel like Mach on the second axis), so test
   // for "a second axis exists" explicitly rather than truthiness.
   const hasRightAxis = rightUnit !== undefined;
-  const canAdd = (c: PlotChannel) => {
-    if (yKeys.includes(c.key) || selected.length >= MAX_SERIES) return false;
+  /** Why a channel can't be added right now, or null if it can. The list used to be
+   *  FILTERED by this, so a channel that needed a third axis simply vanished: plot a
+   *  velocity beside the altitude on a Blue Raven and the menu drops from eleven entries to
+   *  five, with Mach, dynamic pressure, battery, temperature and tilt gone and nothing
+   *  saying where. The panel's own line is "Plot any channel your logger recorded". A
+   *  reading that isn't offered has to say why it isn't, the same as one that is withheld. */
+  const whyNot = (c: PlotChannel): string | null => {
+    if (yKeys.includes(c.key)) return 'already plotted';
+    if (selected.length >= MAX_SERIES) return `at the ${MAX_SERIES}-channel limit`;
     const u = c.unitLabel(sys);
-    return !hasRightAxis || u === leftUnit || u === rightUnit;
+    if (!hasRightAxis || u === leftUnit || u === rightUnit) return null;
+    return `needs a third axis; remove a ${leftUnit || 'unitless'} or ${rightUnit || 'unitless'} channel`;
   };
-  const addable = channels.filter(canAdd);
+  // Everything the logger recorded stays in the menu; the ones that can't go on right now
+  // are disabled with the reason beside them.
+  const offerable = channels.filter((c) => !yKeys.includes(c.key));
+  const addable = offerable.filter((c) => whyNot(c) === null);
 
   // Export exactly what's plotted — the CSV is the displayed data in the chosen
   // units; the PNG is the current chart. Both stay on-device (no upload).
@@ -294,7 +305,7 @@ export default function ChannelExplorer({
             )}
           </span>
         ))}
-        {addable.length > 0 && (
+        {offerable.length > 0 && (
           <select
             aria-label="Add a channel to the plot"
             value=""
@@ -305,15 +316,18 @@ export default function ChannelExplorer({
           >
             <option value="">+ Add channel…</option>
             {GROUPS.map((g) => {
-              const inGroup = addable.filter((c) => c.group === g);
+              const inGroup = offerable.filter((c) => c.group === g);
               if (inGroup.length === 0) return null;
               return (
                 <optgroup key={g} label={g}>
-                  {inGroup.map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
-                    </option>
-                  ))}
+                  {inGroup.map((c) => {
+                    const blocked = whyNot(c);
+                    return (
+                      <option key={c.key} value={c.key} disabled={blocked !== null}>
+                        {blocked ? `${c.label} — ${blocked}` : c.label}
+                      </option>
+                    );
+                  })}
                 </optgroup>
               );
             })}
