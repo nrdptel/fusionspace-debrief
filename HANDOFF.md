@@ -89,25 +89,52 @@ record cannot support** (4–8). Every figure below was measured this run.
 the expected reason. One passed its falsification first time (under m/s² the wrong converter is the
 identity) and was rewritten to run two unit choices.
 
-### Attempted and reverted — read this before touching the landing block
+### The landing block — done, and how
 
-**A file boundary is read as a touchdown.** On `blueraven__trf-f1machbuster-jan18 LR` copy 1's trace
+**A file boundary was read as a touchdown.** On `blueraven__trf-f1machbuster-jan18 LR` copy 1's trace
 freezes at 823.2 ft and the next sample, **0.020 s later, is −3.4 ft**: a step of **41,330 ft/s** on a
-flight whose descent ran at 55. That sample is copy 2's pad, and the landing detector takes it. From it
-come a 122.90 s flight time (which "agrees" with the device's 123.02 by luck) and a published 55 ft/s
-where the device's own summary states a **29.0 ft/s** main descent — a **3.6× landing-energy error**.
+flight whose recorded descent ran at 55. That sample is copy 2's pad. From it came a 122.90 s flight
+time (which "agrees" with the device's 123.02 by luck) and a published **54.8 ft/s** where the device's
+own summary states a **29.0 ft/s** main descent — a **3.6× landing-energy error**.
 
-Bounding the landing search at the first post-apogee step faster than free-fall from the flight's own
-apogee fixes that file exactly. But the landing block is four interacting rules — the near-pad detector,
-the at-rest tail fallback, `descentIsInTheRecord`, and the `altClean[n−1] < 5` "ends on the ground"
-clause — and a seam concept touches all of them plus the second-copy splice. Two refinements each fixed
-one case and broke others (the jan10 splice lost `descentSource`; four flights that correctly say "never
-reaches the ground" started claiming a landing). **Reverted with the tree green.** Do it as its own pass
-with the whole block in view, and run the jan10 splice test and the ends-at-rest set FIRST, not last.
+**The earlier attempt aimed at the wrong layer, and that is why it broke things.** It bounded the
+LANDING SEARCH, which is four interacting rules (the near-pad detector, the at-rest tail fallback,
+`descentIsInTheRecord`, and the `altClean[n−1] < 5` clause) plus the second-copy splice; two refinements
+each fixed one case and broke others. The defect is one layer up, in `nextFlightStart`: the cut between
+copies is placed at the **low point of the trough** after the join, and where the join IS the drop, that
+hands the first copy the next copy's opening pad samples. The landing detector was doing its job on
+samples it should never have been given. Fixed there (`966cf6a`), the landing block is untouched.
+
+The rule: a body released at the record's own peak reaches the ground at √(2gh) and no faster, so a step
+into the ground band quicker than that (doubled, for baro headroom) is the recording restarting. Every
+multi-segment corpus file trips it and clears the doubled bound by **9.6×, 32× and 315×**; a synthetic
+pair's genuine 25 m/s touchdown is **4× inside** it and its cut does not move.
+
+Both copies of jan18 stop 250 m up, so neither holds a landing. It joins the six that already say so —
+**the census assert moves 6 → 7**. No landing event, no flight time, no descent time, no landing energy
+(`—`, no joules figure anywhere on the page), no parachute Cd; the 51 ft/s it does carry reads
+"averaged over the recorded descent — the record stops before the ground, so this is not a landing
+speed". **jan10's splice is byte-identical** (10,245 ft, 83.00 s, 64.76 s, `second-copy`) with its cut
+163 samples earlier; the Eggtimer anomaly's cut moves one sample, every reading identical.
+
+**The assert that was written first and thrown away is worth more than the one that shipped.** "No
+landing may be arrived at faster than a vacuum fall from its own apogee" is the obvious physical
+statement and it is **wrong as a test**: a barometer lying on the ground with its charges fired bounces
+tens of metres between samples, and the widest genuine landing in this corpus (`stargazer1`, from 17.3 m
+of a 570 m flight) arrives at **11.3× that bound**. Rate does not separate a true touchdown from a false
+one. The height it was **approached from** does — widest genuine **3.04%** of apogee, next 2.30%,
+against jan18's **13.09%** — and the bound is 6%.
+
+**And the synthetic that reproduces it has to have a WANDERING pad between the copies.** The first
+version used a dead-flat zero and passed against the old code: with a flat trough the low point *is* the
+join, so cutting at either lands in the same place and nothing is handed across. The corpus file reads
+−1.0, +0.5, +0.5, −0.1 over its first four samples, and that wander is the whole mechanism.
 
 ### Done-check
 
-- **Corpus suite green: 110 tests, 61 fixtures on disk.** Two denominators exist and both are right —
+- **Gate on the branch head: 687 unit tests across 52 files, build clean, 178 e2e.** Sweep
+  `find . -name "*-tmp.*"` immediately before any run you intend to quote.
+- **Corpus suite green: 111 tests, 61 fixtures on disk.** Two denominators exist and both are right —
   `corpusReads()` marks **37** analysed end to end (what the suite asserts), a looser sweep gets **46**.
   Say which you mean: a count of 7 over the loose set was 6 over the suite's, and the difference was a
   real fixture, not a bug.
@@ -182,24 +209,55 @@ the link was not dead there. The second time an assert was green while proving n
 the explorer's, where the falsification ran the wrong test by name. Falsify against the case the
 assert is *about*, and check the failure message names it.
 
+### After the merges — PR #26, and this run's last two increments
+
+PR #26 landed the coast-efficiency wording above. Then two more, on the branch as PR #27:
+
+**`966cf6a` — the landing block** (see above). The largest remaining wrong number in the app, and it
+turned out not to be in the landing block at all.
+
+**`d1fb121` — the section strip now pins.** The strip shipped in #25 scrolls away with the page, so it
+helped on arrival and not once you were deep in a report that runs **7,907 px — 9.4 screens — at
+390 px**. `sticky top-0` rather than `fixed` is how it earns the room it holds: until you have scrolled
+past where it already sat it costs nothing. Opaque against the page background (hit-tested at its own
+centre while content scrolls beneath it), sideways-scrolling still, gone in print, where every
+section is already on the paper. The jump targets
+carry a **4.5rem** scroll-margin — sized to the TALLEST the strip gets, 62 px at 390 px where the
+coarse-pointer rule holds every link to the 44 px touch floor, not the 42 px desktop average. 3.5rem was
+tried first and left a phone's heading 6 px underneath, which the browser walk caught and the first
+version of the assert would not have.
+
 ## Pick up first, and why
 
-1. **The landing block, as its own pass** — see *Attempted and reverted* above. It is the largest
-   remaining wrong number: 55 ft/s published against a device-stated 29.0.
-2. **Merge the Blue Raven's high-rate file into its low-rate flight.** The benchmark's top finding and
+1. **Merge the Blue Raven's high-rate file into its low-rate flight.** The benchmark's top finding and
    the highest-leverage thing available: max acceleration, thrust-to-weight, deployment shock and roll
    rate are permanently blank on the most widely flown modern HPR altimeter, while the numbers sit in a
    sibling file the flyer already has — the cross-check literally prints
    `Max acceleration · 72.9 g · — · not computed`. The multi-file plumbing exists (low-rate + device
    summary pairs today), so this extends a mechanism rather than inventing one. See BACKLOG for the
    full ranked benchmark.
-3. **Make the comparison and report captions actually stick.** The copy is honest now; sticky is the
+2. **Make the comparison and report captions actually stick.** The copy is honest now; sticky is the
    feature. A comparison's label belongs to its id-set, not to the device, so it needs a key design —
    the logbook's per-flight `note` (IndexedDB, `lib/recents.ts:117`) is the precedent, not localStorage.
-4. **Deployment boundaries are parsed and thrown away across four parser families** — see BACKLOG. Note
-   the deploy latches are per-COPY on a file holding its flight twice, so sequence it after (1).
-5. **The section strip scrolls away with the page.** The report is still 7,710 px — 9.1 screens — on a
-   phone; jumping now works on arrival and not once you are six screens down. A sticky or floating
-   version is the follow-on, and it has to earn the 46 px it would hold permanently.
+3. **Deployment boundaries are parsed and thrown away across four parser families** — see BACKLOG. The
+   deploy latches are per-COPY on a file holding its flight twice, and the cut between copies is now
+   placed at the join rather than a few samples into the next copy's pad, so that hazard is smaller
+   than it was — but it is still per-copy, so read `nextFlightStart` before trusting a latch index.
+4. **jan18's main descent is in neither copy.** Both stop at 250 m — right where the main would have
+   deployed — so Debrief has no main leg to read and the device's own 29.0 ft/s has nothing to be
+   cross-checked against. Worth a look at whether the sibling files for that flight (the Featherweight
+   GPS recorded it separately and reads a 50.7 m/s drogue and a 6.2 m/s main) can supply it, which is
+   the same multi-file mechanism as (1).
+5. **The strip pins, but it does not say where you ARE.** No current-section state, so six screens down
+   it lists eight places without marking which one you are in.
 
 BACKLOG.md carries the rest, newest first.
+
+## The fixtures repo
+
+One commit there this run, on the same working-branch name: `expected.json`'s note for
+`blueraven jan18 LR` now records what that file does and does not hold — both copies stopping at
+250 m (820 ft), above the 696 ft the paired summary states the main fired at, so the main leg is in
+neither copy; the summary's −29.0 ft/s main and −55.9 ft/s drogue; the copy join at sample 6244
+(250.9 m → −1.0 m in 0.020 s); and the summary file's own mislabelling of a descent RATE as "feet".
+Metadata only — no assert changed and the corpus suite is unchanged at 111.

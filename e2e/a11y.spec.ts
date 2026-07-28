@@ -159,3 +159,38 @@ test('the report can be navigated by section, with no link to a section it doesn
     await expect(page.locator(href), `${href} points at a section that exists`).toHaveCount(1);
   }
 });
+
+// The strip is only a fix for a nine-screen report if it is still there once you are six
+// screens down. It pins to the top of the viewport rather than scrolling away — and a
+// heading jumped to from a PINNED strip has to land below it, not underneath it, which is a
+// scroll-margin the targets carry in app/globals.css. Measured on a phone, where the strip is
+// at its tallest (62 px, every link held to the 44 px touch floor) and the report at its
+// longest.
+test('the section strip stays reachable six screens down, and jumps land clear of it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  const nav = page.getByRole('navigation', { name: /Jump to a section/ });
+  const atRest = await nav.boundingBox();
+  expect(atRest, 'the strip is on the page').not.toBeNull();
+
+  // Deep into the report — past where the strip originally sat, which is the whole point.
+  await page.evaluate(() => window.scrollTo(0, 844 * 6));
+  const pinned = await nav.boundingBox();
+  expect(pinned!.y, 'the strip is still on screen six screens down').toBeLessThan(8);
+  expect(pinned!.y, 'and at the top of it').toBeGreaterThanOrEqual(0);
+
+  // Every link's target lands below the strip, not behind it.
+  const hrefs = await nav.getByRole('link').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? ''));
+  for (const href of hrefs) {
+    await nav.locator(`a[href="${href}"]`).click();
+    const strip = (await nav.boundingBox())!;
+    const target = (await page.locator(href).boundingBox())!;
+    expect(
+      target.y,
+      `${href} lands clear of the pinned strip (heading at ${Math.round(target.y)}, strip ends at ${Math.round(strip.y + strip.height)})`,
+    ).toBeGreaterThanOrEqual(strip.y + strip.height);
+  }
+});

@@ -411,6 +411,16 @@ interface CorpusRead {
    *  trace never crosses. Derived here, in the shared pass, so an invariant can hold the
    *  analyzer's burnout to it without keeping every flight's series alive in the cache. */
   axialZeroCrossingT: number;
+  /** Where the record was one sample before the one marked LANDING, as a fraction of this
+   *  flight's own apogee. A landing is a return to the ground, so the approach to it is near
+   *  the ground too. NaN when no landing was marked.
+   *
+   *  The obvious alternative — how FAST the record says the rocket arrived — was measured and
+   *  discarded: a barometer lying on the ground with its charges fired bounces tens of metres
+   *  between samples, and the widest genuine landing in this corpus arrives at 11.3x a vacuum
+   *  fall from its own apogee. Rate does not separate a real touchdown from a false one; the
+   *  height it was approached from does. */
+  landingApproachFrac: number;
 }
 
 let corpusReadCache: CorpusRead[] | null = null;
@@ -447,6 +457,7 @@ function corpusReads(): CorpusRead[] {
       velocityWithheld: false,
       timeToApogeeS: NaN,
       axialZeroCrossingT: NaN,
+      landingApproachFrac: NaN,
     };
     if (fx.expect.kind === 'reject') {
       out.push({ ...base, reach: 'rejected' });
@@ -508,11 +519,23 @@ function corpusReads(): CorpusRead[] {
         }
       }
     }
+    // Where the record was one sample before the landing. Read off the series rather than
+    // restated from the analyzer's reasoning, so the invariant below is a fact about the
+    // record and not an echo of the code that produced it.
+    let landingApproachFrac = NaN;
+    const landingIdx = events.find((e) => e.type === 'landing')?.index;
+    if (landingIdx != null && landingIdx > 0 && metrics.apogeeAltitude > 0) {
+      const alt = series.altitude;
+      let before = landingIdx - 1;
+      while (before >= 0 && !Number.isFinite(alt[before])) before--;
+      if (before >= 0) landingApproachFrac = alt[before] / metrics.apogeeAltitude;
+    }
     out.push({
       file: fx.file,
       // A knownIssue file still analyses; it is just not asserted by `runFixture`. For the
       // count below, what matters is whether the pipeline could read it at all.
       reach: fx.knownIssue ? 'parse-only' : 'analysed',
+      landingApproachFrac,
       metrics,
       bestClimbQ,
       hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
@@ -886,11 +909,16 @@ describe('a last GPS fix is only a landing if the record reached the ground', ()
 // card said "Touched down at X" and squared X into a landing energy a flyer sizes a canopy
 // against and shows an RSO. On the Kairos sustainer that read "touched down at 148.5 ft/s"
 // from a record that stops 2,540 m up — 62.8% of its own apogee — directly beside the
-// warning saying it never reaches the ground. Six of the flights this suite analyses end to
-// end are in that state — a seventh, the PerfectFlite AL0 log, is too but reaches this
+// warning saying it never reaches the ground. Seven of the flights this suite analyses end to
+// end are in that state — an eighth, the PerfectFlite AL0 log, is too but reaches this
 // sweep as parse-only; it is pinned by ENDS_AT_REST_ABOVE_THE_PAD above. This holds the
 // whole set rather than one file, and names it, so a fixture entering or leaving the state
 // is a visible change.
+//
+// The seventh joined it when the file-splitting cut stopped handing the first copy of a
+// doubled recording the NEXT copy's pad samples: `blueraven jan18 LR` had been reading a
+// touchdown off a −3.4 ft sample 0.020 s after its trace was still at 823.2 ft. Both copies
+// of that flight stop 250 m up, so neither holds a landing, and the file now says so.
 describe('a descent that never reached the ground is not a touchdown speed', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
@@ -902,7 +930,7 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
     expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(37);
     const stopsInTheAir = reads.filter((r) => r.metrics!.descentSource == null && r.metrics!.wholeDescentRate != null);
     // Named so a fixture entering or leaving this state is a visible change, not a silent one.
-    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(6);
+    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(7);
 
     for (const r of stopsInTheAir) {
       const m = r.metrics!;
@@ -917,6 +945,30 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
       expect(tile, `${short}: the grid still shows the rate`).toBeTruthy();
       expect(tile!.sub, `${short}: and does not call it a landing`).not.toMatch(/to landing/);
       expect(tile!.sub, `${short}: and says what it is instead`).toMatch(/stops before the ground/);
+    }
+  });
+
+  // The other half of the same rule, and the one that put the seventh flight in the set
+  // above: a touchdown has to be a return to the GROUND, so the sample before it is near the
+  // ground too. A logger that restarts mid-flight writes the next copy's pad immediately after
+  // the last sample of the one before, and the file-splitting cut used to place the boundary
+  // at the low point of the trough that follows — which handed the first copy the next copy's
+  // pad samples for the landing detector to find. `blueraven jan18 LR` was reading a touchdown
+  // approached from 250.9 m, 13.08% of its own 1,918 m apogee.
+  //
+  // Measured over every corpus landing: the widest genuine approach is 3.04% of apogee
+  // (stargazer1, from 17.3 m of a 570 m flight, a barometer bouncing on the ground with its
+  // charges fired) and the next is 2.30%. The bound is 6%, twice the widest real one and less
+  // than half the reading it refuses.
+  it('never reads a touchdown approached from altitude', () => {
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && Number.isFinite(r.landingApproachFrac));
+    expect(reads.length, 'the corpus has flights with a landing to check').toBeGreaterThan(0);
+    for (const r of reads) {
+      const short = r.file.split('/').pop() as string;
+      expect(
+        r.landingApproachFrac,
+        `${short}: its landing is approached from ${(r.landingApproachFrac * 100).toFixed(2)}% of its own apogee`,
+      ).toBeLessThan(0.06);
     }
   });
 
