@@ -41,6 +41,29 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
   return parts.join(' · ');
 }
 
+/** Whether the record actually reached the ground. `descentSource` is set only where a
+ *  landing was found, so a null one is a record that stops in the air — and the rate
+ *  measured over it is the rate of the descent that WAS recorded, never a touchdown speed.
+ *  The analyzer already withholds flight time and descent time in that state and says why;
+ *  the descent rate went on being published, and every surface downstream read it as a
+ *  landing. Six of the flights the corpus analyses end to end are in it — the loudest stops
+ *  2,540 m up, 62.8% of its own apogee, and the page reported "touched down at 148.5 ft/s"
+ *  beside its own warning that the record never reaches the ground.
+ *
+ *  Exported because the grid, the saved report, the exports and the two recovery panels
+ *  must all make the same call. A landing energy is a safety number a flyer sizes a canopy
+ *  against and shows an RSO; ½mv² off a drogue-leg average is not one. */
+export function landedInRecord(m: FlightMetrics): boolean {
+  return m.descentSource != null;
+}
+
+/** The landing descent rate, or null where the record never reached the ground — the one
+ *  place that decision is made, so a panel cannot read a rate the flight didn't land at. */
+export function landingRate(m: FlightMetrics): number | null {
+  if (!landedInRecord(m)) return null;
+  return m.mainDescentRate ?? m.wholeDescentRate ?? null;
+}
+
 /** How burnout was located, in the same voice the peak speed and peak acceleration already
  *  use. Every reading taken AT that instant — the burn time, the altitude and the speed at
  *  burnout — inherits it, because all three are only as direct as the instant they were read
@@ -133,7 +156,9 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Descent rate',
       value: fmtSpeed(m.wholeDescentRate, sys),
-      sub: 'averaged apogee to landing — no deployment change is in the record',
+      sub: landedInRecord(m)
+        ? 'averaged apogee to landing — no deployment change is in the record'
+        : 'averaged over the recorded descent — the record stops before the ground, so this is not a landing speed',
     });
   if (m.mainDescentRate != null)
     out.push({

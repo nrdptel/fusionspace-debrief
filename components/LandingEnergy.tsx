@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
+import { landedInRecord, landingRate } from '@/lib/readings';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
@@ -45,8 +46,13 @@ export default function LandingEnergy({
   // The touchdown speed: the main leg where the record resolved a deployment, otherwise the
   // whole descent — which, on a record showing no deployment change, is the same descent all
   // the way down as far as it can tell. Named as such rather than silently equated.
-  const rate = metrics.mainDescentRate ?? metrics.wholeDescentRate;
+  // `landingRate` returns null where the record never reached the ground, which is not the
+  // same as a flight with no deployment change: an average over a descent that stops 2,540 m
+  // up is a drogue-leg figure, and squaring it into a landing energy a flyer sizes a canopy
+  // against is the kind of confident wrong number this tool exists not to print.
+  const rate = landingRate(metrics);
   const wholeDescent = metrics.mainDescentRate == null && metrics.wholeDescentRate != null;
+  const stoppedAbove = !landedInRecord(metrics) && metrics.wholeDescentRate != null;
 
   const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);
 
@@ -133,8 +139,9 @@ export default function LandingEnergy({
 
       {rate == null ? (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          No landing descent rate was read from this log (it may end at or before apogee), so there’s no landing
-          energy to compute.
+          {stoppedAbove
+            ? 'This record stops before the ground, so the descent rate it carries is the rate of the descent that was recorded — not a touchdown speed. Landing energy and parachute Cd are left unread rather than computed from it.'
+            : 'No landing descent rate was read from this log (it may end at or before apogee), so there’s no landing energy to compute.'}
         </p>
       ) : massKg == null ? (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

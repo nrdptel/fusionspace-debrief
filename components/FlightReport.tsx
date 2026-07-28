@@ -24,6 +24,7 @@ import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import { copyTable } from '@/lib/copyTable';
+import { landingRate } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
@@ -1045,16 +1046,20 @@ export default function FlightReport({
         })()}
 
         {/* Landing energy belongs with recovery — it reads off the measured landing
-            descent rate, so it's only shown when the log actually descended to it. */}
+            descent rate, so it's only shown when the log actually descended to it. The
+            panel still renders on a record that stops in the air, because it is where that
+            gets explained; `landingRate` is what withholds the number itself. */}
         {(metrics.mainDescentRate ?? metrics.wholeDescentRate) != null && (
           <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
         )}
 
         {/* Parachute Cd reads off the terminal main descent — shown with landing
-            energy, the other recovery measurement that needs the descending mass. */}
-        {(metrics.mainDescentRate ?? metrics.wholeDescentRate) != null && (
+            energy, the other recovery measurement that needs the descending mass. A Cd is
+            solved from a terminal velocity, so a record that never reached the ground has
+            no input for it; the panel above says so rather than this one repeating it. */}
+        {landingRate(metrics) != null && (
           <ParachuteCd
-            descentRate={(metrics.mainDescentRate ?? metrics.wholeDescentRate) as number}
+            descentRate={landingRate(metrics) as number}
             // Ground-level air density (first finite sample) — the main descends low,
             // where density is near the pad's, so this is the right ρ for terminal v.
             airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}

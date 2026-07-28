@@ -36,7 +36,7 @@ import {
   type Comparison,
   type CompareFlight,
 } from './compare';
-import { burnoutSub, burnoutVelocitySub } from './readings';
+import { burnoutSub, burnoutVelocitySub, landedInRecord, landingRate } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -77,7 +77,7 @@ function landingEnergyRow(
   recovery: RecoveryFigures | undefined,
 ): [string, string] | null {
   if (recovery?.descendingMassKg == null) return null;
-  const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? m.wholeDescentRate ?? null);
+  const joules = landingEnergyJoules(recovery.descendingMassKg, landingRate(m));
   if (joules == null) return null;
   const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
   const massDisp = (recovery.descendingMassKg / MASS_TO_KG[massUnit]).toFixed(massUnit === 'oz' ? 1 : 0);
@@ -208,7 +208,12 @@ export function headlineRows(
   }
   if (m.drogueDescentRate != null) rows.push(['Drogue descent', fmtSpeed(m.drogueDescentRate, sys)]);
   if (m.wholeDescentRate != null) {
-    rows.push(['Descent rate', `${fmtSpeed(m.wholeDescentRate, sys)} — averaged apogee to landing, no deployment change is in the record`]);
+    rows.push([
+      'Descent rate',
+      landedInRecord(m)
+        ? `${fmtSpeed(m.wholeDescentRate, sys)} — averaged apogee to landing, no deployment change is in the record`
+        : `${fmtSpeed(m.wholeDescentRate, sys)} — averaged over the recorded descent; the record stops before the ground, so this is not a landing speed`,
+    ]);
   }
   if (m.mainDescentRate != null) {
     rows.push(['Main descent', fmtSpeed(m.mainDescentRate, sys)]);
@@ -1168,7 +1173,7 @@ export function analysisJson(
   // the ones actually entered are included.
   if (recovery) {
     const rec: Record<string, unknown> = {};
-    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? m.wholeDescentRate ?? null) : null;
+    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, landingRate(m)) : null;
     if (joules != null && recovery.descendingMassKg != null) {
       const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
       rec.descendingMass = { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit };

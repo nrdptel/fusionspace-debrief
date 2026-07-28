@@ -8,6 +8,7 @@ import { compareReported } from '../flight/reported';
 import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
+import { landedInRecord, landingRate, metricTiles } from '../readings';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 
@@ -768,6 +769,61 @@ describe('a record that ends at rest above the pad is not a landing', () => {
       expect(why, `${short}: names the height it stopped at`).toMatch(/\d+ m above the pad/);
     });
   }
+});
+
+// The same record, read one step further out: the analyzer withholds the flight time and the
+// descent time on a log that never reaches the ground, and says why — but the descent RATE
+// went on being published, and every surface downstream read it as a touchdown. The grid's
+// sub-line said "averaged apogee to landing", the report row said the same, and the recovery
+// card said "Touched down at X" and squared X into a landing energy a flyer sizes a canopy
+// against and shows an RSO. On the Kairos sustainer that read "touched down at 148.5 ft/s"
+// from a record that stops 2,540 m up — 62.8% of its own apogee — directly beside the
+// warning saying it never reaches the ground. Six of the flights this suite analyses end to
+// end are in that state — a seventh, the PerfectFlite AL0 log, is too but reaches this
+// sweep as parse-only; it is pinned by ENDS_AT_REST_ABOVE_THE_PAD above. This holds the
+// whole set rather than one file, and names it, so a fixture entering or leaving the state
+// is a visible change.
+describe('a descent that never reached the ground is not a touchdown speed', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+
+  it('publishes no landing rate, and no landing energy, for any of them', () => {
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
+    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(37);
+    const stopsInTheAir = reads.filter((r) => r.metrics!.descentSource == null && r.metrics!.wholeDescentRate != null);
+    // Named so a fixture entering or leaving this state is a visible change, not a silent one.
+    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(6);
+
+    for (const r of stopsInTheAir) {
+      const m = r.metrics!;
+      const short = r.file.split('/').pop() as string;
+      // The one decision, made in one place: no landing rate, so no landing energy either.
+      expect(landingRate(m), `${short}: no touchdown speed`).toBeNull();
+      expect(landedInRecord(m), `${short}: did not land in the record`).toBe(false);
+      // The rate itself is kept — it is a real measurement of the descent that WAS
+      // recorded — but nothing may call it a landing.
+      expect(m.wholeDescentRate, `${short}: the recorded descent rate is still reported`).not.toBeNull();
+      const tile = metricTiles(m, 'metric').find((t) => t.label === 'Descent rate');
+      expect(tile, `${short}: the grid still shows the rate`).toBeTruthy();
+      expect(tile!.sub, `${short}: and does not call it a landing`).not.toMatch(/to landing/);
+      expect(tile!.sub, `${short}: and says what it is instead`).toMatch(/stops before the ground/);
+    }
+  });
+
+  it('still calls a real landing a landing', () => {
+    const landed = corpusReads().filter(
+      (r) => r.reach === 'analysed' && r.metrics?.descentSource != null && r.metrics.wholeDescentRate != null,
+    );
+    expect(landed.length, 'the corpus has flights that did reach the ground').toBeGreaterThan(0);
+    for (const r of landed) {
+      const short = r.file.split('/').pop() as string;
+      expect(landingRate(r.metrics!), `${short}: has a touchdown speed`).not.toBeNull();
+      const tile = metricTiles(r.metrics!, 'metric').find((t) => t.label === 'Descent rate');
+      expect(tile!.sub, `${short}: reads as a landing`).toMatch(/to landing/);
+    }
+  });
 });
 
 // …and the flight this all exists for. One Blue Raven file holds the jan10 flight twice: the
