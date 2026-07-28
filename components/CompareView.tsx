@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
-import { crossCheck, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT } from '@/lib/compare';
+import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT } from '@/lib/compare';
 import { accelInG, lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
@@ -560,12 +560,12 @@ export default function CompareView({
                   flight agree. They differ by{' '}
                 </>
               ) : (
-                <>If these are recordings of the same flight, the independent readings agree to within{' '}</>
+                <>If these are recordings of the same flight, the independent readings {crossCheckLede(agree)}{' '}</>
               )}
               {agree.map((a, i) => (
                 <span key={a.key}>
                   {i > 0 && (i === agree.length - 1 ? ' and ' : ', ')}
-                  <span className={a.spreadPct > 10 ? 'font-medium text-amber-700 dark:text-amber-400' : 'font-medium text-emerald-700 dark:text-emerald-400'}>
+                  <span className={a.spreadPct > CROSS_CHECK_WIDE ? 'font-medium text-amber-700 dark:text-amber-400' : 'font-medium text-emerald-700 dark:text-emerald-400'}>
                     {a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on {a.label}
                     {a.mixedSource ? '*' : ''}
                     {a.saturated ? '†' : ''}

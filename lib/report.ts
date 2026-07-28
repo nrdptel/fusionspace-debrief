@@ -26,6 +26,7 @@ import { compareReported } from './flight/reported';
 import { formatFlownAt } from './flight/flownAt';
 import {
   crossCheck,
+  crossCheckLede,
   differentFlightDays,
   statedDaySplit,
   statedDaysPhrase,
@@ -844,7 +845,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     out.push(
       otherDays
         ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights.length)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}`
-        : `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
+        : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
     );
   }
 
@@ -922,7 +923,7 @@ export function compareHtml(
     // parts rather than escaped again — which would double-encode it.
     const lede = otherDays
       ? `The files date these on different days — ${esc(statedDaysPhrase(otherDays, nameStem))}${esc(undatedNote(otherDays, flights.length))} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${esc(DIFFERENT_DAYS_CAVEAT)}`
-      : `If these are recordings of the same flight, the independent readings agree to within ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`;
+      : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`;
     crossHtml = `<section><h2>${otherDays ? 'Flight to flight' : 'Cross-check'}</h2><p class="lede">${lede}</p>${foot}</section>`;
   }
 

@@ -2,58 +2,55 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — the comparison overlay shows the events, and a lost search bound is back
+## This run — three honesty defects, all on artefacts a flyer acts on
 
-Branch restarted from `origin/main` at `cd94d89`; production was serving exactly that SHA at session
-start, so there was no gap. Two increments: `cc22793` merged and live, `3571167` on the branch
-awaiting CI on PR #19.
+Branch restarted from `origin/main` at `553f517`; production was serving exactly that SHA at session
+start, so there was no gap. Three increments: `dc4a7f8` and `e28a435` merged and live, `226aa88` on
+the branch awaiting CI on PR #22.
 
-### 1. Each flight's events, drawn on the comparison overlay — `cc22793`
+### 1. A column the logger never filled is no longer a measurement — `dc4a7f8`
 
-The sharpest gap in the previous run's benchmark. `buildComparison()` had every detected event and
-kept only `liftoffDetected`; the overlay marked t=0 and nothing else, so *did these two bays do the
-same things at the same moments* could only be read off the table a row at a time.
+An accelerometer column of exact zeros is a column the logger wrote and left empty, not a recording
+of no acceleration. The gravity-removed normalisation adds a full g to put such a channel on
+specific force, so its zeros arrived as a flat **+9.80665**: peak acceleration exactly **1.0000 g**,
+boost average **9.80665**, thrust-to-weight exactly **1.00** — all fabricated, all labelled
+*measured*. Unflagged, the same column reported a *measured* **0 g**.
 
-Each flight now carries its events on the shared clock — rebased onto the same liftoff zero the
-series were aligned to — and the overlay draws them in that flight's colour. Driven live: one
-recording's main at ~93 s against the other's at ~120 s, visible as a gap rather than a subtraction.
-Liftoff is deliberately not carried per flight; every flight is aligned there.
+**Six** surfaces branch on `accelerationSource === 'device'` and exactly one carried a liveness
+check — which tested the array AFTER the shift, so it was the single place it could not work.
+Decided at the source now (`hasLiveSamples`), which every surface already handles; the three
+defeated copies in `FlightReport` are gone. Latent: no corpus fixture is all-zero.
 
-Which events are called out comes from `debrief.hiddenEvents`, the same stored answer the
-single-flight explorer uses, and the chips that set it are now one `EventChips` component both
-surfaces render rather than thirty lines of markup copied.
+### 2. The data CSV stated a Mach the rest of the app withholds — `e28a435`
 
-**The label placement had to be fixed first.** The old rule dropped a line whenever a marker came
-within a fixed 64 px of the previous one and wrapped every third label — a guess about text it never
-measured, and a wrap that put the fourth crowded label back on the first. With every flight's events
-drawn, a burnout landed on a burnout. Labels now take the lowest row whose text has actually run out,
-measured with `measureText`. At 390 px the sample comparison uses **four rows** and nothing collides.
-This is shared chart code, so the report and explorer got it too — both re-walked, unchanged.
+`analyzedDataCsv` computed Mach and dynamic pressure per sample with no `velocityImplausible` gate,
+while both its siblings and every headline withhold them. **10 of 46** corpus flights withhold the
+speed on screen and **all ten** exported a Mach: **362.4** and **1.79e8 kPa** on the loudest, and
+then **1.7, 1.6, 1.3** — the believable ones, which are the dangerous ones, on flights where Debrief
+refuses to say "supersonic" anywhere else. Both columns are now omitted entirely; the velocity column
+stays, as its trace does on screen.
 
-### 2. The burnout search bound survives a withheld speed — `3571167`
+### 3. The cross-check reported agreement over a shorter list than it shows — `226aa88`
 
-The crossing search takes its bound from the velocity peak, and that bound is what keeps the apogee
-ejection charge out of the window. A flight whose speed is judged impossible lost it: the judgement
-nulled `maxVelIdx` along with `maxVelocity`, the search read that as "no peak" and ran the whole
-climb. **4 of the corpus's 14** signed-axial flights are in that state.
+`crossCheck()` covered seven readings while the comparison table displayed twelve. Measured:
+**iss-endurance** worst CHECKED spread **26.4%** against **max-Q 53%** (58,017 vs 99,672 Pa — the
+structural load case), burn time **193%**, burnout altitude **176%**; the **four-altimeter** group
+inside **6.7%** on everything checked while its **tilt** ran 4°/9°/11°; **meraki2** main deployment
+**221 s apart**. All five are now checked, with the measured/derived flag carried on the two read at
+the burnout instant.
 
-The judgement is about the peak's MAGNITUDE; where the trace turned over is a separate fact. Keeping
-the index and withholding only the value shrinks the window on those four from 9.2–11.7 s to under
-two, and — measured over all fourteen with the overrides merged — **not one reported burnout moves**.
-
-**The test added alongside does NOT guard this**, and says so in as many words: all four flights read
-the same either way because their charge is smaller than their motor, and reverting the fix leaves
-the suite green (checked). BACKLOG records what a fixture that could guard it would need.
+That exposed the sentence: *"agree to within … 193% on burn time"* is not English. The lede is chosen
+by the same threshold that colours a row amber, from one shared helper rather than three copies. An
+**e2e assertion had been passing on output reading `agree to within 160% on apogee`** — it matched
+the phrase as a stand-in for "the narrative is present"; it now asserts the sentence and the right
+opening.
 
 ### Done-check
 
-- **Corpus suite green at 104 tests** (was 103), the whole-corpus invariants included.
-- **Cold walk** of the built export on all three chart surfaces — comparison, report, explorer —
-  plus the comparison journey end to end. Production `/version.json` = `cc22793` after increment 1.
-- **Benchmark**: increment 1 closes the top gap the previous run's comparison benchmark named. The
-  remaining items from it are unstarted and still in the queue below.
-- **BACKLOG corrected** — the event-marker entry is now DONE, and the new bound entry states its own
-  missing guard rather than implying coverage.
+- **Corpus suite green**, and every increment measured over the corpus with the overrides merged
+  (46 analysable, 14 signed-axial) rather than the 9/23 a naive sweep sees.
+- **Cold walk**: the comparison end to end, and the data CSV parsed back column by column.
+- **BACKLOG**: three DONE entries with their numbers, plus one new unverified finding (below).
 
 ## Environment notes
 
@@ -110,28 +107,25 @@ the suite green (checked). BACKLOG records what a fixture that could guard it wo
 
 ## Pick up first, and why
 
-1. **Use the second recording Debrief already holds.** `Proton-FW_format.csv` reports **Mach 2.64**
-   on a flight whose ground truth is **Mach 1.3**; its sibling recording of the same flight reads
-   Mach 1.55, and both agree on apogee to the metre. The transonic warning already fires and names
-   this reading, so it is caveated rather than silently wrong — but the tile still shows Mach 2.64
-   while a cross-check sitting in the same logbook says otherwise. Two dead ends are recorded in
-   BACKLOG so they are not walked again (the file is parsed as a Blue Raven, not column-mapped; and
-   mapping its `Accel_Z` is unsafe because its convention differs from a real Blue Raven's — the
-   Proton rests at 0.0 g, a real Blue Raven's axial axis at −0.99 g).
-2. **A dead all-zero accelerometer column reads as a live +1 g trace.** Re-confirmed this run with
-   numbers: on a `gravityRemoved` channel the unconditional `+= G0` turns an all-zero column into a
-   flat +1 g trace, so `maxAcceleration` reports **9.80665 = 1.0000 g** and `liftoffTWR` **1.0000**
-   as MEASURED. **Six** surfaces branch on `accelerationSource === 'device'` and would publish it;
-   exactly one (FlightReport) carries a liveness guard, and that is the one the shift defeats,
-   because it tests the array AFTER the shift. Latent — 0 of 46 corpus files are all-zero — but the
-   guard belongs on the RAW channel at the source, which fixes all six at once.
-3. **Give the burnout bound a fixture that can fail.** See BACKLOG: needs a log whose apogee charge
+1. **A metric only ONE recording carries is dropped from the cross-check in silence.** `crossCheck`
+   skips a spec with `contrib.length < 2` — right for "too few to corroborate", wrong when the
+   recordings *disagree about whether the thing happened*. On `trf-f1-jan18` the Blue Raven reports a
+   whole-descent rate and no main while the Featherweight GPS reports a drogue AND a main, so each
+   descent key has count 1 and the panel emits **no descent row at all** — reading as though recovery
+   were not covered. Two instruments disagreeing about whether a main deployed is a finding, not an
+   absence. **Unverified** — filed from the reconciliation sweep, reproduce before scoping.
+2. **Use the second recording Debrief already holds.** `Proton-FW_format.csv` reports **Mach 2.64**
+   on a flight whose ground truth is **Mach 1.3**; its sibling reads Mach 1.55 and both agree on
+   apogee to the metre. The transonic warning fires and names this reading, so it is caveated rather
+   than silently wrong — but the tile still shows Mach 2.64 while a cross-check in the same logbook
+   says otherwise. Two dead ends are recorded in BACKLOG so they are not walked again.
+3. **The JSON export declares the wrong unit for acceleration.** From the export sweep, unverified:
+   `jsonConv.acc` always converts to g while `jsonUnits` declares `L.accel`, so a flyer who picks
+   m/s² gets `units.acceleration = "m/s²"` beside a value in g — a factor of 9.8 in a machine-readable
+   export. Reproduce before scoping.
+4. **Give the burnout bound a fixture that can fail.** See BACKLOG: needs a log whose apogee charge
    outreads its motor AND whose speed is withheld. A synthetic must get past the device-velocity
-   gate, which rejected a hand-built `velocity` channel outright.
-4. **The rest of the comparison benchmark**, unstarted: overlay the raw logged channels (each accel
-   axis, gyro, pressure, GPS altitude, voltage) rather than only the five derived ones — the channel
-   explorer already does this for one flight, and the comparison is the one surface that does not
-   offer it, which is where the "why do these two disagree" question actually gets asked.
+   gate, which rejects a hand-built `velocity` channel outright.
 5. **Regenerate the two `maxAccel` goldens.** At ±6% they pass before and after a whole 1 g
    correction, so the corpus net cannot catch that class of defect at all.
 
