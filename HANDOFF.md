@@ -184,7 +184,8 @@ assert is *about*, and check the failure message names it.
    the logbook's per-flight `note` (IndexedDB, `lib/recents.ts:117`) is the precedent, not localStorage.
 4. **Deployment boundaries are parsed and thrown away across four parser families** — see BACKLOG. Note
    the deploy latches are per-COPY on a file holding its flight twice, so sequence it after (1).
-5. **A phone report is 7,710 px — 9.1 screens — for one flight.** Measured this run, not addressed. The
-   manual's own tell is "a layout deeper than two screens".
+5. **The section strip scrolls away with the page.** The report is still 7,710 px — 9.1 screens — on a
+   phone; jumping now works on arrival and not once you are six screens down. A sticky or floating
+   version is the follow-on, and it has to earn the 46 px it would hold permanently.
 
 BACKLOG.md carries the rest, newest first.
