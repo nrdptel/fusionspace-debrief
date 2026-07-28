@@ -49,6 +49,28 @@ memory, so a later pass doesn't have to rediscover them.
   value in the declared m/s² is 153.14**. Invisible to the suite because every JSON assert passed
   `'imperial'` or `'metric'` and both name acceleration in g.
 
+- **A file boundary is read as a touchdown, and fixing it is multi-pass — attempted and reverted this
+  run.** On `blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR`, copy 1's trace FREEZES at 823.2 ft
+  (a 4-sample ring it holds for ~35 s) and the very next sample, **0.020 s later, is −3.4 ft**: a step
+  of **41,330 ft/s** on a flight whose descent ran at 55. That sample is copy 2's pre-launch pad, and
+  the landing detector takes it — `landing t=124.88, alt=−3.1 ft`, which is exactly the seam. From it
+  come `flightTime` 122.90 s (which "agrees" with the device's stated 123.02 by luck) and a published
+  descent rate of 55 ft/s where the device's own summary states a **29.0 ft/s** main descent — a
+  **3.6× landing-energy error**. The main deploy is genuinely absent from both copies, so the fault is
+  the seam, not the detector missing a deploy.
+  **What was tried, and why it was reverted.** Bounding the landing search at the first post-apogee
+  step faster than free-fall from the flight's own apogee (√(2gh), the same ceiling the descent rates
+  already use) fixes jan18 exactly — no landing, and the correct "never reaches the ground" guard
+  fires. But the landing block is four interacting rules — the primary near-pad detector, the
+  at-rest tail fallback, `descentIsInTheRecord`, and the `altClean[n−1] < 5` "record ends on the
+  ground" clause — and a seam concept touches all of them plus the second-copy splice path. Two
+  successive refinements (requiring the seam to be one sample wide, isolated on both sides; then
+  clamping the whole block to `recordEnd = recordBreak − 1`) each fixed one case and broke others:
+  the jan10 second-copy splice lost `descentSource`, and four flights that correctly say "never
+  reaches the ground" started claiming a landing. Reverted with the tree green. **Do this as its own
+  pass, with the whole landing block in view rather than one rule at a time**, and re-run the jan10
+  splice test and the ends-at-rest set as the first check, not the last.
+
 - **The same-flight splitter cuts at copy 2's LIFTOFF instead of copy 2's START, manufacturing a
   landing.** Verified, not fixed. On `blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR`,
   `nextFlightStart` glues ~2.3 s of copy 2's pre-launch pad onto copy 1, so Debrief's "landing" event
