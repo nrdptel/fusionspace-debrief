@@ -150,7 +150,12 @@ test('reports coast efficiency (drag loss) on the bundled sample', async ({ page
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText('Coast efficiency', { exact: true })).toBeVisible();
   await expect(page.getByText(/^\d{1,3}%$/)).toBeVisible(); // e.g. "59%"
-  await expect(page.getByText(/drag cost [\d,]+ (ft|m)/)).toBeVisible(); // the tile sub, e.g. "drag cost 5,109 ft"
+  // The sub names what the figure is short OF. It is the vacuum coast the burnout speed would
+  // have bought minus what was gained, so on a fast, draggy flight it legitimately exceeds the
+  // whole flight — 20 of the 31 corpus flights that show it do, up to 6.6x. "drag cost
+  // 107,217 ft" beside a 16,206 ft apogee reads as a broken tool; the shortfall reads as itself.
+  await expect(page.getByText(/[\d,]+ (ft|m) short of a drag-free coast/)).toBeVisible();
+  await expect(page.getByText(/drag cost [\d,]+ (ft|m)/), 'the bare "cost" wording is gone').toHaveCount(0);
 });
 
 test('reads roll/spin from a mapped roll-rate column', async ({ page }) => {

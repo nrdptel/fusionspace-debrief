@@ -219,7 +219,7 @@ export function headlineRows(
   }
   if (m.coastTime != null) rows.push(['Coast to apogee', fmtTime(m.coastTime)]);
   if (m.coastEfficiency != null) {
-    const drag = m.dragLossAltitude != null ? ` (drag cost ${fmtLength(m.dragLossAltitude, sys)})` : '';
+    const drag = m.dragLossAltitude != null ? ` (${fmtLength(m.dragLossAltitude, sys)} short of a drag-free coast)` : '';
     rows.push(['Coast efficiency', `${Math.round(m.coastEfficiency * 100)}%${drag}`]);
   }
   if (m.drogueDescentRate != null) rows.push(['Drogue descent', fmtSpeed(m.drogueDescentRate, sys)]);
