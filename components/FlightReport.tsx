@@ -425,7 +425,7 @@ export default function FlightReport({
         }),
       });
     }
-    if (series.accelerationSource === 'device' && series.acceleration.some((v) => Number.isFinite(v) && v !== 0)) {
+    if (series.accelerationSource === 'device') {
       figs.push({
         title: 'Acceleration',
         name: `${stem}-acceleration.svg`,
@@ -450,7 +450,7 @@ export default function FlightReport({
   const figureTitles = useMemo(() => {
     const titles = ['Altitude'];
     if (series.velocity.some((v) => Number.isFinite(v))) titles.push('Velocity');
-    if (series.accelerationSource === 'device' && series.acceleration.some((a) => Number.isFinite(a) && a !== 0)) {
+    if (series.accelerationSource === 'device') {
       titles.push('Acceleration');
     }
     return titles;
@@ -507,7 +507,13 @@ export default function FlightReport({
   // noise-dominated second derivative whose peak is already withheld (a real trace swings
   // hundreds of g), so it isn't plotted or exported either — the velocity chart carries
   // the derived kinematics instead.
-  const hasAccel = series.accelerationSource === 'device' && series.acceleration.some((v) => Number.isFinite(v) && v !== 0);
+  // A dead column no longer reaches here as a 'device' source — the analyzer treats one as
+  // no accelerometer at all (see hasLiveSamples in lib/analyze). This used to carry its own
+  // `v !== 0` check on the NORMALISED array, which a gravity-removed channel defeated by
+  // construction: its zeros arrive as a flat +9.80665. A second, weaker copy of a guard that
+  // now lives at the source is worse than none, because it reads as though it were doing the
+  // work.
+  const hasAccel = series.accelerationSource === 'device';
 
   // Air density over the drogue phase (apogee → main) — higher and thinner than the
   // ground, the right ρ for the drogue Cd. Median over the phase so noise averages out.

@@ -105,13 +105,18 @@ memory, so a later pass doesn't have to rediscover them.
   right convention — a shock is the force the airframe felt, and near apogee the old trace carried a
   −1 g free-fall baseline that inflated |a| — but this was shipped unmeasured and belongs in the
   validation page with these numbers.
-- **A dead all-zero acceleration column now reads as a live +1 g trace on a flagged parser.**
-  `components/FlightReport.tsx` gates the chart on `series.acceleration.some(v => Number.isFinite(v)
-  && v !== 0)`. On a `gravityRemoved` channel every zero becomes +9.81, so an unrecorded or dead
-  channel passes the "has acceleration data" test and renders a flat 1 g curve as though it were
-  measured. No corpus file trips it (all ten carry real data), so it is latent — but it is a defect
-  introduced by the normalisation and the guard should test the RAW channel, or the parser should
-  not flag an all-zero column.
+- **DONE — an accelerometer column that was never filled is no longer a measurement.** A dead
+  column (every sample exactly zero) was reported as `accelerationSource: 'device'`, and on a
+  `gravityRemoved` channel the unconditional `+= G0` turned its zeros into a flat +9.80665. Measured
+  before the fix: flagged channel `maxAcceleration` **9.80665 = 1.0000 g**, boost average
+  **9.80665**, `liftoffTWR` **1.0000** — all fabricated, all labelled measured; an unflagged one
+  reported a *measured* **0 g** peak. Six surfaces branch on `accelerationSource === 'device'` and
+  exactly one carried a liveness check, which tested the array AFTER the shift and so was the one
+  place it could not work. Now decided at the source (`hasLiveSamples`, `lib/analyze/index.ts`): a
+  dead column reads as no accelerometer at all, which every surface already handles, and the three
+  defeated duplicate checks in `FlightReport` are gone. Still latent — 0 of 46 corpus fixtures are
+  all-zero — so no corpus number moves.
+
 - **Two more absolute tests that the normalisation moved, both latent:** `maxDeceleration` requires
   `signedAccel[maxDecIdx] < 0`, so a flight whose worst reading sits between −1 g and 0 now reports
   no deceleration at all — kairos-sustainer is **1.95 g** from that cliff (−2.95 → −1.95). And the
