@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
-import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT, distinguishingLabels } from '@/lib/compare';
+import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT, distinguishingLabels, recoveryDisagreement } from '@/lib/compare';
 import { lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
@@ -545,6 +545,7 @@ export default function CompareView({
       {(() => {
         const agree = crossCheck(flights);
         if (agree.length === 0) return null;
+        const recoveryNote = recoveryDisagreement(flights, agree);
         // The files can refute the premise this panel rests on: recordings dated days apart
         // are not one flight, so the same numbers mean something else and are introduced as
         // what they are — with the one thing that could make the dates lie named beside it,
@@ -603,6 +604,16 @@ export default function CompareView({
                     †one recording&apos;s accelerometer saturated at its full-scale limit, so its peak
                     is a floor, not the truth — the real spread may be smaller than shown.
                   </span>
+                </>
+              )}
+              {/* A disagreement of KIND, which a spread cannot express: one recording resolved a
+                  deployment and another read a single descent, so every descent key has one
+                  contributor and all three are skipped. Without this the panel is silent about the
+                  descent on exactly the pair that disagrees about whether a charge fired. */}
+              {recoveryNote && (
+                <>
+                  {' '}
+                  <span className="text-amber-700 dark:text-amber-400">{recoveryNote}</span>
                 </>
               )}
             </p>

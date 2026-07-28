@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, crossCheck, crossCheckLede, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight, distinguishingLabels } from './compare';
+import { resample, buildComparison, crossCheck, crossCheckLede, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight, distinguishingLabels, recoveryDisagreement } from './compare';
 import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
@@ -549,5 +549,50 @@ describe('distinguishingLabels', () => {
     for (const l of out) expect(l.length).toBeGreaterThan(3);
     expect(distinguishingLabels(['only-one.csv'])).toEqual(['only-one']);
     expect(distinguishingLabels([])).toEqual([]);
+  });
+});
+
+// Two instruments on one airframe can disagree about WHETHER a charge fired, and a spread
+// cannot express that. The three descent keys are deliberately separate, so when one
+// recording resolves a drogue and a main and another reads a single descent, each key has
+// one contributor, all three are skipped for "too few to corroborate", and the panel says
+// nothing about the descent at all — on precisely the pair worth chasing.
+describe('recoveryDisagreement', () => {
+  // The same shaped fixture the rest of this file builds comparisons from.
+  const f = (id: string, m: Partial<FlightMetrics>) =>
+    ({ id, name: id, formatLabel: 'x', color: '#000', metrics: { ...metrics(1000), ...m } }) as unknown as CompareFlight;
+
+  it('speaks up when the recordings disagree about whether a deployment happened', () => {
+    const flights = [
+      f('blueraven', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.7 }),
+      f('fwgps', { drogueDescentRate: 22.7, mainDescentRate: 6.2, wholeDescentRate: null }),
+    ];
+    const note = recoveryDisagreement(flights, []);
+    expect(note, 'the disagreement is stated').toMatch(/disagree about the recovery/);
+    expect(note).toMatch(/resolved a deployment/);
+    expect(note).toMatch(/single descent/);
+  });
+
+  it('stays quiet when a descent row is already cross-checked', () => {
+    const flights = [
+      f('a', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.7 }),
+      f('b', { drogueDescentRate: 22.7, mainDescentRate: 6.2, wholeDescentRate: null }),
+    ];
+    // The panel is already saying something about the descent; a second voice on the same
+    // point is noise.
+    expect(recoveryDisagreement(flights, [{ key: 'mainDescentRate' } as never])).toBe('');
+  });
+
+  it('stays quiet when they agree about what happened', () => {
+    const bothResolved = [
+      f('a', { drogueDescentRate: 22.7, mainDescentRate: 6.2, wholeDescentRate: null }),
+      f('b', { drogueDescentRate: 22.1, mainDescentRate: 6.5, wholeDescentRate: null }),
+    ];
+    expect(recoveryDisagreement(bothResolved, [])).toBe('');
+    const bothWhole = [
+      f('a', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.7 }),
+      f('b', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.4 }),
+    ];
+    expect(recoveryDisagreement(bothWhole, [])).toBe('');
   });
 });

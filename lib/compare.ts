@@ -301,6 +301,43 @@ export function undatedNote(days: StatedDay[], flights: number): string {
   return ` The other ${undated === 1 ? 'file states' : `${undated} files state`} no date, so ${undated === 1 ? 'it is' : 'they are'} not evidence either way.`;
 }
 
+/**
+ * Where the recordings disagree about WHAT the recovery did, rather than by how much.
+ *
+ * The three descent keys are kept apart on purpose (see the specs): a main leg and a
+ * whole-descent average are different measurements, and sharing a key reported one corpus
+ * group as a 121.6% disagreement between instruments that had measured different things.
+ * The consequence is that when one recording resolves a drogue and a main and another reads
+ * a single descent all the way down, every descent key has exactly one contributor, the
+ * cross-check skips all three for having too few to corroborate, and the panel says
+ * *nothing at all* about the descent.
+ *
+ * On `trf-f1-jan18` that is a Blue Raven reading 54.8 ft/s over the whole descent with no
+ * deployment change in its record, beside a Featherweight GPS that resolved a drogue at
+ * 74.6 and a main at 20.5 — two instruments on one airframe disagreeing about whether a
+ * charge fired, rendered as silence. Too few to corroborate and a disagreement about
+ * whether the thing happened are not the same absence, and only the first is a reason to
+ * say nothing.
+ */
+export function recoveryDisagreement(flights: CompareFlight[], agree: Agreement[]): string {
+  // Only where the split is what silenced it. If a descent row was cross-checked, the panel
+  // is already saying something and this would be a second voice on the same point.
+  if (agree.some((a) => /descent/i.test(a.key))) return '';
+  const resolved = flights.filter((f) => f.metrics.mainDescentRate != null || f.metrics.drogueDescentRate != null);
+  const whole = flights.filter(
+    (f) => f.metrics.mainDescentRate == null && f.metrics.drogueDescentRate == null && f.metrics.wholeDescentRate != null,
+  );
+  if (resolved.length === 0 || whole.length === 0) return '';
+  const n = (c: number, one: string, many: string) => (c === 1 ? one : `${c} ${many}`);
+  return (
+    `The recordings disagree about the recovery itself, not by how much: ` +
+    `${n(resolved.length, 'one resolved a deployment', 'resolved a deployment')} and ` +
+    `${n(whole.length, 'one read a single descent', 'read a single descent')} with no deployment change in it. ` +
+    `Those are different measurements, so none of them is cross-checked above — but two instruments on one ` +
+    `airframe disagreeing about whether a charge fired is worth chasing, not worth passing over in silence.`
+  );
+}
+
 export const DIFFERENT_DAYS_CAVEAT =
   'That reads off the stated dates alone. If you flew these as one flight, a device clock is wrong — Debrief reports the day each file states and never corrects it, and the readings cannot settle it, because different flights can agree as closely as two recordings of one.';
 
