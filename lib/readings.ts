@@ -177,7 +177,13 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Coast efficiency',
       value: `${Math.round(m.coastEfficiency * 100)}%`,
-      sub: m.dragLossAltitude != null ? `drag cost ${fmtLength(m.dragLossAltitude, sys)}` : undefined,
+      // Named against what it is short OF. The figure is the vacuum coast this burnout speed
+      // would have bought minus what the rocket actually gained, so on a fast, draggy flight it
+      // is legitimately larger than the whole flight — 20 of the 31 corpus flights that show it
+      // exceed their own apogee, up to 6.6x (107,217 ft on a 16,206 ft flight). Read as "drag
+      // cost 107,217 ft" beside a 16,206 ft apogee that is a tool that looks broken; read as a
+      // shortfall against a drag-free coast it is the reading it always was.
+      sub: m.dragLossAltitude != null ? `${fmtLength(m.dragLossAltitude, sys)} short of a drag-free coast` : undefined,
     });
   if (m.maxDynamicPressure != null)
     out.push({

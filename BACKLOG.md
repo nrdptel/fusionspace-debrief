@@ -6,6 +6,14 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **DONE — the coast-efficiency sub-line printed a "drag cost" bigger than the flight.** The figure is
+  the vacuum coast the burnout speed would have bought minus what the rocket actually gained, so on a
+  fast, draggy flight it legitimately exceeds the whole flight: **20 of the 31** corpus flights that
+  show it are over their own apogee, up to **6.6x** — 107,217 ft of "drag cost" beside a 16,206 ft
+  apogee, and 18,282 ft beside 6,292 ft. Correct arithmetic that reads as a broken tool. Named against
+  what it is short OF now — "18,282 ft short of a drag-free coast" — on the grid and in the saved
+  report, with no change to the number.
+
 - **DONE — the events list and the readings printed one instant as two numbers, with neither clock
   named.** Events are on the log's own time base (what the charts are drawn against); readings are
   seconds since liftoff. **27 of the 45** corpus flights that carry both disagree by ≥0.5 s — the
