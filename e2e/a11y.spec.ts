@@ -121,3 +121,41 @@ test('a11y: the report’s own sections are reachable by heading', async ({ page
     expect(levels[i] - levels[i - 1], `heading level jumps from h${levels[i - 1]} to h${levels[i]}`).toBeLessThanOrEqual(1);
   }
 });
+
+// The report is nine phone-screens long and carried no in-page links at all, so coming back
+// to check one number meant scrolling past everything. The strip only lists sections this
+// flight actually has — a baro-only log has no acceleration chart, a log without GPS has no
+// recovery — so the assert that matters is that no link points at something absent.
+test('the report can be navigated by section, with no link to a section it doesn’t have', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  const nav = page.getByRole('navigation', { name: /Jump to a section/ });
+  await expect(nav).toBeVisible();
+  const hrefs = await nav.getByRole('link').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? ''));
+  expect(hrefs.length, 'the strip lists somewhere to go').toBeGreaterThan(4);
+
+  for (const href of hrefs) {
+    expect(href.startsWith('#'), `${href} is an in-page anchor`).toBe(true);
+    await expect(page.locator(href), `${href} points at a section that exists`).toHaveCount(1);
+  }
+
+  // …and it actually moves: following the last link puts that section in view.
+  const last = hrefs[hrefs.length - 1];
+  await nav.getByRole('link').last().click();
+  await expect(page.locator(last)).toBeInViewport();
+
+  // The negative case, on a barometric log with no GPS: there is no Recovery section, so
+  // there must be no link to one. Checked on a DIFFERENT fixture on purpose — the file
+  // above carries lat/lon, so an unconditional Recovery link would not be dead there and
+  // this assert would pass while the offer was wrong.
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('blueraven-app-lr.csv'));
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  const baroNav = page.getByRole('navigation', { name: /Jump to a section/ });
+  await expect(baroNav.getByRole('link', { name: 'Recovery' }), 'no recovery section, no link to one').toHaveCount(0);
+  for (const href of await baroNav.getByRole('link').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? ''))) {
+    await expect(page.locator(href), `${href} points at a section that exists`).toHaveCount(1);
+  }
+});

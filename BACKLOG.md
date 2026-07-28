@@ -6,7 +6,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
-- **The report has no in-page navigation across nine phone-screens.** Measured: **5,472 px** at
+- **DONE — the events list and the readings printed one instant as two numbers, with neither clock
+  named.** Events are on the log's own time base (what the charts are drawn against); readings are
+  seconds since liftoff. **27 of the 45** corpus flights that carry both disagree by ≥0.5 s — the
+  ground-station GPS log by **960 s** (apogee at 973.0 s in Events, 13.0 s in the grid), the Kairos
+  sustainer 335.3 against 27.6, four AltimeterCloud files 13–22 s apart. Neither clock is wrong and
+  neither moved: the heading now says which one it is and where liftoff falls on it, shown only where
+  the file's clock doesn't already start at liftoff.
+
+- **DONE — the report had no in-page navigation across nine phone-screens.** A section strip now lists
+  what this flight actually has (8 links on a TeleMega with GPS, 7 on a Blue Raven low-rate, 6 on an
+  AltimeterCloud), at 46 px on a phone with every link at the touch floor. What is still open is a
+  sticky or floating version: the strip scrolls away with the page, so it helps on arrival and not
+  once you are six screens down. Original entry: measured **5,472 px** at
   1440 px and **7,710 px** at 390 px, with **zero** `a[href^="#"]` anywhere in it. A flyer comes back
   to a saved report to check one number and has to scroll past everything to reach Events, Recovery or
   Explore the data, and cannot link a clubmate to a section. The blocking half is now done — every
