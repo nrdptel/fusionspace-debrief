@@ -134,7 +134,7 @@ join, so cutting at either lands in the same place and nothing is handed across.
 
 - **Gate on the branch head: 687 unit tests across 52 files, build clean, 178 e2e.** Sweep
   `find . -name "*-tmp.*"` immediately before any run you intend to quote.
-- **Corpus suite green: 112 tests, 61 fixtures on disk.** Two denominators exist and both are right —
+- **Corpus suite green: 111 tests, 61 fixtures on disk.** Two denominators exist and both are right —
   `corpusReads()` marks **37** analysed end to end (what the suite asserts), a looser sweep gets **46**.
   Say which you mean: a count of 7 over the loose set was 6 over the suite's, and the difference was a
   real fixture, not a bug.
@@ -251,3 +251,12 @@ version of the assert would not have.
    it lists eight places without marking which one you are in.
 
 BACKLOG.md carries the rest, newest first.
+
+## The fixtures repo
+
+One commit there this run, on the same working-branch name: `expected.json`'s note for
+`blueraven jan18 LR` now records what that file does and does not hold — both copies stopping at
+250 m (820 ft), above the 696 ft the paired summary states the main fired at, so the main leg is in
+neither copy; the summary's −29.0 ft/s main and −55.9 ft/s drogue; the copy join at sample 6244
+(250.9 m → −1.0 m in 0.020 s); and the summary file's own mislabelling of a descent RATE as "feet".
+Metadata only — no assert changed and the corpus suite is unchanged at 111.
