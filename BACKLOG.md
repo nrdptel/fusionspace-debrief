@@ -22,11 +22,19 @@ memory, so a later pass doesn't have to rediscover them.
   neither moved: the heading now says which one it is and where liftoff falls on it, shown only where
   the file's clock doesn't already start at liftoff.
 
-- **DONE — the report had no in-page navigation across nine phone-screens.** A section strip now lists
-  what this flight actually has (8 links on a TeleMega with GPS, 7 on a Blue Raven low-rate, 6 on an
-  AltimeterCloud), at 46 px on a phone with every link at the touch floor. What is still open is a
-  sticky or floating version: the strip scrolls away with the page, so it helps on arrival and not
-  once you are six screens down. Original entry: measured **5,472 px** at
+- **DONE — a file boundary was read as a touchdown.** `blueraven jan18 LR` published a 122.90 s flight
+  time and a **54.8 ft/s** descent rate off a −3.4 ft sample **0.020 s** after its trace was still at
+  823.2 ft — the next copy's pad, reached at 41,330 ft/s — against the device's own stated **29.0 ft/s**
+  main, a **3.6× landing-energy error**. The defect was in the file-splitting cut, not the landing
+  block: the boundary sat at the low point of the trough after the join, handing the first copy the next
+  copy's opening pad samples. Both copies of that flight stop 250 m up, so it now withholds the landing,
+  the clock and the energy and says why. Census assert 6 → 7.
+
+- **DONE — the section strip scrolls away with the page.** It now pins (`sticky top-0`), which costs
+  nothing until you have scrolled past where it already sat, with a 4.5rem scroll-margin on the targets
+  sized to the tallest the strip gets (62 px at 390 px, not the 42 px desktop average). What is still
+  open is **current-section state**: six screens down it lists eight places without marking which one
+  you are in. Original entry: measured **5,472 px** at
   1440 px and **7,710 px** at 390 px, with **zero** `a[href^="#"]` anywhere in it. A flyer comes back
   to a saved report to check one number and has to scroll past everything to reach Events, Recovery or
   Explore the data, and cannot link a clubmate to a section. The blocking half is now done — every
