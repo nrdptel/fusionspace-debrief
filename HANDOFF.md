@@ -138,6 +138,14 @@ with the whole block in view, and run the jan10 splice test and the ends-at-rest
 - **The harness appends an attribution footer to a PR body.** Stripped on #23; read every body back.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
   Both jobs ran ~1.5 min (frontend) and ~4 min (e2e) all run.
+- **A browser in this container cannot reach the deployed site.** `curl` goes through the agent proxy
+  fine — `version.json`, the static `/methods` and `/validation` HTML, the JS chunks all fetch — but
+  Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`, with and
+  without `proxy: { server: HTTPS_PROXY }`, and the proxy reports no relay failures. So the
+  done-check's "walk the deployed URL" is only partly possible: the static pages can be verified by
+  fetching them, but the report is client-rendered, so **the live report itself cannot be walked from
+  here**. Walk the built export of the SHA you shipped instead, confirm `version.json` matches it, and
+  say that is what you did.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 
 ### After the merges — PRs #24 and #25
