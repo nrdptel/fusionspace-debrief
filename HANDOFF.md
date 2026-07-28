@@ -170,6 +170,12 @@ carry both disagree by ≥0.5 s, the ground-station GPS log by **960 s** — apo
 and 13.0 s in the grid. Neither clock moved; the heading says which one it is and where liftoff falls
 on it, and the test asserts the arithmetic reconciles rather than that a sentence exists.
 
+And the coast-efficiency sub-line stopped reading as a broken unit. "drag cost 18,282 ft" on a
+**6,292 ft** flight is correct arithmetic — the figure is the vacuum coast that burnout speed would
+have bought minus what was gained — but **20 of the 31** corpus flights that show it exceed their own
+apogee, up to **6.6×** (107,217 ft against 16,206 ft). Named against what it is short OF now, with the
+number untouched.
+
 **Falsifying these took two goes each time it mattered, and it is the lesson of the run.** The first attempt made the
 Recovery link unconditional and the test still passed, because the fixture it used carries lat/lon so
 the link was not dead there. The second time an assert was green while proving nothing — the other was
