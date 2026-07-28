@@ -23,7 +23,7 @@ import {
   unitsOf,
 } from './display';
 import type { UnitChoice } from './display';
-import { compareReported } from './flight/reported';
+import { compareReported, REPORTED_QUANTITY } from './flight/reported';
 import { formatFlownAt } from './flight/flownAt';
 import {
   crossCheck,
@@ -275,21 +275,6 @@ export function reportTable(
     rows: headlineRows(analysis.metrics, sys, recovery, meta?.hidden).map(([l, v]) => [l, v]),
   };
 }
-
-/** Which quantity each reported metric is. A `Record` over the union rather than a chain
- *  of comparisons, so adding a metric to `ReportedValue` fails to compile until it is
- *  classified here — the cross-check is rendered twice, once formatted and once as JSON,
- *  and the two used to decide this separately. The JSON copy tested only `maxVelocity` and
- *  let everything else fall through to the acceleration converter, so a device's own
- *  burnout velocity and descent rate — both speeds, both carried by every AltimeterCloud
- *  file — were divided by g before being printed under `units.speed`. */
-const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'speed' | 'accel'> = {
-  apogeeAltitude: 'length',
-  maxVelocity: 'speed',
-  burnoutVelocity: 'speed',
-  mainDescentRate: 'speed',
-  maxAcceleration: 'accel',
-};
 
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   const q = REPORTED_QUANTITY[metric];

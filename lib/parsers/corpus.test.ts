@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
+import { summaryFigures } from './deviceSummary';
 import { analyzeFlight } from '../analyze';
 import { buildFlight } from '../flight/build';
-import { compareReported } from '../flight/reported';
-import { getChannel, type ChannelKind } from '../flight/types';
+import { compareReported, REPORTED_QUANTITY } from '../flight/reported';
+import { getChannel, type ChannelKind, type ReportedValue } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { landedInRecord, landingRate, metricTiles } from '../readings';
@@ -919,6 +920,72 @@ describe('a last GPS fix is only a landing if the record reached the ground', ()
 // doubled recording the NEXT copy's pad samples: `blueraven jan18 LR` had been reading a
 // touchdown off a −3.4 ft sample 0.020 s after its trace was still at 823.2 ft. Both copies
 // of that flight stop 250 m up, so neither holds a landing, and the file now says so.
+// A device summary states figures Debrief has a slot for, and every one it cannot use is a
+// number the flyer already owns. Two ways it goes wrong, and this holds both against the real
+// files rather than a hand-written approximation of them.
+describe('the figures a device summary states, and the ones it states badly', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+
+  const SUMMARIES = [
+    'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm_summary_01-18-2026_10_48_41_.csv',
+    'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_summary_04-12-2025_12_45_49_.csv',
+    'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_summary_04-12-2025_12_45_50_.csv',
+  ].filter((f) => existsSync(CORPUS + f));
+
+  it('takes the drogue rate the Blue Raven states, as a downward speed', () => {
+    const f = 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm_summary_01-18-2026_10_48_41_.csv';
+    if (!existsSync(CORPUS + f)) return;
+    const s = summaryFigures(readFileSync(CORPUS + f, 'utf8'))!;
+    const by = Object.fromEntries(s.reported.map((r) => [r.metric, r.value]));
+    // The file states "-55.9 feet/sec". Downward-negative there, a downward speed here.
+    expect(by.drogueDescentRate).toBeCloseTo(17.04, 2);
+    // …and the flight it belongs to computes no drogue rate of its own, which is exactly why
+    // this matters: without the summary there is no drogue figure on this flight at all.
+    const log = 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv';
+    const read = corpusReads().find((r) => r.file === log);
+    if (read?.metrics) expect(read.metrics.drogueDescentRate).toBeNull();
+  });
+
+  it('says which figures it left out, and never invents one', () => {
+    for (const f of SUMMARIES) {
+      const s = summaryFigures(readFileSync(CORPUS + f, 'utf8'))!;
+      const short = f.split('/').pop() as string;
+      // Nothing taken is ever zero or negative — a descent rate is a downward speed and a
+      // device fills a row it has nothing for with 0.0.
+      for (const r of s.reported) {
+        expect(r.value, `${short}: ${r.metric} is a real magnitude`).toBeGreaterThan(0);
+        expect(Number.isFinite(r.value), `${short}: ${r.metric} is finite`).toBe(true);
+      }
+      // Every note names the row it is about and quotes what the file said, so a flyer can
+      // check it against their own file rather than take Debrief's word for it.
+      for (const n of s.notes) {
+        expect(n, `${short}: the note quotes the row`).toMatch(/states “[^”]+: [^”]+”/);
+        expect(n, `${short}: the note says what is wrong with it`).toMatch(/is not a (speed|length|accel)/);
+      }
+    }
+  });
+
+  it('every reported metric is classified, so none is printed through the wrong converter', () => {
+    // The cross-check renders three times — the on-screen panel, the formatted report and the
+    // JSON export. Each used to decide a metric's quantity for itself with a chain of
+    // comparisons ending in `return fmtAccel(...)`, so a NEW speed metric would be divided by
+    // g and printed under a speed's unit. That already happened once to burnout velocity and
+    // the descent rate in the JSON copy. One Record, read by all three.
+    const metrics: ReportedValue['metric'][] = [
+      'apogeeAltitude', 'maxVelocity', 'maxAcceleration', 'burnoutVelocity', 'mainDescentRate', 'drogueDescentRate',
+    ];
+    for (const m of metrics) {
+      expect(REPORTED_QUANTITY[m], `${m} is classified`).toMatch(/^(length|speed|accel)$/);
+    }
+    // …and a speed is never classified as an acceleration, which is the failure mode.
+    expect(REPORTED_QUANTITY.drogueDescentRate).toBe('speed');
+    expect(REPORTED_QUANTITY.mainDescentRate).toBe('speed');
+  });
+});
+
 describe('a descent that never reached the ground is not a touchdown speed', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});

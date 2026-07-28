@@ -107,6 +107,65 @@ describe('summaryFigures', () => {
     expect(s.reported.map((r) => r.metric)).toEqual(['maxVelocity']);
   });
 
+  it('reads both descent rates, as downward speeds, from the signed figures the device writes', () => {
+    // These are the numbers a flyer sizes a canopy against and shows an RSO, and neither was
+    // being taken. The device states them downward-negative; Debrief's own rates are downward
+    // SPEEDS, so they are compared as magnitudes — the same convention the AltimeterCloud key
+    // has always used (lib/flight/reported.ts).
+    const s = summaryFigures(
+      [
+        'Rocket Name,Descender',
+        'Firmware,abc 01/01/2024',
+        'Max Altitude,6295.75 feet',
+        'Drogue descent rate,-55.9 feet/sec',
+        'Main chute descent rate,-29.0 feet/sec',
+      ].join('\n'),
+    )!;
+    const by = Object.fromEntries(s.reported.map((r) => [r.metric, r.value]));
+    expect(by.drogueDescentRate).toBeCloseTo(17.04, 2); // 55.9 ft/s, downward, positive
+    expect(by.mainDescentRate).toBeCloseTo(8.84, 2); // 29.0 ft/s
+    expect(s.notes).toEqual([]);
+  });
+
+  it('says which figure it left out when the device wrote the wrong unit for it', () => {
+    // Not hypothetical: the corpus Blue Raven `jan18` writes `Main chute descent rate,-29.0
+    // feet` — a RATE with a length for a unit. Debrief will not decide the device meant feet
+    // per second. Withholding it is right; withholding it SILENTLY left the flyer with no
+    // main descent figure at all on a flight whose record stops above the main deployment,
+    // and no way to know their own file held one.
+    const s = summaryFigures(
+      [
+        'Rocket Name,BlRv_159F1cm',
+        'Firmware,abc 01/01/2024',
+        'Max Altitude,6295.75 feet',
+        'Main chute descent rate,-29.0 feet',
+      ].join('\n'),
+    )!;
+    expect(s.reported.map((r) => r.metric)).toEqual(['apogeeAltitude']);
+    expect(s.notes).toHaveLength(1);
+    expect(s.notes[0]).toContain('Main chute descent rate: -29.0 feet');
+    expect(s.notes[0]).toContain('is not a speed');
+  });
+
+  it('treats a stated zero as no measurement, and says nothing about its unit', () => {
+    // A device fills a row it has nothing for with 0.0 — the corpus Blue Raven `lemiv-l3`
+    // writes `Drogue descent rate,0.0 feet/sec` and `Main chute descent rate,0.0 feet`.
+    // "Your main came down at 0 ft/s" under a device label is a wrong claim, not a missing
+    // one. And the zero is judged BEFORE the unit: a row with no measurement in it has
+    // nothing worth telling the flyer about the unit it was written in.
+    const s = summaryFigures(
+      [
+        'Rocket Name,BlRv_SN1537',
+        'Firmware,abc 01/01/2024',
+        'Max Altitude,11765.5 feet',
+        'Drogue descent rate,0.0 feet/sec',
+        'Main chute descent rate,0.0 feet',
+      ].join('\n'),
+    )!;
+    expect(s.reported.map((r) => r.metric)).toEqual(['apogeeAltitude']);
+    expect(s.notes).toEqual([]);
+  });
+
   it('is null for anything that isn’t a summary', () => {
     expect(summaryFigures('Time (s),Altitude (ft)\n0,0\n0.1,5\n')).toBeNull();
   });
