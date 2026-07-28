@@ -6,6 +6,51 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **BENCHMARK against the vendor tools, run this session against the live surfaces and their manuals.**
+  What theirs has that ours doesn't, on reading ONE flight, worst first. Nothing here asks Debrief to
+  simulate, predict or upload; the PerfectFlite DataCap comparison found nothing Debrief lacks.
+  - **[L] The Blue Raven's high-rate file is refused, so four of our own headline readings are
+    permanently blank on the most widely flown modern HPR altimeter.** Featherweight's own UI treats a
+    flight as its three files together (summary + 50 Hz LR + 500 Hz HR). Debrief rejects the HR file
+    with guidance, and LR+HR dropped together gives "Only one of those 2 files could be read as a
+    flight"; LR alone then says "no accelerometer channel was recorded" and the cross-check prints
+    `Max acceleration · 72.9 g · — · not computed`. So max acceleration, thrust-to-weight, deployment
+    shock and roll rate are blank while the numbers sit in a sibling file the flyer already has.
+    **The multi-file plumbing already exists** — LR + the device summary pairs correctly today and
+    produces the cross-check panel — so this extends a mechanism rather than inventing one. Highest
+    leverage of anything in this list.
+  - **[M] Pyro voltages and firing flags are dropped by every parser.** FIP and AltosUI both plot them
+    ("verify exactly what the altimeter was firing, when, and why"; "visual indication if the igniters
+    fail before being fired"). Debrief's explorer offers Baro AGL, inertial altitude, Velocity_Up,
+    battery, temperature and tilt and nothing else; TeleMega's populated `drogue_voltage`,
+    `main_voltage`, `igniter_a–d`, `pyro` and `state_name` are equally absent, and the column mapper
+    has no role to map them to. "Did the charge fire, when, and did it have continuity?" is the first
+    question after any recovery anomaly. See the "deployment boundaries are parsed and thrown away"
+    entry below — same root, and it is the blocker for the drogue/main split too.
+  - **[M] The Blue Raven's 3-D solution is mapped only as Velocity_Up and Tilt_Angle.**
+    `Velocity_DR/CR`, `Inertial_DR/CR_position`, `Future_Angle` and `Roll_Angle` never reach the
+    explorer, so downrange distance and lean direction need GPS that many flights don't carry.
+  - **[M] AltosUI graphs the raw `.eeprom` directly; Debrief refuses it** and tells the flyer to export
+    CSV from their altimeter's own software first — so Debrief can never be the only tool an AltOS
+    flyer opens. (AltosUI itself notes telemetry files "produce poor graphs" next to the eeprom.)
+  - **[M] No time cursor linking the charts, the sample table and the ground track.** AltosUI's Replay
+    shares flight time between map and graph. Debrief has per-chart hover and a table that follows
+    zoom, so you cannot step to one instant and read every channel AND the ground position together.
+  - **[M] The ground track has no per-phase colour, no hover readout and no measure tool** (AltosUI's
+    Map tab has all three, incl. a distance tool). "Where was it at 40 s, and how far is that from the
+    road" needs an export to Google Earth today.
+  - **[M] The smoothing width is fixed and a baro-only log gets no acceleration trace at all.** AltosUI
+    exposes a filter width ("a larger value smooths the data more") and computes both speed and
+    acceleration from barometric data on accelerometer-less altimeters. A StratoLogger or Eggtimer
+    flyer gets no acceleration curve and no noise/detail trade.
+  - **[S] The channel explorer caps at two distinct units.** Verified: with one ft and one ft/s channel
+    plotted, `Batt_Volts`, `Temperature_(F)`, `Mach` and dynamic pressure vanish from the Add-channel
+    list. FIP and OpenRocket both put many series of mixed units on one time axis — which is exactly
+    the pyro-voltage-against-altitude diagnostic view.
+  - **[S] No numeric axis-range entry and no per-axis Y zoom.** Drag zooms X only, with five presets.
+    You cannot set an identical window across two reports, or expand a flat 3.7–3.9 V battery trace
+    beside a 6,000 ft altitude.
+
 - **A deploy latch is per-COPY, which the "deployment boundaries are parsed and thrown away" entry
   below needs to account for.** Measured on `blueraven__trf-f1machbuster-jan18` LR: `Apo_fired`,
   `3rd_fired` and `4th_fired` each show **three** transitions (0→1, 1→0, 0→1), not one latch,
