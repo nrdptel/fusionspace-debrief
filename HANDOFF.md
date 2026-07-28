@@ -155,7 +155,14 @@ scrolling past everything and no section could be linked to. The strip lists onl
 (8 links on a TeleMega with GPS, 7 on a Blue Raven low-rate, 6 on an AltimeterCloud), sits at 46 px on
 a phone with every link already at the touch floor, and every section that lacked an anchor has one.
 
-**Falsifying that one took two goes, and it is the lesson of the run.** The first attempt made the
+And the events list now **names its clock**. It is on the log's own time base (what the charts are
+drawn against) while every reading is seconds-since-liftoff, so on a file whose clock doesn't start at
+liftoff the same instant printed two numbers with neither named: **27 of the 45** corpus flights that
+carry both disagree by ≥0.5 s, the ground-station GPS log by **960 s** — apogee at 973.0 s in Events
+and 13.0 s in the grid. Neither clock moved; the heading says which one it is and where liftoff falls
+on it, and the test asserts the arithmetic reconciles rather than that a sentence exists.
+
+**Falsifying these took two goes each time it mattered, and it is the lesson of the run.** The first attempt made the
 Recovery link unconditional and the test still passed, because the fixture it used carries lat/lon so
 the link was not dead there. The second time an assert was green while proving nothing — the other was
 the explorer's, where the falsification ran the wrong test by name. Falsify against the case the
