@@ -6,6 +6,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The Blue Raven writes its own deployment flags and no parser reads them.** `Apo_fired`,
+  `Main_fired`, `3rd_fired` and `4th_fired` are real columns in the low-rate CSV (cols 37-40) and
+  `grep -n "fired" lib/parsers/blueraven.ts` returns nothing. These are the DEVICE's own record of
+  what it commanded — a measurement, not an inference — and Debrief currently derives deployment
+  from the altitude trace alone. Reading them would give a main-deploy altitude directly, beside
+  Debrief's own read, exactly the side-by-side cross-check the product is built around.
+  **Not as simple as it looks, which is why it wasn't taken this run.** On the jan18 LR file
+  `Apo_fired`, `3rd_fired` and `4th_fired` each show THREE transitions (0→1, 1→0, 0→1) rather than
+  a single latch, because the file holds the flight twice and the second copy re-arms them;
+  `Main_fired` shows one, on the final row. So consuming these columns means deciding which copy a
+  flag belongs to — the same-flight splitter region that the seam finding above says needs its own
+  pass. Do that first, then this.
+
 - **DONE — a peak speed differentiated across four missing GPS fixes was the reported headline, and
   the published accuracy claim rested on it.** The guard that withholds a derived peak over an ascent
   gap tested the clock only; a ground-station GPS log keeps writing a row every second through a
