@@ -6,6 +6,23 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **The report has no in-page navigation across nine phone-screens.** Measured: **5,472 px** at
+  1440 px and **7,710 px** at 390 px, with **zero** `a[href^="#"]` anywhere in it. A flyer comes back
+  to a saved report to check one number and has to scroll past everything to reach Events, Recovery or
+  Explore the data, and cannot link a clubmate to a section. The blocking half is now done — every
+  major block has a stable id and a heading, including the metric grid and "Worth knowing", which had
+  neither — so what remains is the strip itself: which sections to list (they vary per flight; no
+  Recovery without GPS, no Landing energy without a descent rate), and making it work one-handed at
+  390 px without eating a screen of its own.
+
+- **DONE — the channel explorer removed channels from its own menu instead of saying why.** On the
+  Blue Raven low-rate file, plotting a velocity beside the altitude dropped the Add-channel menu from
+  **eleven entries to five** — `Mach`, `Dynamic pressure`, `Batt_Volts`, `Temperature_(F)` and
+  `Tilt_Angle_(deg)` gone — under a panel whose own line is "Plot any channel your logger recorded".
+  The two-axis limit is real; filtering the menu by it silently was the defect. They stay listed and
+  disabled now, each naming what is in the way. The **third axis itself** is still a genuine gap
+  against FIP and OpenRocket — see the benchmark entry above.
+
 - **BENCHMARK against the vendor tools, run this session against the live surfaces and their manuals.**
   What theirs has that ours doesn't, on reading ONE flight, worst first. Nothing here asks Debrief to
   simulate, predict or upload; the PerfectFlite DataCap comparison found nothing Debrief lacks.
