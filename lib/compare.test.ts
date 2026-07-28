@@ -149,6 +149,7 @@ describe('crossCheck', () => {
 });
 
 const metrics = (apogee: number): FlightMetrics => ({
+  apogeeIsFloor: false,
   apogeeAltitude: apogee,
   timeToApogee: 1,
   maxVelocity: 100,
@@ -468,6 +469,7 @@ describe('a whole-descent average is not a main descent rate', () => {
   const withRates = (main: number | null, whole: number | null, drogue: number | null) =>
     ({
       metrics: {
+        apogeeIsFloor: false,
         apogeeAltitude: 3576,
         drogueDescentRate: drogue,
         mainDescentRate: main,

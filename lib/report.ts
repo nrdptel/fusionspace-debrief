@@ -36,7 +36,7 @@ import {
   type Comparison,
   type CompareFlight,
 } from './compare';
-import { burnoutSub, burnoutVelocitySub, landedInRecord, landingRate } from './readings';
+import { apogeeSub, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -161,7 +161,10 @@ export function headlineRows(
   hidden?: string[],
 ): [string, string][] {
   const rows: [string, string][] = [];
-  rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys)]);
+  // The document a flyer files has to carry the qualifier the screen shows, or the number
+  // that leaves the app is the one without it.
+  const apoSub = m.apogeeIsFloor ? apogeeSub(m) : undefined;
+  rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys) + (apoSub ? ` — ${apoSub}` : '')]);
   if (Number.isFinite(m.timeToApogee)) rows.push(['Time to apogee', fmtTime(m.timeToApogee)]);
   if (Number.isFinite(m.maxVelocity)) {
     const mach = m.mach ? ` (${fmtMach(m.mach)})` : '';

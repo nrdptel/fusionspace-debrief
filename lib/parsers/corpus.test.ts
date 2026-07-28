@@ -9,6 +9,7 @@ import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { landedInRecord, landingRate, metricTiles } from '../readings';
+import { headlineRows } from '../report';
 import { groundTrack, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
@@ -779,6 +780,57 @@ describe('a record that ends at rest above the pad is not a landing', () => {
 // track, "Walk from the pad toward W", and GPX/KML waypoints literally named "Landing". The
 // intrepid2 telemetry log is 285 samples and 2.84 s long and its last sample is 1,081.6 m
 // AGL doing 322.1 m/s, still climbing.
+// The apogee is the number that leaves this app most often — a cert form, a club record, a
+// sim correlation — and it was the only primary tile with no qualifier on it at all, while
+// the peak speed said measured-or-derived and the peak acceleration said measured, clipped
+// or derived. On a telemetry log that cuts out during boost the peak in the record IS the
+// last sample, and the tile printed it flat: 3,548 ft, "2.6 s to apogee", from a record
+// whose final sample is that peak with the rocket still going up at 1,057 ft/s.
+describe('an apogee the record never reached is labelled as a floor', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // file → what the record actually holds, so a fixture changing state is visible.
+  const CUT_AT_THE_PEAK = [
+    { file: 'altusmetrum/altusmetrum__issuiuc-intrepid1-20220507__telemetrum.csv', ftPerS: 1133 },
+    { file: 'altusmetrum/altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv', ftPerS: 1057 },
+  ];
+
+  it('names exactly the flights whose record stops at their own peak', () => {
+    // Over the set this sweep analyses end to end. Both files below are in the state; only
+    // one of them reaches `corpusReads` as 'analysed', so the per-file tests underneath
+    // carry the other. Named either way, so a fixture entering or leaving is visible.
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
+    const floors = reads.filter((r) => r.metrics!.apogeeIsFloor).map((r) => r.file);
+    expect(floors, `flights whose apogee is only a floor: ${floors.join(', ')}`).toEqual(
+      CUT_AT_THE_PEAK.map((c) => c.file).filter((f) => reads.some((r) => r.file === f)),
+    );
+    expect(floors.length, 'and there is at least one, or this test proves nothing').toBeGreaterThan(0);
+  });
+
+  for (const c of CUT_AT_THE_PEAK) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — still climbing at ${c.ftPerS} ft/s when the log stops`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const m = loaded!.analysis.metrics;
+      expect(m.apogeeIsFloor, 'the record ends at its own peak').toBe(true);
+      // The premise: the rocket really was still going up when the record stopped.
+      const v = loaded!.analysis.series.velocity;
+      const lastSpeed = v[v.length - 1] / 0.3048;
+      expect(lastSpeed, `${short}: last sample still climbing fast`).toBeGreaterThan(c.ftPerS * 0.9);
+      // The number is kept — it is a real lower bound — and it says so, on both surfaces.
+      expect(Number.isFinite(m.apogeeAltitude), 'the figure is still reported').toBe(true);
+      const tile = metricTiles(m, 'imperial').find((t) => t.label === 'Apogee')!;
+      expect(tile.sub, `${short}: the grid qualifies it`).toMatch(/at least this high/);
+      expect(headlineRows(m, 'imperial').find(([l]) => l === 'Apogee')![1], `${short}: and so does the saved report`).toMatch(
+        /at least this high/,
+      );
+    });
+  }
+});
+
 /** The raw flight for a corpus file, for the tests that need its channels. */
 function loadRawFlight(file: string) {
   const path = CORPUS + file;

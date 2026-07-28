@@ -7,6 +7,7 @@ import type { FlightMetrics } from './analyze/types';
 // the figures are only plausible enough to keep the formatters honest; what matters is
 // that no optional metric is null, so both lists are asked for everything they have.
 const EVERYTHING: FlightMetrics = {
+  apogeeIsFloor: false,
   apogeeAltitude: 2841,
   timeToApogee: 24.6,
   maxVelocity: 341,
@@ -139,6 +140,25 @@ describe('the screen and the saved report agree on which readings exist', () => 
     const tile = metricTiles(EVERYTHING, 'imperial').find((t) => t.label === 'Apogee')!;
     const rowValue = headlineRows(EVERYTHING, 'imperial').find(([l]) => l === 'Apogee')![1];
     expect(rowValue).toBe(tile.value);
+  });
+
+  it('qualifies the apogee in both places, or in neither', () => {
+    // The apogee is the number a flyer copies into a cert form, and on a record that stops
+    // at its own peak it is a lower bound rather than the height reached. The grid carries
+    // that as a sub-line and the report inside the row's value, which is why the assert
+    // above compares them exactly — so this one holds the qualifier itself, in both places,
+    // rather than letting the saved document quietly drop it.
+    const floor: FlightMetrics = { ...EVERYTHING, apogeeIsFloor: true };
+    const tile = metricTiles(floor, 'imperial').find((t) => t.label === 'Apogee')!;
+    const row = headlineRows(floor, 'imperial').find(([l]) => l === 'Apogee')![1];
+    expect(tile.sub, 'the grid says the number is a floor').toMatch(/at least this high/);
+    expect(row, 'and so does the saved report').toMatch(/at least this high/);
+    expect(row.startsWith(tile.value), 'both still lead with the same figure').toBe(true);
+
+    // …and a flight whose record covers its apogee says nothing of the kind.
+    const normal = metricTiles(EVERYTHING, 'imperial').find((t) => t.label === 'Apogee')!;
+    expect(normal.sub ?? '').not.toMatch(/at least this high/);
+    expect(headlineRows(EVERYTHING, 'imperial').find(([l]) => l === 'Apogee')![1]).not.toMatch(/at least this high/);
   });
 
   it('drops the same readings from both when the flight lacks them', () => {

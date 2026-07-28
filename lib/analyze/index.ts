@@ -1406,7 +1406,8 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
       `The record stops ${formatSeconds(time[n - 1] - time[apogeeIdx])} after apogee, sooner than this flight could have fallen from ${Math.round(altClean[apogeeIdx])} m even in a vacuum (${formatSeconds(Math.sqrt((2 * altClean[apogeeIdx]) / G0))}). So it holds the climb but not the descent: no landing, no flight time, and no descent rate are read from it.`,
     );
   }
-  if (apogeeIdx >= n - 2) {
+  const apogeeIsFloor = apogeeIdx >= n - 2;
+  if (apogeeIsFloor) {
     warnings.push('The log appears to end at or before apogee — descent numbers may be missing.');
   }
   // The other way a landing goes unread: the record holds the whole fall — long enough that
@@ -1881,6 +1882,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
 
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
+    apogeeIsFloor,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
     maxVelocity,
     maxVelocityWithheld: Number.isFinite(maxVelocity) ? null : ascentGapBreaksPeak ? 'gap' : velocityImplausible ? 'implausible' : null,

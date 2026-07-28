@@ -81,6 +81,24 @@ export function landingRate(m: FlightMetrics): number | null {
  *  deliberately written separately (see the note at the top of this file), but what a
  *  provenance label MEANS is one fact, and it was previously two copies of one string that
  *  could drift apart silently. */
+/** The apogee's qualifier. Every other primary tile says how direct its number is — the
+ *  peak speed says measured or derived, the peak acceleration says measured, clipped or
+ *  derived — and the apogee, the one number a flyer copies into a cert form, a club record
+ *  or a sim correlation, said only how long it took to get there. On a record that stops at
+ *  or before its own peak that reading is the highest the rocket was SEEN at, and the tile
+ *  printed it as flat fact: 3,548 ft on a log whose last sample is that peak, still climbing
+ *  at 1,057 ft/s. The number is right and worth showing — it is a real lower bound — but it
+ *  is not the apogee, and the footer promises every value is labelled wherever it is derived
+ *  or approximate.
+ *
+ *  Exported so the saved report says the identical thing, like `burnoutSub`. */
+export function apogeeSub(m: FlightMetrics): string | undefined {
+  const to = Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined;
+  if (!m.apogeeIsFloor) return to;
+  const floor = 'at least this high — the log ends at its own peak, so the rocket was still going up';
+  return to ? `${to} · ${floor}` : floor;
+}
+
 export function burnoutSub(m: FlightMetrics): string | undefined {
   if (m.burnoutSource == null) return undefined;
   // Naming the fallback rather than just saying "derived" is the useful half: it tells a
@@ -106,7 +124,7 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     {
       label: 'Apogee',
       value: fmtLength(m.apogeeAltitude, sys),
-      sub: Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined,
+      sub: apogeeSub(m),
       primary: true,
     },
     {
