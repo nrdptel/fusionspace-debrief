@@ -14,7 +14,7 @@ import { importFlight, ParseGuidanceError } from './parsers';
 import { summaryFigures } from './parsers/deviceSummary';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { saveRecent } from './recents';
+import { attachSummaryText, saveRecent } from './recents';
 import { fileToText } from './fileText';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -40,9 +40,69 @@ export interface IngestOutcome {
   /** Files that aren't a known format but do hold columns of numbers — the flyer can map
    *  them one at a time, so they are offered rather than reported as failures. */
   mappable: { name: string; text: string }[];
-  /** Device-summary files: headline figures for a flight logged elsewhere, held for the
-   *  caller to pair with the log they belong to. */
-  summaries: { name: string; figures: NonNullable<ReturnType<typeof summaryFigures>> }[];
+  /** Device-summary files that found NO flight in this drop to belong to. A summary that
+   *  did pair is not here — its figures are already on the flight, and it is named in
+   *  `paired` instead. */
+  summaries: { name: string; figures: NonNullable<ReturnType<typeof summaryFigures>>; text: string }[];
+  /** "<summary file> → <log file>", one per summary that was read onto a flight. Empty on
+   *  the ordinary single-file drop. */
+  paired: string[];
+}
+
+/** Does this file name belong to the rocket a summary names? Compared on letters and digits
+ *  only, so "BlRv_SN1537_LR_04-12-2025.csv" matches a summary for "BlRv_SN1537". */
+function sameRocket(fileName: string, rocket: string): boolean {
+  const fold = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const key = fold(rocket);
+  return key.length >= 4 && fold(fileName).includes(key);
+}
+
+/**
+ * Put each device summary onto the flight it belongs to.
+ *
+ * This lives HERE, and not in the surface that happens to have needed it first, for the
+ * reason at the top of this file: the rules have to be the same wherever a flyer drops the
+ * folder. They were not. The pairing sat inside the analyze page, so dropping a Blue Raven
+ * log and its summary on `/` produced a cross-check panel, while dropping the SAME two files
+ * on `/compare` produced "a device summary for “BlRv_159F1cm”, not a flight record" and
+ * nothing else — the word "cross-check" appeared nowhere on the page.
+ *
+ * Beside Debrief's read, never merged into it: the figures land in `reported`, and a figure
+ * the log already stated for itself wins, because that one came from the flight record.
+ * Anything the summary stated but Debrief could not use rides across as a note.
+ */
+function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summaries']): {
+  paired: string[];
+  unpaired: IngestOutcome['summaries'];
+  remember: { id: string; text: string }[];
+} {
+  const paired: string[] = [];
+  const unpaired: IngestOutcome['summaries'] = [];
+  const remember: { id: string; text: string }[] = [];
+  for (const s of summaries) {
+    const target =
+      results.find((r) => sameRocket(r.name, s.figures.rocket)) ??
+      // One flight and one summary in a drop are each other's, whatever they are called.
+      (results.length === 1 && summaries.length === 1 ? results[0] : undefined);
+    if (!target) {
+      unpaired.push(s);
+      continue;
+    }
+    const already = new Set((target.flight.reported ?? []).map((v) => v.metric));
+    const added = s.figures.reported.filter((v) => !already.has(v.metric));
+    const notes = s.figures.notes.filter((n) => !target.flight.notes.includes(n));
+    target.flight = {
+      ...target.flight,
+      ...(added.length ? { reported: [...(target.flight.reported ?? []), ...added] } : {}),
+      ...(notes.length ? { notes: [...target.flight.notes, ...notes] } : {}),
+      ...(target.flight.flownAt ?? s.figures.flownAt ? { flownAt: target.flight.flownAt ?? s.figures.flownAt } : {}),
+    };
+    paired.push(`${s.name} → ${target.name}`);
+    // …and the logbook keeps the summary's TEXT beside the log's, so reopening this flight
+    // tomorrow reads it again rather than losing the cross-check.
+    if (target.savedId) remember.push({ id: target.savedId, text: s.text });
+  }
+  return { paired, unpaired, remember };
 }
 
 /**
@@ -93,7 +153,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
       // holds the altimeter's own figures for a flight logged beside it.
       const figures = text ? summaryFigures(text) : null;
       if (figures) {
-        summaries.push({ name: file.name, figures });
+        summaries.push({ name: file.name, figures, text });
         continue;
       }
       // A guidance error explains itself (the Blue Raven high-rate file); anything else is
@@ -104,5 +164,24 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
       });
     }
   }
-  return { results, skipped, mappable, summaries };
+  // …and only now, with every file read, can a summary be matched to the log it belongs to.
+  const { paired, unpaired, remember } = pairSummaries(results, summaries);
+  for (const r of remember) await attachSummaryText(r.id, r.text);
+  for (const s of unpaired) {
+    // Two different facts, and only one of them is ever true. With no flights in the drop the
+    // log really isn't here. With flights in it, Debrief has one and cannot tell it is the
+    // right one — the match is the rocket name the summary states appearing in a log's FILE
+    // NAME, which holds for what the device's own software writes out and not for a file the
+    // flyer renamed. Saying "its flight log wasn't in this drop" there is a claim Debrief is
+    // not entitled to make, and can be flatly false: the log can be sitting in the same drop
+    // under another name.
+    skipped.push({
+      name: s.name,
+      why:
+        results.length === 0
+          ? `the device's own summary for “${s.figures.rocket}”, but its flight log wasn't in this drop`
+          : `the device's own summary for “${s.figures.rocket}” — no log in this drop is named for that rocket, so Debrief can't tell which flight it belongs to`,
+    });
+  }
+  return { results, skipped, mappable, summaries: unpaired, paired };
 }

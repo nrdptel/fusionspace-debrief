@@ -25,6 +25,16 @@ export interface RecentMeta {
 
 export interface RecentFlight extends RecentMeta {
   text: string;
+  /** The text of the device-summary file that was dropped alongside this log, when one was.
+   *  The SOURCE, not the figures read out of it — the same reason the mapping below is kept
+   *  as data: a stored answer is frozen at the version that wrote it, while a stored source
+   *  gets every later improvement to how it is read. (The reading of these files changed
+   *  once already, to pick up both descent rates and to say what it could not use.)
+   *
+   *  Without it the logbook held the log and not the summary, so reopening a paired flight —
+   *  or building a comparison from ids — dropped the device's own figures and the whole
+   *  cross-check panel with them. Absent on every flight dropped without a summary. */
+  summaryText?: string;
   /** The column mapping a flyer made by hand, for a file Debrief doesn't auto-detect.
    *  Without it the logbook holds the text and not the answer: reopening the flight asks
    *  for the mapping again, and a comparison built by id drops it entirely. Absent on every
@@ -94,9 +104,20 @@ export async function saveRecent(
     // Replace any earlier copy of the same file, but carry its note forward so a
     // re-open doesn't wipe the logbook entry.
     const inheritedNote = all.find((r) => isDup(r) && r.note)?.note ?? '';
+    // …and the same for the device summary it was paired with. Re-opening a flight saves it
+    // again, and this replace-in-place is what a save IS, so anything the flyer's earlier
+    // drop established has to survive it or reopening a paired flight would silently
+    // un-pair it — the second time, not the first, which is the worst way to lose a thing.
+    const inheritedSummary = rec.summaryText ?? all.find((r) => isDup(r) && r.summaryText)?.summaryText;
     for (const r of all) if (isDup(r)) store.delete(r.id);
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    store.put({ ...rec, note: inheritedNote, id, addedAt: Date.now() });
+    store.put({
+      ...rec,
+      note: inheritedNote,
+      ...(inheritedSummary ? { summaryText: inheritedSummary } : {}),
+      id,
+      addedAt: Date.now(),
+    });
     savedId = id;
 
     // Prune: keep every noted flight (a logbook entry, capped to bound storage),
@@ -110,6 +131,20 @@ export async function saveRecent(
     /* storage unavailable — just don't remember */
   }
   return savedId;
+}
+
+/** Remember the device-summary file a flight was paired with, so the pairing survives a
+ *  reload. Written after the fact because the pairing can only be decided once every file in
+ *  a drop has been read, and the flight is saved as it is read. */
+export async function attachSummaryText(id: string, summaryText: string): Promise<void> {
+  try {
+    const db = await idb();
+    const rec = await reqToPromise(tx(db, 'readonly').get(id) as IDBRequest<RecentFlight>);
+    if (!rec) return;
+    tx(db, 'readwrite').put({ ...rec, summaryText });
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Set (or clear) a flight's logbook note. A note makes the flight sticky. */

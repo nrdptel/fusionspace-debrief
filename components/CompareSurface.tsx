@@ -146,7 +146,7 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, summaries } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired } = await ingestFiles(list, MAX_COMPARE);
       logbook.refresh();
 
       const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
@@ -156,22 +156,28 @@ export default function CompareSurface() {
       const offerable = ids.length >= 2 ? mappableFiles : [];
       setMappable(offerable);
 
+      // A summary that PAIRED is no longer "left out" — its figures are on the flight and it
+      // is named below instead. One that found no log to belong to is already in `skipped`,
+      // with the reason ingest gives it, so it isn't listed twice.
       const left = [
         ...skipped.map((s) => `${s.name} — ${s.why}`),
         ...(offerable.length > 0 ? [] : mappableFiles.map((m) => `${m.name} — needs its columns mapped, one file at a time`)),
-        ...summaries.map((x) => `${x.name} — a device summary for “${x.figures.rocket}”, not a flight record`),
       ];
       const leftNote = left.length > 0 ? ` Left out: ${left.join('; ')}.` : '';
+      const pairedNote =
+        paired.length > 0
+          ? ` Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`
+          : '';
 
       if (ids.length >= 2) {
-        void load(ids, true, leftNote.trim() || undefined);
+        void load(ids, true, `${leftNote}${pairedNote}`.trim() || undefined);
         return;
       }
       setState('picking');
       setNote(
         results.length === 0
           ? `Nothing in that drop could be read as a flight.${leftNote}`
-          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}`,
+          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}${pairedNote}`,
       );
     },
     [load, logbook],

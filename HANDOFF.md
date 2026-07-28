@@ -173,6 +173,16 @@ join, so cutting at either lands in the same place and nothing is handed across.
   fetching them, but the report is client-rendered, so **the live report itself cannot be walked from
   here**. Walk the built export of the SHA you shipped instead, confirm `version.json` matches it, and
   say that is what you did.
+- **`npx serve -s out` SILENTLY SERVES THE ANALYZE PAGE FOR EVERY ROUTE.** `-s`/`--single`
+  rewrites every path to `out/index.html`, so an ad-hoc walk of `/compare`, `/methods` or
+  `/validation` walks `/` instead and looks entirely plausible. Demonstrated:
+  `serve -s out` gives `/compare/` = **53,602 bytes, byte-identical to `/`**;
+  `serve -c e2e-serve.json` gives **40,090 bytes**, the real page. The e2e suite is NOT
+  affected — `playwright.config.ts` serves with `-c e2e-serve.json`, no `-s` — but every
+  hand-rolled Playwright probe this run used `-s`. Those only ever loaded `/`, so nothing
+  wrong was published, and an assert that a `/compare` test really ran on `/compare` is
+  cheap: it asserts on text only `CompareSurface.tsx` emits. **Use `-c e2e-serve.json` for
+  any manual walk**, and it gets the security headers too.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 
 ### After the merges — PRs #24 and #25

@@ -236,6 +236,41 @@ test('a log dropped with its device summary reads as one flight plus a cross-che
   await expect(table.getByRole('row').filter({ hasText: 'Max velocity' })).toContainText('700 ft/s');
 });
 
+// The ordinary Blue Raven drop. Featherweight's own software writes the summary, the low-rate
+// log and the high-rate log out side by side, so a flyer who selects the folder drops all
+// three at once — and the high-rate half is refused by design. Two things are then true: one
+// file was left out, and one file WAS read and put four figures in the report. The note used
+// to pick whichever branch fired first and discard the other, so this drop said the high-rate
+// file was left out and never mentioned the summary, while the summary's figures sat in the
+// cross-check panel further down the same page.
+test('a drop of all three Blue Raven files says what was left out AND what was read', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'BlRv_SN0829_LR_05-11-2024.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app-lr.csv')) },
+    { name: 'BlRv_SN0829_HR_05-11-2024.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app-hr.csv')) },
+    { name: 'BlRv_SN0829_summary_05-11-2024_.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app.summary.csv')) },
+  ]);
+
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  // Filtered on wording BOTH the old and new notes share, so a failure names the missing
+  // content rather than a missing element.
+  const note = page.getByRole('status').filter({ hasText: /single report rather than a comparison/ });
+
+  // What was left out, and the logger's own guidance for why — kept, not flattened.
+  await expect(note).toContainText('BlRv_SN0829_HR_05-11-2024.csv');
+  await expect(note).toContainText('high-rate file');
+  // …and what was read. This is the half that was being discarded.
+  await expect(note).toContainText(/Read the device's own summary alongside the flight/);
+
+  // "Could be read as a flight" is the wrong verb once a non-flight file has contributed:
+  // the summary WAS read. It is a flight RECORD that the other files are not.
+  await expect(note).toContainText('Only one of those 3 files is a flight record');
+
+  // And the figures it contributed are really there.
+  const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Logger' }) });
+  await expect(table.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
+});
+
 // Ranking by a metric answers "which went highest". A launch day also has orders no metric
 // produces — booster then sustainer, flight 1 to 6 — so a column can be moved by hand, and
 // the order carries into the chart legend and every export because they read one array.
