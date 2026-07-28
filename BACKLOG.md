@@ -64,6 +64,62 @@ memory, so a later pass doesn't have to rediscover them.
     **The multi-file plumbing already exists** — LR + the device summary pairs correctly today and
     produces the cross-check panel — so this extends a mechanism rather than inventing one. Highest
     leverage of anything in this list.
+
+    **Surveyed in full, with measurements, so the next pass starts from facts rather than a plan.**
+    Everything below was measured on the real jan18 pair unless marked otherwise; jan10 matches.
+
+    - **The HR file is 18 columns, 93,164 rows, exactly 500.0000 Hz** (dt histogram is single-valued:
+      0.002 s × 93,163). The LR file is exactly 50.0000 Hz. Columns: `Year, Month, Day, Time,
+      Flight_Time_(s), Sync, Gyro_X/Y/Z, Accel_X/Y/Z, Quat_1..4, Aux_Volts, Current`. Only
+      `Flight_Time_(s)` states a unit; every sensor column is unit-less.
+    - **Units recovered by measurement and confirmed against the device's own summary.** `Gyro_*` are
+      deg/s — `|Gyro_Z|` rails at **2293.5** against the summary's stated `Roll rate at burnout, 2299.0
+      deg/sec`, first rail at t=0.304 s against its `Time to gyro overload, 0.4 sec`. `Accel_*` are g —
+      max over the burn is **72.98** against `Max motor burn acceleration, 72.9 Gs`, whole-file max
+      **279.98** against `Max landing accel, 280.0 Gs`, pad rest 1.000 ± 0.020 g. `Quat_1..4` is a unit
+      quaternion (norm 0.99998). `Current` is nonzero on **1 of 93,164 rows**.
+    - **The HR file carries NO altitude, NO velocity and NO pressure** — zero of its 18 headers contain
+      `alt`, `vel`, `baro` or `press`. That absence is exactly what trips the rejection at
+      `lib/parsers/blueraven.ts:122`. A merged flight must take altitude from LR's
+      `Baro_Altitude_AGL_(feet)` and velocity from `Velocity_Up`. **12 columns are HR-only**; 6 are
+      shared; the other 95 of the LR's 101 are LR-only.
+    - **The two files share a zero EXACTLY: 0.000 s offset on `Flight_Time_(s)`.** Both zero at the
+      device's own liftoff declaration; the wall clock at t=0 is 10:48:41.699 in both. Checked
+      sample-for-sample at t = −1.96, 0, 1, 10, 30 and 60 s: 0.000 ms every time.
+    - **…but `buildFlight` rebases each file to its OWN first sample, and they differ.** HR opens at
+      raw t = −2.022, LR at −1.960, so after `lib/flight/build.ts:117` the two are **0.062 s apart —
+      31 HR samples**. Align on raw `Flight_Time`, never on built time. Measured directly.
+    - **Never align on the LR wall clock.** It has only 4,493 distinct stamps for 12,489 rows and
+      jitters ±0.06–0.10 s against its own `Flight_Time`. The HR clock has 93,164 distinct stamps for
+      93,164 rows and zero drift.
+    - **The LR file's second copy is the real hazard.** Its `Flight_Time` keeps counting monotonically
+      across the join (−1.96 → 247.8 s, no backward step) while the wall clock jumps back **124.880 s**
+      at row 6244. The device Liftoff flag rises TWICE, at t=0.000 and t=124.880. So past LR t≈122.9 the
+      same physical instant is +124.880 s on the LR clock. The HR file has no second copy. Any merge
+      must be against the FIRST copy only — which the analyzer already isolates (`nextFlightStart`).
+    - **LR and HR agree on liftoff to 66 ms**, and that gap is detector latency, not a timebase
+      disagreement: the 500 Hz accelerometer sees ignition immediately (threshold-insensitive — 1.2 g
+      through 10 g all give t = −0.068 to −0.064 s) while LR cannot resolve better than its 0.02 s
+      interval. 66 ms is 3.3 LR samples.
+    - **`ChannelKind` has no slot for gyro or quaternion data.** `rollRate` and `accelAxial`/`accelTotal`
+      exist; attitude quaternions do not. And a channel whose `values.length !== flight.time.length` is
+      **silently skipped** by the explorer (`lib/explore.ts:171-178`) — a ragged merge would vanish with
+      no message rather than fail loudly.
+    - **The insertion point is wrong for a time series as things stand.** Analysis runs INSIDE
+      `ingestFiles` (`lib/ingest.ts:81`), while the summary merge happens AFTER, in `Analyzer.tsx`, and
+      nothing re-runs `analyzeAsync`. Scalar `reported` values get away with that because they are only
+      read at render time; **a merged channel would leave `r.analysis` stale.**
+    - **Resample machinery already exists** — `readChannel`/`resample`/`densest` in
+      `lib/parsers/multiTimebase.ts` — but is imported only by `featherweightFip.ts` and
+      `entacoreAim.ts`. Nothing in `ingest.ts` or `Analyzer.tsx` sees it.
+    - **The corpus contract pins the rejection.** Five Blue Raven HR fixtures are `kind:'reject'`,
+      `rejectMatch:'high-rate'`, asserted at `corpus.test.ts:233-237`. Changing the behaviour changes
+      the fixtures repo too.
+    - **One judgement call worth recording.** MAINTAINING ranks "a second instrument's recording of the
+      same flight" as the strongest ground truth, so consuming a sibling file as an INPUT normally
+      spends the reference the corpus validates against. That does not apply here: HR and LR are one
+      device's two output files, not two instruments — the same relationship LR and the device summary
+      already have. The Featherweight GPS recording of the same flight stays an independent check.
   - **[M] Pyro voltages and firing flags are dropped by every parser.** FIP and AltosUI both plot them
     ("verify exactly what the altimeter was firing, when, and why"; "visual indication if the igniters
     fail before being fired"). Debrief's explorer offers Baro AGL, inertial altitude, Velocity_Up,

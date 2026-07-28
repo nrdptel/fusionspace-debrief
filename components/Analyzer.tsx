@@ -69,24 +69,25 @@ function skippedNote(skipped: { name: string; why: string }[]): string {
 
 /** The same account when only ONE file of a batch turned out to be readable, so there is a
  *  single flight report where the flyer asked for a comparison. Saying "here is a report"
- *  and nothing else leaves them to notice the other files went missing by counting. */
-function loneFlightNote(dropped: number, skipped: { name: string; why: string }[]): string {
+ *  and nothing else leaves them to notice the other files went missing by counting.
+ *
+ *  `alsoUsed` is true when a file that is NOT a flight record still contributed — a device
+ *  summary that paired. "Could be read" is then the wrong verb for the others: the summary WAS
+ *  read, and four of its figures are in the report. This is the ordinary Blue Raven drop, not
+ *  a corner: Featherweight's own software writes the summary, the low-rate log and the
+ *  high-rate log side by side, so a flyer who selects the folder drops all three at once. */
+function loneFlightNote(dropped: number, skipped: { name: string; why: string }[], alsoUsed = false): string {
   const listed = skipped.map((s) => `${s.name} — ${s.why}`).join('; ');
-  return `Only one of those ${dropped} files could be read as a flight, so this is a single report rather than a comparison. Left out: ${listed}.`;
+  const opening = alsoUsed
+    ? `Only one of those ${dropped} files is a flight record, so this is a single report rather than a comparison.`
+    : `Only one of those ${dropped} files could be read as a flight, so this is a single report rather than a comparison.`;
+  return `${opening} Left out: ${listed}.`;
 }
 
 /** What a summary file contributed, so the flyer can see the drop did something with it
  *  rather than wondering why one of their two files vanished. */
 function pairedNote(paired: string[]): string {
   return `Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`;
-}
-
-/** Does this file name belong to the rocket a summary names? Compared on letters and digits
- *  only, so "BlRv_SN1537_LR_04-12-2025.csv" matches a summary for "BlRv_SN1537". */
-function sameRocket(fileName: string, rocket: string): boolean {
-  const fold = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const key = fold(rocket);
-  return key.length >= 4 && fold(fileName).includes(key);
 }
 
 function readInitialUnits(): UnitChoice {
@@ -177,17 +178,18 @@ export default function Analyzer() {
   }, []);
 
   const ingest = useCallback(
-    /** `mapping` is a hand-made column mapping the logbook kept with this flight — present
-     *  only when reopening one, so a custom file comes back as the flight the flyer made
-     *  rather than as the mapper again. */
-    async (name: string, text: string, mapping?: StoredMapping[]) => {
+    /** `mapping` is a hand-made column mapping the logbook kept with this flight, and
+     *  `summaryText` the device summary it was dropped alongside — both present only when
+     *  reopening one, so a custom file comes back as the flight the flyer made rather than as
+     *  the mapper again, and a paired flight comes back with its cross-check. */
+    async (name: string, text: string, mapping?: StoredMapping[], summaryText?: string) => {
       const set = beginLoad();
       try {
         if (text.trim().length === 0) {
           set({ phase: 'error', message: 'That file is empty.' });
           return;
         }
-        const result = importRecent({ name, text, ...(mapping ? { mapping } : {}) });
+        const result = importRecent({ name, text, ...(mapping ? { mapping } : {}), ...(summaryText ? { summaryText } : {}) });
         if (result.kind === 'flight') {
           const analysis = await analyzeAsync(result.flight);
           set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
@@ -261,40 +263,11 @@ export default function Analyzer() {
       await tick();
       // One set of rules for what a launch day's folder holds, shared with the comparison
       // surface so the two can't disagree about it (see lib/ingest.ts).
-      const { results, skipped, mappable, summaries } = await ingestFiles(list, MAX_COMPARE);
+      // One set of rules for what a launch day's folder holds — including which summary
+      // belongs to which log — shared with the comparison surface so the two can't disagree
+      // about it (see lib/ingest.ts).
+      const { results, skipped, mappable, paired } = await ingestFiles(list, MAX_COMPARE);
 
-      // Pair each summary with the log it belongs to. The key is the rocket name the
-      // summary itself states, which the app also puts in the log's file name — data, not a
-      // naming convention — falling back to the obvious case of one flight and one summary.
-      const paired: string[] = [];
-      for (const s of summaries) {
-        const target =
-          results.find((r) => sameRocket(r.name, s.figures.rocket)) ??
-          (results.length === 1 && summaries.length === 1 ? results[0] : undefined);
-        if (!target) {
-          skipped.push({
-            name: s.name,
-            why: `the device's own summary for “${s.figures.rocket}”, but its flight log wasn't in this drop`,
-          });
-          continue;
-        }
-        // Beside Debrief's read, never merged into it: the figures land in `reported`,
-        // which is what the cross-check panel compares against. A figure the log already
-        // stated for itself wins — that one came from the flight record.
-        const already = new Set((target.flight.reported ?? []).map((v) => v.metric));
-        const added = s.figures.reported.filter((v) => !already.has(v.metric));
-        // …and what the summary stated but Debrief could not use rides across too, as a note
-        // on the flight rather than a silence. A figure the device wrote with the wrong unit
-        // is a fact about the flyer's own file, and the number is theirs either way.
-        const summaryNotes = s.figures.notes.filter((n) => !target.flight.notes.includes(n));
-        target.flight = {
-          ...target.flight,
-          ...(added.length ? { reported: [...(target.flight.reported ?? []), ...added] } : {}),
-          ...(summaryNotes.length ? { notes: [...target.flight.notes, ...summaryNotes] } : {}),
-          ...(target.flight.flownAt ?? s.figures.flownAt ? { flownAt: target.flight.flownAt ?? s.figures.flownAt } : {}),
-        };
-        paired.push(`${s.name} → ${target.name}`);
-      }
       logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
@@ -334,15 +307,27 @@ export default function Analyzer() {
           analysis: r.analysis,
           analyzedAt: Date.now(),
           text: r.text,
+          // Both accounts, not whichever fires first. A drop of the summary + the low-rate log
+          // + the high-rate log — what Featherweight's own software writes out together —
+          // hits the left-out branch, and the paired note used to be discarded by the
+          // ternary: the flyer was told the high-rate file was left out and never told the
+          // summary had been read, while its figures sat in the cross-check panel below.
           note:
-            skipped.length + mappable.length > 0
-              ? loneFlightNote(list.length, [
-                  ...skipped,
-                  ...mappable.map((m) => ({ name: m.name, why: 'needs its columns mapped, which only works one file at a time' })),
-                ])
-              : paired.length > 0
-                ? pairedNote(paired)
-                : undefined,
+            [
+              skipped.length + mappable.length > 0
+                ? loneFlightNote(
+                    list.length,
+                    [
+                      ...skipped,
+                      ...mappable.map((m) => ({ name: m.name, why: 'needs its columns mapped, which only works one file at a time' })),
+                    ],
+                    paired.length > 0,
+                  )
+                : null,
+              paired.length > 0 ? pairedNote(paired) : null,
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined,
         });
       } else {
         set({
@@ -449,7 +434,7 @@ export default function Analyzer() {
         return;
       }
       await tick();
-      await ingest(rec.name, rec.text, rec.mapping);
+      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText);
     },
     [ingest],
   );

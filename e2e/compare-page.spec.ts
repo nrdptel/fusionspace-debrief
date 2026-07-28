@@ -152,12 +152,16 @@ test('the compare surface says which dropped files it could not use', async ({ p
   await page.getByLabel('Choose flight logs to compare').setInputFiles([
     fixture('altusmetrum-telemetrum.csv'),
     fixture('blueraven-app-lr.csv'),
-    // A device summary: headline figures and no flight record, so it is named and
-    // explained rather than silently dropped.
+    // A device summary: headline figures and no flight record. Both logs here are renamed
+    // fixtures, so neither is named for the rocket the summary states — it cannot be paired,
+    // and what it says has to be what Debrief actually knows. "Its flight log wasn't in this
+    // drop" would be flatly false: the SN0829 log IS in this drop, under another name.
     fixture('blueraven-app.summary.csv'),
   ]);
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
-  await expect(page.getByText(/blueraven-app\.summary\.csv — a device summary/)).toBeVisible();
+  await expect(page.getByText(/blueraven-app\.summary\.csv — the device's own summary/)).toBeVisible();
+  await expect(page.getByText(/can't tell which flight it belongs to/)).toBeVisible();
+  await expect(page.getByText(/wasn't in this drop/)).toHaveCount(0);
 });
 
 // A launch day's folder mixes loggers Debrief knows with ones it doesn't, and the file it
