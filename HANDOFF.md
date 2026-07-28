@@ -5,8 +5,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 ## This run — units that lied, and four readings the record doesn't support
 
 Branch restarted from `origin/main` at `38a9a75`; production was serving exactly that SHA at session
-start, so there was no gap on the way in. Thirteen shipped increments plus four record-keeping
-commits — seventeen in all — on this run's working branch, via PR #23.
+start, so there was no gap on the way in. Thirteen shipped increments, with record-keeping commits
+alongside them, on this run's working branch, via PR #23.
 
 Two themes. **A number labelled with a unit it wasn't in** (1–3), and **a reading published that the
 record cannot support** (4–8). Every figure below was measured this run.
