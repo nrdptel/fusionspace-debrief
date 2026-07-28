@@ -6,6 +6,28 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **DONE — the cross-check panel reported agreement over a shorter list than the table shows.**
+  `crossCheck()` covered seven readings while the comparison table displayed twelve, so the sentence
+  a flyer reads to decide whether to trust a set could say "agree" while an unchecked reading
+  disagreed wildly. Measured on the corpus's same-flight groups: **iss-endurance** worst CHECKED
+  spread **26.4%** against **max-Q 53%** (58,017 vs 99,672 Pa — the structural load case), **burn
+  time 193%** and **burnout altitude 176%**; the **four-altimeter** group read every checked metric
+  inside **6.7%** — as tight as the corpus gets — while its **tilt at burnout** ran 4°, 9°, 11°
+  (**94%**); **meraki2** put main deployment **221 s apart** (36%). Max-Q, burn time, burnout
+  altitude, main deploy time and tilt are now cross-checked, with the measured/derived flag carried
+  through on the two that are read at the burnout instant.
+  Also fixed the sentence itself: with a 193% spread in the list, "the independent readings agree to
+  within … 193% on burn time" is not English. The lede is now chosen by the same threshold that
+  colours a row amber, from one shared helper rather than the three copies that render it.
+
+- **A metric only ONE recording carries is dropped from the cross-check in silence.** `crossCheck`
+  skips a spec with `contrib.length < 2`, which is right for "too few to corroborate" but wrong when
+  the recordings *disagree about whether the thing happened*. On `trf-f1-jan18` the Blue Raven
+  reports a whole-descent rate and no main while the Featherweight GPS reports a drogue AND a main —
+  each of the three descent keys has count 1, so the panel emits **no descent row at all** and reads
+  as though recovery simply were not covered. Two instruments disagreeing about whether a main
+  deployed is a finding, not an absence. (Unverified by me; filed from the reconciliation sweep.)
+
 - **DONE — the data CSV stated a Mach and a dynamic pressure the rest of the app withholds.**
   `analyzedDataCsv` computed both per sample with no `velocityImplausible` gate, while its two
   siblings (`lib/explore.ts:146`, `lib/compare.ts:147`) and the headline metrics all withhold them on

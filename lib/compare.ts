@@ -304,6 +304,25 @@ export function undatedNote(days: StatedDay[], flights: number): string {
 export const DIFFERENT_DAYS_CAVEAT =
   'That reads off the stated dates alone. If you flew these as one flight, a device clock is wrong — Debrief reports the day each file states and never corrects it, and the readings cannot settle it, because different flights can agree as closely as two recordings of one.';
 
+/**
+ * Where a spread stops reading as ordinary scatter between two instruments and starts reading
+ * as a disagreement worth chasing. The comparison panel colours a row amber past it.
+ */
+export const CROSS_CHECK_WIDE = 10;
+
+/**
+ * How to introduce the cross-check list. "Agree to within" is only true when they do — with a
+ * 193% burn-time spread in the list it reads as nonsense, and the corpus has a same-flight
+ * group that produces exactly that. The panel already knows which side of the line the set is
+ * on, because it colours by the same threshold; this makes the sentence say it too.
+ *
+ * One function rather than the three copies of the sentence that render it (the panel, the
+ * Markdown write-up and the HTML report), so they cannot drift on what "agreement" means.
+ */
+export function crossCheckLede(agree: Agreement[]): 'agree to within' | 'differ by' {
+  return agree.some((a) => a.spreadPct > CROSS_CHECK_WIDE) ? 'differ by' : 'agree to within';
+}
+
 export function crossCheck(flights: CompareFlight[]): Agreement[] {
   const specs: {
     key: string;
@@ -349,6 +368,45 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // and read 71.3 ft/s over the whole descent; sharing a key reported that as a 121.6%
     // disagreement between instruments that had measured different things.
     { key: 'wholeDescentRate', label: 'whole-descent rate', get: (m) => m.wholeDescentRate },
+    // Everything below is a reading the comparison TABLE already shows. Leaving them out of
+    // the cross-check meant the panel could report agreement — the sentence a flyer reads to
+    // decide whether to trust the set — over a shorter list of readings than the table beside
+    // it displayed. Measured on the corpus's same-flight groups: iss-endurance's worst CHECKED
+    // spread was 26.4% while its max-Q differed by 53% (58,017 against 99,672 Pa), its burn
+    // time by 193% and its burnout altitude by 176%; the four-altimeter group read every
+    // checked metric inside 6.7% — as tight an agreement as the corpus has — while its tilt at
+    // burnout ran 4°, 9° and 11°.
+    //
+    // Max-Q first, because of the three it is the one a flyer acts on structurally: it is the
+    // load case an airframe is sized against, and two recordings of one flight disagreeing 53%
+    // about it is exactly the disagreement this panel exists to surface. It is ½ρv², so it
+    // inherits the velocity's provenance and a measured-vs-derived pair is flagged like the
+    // speed itself.
+    {
+      key: 'maxDynamicPressure',
+      label: 'max-Q',
+      get: (m) => m.maxDynamicPressure,
+      source: (m) => m.maxVelocitySource,
+    },
+    // Burn time and burnout altitude are read at the same instant, so they carry the same
+    // provenance: 'measured' from a signed axial crossing, or 'derived' from the speed peak.
+    // A pair that mixes the two is not two readings of one quantity — it is two definitions of
+    // the instant — which is precisely what the flag is for.
+    { key: 'burnTime', label: 'burn time', get: (m) => m.burnTime, source: (m) => m.burnoutSource ?? 'unknown' },
+    {
+      key: 'burnoutAltitude',
+      label: 'burnout altitude',
+      get: (m) => m.burnoutAltitude,
+      source: (m) => m.burnoutSource ?? 'unknown',
+    },
+    // When the main fired, from each recording's own liftoff. Two bays on one airframe are
+    // supposed to fire together; 221 s apart on one corpus group is the single most actionable
+    // thing a redundant-altimeter comparison can report, and it was not reported at all.
+    { key: 'mainDeployTime', label: 'main deploy time', get: (m) => m.mainDeployTime },
+    // Read straight off each logger's own attitude solution, so no source mix — but two
+    // recordings on one airframe flew at one angle, and a wide spread means at least one
+    // attitude solution has drifted rather than that the rocket did something.
+    { key: 'tiltAtBurnout', label: 'tilt at burnout', get: (m) => m.tiltAtBurnout },
   ];
   const out: Agreement[] = [];
   for (const s of specs) {

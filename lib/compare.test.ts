@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resample, buildComparison, crossCheck, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
+import { resample, buildComparison, crossCheck, crossCheckLede, differentFlightDays, statedDaySplit, statedDaysPhrase, undatedNote, COMPARE_PALETTE, MAX_COMPARE, type CompareInput, type CompareFlight } from './compare';
 import type { FlownAt } from './flight/flownAt';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 
@@ -89,6 +89,45 @@ describe('crossCheck', () => {
     const partial = crossCheck([descentFlight(22, 6.1), descentFlight(19, null)]);
     expect(partial.some((x) => x.key === 'mainDescentRate')).toBe(false);
     expect(partial.some((x) => x.key === 'drogueDescentRate')).toBe(true);
+  });
+
+  const fullFlight = (over: Partial<FlightMetrics>): CompareFlight =>
+    ({ metrics: { apogeeAltitude: 2000, maxVelocity: 300, ...over } as FlightMetrics }) as CompareFlight;
+
+  it('cross-checks every reading the comparison table shows, not a shorter list', () => {
+    // The panel is the sentence a flyer reads to decide whether to trust the set, and it used
+    // to check seven readings while the table beside it displayed twelve. Measured on the
+    // corpus's same-flight groups: iss-endurance's worst CHECKED spread was 26.4% while its
+    // max-Q differed 53%, its burn time 193% and its burnout altitude 176%; the four-altimeter
+    // group read every checked metric inside 6.7% while its tilt at burnout ran 4°, 9°, 11°.
+    const a = crossCheck([
+      fullFlight({ maxDynamicPressure: 58017, burnTime: 2.9, burnoutAltitude: 488, mainDeployTime: 120, tiltAtBurnout: 4, burnoutSource: 'measured', maxVelocitySource: 'device' }),
+      fullFlight({ maxDynamicPressure: 99672, burnTime: 0.05, burnoutAltitude: 30, mainDeployTime: 121, tiltAtBurnout: 11, burnoutSource: 'derived', maxVelocitySource: 'device' }),
+    ]);
+    for (const key of ['maxDynamicPressure', 'burnTime', 'burnoutAltitude', 'mainDeployTime', 'tiltAtBurnout']) {
+      expect(a.some((x) => x.key === key), `${key} is cross-checked`).toBe(true);
+    }
+    // Max-Q is the structural load case — the one of these a flyer sizes an airframe against.
+    expect(a.find((x) => x.key === 'maxDynamicPressure')!.spreadPct).toBeGreaterThan(40);
+    // Burn time and burnout altitude are read at one instant, so a measured/derived pair is
+    // two definitions of that instant rather than two readings of one quantity.
+    expect(a.find((x) => x.key === 'burnTime')!.mixedSource, 'a measured/derived burnout pair is flagged').toBe(true);
+    expect(a.find((x) => x.key === 'burnoutAltitude')!.mixedSource).toBe(true);
+    // Tilt is read off each logger's own attitude solution — no source mix to flag.
+    expect(a.find((x) => x.key === 'tiltAtBurnout')!.mixedSource).toBe(false);
+  });
+
+  it('does not say readings "agree to within" a spread that is a disagreement', () => {
+    // With a 193% burn-time spread in the list, "the independent readings agree to within …
+    // 193% on burn time" is nonsense, and the corpus has a group that produces exactly that.
+    const wide = crossCheck([
+      fullFlight({ burnTime: 2.9, burnoutSource: 'measured' }),
+      fullFlight({ burnTime: 0.05, burnoutSource: 'measured' }),
+    ]);
+    expect(crossCheckLede(wide)).toBe('differ by');
+
+    const tight = crossCheck([fullFlight({ apogeeAltitude: 2000 }), fullFlight({ apogeeAltitude: 2010 })]);
+    expect(crossCheckLede(tight)).toBe('agree to within');
   });
 
   const clippedAccelFlight = (maxA: number, clipped: boolean): CompareFlight =>

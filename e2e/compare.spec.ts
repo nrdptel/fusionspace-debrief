@@ -134,7 +134,12 @@ test('compare two flights from the recents list', async ({ page }) => {
     htmlStream!.on('error', reject);
   });
   expect(cmpHtml.startsWith('<!doctype html>')).toBe(true);
-  expect(cmpHtml).toMatch(/agree to within/); // the cross-check narrative
+  // The cross-check narrative. Its lede is chosen by the spread, so assert the sentence rather
+  // than one of its two openings — and then assert the RIGHT opening for these two flights,
+  // which are a launch day apart rather than two recordings of one flight. Reading "agree to
+  // within 160% on apogee" is how this used to render, which is not English.
+  expect(cmpHtml).toMatch(/If these are recordings of the same flight, the independent readings (agree to within|differ by) /);
+  expect(cmpHtml, 'two flights 160% apart do not "agree to within"').toMatch(/independent readings differ by /);
   expect(cmpHtml).toContain('<svg'); // overlay chart embedded inline
   expect(cmpHtml).not.toMatch(/<script/i); // self-contained, no script or external asset
 
