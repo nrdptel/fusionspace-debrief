@@ -21,8 +21,19 @@ export interface FlightEvent {
 
 export interface FlightMetrics {
   apogeeAltitude: number; // m AGL
+  /** True when the record's peak is at or beside its last sample — the log stopped at or
+   *  before apogee, so this figure is the highest the rocket was SEEN at, a lower bound,
+   *  not the height it reached. The flight kept going; the recording did not. */
+  apogeeIsFloor: boolean;
   timeToApogee: number; // s from liftoff
   maxVelocity: number; // m/s
+  /** Why there is no peak speed, when there isn't one. 'gap' — the ascent has a stretch the
+   *  record doesn't cover, so the top speed may fall inside it and a derivative across it is
+   *  a spike, not a reading. 'implausible' — the trace produced a speed the analysis judged
+   *  impossible. null — the log carries no speed and none could be derived, which is the only
+   *  case where "not in this log" is true. The first two are Debrief declining to report a
+   *  number from data that IS there, and a tile saying the log lacks it is actively wrong. */
+  maxVelocityWithheld: 'gap' | 'implausible' | null;
   maxVelocitySource: 'device' | 'baro';
   maxVelocityAltitude: number; // m AGL where max velocity occurred
   mach: number | null;

@@ -206,3 +206,53 @@ test('a hand-mapped flight reopens as itself, and can join a comparison by id', 
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByText(/needs its columns mapped/)).toHaveCount(0);
 });
+
+// Four recordings of one flight share a long prefix, which is exactly the case the compare
+// surface exists for — and at a 390 px viewport the logbook's name cell is 188 px, so a
+// single truncated line painted the identical string for all four. You cannot tick the
+// flight you meant from a list of four rows that read the same.
+test('a phone can tell two similarly-named flights apart in the logbook', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const names = [
+    'mercury__altimetercloud-lilnuke4alt-1784__1784.csv',
+    'mercury__altimetercloud-lilnuke4alt-1785__1785.csv',
+  ];
+  for (const name of names) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  const rows = page.getByRole('list', { name: 'Your flights' }).getByRole('listitem');
+  await expect(rows).toHaveCount(2);
+
+  // The distinguishing part of the name has to be inside the box that is actually painted,
+  // not merely present in the DOM: measure what fits, the way the screen does.
+  // The row carries several monospace spans (the name, then figures); the name is the first.
+  const nameSpans = [];
+  for (let i = 0; i < 2; i++) nameSpans.push(rows.nth(i).locator('span.font-mono').first());
+  const visible = await Promise.all(
+    nameSpans.map((loc) =>
+      loc.evaluate((e) => {
+      const cs = getComputedStyle(e);
+      const cv = document.createElement('canvas').getContext('2d');
+      cv.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const lines: string[] = [];
+      let line = '';
+      for (const ch of e.textContent || '') {
+        if (cv.measureText(line + ch).width > e.clientWidth && line) {
+          lines.push(line);
+          line = ch;
+        } else line += ch;
+      }
+      if (line) lines.push(line);
+        const shown = Math.max(1, Math.round(e.clientHeight / parseFloat(cs.lineHeight || '20')));
+        return lines.slice(0, shown).join('');
+      }),
+    ),
+  );
+  expect(visible).toHaveLength(2);
+  expect(new Set(visible).size, `both rows read the same on a phone: ${JSON.stringify(visible)}`).toBe(2);
+});

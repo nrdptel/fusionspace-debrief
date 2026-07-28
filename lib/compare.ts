@@ -194,8 +194,8 @@ export interface Agreement {
    *  e.g. one max speed is device-measured and another is altitude-derived. Some of the
    *  spread is then method, not flight, and it has a direction: on all four corpus pairs
    *  where one recording measured the speed and another differentiated it out of an
-   *  altitude, the derived one reads HIGH — by 5%, 23%, 31% and 110%. So a mixed spread
-   *  overstates the disagreement rather than bounding it. */
+   *  altitude, the derived one reads HIGH — by 5%, 23%, 30% and 110% on the speeds. So a
+   *  mixed spread overstates the disagreement rather than bounding it. */
   mixedSource: boolean;
   /** True when at least one contributing value is a floor rather than the true peak —
    *  today an accelerometer that saturated at its full-scale limit. Its real peak is
@@ -427,4 +427,43 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource, saturated });
   }
   return out;
+}
+
+
+/** Trim a file extension, for a tidier column/legend label. */
+function labelStem(name: string): string {
+  return name.replace(/\.[^.]+$/, '');
+}
+
+/** What distinguishes each column FROM THE OTHERS in this comparison, for the one label a
+ *  flyer reads at the top of it. Corpus and vendor file names carry the flight in a shared
+ *  prefix and the recording in a short tail, so a set of four recordings of one flight paints
+ *  four identical columns: at 1440 px the header clips at 160 px and every one reads
+ *  `mercury__altimeterclo`, and on a phone it clips at 80 px and every one reads
+ *  `mercury__a`. The colour dot is then the only thing telling them apart, and the surface's
+ *  whole job is picking a reading out of the column you meant.
+ *
+ *  So the shared head and tail are elided and what differs is kept. The full name stays on
+ *  the `title`, in the reorder buttons' labels, in the chart legend and in every export —
+ *  this is a display label for one crowded cell, not a rename. Falls back to the plain stem
+ *  whenever there is nothing shared to drop, or when eliding would leave too little to read. */
+export function distinguishingLabels(names: string[]): string[] {
+  const stems = names.map(labelStem);
+  if (stems.length < 2) return stems;
+  const first = stems[0];
+  let head = 0;
+  while (head < first.length && stems.every((s) => s.length > head && s[head] === first[head])) head++;
+  let tail = 0;
+  while (
+    tail < first.length - head &&
+    stems.every((s) => s.length > head + tail && s[s.length - 1 - tail] === first[first.length - 1 - tail])
+  )
+    tail++;
+  // Only worth doing when it actually buys width, and never down to a stub a flyer
+  // can't match back to a file.
+  if (head < 4) return stems;
+  return stems.map((s) => {
+    const cut = s.slice(head, s.length - tail);
+    return cut.length >= 3 ? `…${cut}` : s;
+  });
 }

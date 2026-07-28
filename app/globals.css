@@ -56,6 +56,22 @@ html {
   nav a {
     padding-block: 0.875rem;
   }
+  /* …and the chrome's own links, which are controls too but sit outside the <nav>. The note
+     above claimed the brand eyebrow was covered by `nav a`; it lives in a header <div>, so it
+     never was, and it measured 102x16 on a phone with a report loaded — as did the Tip link
+     beside it (59x26) and the footer's project line (358x20). Links inside running prose are
+     deliberately left alone: 44 px mid-sentence would be wrong, and each of those has a nav
+     entry or a button beside it doing the same job at full size. */
+  header a,
+  footer a {
+    padding-block: 0.875rem;
+  }
+  header p a,
+  header li a,
+  footer p a,
+  footer li a {
+    padding-block: 0;
+  }
   /* A summary is a block list-item, so a min-height would strand its label at the top
      of the taller box — and switching it to flex to centre that would drop the
      disclosure triangle. Pad it instead: the row grows to a thumb's worth and the whole

@@ -81,8 +81,15 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
     // thumb has to hit is the target, not the box, and the target is the wrapping <label>.
     // Exempting them from the measurement too is why the logbook's compare tick sat at
     // 20x20 with no label at all and nothing caught it.
-    const sel = 'button, select, summary, [role=button], nav a, input:not([type=range])';
+    // `nav a` alone left the chrome's other links unmeasured, and they are controls too:
+    // the brand eyebrow sits in a header <div>, not the <nav>, and measured 102x16 with a
+    // report loaded, as did the Tip link (59x26) and the footer's project line (358x20) —
+    // none of which this test could see. A link inside running prose is NOT a control and
+    // stays out: 44 px mid-sentence is wrong, and each of those has a nav entry or a button
+    // doing the same job at full size beside it.
+    const sel = 'button, select, summary, [role=button], nav a, header a, footer a, input:not([type=range])';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      if (el.tagName === 'A' && el.closest('p, li')) continue;
       const r = (el.closest('label') ?? el).getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue; // hidden (e.g. the sr-only file input)
       if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);

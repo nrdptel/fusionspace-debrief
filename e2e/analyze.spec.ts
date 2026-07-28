@@ -838,3 +838,45 @@ test('the explorer lets you choose which events are called out', async ({ page }
   await burnoutAgain.click();
   await expect(page.getByRole('button', { name: /burnout on the plot/i })).toHaveAttribute('aria-pressed', 'true');
 });
+
+// The timeline caption is the one line that claims to summarise the whole flight, and it
+// said "liftoff to landing" whatever the record held — "2.6 s liftoff to landing" on a
+// 3,548 ft log whose last sample is still climbing at 1,057 ft/s, and the same claim on 15
+// of the 42 corpus flights that render a timeline at all. Both directions are checked here
+// because the fix has to be a distinction, not a removal.
+test('the timeline says what its span actually covers', async ({ page }) => {
+  // A complete flight, up and back to the pad, resting there.
+  const landed =
+    'Time,Altitude\n' +
+    Array.from({ length: 240 }, (_, i) => {
+      const t = i * 0.25;
+      const ft = t - 2;
+      const alt = ft <= 0 ? 0 : ft <= 10 ? 600 * (1 - (1 - ft / 10) ** 2) : Math.max(0, 600 - 15 * (ft - 10));
+      return `${t.toFixed(2)},${alt.toFixed(1)}`;
+    }).join('\n');
+
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles({ name: 'landed.csv', mimeType: 'text/csv', buffer: Buffer.from(landed) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Flight timeline' })).toBeVisible();
+  const spanLanded = page.getByRole('heading', { name: 'Flight timeline' }).locator('xpath=following-sibling::span[1]');
+  await expect(spanLanded).toContainText('liftoff to landing');
+
+  // The same climb, cut off at apogee — the record never comes down.
+  const truncated =
+    'Time,Altitude\n' +
+    Array.from({ length: 50 }, (_, i) => {
+      const t = i * 0.25;
+      const ft = t - 2;
+      const alt = ft <= 0 ? 0 : 600 * (1 - (1 - Math.min(ft, 10) / 10) ** 2);
+      return `${t.toFixed(2)},${alt.toFixed(1)}`;
+    }).join('\n');
+
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles({ name: 'truncated.csv', mimeType: 'text/csv', buffer: Buffer.from(truncated) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Flight timeline' })).toBeVisible();
+  const spanCut = page.getByRole('heading', { name: 'Flight timeline' }).locator('xpath=following-sibling::span[1]');
+  await expect(spanCut).toContainText('liftoff to the end of the record');
+  await expect(spanCut).not.toContainText('liftoff to landing');
+});

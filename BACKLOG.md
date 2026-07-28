@@ -6,6 +6,106 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **A deploy latch is per-COPY, which the "deployment boundaries are parsed and thrown away" entry
+  below needs to account for.** Measured on `blueraven__trf-f1machbuster-jan18` LR: `Apo_fired`,
+  `3rd_fired` and `4th_fired` each show **three** transitions (0→1, 1→0, 0→1), not one latch,
+  because the file holds the flight twice and the second copy re-arms them; `Main_fired` shows one,
+  on the final row. So whoever lifts those columns has to decide which copy a flag belongs to —
+  which lands in the same-flight splitter, the region the seam entry below says needs its own pass.
+  Sequence it that way round.
+
+- **DONE — a peak speed differentiated across four missing GPS fixes was the reported headline, and
+  the published accuracy claim rested on it.** The guard that withholds a derived peak over an ascent
+  gap tested the clock only; a ground-station GPS log keeps writing a row every second through a
+  dropout, so the clock ran straight through four empty altitude fields at t=962.01–965.01 on
+  `fwgps__trf-f1machbuster-jan18__GPS_GS03748`. The smoothed derivative bridged them — **268.0, 497.0,
+  496.4, 268.7 m/s** where the climb either side averages **288 m/s** — and **497.0 m/s** became the
+  peak, at **Mach 1.46**, against the **378.9 m/s** the Blue Raven measured on the same flight. It was
+  also uncaveated: `mach` falls back to the ground speed of sound when the profile at the peak index is
+  unreadable while the transonic search requires a finite one, so it reported Mach 1.46 with
+  `transonicTime` null — and every supersonic caveat is gated on that. One of 46 was in that state;
+  none are now. The rule counts samples, not seconds (≥2 consecutive missing ascent samples spanning
+  >1.5 s): this file's clock gap is **4.98 s against a 5·dt bound of 5.0**, missing by 20 ms.
+  **The claim moved with it.** "A GPS-derived peak runs high — Mach 1.46 against a measured 1.14,
+  +28%" was stated in the transonic warning, on the methods page, on the validation page, in the metric
+  grid's amber caveat and in the comparison's mixed-source note. Without the artefact the one GPS
+  flight the corpus can still check reads **446.8 vs 427.0 m/s — +5%**, and **+9%** against the
+  tracker's own 1,340 ft/s; the two barometric derived speeds on that flight run **+23% and +110%**.
+  Direction unchanged everywhere, size corrected on all five surfaces.
+
+- **DONE — a descent that never reached the ground was published as a touchdown speed.** The analyzer
+  already marks no landing and withholds flight time and descent time on such a record, and says why —
+  but the descent RATE went on being published and every surface read it as a landing: "averaged apogee
+  **to landing**" in the grid and the report, "**Touched down at** X" in the recovery card, a landing
+  energy squared out of it, and a parachute Cd solved from it as a terminal velocity. **Six of the
+  flights the suite analyses end to end**: the Kairos sustainer stops **2,540 m up, 62.8% of its own
+  apogee**, and read "touched down at 148.5 ft/s" beside the warning saying it never reaches the
+  ground; the Proton file stops 2,113 m up (59.1%) at 71.3 ft/s. The rate is kept and relabelled; the
+  touchdown claim, the landing energy in card/report/export, and the Cd are withheld, with the card
+  staying on the page to explain. Decided once in `landedInRecord`/`landingRate`.
+
+- **DONE — the JSON logger cross-check divided two speeds by g.** The cross-check renders twice and the
+  two copies decided the quantity separately: the formatted one handled all five metrics, the JSON one
+  tested apogee and max velocity and let the rest fall through to the acceleration converter. **Three
+  corpus files carry a reported speed, all AltimeterCloud, all wrong** — burnout **59.83 m/s exported
+  as 6.10** and descent **6.21 as 0.63** (greeneggs3-1888); **152.76 → 15.58**, **5.71 → 0.58**
+  (lilnuke4alt-1786); **153.86 → 15.69**, **5.63 → 0.57** (lilnuke4alt-1796). `agreementPct` is computed
+  from SI before either conversion, so the row read "agree" while the numbers beside it were 9.8× apart.
+
+- **DONE — the JSON exports declared one acceleration unit and emitted another.** `jsonConv.acc`
+  converted to g unconditionally while `jsonUnits` declared the chosen unit: **15.62 emitted where the
+  value in the declared m/s² is 153.14**. Invisible to the suite because every JSON assert passed
+  `'imperial'` or `'metric'` and both name acceleration in g.
+
+- **A file boundary is read as a touchdown, and fixing it is multi-pass — attempted and reverted this
+  run.** On `blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR`, copy 1's trace FREEZES at 823.2 ft
+  (a 4-sample ring it holds for ~35 s) and the very next sample, **0.020 s later, is −3.4 ft**: a step
+  of **41,330 ft/s** on a flight whose descent ran at 55. That sample is copy 2's pre-launch pad, and
+  the landing detector takes it — `landing t=124.88, alt=−3.1 ft`, which is exactly the seam. From it
+  come `flightTime` 122.90 s (which "agrees" with the device's stated 123.02 by luck) and a published
+  descent rate of 55 ft/s where the device's own summary states a **29.0 ft/s** main descent — a
+  **3.6× landing-energy error**. The main deploy is genuinely absent from both copies, so the fault is
+  the seam, not the detector missing a deploy.
+  **What was tried, and why it was reverted.** Bounding the landing search at the first post-apogee
+  step faster than free-fall from the flight's own apogee (√(2gh), the same ceiling the descent rates
+  already use) fixes jan18 exactly — no landing, and the correct "never reaches the ground" guard
+  fires. But the landing block is four interacting rules — the primary near-pad detector, the
+  at-rest tail fallback, `descentIsInTheRecord`, and the `altClean[n−1] < 5` "record ends on the
+  ground" clause — and a seam concept touches all of them plus the second-copy splice path. Two
+  successive refinements (requiring the seam to be one sample wide, isolated on both sides; then
+  clamping the whole block to `recordEnd = recordBreak − 1`) each fixed one case and broke others:
+  the jan10 second-copy splice lost `descentSource`, and four flights that correctly say "never
+  reaches the ground" started claiming a landing. Reverted with the tree green. **Do this as its own
+  pass, with the whole landing block in view rather than one rule at a time**, and re-run the jan10
+  splice test and the ends-at-rest set as the first check, not the last.
+
+- **The same-flight splitter cuts at copy 2's LIFTOFF instead of copy 2's START, manufacturing a
+  landing.** Verified, not fixed. On `blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR`,
+  `nextFlightStart` glues ~2.3 s of copy 2's pre-launch pad onto copy 1, so Debrief's "landing" event
+  is a pad reading at file t=122.92, AGL −3.4 ft. Truncate the file at t < 122.9 and the correct guard
+  at `lib/analyze/index.ts:1399` fires and withholds everything — the false ground is what defeats it.
+  Today the flight reports **55 ft/s** where the device's own summary states a **29.0 ft/s** main
+  descent: a **3.6× landing-energy error**. The main deploy is genuinely absent from both copies (both
+  freeze on a 4-sample ring spanning the whole main leg, 0 samples between wallclock 10:50:09.700 and
+  10:50:44.600), so the fix is the cut, not the detector. Note `wholeDescentRate` is not gated on a
+  landing being found even after the correct cut — the counterfactual still returned 51.0 ft/s.
+
+- **DONE — the Recovery card claimed a landing on a log that ends at apogee.**
+  `altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv` — 285 samples, 2.84 s, last sample
+  **1,081.6 m AGL at 322.1 m/s, still climbing**. `FlightReport.tsx:1073` renders `GroundTrack` on
+  `gpsLat && gpsLon` alone and `lib/gps.ts:332` takes the last valid fix as the resting place
+  unconditionally: "Landed from pad: 10 ft · Bearing 267° W · Max drift 10 ft", a landing ✕ on the
+  track, "Walk from the pad toward W (267°)", and GPX/KML waypoints literally named `Landing`.
+  `landedInRecord` is the gate this needs.
+
+- **DONE — apogee was the only primary tile with no provenance sub-label and no truncation flag.**
+  Fixed by `apogeeIsFloor` + `apogeeSub`, on the grid and in the saved report; two corpus flights
+  (intrepid1, intrepid2) now read "at least this high — the log ends at its own peak". Original
+  entry below. On the
+  truncated TeleMetrum log it reads "APOGEE 3,548 ft / 2.6 s to apogee" as flat fact while the analyzer
+  has already raised "The log appears to end at or before apogee". Neighbouring tiles carry 1–2
+  provenance chips; the one number everybody copies out carries none.
+
 - **DONE — the cross-check panel reported agreement over a shorter list than the table shows.**
   `crossCheck()` covered seven readings while the comparison table displayed twelve, so the sentence
   a flyer reads to decide whether to trust a set could say "agree" while an unchecked reading
@@ -320,10 +420,15 @@ memory, so a later pass doesn't have to rediscover them.
   legs. **Caveat found while reading it:** the drogue channel fires ~12.4 s after apogee, so an
   apogee→main chord (77.6 ft/s) and a deploy→main chord (59.4 ft/s) are different questions, and
   the device's −55.9 matches the latter. Any descent contract has to say which boundary it means.
-- **The saved report substitutes the whole-descent average into landing energy without the caveat
-  the screen carries.** `lib/report.ts:77` and `:1103` both do `m.mainDescentRate ?? m.wholeDescentRate`
-  for `landingEnergyJoules`, while `components/LandingEnergy.tsx:48-49` sets a `wholeDescent` flag and
-  says so on screen. Energy goes as v², so where the whole-descent average is well above the main
+- **DONE — the saved report substituted the whole-descent average into landing energy without the
+  caveat the screen carries.** Both halves are closed: the substitution itself is gated on
+  `landingRate`, which is null where the record never reached the ground (so six flights that were
+  publishing a touchdown energy now publish none), and where the flight DID land with no deployment
+  change resolved, the report row now carries the same basis the card shows. Both surfaces read the
+  one `landingRateIsWholeDescent` helper rather than repeating the condition. Original entry:
+  `lib/report.ts:77` and `:1103` both did `m.mainDescentRate ?? m.wholeDescentRate`
+  for `landingEnergyJoules`, while `components/LandingEnergy.tsx:48-49` set a `wholeDescent` flag and
+  said so on screen. Energy goes as v², so where the whole-descent average is well above the main
   rate the exported document overstates the joules by that ratio squared — on the document a cert
   write-up and a club energy limit are read from. Same substitution, caveat on one surface only.
 - **CORRECTED — the AltimeterCloud "13.6–16.7% error" is the DEVICE disagreeing with itself, not

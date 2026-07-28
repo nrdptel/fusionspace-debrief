@@ -3,6 +3,7 @@ import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
 import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
 import { buildComparison, type CompareInput } from './compare';
+import { landingRateIsWholeDescent } from './readings';
 
 function tinyFlight(): RawFlight {
   const dt = 0.05;
@@ -28,9 +29,21 @@ function tinyFlight(): RawFlight {
   };
 }
 
+/** The same flight with a measured axial channel, so the acceleration column and the
+ *  acceleration metrics exist at all. The boost ramps 40 → 80 m/s² rather than sitting
+ *  flat, so the boost average is a different number from the peak and an assert on one
+ *  cannot pass on the other's value. */
+function accelFlight(): RawFlight {
+  const f = tinyFlight();
+  const n = f.time.length;
+  const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 40 + (40 * (i - 40)) / 40 : 0));
+  return { ...f, channels: [...f.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
+}
+
 describe('report exports', () => {
   const flight = tinyFlight();
   const analysis = analyzeFlight(flight);
+  const accelFlight_ = accelFlight();
 
   it('analyzedDataCsv leads with the derived columns and one row per sample', () => {
     const csv = analyzedDataCsv(flight, analysis, 'imperial');
@@ -71,12 +84,19 @@ describe('report exports', () => {
     expect(analyzedDataCsv(flight, analysis, 'metric').split('\n')[0]).toContain('mach');
   });
 
-  it('includes the acceleration column when the logger measured it', () => {
-    const n = flight.time.length;
-    const acc = Float64Array.from({ length: n }, (_, i) => (i > 40 && i < 80 ? 80 : 0)); // a boost pulse
-    const withAccel: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: acc }] };
-    const csv = analyzedDataCsv(withAccel, analyzeFlight(withAccel), 'imperial');
-    expect(csv.split('\n')[0]).toContain('acceleration (g)');
+  it('includes the acceleration column when the logger measured it, in the chosen unit', () => {
+    const a = analyzeFlight(accelFlight_);
+    expect(analyzedDataCsv(accelFlight_, a, 'imperial').split('\n')[0]).toContain('acceleration (g)');
+
+    // The column follows the per-quantity choice like every other one — a bundle whose
+    // .json says m/s² and whose .csv says g is one flight carried in two units.
+    const csv = analyzedDataCsv(accelFlight_, a, { length: 'm', speed: 'm/s', accel: 'm/s²', temp: '°C', pressure: 'kPa' });
+    const cols = csv.split('\n')[0].split(',');
+    const at = cols.indexOf('acceleration (m/s²)');
+    expect(at, 'the header names the chosen unit').toBeGreaterThan(-1);
+    // …and the numbers underneath it moved with the label, rather than staying in g.
+    const peak = Math.max(...csv.split('\n').slice(1).map((r) => Number(r.split(',')[at]) || 0));
+    expect(peak).toBeGreaterThan(50); // ~80 m/s²; it would read ~8 if still in g
   });
 
   it('switches CSV units with the system', () => {
@@ -212,7 +232,7 @@ describe('report exports', () => {
     expect(txt).toMatch(/Landing energy\s+[\d.]+ ft·lbf \(at [\d.]+ oz descending\)/);
 
     const md = summaryMarkdown(flight, analysis, 'metric', 1_700_000_000_000, undefined, recovery);
-    expect(md).toMatch(/\| Landing energy \| \d+ J \(at \d+ g descending\) \|/);
+    // Prefix, not the whole cell: the value carries a basis caveat when the rate is a\n    // whole-descent average, and pinning the cell exactly would fail on that rather than on\n    // the figure this assert is about.\n    expect(md).toMatch(/\| Landing energy \| \d+ J \(at \d+ g descending\)/);
 
     const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 1_700_000_000_000, undefined, recovery));
     expect(doc.recovery.landingEnergyJoules).toBeCloseTo(expectedJ, 0);
@@ -321,6 +341,131 @@ describe('report exports', () => {
     expect(doc.loggerSummary[0].metric).toBe('apogeeAltitude');
     expect(doc.loggerSummary[0].logger).toBeCloseTo(300, 0);
     expect(typeof doc.loggerSummary[0].agreementPct).toBe('number');
+  });
+
+  // Both named systems declare acceleration in g, so every other JSON test here agrees with
+  // the export no matter what it converts to. The unit is chosen per quantity, though, and a
+  // flyer who picks m/s² gets a number a script reads as m/s² — this holds the declared unit
+  // and the emitted magnitude side by side so they cannot drift apart again.
+  it('analysisJson emits acceleration in the unit it declares, whichever was chosen', () => {
+    const a = analyzeFlight(accelFlight_);
+    const si = a.metrics.maxAcceleration;
+    expect(Number.isFinite(si)).toBe(true); // the asserts below are worthless on a null
+    // A ramped boost, so the average is genuinely below the peak — a flat pulse makes
+    // avgBoost === max and the second assert passes on the first one's number.
+    expect(a.metrics.avgBoostAcceleration).toBeLessThan(si - 1);
+
+    const base = { length: 'm', speed: 'm/s', temp: '°C', pressure: 'kPa' } as const;
+    // The factor from SI to each unit, so a wrong conversion cannot pass by coincidence,
+    // and the tolerance is exactly the last decimal the export writes in that unit —
+    // not a fixed epsilon that the rounding alone could consume.
+    for (const [unit, perMs2, step] of [
+      ['g', 1 / 9.80665, 0.01],
+      ['m/s²', 1, 0.1],
+      ['ft/s²', 1 / 0.3048, 0.1],
+    ] as const) {
+      const doc = JSON.parse(analysisJson(accelFlight_, a, { ...base, accel: unit }));
+      expect(doc.units.acceleration).toBe(unit);
+      expect(Math.abs(doc.metrics.maxAcceleration - si * perMs2)).toBeLessThan(step);
+      expect(Math.abs(doc.metrics.avgBoostAcceleration - a.metrics.avgBoostAcceleration! * perMs2)).toBeLessThan(step);
+    }
+
+    // Every acceleration-valued key at once, rather than the two named above: read the
+    // document twice and require each to sit in the ratio between the two units, or to be
+    // absent from both. That covers maxDeceleration and an event's peak shock — which no
+    // named assert reaches on every fixture — and fails if a new one arrives unconverted.
+    const inG = JSON.parse(analysisJson(accelFlight_, a, { ...base, accel: 'g' }));
+    const inMs2 = JSON.parse(analysisJson(accelFlight_, a, { ...base, accel: 'm/s²' }));
+    const accelKeys = ['maxAcceleration', 'avgBoostAcceleration', 'maxDeceleration'] as const;
+    for (const k of accelKeys) {
+      if (inG.metrics[k] == null) {
+        expect(inMs2.metrics[k]).toBeNull();
+        continue;
+      }
+      expect(inMs2.metrics[k] / inG.metrics[k]).toBeCloseTo(9.80665, 1);
+    }
+    for (let i = 0; i < inG.events.length; i++) {
+      const g = inG.events[i].peakAcceleration;
+      if (g == null || Math.abs(g) < 0.5) continue; // a ratio on near-zero is all rounding
+      expect(inMs2.events[i].peakAcceleration / g).toBeCloseTo(9.80665, 1);
+    }
+
+    // And the comparison export, which declares its units from the same helper.
+    const cmp = buildComparison([{ id: 'a', name: 'a.csv', formatLabel: 'Test', analysis: a }] satisfies CompareInput[]);
+    const doc = JSON.parse(compareJson(cmp, { ...base, accel: 'ft/s²' }));
+    expect(doc.units.acceleration).toBe('ft/s²');
+    expect(Math.abs(doc.flights[0].metrics.maxAcceleration - si / 0.3048)).toBeLessThan(0.1);
+  });
+
+  // The logger cross-check is rendered twice — formatted for the text/Markdown/HTML
+  // reports, and as numbers for the JSON — and the two decided the quantity separately.
+  // The JSON tested only maxVelocity and let the rest fall through to the acceleration
+  // converter, so a device's own burnout velocity and descent rate came out divided by g
+  // under a document declaring m/s. This runs every metric the union carries through both
+  // and requires them to land on the same figure.
+  it('the JSON logger cross-check reads the same number the report prints, for every metric', () => {
+    const cases = [
+      { metric: 'apogeeAltitude', label: 'Apogee', si: 300 },
+      { metric: 'maxVelocity', label: 'Max velocity', si: 200 },
+      { metric: 'burnoutVelocity', label: 'Burnout velocity', si: 180 },
+      { metric: 'mainDescentRate', label: 'Descent velocity', si: 6.5 },
+      { metric: 'maxAcceleration', label: 'Max acceleration', si: 150 },
+    ] as const;
+
+    // Two choices, because with acceleration in m/s² the wrong converter is the identity
+    // and a speed sent through it comes out right by accident. In g it does not.
+    const systems = [
+      { length: 'm', speed: 'm/s', accel: 'g', temp: '°C', pressure: 'kPa' },
+      { length: 'm', speed: 'm/s', accel: 'm/s²', temp: '°C', pressure: 'kPa' },
+    ] as const;
+
+    for (const sys of systems) {
+      for (const c of cases) {
+        const withReported: RawFlight = {
+          ...accelFlight_,
+          reported: [{ metric: c.metric, label: c.label, value: c.si, source: 'device' }],
+        };
+        const a = analyzeFlight(withReported);
+        const doc = JSON.parse(analysisJson(withReported, a, sys));
+        const row = doc.loggerSummary[0];
+
+        // The text report is the reference. Read its cross-check section specifically —
+        // the headline table above it carries Debrief's own reading under the same label,
+        // and that is a different number from the device's.
+        const section = summaryText(withReported, a, sys).split('Logger’s own summary (cross-check)')[1];
+        expect(section, `the report has a cross-check for ${c.label}`).toBeTruthy();
+        const printed = section.match(new RegExp(`${c.label}\\s+logger\\s+([\\d,]+(?:\\.\\d+)?)\\s*(m/s²|m/s|m|g)(?=\\s|$)`));
+        expect(printed, `the cross-check prints ${c.label}`).not.toBeNull();
+        const asPrinted = Number(printed![1].replace(/,/g, ''));
+
+        const where = `${c.metric} in ${sys.accel}`;
+        expect(row.metric).toBe(c.metric);
+        expect(row.unit, `${where} states its unit`).toBe(printed![2]);
+        // Same reading, same figure — a 9.81× or 0.102× disagreement is the bug this guards.
+        expect(Math.abs(row.logger - asPrinted), `${where}: JSON ${row.logger} vs report ${asPrinted}`).toBeLessThan(1);
+      }
+    }
+  });
+
+  // Energy goes as v², so a landing energy computed off a whole-descent average rather than a
+  // resolved main leg is a different claim, and the card has said so on screen since it was
+  // written. The saved report — the document a cert write-up and a club energy limit are read
+  // from — printed the joules bare. Same reading, one caveat, both surfaces.
+  it('says when a landing energy came off the whole-descent average', () => {
+    const a = analyzeFlight(accelFlight_);
+    expect(landingRateIsWholeDescent(a.metrics), 'this fixture lands with no main resolved').toBe(true);
+    const recovery = { descendingMassKg: 0.9 };
+    const txt = summaryText(accelFlight_, a, 'metric', 1, undefined, recovery);
+    const row = txt.split('\n').find((l) => /Landing energy/.test(l));
+    expect(row, 'the report carries the row at all').toBeTruthy();
+    expect(row, 'and says what the figure is off').toMatch(/whole-descent average/);
+
+    // A flight that resolved a main says nothing of the kind — this is a distinction, not a
+    // sentence bolted onto every report.
+    const withMain = { ...a, metrics: { ...a.metrics, mainDescentRate: 6 } } as typeof a;
+    expect(landingRateIsWholeDescent(withMain.metrics)).toBe(false);
+    const txt2 = summaryText(accelFlight_, withMain, 'metric', 1, undefined, recovery);
+    expect(txt2.split('\n').find((l) => /Landing energy/.test(l))).not.toMatch(/whole-descent average/);
   });
 
   it('carries an optional report label and notes into the text, Markdown and JSON exports', () => {

@@ -8,6 +8,9 @@ import { compareReported } from '../flight/reported';
 import { getChannel, type ChannelKind } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
+import { landedInRecord, landingRate, metricTiles } from '../readings';
+import { headlineRows } from '../report';
+import { groundTrack, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 
@@ -770,6 +773,167 @@ describe('a record that ends at rest above the pad is not a landing', () => {
   }
 });
 
+// The recovery card and the GPS exports are the one place a reading turns into a physical
+// instruction: walk that way. `recoveryStats` takes the last valid fix as the resting place
+// unconditionally, and the card rendered on nothing more than lat/lon existing — so a log
+// that ends at apogee got "Landed from pad: 10 ft · Bearing 267° W", a landing cross on the
+// track, "Walk from the pad toward W", and GPX/KML waypoints literally named "Landing". The
+// intrepid2 telemetry log is 285 samples and 2.84 s long and its last sample is 1,081.6 m
+// AGL doing 322.1 m/s, still climbing.
+// The apogee is the number that leaves this app most often — a cert form, a club record, a
+// sim correlation — and it was the only primary tile with no qualifier on it at all, while
+// the peak speed said measured-or-derived and the peak acceleration said measured, clipped
+// or derived. On a telemetry log that cuts out during boost the peak in the record IS the
+// last sample, and the tile printed it flat: 3,548 ft, "2.6 s to apogee", from a record
+// whose final sample is that peak with the rocket still going up at 1,057 ft/s.
+describe('an apogee the record never reached is labelled as a floor', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // file → what the record actually holds, so a fixture changing state is visible.
+  const CUT_AT_THE_PEAK = [
+    { file: 'altusmetrum/altusmetrum__issuiuc-intrepid1-20220507__telemetrum.csv', ftPerS: 1133 },
+    { file: 'altusmetrum/altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv', ftPerS: 1057 },
+  ];
+
+  it('names exactly the flights whose record stops at their own peak', () => {
+    // Over the set this sweep analyses end to end. Both files below are in the state; only
+    // one of them reaches `corpusReads` as 'analysed', so the per-file tests underneath
+    // carry the other. Named either way, so a fixture entering or leaving is visible.
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
+    const floors = reads.filter((r) => r.metrics!.apogeeIsFloor).map((r) => r.file);
+    expect(floors, `flights whose apogee is only a floor: ${floors.join(', ')}`).toEqual(
+      CUT_AT_THE_PEAK.map((c) => c.file).filter((f) => reads.some((r) => r.file === f)),
+    );
+    expect(floors.length, 'and there is at least one, or this test proves nothing').toBeGreaterThan(0);
+  });
+
+  for (const c of CUT_AT_THE_PEAK) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short} — still climbing at ${c.ftPerS} ft/s when the log stops`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const m = loaded!.analysis.metrics;
+      expect(m.apogeeIsFloor, 'the record ends at its own peak').toBe(true);
+      // The premise: the rocket really was still going up when the record stopped.
+      const v = loaded!.analysis.series.velocity;
+      const lastSpeed = v[v.length - 1] / 0.3048;
+      expect(lastSpeed, `${short}: last sample still climbing fast`).toBeGreaterThan(c.ftPerS * 0.9);
+      // The number is kept — it is a real lower bound — and it says so, on both surfaces.
+      expect(Number.isFinite(m.apogeeAltitude), 'the figure is still reported').toBe(true);
+      const tile = metricTiles(m, 'imperial').find((t) => t.label === 'Apogee')!;
+      expect(tile.sub, `${short}: the grid qualifies it`).toMatch(/at least this high/);
+      expect(headlineRows(m, 'imperial').find(([l]) => l === 'Apogee')![1], `${short}: and so does the saved report`).toMatch(
+        /at least this high/,
+      );
+    });
+  }
+});
+
+/** The raw flight for a corpus file, for the tests that need its channels. */
+function loadRawFlight(file: string) {
+  const path = CORPUS + file;
+  if (!existsSync(path)) return null;
+  const text = decodeBytes(new Uint8Array(readFileSync(path)));
+  const res = importFlight({ name: file.split('/').pop() as string, text });
+  return res.kind === 'flight' ? res.flight : null;
+}
+
+describe('a last GPS fix is only a landing if the record reached the ground', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const FILE = 'altusmetrum/altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv';
+
+  it('the recovery exports name the point for what it is', () => {
+    const loaded = loadForCompare(FILE);
+    const flight = loadRawFlight(FILE);
+    expect(loaded && flight, 'the truncated telemetry log is in the corpus').toBeTruthy();
+    const a = loaded!.analysis;
+
+    // The premise: this record really does stop in the air, still going up.
+    expect(landedInRecord(a.metrics), 'no landing was found').toBe(false);
+    const alt = a.series.altitude;
+    expect(alt[alt.length - 1], 'and the last sample is a long way up').toBeGreaterThan(500);
+
+    const lat = getChannel(flight!, 'latitude');
+    const lon = getChannel(flight!, 'longitude');
+    expect(lat && lon, 'it carries GPS, which is why the card renders at all').toBeTruthy();
+    const track = groundTrack(lat!.values, lon!.values);
+    const stats = track ? recoveryStats(track) : null;
+    expect(stats, 'the track still has a last fix — that part is real').toBeTruthy();
+
+    const landed = landedInRecord(a.metrics);
+    const gpx = trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, landed);
+    const kml = trackKml('x', lat!.values, lon!.values, undefined, stats!.landingIndex, landed);
+    expect(gpx, 'the GPX waypoint does not claim a landing').not.toMatch(/<name>Landing<\/name>/);
+    expect(kml, 'nor does the KML placemark').not.toMatch(/<name>Landing<\/name>/);
+    expect(gpx, 'and says what the point actually is').toMatch(/Last fix \(record ends in the air\)/);
+    expect(kml).toMatch(/Last fix \(record ends in the air\)/);
+
+    // The other direction: a flight that did reach the ground still gets a Landing waypoint,
+    // so this is a distinction rather than a blanket removal.
+    expect(trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, true)).toMatch(/<name>Landing<\/name>/);
+  });
+});
+
+// The same record, read one step further out: the analyzer withholds the flight time and the
+// descent time on a log that never reaches the ground, and says why — but the descent RATE
+// went on being published, and every surface downstream read it as a touchdown. The grid's
+// sub-line said "averaged apogee to landing", the report row said the same, and the recovery
+// card said "Touched down at X" and squared X into a landing energy a flyer sizes a canopy
+// against and shows an RSO. On the Kairos sustainer that read "touched down at 148.5 ft/s"
+// from a record that stops 2,540 m up — 62.8% of its own apogee — directly beside the
+// warning saying it never reaches the ground. Six of the flights this suite analyses end to
+// end are in that state — a seventh, the PerfectFlite AL0 log, is too but reaches this
+// sweep as parse-only; it is pinned by ENDS_AT_REST_ABOVE_THE_PAD above. This holds the
+// whole set rather than one file, and names it, so a fixture entering or leaving the state
+// is a visible change.
+describe('a descent that never reached the ground is not a touchdown speed', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+
+  it('publishes no landing rate, and no landing energy, for any of them', () => {
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
+    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(37);
+    const stopsInTheAir = reads.filter((r) => r.metrics!.descentSource == null && r.metrics!.wholeDescentRate != null);
+    // Named so a fixture entering or leaving this state is a visible change, not a silent one.
+    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(6);
+
+    for (const r of stopsInTheAir) {
+      const m = r.metrics!;
+      const short = r.file.split('/').pop() as string;
+      // The one decision, made in one place: no landing rate, so no landing energy either.
+      expect(landingRate(m), `${short}: no touchdown speed`).toBeNull();
+      expect(landedInRecord(m), `${short}: did not land in the record`).toBe(false);
+      // The rate itself is kept — it is a real measurement of the descent that WAS
+      // recorded — but nothing may call it a landing.
+      expect(m.wholeDescentRate, `${short}: the recorded descent rate is still reported`).not.toBeNull();
+      const tile = metricTiles(m, 'metric').find((t) => t.label === 'Descent rate');
+      expect(tile, `${short}: the grid still shows the rate`).toBeTruthy();
+      expect(tile!.sub, `${short}: and does not call it a landing`).not.toMatch(/to landing/);
+      expect(tile!.sub, `${short}: and says what it is instead`).toMatch(/stops before the ground/);
+    }
+  });
+
+  it('still calls a real landing a landing', () => {
+    const landed = corpusReads().filter(
+      (r) => r.reach === 'analysed' && r.metrics?.descentSource != null && r.metrics.wholeDescentRate != null,
+    );
+    expect(landed.length, 'the corpus has flights that did reach the ground').toBeGreaterThan(0);
+    for (const r of landed) {
+      const short = r.file.split('/').pop() as string;
+      expect(landingRate(r.metrics!), `${short}: has a touchdown speed`).not.toBeNull();
+      const tile = metricTiles(r.metrics!, 'metric').find((t) => t.label === 'Descent rate');
+      expect(tile!.sub, `${short}: reads as a landing`).toMatch(/to landing/);
+    }
+  });
+});
+
 // …and the flight this all exists for. One Blue Raven file holds the jan10 flight twice: the
 // copy that starts on the pad is cut 3.3 s after apogee, and the copy that runs to the ground
 // starts in the trough with no pad of its own. Read on the file's shared datum, the second
@@ -820,25 +984,81 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
     return;
   }
 
-  it('reads high against the instrument that measured the same flight (Mach 1.46 vs 1.14)', () => {
-    const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv');
-    const br = loadForCompare('blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv');
-    expect(gps, 'the ground-station log is in the corpus').toBeTruthy();
+  it('reads high against the instrument that measured the same flight (Mach 1.32 vs 1.22)', () => {
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv');
+    const br = loadForCompare('blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv');
+    expect(gps, 'the tracker log is in the corpus').toBeTruthy();
     expect(br, 'the Blue Raven is in the corpus').toBeTruthy();
     const g = gps!.analysis.metrics;
     const b = br!.analysis.metrics;
     // The Blue Raven's speed is a measurement (its own velocity channel); the GPS one is
-    // this altitude differentiated at about 1 Hz.
+    // this altitude differentiated at about 2 Hz.
     expect(br!.analysis.series.velocitySource).toBe('device');
     expect(gps!.analysis.series.velocitySource).toBe('baro');
     expect(gps!.analysis.series.altitudeSource).toBe('gps');
-    // The gap between them is the whole point: 31% on the speed, and it is one-directional.
-    expect(g.maxVelocity! / b.maxVelocity!, 'the GPS peak runs high, not soft').toBeGreaterThan(1.2);
+    // The gap between them is the whole point, and it is one-directional: 446.8 m/s
+    // against a measured 427.0. This used to be asserted on the jan18 ground-station log
+    // at >1.2, which read 497.0 m/s — a peak differentiated across four missing fixes.
+    // That file's peak is withheld now, so the number the claim rests on is this one, and
+    // it is +5% on the speeds (+8% comparing the two Mach figures), not the +31% that log
+    // produced. The published GPS figure moved with it; the +30% endurance pair below is a
+    // separate, real measurement and was never part of the withdrawn claim.
+    const ratio = g.maxVelocity! / b.maxVelocity!;
+    // Bounded both ways and tightly, because five surfaces publish this as "+5%": a band
+    // wide enough to admit +2% or +10% would let the stated figure drift off the measurement
+    // without failing. Measured 1.0464.
+    expect(ratio, `the GPS peak runs high, not soft (${ratio.toFixed(4)})`).toBeGreaterThan(1.03);
+    expect(ratio, `and by the published amount (${ratio.toFixed(4)})`).toBeLessThan(1.06);
+    // The Mach ratio is a different number on the same pair — 1.0831 — and the docs quote
+    // both. Pinned so nobody re-labels one with the other's value, which is how "+5%" ended
+    // up printed beside "Mach 1.32 against 1.22" in the first place.
+    const machRatio = g.mach! / b.mach!;
+    expect(machRatio, `the Mach ratio is its own figure (${machRatio.toFixed(4)})`).toBeGreaterThan(1.07);
+    expect(machRatio, 'and is not the speed ratio').toBeLessThan(1.10);
     // …and the flyer is told so, in the language of the sensor that produced it — the
     // barometric shock-over-the-port warning would name the wrong failure here.
     const why = gps!.analysis.warnings.find((w) => /worked out from the GPS altitude/.test(w));
     expect(why, 'the GPS peak says what it is').toBeTruthy();
     expect(why, 'and which way its error runs').toMatch(/runs the peak high/);
+  });
+
+  // The ground-station log that used to carry the claim above. Its ascent drops four
+  // consecutive fixes while the 1 Hz clock keeps ticking, and the smoothed derivative
+  // bridged them into a 497.0 m/s peak — Mach 1.46, above the 378.9 m/s the Blue Raven
+  // measured on the same flight. A gap in the sampled ascent withholds the peak, and the
+  // clock-only test could not see this one, so it reported a fabricated headline instead.
+  it('withholds a peak differentiated across missing fixes, rather than reporting it', () => {
+    const gps = loadForCompare('featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv');
+    expect(gps, 'the ground-station log is in the corpus').toBeTruthy();
+    const m = gps!.analysis.metrics;
+    // altitudeRaw is what the guard reads. `altitude` happens to carry the same holes today,
+    // so asserting on it would pass while the guard's actual input changed underneath.
+    const { time, altitudeRaw } = gps!.analysis.series;
+    const altitude = altitudeRaw;
+    // The hole is real and the clock runs straight through it.
+    let apo = 0;
+    for (let i = 0; i < altitude.length; i++) if (Number.isFinite(altitude[i]) && altitude[i] > altitude[apo]) apo = i;
+    let run = 0;
+    let longest = 0;
+    for (let i = 1; i <= apo; i++) {
+      if (!Number.isFinite(altitude[i])) longest = Math.max(longest, ++run);
+      else run = 0;
+    }
+    expect(longest, 'four consecutive ascent samples carry no altitude').toBe(4);
+    let biggestClockGap = 0;
+    for (let i = 1; i <= apo; i++) biggestClockGap = Math.max(biggestClockGap, time[i] - time[i - 1]);
+    expect(biggestClockGap, 'while the clock never skips more than a couple of seconds').toBeLessThan(3);
+    // So every reading built on that peak is withheld, not printed.
+    expect(m.maxVelocity, 'no peak speed').toBeNaN();
+    expect(m.mach, 'so no Mach, and no bare supersonic claim').toBeNull();
+    expect(m.maxDynamicPressure, 'and no max-Q, which squares the same speed').toBeNull();
+    // transonicTime was already null here before the guard — the crossing search needs a
+    // finite speed of sound at the peak index and the hole denies it one — so asserting it
+    // proves nothing about the guard. What the guard has to produce is a REASON, so the
+    // tile can say the reading was withheld rather than "not in this log", which is false.
+    expect(m.maxVelocityWithheld, 'the withholding names itself, for the tile and the report').toBe('gap');
+    // And it says why, rather than the tile simply being absent.
+    expect(gps!.analysis.warnings.some((w) => /gap in the sampled ascent/i.test(w)), 'the withholding explains itself').toBe(true);
   });
 
   it('flags the crossing it does detect instead of asserting it', () => {
@@ -861,7 +1081,11 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
 // Where one recording of a flight measured the speed and another differentiated it out of
 // an altitude, the derived one reads HIGH — never soft. Four corpus pairs, and all four
 // agree; the caveat used to say the opposite, which tells a flyer to treat the inflated
-// figure as a lower bound.
+// figure as a lower bound. A fifth was here — the jan18 ground-station GPS — and it is gone
+// because that peak is withheld now, not because it disagreed: it read off four missing
+// fixes and was inflating the published spread. The endurance pair below replaced it in the
+// enumeration and is the honest +30%: a barometric peak against an inertial one, no gaps,
+// two recordings whose apogees agree to 45 ft.
 describe('a speed differentiated out of an altitude reads high, not soft', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
@@ -869,9 +1093,9 @@ describe('a speed differentiated out of an altitude reads high, not soft', () =>
   }
   const PAIRS: { name: string; measured: string; derived: string }[] = [
     {
-      name: 'trf-f1-jan18: Blue Raven vs the ground-station GPS',
-      measured: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
-      derived: 'featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv',
+      name: 'iss-endurance: the AltusMetrum inertial vs the PerfectFlite baro',
+      measured: 'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv',
+      derived: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv',
     },
     {
       name: 'trf-lemiv-l3: Blue Raven vs the tracker GPS',
@@ -917,7 +1141,6 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
     { file: 'blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv', kPa: 404.1, wasKPa: 47321.8 },
     { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 83.8, wasKPa: 266.3 },
     { file: 'eggtimer/eggtimer__euroc-skyward-lynx__log.csv', kPa: 103.4, wasKPa: 230.0 },
-    { file: 'featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv', kPa: 1.5, wasKPa: 3.0 },
     { file: 'missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv', kPa: 60.3, wasKPa: 401.4 },
     { file: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv', kPa: 99.7, wasKPa: 218.6 },
   ];

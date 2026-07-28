@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
-import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT } from '@/lib/compare';
-import { accelInG, lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
+import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT, distinguishingLabels } from '@/lib/compare';
+import { lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
@@ -146,6 +146,10 @@ export default function CompareView({
       })
       .map((x) => x.f);
   }, [loaded, manual, sort, sys]);
+  // The header labels, computed against the set on screen — so they change when the set
+  // does, and stay stable while it is only reordered.
+  const columnLabels = useMemo(() => distinguishingLabels(flights.map((f) => f.name)), [flights]);
+
   // Third click on the same metric clears the sort, back to the order they loaded in.
   const cycleSort = (label: string) => {
     setManual(null);
@@ -531,8 +535,8 @@ export default function CompareView({
             />
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Rides into the exported bundle&apos;s Markdown and JSON. Kept on your device; a new
-            comparison clears it.
+            Rides into the exported bundle&apos;s Markdown and JSON. Held for this view only — save an
+            export before you leave or reload, or it goes.
           </p>
         </div>
       </details>
@@ -671,9 +675,13 @@ export default function CompareView({
                     />
                     <span
                       title={stem(f.name)}
-                      className="max-w-[5rem] truncate font-mono text-xs font-medium text-zinc-700 sm:max-w-[10rem] dark:text-zinc-300"
+                      // Wrapped to two lines rather than truncated: at the phone clamp of 80 px a
+                      // single line paints about eleven characters, which is not enough to tell
+                      // three recordings of one flight apart even after the shared head is elided.
+                      // Two lines reach the tail, where the recording's own id lives.
+                      className="line-clamp-2 max-w-[5rem] break-all font-mono text-xs font-medium text-zinc-700 sm:max-w-[10rem] dark:text-zinc-300"
                     >
-                      {stem(f.name)}
+                      {columnLabels[i]}
                     </span>
                   </span>
                   <span className="mt-0.5 block text-[11px] font-normal text-zinc-500 dark:text-zinc-400">

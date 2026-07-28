@@ -188,14 +188,19 @@ export default function MethodsPage() {
             region the way a shock over a static port distorts a barometer. That reasoning is sound and
             it answers the wrong question: the error in a GPS speed doesn&apos;t come from the
             transonic region, it comes from differentiating an altitude that is coarse in space and
-            lagging in time. Both corpus GPS flights that a second instrument also recorded measure it,
-            and both run <em>high</em>: one reads Mach&nbsp;1.46 (1,631&nbsp;ft/s, sampled at
-            0.7&nbsp;Hz) where a Blue Raven on that same flight measured Mach&nbsp;1.14
-            (1,243&nbsp;ft/s at 50&nbsp;Hz), and the other reads 1,466&nbsp;ft/s at 2.1&nbsp;Hz where
-            the tracker&apos;s own summary states 1,340&nbsp;ft/s — +28% and +9%. A figure that can be
-            a third high is not one that decides whether a flight went supersonic, so a GPS-derived
-            crossing is now flagged the same way a barometric one is. The number is still shown: it is
-            the flyer&apos;s own record, and the direction of its error is stated with it.
+            lagging in time. The corpus GPS flight that a second instrument also recorded measures it,
+            and it runs <em>high</em>: 1,466&nbsp;ft/s at 2.1&nbsp;Hz where a Blue Raven on that same
+            flight measured 1,401&nbsp;ft/s, and above the tracker&apos;s own summary of
+            1,340&nbsp;ft/s — <strong>+5%</strong> against the measurement and <strong>+9%</strong>
+            against itself, as speed ratios; the two Mach figures, 1.32 against 1.22, differ by +8%,
+            since Mach also carries the air the peak was read in. That direction holds for every
+            derived peak the corpus can check, and the sizes are not small: the two barometric speeds
+            on that same flight run <strong>+23%</strong> and <strong>+110%</strong>, and a
+            PerfectFlite barometric peak runs <strong>+30%</strong> against an AltusMetrum inertial
+            recording of the endurance flight. High by an amount nothing on the file bounds is not a
+            figure that decides whether a flight went supersonic, so a GPS-derived crossing is flagged
+            the same way a barometric one is. The number is still shown: it is the flyer&apos;s own
+            record, and the direction of its error is stated with it.
           </Method>
           <Method title="When the accelerometer settles it">
             On a log that carries both channels, the accelerometer bounds a barometric speed from{' '}

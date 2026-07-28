@@ -4,6 +4,7 @@
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 import {
+  accelIn,
   accelInG,
   fmtAccel,
   fmtLength,
@@ -35,7 +36,7 @@ import {
   type Comparison,
   type CompareFlight,
 } from './compare';
-import { burnoutSub, burnoutVelocitySub } from './readings';
+import { apogeeSub, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -76,7 +77,7 @@ function landingEnergyRow(
   recovery: RecoveryFigures | undefined,
 ): [string, string] | null {
   if (recovery?.descendingMassKg == null) return null;
-  const joules = landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? m.wholeDescentRate ?? null);
+  const joules = landingEnergyJoules(recovery.descendingMassKg, landingRate(m));
   if (joules == null) return null;
   const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
   const massDisp = (recovery.descendingMassKg / MASS_TO_KG[massUnit]).toFixed(massUnit === 'oz' ? 1 : 0);
@@ -84,7 +85,10 @@ function landingEnergyRow(
     systemOf(sys) === 'metric'
       ? `${Math.round(joules)} J`
       : `${joulesToFtLbf(joules).toFixed(joulesToFtLbf(joules) < 100 ? 1 : 0)} ft·lbf`;
-  return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)`];
+  const basis = landingRateIsWholeDescent(m)
+    ? ' — off the whole-descent average, as no deployment change is in the record'
+    : '';
+  return ['Landing energy', `${value} (at ${massDisp} ${massUnit} descending)${basis}`];
 }
 
 /** The main-deploy verification row, when the flyer entered the altitude they set: how the
@@ -160,11 +164,24 @@ export function headlineRows(
   hidden?: string[],
 ): [string, string][] {
   const rows: [string, string][] = [];
-  rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys)]);
+  // The document a flyer files has to carry the qualifier the screen shows, or the number
+  // that leaves the app is the one without it.
+  const apoSub = m.apogeeIsFloor ? apogeeSub(m) : undefined;
+  rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys) + (apoSub ? ` — ${apoSub}` : '')]);
   if (Number.isFinite(m.timeToApogee)) rows.push(['Time to apogee', fmtTime(m.timeToApogee)]);
   if (Number.isFinite(m.maxVelocity)) {
     const mach = m.mach ? ` (${fmtMach(m.mach)})` : '';
     rows.push(['Max velocity', fmtSpeed(m.maxVelocity, sys) + mach]);
+  } else if (m.maxVelocityWithheld != null) {
+    // A saved report that simply omits the row says the flight had no peak speed. It had
+    // one; Debrief declined to report it, and the document has to carry that distinction
+    // as the screen does.
+    rows.push([
+      'Max velocity',
+      m.maxVelocityWithheld === 'gap'
+        ? 'withheld — the ascent has a stretch the record doesn’t cover, so the top speed may fall inside it'
+        : 'withheld — the speed this trace gives is not physically possible',
+    ]);
   }
   if (Number.isFinite(m.maxAcceleration)) rows.push(['Max acceleration', fmtAccel(m.maxAcceleration, sys)]);
   // These four were on screen and in no saved report — so a flyer who read the
@@ -207,7 +224,12 @@ export function headlineRows(
   }
   if (m.drogueDescentRate != null) rows.push(['Drogue descent', fmtSpeed(m.drogueDescentRate, sys)]);
   if (m.wholeDescentRate != null) {
-    rows.push(['Descent rate', `${fmtSpeed(m.wholeDescentRate, sys)} — averaged apogee to landing, no deployment change is in the record`]);
+    rows.push([
+      'Descent rate',
+      landedInRecord(m)
+        ? `${fmtSpeed(m.wholeDescentRate, sys)} — averaged apogee to landing, no deployment change is in the record`
+        : `${fmtSpeed(m.wholeDescentRate, sys)} — averaged over the recorded descent; the record stops before the ground, so this is not a landing speed`,
+    ]);
   }
   if (m.mainDescentRate != null) {
     rows.push(['Main descent', fmtSpeed(m.mainDescentRate, sys)]);
@@ -254,10 +276,24 @@ export function reportTable(
   };
 }
 
+/** Which quantity each reported metric is. A `Record` over the union rather than a chain
+ *  of comparisons, so adding a metric to `ReportedValue` fails to compile until it is
+ *  classified here — the cross-check is rendered twice, once formatted and once as JSON,
+ *  and the two used to decide this separately. The JSON copy tested only `maxVelocity` and
+ *  let everything else fall through to the acceleration converter, so a device's own
+ *  burnout velocity and descent rate — both speeds, both carried by every AltimeterCloud
+ *  file — were divided by g before being printed under `units.speed`. */
+const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'speed' | 'accel'> = {
+  apogeeAltitude: 'length',
+  maxVelocity: 'speed',
+  burnoutVelocity: 'speed',
+  mainDescentRate: 'speed',
+  maxAcceleration: 'accel',
+};
+
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
-  if (metric === 'apogeeAltitude') return fmtLength(si, sys);
-  if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);
-  return fmtAccel(si, sys);
+  const q = REPORTED_QUANTITY[metric];
+  return q === 'length' ? fmtLength(si, sys) : q === 'speed' ? fmtSpeed(si, sys) : fmtAccel(si, sys);
 }
 
 /** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
@@ -607,7 +643,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
     'time (s)',
     `altitude (${L.length} AGL)`,
     `velocity (${L.speed})`,
-    ...(hasAccel ? ['acceleration (g)'] : []),
+    ...(hasAccel ? [`acceleration (${L.accel})`] : []),
     ...(velUsable ? ['mach', `dynamic pressure (${pUnit})`] : []),
     ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
   ].join(',');
@@ -622,7 +658,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
         time[i].toFixed(3),
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
         cell(Number(speedIn(velocity[i], sys).toFixed(1))),
-        ...(hasAccel ? [cell(Number(accelInG(acceleration[i]).toFixed(2)))] : []),
+        ...(hasAccel ? [cell(Number(accelIn(acceleration[i], sys).toFixed(2)))] : []),
         ...(velUsable ? [cell(Number(mach.toFixed(3))), cell(Number(pressureIn(q, sys).toFixed(2)))] : []),
         ...recorded.map((c) => sig6(c.toDisplay(c.values[i], sys))),
       ].join(','),
@@ -967,11 +1003,20 @@ export function compareHtml(
  *  structured export rounds and converts identically. */
 function jsonConv(sys: UnitChoice) {
   const round = (v: number, p: number): number | null => (Number.isFinite(v) ? Number(v.toFixed(p)) : null);
+  // Acceleration follows the chosen unit, because `jsonUnits` declares that unit beside it.
+  // It used to convert to g unconditionally — so a flyer who picked m/s² for a drag write-up
+  // got `units.acceleration: "m/s²"` next to a figure in g: 15.62 where the number is 153.14,
+  // a factor of 9.81 (32.17 in ft/s²) inside a file meant to be read by a script. Every
+  // surface converts with `accelIn` now — the metric grid, the explorer, the comparison, the
+  // two charts and the data CSV. Two decimals on g is a 0.098 m/s² step and the hundreds-scale
+  // units take one, a 0.1 step, so the exported resolution is the same figure whichever was
+  // picked rather than three digits of noise.
+  const accPlaces = unitsOf(sys).accel === 'g' ? 2 : 1;
   return {
     round,
     len: (v: number | null) => (v == null ? null : round(lengthIn(v, sys), 1)),
     spd: (v: number | null) => (v == null ? null : round(speedIn(v, sys), 1)),
-    acc: (v: number | null) => (v == null ? null : round(accelInG(v), 2)),
+    acc: (v: number | null) => (v == null ? null : round(accelIn(v, sys), accPlaces)),
     sec: (v: number | null) => (v == null ? null : round(v, 2)),
     prs: (v: number | null) => (v == null ? null : round(pressureIn(v, sys), 2)),
   };
@@ -1078,8 +1123,15 @@ export function analysisJson(
 ): string {
   const { metrics: m, events, warnings, series } = analysis;
   const { round, len, spd, acc, sec } = jsonConv(sys);
-  const reportedNum = (metric: ReportedValue['metric'], si: number) =>
-    metric === 'apogeeAltitude' ? len(si) : metric === 'maxVelocity' ? spd(si) : acc(si);
+  const u = jsonUnits(sys);
+  const reportedNum = (metric: ReportedValue['metric'], si: number) => {
+    const q = REPORTED_QUANTITY[metric];
+    return q === 'length' ? len(si) : q === 'speed' ? spd(si) : acc(si);
+  };
+  const reportedUnit = (metric: ReportedValue['metric']) => {
+    const q = REPORTED_QUANTITY[metric];
+    return q === 'length' ? u.length : q === 'speed' ? u.speed : u.acceleration;
+  };
   const label = clean(meta?.label);
   const notes = clean(meta?.notes);
 
@@ -1119,6 +1171,10 @@ export function analysisJson(
       metric: r.metric,
       logger: reportedNum(r.metric, r.value),
       debrief: hasComputed ? reportedNum(r.metric, computed) : null,
+      // Which of the document's units this pair is in. The rows are a mix of lengths,
+      // speeds and accelerations, so a consumer reading one row would otherwise have to
+      // know from the metric name alone which entry of `units` applies to it.
+      unit: reportedUnit(r.metric),
       agreementPct: deltaPct == null ? null : round(deltaPct, 1),
       agreement: status,
       // Additive: a consumer reading `agreementPct` alone would file a definitional 1 g
@@ -1133,7 +1189,7 @@ export function analysisJson(
   // the ones actually entered are included.
   if (recovery) {
     const rec: Record<string, unknown> = {};
-    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, m.mainDescentRate ?? m.wholeDescentRate ?? null) : null;
+    const joules = recovery.descendingMassKg != null ? landingEnergyJoules(recovery.descendingMassKg, landingRate(m)) : null;
     if (joules != null && recovery.descendingMassKg != null) {
       const massUnit = systemOf(sys) === 'metric' ? 'g' : 'oz';
       rec.descendingMass = { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit };

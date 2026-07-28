@@ -2,6 +2,7 @@ import type { FlightEvent, FlightMetrics } from '@/lib/analyze/types';
 import { fmtSpeed, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { flightPhases, type Phase } from '@/lib/phases';
+import { landedInRecord } from '@/lib/readings';
 
 // Phase colours drawn from the app's existing palette (altitude indigo, velocity
 // emerald, acceleration amber, plus a sky for the drogue leg).
@@ -52,7 +53,14 @@ export default function FlightTimeline({
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Flight timeline</h3>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{fmtTime(total)} liftoff to landing</span>
+        {/* The span is only "to landing" when the record reached the ground. It is the
+            caption on the one widget claiming to summarise the whole flight, and it read
+            "2.6 s liftoff to landing" on a 3,548 ft log whose last sample is still climbing
+            at 1,057 ft/s — nonsense on its face, and the same claim on 15 of the 42 corpus
+            flights that render a timeline at all, several of them ending in coast. */}
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          {fmtTime(total)} {landedInRecord(metrics) ? 'liftoff to landing' : 'liftoff to the end of the record'}
+        </span>
       </div>
 
       {/* Proportional bar — decorative; the chips below carry the same facts as text. */}

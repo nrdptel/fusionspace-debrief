@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
-import { accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, speedIn, systemOf, unitsOf } from '@/lib/display';
+import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
 import { formatFlownAt } from '@/lib/flight/flownAt';
@@ -24,6 +24,7 @@ import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import { copyTable } from '@/lib/copyTable';
+import { landedInRecord, landingRate } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
@@ -431,9 +432,16 @@ export default function FlightReport({
         name: `${stem}-acceleration.svg`,
         svg: plotSvg({
           x: series.time,
-          series: [{ label: `${series.accelerationResultant ? 'Total ' : ''}Acceleration (g)`, color: '#f59e0b', axis: 'left', values: Array.from(series.acceleration, (a) => accelInG(a)) }],
+          series: [
+            {
+              label: `${series.accelerationResultant ? 'Total ' : ''}Acceleration (${unitsOf(sys).accel})`,
+              color: '#f59e0b',
+              axis: 'left',
+              values: Array.from(series.acceleration, (a) => accelIn(a, sys)),
+            },
+          ],
           xLabel: 'Time (s)',
-          leftLabel: 'g',
+          leftLabel: unitsOf(sys).accel,
           markers: markerDefs,
           dark: figureDark,
           ...(chartRange ? { xRange: chartRange } : {}),
@@ -547,7 +555,7 @@ export default function FlightReport({
   const accSeries = useMemo(() => [{ label: 'acceleration', values: series.acceleration, stroke: '#f59e0b' }], [series.acceleration]);
   const altFmt = useCallback((v: number) => round(lengthIn(v, sys), 0), [sys]);
   const velFmt = useCallback((v: number) => round(speedIn(v, sys), 0), [sys]);
-  const accFmt = useCallback((v: number) => round(accelInG(v), 1), [sys]);
+  const accFmt = useCallback((v: number) => round(accelIn(v, sys), placesFor(unitsOf(sys).accel)), [sys]);
 
   // Every channel worth plotting, for the flexible explorer below.
   const plotChannels = useMemo(() => buildPlotChannels(flight, series), [flight, series]);
@@ -749,8 +757,8 @@ export default function FlightReport({
             />
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Appears at the top of the text, Markdown and JSON exports and the printed card. Kept on
-            your device; a new flight clears it.
+            Appears at the top of the text, Markdown and JSON exports and the printed card. Held for
+            this view only — save an export before you leave or reload, or it goes.
           </p>
         </div>
       </details>
@@ -910,7 +918,7 @@ export default function FlightReport({
 
         {hasAccel && (
           <ChartBlock
-            title={series.accelerationResultant ? 'Total acceleration (g)' : 'Acceleration (g)'}
+            title={`${series.accelerationResultant ? 'Total acceleration' : 'Acceleration'} (${unitsOf(sys).accel})`}
             note={
               series.accelerationResultant
                 ? 'resultant of the logged axes'
@@ -1038,16 +1046,20 @@ export default function FlightReport({
         })()}
 
         {/* Landing energy belongs with recovery — it reads off the measured landing
-            descent rate, so it's only shown when the log actually descended to it. */}
+            descent rate, so it's only shown when the log actually descended to it. The
+            panel still renders on a record that stops in the air, because it is where that
+            gets explained; `landingRate` is what withholds the number itself. */}
         {(metrics.mainDescentRate ?? metrics.wholeDescentRate) != null && (
           <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
         )}
 
         {/* Parachute Cd reads off the terminal main descent — shown with landing
-            energy, the other recovery measurement that needs the descending mass. */}
-        {(metrics.mainDescentRate ?? metrics.wholeDescentRate) != null && (
+            energy, the other recovery measurement that needs the descending mass. A Cd is
+            solved from a terminal velocity, so a record that never reached the ground has
+            no input for it; the panel above says so rather than this one repeating it. */}
+        {landingRate(metrics) != null && (
           <ParachuteCd
-            descentRate={(metrics.mainDescentRate ?? metrics.wholeDescentRate) as number}
+            descentRate={landingRate(metrics) as number}
             // Ground-level air density (first finite sample) — the main descends low,
             // where density is near the pad's, so this is the right ρ for terminal v.
             airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}
@@ -1065,6 +1077,7 @@ export default function FlightReport({
 
       {gpsLat && gpsLon && (
         <GroundTrack
+          landed={landedInRecord(metrics)}
           lat={gpsLat.values}
           lon={gpsLon.values}
           sys={sys}

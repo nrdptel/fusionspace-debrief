@@ -33,12 +33,52 @@ export interface Tile {
  *  the max-acceleration tile shows it, so a headline number never reads as more
  *  direct than it is. */
 function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
-  if (!Number.isFinite(m.maxVelocity)) return 'not in this log';
+  if (!Number.isFinite(m.maxVelocity)) {
+    // "Not in this log" is only true when the file carries no speed at all. Where Debrief
+    // withheld one it is the opposite of true — the data is there and the reading was
+    // declined — and a withheld number has to say why it was withheld.
+    if (m.maxVelocityWithheld === 'gap') return 'withheld — the ascent has a stretch the record doesn’t cover';
+    if (m.maxVelocityWithheld === 'implausible') return 'withheld — the speed this trace gives is not physically possible';
+    return 'not in this log';
+  }
   const parts: string[] = [];
   if (m.mach) parts.push(fmtMach(m.mach));
   if (Number.isFinite(m.maxVelocityAltitude)) parts.push(`at ${fmtLength(m.maxVelocityAltitude, sys)}`);
   parts.push(m.maxVelocitySource === 'device' ? 'measured' : 'derived');
   return parts.join(' · ');
+}
+
+/** Whether the record actually reached the ground. `descentSource` is set only where a
+ *  landing was found, so a null one is a record that stops in the air — and the rate
+ *  measured over it is the rate of the descent that WAS recorded, never a touchdown speed.
+ *  The analyzer already withholds flight time and descent time in that state and says why;
+ *  the descent rate went on being published, and every surface downstream read it as a
+ *  landing. Six of the flights the corpus analyses end to end are in it — the loudest stops
+ *  2,540 m up, 62.8% of its own apogee, and the page reported "touched down at 148.5 ft/s"
+ *  beside its own warning that the record never reaches the ground.
+ *
+ *  Exported because the grid, the saved report, the exports and the two recovery panels
+ *  must all make the same call. A landing energy is a safety number a flyer sizes a canopy
+ *  against and shows an RSO; ½mv² off a drogue-leg average is not one. */
+export function landedInRecord(m: FlightMetrics): boolean {
+  return m.descentSource != null;
+}
+
+/** The landing descent rate, or null where the record never reached the ground — the one
+ *  place that decision is made, so a panel cannot read a rate the flight didn't land at. */
+export function landingRate(m: FlightMetrics): number | null {
+  if (!landedInRecord(m)) return null;
+  return m.mainDescentRate ?? m.wholeDescentRate ?? null;
+}
+
+/** True when that rate is the whole descent averaged rather than a resolved main leg — the
+ *  flight landed, but no deployment change is in the record, so the figure is the same
+ *  descent all the way down as far as this file can tell. Energy goes as v², so a document
+ *  that prints the joules without saying which is a document that reads more precise than
+ *  it is: the screen has said so since the card was written, and the saved report — the one
+ *  a cert write-up and a club energy limit are read from — did not. */
+export function landingRateIsWholeDescent(m: FlightMetrics): boolean {
+  return landedInRecord(m) && m.mainDescentRate == null && m.wholeDescentRate != null;
 }
 
 /** How burnout was located, in the same voice the peak speed and peak acceleration already
@@ -51,6 +91,24 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
  *  deliberately written separately (see the note at the top of this file), but what a
  *  provenance label MEANS is one fact, and it was previously two copies of one string that
  *  could drift apart silently. */
+/** The apogee's qualifier. Every other primary tile says how direct its number is — the
+ *  peak speed says measured or derived, the peak acceleration says measured, clipped or
+ *  derived — and the apogee, the one number a flyer copies into a cert form, a club record
+ *  or a sim correlation, said only how long it took to get there. On a record that stops at
+ *  or before its own peak that reading is the highest the rocket was SEEN at, and the tile
+ *  printed it as flat fact: 3,548 ft on a log whose last sample is that peak, still climbing
+ *  at 1,057 ft/s. The number is right and worth showing — it is a real lower bound — but it
+ *  is not the apogee, and the footer promises every value is labelled wherever it is derived
+ *  or approximate.
+ *
+ *  Exported so the saved report says the identical thing, like `burnoutSub`. */
+export function apogeeSub(m: FlightMetrics): string | undefined {
+  const to = Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined;
+  if (!m.apogeeIsFloor) return to;
+  const floor = 'at least this high — the log ends at its own peak, so the rocket was still going up';
+  return to ? `${to} · ${floor}` : floor;
+}
+
 export function burnoutSub(m: FlightMetrics): string | undefined {
   if (m.burnoutSource == null) return undefined;
   // Naming the fallback rather than just saying "derived" is the useful half: it tells a
@@ -76,7 +134,7 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     {
       label: 'Apogee',
       value: fmtLength(m.apogeeAltitude, sys),
-      sub: Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined,
+      sub: apogeeSub(m),
       primary: true,
     },
     {
@@ -133,7 +191,9 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Descent rate',
       value: fmtSpeed(m.wholeDescentRate, sys),
-      sub: 'averaged apogee to landing — no deployment change is in the record',
+      sub: landedInRecord(m)
+        ? 'averaged apogee to landing — no deployment change is in the record'
+        : 'averaged over the recorded descent — the record stops before the ground, so this is not a landing speed',
     });
   if (m.mainDescentRate != null)
     out.push({

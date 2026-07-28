@@ -288,7 +288,14 @@ export default function RecentFlights({
                       wraps underneath. Above sm: both wrappers dissolve (`contents`) back
                       into the one dense row. */}
                   <span className="flex min-w-0 sm:contents">
-                  <span className="truncate font-mono text-sm text-zinc-700 dark:text-zinc-300">{r.name}</span>
+                  {/* Wrapped rather than truncated: at 390 px this cell is 188 px, and four
+                      recordings of one flight painted the identical "mercury__altimetercloud"
+                      — one distinct name out of four, on the surface you tick a flight from.
+                      The line above says telling one flight from another is what the row is
+                      for; a single clipped line is what stopped it doing that. */}
+                  <span className="line-clamp-2 font-mono text-sm break-all text-zinc-700 dark:text-zinc-300 sm:line-clamp-none sm:truncate">
+                    {r.name}
+                  </span>
                   </span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:contents">
                   <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">

@@ -115,3 +115,79 @@ describe('analysis robustness', () => {
     expect(liftoff && liftoff.time).toBeLessThan(3);
   });
 });
+
+// A gap in the ascent is a gap in the SAMPLED ALTITUDE, not only in the clock: a GPS log
+// keeps writing a row every second through a dropout, same cadence, empty altitude field.
+// The corpus has exactly one file in that state and none in the two below, so these are
+// built rather than found — the guard's edges are where a real log would first surprise it.
+describe('an ascent hole withholds the derived peak, and a sparse cadence does not', () => {
+  /** A 1 Hz GPS-ish climb: coarse enough that a few missing fixes really do hide the peak. */
+  function coarseFlight(mutate: (alt: number[], time: number[]) => void): RawFlight {
+    const time: number[] = [];
+    const alt: number[] = [];
+    const padT = 4;
+    const upT = 20;
+    const peak = 3000;
+    for (let t = 0; t <= padT + upT + 60; t += 1) {
+      time.push(t);
+      const ft = t - padT;
+      let h: number;
+      if (ft <= 0) h = 0;
+      else if (ft <= upT) h = peak * (1 - (1 - ft / upT) ** 2);
+      else h = Math.max(0, peak - 30 * (ft - upT));
+      alt.push(h);
+    }
+    mutate(alt, time);
+    return {
+      source: 'c.csv',
+      format: 'test',
+      formatLabel: 'Test',
+      time: Float64Array.from(time),
+      channels: [{ kind: 'altitude', label: 'alt', unit: 'm', values: Float64Array.from(alt) }],
+      meta: {},
+      notes: [],
+    };
+  }
+
+  it('withholds the peak when fixes drop out mid-ascent', () => {
+    const holed = coarseFlight((alt) => {
+      for (let i = 10; i < 14; i++) alt[i] = NaN; // four consecutive fixes, mid-climb
+    });
+    const a = analyzeFlight(holed);
+    expect(a.metrics.maxVelocity, 'no peak off a bridged hole').toBeNaN();
+    expect(a.metrics.maxVelocityWithheld, 'and it says which kind of withholding').toBe('gap');
+    expect(a.warnings.some((w) => /gap in the sampled ascent/i.test(w)), 'and says why').toBe(true);
+  });
+
+  it('withholds it when the dropout lands at the very start of the ascent', () => {
+    // `prevUsable` used to begin unset, so a hole in the first samples after liftoff had
+    // nothing to be bracketed against and was never counted at all.
+    const holed = coarseFlight((alt) => {
+      for (let i = 5; i < 9; i++) alt[i] = NaN;
+    });
+    const a = analyzeFlight(holed);
+    expect(a.metrics.maxVelocity, 'a hole at the start is still a hole').toBeNaN();
+    expect(a.metrics.maxVelocityWithheld).toBe('gap');
+  });
+
+  it('keeps the peak on a single dropped fix', () => {
+    const one = coarseFlight((alt) => {
+      alt[12] = NaN;
+    });
+    const a = analyzeFlight(one);
+    expect(a.metrics.maxVelocity, 'a first derivative still has a neighbour').not.toBeNaN();
+    expect(a.metrics.maxVelocityWithheld).toBeNull();
+  });
+
+  it('keeps the peak on a logger that simply writes altitude sparsely', () => {
+    // Every third row carries a fix. That is a two-row "hole" between every pair of them
+    // and no dropout anywhere — withholding here would be a wrong answer with a confident
+    // explanation ("a dropout or a paused logger") attached to it.
+    const sparse = coarseFlight((alt) => {
+      for (let i = 0; i < alt.length; i++) if (i % 3 !== 0) alt[i] = NaN;
+    });
+    const a = analyzeFlight(sparse);
+    expect(a.metrics.maxVelocity, 'a regular cadence is not a dropout').not.toBeNaN();
+    expect(a.metrics.maxVelocityWithheld).toBeNull();
+  });
+});

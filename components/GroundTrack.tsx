@@ -32,10 +32,17 @@ export default function GroundTrack({
   descentFromIndex,
   apogeeIndex,
   apogeeAltitude,
+  landed,
 }: {
   lat: Float64Array;
   lon: Float64Array;
   sys: UnitChoice;
+  /** Whether the record reached the ground. The last GPS fix always exists; it is only a
+   *  LANDING when the flight was recorded down to it. On a log that ends at apogee the last
+   *  fix is still over the pad, so an unguarded card reported "landed 10 ft from the pad,
+   *  bearing 267° W" and told the flyer to walk that way — for a rocket 3,548 ft up doing
+   *  1,057 ft/s at the last sample. Same track, same numbers, different claim. */
+  landed: boolean;
   /** Filesystem-safe stem of the source file, for the GPX filename. */
   stem: string;
   /** Flight time base (s), aligned with lat/lon — needed to read drift velocity. */
@@ -183,9 +190,17 @@ export default function GroundTrack({
 
   const bearing = Math.round(stats.landingBearing);
   const coords = `${lat[stats.landingIndex].toFixed(5)}, ${lon[stats.landingIndex].toFixed(5)}`;
-  const ariaLabel = `Ground track: landed ${fmtLength(stats.landingDistance, sys)} from the pad, bearing ${bearing} degrees ${compass(
-    stats.landingBearing,
-  )}, having drifted up to ${fmtLength(stats.maxDrift, sys)} from the pad.`;
+  const ariaLabel = landed
+    ? `Ground track: landed ${fmtLength(stats.landingDistance, sys)} from the pad, bearing ${bearing} degrees ${compass(
+        stats.landingBearing,
+      )}, having drifted up to ${fmtLength(stats.maxDrift, sys)} from the pad.`
+    : `Ground track: the record ends in the air, so this is not a landing. Its last fix is ${fmtLength(
+        stats.landingDistance,
+        sys,
+      )} from the pad, bearing ${bearing} degrees ${compass(stats.landingBearing)}, having drifted up to ${fmtLength(
+        stats.maxDrift,
+        sys,
+      )} from the pad.`;
 
   return (
     <div>
@@ -199,7 +214,7 @@ export default function GroundTrack({
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Stat label="Landed from pad" value={fmtLength(stats.landingDistance, sys)} />
+        <Stat label={landed ? 'Landed from pad' : 'Last fix from pad'} value={fmtLength(stats.landingDistance, sys)} />
         <Stat label="Bearing" value={`${bearing}° ${compass(stats.landingBearing)}`} />
         <Stat label="Max drift" value={fmtLength(stats.maxDrift, sys)} />
         {wind && (
@@ -229,7 +244,7 @@ export default function GroundTrack({
               () => {},
             );
           }}
-          title="Copy the landing coordinates"
+          title={landed ? 'Copy the landing coordinates' : 'Copy the last-fix coordinates'}
           className={ACTION_BTN}
         >
           {copied ? 'Copied ✓' : 'Copy coords'}
@@ -238,11 +253,11 @@ export default function GroundTrack({
           type="button"
           onClick={() =>
             download(
-              new Blob([trackGpx(stem, lat, lon, stats.landingIndex)], { type: 'application/gpx+xml' }),
+              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed)], { type: 'application/gpx+xml' }),
               `${stem}-track.gpx`,
             )
           }
-          title="Download the track and landing point as a GPX file (opens in any GPS app)"
+          title={`Download the track and ${landed ? 'landing point' : 'last fix'} as a GPX file (opens in any GPS app)`}
           className={ACTION_BTN}
         >
           Save GPX
@@ -255,7 +270,7 @@ export default function GroundTrack({
           type="button"
           onClick={() =>
             download(
-              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex)], {
+              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed)], {
                 type: 'application/vnd.google-earth.kml+xml',
               }),
               `${stem}-track.kml`,
@@ -269,8 +284,17 @@ export default function GroundTrack({
       </div>
 
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°), or put the coordinates
-        into your phone/GPS — the cross marks the last fix. Positions are GPS, good to a few metres.
+        {landed ? (
+          <>
+            Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°), or put the coordinates into your
+            phone/GPS — the cross marks the last fix. Positions are GPS, good to a few metres.
+          </>
+        ) : (
+          <>
+            This record ends before the ground, so the cross is the last fix Debrief has — not where the rocket came
+            down, and not a direction to walk. Positions are GPS, good to a few metres.
+          </>
+        )}
         {lean && (
           <>
             {' '}
