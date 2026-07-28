@@ -396,6 +396,56 @@ describe('report exports', () => {
     expect(Math.abs(doc.flights[0].metrics.maxAcceleration - si / 0.3048)).toBeLessThan(0.1);
   });
 
+  // The logger cross-check is rendered twice — formatted for the text/Markdown/HTML
+  // reports, and as numbers for the JSON — and the two decided the quantity separately.
+  // The JSON tested only maxVelocity and let the rest fall through to the acceleration
+  // converter, so a device's own burnout velocity and descent rate came out divided by g
+  // under a document declaring m/s. This runs every metric the union carries through both
+  // and requires them to land on the same figure.
+  it('the JSON logger cross-check reads the same number the report prints, for every metric', () => {
+    const cases = [
+      { metric: 'apogeeAltitude', label: 'Apogee', si: 300 },
+      { metric: 'maxVelocity', label: 'Max velocity', si: 200 },
+      { metric: 'burnoutVelocity', label: 'Burnout velocity', si: 180 },
+      { metric: 'mainDescentRate', label: 'Descent velocity', si: 6.5 },
+      { metric: 'maxAcceleration', label: 'Max acceleration', si: 150 },
+    ] as const;
+
+    // Two choices, because with acceleration in m/s² the wrong converter is the identity
+    // and a speed sent through it comes out right by accident. In g it does not.
+    const systems = [
+      { length: 'm', speed: 'm/s', accel: 'g', temp: '°C', pressure: 'kPa' },
+      { length: 'm', speed: 'm/s', accel: 'm/s²', temp: '°C', pressure: 'kPa' },
+    ] as const;
+
+    for (const sys of systems) {
+      for (const c of cases) {
+        const withReported: RawFlight = {
+          ...accelFlight_,
+          reported: [{ metric: c.metric, label: c.label, value: c.si, source: 'device' }],
+        };
+        const a = analyzeFlight(withReported);
+        const doc = JSON.parse(analysisJson(withReported, a, sys));
+        const row = doc.loggerSummary[0];
+
+        // The text report is the reference. Read its cross-check section specifically —
+        // the headline table above it carries Debrief's own reading under the same label,
+        // and that is a different number from the device's.
+        const section = summaryText(withReported, a, sys).split('Logger’s own summary (cross-check)')[1];
+        expect(section, `the report has a cross-check for ${c.label}`).toBeTruthy();
+        const printed = section.match(new RegExp(`${c.label}\\s+logger\\s+([\\d,]+(?:\\.\\d+)?)\\s*(m/s²|m/s|m|g)(?=\\s|$)`));
+        expect(printed, `the cross-check prints ${c.label}`).not.toBeNull();
+        const asPrinted = Number(printed![1].replace(/,/g, ''));
+
+        const where = `${c.metric} in ${sys.accel}`;
+        expect(row.metric).toBe(c.metric);
+        expect(row.unit, `${where} states its unit`).toBe(printed![2]);
+        // Same reading, same figure — a 9.81× or 0.102× disagreement is the bug this guards.
+        expect(Math.abs(row.logger - asPrinted), `${where}: JSON ${row.logger} vs report ${asPrinted}`).toBeLessThan(1);
+      }
+    }
+  });
+
   it('carries an optional report label and notes into the text, Markdown and JSON exports', () => {
     const meta = { label: 'Nimbus IV · J450 · Flight 3', notes: 'Gusty; drogue at apogee.\nMain a touch low.' };
     const txt = summaryText(flight, analysis, 'imperial', 1_700_000_000_000, meta);

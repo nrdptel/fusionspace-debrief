@@ -255,10 +255,24 @@ export function reportTable(
   };
 }
 
+/** Which quantity each reported metric is. A `Record` over the union rather than a chain
+ *  of comparisons, so adding a metric to `ReportedValue` fails to compile until it is
+ *  classified here — the cross-check is rendered twice, once formatted and once as JSON,
+ *  and the two used to decide this separately. The JSON copy tested only `maxVelocity` and
+ *  let everything else fall through to the acceleration converter, so a device's own
+ *  burnout velocity and descent rate — both speeds, both carried by every AltimeterCloud
+ *  file — were divided by g before being printed under `units.speed`. */
+const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'speed' | 'accel'> = {
+  apogeeAltitude: 'length',
+  maxVelocity: 'speed',
+  burnoutVelocity: 'speed',
+  mainDescentRate: 'speed',
+  maxAcceleration: 'accel',
+};
+
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
-  if (metric === 'apogeeAltitude') return fmtLength(si, sys);
-  if (metric === 'maxVelocity' || metric === 'burnoutVelocity' || metric === 'mainDescentRate') return fmtSpeed(si, sys);
-  return fmtAccel(si, sys);
+  const q = REPORTED_QUANTITY[metric];
+  return q === 'length' ? fmtLength(si, sys) : q === 'speed' ? fmtSpeed(si, sys) : fmtAccel(si, sys);
 }
 
 /** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
@@ -1088,8 +1102,15 @@ export function analysisJson(
 ): string {
   const { metrics: m, events, warnings, series } = analysis;
   const { round, len, spd, acc, sec } = jsonConv(sys);
-  const reportedNum = (metric: ReportedValue['metric'], si: number) =>
-    metric === 'apogeeAltitude' ? len(si) : metric === 'maxVelocity' ? spd(si) : acc(si);
+  const u = jsonUnits(sys);
+  const reportedNum = (metric: ReportedValue['metric'], si: number) => {
+    const q = REPORTED_QUANTITY[metric];
+    return q === 'length' ? len(si) : q === 'speed' ? spd(si) : acc(si);
+  };
+  const reportedUnit = (metric: ReportedValue['metric']) => {
+    const q = REPORTED_QUANTITY[metric];
+    return q === 'length' ? u.length : q === 'speed' ? u.speed : u.acceleration;
+  };
   const label = clean(meta?.label);
   const notes = clean(meta?.notes);
 
@@ -1129,6 +1150,10 @@ export function analysisJson(
       metric: r.metric,
       logger: reportedNum(r.metric, r.value),
       debrief: hasComputed ? reportedNum(r.metric, computed) : null,
+      // Which of the document's units this pair is in. The rows are a mix of lengths,
+      // speeds and accelerations, so a consumer reading one row would otherwise have to
+      // know from the metric name alone which entry of `units` applies to it.
+      unit: reportedUnit(r.metric),
       agreementPct: deltaPct == null ? null : round(deltaPct, 1),
       agreement: status,
       // Additive: a consumer reading `agreementPct` alone would file a definitional 1 g
