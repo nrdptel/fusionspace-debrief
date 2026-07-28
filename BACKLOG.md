@@ -165,7 +165,16 @@ memory, so a later pass doesn't have to rediscover them.
   within … 193% on burn time" is not English. The lede is now chosen by the same threshold that
   colours a row amber, from one shared helper rather than the three copies that render it.
 
-- **A metric only ONE recording carries is dropped from the cross-check in silence.** `crossCheck`
+- **DONE — a metric only one recording carried was dropped from the cross-check in silence.**
+  Reproduced on `trf-f1-jan18`: the Blue Raven reads **54.8 ft/s** over the whole descent with no
+  deployment change in its record, the Featherweight GPS resolved a **drogue at 74.6** and a **main at
+  20.5**, so each of the three descent keys has one contributor, all three are skipped, and the panel
+  emitted **no descent row** — while cross-checking exactly two readings (apogee, time to apogee) with
+  no sign anything was missing. The other two same-flight groups in the corpus both get descent rows,
+  so it showed only on the pair worth chasing. Keeping the keys apart is still right; what was missing
+  is that a disagreement about WHETHER a deployment happened is not the same absence as too few to
+  corroborate. `recoveryDisagreement` now states it, and stays quiet when a descent row is already
+  checked or the recordings agree. Original entry: `crossCheck`
   skips a spec with `contrib.length < 2`, which is right for "too few to corroborate" but wrong when
   the recordings *disagree about whether the thing happened*. On `trf-f1-jan18` the Blue Raven
   reports a whole-descent rate and no main while the Featherweight GPS reports a drogue AND a main —
