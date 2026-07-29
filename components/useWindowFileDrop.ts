@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { filesFromEntries, type DropEntry } from '@/lib/dropEntries';
 
 /**
  * Catch a flight log dropped anywhere in the window, not only on the dashed box.
@@ -29,10 +30,14 @@ import { useEffect, useRef, useState } from 'react';
 export function useWindowFileDrop({
   onFiles,
   accept,
+  onEmptyFolder,
 }: {
   onFiles: (files: File[]) => void;
   /** Whether a dropped file should be read. When false the drop is still swallowed. */
   accept: boolean;
+  /** A folder was dropped and nothing inside it could be a flight log. Named so the surface can
+   *  say that, rather than the flyer watching a folder disappear into nothing. */
+  onEmptyFolder?: (folderNames: string[]) => void;
 }): { dragging: boolean } {
   const [dragging, setDragging] = useState(false);
   // dragenter/dragleave fire for every element the pointer crosses, so a bare boolean
@@ -42,10 +47,12 @@ export function useWindowFileDrop({
   // would drop a drag in progress each time `accept` or a new callback identity landed.
   const onFilesRef = useRef(onFiles);
   const acceptRef = useRef(accept);
+  const onEmptyFolderRef = useRef(onEmptyFolder);
   useEffect(() => {
     onFilesRef.current = onFiles;
     acceptRef.current = accept;
-  }, [onFiles, accept]);
+    onEmptyFolderRef.current = onEmptyFolder;
+  }, [onFiles, accept, onEmptyFolder]);
 
   useEffect(() => {
     const carriesFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
@@ -72,8 +79,58 @@ export function useWindowFileDrop({
       depth.current = 0;
       setDragging(false);
       if (!acceptRef.current) return;
-      const files = Array.from(e.dataTransfer?.files ?? []);
-      if (files.length > 0) onFilesRef.current(files);
+      const dt = e.dataTransfer;
+      if (!dt) return;
+      const files = Array.from(dt.files ?? []);
+
+      // A dropped FOLDER arrives in `dt.files` as one entry that IS the folder — a File with
+      // no bytes behind it, whose `arrayBuffer()` rejects — so "drop a launch day's folder at
+      // once", which the methods page advertises and `lib/ingest` is written around, produced
+      // one unreadable item and blamed the folder for not being a flight log.
+      //
+      // The contents come from the entry API. It has to be read SYNCHRONOUSLY, here, because
+      // the DataTransfer is emptied the moment this handler returns — the walk itself is async
+      // and runs on entries already in hand. Taken only when a directory is actually in the
+      // drop: a plain file drop keeps the `dt.files` path it has always used, so the common
+      // gesture gains no new failure mode.
+      const items = Array.from(dt.items ?? []).filter((it) => it.kind === 'file');
+      const entries = items.map((it) =>
+        typeof it.webkitGetAsEntry === 'function' ? (it.webkitGetAsEntry() as DropEntry | null) : null,
+      );
+      const folders = entries.filter((en): en is DropEntry => !!en?.isDirectory);
+      if (folders.length === 0) {
+        if (files.length > 0) onFilesRef.current(files);
+        return;
+      }
+
+      // Item by item, not list against list. An item the browser will not describe returns a
+      // null entry, and its real `File` is in `dt.files` — choosing the walk's result over the
+      // whole of `dt.files` dropped that file with no flight and no "left out" line to show for
+      // it. So: the folders are walked, everything else is taken as the browser gave it.
+      const loose = entries.map((en, i) => (en?.isDirectory ? null : files[i])).filter((f): f is File => !!f);
+      filesFromEntries(folders)
+        .then((found) => {
+          // The accept gate is checked again HERE. It was checked on the event, but delivery has
+          // moved off that turn: a flyer can open the column mapper while a big folder is still
+          // being walked, and firing into it would discard the mapping in progress — the one
+          // thing `accept: false` exists to protect.
+          if (!acceptRef.current) return;
+          const use = [...loose, ...found];
+          if (use.length > 0) {
+            onFilesRef.current(use);
+            return;
+          }
+          // Nothing usable came out. Saying so is the whole point: feeding the DIRECTORY entry
+          // back into ingest — which is what `dt.files` holds for a folder, a File with no bytes
+          // whose `arrayBuffer()` rejects — reproduces the exact "couldn't be read as a flight"
+          // this change exists to remove, and blames the folder for it a second time.
+          onEmptyFolderRef.current?.(folders.map((f) => f.name));
+        })
+        .catch(() => {
+          // A browser that throws rather than calling an error callback must not swallow the
+          // gesture in silence, and must not raise an unhandled rejection either.
+          if (acceptRef.current) onEmptyFolderRef.current?.(folders.map((f) => f.name));
+        });
     };
 
     window.addEventListener('dragenter', onDragEnter);

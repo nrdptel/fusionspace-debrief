@@ -1176,6 +1176,126 @@ test('a flight dropped anywhere is read, instead of throwing the flyer out of th
   expect(names, `logbook after three drops: ${JSON.stringify(names)}`).toEqual(['first.csv', 'second.csv', 'third.csv']);
 });
 
+// "Drop a launch day's folder at once" is what the methods page says and what `lib/ingest` is
+// written around — and it could not be done. `DataTransfer.files` holds ONE entry for a dropped
+// folder, and that entry IS the folder: a File with no bytes behind it whose `arrayBuffer()`
+// rejects. So the single gesture the ingest layer is named for produced one unreadable item and
+// blamed the flyer's folder for not being a flight log.
+test('a dropped folder is read as the flights inside it', async ({ page }) => {
+  const csv = readFileSync(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), 'utf8');
+  await page.goto('/');
+  await waitForWindowDropListener(page);
+
+  // A real folder drop cannot be synthesised with `DataTransfer` — `items.add(file)` only ever
+  // yields a FILE entry from `webkitGetAsEntry()`. So the event carries a directory entry of the
+  // shape the browser hands over, batched reader and all, which is the contract the walk in
+  // lib/dropEntries.ts is written against.
+  const outcome = await page.evaluate((text) => {
+    const mkFile = (name: string) => ({
+      isFile: true,
+      isDirectory: false,
+      name,
+      file: (ok: (f: File) => void) => ok(new File([text], name, { type: 'text/csv' })),
+    });
+    const children = [mkFile('.DS_Store'), mkFile('IMG_1.HEIC'), mkFile('flight-1.csv'), mkFile('flight-2.csv')];
+    const folder = {
+      isFile: false,
+      isDirectory: true,
+      name: 'launch-day',
+      // A FRESH cursor per reader, the way a real one behaves. Hoisting it outside would let an
+      // implementation that calls `createReader()` per batch pass here while looping forever in
+      // a browser.
+      createReader: () => {
+        let i = 0;
+        return {
+          // Batches of two, and an empty answer to end — exactly how a real reader behaves, and
+          // the edge that loses every file past the first batch when it is read only once.
+          readEntries: (ok: (e: unknown[]) => void) => {
+            const next = children.slice(i, i + 2);
+            i += next.length;
+            ok(next);
+          },
+        };
+      },
+    };
+    // What the browser ACTUALLY puts in `files` for a folder: one entry that IS the folder, with
+    // no bytes behind it. Empty here would hide the branch that used to feed it back to the
+    // parser and blame the folder for not being a flight log.
+    const dt = {
+      types: ['Files'],
+      files: [new File([], 'launch-day')] as unknown as FileList,
+      items: [{ kind: 'file', webkitGetAsEntry: () => folder }],
+    };
+    const ev = new DragEvent('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, 'dataTransfer', { value: dt });
+    document.body.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  }, csv);
+  expect(outcome, 'the drop is cancelled, or the browser navigates to the folder').toBe(true);
+
+  // Two flights came out of the folder, so this lands where any two-flight drop lands: a
+  // comparison. That is the point of dropping a launch day at once.
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 20_000 });
+
+  // Both flights inside the folder reached the logbook — the second one proves the reader was
+  // drained rather than read once — and the filesystem's own clutter is not reported as a
+  // flight that could not be read.
+  const names = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((res) => {
+      const q = indexedDB.open('debrief');
+      q.onsuccess = () => res(q.result);
+    });
+    const all: { name: string }[] = await new Promise((res) => {
+      const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+      q.onsuccess = () => res(q.result);
+    });
+    return all.map((r) => r.name).sort();
+  });
+  // Exactly the two logs: the batching was drained (or flight-2 would be missing), and neither
+  // the filesystem's own clutter nor the pad photo was opened, decoded and reported as a file
+  // that could not be read.
+  expect(names, `logbook after one folder drop: ${JSON.stringify(names)}`).toEqual(['flight-1.csv', 'flight-2.csv']);
+});
+
+// …and a folder with nothing in it that could be a flight has to SAY so. The browser puts the
+// folder itself in `dataTransfer.files` — a File with no bytes, whose `arrayBuffer()` rejects —
+// so falling back to that reproduced "Could not read this file." about the folder, which is the
+// bug rather than the report.
+test('a folder with no flight logs in it says so, instead of blaming the folder', async ({ page }) => {
+  await page.goto('/');
+  await waitForWindowDropListener(page);
+  const cancelled = await page.evaluate(() => {
+    const child = { isFile: true, isDirectory: false, name: 'IMG_9001.HEIC', file: (ok: (f: File) => void) => ok(new File(['x'], 'IMG_9001.HEIC')) };
+    const folder = {
+      isFile: false,
+      isDirectory: true,
+      name: 'holiday-photos',
+      createReader: () => {
+        let done = false;
+        return {
+          readEntries: (ok: (e: unknown[]) => void) => {
+            ok(done ? [] : [child]);
+            done = true;
+          },
+        };
+      },
+    };
+    const dt = {
+      types: ['Files'],
+      files: [new File([], 'holiday-photos')] as unknown as FileList,
+      items: [{ kind: 'file', webkitGetAsEntry: () => folder }],
+    };
+    const ev = new DragEvent('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, 'dataTransfer', { value: dt });
+    document.body.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  });
+  expect(cancelled).toBe(true);
+
+  await expect(page.getByText(/Nothing in “holiday-photos” looked like a flight log/)).toBeVisible();
+  await expect(page.getByText('Could not read this file.'), 'the folder is not blamed for not being a flight').toHaveCount(0);
+});
+
 // Every reading in the grid is a term of art — "Coast efficiency", "Max Q",
 // "Thrust-to-weight" — and none of them carried a title, a help affordance or a link. The
 // methods page defines all of them and had ZERO `id` attributes in 790 lines, so there was
