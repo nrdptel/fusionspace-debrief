@@ -42,9 +42,11 @@ const executablePath = resolveExecutablePath();
 // hydration (no console errors), and an axe accessibility audit.
 //
 // Run against the STATIC EXPORT: `npm run build` first (emits out/), then
-// `npm run test:e2e`. The webServer serves out/ with `serve` instead of
-// `next start` (which doesn't work with output: export), using e2e-serve.json to
-// emulate the Cloudflare _headers security headers.
+// `npm run test:e2e`. The webServer serves out/ with scripts/e2e-server.mjs
+// instead of `next start` (which doesn't work with output: export); that script
+// applies the Cloudflare _headers security headers and answers from memory, which
+// is what ended this suite's long-running `EMFILE` web-server crashes. Same
+// command as `npm run serve:out`, so a manual walk sees exactly what a run does.
 
 export default defineConfig({
   testDir: './e2e',
@@ -70,7 +72,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx serve -c e2e-serve.json -l 3000 --no-clipboard --no-request-logging',
+    command: 'node scripts/e2e-server.mjs 3000',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

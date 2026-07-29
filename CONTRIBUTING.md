@@ -53,6 +53,12 @@ npm run build       # also type-checks the whole repo, tests included (CI gate)
 npm run test:e2e    # Playwright (incl. an axe accessibility audit)
 ```
 
+`test:e2e` runs against the built static export, so `npm run build` has to come first — and it
+must not run *during* the suite, which deletes `out/` from under the server. The server is
+`scripts/e2e-server.mjs`; `npm run serve:out` starts the same thing by hand for a manual walk of
+a build, applying the `public/_headers` security headers so a local walk sees what production
+sends.
+
 Next's own build only type-checks what the app imports, so the **test** files were never checked
 by the gate and their `FlightMetrics` fixtures had quietly drifted four fields behind the real type —
 a fixture that isn't the shape it claims silently stops exercising the readings built from the
