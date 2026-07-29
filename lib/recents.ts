@@ -35,6 +35,16 @@ export interface RecentFlight extends RecentMeta {
    *  or building a comparison from ids — dropped the device's own figures and the whole
    *  cross-check panel with them. Absent on every flight dropped without a summary. */
   summaryText?: string;
+  /** The label and notes a flyer typed onto this flight's report.
+   *
+   *  Kept with the flight rather than with the view. The report has an address now, so a link
+   *  out and a Back come back to the flight — and these two, the only things on that screen a
+   *  flyer actually TYPED, were the two that didn't. They ride into every text, Markdown, HTML
+   *  and JSON export and the printed card, which is exactly why losing them costs a cert
+   *  write-up its title.
+   *
+   *  Keyed by the logbook id, which is stable across a reopen. */
+  caption?: { label: string; notes: string };
   /** The column mapping a flyer made by hand, for a file Debrief doesn't auto-detect.
    *  Without it the logbook holds the text and not the answer: reopening the flight asks
    *  for the mapping again, and a comparison built by id drops it entirely. Absent on every
@@ -128,6 +138,11 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
     // drop established has to survive it or reopening a paired flight would silently
     // un-pair it — the second time, not the first, which is the worst way to lose a thing.
     const inheritedSummary = rec.summaryText ?? all.find((r) => isDup(r) && r.summaryText)?.summaryText;
+    // …and the label and notes the flyer typed onto the report, for exactly the reason above.
+    // A save is a replace in place, and REOPENING a flight is a save — so without this, coming
+    // back to a flight wiped the two things on that screen the flyer had written themselves,
+    // the second time rather than the first.
+    const inheritedCaption = all.find((r) => isDup(r) && r.caption)?.caption;
     // KEEP the id when this file is already in the logbook. A logbook id is an ADDRESS —
     // `/?open=<id>` is the report's, and `/compare?ids=a,b,c` names a comparison's flights —
     // and minting a fresh one on every save quietly broke both. Measured: two flights
@@ -142,6 +157,7 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
       ...rec,
       note: inheritedNote,
       ...(inheritedSummary ? { summaryText: inheritedSummary } : {}),
+      ...(inheritedCaption ? { caption: inheritedCaption } : {}),
       id,
       addedAt: Date.now(),
     });
@@ -189,6 +205,23 @@ export async function updateNote(id: string, note: string): Promise<void> {
     tx(db, 'readwrite').put({ ...rec, note });
   } catch {
     /* ignore */
+  }
+}
+
+/** Keep the label and notes a flyer typed onto a report. Mirrors `updateNote`: read, merge,
+ *  put — so it can't clobber a field written by a concurrent save. */
+export async function saveCaption(id: string, caption: { label: string; notes: string }): Promise<void> {
+  try {
+    const db = await idb();
+    const rec = await reqToPromise(tx(db, 'readonly').get(id) as IDBRequest<RecentFlight>);
+    if (!rec) return;
+    const empty = !caption.label.trim() && !caption.notes.trim();
+    const next = { ...rec };
+    if (empty) delete next.caption;
+    else next.caption = caption;
+    tx(db, 'readwrite').put(next);
+  } catch {
+    /* storage unavailable — the caption still applies to this view */
   }
 }
 

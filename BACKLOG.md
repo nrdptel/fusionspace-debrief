@@ -1415,6 +1415,18 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **DONE — the two things a flyer TYPES were the two things a report lost.** The report has an
+  address now, so a link out and a Back come back to the flight — but `reportLabel` and
+  `reportNotes` were per-flight React state cleared on `flight.source`, and they ride into every
+  text, Markdown, HTML and JSON export and the printed card, so losing them costs a cert write-up
+  its title. Kept with the flight in the logbook (`caption`, keyed on the id that is now stable),
+  seeded back on open, and the panel's copy — which honestly said "Held for this view only" —
+  now says they are kept, because they are. Two bugs were underneath it: `saveRecent` rebuilds the
+  record on every save and dropped `caption` (the same trap `note` and `summaryText` each have an
+  explicit comment about — reopening wiped it the SECOND time, not the first), and a 400 ms debounce
+  alone loses whatever was typed in the last 400 ms, which on a short label is all of it, so leaving
+  the field flushes immediately.
+
 - **DONE — twenty-one readings a flyer cannot look up, and a methods page nothing could link to.**
   Every reading in the grid is a term of art — "Coast efficiency", "Max Q", "Thrust-to-weight",
   "Tilt at burnout" — and `MetricGrid.tsx` carried **no `title`, no `aria-label` and no link**, on any

@@ -23,6 +23,7 @@ import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import {
   saveRecent,
+  saveCaption,
   listRecents,
   getRecent,
   removeRecent,
@@ -49,7 +50,18 @@ type State =
    *  comparison: mapping it puts it back with the flights it was dropped alongside,
    *  instead of stranding it as a report of its own. */
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[]; addToIds?: string[] }
-  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string; note?: string }
+  /** `savedId` is the logbook key this flight was stored under — the report's own address, and
+   *  what the label/notes a flyer types are kept against. Absent where storage was refused. */
+  | {
+      phase: 'report';
+      flight: RawFlight;
+      analysis: FlightAnalysis;
+      analyzedAt: number;
+      text: string;
+      note?: string;
+      savedId?: string;
+      caption?: { label: string; notes: string };
+    }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
   /** Files in the same drop that need their columns mapped. They are not failures — a
@@ -162,7 +174,10 @@ export default function Analyzer() {
   const reqRef = useRef(0);
   const beginLoad = useCallback(() => {
     const token = ++reqRef.current;
-    return (next: State) => {
+    // Takes an updater as well as a value, so a late arrival (the logbook id, which lands
+    // after the save resolves) can be folded into the state this load already set without
+    // re-deciding what that state is — and still only if this load is still the current one.
+    return (next: State | ((prev: State) => State)) => {
       if (reqRef.current === token) setState(next);
     };
   }, []);
@@ -176,7 +191,7 @@ export default function Analyzer() {
      *  `summaryText` the device summary it was dropped alongside — both present only when
      *  reopening one, so a custom file comes back as the flight the flyer made rather than as
      *  the mapper again, and a paired flight comes back with its cross-check. */
-    async (name: string, text: string, mapping?: StoredMapping[], summaryText?: string) => {
+    async (name: string, text: string, mapping?: StoredMapping[], summaryText?: string, caption?: { label: string; notes: string }) => {
       const set = beginLoad();
       try {
         if (text.trim().length === 0) {
@@ -186,7 +201,7 @@ export default function Analyzer() {
         const result = importRecent({ name, text, ...(mapping ? { mapping } : {}), ...(summaryText ? { summaryText } : {}) });
         if (result.kind === 'flight') {
           const analysis = await analyzeAsync(result.flight);
-          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
+          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text, ...(caption ? { caption } : {}) });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -197,6 +212,9 @@ export default function Analyzer() {
             text,
           }).then((saved) => {
             rememberOpenId(saved.id);
+            // The id arrives after the report is on screen (the save resolves later), so it is
+            // folded in rather than waited for — the report should not be held back for it.
+            if (saved.id) set((prev) => (prev.phase === 'report' ? { ...prev, savedId: saved.id ?? undefined } : prev));
             logbook.reportForgotten(saved.forgotten);
             logbook.refresh();
           });
@@ -473,7 +491,7 @@ export default function Analyzer() {
       }
       setState({ phase: 'loading', what: { name: rec.name, bytes: rec.text.length } });
       await tick();
-      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText);
+      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText, rec.caption);
     },
     [ingest],
   );
@@ -545,6 +563,8 @@ export default function Analyzer() {
           analyzedAt={state.analyzedAt}
           sourceText={state.text}
           sys={sys}
+          caption={state.caption}
+          onCaption={state.savedId ? (c) => void saveCaption(state.savedId as string, c) : undefined}
         />
       </div>
     );

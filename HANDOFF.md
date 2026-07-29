@@ -131,6 +131,19 @@ dropped on the box.
 - **`npm install` is needed at session start** — the container ships without `node_modules`.
 - **`npm run fetch-fixtures` returns 401 here.** `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`.
 - **The image's Chromium is 1194 and Playwright wants 1228.** `npx playwright install chromium` (~2 min).
+- **The e2e static server runs out of file descriptors as the suite grows, and the container will
+  not let you raise the limit.** `ulimit -n` is **4096** and `ulimit -n 65536` returns
+  *"cannot modify limit: Operation not permitted"*. At 195 tests, `npx serve` hits
+  `EMFILE: too many open files` **twice in a run** — on `out/compare/index.txt` and on a polyfill
+  chunk — and every test after the crash fails with `ERR_CONNECTION_REFUSED`. The victim is always
+  `worker.spec.ts`'s 200,000-row test, because it is last and the server is most exhausted by then;
+  it passes in **10 s when its file is run alone**. Read the `[WebServer]` lines before diagnosing a
+  cluster of tail-end failures — every test error points somewhere else. CI is unaffected (GitHub
+  runners set a far higher limit) and is the stronger gate here. **The real fix is to stop using
+  `serve` for the e2e web server** — it opens a ReadStream per request and does not close them fast
+  enough under this suite's concurrency; a ~30-line Node static handler would end this whole class
+  of failure, and would also remove the `-s`/`--single` footgun documented below.
+
 - **NEVER run `npm run build` while `npm run test:e2e` is in flight.** The build deletes and recreates
   `out/`, which is what the e2e webServer is serving: the run does not fail loudly, it comes back with
   a SHORT COUNT and exit 0 — **122 passed** where a full run is 185. It also kills any hand-started
