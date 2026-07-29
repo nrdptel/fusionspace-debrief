@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
@@ -54,6 +54,10 @@ export default function CompareSurface() {
   // Units are a whole-app choice, owned above the header so the control is on every surface
   // — this page used to keep a second copy of the same reader and writer.
   const { sys } = useUnits();
+  /** The ids currently ON SCREEN — what `load` actually assembled, which is not always what it
+   *  was asked for. A drop merges onto these; seeding from the address instead let an id that
+   *  no longer reads sit there forever, eating a comparison slot nothing could free. */
+  const loadedIds = useRef<string[]>([]);
 
   /** Assemble the given logbook ids, and put them in the URL so the view is reloadable. */
   const load = useCallback(async (ids: string[], pushUrl: boolean, extraNote?: string) => {
@@ -63,22 +67,42 @@ export default function CompareSurface() {
     if (!built) {
       setComparison(null);
       setState('picking');
-      setNote(
+      loadedIds.current = [];
+      // The drop's own account survives the failure. A drop that read and SAVED a launch day
+      // and then failed to assemble it reported only the stale ids' problem — no word that six
+      // files had landed in the logbook and are a tick away from comparing.
+      const why =
         used === 1
           ? 'Only one of those flights could be read, so there’s nothing to compare it against yet.'
-          : `Couldn’t read those flights: ${skipped.map((s) => `${s.name} — ${s.why}`).join('; ')}`,
-      );
+          : `Couldn’t read those flights: ${skipped.map((s) => `${s.name} — ${s.why}`).join('; ')}`;
+      setNote([why, extraNote].filter(Boolean).join(' '));
       return;
     }
     setComparison(built);
     setState('ready');
+    // The ids that actually READ, not the ones we were handed. A permalink can name a flight
+    // this device no longer holds — a link from a club thread, cleared site data, a flight the
+    // logbook's prune forgot — and `compareFromLogbook` skips those. Addressing the comparison
+    // by what it asked for rather than by what it got left dead ids in the URL, where they cost
+    // a slot on every later drop and could not be removed from any screen: six dead ids filled
+    // the comparison, so every drop after that merged onto six corpses and failed again.
+    loadedIds.current = built.flights.map((f) => f.id);
     // A drop can have its own account of what it left out; keep both, since a file the
     // drop couldn't use and a logbook id that no longer reads are different problems.
     const own = skipped.length > 0 ? `Left out: ${skipped.map((s) => `${s.name} — ${s.why}`).join('; ')}.` : '';
     const both = [own, extraNote].filter(Boolean).join(' ');
     setNote(both || null);
+    const url = new URL(window.location.href);
     if (pushUrl) {
-      window.history.pushState(null, '', withIds(new URL(window.location.href), ids));
+      window.history.pushState(null, '', withIds(url, loadedIds.current));
+    } else if (idsFromParam(url.searchParams.get('ids')).join(',') !== loadedIds.current.join(',')) {
+      // Arriving on an address that names more than it can show — a permalink from a club
+      // thread, a flight the prune forgot — the address is corrected IN PLACE to what is
+      // actually on screen. `replaceState`, not `pushState`: this is the same view the flyer
+      // just navigated to, not a new one, and a Back that returned to the broken address would
+      // be a loop. Without it the dead id stayed in the bar, so a link shared onward passed the
+      // fault along and every later drop merged onto a corpse.
+      window.history.replaceState(null, '', withIds(url, loadedIds.current));
     }
   }, []);
 
@@ -123,10 +147,32 @@ export default function CompareSurface() {
       logbook.refresh();
 
       const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
+
+      // ADD to the comparison on screen rather than replacing it. A launch day does not arrive
+      // in one handful: drop four logs, then the other two, and this used to come back with a
+      // comparison of the last two — the first four gone from the view AND from the address that
+      // named them. Drop a single extra file and it was worse still, because one id cannot make
+      // a comparison: `setState('picking')` threw the whole assembly off the screen. The mapper
+      // path on this same surface has always appended (`addToIds`, below); the two halves of one
+      // gesture simply disagreed.
+      const current = loadedIds.current;
+      const fresh = ids.filter((id) => !current.includes(id));
+      const merged = [...current, ...fresh].slice(0, MAX_COMPARE);
+      // What the cap left behind, named — a comparison silently one flight short is the same
+      // kind of quiet loss the logbook's prune used to be. They are in the logbook either way,
+      // which is where the flyer picks a different set from.
+      const overflow = [...current, ...fresh].length - merged.length;
+      const overflowNote =
+        overflow > 0
+          ? ` A comparison holds ${MAX_COMPARE} flights, so ${overflow === 1 ? 'the last one' : `the last ${overflow}`} stayed in your logbook — use “Compare other flights” to pick a different set.`
+          : '';
+
       // A file that needs mapping is only offered when the flights it would join have an
-      // address — that address is what it rejoins them at. Without one, it goes back to
-      // being named in the left-out sentence.
-      const offerable = ids.length >= 2 ? mappableFiles : [];
+      // address — that address is what it rejoins them at. It is the MERGED one: gating on this
+      // drop's own ids refused the mapper on exactly the drops appending made work, so dropping
+      // one log plus one mappable file onto a comparison already on screen sent the mappable one
+      // to the left-out sentence while the comparison it belonged to was right there.
+      const offerable = merged.length >= 2 ? mappableFiles : [];
       setMappable(offerable);
 
       // A summary that PAIRED is no longer "left out" — its figures are on the flight and it
@@ -142,8 +188,8 @@ export default function CompareSurface() {
           ? ` Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`
           : '';
 
-      if (ids.length >= 2) {
-        void load(ids, true, `${leftNote}${pairedNote}`.trim() || undefined);
+      if (merged.length >= 2) {
+        void load(merged, true, `${leftNote}${pairedNote}${overflowNote}`.trim() || undefined);
         return;
       }
       setState('picking');
@@ -220,7 +266,11 @@ export default function CompareSurface() {
           setNote(`${fileName} was read, but this browser wouldn’t store it, so it can’t join the comparison.`);
           return;
         }
-        await load([...addToIds, id], true);
+        // Capped like every other route into a comparison. `compareFromLogbook` slices to
+        // MAX_COMPARE anyway, so an uncapped list here pushed an address naming a flight that
+        // was not on screen and never could be — and appending drops is what made a full
+        // comparison the ordinary case rather than a rarity.
+        await load([...addToIds, id].slice(0, MAX_COMPARE), true);
       } catch (err) {
         setMapping(null);
         setState(comparison ? 'ready' : 'picking');

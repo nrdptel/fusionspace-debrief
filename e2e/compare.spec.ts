@@ -455,3 +455,91 @@ test('a file a batch drop could not read can be mapped into the comparison it ar
   expect(page.url()).toContain('/compare?ids=');
   await expect(page.getByText('perfectflite-stratologger').first()).toBeVisible();
 });
+
+
+/** Release a file on the page body, the way a flyer drops one onto a comparison already on
+ *  screen — this surface renders no picker in that state. */
+async function dropOnWindow(page: import('@playwright/test').Page, name: string, contents: string) {
+  // Returns whether the window CANCELLED each gesture, not just whether the app reacted. A
+  // browser's default for a dropped file is to navigate to it, so a handler that ingests the
+  // file and forgets to `preventDefault` still loses the flyer the page — and a test that only
+  // checks the heading passes right through that.
+  return page.evaluate(
+    ([fileName, text]) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([text], fileName, { type: 'text/csv' }));
+      const fire = (type: string) => {
+        const ev = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt });
+        document.body.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      };
+      fire('dragenter');
+      return { over: fire('dragover'), drop: fire('drop') };
+    },
+    [name, contents] as const,
+  );
+}
+
+// A launch day does not arrive in one handful. Dropping the rest of it onto a comparison that
+// is already on screen used to REPLACE it — the flights you had assembled gone from the view
+// and from the address that named them — and dropping a single extra file was worse, because
+// one id cannot make a comparison and the whole assembly fell back to the picker. The mapper
+// path on this same surface has always appended; the two halves of one gesture disagreed.
+test('a drop adds to the comparison on screen instead of replacing it', async ({ page }) => {
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  const idsOf = () => new URL(page.url()).searchParams.get('ids')?.split(',') ?? [];
+  const first = idsOf();
+  expect(first).toHaveLength(2);
+
+  // ONE more file — the case that used to throw the comparison away entirely. It has to be a
+  // real DROP: once a comparison is loaded this surface renders no file picker at all, which is
+  // exactly why the window-level catch exists and why this path went unnoticed.
+  const extra = await readFile(fixture('featherweight-gps.csv'), 'utf8');
+  const gesture = await dropOnWindow(page, 'fwgps-extra.csv', extra);
+  expect(gesture.over, 'dragover must be cancelled or the browser navigates to the raw CSV').toBe(true);
+  expect(gesture.drop, 'and so must the drop').toBe(true);
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  const after = idsOf();
+  expect(after, 'the flights already there are kept, in that order').toHaveLength(3);
+  expect(after.slice(0, 2), 'the two already on screen keep their places').toEqual(first);
+  expect(new Set(after).size, `no flight is named twice: ${after.join(',')}`).toBe(3);
+
+  // The address is the comparison, so a reload has to bring the same three back.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  expect(idsOf()).toEqual(after);
+
+  // Re-dropping a file already in the set doesn't duplicate it.
+  await dropOnWindow(page, 'fwgps-extra.csv', extra);
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  expect(idsOf(), 'the same file is the same flight, not a fourth column').toEqual(after);
+});
+
+// An address can name a flight this device no longer holds — a link from a club thread, cleared
+// site data, a flight the logbook's prune forgot. Merging onto what the ADDRESS claimed rather
+// than onto what actually loaded left those dead ids in place, where they cost a slot on every
+// later drop and no screen could remove them.
+test('a comparison drops the ids it could not read, instead of carrying them forever', async ({ page }) => {
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  const idsOf = () => new URL(page.url()).searchParams.get('ids')?.split(',') ?? [];
+  const live = idsOf();
+
+  // One real flight, one id that reads as nothing.
+  await page.goto(`/compare?ids=${live[0]},does-not-exist,${live[1]}`);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  expect(idsOf(), 'the address keeps only what it could actually read').toEqual(live);
+
+  // …and the dead id is not still holding a slot: a drop lands beside the two that survived.
+  const extra = await readFile(fixture('featherweight-gps.csv'), 'utf8');
+  await dropOnWindow(page, 'fwgps-extra.csv', extra);
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  expect(idsOf().slice(0, 2)).toEqual(live);
+});

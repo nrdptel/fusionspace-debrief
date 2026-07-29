@@ -1,6 +1,9 @@
 // The loggers Debrief auto-detects, named where a first-time visitor sees them —
-// at the drop zone, before uploading — so they know their altimeter is covered
+// at the drop zone, before dropping a file — so they know their altimeter is covered
 // without digging into the methodology. The catch-all CSV mapper covers the rest.
+//
+// "before uploading", this said. Nobody uploads anything to Debrief; that is the headline
+// promise, and the word does not describe something a flyer does here even in a comment.
 
 const FORMATS = [
   'Altus Metrum (AltOS)',
