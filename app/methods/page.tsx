@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
+import type { MethodId } from '@/lib/methodIds';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_URL } from '@/lib/links';
 
@@ -35,7 +36,7 @@ export default function MethodsPage() {
         </p>
 
         <div className="mt-6 grid gap-x-8 gap-y-5 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
-          <Method title="The GPS recording, where the file has one">
+          <Method id="gps-recording" title="The GPS recording, where the file has one">
             Some loggers write the receiver&apos;s own altitude beside the barometer&apos;s — a
             different sensor, indifferent to the weather and to the shock over a static port. Debrief
             keeps it as a <em>second recording</em> and states its apogee beside its own, never
@@ -64,7 +65,7 @@ export default function MethodsPage() {
             receiver&apos;s altitude and its satellite count are both in
             the explorer, so you can plot either against the barometric line.
           </Method>
-          <Method title="Ground baseline & altitude">
+          <Method id="ground-baseline-altitude" title="Ground baseline & altitude">
             From the logger&apos;s own altitude channel, or from barometric pressure (with the standard
             atmosphere) when it only logs pressure. The pad level is the median of the opening samples,
             so everything reads as height above the pad (AGL). Baro altitude drifts with weather and
@@ -73,7 +74,7 @@ export default function MethodsPage() {
             any barometric altitude stops holding and the reading under-reads; a flight that high is
             flagged, and a GPS or inertial altitude is more trustworthy up there.
           </Method>
-          <Method title="Whether several recordings are one flight">
+          <Method id="several-recordings-one-flight" title="Whether several recordings are one flight">
             A comparison&apos;s cross-check asks a specific question — if these are recordings of
             the same flight, how closely do they agree? — and that question has a premise the
             files can refute. Where two of them state a launch date and those dates are days
@@ -88,7 +89,7 @@ export default function MethodsPage() {
             answer. Nothing else about the comparison changes — the numbers are the same
             numbers, correctly introduced.
           </Method>
-          <Method title="More than one flight in a file">
+          <Method id="several-flights-in-a-file" title="More than one flight in a file">
             A logger downloaded twice, or a whole launch day dumped at once, puts several flights in
             one file — and read as a single flight the record is nonsense: the highest point belongs
             to a later flight while liftoff belongs to the first, so time-to-apogee spans both. The
@@ -105,7 +106,7 @@ export default function MethodsPage() {
             10,266 — the second copy begins at the trough with no quiet pad window of its own, and
             measuring it against that trough is what put it 456&nbsp;ft out.
           </Method>
-          <Method title="The same flight written twice">
+          <Method id="same-flight-written-twice" title="The same flight written twice">
             A doubled download is not two flights, and saying so matters: telling its owner to
             &ldquo;split the file and read the others&rdquo; hands them the same flight again. The
             test is the apogee measured against <strong>one datum</strong> — the file&apos;s own pad
@@ -121,7 +122,7 @@ export default function MethodsPage() {
             carried across: a time needs two instants both copies agree on, a rate needs the
             deployment structure between them.
           </Method>
-          <Method title="Apogee">
+          <Method id="apogee" title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
             two-sample jump an ejection charge punches into a baro trace — what makes a naïve
             &ldquo;highest reading&rdquo; report an apogee that never happened — while leaving the true
@@ -140,7 +141,7 @@ export default function MethodsPage() {
             can&apos;t look like one, and a trace whose ascent velocity swings well negative is
             carrying noise rather than speed, so its sign is not used at all.
           </Method>
-          <Method title="Velocity & max velocity">
+          <Method id="velocity-max-velocity" title="Velocity & max velocity">
             Used straight from the device when it logged a velocity (an accelerometer-integrated speed
             is best through the fast boost); otherwise it&apos;s the time-derivative of the cleaned
             altitude, smoothed to the file&apos;s own sample rate. Derived velocity is softer at peak
@@ -182,7 +183,7 @@ export default function MethodsPage() {
             supersonic, nor bound how fast it really went. It&apos;s flagged, not withheld; an
             accelerometer or an inertial solution settles it.
           </Method>
-          <Method title="A GPS speed doesn't settle it either">
+          <Method id="gps-speed-supersonic" title="A GPS speed doesn't settle it either">
             A speed worked out from a <strong>GPS</strong> altitude used to be treated as settling a
             Mach&nbsp;1 crossing, on the reasoning that nothing distorts a GPS through the transonic
             region the way a shock over a static port distorts a barometer. That reasoning is sound and
@@ -202,7 +203,7 @@ export default function MethodsPage() {
             the same way a barometric one is. The number is still shown: it is the flyer&apos;s own
             record, and the direction of its error is stated with it.
           </Method>
-          <Method title="When the accelerometer settles it">
+          <Method id="accelerometer-settles-mach" title="When the accelerometer settles it">
             On a log that carries both channels, the accelerometer bounds a barometric speed from{' '}
             <em>above</em>: integrate the measured specific force less gravity from liftoff, crediting
             every measured g as vertical, and the result is a ceiling the rocket cannot have passed —
@@ -224,7 +225,7 @@ export default function MethodsPage() {
             the corpus flights where a device velocity settles the truth, the barometric trace still runs
             up to 38% over the ceiling while being right.
           </Method>
-          <Method title="The altitude a reading happened at">
+          <Method id="altitude-of-a-reading" title="The altitude a reading happened at">
             Burnout, the speed peak, the Mach-1 crossing and max-Q are each reported with the altitude
             they occurred at — and every one of them lands in the stretch where a barometric port is
             least trustworthy. Through the transonic push the shock over the port drives the sensed
@@ -264,7 +265,7 @@ export default function MethodsPage() {
             channel, which is the one that doesn&apos;t drift over a whole flight; the two are shown
             side by side rather than merged.
           </Method>
-          <Method title="Acceleration">
+          <Method id="acceleration" title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
             the average over the same boost (ignition to burnout), and max deceleration over the ascent.
             If the trace flat-tops at its peak — how a sensor reads once it hits its full-scale limit
@@ -276,7 +277,7 @@ export default function MethodsPage() {
             offered in the explorer or comparison, or written into the data export either (its shape is the
             same noise). The velocity — a first derivative, and usable — still is, labelled as derived.
           </Method>
-          <Method title="Thrust-to-weight (off the pad)">
+          <Method id="thrust-to-weight" title="Thrust-to-weight (off the pad)">
             The accelerometer&apos;s reading in g right at liftoff is the thrust-to-weight ratio —
             at low speed drag is negligible, so the specific force it senses is just thrust over
             weight. It&apos;s the &ldquo;5:1 rule&rdquo; number, the rail-departure safety check,
@@ -298,7 +299,7 @@ export default function MethodsPage() {
             which is T/W either way. Where a record starts too late to hold a resting stretch the
             ratio is left unread, and says why, rather than published a point out.
           </Method>
-          <Method title="What an accelerometer channel means">
+          <Method id="accelerometer-channel-meaning" title="What an accelerometer channel means">
             Debrief reports <strong>specific force</strong> everywhere — what the sensor actually
             measures, and the g the airframe felt, which is the number a structures check wants. An
             accelerometer sitting still on the pad reads <strong>+1&nbsp;g</strong>, not zero.
@@ -316,7 +317,7 @@ export default function MethodsPage() {
             the difference is exactly one gravity, and it is a choice of definition rather than a
             disagreement about the measurement.
           </Method>
-          <Method title="Liftoff & burnout">
+          <Method id="liftoff-burnout" title="Liftoff & burnout">
             With an accelerometer, liftoff is the first sustained kick above about 2 g and burnout is
             where axial acceleration falls back through zero. With baro only, liftoff is the first real
             climb off the pad and burnout is taken at peak velocity, where a coasting rocket&apos;s
@@ -351,7 +352,7 @@ export default function MethodsPage() {
             own summary puts burnout 2.7–5.0% below its peak speed, which is the gap between two
             definitions of the instant, not two readings of a speed.
           </Method>
-          <Method title="Rail-exit velocity">
+          <Method id="rail-exit-velocity" title="Rail-exit velocity">
             How fast the rocket was moving when it cleared the rail (you pick the rail length) — found by
             integrating the flown velocity from liftoff until the rocket has covered one rail-length of
             travel, and reading the velocity there. It&apos;s a measurement, not a prediction. Rail
@@ -360,7 +361,7 @@ export default function MethodsPage() {
             and is withheld on a baro-only or GPS log rather than shown as a number that low can&apos;t
             support.
           </Method>
-          <Method title="Coast efficiency">
+          <Method id="coast-efficiency" title="Coast efficiency">
             After burnout the rocket coasts on the energy it has; with no drag it would trade all of
             its burnout speed for height — a vacuum coast of v²/2g above burnout. Comparing that to
             the height actually gained reads off how much of the coast drag ate: the efficiency, and
@@ -378,7 +379,7 @@ export default function MethodsPage() {
             is this, rather than reporting a percentage measured from a height the record cannot
             state.
           </Method>
-          <Method title="Ejection delay">
+          <Method id="ejection-delay" title="Ejection delay">
             For a motor-ejection flight, the ideal motor delay is the coast time — the interval
             from burnout to apogee, where the rocket has slowed to a stop and a charge deploys most
             gently. Debrief measures that coast directly, so it frames it as the delay to load and,
@@ -386,7 +387,7 @@ export default function MethodsPage() {
             actually fired (delay − coast time). A reading of the flown flight, not a prediction; the
             offset is only as sharp as the burnout and apogee it sits between.
           </Method>
-          <Method title="Drag coefficient">
+          <Method id="drag-coefficient" title="Drag coefficient">
             Back-calculated from the coast: after burnout and before apogee the only forces are
             gravity and drag, so the deceleration is a direct reading of the drag the airframe had
             on this flight. From the coast deceleration, the air density, and the coast mass and body
@@ -397,7 +398,7 @@ export default function MethodsPage() {
             faster part of the coast, with the Mach window shown; a derived (baro) velocity makes it
             softer and it&apos;s flagged approximate.
           </Method>
-          <Method title="Parachute Cd">
+          <Method id="parachute-cd" title="Parachute Cd">
             How the main actually performed: under a steady canopy the rocket is at terminal
             velocity, where drag balances weight, so C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;g ÷
             (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A) falls straight out of the measured main descent rate, with
@@ -408,7 +409,7 @@ export default function MethodsPage() {
             flight — the fast fall between apogee and the main, worked with the thinner air density up
             there — flagged approximate, since a small drogue may not be fully at terminal velocity.
           </Method>
-          <Method title="Landing energy">
+          <Method id="landing-energy" title="Landing energy">
             How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
             touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
             of the flight you flew, shown only when the log descended to a readable landing rate. The
@@ -416,20 +417,20 @@ export default function MethodsPage() {
             (h&nbsp;=&nbsp;v²/2g) — exact and mass-free, the gut-feel &ldquo;it came in like a drop from
             here&rdquo; for judging whether a landing was too hard.
           </Method>
-          <Method title="Deployment shock">
+          <Method id="deployment-shock" title="Deployment shock">
             When the logger recorded acceleration, the peak the airframe felt as the apogee charge
             and the main fired — the snatch force that breaks shock cords and zippers tubes — read
             straight from the accelerometer at each deployment. A gentle deployment shows none; a
             coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
           </Method>
-          <Method title="Main deploy altitude">
+          <Method id="main-deploy-altitude" title="Main deploy altitude">
             On a dual-deploy flight the altimeter fires the main at a set altitude. Debrief detects
             the main deployment and the AGL altitude it happened at, so it reads off where the main
             actually fired — and, given the altitude you set, how close the two were. It also shows
             how far the rocket fell under drogue first (apogee minus the main altitude). A reading of
             the flown flight and a safety check: a main that fires well below its setting lands hard.
           </Method>
-          <Method title="Deployments & descent rates">
+          <Method id="deployments-descent-rates" title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             giving way to a slow main — and marks it as the main deployment. Descent rates are the
             average vertical speed over each phase; a marginal transition is left unmarked rather than
@@ -440,7 +441,7 @@ export default function MethodsPage() {
             1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
             same flight reads 57. Two feet per second is the end of the record, not a descent.
           </Method>
-          <Method title="A barometric speed the climb refutes">
+          <Method id="barometric-speed-refuted" title="A barometric speed the climb refutes">
             A speed derived from the altitude trace can be checked against that same trace. From
             the point the speed peaks, a drag-free coast would gain{' '}
             <span className="font-mono">v²/2g</span>, and drag only ever takes from that — so what
@@ -456,7 +457,7 @@ export default function MethodsPage() {
             altitude are one channel disagreeing with itself — a device-measured speed and the
             altitude are two instruments, and which to believe is not a guard&apos;s call.
           </Method>
-          <Method title="A record that stops in the air">
+          <Method id="record-stops-in-the-air" title="A record that stops in the air">
             A flight time and a descent need a descent to be <em>in</em> the record, and the same
             vacuum argument says when it isn&apos;t: a body cannot fall from{' '}
             <span className="font-mono">h</span> in less than <span className="font-mono">√(2h/g)</span>,
@@ -468,7 +469,7 @@ export default function MethodsPage() {
             withheld now, with a note saying how far short the record stops. The climb — apogee, top
             speed, burnout, the whole ascent — is unaffected and still read.
           </Method>
-          <Method title="A descent rate that beats a vacuum">
+          <Method id="descent-faster-than-vacuum" title="A descent rate that beats a vacuum">
             The rocket is at rest at apogee — that is what apogee means — so nothing after it can be
             travelling faster than a free fall from that height in a vacuum,{' '}
             <span className="font-mono">√(2·g·h)</span>. No drag model, no mass, nothing to tune: it
@@ -481,7 +482,7 @@ export default function MethodsPage() {
             are left unread with a note saying why, and every genuine reading in the corpus sits far
             inside its own ceiling — the fastest, 148&nbsp;ft/s, against 924.
           </Method>
-          <Method title="A main descent rate, or the whole descent">
+          <Method id="main-descent-rate" title="A main descent rate, or the whole descent">
             A <strong>main descent rate</strong> is measured over the leg after a main deployment,
             and Debrief now reports one only where it actually found that deployment in the record.
             Where it did not, there is no main leg to measure — what the record supports is the
@@ -496,7 +497,7 @@ export default function MethodsPage() {
             measured the whole descent. They had not disagreed; they had measured different things,
             and the two are now separate readings that are only ever compared with their own kind.
           </Method>
-          <Method title="Recovery (ground track)">
+          <Method id="recovery-ground-track" title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
             north-up, equal-scale map and reads off how far and which way the rocket landed, and the
             furthest it drifted. Positions are GPS, good to a few metres; no map tiles are fetched —
@@ -516,7 +517,7 @@ export default function MethodsPage() {
             <span className="font-mono">relativeToGround</span> mode means, so nothing about the
             site&apos;s own elevation has to be invented.
           </Method>
-          <Method title="Roll &amp; spin">
+          <Method id="roll-spin" title="Roll &amp; spin">
             When the logger recorded a roll-rate channel (angular rate about the long axis), Debrief
             reports the peak rate and the total revolutions the airframe turned through — the
             integral of the rate over the flight, so a spin either way counts. Fins induce roll, and
@@ -534,13 +535,13 @@ export default function MethodsPage() {
             three-axis gyro is the roll axis is logger-specific, and saying nothing is the honest
             answer.
           </Method>
-          <Method title="Battery">
+          <Method id="battery" title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the
             lowest it sagged to. A pack that droops under the current a deployment charge draws can
             fail to fire it, so the drop is worth a look — though what counts as low depends on your
             battery, so it&apos;s reported plainly, not judged.
           </Method>
-          <Method title="Mach & dynamic pressure">
+          <Method id="mach-dynamic-pressure" title="Mach & dynamic pressure">
             The speed of sound comes from the air temperature, which falls with altitude on the
             standard-atmosphere lapse rate — anchored to the ground temperature the logger records
             (else a 15&nbsp;°C standard day, and likewise when a recorded pad temperature falls outside
@@ -567,7 +568,7 @@ export default function MethodsPage() {
             and none of those six samples was a descent. A record with no ascent in it has no boost, so
             no load case, and gets no max-Q at all.
           </Method>
-          <Method title="The device's own summary, dropped alongside">
+          <Method id="device-summary" title="The device's own summary, dropped alongside">
             Some altimeter apps write a summary file next to the log — the device&apos;s own
             headline figures, with no time series in it. Drop the pair together and Debrief reads
             the flight from the log and puts those figures beside its own read as a cross-check,
@@ -589,7 +590,7 @@ export default function MethodsPage() {
             so rather than printing a 3.2% gap and leaving you to wonder. Neither figure is adjusted
             into the other: both are shown as each instrument states them.
           </Method>
-          <Method title="When the flight flew">
+          <Method id="when-the-flight-flew" title="When the flight flew">
             Where the file says, Debrief reads the flight&apos;s own date and time and shows it beside
             the read — on the report, in every export, and as the launch day in your logbook, which
             you can sort and search by. Three of the loggers here state it: Altus Metrum and a
@@ -611,7 +612,7 @@ export default function MethodsPage() {
             one corpus TeleMetrum insists on 27 Apr 2013 for a flight flown in October 2023, and that
             is the device&apos;s own record, not something to quietly correct.
           </Method>
-          <Method title="What the charts show, and what they leave out">
+          <Method id="what-the-charts-show" title="What the charts show, and what they leave out">
             The three plots open on <strong>the flight</strong> — from just before liftoff to just
             after touchdown — not on the whole file. A logger armed early records the pad wait, and
             one corpus TeleMega holds 308 seconds of it in front of a 76-second flight: opened on the
@@ -621,7 +622,7 @@ export default function MethodsPage() {
             all three together. The saved figures and the shareable card are framed the same way as
             the screen, so a document says what the page said.
           </Method>
-          <Method title="What goes in the report">
+          <Method id="what-goes-in-the-report" title="What goes in the report">
             A report is written for a purpose, so what it carries is yours to set. The chooser
             under the tiles picks the <strong>readings</strong>; the row under the charts picks the{' '}
             <strong>figures</strong> — a certification package often wants the altitude trace and
@@ -633,7 +634,7 @@ export default function MethodsPage() {
             knows to be there. Trimming a report is a presentation choice; trimming a data contract
             is a broken file.
           </Method>
-          <Method title="The samples themselves">
+          <Method id="the-samples" title="The samples themselves">
             Under the explorer&apos;s plot is every sample in the window, exact and in your units —
             nothing decimated away, because a sample you can&apos;t see is a sample you can&apos;t
             check. <em>Jump to</em> scrolls straight to a liftoff, burnout, apogee or deployment and
@@ -647,7 +648,7 @@ export default function MethodsPage() {
             What lands in the spreadsheet is what is on screen — the rows in this window, in the
             order the table is showing them.
           </Method>
-          <Method title="Named views">
+          <Method id="named-views" title="Named views">
             The explorer remembers how you last set it up, and you can also keep several plots under
             names you choose — the boost, the deployments, the airframe&apos;s health — and switch
             between them on any flight. A view names its channels rather than their column numbers,
@@ -655,7 +656,7 @@ export default function MethodsPage() {
             follows you across loggers and restores only the channels the flight in front of you
             actually has. Kept on this device, like the rest of Debrief&apos;s state.
           </Method>
-          <Method title="Which events are called out">
+          <Method id="events-called-out" title="Which events are called out">
             Debrief marks liftoff, burnout, apogee, the deployments and landing on the explorer&apos;s
             plot — and you can turn any of them off. That is not a nicety on a real record: measured
             across the corpus, <strong>28 of 30</strong> flights have two markers inside 6% of the
@@ -665,7 +666,7 @@ export default function MethodsPage() {
             otherwise, and the choice is kept on this device. The chart&apos;s accessible name lists
             whichever are currently marked, so the markers reach a screen reader too.
           </Method>
-          <Method title="Built-in views">
+          <Method id="built-in-views" title="Built-in views">
             Four views are there on the first visit, before anything is saved: altitude &amp; speed,
             speed &amp; acceleration, Mach &amp; max-Q, and the recorded altitude under the one
             Debrief reads. They name only Debrief&apos;s own derived channels, never a column from
@@ -677,7 +678,7 @@ export default function MethodsPage() {
             series is a different plot under the same name. Saving a view of your own under one of
             those names replaces it.
           </Method>
-          <Method title="A file Debrief doesn&apos;t recognize">
+          <Method id="unrecognized-file" title="A file Debrief doesn&apos;t recognize">
             An unrecognized export goes to the column mapper, where you say which column is
             which — and Debrief <strong>keeps that answer</strong> with the flight. Reopening it
             from the logbook comes straight back to the flight rather than asking again, and it can
@@ -689,7 +690,7 @@ export default function MethodsPage() {
             columns of numbers in it — a binary download off the device, a screenshot — is not
             offered, because there is nothing there to map, and it says so instead.
           </Method>
-          <Method title="Logbook & backup">
+          <Method id="logbook-backup" title="Logbook & backup">
             Flights you open are remembered in this browser (IndexedDB) for quick re-opening,
             and a note keeps one as a permanent logbook entry. Because that lives only on this
             device, <em>Export</em> bundles the whole logbook — flights and notes — into a JSON
@@ -697,7 +698,7 @@ export default function MethodsPage() {
             browser doesn&apos;t lose it. The file never leaves your device; it&apos;s yours to
             store wherever you like.
           </Method>
-          <Method title="Units">
+          <Method id="units" title="Units">
             Every number is stored in SI internally and converted once for display, so the unit you
             read a flight in never changes the analysis. The unit is chosen <em>per quantity</em>, not
             as one of two systems: altitude in feet or metres, speed in ft/s, mph, m/s, km/h or knots,
@@ -710,7 +711,7 @@ export default function MethodsPage() {
             stays a number, since neither has a unit to pick; the mass and diameter you type for the
             drag, parachute and landing-energy readings follow whichever system your altitude is in.
           </Method>
-          <Method title="Offline">
+          <Method id="offline" title="Offline">
             One visit with a signal is enough: as soon as the service worker takes control, the page
             hands it the list of what it just loaded, so the shell, the app&apos;s code and the
             sample flight are all cached — Debrief used to need a second visit before an offline one
@@ -732,7 +733,7 @@ export default function MethodsPage() {
             else&apos;s address. Only Debrief&apos;s own static files are stored, locally; no flight
             log is ever cached, uploaded, or sent anywhere.
           </Method>
-          <Method title="Formats & privacy">
+          <Method id="formats-privacy" title="Formats & privacy">
             Altus Metrum (AltOS), PerfectFlite, Eggtimer, Featherweight (Raven, Blue Raven and GPS),
             Entacore AIM, MissileWorks RRC3 (mDACS) and Rocketry Ltd Mercury (AltimeterCloud) files
             are recognized automatically — the last of those in both its header flavours, one of
@@ -760,7 +761,7 @@ export default function MethodsPage() {
             altitude in whichever unit matches the apogee its own barometric-pressure column implies.
             Files are read with the browser&apos;s own file API and never uploaded.
           </Method>
-          <Method title="What Debrief isn't">
+          <Method id="what-debrief-isnt" title="What Debrief isn't">
             Debrief reads flights you have already flown. It is <em>not</em> a simulator: it doesn&apos;t
             predict performance, recommend motors, or model anything you haven&apos;t flown. To plan a
             flight <em>before</em> you fly it, reach for a dedicated, well-validated rocketry simulator —
@@ -780,10 +781,16 @@ export default function MethodsPage() {
   );
 }
 
-function Method({ title, children }: { title: string; children: React.ReactNode }) {
+/** One definition, at its own address. `id` is typed against the canonical list
+ *  (lib/methodIds.ts), so a block cannot be renamed out from under a link that cites it. */
+function Method({ id, title, children }: { id: MethodId; title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="font-medium text-zinc-800 dark:text-zinc-200">{title}</h2>
+      {/* The heading IS the anchor, and it carries the same scroll-margin the report's jump
+          targets do, so a link from a reading doesn't land the definition under the chrome. */}
+      <h2 id={id} className="scroll-mt-6 font-medium text-zinc-800 dark:text-zinc-200">
+        {title}
+      </h2>
       <p className="mt-1 max-w-3xl">{children}</p>
     </div>
   );

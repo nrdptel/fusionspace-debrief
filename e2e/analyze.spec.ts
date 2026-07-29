@@ -47,7 +47,11 @@ test('the sample flight analyzes into a report', async ({ page }) => {
 
   // The Max velocity tile carries its provenance, like Max acceleration — the
   // sample logs its own velocity, so it reads "measured", never an unlabelled peak.
-  const maxVelTile = page.getByText('Max velocity', { exact: true }).locator('xpath=..');
+  // Addressed by the reading it holds rather than by walking up from its label: the label is
+  // its own element now (it carries a link to the definition beside it), so "the parent of
+  // the text" is the label row, not the tile. A structural hop like that breaks whenever the
+  // markup gains a level, which is exactly what happened.
+  const maxVelTile = page.locator('[data-reading="Max velocity"]');
   await expect(maxVelTile).toContainText(/measured|derived/);
 
   // The flight timeline breaks the flight into its phases (the chips are list
@@ -1145,4 +1149,37 @@ test('a flight dropped anywhere is read, instead of throwing the flyer out of th
     return all.map((r) => r.name).sort();
   });
   expect(names, `logbook after three drops: ${JSON.stringify(names)}`).toEqual(['first.csv', 'second.csv', 'third.csv']);
+});
+
+// Every reading in the grid is a term of art — "Coast efficiency", "Max Q",
+// "Thrust-to-weight" — and none of them carried a title, a help affordance or a link. The
+// methods page defines all of them and had ZERO `id` attributes in 790 lines, so there was
+// nothing to point at even if they had. Learning what a number meant was: leave the report,
+// open the methods page, and read down 45 blocks of prose.
+test('a reading says where its definition is, and the link lands on it', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  const links = page.locator('a[href^="/methods#"]');
+  const n = await links.count();
+  expect(n, 'the readings grid should offer a definition per reading').toBeGreaterThanOrEqual(8);
+
+  // It opens beside the report rather than instead of it: a definition is a lookup, not a
+  // destination, and the report screen is the one you'd be giving up to read it.
+  await expect(links.first()).toHaveAttribute('target', '_blank');
+
+  // Follow one and prove the anchor is really there — a link to a page with no anchors
+  // scrolls to the top and looks like it worked.
+  const href = (await links.first().getAttribute('href'))!;
+  const id = href.split('#')[1];
+  await page.goto(`/methods/#${id}`);
+  const target = page.locator(`#${id}`);
+  await expect(target, `#${id} should be a heading on the methods page`).toBeVisible();
+  await expect(target).toHaveRole('heading');
+  // …and it is scrolled to, not merely present somewhere down the page.
+  const top = await target.evaluate((el) => el.getBoundingClientRect().top);
+  expect(top, `#${id} landed at y=${top}`).toBeLessThan(120);
 });

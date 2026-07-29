@@ -1415,6 +1415,19 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **DONE — twenty-one readings a flyer cannot look up, and a methods page nothing could link to.**
+  Every reading in the grid is a term of art — "Coast efficiency", "Max Q", "Thrust-to-weight",
+  "Tilt at burnout" — and `MetricGrid.tsx` carried **no `title`, no `aria-label` and no link**, on any
+  of them. `app/methods/page.tsx` defines all of them in 45 blocks across 790 lines and had **zero
+  `id` attributes**, so there was nothing to point at even if they had. Learning what a number meant
+  was: leave the report (which then had no address to come back to), open the methods page, and read
+  down it. Every block has a stable anchor now, every reading cites the one that defines it, and the
+  two lists are held together three ways — `MethodId` is a union of the canonical list so a typo
+  won't compile, and unit tests check that every id is rendered as a heading, that every reading
+  cites one, and that the fixture exercising them produces all 21.
+  **Still open:** the tooltip on the reading chooser (`ReadingChooser.tsx`) is still `title={label}`
+  — a verbatim copy of the visible text for 20 of the 21 entries. It now has somewhere to point.
+
 - **DONE — the unit control only existed inside a loaded analysis, while the page said it was
   top-right.** `UnitsControl` was mounted at two call sites, both below a report or a comparison.
   Measured at 1440 px: the analyze landing screen had **0** unit controls, the comparison picker
