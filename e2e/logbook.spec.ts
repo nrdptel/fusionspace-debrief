@@ -220,6 +220,60 @@ test('the clear-confirm disarms when the logbook it describes changes', async ({
   ).toHaveCount(0);
 });
 
+// A season's logbook is exactly the table a flyer pastes into the club spreadsheet or a cert
+// document, and it was the one table in the app you could not get out of it. The report's
+// readings, the sample table and the comparison have each shared `copyTable` for this; the
+// backup file is a restore file, not a season anyone can read.
+test('the logbook copies out as a table, in the order and selection on screen', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  // Four, because that is where the search box earns its place — and dropped highest-first ON
+  // PURPOSE, so the logbook's own order (most recent first) and the apogee sort disagree.
+  // Otherwise "copies what is on screen" cannot fail.
+  for (const [name, peak] of [['high.csv', 1200], ['mid.csv', 800], ['small.csv', 500], ['low.csv', 300]] as const) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv(peak)) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  await page.getByRole('button', { name: 'Add note for high.csv' }).click();
+  await page.getByRole('textbox', { name: 'Note for high.csv' }).fill('J450, cert attempt');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  // Poll the CLIPBOARD, not the confirmation. The message from an earlier copy is still on
+  // screen when the next one is clicked, so asserting it passes instantly and the read that
+  // follows returns the previous copy — the same trap as asserting a heading that was already
+  // there.
+  const clip = async () => (await page.evaluate(() => navigator.clipboard.readText())).trim().split('\n');
+  const copyAnd = async (expected: string) => {
+    await page.getByRole('button', { name: 'Copy table' }).click();
+    await expect.poll(async () => (await clip())[1] ?? '').toContain(expected);
+    return clip();
+  };
+
+  const lines = await copyAnd('low.csv');
+  expect(lines[0].split('\t')[0], 'a header a spreadsheet lands in cells').toBe('Flight');
+  expect(lines).toHaveLength(5);
+  expect(lines[1], 'the logbook opens most-recent-first, and copies that way').toContain('low.csv');
+  expect(lines[4]).toContain('high.csv');
+  expect(lines[4], 'the note the flyer typed comes with it').toContain('J450, cert attempt');
+  expect(lines[1].split('\t')).toHaveLength(6);
+
+  // What is copied is what is ON SCREEN. Sorting by apogee reverses these, so a copy that
+  // ignored the sort would come back in the other order.
+  await page.getByRole('button', { name: 'Apogee' }).click();
+  await expect(page.getByRole('button', { name: 'Apogee' })).toHaveAttribute('aria-pressed', 'true');
+  const sorted = await copyAnd('high.csv');
+  expect(sorted.slice(1).map((l) => l.split('\t')[0])).toEqual(['high.csv', 'mid.csv', 'small.csv', 'low.csv']);
+
+  // …and so does the search: a narrowed list copies narrowed.
+  await page.getByRole('searchbox', { name: 'Search your flights' }).fill('high');
+  const filtered = await copyAnd('high.csv');
+  expect(filtered, 'a header and the one flight the flyer had narrowed to').toHaveLength(2);
+  await expect(page.getByText(/Copied 1 flight/)).toBeVisible();
+});
+
 test('importing a file that is not a logbook reports it cleanly', async ({ page }) => {
   await page.goto('/');
   // Get a non-empty list so the header Import button is shown.
