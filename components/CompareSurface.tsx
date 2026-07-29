@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
-import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
+import { encodeUnits } from '@/lib/display';
+import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
 import { ingestFiles } from '@/lib/ingest';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
@@ -33,7 +34,6 @@ import { useWindowFileDrop } from './useWindowFileDrop';
  */
 export default function CompareSurface() {
   const logbook = useLogbook();
-  const [sys, setSys] = useState<UnitChoice>('imperial');
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [state, setState] = useState<'picking' | 'loading' | 'ready' | 'mapping'>('picking');
   const [note, setNote] = useState<string | null>(null);
@@ -50,43 +50,9 @@ export default function CompareSurface() {
     addToIds: string[];
   } | null>(null);
 
-  // Units are a whole-app choice, remembered on this device and carried in the URL — the
-  // same rules as the analyze page, read the same way, so a link opens reading alike.
-  useEffect(() => {
-    setSys(
-      decodeUnits(new URLSearchParams(window.location.search).get('u')) ??
-        decodeUnits(window.localStorage.getItem('debrief.units')) ??
-        'imperial',
-    );
-  }, []);
-
-  const remember = useCallback((next: UnitChoice) => {
-    try {
-      const code = encodeUnits(next);
-      window.localStorage.setItem('debrief.units', code);
-      const url = new URL(window.location.href);
-      url.searchParams.set('u', code);
-      window.history.replaceState(null, '', url);
-    } catch {
-      /* storage blocked — the choice still applies to this view */
-    }
-  }, []);
-
-  const toggleUnits = useCallback(() => {
-    setSys((prev) => {
-      const next: UnitChoice = systemOf(prev) === 'imperial' ? 'metric' : 'imperial';
-      remember(next);
-      return next;
-    });
-  }, [remember]);
-
-  const setUnits = useCallback(
-    (next: Units) => {
-      setSys(next);
-      remember(next);
-    },
-    [remember],
-  );
+  // Units are a whole-app choice, owned above the header so the control is on every surface
+  // — this page used to keep a second copy of the same reader and writer.
+  const { sys } = useUnits();
 
   /** Assemble the given logbook ids, and put them in the URL so the view is reloadable. */
   const load = useCallback(async (ids: string[], pushUrl: boolean, extraNote?: string) => {
@@ -291,8 +257,6 @@ export default function CompareSurface() {
           comparison={comparison}
           note={note ?? undefined}
           sys={sys}
-          onToggleUnits={toggleUnits}
-          onSetUnits={setUnits}
           onBack={back}
           backLabel="← Compare other flights"
           headingLevel="h1"

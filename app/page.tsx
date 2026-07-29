@@ -3,14 +3,20 @@ import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import Analyzer from '@/components/Analyzer';
 import MethodsPointer from '@/components/MethodsPointer';
+import { UnitsProvider } from '@/components/UnitsProvider';
+import HeaderUnits from '@/components/HeaderUnits';
 
 export default function Home() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
+    /* The unit choice is shared by the header's control, the logbook's apogee and speed
+       columns, and every number in a loaded report — so it is owned here, above all three,
+       rather than inside the analysis. The docs pages have no numbers and stay outside it. */
+    <UnitsProvider>
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
       {/* Chrome and prose stay at the focused reading width; only the analysis and
           compare views (below) use the extra room, where the charts live. */}
       <div className="mx-auto w-full max-w-5xl">
-        <SiteHeader current="analyze" />
+        <SiteHeader current="analyze" unitsSlot={<HeaderUnits />} />
 
       <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden">
         <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
@@ -104,9 +110,10 @@ export default function Home() {
 
       <MethodsPointer />
 
-      <div className="mx-auto w-full max-w-5xl">
-        <SiteFooter />
-      </div>
-    </main>
+        <div className="mx-auto w-full max-w-5xl">
+          <SiteFooter />
+        </div>
+      </main>
+    </UnitsProvider>
   );
 }

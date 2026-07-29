@@ -10,7 +10,8 @@ import { flightFromMapping } from '@/lib/mapped';
 import type { RawFlight } from '@/lib/flight/types';
 import { analyzeAsync } from '@/lib/analyze/runner';
 import type { FlightAnalysis } from '@/lib/analyze/types';
-import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
+import { encodeUnits } from '@/lib/display';
+import { useUnits } from './UnitsProvider';
 import DropZone from './DropZone';
 import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
@@ -94,17 +95,6 @@ function pairedNote(paired: string[]): string {
   return `Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`;
 }
 
-function readInitialUnits(): UnitChoice {
-  if (typeof window === 'undefined') return 'imperial';
-  // A shared link's units win over this device's remembered choice, so a link opens
-  // reading the way its sender saw it.
-  return (
-    decodeUnits(new URLSearchParams(window.location.search).get('u')) ??
-    decodeUnits(window.localStorage.getItem('debrief.units')) ??
-    'imperial'
-  );
-}
-
 /**
  * Give the report on screen an address, or take it away again.
  *
@@ -130,20 +120,6 @@ function rememberOpenId(id: string | null): void {
     window.history.replaceState(null, '', url);
   } catch {
     /* a browser refusing history writes — the report is still on screen */
-  }
-}
-
-/** Remember the choice on this device and put it in the URL, so a refresh, a shared
- *  link and the next visit all read the same way. */
-function rememberUnits(next: UnitChoice): void {
-  try {
-    const code = encodeUnits(next);
-    window.localStorage.setItem('debrief.units', code);
-    const url = new URL(window.location.href);
-    url.searchParams.set('u', code);
-    window.history.replaceState(null, '', url);
-  } catch {
-    /* a private window with storage blocked — the choice still applies to this view */
   }
 }
 
@@ -174,7 +150,9 @@ function ReadingNote({ what }: { what?: { name: string; bytes?: number } }) {
 
 export default function Analyzer() {
   const [state, setState] = useState<State>({ phase: 'idle' });
-  const [sys, setSys] = useState<UnitChoice>('imperial');
+  // Owned by the app, not by this page — the control lives in the header on every surface
+  // now, including the ones with no flight loaded. See components/UnitsProvider.tsx.
+  const { sys } = useUnits();
   // The logbook and everything done to it, shared with the comparison surface so a note
   // added on either shows on both.
   const logbook = useLogbook();
@@ -190,24 +168,8 @@ export default function Analyzer() {
   }, []);
 
   useEffect(() => {
-    setSys(readInitialUnits());
     logbook.refresh();
   }, [logbook.refresh]);
-
-  // The fast path: the whole set flips between feet and metres, discarding any
-  // per-quantity overrides — one click back to a familiar system.
-  const toggleUnits = useCallback(() => {
-    setSys((prev) => {
-      const next: UnitChoice = systemOf(prev) === 'imperial' ? 'metric' : 'imperial';
-      rememberUnits(next);
-      return next;
-    });
-  }, []);
-
-  const setUnits = useCallback((next: Units) => {
-    setSys(next);
-    rememberUnits(next);
-  }, []);
 
   const ingest = useCallback(
     /** `mapping` is a hand-made column mapping the logbook kept with this flight, and
@@ -568,8 +530,6 @@ export default function Analyzer() {
           analyzedAt={state.analyzedAt}
           sourceText={state.text}
           sys={sys}
-          onToggleUnits={toggleUnits}
-          onSetUnits={setUnits}
         />
       </div>
     );
@@ -583,8 +543,6 @@ export default function Analyzer() {
           comparison={state.comparison}
           note={state.note}
           sys={sys}
-          onToggleUnits={toggleUnits}
-          onSetUnits={setUnits}
           onBack={reset}
           permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
           mappable={state.mappable?.map((m) => m.name)}

@@ -1415,6 +1415,24 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **DONE — the unit control only existed inside a loaded analysis, while the page said it was
+  top-right.** `UnitsControl` was mounted at two call sites, both below a report or a comparison.
+  Measured at 1440 px: the analyze landing screen had **0** unit controls, the comparison picker
+  **0**, and on a report the button sat at **x=479, y=483 — 880 px from the right edge** — against
+  `app/page.tsx`'s own "switch feet and meters with one click (top-right)". Meanwhile the logbook on
+  that landing screen was already printing apogee and speed in those units, with no way to change
+  them. The choice is now owned by a `UnitsProvider` above the header on both surfaces that show
+  numbers, the control sits in the header (**x=1044, y=46**), and the two duplicate copies of the
+  reader/writer — one in `Analyzer`, one in `CompareSurface` — collapsed into it.
+  **The first attempt put the provider in the root layout, and that was wrong twice over.** It gave
+  `/methods`, `/validation` and `/privacy` a unit control over pages with no numbers on them, took
+  them from 107 kB to 111 kB of client JS, and the extra chunk requests pushed the e2e static server
+  past its file-descriptor limit **mid-run** — `EMFILE: too many open files`, killing the last five
+  tests with `ERR_CONNECTION_REFUSED` and looking exactly like flakiness. `SiteHeader` takes the
+  control as a slot now and stays a server component; the docs pages are byte-for-byte what they were.
+  **Still open:** on a report that runs 7,000 px the control is at the top, so changing units deep in
+  one means scrolling up. The section strip is already sticky and could carry it.
+
 - **DONE — the report had no address, so all seven in-app links on its own screen destroyed it.**
   Measured on a loaded report at 1440 px: `main`/`header`/`footer` carry **7** same-origin links —
   Analyze, Compare (×2), "Read the methods →", Methods, Validation, Privacy — and the report lives

@@ -18,7 +18,6 @@ import { MAX_REASONABLE_DELAY_S } from '@/lib/ejection';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import { zip, type ZipEntry } from '@/lib/zip';
-import UnitsControl from './UnitsControl';
 import { useIsDark } from './useIsDark';
 import { useCurrentSection } from './useCurrentSection';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
@@ -59,16 +58,12 @@ export default function FlightReport({
   analyzedAt,
   sourceText,
   sys,
-  onToggleUnits,
-  onSetUnits,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
   analyzedAt: number;
   sourceText: string;
   sys: UnitChoice;
-  onToggleUnits: () => void;
-  onSetUnits: (units: Units) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -709,7 +704,9 @@ export default function FlightReport({
             >
               Print
             </button>
-            <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
+            {/* The unit control moved to the header, where the page has always said it is and
+                where it can be reached before a flight is loaded. Two copies of one setting on
+                one screen is a control that looks like a choice about this panel. */}
           </div>
           {/* File exports — one saved file each. A single horizontal strip on a phone
               (so the flight rises up), wrapping inline on a wider screen. The strip fades
