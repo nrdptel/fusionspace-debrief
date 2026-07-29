@@ -2,11 +2,19 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — a gate that lies, and two numbers that did
+## This run — a gate that lied, and the sentences that did
 
 Branch restarted from `origin/main` at `1539d69`, level with it at session start (0 ahead, measured
 after `git fetch --prune`). No focus was named, so the queue came from the opening fan-out — eight
-lenses over the app, each finding adversarially verified before anything was scoped.
+lenses over the app, each finding adversarially verified before anything was scoped — and, once
+that queue drained around increment 14, from a second four-lens sweep.
+
+**The through-line of the back half was sentences that were not true**: a comparison panel saying a
+caption would be lost after it had been made to survive; a privacy page naming 2 of 19 stored keys
+and promising a control removed all of them; a report showing "How this file was read" on screen
+and in none of its five exports; a drop that lost files and said nothing. Three of those were
+*introduced or worsened by an increment in this same run* and caught by the pre-push review — which
+is the argument for that review, in one line.
 
 **The baseline gate was RED before anything was touched**, and that was the first finding rather
 than a mystery: `npx serve` crashed twice with `EMFILE` part-way through the e2e run and took three
