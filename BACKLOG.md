@@ -6,6 +6,49 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **Max Q is computed from an altitude the analysis refuses to print, and it is the structural
+  load case.** `lib/analyze/index.ts:820` builds `airDensity` (and the speed-of-sound profile at
+  `:819`) from `altClean`, the raw barometric trace — the very trace `altAt` (`:1031`) exists to
+  distrust. Through the transonic push the shock over the static port drives the sensed pressure
+  away from the true value, and the trace dives BELOW THE PAD. Measured, at the sample max-Q is
+  taken from:
+
+  | file | reported max Q | ρ taken at | altitude the analysis states |
+  |---|---|---|---|
+  | `irec_2023_easymega` | 212.5 kPa | −293.5 m (ρ 1.2599) | **withheld** |
+  | `irec_2023_telemega` | 205.1 kPa | −296.7 m (ρ 1.1548) | **withheld** |
+  | `blueraven jan10 LR` | 254.3 kPa | −93.5 m (ρ 1.2021) | 482.5 m |
+  | `blueraven jan18 LR` | 83.8 kPa | 774.8 m (ρ 1.1672) | 171.9 m |
+
+  4 of the 46 flights the corpus analyses. The two Blue Ravens are the plainest statement of it:
+  for the SAME sample the tile prints an altitude recovered from the logger's inertial channel
+  while the density behind the number comes from a different height entirely. On the two IREC
+  flights the altitude is withheld as unreadable and the number computed from it is kept — the
+  metric grid prints "Max Q 30.8 psi" with no altitude line at all.
+
+  **A fix was written, measured and REVERTED, and the measurement is why.** Rebuilding the
+  atmosphere on the altitude `altAt` will state (splitting it into a pure decision + the
+  flag-recording wrapper, then mapping it over the series) moved 4 of 46 flights and left 42
+  untouched, and it fixes jan18 exactly as predicted — 83.8 → 89.0 kPa. But on jan10 it moves the
+  max-Q sample to **t=3.14 s, v=646.5 m/s, at a stated altitude of 11.4 m**: a rocket doing Mach
+  1.9 is not 37 ft off the pad, and the tile would print that pairing confidently. And on the two
+  IREC flights the reported altitude goes from honestly withheld (`null`) to a stated **−29 m**.
+  Both are wrong differently, and more confidently, than what they replace.
+
+  The reason is that `altAt`'s contradiction test only catches a sample that fights the record —
+  below the pad, or under a height already reached. A trace that under-reads SMOOTHLY through the
+  transonic stretch contradicts nothing and is accepted, so the density follows it down. Closing
+  this properly needs an altitude the analysis can defend across that stretch — integrating the
+  device velocity from liftoff puts the easymega's max-Q instant at ~1,837 m, where the
+  analyzer's own model gives ρ = 1.0231 → 172.6 kPa, i.e. the shipped figure is **+23.1% high**
+  (TeleMega +21.6%) — but that is a new method and it needs validating against ground truth
+  before a load case is published from it, not bolting on mid-run.
+
+  Two things to carry into that pass: `lib/parsers/corpus.test.ts:1353` pins jan18 at 83.8 kPa,
+  the defective value, and will need re-cutting to ~89.0; and the atmosphere is built ~200 lines
+  before `altAt` exists (which depends on apogee, liftoff and the velocity), so the fix is a
+  reordering rather than a substitution.
+
 - **NOT A DEFECT — the velocity figure is still drawn and exported for a flight whose speed the
   analysis calls physically impossible, and that is deliberate.** Filed by an audit lens as a rank-1
   honesty failure: a figure peaking at 391,797 ft/s riding into the .html report beside a Max
@@ -1982,6 +2025,24 @@ memory, so a later pass doesn't have to rediscover them.
   action, say) and move them into one.
 
 ## Hardening
+
+- **DONE — two e2e tests asserted they had navigated using a heading that exists on the page they
+  navigated FROM.** The report screen renders its own "Where the numbers come from" card
+  (`components/MethodsPointer.tsx:16`), and both Back-to-the-report tests used that heading as
+  proof they had reached `/methods/`. It matched instantly, before the click had navigated at all,
+  so the `goBack()` after it unwound the wrong history entry and left the page on `/` — or on
+  `about:blank`, measured. Reproduced under `CI=1` (one worker, one retry): **flaky in 3 of 5
+  runs**, and it took PR #36's CI red where the identical code had gone green the run before. The
+  repo had already met this twice and misread it both times — the deadline was raised to 20 s and
+  a comment recorded the cause as re-analysis outrunning the clock, which is why the runs that
+  "passed" took 29 s. They wait on the ADDRESS now: 5 of 5 clean, in 5 s.
+
+- **`analyze.spec.ts:1116` ("a flight dropped anywhere is read") is flaky under `CI=1`** — seen
+  once in a full single-worker run, passing on the retry. Not yet diagnosed; it drops three files
+  through synthetic `DragEvent`s and asserts the logbook holds exactly those three, so a save that
+  has not landed when the last assertion reads IndexedDB is the obvious suspect. The Back-to-report
+  flake above turned out to be a real defect in the test's precondition rather than a timing
+  wobble, so this one deserves the same treatment rather than a raised timeout.
 
 - **A dropped FOLDER cannot be read at all, on the gesture the ingest layer is named for.**
   `components/useWindowFileDrop.ts:75` reads only `dataTransfer.files`; nothing in the repo calls

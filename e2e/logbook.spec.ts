@@ -476,12 +476,18 @@ test('a report has an address, so a link out and Back comes back to it', async (
 
   // Out through an ordinary in-app link, and back.
   await page.getByRole('link', { name: /Read the methods/ }).click();
-  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+  // Wait on the ADDRESS, not on a heading. The report screen renders its own "Where the numbers
+  // come from" card (components/MethodsPointer.tsx), so asserting that heading passed the instant
+  // the click landed — before the navigation had happened at all — and the `goBack()` below then
+  // unwound the wrong entry and left the page on `/` (or on `about:blank`). It failed roughly one
+  // run in three under CI's single worker, was diagnosed as re-analysis outrunning the deadline,
+  // and was papered over with a 20 s timeout and CI's one retry.
+  await page.waitForURL(/\/methods\/?(?:[?#]|$)/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();
   await page.goBack();
-  // Waited for generously: coming back to a flight PARSES AND ANALYSES it again, which a
-  // navigation never used to do because the report used to evaporate. On a CI runner that
-  // outran the default 5 s deadline — the failure was the deadline, not the behaviour, which
-  // is the same trap units.spec.ts and worker.spec.ts each record for their own big waits.
+  // Coming back to a flight PARSES AND ANALYSES it again, which a navigation never used to do
+  // because the report used to evaporate — so the wait is generous on purpose. It is NOT what
+  // used to fail here: see the note on `waitForURL` above.
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
 
   // A refresh too — an address you cannot reload is not one.
@@ -624,12 +630,18 @@ test('the label and notes a flyer types stay with the flight', async ({ page }) 
 
   // Out through an in-app link and back.
   await page.getByRole('link', { name: /Read the methods/ }).click();
-  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+  // Wait on the ADDRESS, not on a heading. The report screen renders its own "Where the numbers
+  // come from" card (components/MethodsPointer.tsx), so asserting that heading passed the instant
+  // the click landed — before the navigation had happened at all — and the `goBack()` below then
+  // unwound the wrong entry and left the page on `/` (or on `about:blank`). It failed roughly one
+  // run in three under CI's single worker, was diagnosed as re-analysis outrunning the deadline,
+  // and was papered over with a 20 s timeout and CI's one retry.
+  await page.waitForURL(/\/methods\/?(?:[?#]|$)/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();
   await page.goBack();
-  // Waited for generously: coming back to a flight PARSES AND ANALYSES it again, which a
-  // navigation never used to do because the report used to evaporate. On a CI runner that
-  // outran the default 5 s deadline — the failure was the deadline, not the behaviour, which
-  // is the same trap units.spec.ts and worker.spec.ts each record for their own big waits.
+  // Coming back to a flight PARSES AND ANALYSES it again, which a navigation never used to do
+  // because the report used to evaporate — so the wait is generous on purpose. It is NOT what
+  // used to fail here: see the note on `waitForURL` above.
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
   await openPanel();
   await expect(page.locator('#report-label')).toHaveValue('Nimbus IV · J450 · L2 attempt');
