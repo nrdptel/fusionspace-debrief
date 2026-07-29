@@ -15,7 +15,7 @@ import ReadingChooser from './ReadingChooser';
 import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
+import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
@@ -212,6 +212,7 @@ export default function CompareView({
   );
   const baroMix = compareHasBaroMix(flights);
   const clippedAccel = compareHasClippedAccel(flights);
+  const partialDescent = compareHasPartialDescent(flights);
 
   // Which events are called out, from the same stored answer the single-flight explorer uses —
   // a flyer who turned landing off there does not find it back here.
@@ -568,6 +569,7 @@ export default function CompareView({
                     {a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on {a.label}
                     {a.mixedSource ? '*' : ''}
                     {a.saturated ? '†' : ''}
+                    {a.partialLeg ? '‡' : ''}
                   </span>
                 </span>
               ))}
@@ -597,6 +599,18 @@ export default function CompareView({
                   <span className="text-zinc-500 dark:text-zinc-400">
                     †one recording&apos;s accelerometer saturated at its full-scale limit, so its peak
                     is a floor, not the truth — the real spread may be smaller than shown.
+                  </span>
+                </>
+              )}
+              {agree.some((a) => a.partialLeg) && (
+                <>
+                  {' '}
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    ‡at least one recording&apos;s descent leg stops before the ground, so it is averaged
+                    over a shorter span than a leg that reached it — part of that spread is the spans, not
+                    the flight. It reads high, by 13% and 21% on the two corpus groups that pair a
+                    truncated leg with a landed one, because a leg cut short over-weights the fast
+                    moments just after deployment.
                   </span>
                 </>
               )}
@@ -793,6 +807,14 @@ export default function CompareView({
           <span className="font-mono">(clipped)</span> — the accelerometer saturated at its full-scale
           limit, so its peak is a floor, not the true maximum; the highest-acceleration mark is withheld
           because the comparison can&apos;t settle which flight actually pulled the most g.
+        </p>
+      )}
+
+      {partialDescent && (
+        <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-mono">(stops in the air)</span> — that recording&apos;s file ends while
+          the rocket is still under canopy, so the rate is averaged over the descent that WAS recorded
+          and is not a landing speed.
         </p>
       )}
 

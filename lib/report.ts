@@ -708,6 +708,12 @@ export function compareMetricRows(
   // pulled the most g can't be settled when one reading railed at its limit.
   const anyClipped = flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
   const clipTag = (m: FlightMetrics) => (m.accelClipped && Number.isFinite(m.maxAcceleration) ? ' (clipped)' : '');
+  // A descent rate off a record that stops in the air is a short leg, not a landing — the
+  // grid and the saved report say so on the flight's own page, and this table is the one
+  // surface that still printed the figure bare. Tagged per cell rather than per row, because
+  // the whole point is which of the flights in the column set it applies to: both corpus
+  // groups that cross-check a main leg pair a recording that landed with one that didn't.
+  const aloftTag = (m: FlightMetrics) => (landedInRecord(m) ? '' : ' (stops in the air)');
 
   // Every row has a numeric value (for the pairwise spread); `rank` marks the rows
   // where a single highest value is a meaningful "best" to emphasize. `rankBlocked`
@@ -733,8 +739,8 @@ export function compareMetricRows(
     { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) + boTag(m) : '—'), value: (m) => m.burnTime ?? NaN },
     { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) + boTag(m) : '—'), value: (m) => m.burnoutAltitude ?? NaN },
     { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—'), value: (m) => m.drogueDescentRate ?? NaN },
-    { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) : '—'), value: (m) => m.mainDescentRate ?? NaN },
-    { label: 'Descent rate (whole)', get: (m) => (m.wholeDescentRate != null ? fmtSpeed(m.wholeDescentRate, sys) : '—'), value: (m) => m.wholeDescentRate ?? NaN },
+    { label: 'Main descent', get: (m) => (m.mainDescentRate != null ? fmtSpeed(m.mainDescentRate, sys) + aloftTag(m) : '—'), value: (m) => m.mainDescentRate ?? NaN },
+    { label: 'Descent rate (whole)', get: (m) => (m.wholeDescentRate != null ? fmtSpeed(m.wholeDescentRate, sys) + aloftTag(m) : '—'), value: (m) => m.wholeDescentRate ?? NaN },
     { label: 'Flight time', get: (m) => (m.flightTime != null ? fmtTime(m.flightTime) : '—'), value: (m) => m.flightTime ?? NaN },
   ];
   // When the main fired, measured from each flight's own liftoff. This is the row the
@@ -827,6 +833,16 @@ export function compareHasClippedAccel(flights: CompareFlight[]): boolean {
   return flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
 }
 
+/** Whether any compared flight tags a descent rate "(stops in the air)". Every other per-cell
+ *  tag in this table earns a legend line on screen, in the Markdown footer and in the HTML
+ *  notes; without one, the tag is a bare parenthetical on the one figure a flyer sizes a
+ *  parachute against, while the flight's own page spells out what it means. */
+export function compareHasPartialDescent(flights: CompareFlight[]): boolean {
+  return flights.some(
+    (f) => !landedInRecord(f.metrics) && (f.metrics.mainDescentRate ?? f.metrics.wholeDescentRate) != null,
+  );
+}
+
 /** A report-grade Markdown comparison — the cross-check narrative (how closely the
  *  recordings agree) and the side-by-side metrics table — to document a redundant-
  *  altimeter check or a stage-by-stage assembly in a cert package or a forum post.
@@ -855,13 +871,16 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
   const agree = crossCheck(flights);
   if (agree.length) {
     const phrase = agree
-      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}`)
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const mixed = agree.some((a) => a.mixedSource)
       ? ' \\*The recordings mix a value the device measured with one differentiated out of an altitude, which reads HIGH at the peak — 5% to 110% high on the corpus flights that carry both — so that spread overstates the disagreement rather than bounding it.'
       : '';
     const sat = agree.some((a) => a.saturated)
       ? ' †One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
+      : '';
+    const partial = agree.some((a) => a.partialLeg)
+      ? ' ‡At least one recording’s descent leg stops before the ground, so it is averaged over a shorter span than a leg that reached it — part of that spread is the spans, not the flight. It reads HIGH, by 13% and 21% on the two corpus groups that pair a truncated leg with a landed one, because a leg cut short over-weights the fast moments just after deployment.'
       : '';
     // Where the files themselves date the flights days apart, the same numbers are a
     // flight-to-flight difference, not a failed reconciliation — so the write-up says so,
@@ -870,8 +889,8 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     out.push('', otherDays ? '## Flight to flight' : '## Cross-check', '');
     out.push(
       otherDays
-        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights.length)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}`
-        : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}`,
+        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights.length)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}${partial}`
+        : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}${partial}`,
     );
   }
 
@@ -895,6 +914,12 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     out.push(
       '',
       '_(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor, not the true maximum; the highest-acceleration mark is withheld because which flight pulled the most g can’t be settled._',
+    );
+  }
+  if (compareHasPartialDescent(flights)) {
+    out.push(
+      '',
+      '_(stops in the air) — that recording’s file ends while the rocket is still under canopy, so the rate is averaged over the descent that WAS recorded and is not a landing speed._',
     );
   }
 
@@ -931,7 +956,7 @@ export function compareHtml(
   let crossHtml = '';
   if (agree.length) {
     const phrase = agree
-      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${esc(a.label)}${a.mixedSource ? '*' : ''}${a.saturated ? '†' : ''}`)
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${esc(a.label)}${a.mixedSource ? '*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const foot = [
       agree.some((a) => a.mixedSource)
@@ -940,6 +965,7 @@ export function compareHtml(
       agree.some((a) => a.saturated)
         ? '†One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
         : '',
+      agree.some((a) => a.partialLeg) ? '‡At least one recording’s descent leg stops before the ground, so it is averaged over a shorter span than a leg that reached it — part of that spread is the spans, not the flight. It reads HIGH, by 13% and 21% on the two corpus groups that pair a truncated leg with a landed one, because a leg cut short over-weights the fast moments just after deployment.' : '',
     ]
       .filter(Boolean)
       .map((s) => `<p class="src">${esc(s)}</p>`)
@@ -969,6 +995,9 @@ export function compareHtml(
     compareHasBaroMix(flights) ? '(baro) — differentiated out of the altitude rather than logged by the device, so its peak reads high, not soft.' : '',
     compareHasClippedAccel(flights)
       ? '(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor; the highest-acceleration mark is withheld.'
+      : '',
+    compareHasPartialDescent(flights)
+      ? '(stops in the air) — that recording’s file ends while the rocket is still under canopy, so the rate is averaged over the descent that WAS recorded and is not a landing speed.'
       : '',
   ]
     .filter(Boolean)
@@ -1250,6 +1279,7 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
       flights: a.count,
       ...(a.mixedSource ? { mixedSource: true } : {}),
       ...(a.saturated ? { saturated: true } : {}),
+      ...(a.partialLeg ? { partialLeg: true } : {}),
     })),
     disclaimer: differentFlightDays(flights)
       ? 'The files date these on different days, so the spread figures are how far apart the flights are, not how closely two recordings of one flight agree — a reading of the stated dates alone, which a device clock that was never set will get wrong. Aligned at liftoff and resampled onto a shared time base. Parsed locally; nothing uploaded.'

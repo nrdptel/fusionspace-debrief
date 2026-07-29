@@ -87,7 +87,15 @@ export default function MethodsPage() {
             own wall clock and an evening launch straddles midnight between them; and where
             fewer than two files state a date the question stays open, which is the honest
             answer. Nothing else about the comparison changes — the numbers are the same
-            numbers, correctly introduced.
+            numbers, correctly introduced.{' '}
+            A cross-check can also compare two readings that were never quite the same
+            measurement, and it marks those rather than averaging over the difference: a speed one
+            device measured against one differentiated out of an altitude, an accelerometer that
+            railed at its full-scale limit, and — where one recording landed and another stopped
+            recording under canopy — a main descent leg that covers a shorter span of the descent
+            than the leg it is being compared with. Each carries its own footnote saying which way
+            it bends the spread. Both corpus groups whose recordings cross-check a main leg are in
+            that last state, so it is the ordinary case for that row rather than an edge one.
           </Method>
           <Method id="several-flights-in-a-file" title="More than one flight in a file">
             A logger downloaded twice, or a whole launch day dumped at once, puts several flights in
