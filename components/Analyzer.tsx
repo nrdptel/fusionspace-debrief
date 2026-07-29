@@ -201,7 +201,10 @@ export default function Analyzer() {
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             ...(mapping ? { mapping } : {}),
             text,
-          }).then(logbook.refresh);
+          }).then((saved) => {
+            logbook.reportForgotten(saved.forgotten);
+            logbook.refresh();
+          });
         } else if (result.table.dataRows.length === 0) {
           set({
             phase: 'error',
@@ -214,7 +217,7 @@ export default function Analyzer() {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
       }
     },
-    [logbook.refresh, beginLoad],
+    [logbook.refresh, logbook.reportForgotten, beginLoad],
   );
 
   const onFile = useCallback(
@@ -266,8 +269,9 @@ export default function Analyzer() {
       // One set of rules for what a launch day's folder holds — including which summary
       // belongs to which log — shared with the comparison surface so the two can't disagree
       // about it (see lib/ingest.ts).
-      const { results, skipped, mappable, paired } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable, paired, forgotten } = await ingestFiles(list, MAX_COMPARE);
 
+      logbook.reportForgotten(forgotten);
       logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
@@ -361,7 +365,8 @@ export default function Analyzer() {
         set({ phase: 'loading' });
         // Shared with the comparison surface, which opens the same mapper on a file from a
         // launch day's folder — see lib/mapped.
-        const { flight, analysis, save } = await flightFromMapping(fileName, text, table, mappings);
+        const { flight, analysis, save, forgotten } = await flightFromMapping(fileName, text, table, mappings);
+        void forgotten.then(logbook.reportForgotten);
         // Mapped out of a batch drop: put it back with the flights it arrived with, at the
         // comparison's own address. Awaited, because the id it was saved under is what
         // names it there — and if the save didn't happen there is nothing to add it to, so
@@ -564,6 +569,8 @@ export default function Analyzer() {
           onNote={logbook.note}
           onExport={logbook.exportAll}
           onImport={logbook.importAll}
+          forgotten={logbook.forgotten}
+          onDismissForgotten={logbook.clearForgotten}
         />
       )}
     </div>

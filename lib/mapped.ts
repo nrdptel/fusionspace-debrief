@@ -27,6 +27,8 @@ export interface MappedFlight {
    *  report on screen doesn't, and refreshes the logbook when it lands. Resolves to null
    *  where storage was unavailable, in which case the flight has no address. */
   save: Promise<string | null>;
+  /** Flights the logbook forgot to make room for this one — see `IngestOutcome.forgotten`. */
+  forgotten: Promise<string[]>;
 }
 
 /**
@@ -61,5 +63,5 @@ export async function flightFromMapping(
     mapping: mappings.map((m) => ({ index: m.index, role: m.role, unit: m.unit })),
     text,
   });
-  return { flight, analysis, save };
+  return { flight, analysis, save: save.then((r) => r.id), forgotten: save.then((r) => r.forgotten) };
 }

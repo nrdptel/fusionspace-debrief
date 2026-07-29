@@ -256,3 +256,48 @@ test('a phone can tell two similarly-named flights apart in the logbook', async 
   expect(visible).toHaveLength(2);
   expect(new Set(visible).size, `both rows read the same on a phone: ${JSON.stringify(visible)}`).toBe(2);
 });
+
+// The logbook keeps a bounded window of un-noted flights — every entry holds the whole file
+// text, so it has to be bounded. What it never did was SAY so: dropping 15 flights left 12,
+// and the three that went were named nowhere. A launch day is six files, so the third launch
+// day quietly ate the first, and a flyer found out by counting, weeks later.
+test('the logbook says what it keeps, and names what it forgot', async ({ page }) => {
+  await page.goto('/');
+  const drop = async (i: number) => {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name: `flight-${String(i).padStart(2, '0')}.csv`, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  };
+
+  await drop(1);
+  await drop(2);
+  // The window is stated before it bites, where the flyer decides what to keep — not only
+  // afterwards, in the past tense, at the foot of the list.
+  await expect(page.getByRole('heading', { name: /Recent flights/ })).toContainText('2/12 un-noted');
+
+  // Noting a flight is the escape hatch, and it frees the slot as well as keeping the flight.
+  await page.locator('button[title*="Add a note"]').last().click();
+  await page.locator('input[type="text"], textarea').last().fill('J350 · cert L2');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: /Recent flights/ })).toContainText('1/12 un-noted');
+
+  // Fill the window and push past it.
+  for (let i = 3; i <= 14; i++) await drop(i);
+  await expect(page.getByRole('heading', { name: /Recent flights/ })).toContainText('12/12 un-noted');
+
+  // What went is named, with the one action that would have kept it.
+  const notice = page.getByRole('status').filter({ hasText: 'forgotten' }).first();
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(/flight-\d\d\.csv/);
+  await expect(notice).toContainText(/add a .*note to a flight and it stays for good/i);
+
+  // The noted flight survived all of it — the escape hatch has to actually work, or naming
+  // the rule is just a nicer way to lose the same flight.
+  await expect(page.getByText('J350 · cert L2')).toBeVisible();
+
+  // And the notice is dismissable: it reports one event, it is not a permanent banner.
+  await notice.getByRole('button', { name: 'Got it' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'forgotten' })).toHaveCount(0);
+});

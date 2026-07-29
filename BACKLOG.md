@@ -1789,6 +1789,20 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Hardening
 
+- **DONE — the logbook forgot flights and said nothing.** `saveRecent`'s prune keeps every noted
+  flight plus the most recent `MAX = 12` un-noted ones, and it runs on every save. Measured: drop 15
+  distinct flights and the logbook holds **12** — `flight-01`, `-02` and `-03` gone, named nowhere on
+  the page. A launch day's folder is six files, so **two launch days fill the window and the third
+  eats the first**, which is precisely the "season worth comparing" the manual says to design for. The
+  escape hatch already existed (a noted flight is kept) but was one grey sentence at the FOOT of the
+  list, in the past tense, and never stated the number. Now: the heading carries `n/12 un-noted`
+  (amber within two of full), a save that prunes names what it dropped with the action that would have
+  kept it, and `UNNOTED_MAX` is exported so the copy cannot drift from the code. Verified end to end —
+  noting the oldest flight freed its slot AND carried it through twelve more drops.
+  **Still open:** the window is a COUNT, and what it is really bounding is bytes — twelve 11 MB
+  Blue Raven logs is 130 MB of IndexedDB on a phone, while twelve Eggtimer logs is under a megabyte.
+  A byte-budgeted window would keep far more of a typical season for the same storage.
+
 - **DONE — offline, every address Debrief itself generates fell through to "not available
   offline".** The service worker looked a navigation up with `caches.match(request)`, keyed on the
   whole URL including its query. The site is a static export — one document per route, and the query

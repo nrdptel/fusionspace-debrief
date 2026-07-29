@@ -25,6 +25,12 @@ import { download } from '@/lib/download';
 export interface Logbook {
   recents: RecentMeta[];
   refresh: () => void;
+  /** Flights the most recent drop pushed out of the logbook, so the surface showing the list
+   *  can name them. Cleared once the flyer has been told (or acts on it) — this is a report
+   *  of one event, not a growing tally. */
+  forgotten: string[];
+  reportForgotten: (names: string[]) => void;
+  clearForgotten: () => void;
   remove: (id: string) => Promise<void>;
   clear: () => Promise<void>;
   note: (id: string, note: string) => Promise<void>;
@@ -36,6 +42,7 @@ export interface Logbook {
 
 export function useLogbook(): Logbook {
   const [recents, setRecents] = useState<RecentMeta[]>([]);
+  const [forgotten, setForgotten] = useState<string[]>([]);
 
   const refresh = useCallback(() => {
     listRecents().then(setRecents);
@@ -53,8 +60,14 @@ export function useLogbook(): Logbook {
 
   const clear = useCallback(async () => {
     await clearRecents();
+    setForgotten([]);
     refresh();
   }, [refresh]);
+
+  const reportForgotten = useCallback((names: string[]) => {
+    if (names.length > 0) setForgotten(names);
+  }, []);
+  const clearForgotten = useCallback(() => setForgotten([]), []);
 
   const note = useCallback(
     async (id: string, text: string) => {
@@ -82,5 +95,5 @@ export function useLogbook(): Logbook {
     [refresh],
   );
 
-  return { recents, refresh, remove, clear, note, exportAll, importAll };
+  return { recents, refresh, remove, clear, note, exportAll, importAll, forgotten, reportForgotten, clearForgotten };
 }

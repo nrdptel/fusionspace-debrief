@@ -146,7 +146,8 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, forgotten } = await ingestFiles(list, MAX_COMPARE);
+      logbook.reportForgotten(forgotten);
       logbook.refresh();
 
       const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
@@ -393,6 +394,8 @@ export default function CompareSurface() {
         onNote={logbook.note}
         onExport={logbook.exportAll}
         onImport={logbook.importAll}
+        forgotten={logbook.forgotten}
+        onDismissForgotten={logbook.clearForgotten}
       />
     </div>
   );
