@@ -6,7 +6,7 @@ import { fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX } from '@/lib/recents';
-import { sortRecents, filterRecents, personalBests, type LogbookSort } from '@/lib/logbook';
+import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
@@ -19,6 +19,15 @@ const SORTS: { key: LogbookSort; label: string }[] = [
   { key: 'apogee', label: 'Apogee' },
   { key: 'speed', label: 'Speed' },
 ];
+
+/** The pruned flights, by name, with repeats counted rather than repeated. Two flights can
+ *  share a file name now, so a launch day of `data.csv` files used to read "3 flights were
+ *  forgotten: data.csv, data.csv, data.csv" — a list whose whole job is telling the flyer
+ *  WHAT they lost while they can still do something about it. */
+function namesWithCounts(names: string[]): string {
+  const counts = names.reduce((m, n) => m.set(n, (m.get(n) ?? 0) + 1), new Map<string, number>());
+  return [...counts].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(', ');
+}
 
 function relativeTime(ts: number): string {
   const s = (Date.now() - ts) / 1000;
@@ -146,6 +155,14 @@ export default function RecentFlights({
   const searchable = recents.length >= SEARCH_FROM;
   const filtering = searchable && query.trim().length > 0;
 
+  // Two flights CAN now share a file name — plenty of loggers write every export under one
+  // fixed name, and the logbook keeps them apart by their contents rather than collapsing
+  // them. The row already paints what tells them apart; its three controls named the flight
+  // by file name alone, which left a screen reader three pairs of identically-named buttons
+  // that do different things. Only the repeated names pay for the longer label.
+  const rowNames = logbookRowNames(recents, (m) => fmtLength(m, sys), relativeTime);
+  const rowName = (r: RecentMeta) => rowNames.get(r.id) ?? r.name;
+
   const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set([...prev].filter((k) => present.has(k)));
@@ -175,7 +192,7 @@ export default function RecentFlights({
             <strong className="font-medium">
               {forgotten.length === 1 ? 'One flight was' : `${forgotten.length} flights were`} forgotten
             </strong>{' '}
-            to make room: <span className="font-mono">{forgotten.join(', ')}</span>. The logbook keeps the
+            to make room: <span className="font-mono">{namesWithCounts(forgotten)}</span>. The logbook keeps the
             last {UNNOTED_MAX} un-noted flights on this device — add a{' '}
             <span aria-hidden="true">✎</span> note to a flight and it stays for good.
           </p>
@@ -324,7 +341,7 @@ export default function RecentFlights({
                     checked={isSel}
                     disabled={!isSel && atCap}
                     onChange={() => toggle(r.id)}
-                    aria-label={`Select ${r.name} to compare`}
+                    aria-label={`Select ${rowName(r)} to compare`}
                     className="h-5 w-5 shrink-0 accent-indigo-600 disabled:opacity-40 sm:h-4 sm:w-4"
                   />
                 </label>
@@ -381,7 +398,7 @@ export default function RecentFlights({
                 <button
                   type="button"
                   onClick={() => startEdit(r.id, r.note)}
-                  aria-label={`${r.note ? 'Edit' : 'Add'} note for ${r.name}`}
+                  aria-label={`${r.note ? 'Edit' : 'Add'} note for ${rowName(r)}`}
                   title={r.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 ${
                     r.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
@@ -392,7 +409,7 @@ export default function RecentFlights({
                 <button
                   type="button"
                   onClick={() => onRemove(r.id)}
-                  aria-label={`Remove ${r.name} from recent flights`}
+                  aria-label={`Remove ${rowName(r)} from recent flights`}
                   title="Remove"
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 >

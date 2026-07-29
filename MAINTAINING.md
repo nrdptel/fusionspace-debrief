@@ -31,8 +31,10 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   checking validity of types"), so the gate is three commands, not four. Do not report a lint step
   you did not run.
 - **`npm run test:e2e` serves `out/`,** so a stale build tests stale code. Build first, always — and
-  kill any hand-started `npx serve` before the suite, because `reuseExistingServer` adopts it and the
-  run dies mid-way.
+  kill any hand-started server on port 3000 before the suite, because `reuseExistingServer` adopts
+  it and the run dies mid-way. For a manual walk use `npm run serve:out` (the same
+  `scripts/e2e-server.mjs` the suite starts), never another static server: one that falls back to
+  `index.html` serves the analyze page for every route and every walk reads as a routing bug.
 - **The corpus** is never committed here. `npm run fetch-fixtures` downloads the release asset pinned
   in `corpus.lock.json` and verifies its sha256 into `lib/parsers/__corpus__/`. **When the fetch
   fails or there is no token, a local checkout of the fixtures repo symlinked into place works just

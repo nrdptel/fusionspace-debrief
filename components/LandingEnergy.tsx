@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
-import { landedInRecord, landingRate, landingRateIsWholeDescent } from '@/lib/readings';
+import { descentStoppedAloft, landingRate, landingRateIsWholeDescent } from '@/lib/readings';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
@@ -52,7 +52,12 @@ export default function LandingEnergy({
   // against is the kind of confident wrong number this tool exists not to print.
   const rate = landingRate(metrics);
   const wholeDescent = landingRateIsWholeDescent(metrics);
-  const stoppedAbove = !landedInRecord(metrics) && metrics.wholeDescentRate != null;
+  // Why the number is missing, and it has to be the RIGHT why — see `descentStoppedAloft`.
+  // Deciding it here, on `wholeDescentRate` alone, sent every flight that resolved a main and
+  // then stopped recording under canopy to the other branch, where the panel said "no landing
+  // descent rate was read from this log (it may end at or before apogee)" over a flight that
+  // had logged a main leg at 50 ft/s.
+  const stoppedAbove = descentStoppedAloft(metrics);
 
   const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);
 

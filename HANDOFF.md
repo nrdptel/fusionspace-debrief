@@ -160,8 +160,9 @@ dropped on the box.
 - **A browser in this container cannot reach the deployed site.** `curl` works through the agent proxy;
   Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`. Walk the
   built export of the SHA you shipped and say that is what you did.
-- **`npx serve -s out` SILENTLY SERVES THE ANALYZE PAGE FOR EVERY ROUTE.** Use `-c e2e-serve.json`
-  for any manual walk. Verified again this run: `/compare/` is 40,090 bytes, `/` is 53,602.
+- **Any static server with an `index.html` fallback SILENTLY SERVES THE ANALYZE PAGE FOR EVERY
+  ROUTE.** Use `npm run serve:out` for any manual walk — it is the same
+  `scripts/e2e-server.mjs` the suite starts, so a walk and a run see the same routing.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
 

@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "serve:out": "node scripts/e2e-server.mjs",
     "fetch-fixtures": "node scripts/fetch-fixtures.mjs"
   },
   "dependencies": {
@@ -28,7 +29,6 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "axe-core": "^4.12.1",
-    "serve": "^14.2.6",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

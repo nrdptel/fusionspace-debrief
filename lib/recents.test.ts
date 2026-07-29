@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseLogbookFlights, type RecentFlight } from './recents';
+import { isSameStoredFlight, parseLogbookFlights, type RecentFlight } from './recents';
 
 // parseLogbookFlights is the pure half of the backup/restore feature — it turns
 // the bytes of an export file into valid flight records, so it can be exercised
@@ -62,5 +62,41 @@ describe('parseLogbookFlights', () => {
     expect(f.maxVelocityMs).toBeNull();
     expect(f.note).toBe('');
     expect(typeof f.addedAt).toBe('number');
+  });
+});
+
+// What makes two logbook entries the same flight — the predicate `saveRecent` replaces in
+// place with. It is the pure half of that decision, so it can be pinned without IndexedDB;
+// the store-level consequence (a same-named second flight gets its own row and its own id
+// rather than deleting the first) is held by the e2e round-trip.
+describe('isSameStoredFlight', () => {
+  it('is the same flight when the name, the parser and the bytes all match', () => {
+    expect(isSameStoredFlight(flight(), flight())).toBe(true);
+  });
+
+  it('is a DIFFERENT flight when two files share a name but not their contents', () => {
+    // A logger that writes every export as `data.csv` gives a launch day six files with one
+    // name. Keying identity on the name deleted five of them.
+    const a = flight({ name: 'data.csv', text: 'T,Alt\n0,0\n1,120\n' });
+    const b = flight({ name: 'data.csv', text: 'T,Alt\n0,0\n1,940\n' });
+    expect(isSameStoredFlight(a, b)).toBe(false);
+  });
+
+  it('is a different flight when the same bytes were read by a different parser', () => {
+    const a = flight({ formatLabel: 'Eggtimer' });
+    const b = flight({ formatLabel: 'Generic CSV' });
+    expect(isSameStoredFlight(a, b)).toBe(false);
+  });
+
+  it('is a different flight when the same contents arrive under another name', () => {
+    expect(isSameStoredFlight(flight({ name: 'a.csv' }), flight({ name: 'b.csv' }))).toBe(false);
+  });
+
+  it('ignores everything a re-read can legitimately change', () => {
+    // A reopen re-analyses the file, so the figures, the note, the id and the timestamp are
+    // all free to differ; the flight is still the same flight, and must keep its address.
+    const a = flight();
+    const b = flight({ id: 'z9', addedAt: 1, apogeeM: 999, maxVelocityMs: 1, note: 'other' });
+    expect(isSameStoredFlight(a, b)).toBe(true);
   });
 });
