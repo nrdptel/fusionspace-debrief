@@ -4,6 +4,42 @@ import { metricTiles } from '@/lib/readings';
 import ReadingChooser from './ReadingChooser';
 import { fmtLength, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
+import type { Tile } from '@/lib/readings';
+
+/**
+ * The label, and a way to find out what it means.
+ *
+ * Every reading in this grid is a term of art — "Coast efficiency", "Max Q",
+ * "Thrust-to-weight", "Tilt at burnout" — and none of them carried a title, a help
+ * affordance or a link. The methods page defines all of them and had no anchors to point
+ * at, so learning what one meant was: leave the report (which then had no address to come
+ * back to), open the methods page, and read down 45 blocks of prose.
+ *
+ * A quiet superscript link rather than a tooltip: a tooltip is hover-only, which is nothing
+ * at all on the phone this tool is built to be used on, and the answer is a paragraph rather
+ * than a phrase. `target="_blank"` so the report is not traded for the definition.
+ */
+function ReadingLabel({ tile, className }: { tile: Tile; className: string }) {
+  if (!tile.method) return <div className={className}>{tile.label}</div>;
+  return (
+    <div className={className}>
+      {/* The label keeps its own element, so the tile's text is still exactly the reading's
+          name — for a reader, for a screen reader, and for the assertions that identify a
+          tile by it. Folding the link into the same node made every tile read "Max Q ?". */}
+      <span>{tile.label}</span>{' '}
+      <a
+        href={`/methods#${tile.method}`}
+        target="_blank"
+        rel="noopener"
+        aria-label={`How ${tile.label.toLowerCase()} is worked out — opens the methods page`}
+        title={`How ${tile.label.toLowerCase()} is worked out, and where it can be wrong`}
+        className="touch-area font-normal text-zinc-400 no-underline transition hover:text-indigo-600 dark:text-zinc-500 dark:hover:text-indigo-400 print:hidden"
+      >
+        <span aria-hidden="true">?</span>
+      </a>
+    </div>
+  );
+}
 
 export default function MetricGrid({
   metrics,
@@ -28,11 +64,10 @@ export default function MetricGrid({
         {primary.map((t) => (
           <div
             key={t.label}
+            data-reading={t.label}
             className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40"
           >
-            <div className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              {t.label}
-            </div>
+            <ReadingLabel tile={t} className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400" />
             <div className="mt-1 font-mono text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
               {t.value}
             </div>
@@ -45,11 +80,10 @@ export default function MetricGrid({
           {rest.map((t) => (
             <div
               key={t.label}
+              data-reading={t.label}
               className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/40"
             >
-              <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                {t.label}
-              </div>
+              <ReadingLabel tile={t} className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400" />
               <div className="mt-0.5 font-mono text-base font-semibold text-zinc-900 dark:text-zinc-100">
                 {t.value}
               </div>

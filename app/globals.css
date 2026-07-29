@@ -72,6 +72,24 @@ html {
   footer li a {
     padding-block: 0;
   }
+  /* A control that has to stay small on the page but still be hittable with a thumb: the
+     "?" beside a reading's label, which is 6x14 px at a phone's type scale and would push
+     the whole grid around if it were grown to 44 px. The hit area is expanded with a
+     pseudo-element centred on it instead, so the target is 44 px while the ink is not — the
+     standard way to do this without moving anything. */
+  .touch-area {
+    position: relative;
+  }
+  .touch-area::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
   /* A summary is a block list-item, so a min-height would strand its label at the top
      of the taller box — and switching it to flex to centre that would drop the
      disclosure triangle. Pad it instead: the row grows to a thumb's worth and the whole

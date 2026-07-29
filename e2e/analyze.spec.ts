@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 
 // The filenames listed in a ZIP's central directory — enough to prove the bundle
 // packs what it should, without a ZIP library. Scans back for the end-of-central-
@@ -46,7 +47,11 @@ test('the sample flight analyzes into a report', async ({ page }) => {
 
   // The Max velocity tile carries its provenance, like Max acceleration — the
   // sample logs its own velocity, so it reads "measured", never an unlabelled peak.
-  const maxVelTile = page.getByText('Max velocity', { exact: true }).locator('xpath=..');
+  // Addressed by the reading it holds rather than by walking up from its label: the label is
+  // its own element now (it carries a link to the definition beside it), so "the parent of
+  // the text" is the label row, not the tile. A structural hop like that breaks whenever the
+  // markup gains a level, which is exactly what happened.
+  const maxVelTile = page.locator('[data-reading="Max velocity"]');
   await expect(maxVelTile).toContainText(/measured|derived/);
 
   // The flight timeline breaks the flight into its phases (the chips are list
@@ -383,9 +388,20 @@ test('the explorer keeps named views and applies them to the next flight', async
   await chip.click();
   await expect(page.getByRole('button', { name: 'Remove Velocity from the plot' })).toBeVisible();
 
-  // It survives a reload and a different flight, which is the point of naming it.
+  // It survives a reload and a different flight, which is the point of naming it. The
+  // comment said "a different flight" long before the test did one — it reloaded and
+  // re-loaded the same sample. Now that a report has an address the reload brings this
+  // flight back on its own, so the second half can be what it always claimed: a genuinely
+  // different log, dropped over the top.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toBeVisible();
+  // Back to the drop zone first — the report screen has no file input of its own, which is
+  // exactly what increment 4's window-level drop was for.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for featherweight-raven-fip/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toBeVisible();
 
   // And it can be forgotten.
@@ -528,8 +544,9 @@ test('the readings in a report are the flyer’s choice, and follow into the exp
   expect(JSON.parse(await read(json)).metrics.flightTime).not.toBeNull();
 
   // Remembered on this device, so the next flight opens the way the last one was left.
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText('1 off')).toBeVisible();
 });
@@ -721,8 +738,9 @@ test('the figures a report carries are the flyer’s choice, and it holds across
   expect(html).not.toContain('<figcaption>Velocity</figcaption>');
 
   // The choice is remembered on this device, like the units and the readings.
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: 'Velocity', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
 
@@ -842,8 +860,9 @@ test('the explorer lets you choose which events are called out', async ({ page }
   await expect(page.getByRole('button', { name: /marking apogee on the plot/i })).toHaveAttribute('aria-pressed', 'true');
 
   // …and the choice survives a reload and the next flight, like the saved view does.
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
   const burnoutAgain = page.getByRole('button', { name: /burnout on the plot/i });
   await expect(burnoutAgain).toHaveAttribute('aria-pressed', 'false');
@@ -927,4 +946,240 @@ test('the events list names its clock, so it reconciles with the readings', asyn
   });
   expect(Number.isFinite(apogeeOnLogClock), 'the events list states an apogee time').toBe(true);
   expect(Math.abs(liftoff + toApogee - apogeeOnLogClock), `${liftoff} + ${toApogee} should be ${apogeeOnLogClock}`).toBeLessThan(0.6);
+});
+
+// The ground track used to be a picture: a canvas with role="img" and no handler on it, so
+// "where was it at 40 s, and how far is that from the road" could only be answered by
+// exporting KML and opening Google Earth. It reads now — by pointer, by touch and by
+// keyboard.
+test('the ground track can be read at a point, without a mouse', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Recovery' })).toBeVisible();
+
+  const map = page.locator('canvas[aria-describedby="ground-track-readout"]');
+  const readout = page.locator('#ground-track-readout');
+  await map.scrollIntoViewIfNeeded();
+  // Nothing is claimed until something is picked, and the line says how to pick one.
+  await expect(readout).toContainText(/arrow keys/);
+
+  // The keyboard path. PageDown steps event to event, which is how a flight's shape is
+  // read off the ground in four keystrokes rather than four hundred.
+  await map.focus();
+  await expect(map).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(readout).not.toContainText(/arrow keys/);
+  await page.keyboard.press('PageDown'); // liftoff
+  await page.keyboard.press('PageDown'); // burnout
+  const atBurnout = (await readout.innerText()).trim();
+  expect(atBurnout, `burnout reading: ${atBurnout}`).toMatch(/after burnout/);
+  // What the map states is a GROUND position, and only that. It deliberately carries no
+  // altitude: the honest ascent height is `altAt`'s (lib/analyze/index.ts), which withholds
+  // only where the barometric trace is actually contradicted, and a fourth surface guessing
+  // at that rule disagreed with the Events list in both directions during review — first
+  // publishing −694 ft at a burnout the Events list prints "—" for, then withholding a
+  // burnout height the Events list publishes as 1,600 ft.
+  expect(atBurnout, `the map must not state a height: ${atBurnout}`).not.toMatch(/AGL/);
+  expect(atBurnout).toMatch(/from pad · \d+° [NESW]+/);
+
+  // The time is on the LOG's clock, like the Events list beside it — and where that clock
+  // doesn't start at liftoff, the readout says so rather than printing a bare number that
+  // disagrees with every reading in the grid.
+  const eventsNote = await page.evaluate(() => {
+    const h = document.getElementById('events');
+    return h?.parentElement?.querySelector('span')?.textContent?.trim() ?? '';
+  });
+  const mapNamesClock = /log clock · liftoff at/.test(atBurnout);
+  expect(
+    mapNamesClock,
+    `the map and the Events list must make the same call about naming the clock; events said "${eventsNote}", map said "${atBurnout}"`,
+  ).toBe(/log clock · liftoff at/.test(eventsNote));
+
+  await page.keyboard.press('PageDown'); // apogee
+  await expect(readout).toContainText(/after apogee/);
+
+  // Escape puts it back, so a reading is never a state with no way out of it.
+  await page.keyboard.press('Escape');
+  await expect(readout).toContainText(/arrow keys/);
+
+  // The key names the events the dots on the track are drawn for, in flight order.
+  const key = page.getByRole('list', { name: 'What the dots on the map mark' });
+  await expect(key).toContainText('Liftoff');
+  await expect(key).toContainText('Apogee');
+
+  // And the pointer reads the same element, rather than a second readout that can disagree.
+  const box = (await map.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.5);
+  await expect(readout).not.toContainText(/arrow keys/);
+  await page.mouse.move(box.x - 80, box.y - 80);
+  await expect(readout).toContainText(/arrow keys/);
+
+  // A gesture the browser takes for scrolling is not a choice. The map deliberately does
+  // not own the touch action (a thumb must be able to scroll the report past a 356 px
+  // block), so a finger landing on it fires pointerdown — and then pointercancel when the
+  // UA claims the gesture. Without clearing on that, scrolling past the map leaves a
+  // distance and bearing for a fix nobody picked, with Escape the only way out and no
+  // keyboard on a phone.
+  await page.evaluate(() => {
+    const c = document.querySelector('canvas[aria-describedby="ground-track-readout"]')!;
+    const r = c.getBoundingClientRect();
+    c.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.6, clientY: r.top + r.height * 0.5, bubbles: true, pointerType: 'touch' }));
+  });
+  await expect(readout).not.toContainText(/arrow keys/);
+  await page.evaluate(() => {
+    const c = document.querySelector('canvas[aria-describedby="ground-track-readout"]')!;
+    c.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerType: 'touch' }));
+  });
+  await expect(readout).toContainText(/arrow keys/);
+
+  // Hovering is not a choice either: the visible line follows the pointer, but nothing is
+  // announced. A live region fed from pointermove reads a new position aloud per pixel.
+  const spoken = page.locator('p.sr-only[role="status"]');
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.5);
+  await expect(readout).not.toContainText(/arrow keys/);
+  await expect(spoken).toHaveText('');
+  await map.focus();
+  await page.keyboard.press('End');
+  await expect(spoken).toContainText(/from the pad, bearing/);
+});
+
+// The two asserts above that this fixture cannot exercise, on the one that can:
+// `featherweight-gps-groundstation.csv` carries a Landing event AND a log clock that starts
+// 180 s before liftoff. Split out rather than left in the first test, where both passed
+// while proving nothing — the file has no landing event and its clock offset is 0.
+test('the recovery map marks a landing once, and names the clock it reads', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-gps-groundstation.csv'));
+  await expect(page.getByRole('heading', { name: 'Recovery' })).toBeVisible();
+
+  // The Events list has a Landing, so the omission below is a decision, not an absence.
+  const events = page.locator('#events').locator('xpath=../..');
+  await expect(events).toContainText('Landing');
+
+  // …and the map's key does NOT repeat it. The ✕ already marks the landing, placed at
+  // `stats.landingIndex` — the last valid fix — while the landing event has its own index.
+  // On featherweight-gps.csv those are samples 479 and 474: a second dot would put a second
+  // landing position on the same card, a different distance from the pad than the stat
+  // grid right beneath it.
+  const key = page.getByRole('list', { name: 'What the dots on the map mark' });
+  await expect(key).toContainText('Apogee');
+  await expect(key).not.toContainText('Landing');
+
+  // This file's clock starts 180 s before liftoff, so a bare time off the map would
+  // disagree with every reading in the grid — apogee reads 193 s here and 13 s there.
+  // Both surfaces name the clock, from one helper (lib/readings.ts), or neither does.
+  const map = page.locator('canvas[aria-describedby="ground-track-readout"]');
+  const readout = page.locator('#ground-track-readout');
+  await map.scrollIntoViewIfNeeded();
+  await map.focus();
+  await page.keyboard.press('End');
+  await expect(readout).toContainText(/log clock · liftoff at/);
+  const eventsNote = await page.evaluate(() => {
+    const h = document.getElementById('events');
+    return h?.parentElement?.querySelector('span')?.textContent?.trim() ?? '';
+  });
+  const mapNote = ((await readout.innerText()).match(/log clock · liftoff at [\d.,]+ s/) ?? [''])[0];
+  expect(mapNote, `map "${mapNote}" vs events "${eventsNote}"`).toBe(eventsNote);
+});
+
+/** Drop a real file onto an arbitrary element, the way a browser does — DataTransfer and all.
+ *  Returns whether the page cancelled the events, which is the only thing standing between a
+ *  dropped log and the browser navigating away from Debrief to render it. */
+async function dropFileOn(page: import('@playwright/test').Page, selector: string, name: string, contents: string) {
+  return page.evaluate(
+    ([sel, fileName, text]) => {
+      const file = new File([text], fileName, { type: 'text/csv' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const el = document.querySelector(sel) ?? document.body;
+      const fire = (type: string) => {
+        const ev = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt });
+        el.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      };
+      fire('dragenter');
+      return { over: fire('dragover'), drop: fire('drop') };
+    },
+    [selector, name, contents] as const,
+  );
+}
+
+// A browser's default action for a dropped file is to navigate to it. Debrief had two drop
+// targets and neither is rendered once a report is open, so the most natural gesture on that
+// screen — "read this one, here's the next" — released the file on the altitude chart and
+// left the app for a page of raw CSV, taking the report, its zoom, its label and its notes
+// with it, none of which have an address to come back to.
+test('a flight dropped anywhere is read, instead of throwing the flyer out of the app', async ({ page }) => {
+  const csv = readFileSync(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), 'utf8');
+  await page.goto('/');
+
+  // The idle screen, released in the FOOTER — outside the dashed box entirely.
+  const first = await dropFileOn(page, 'footer', 'first.csv', csv);
+  expect(first.over, 'dragover must be cancelled or the browser owns the drop').toBe(true);
+  expect(first.drop).toBe(true);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // …and now the case that cost a report: a second file released on the chart itself.
+  const second = await dropFileOn(page, '#altitude-chart', 'second.csv', csv);
+  expect(second.drop, 'the report screen has no drop zone at all — the window has to catch it').toBe(true);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect(page.getByText('second.csv').first()).toBeVisible();
+
+  // A third file, released ON the dashed box itself — the path that has two candidate
+  // handlers. The box used to have drop handlers of its own; leaving them beside the
+  // window's would ingest this one twice as the event bubbled up, and the logbook count
+  // below is what catches it.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await dropFileOn(page, '[aria-label="Flight log drop zone"]', 'third.csv', csv);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  const names = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((res) => {
+      const q = indexedDB.open('debrief');
+      q.onsuccess = () => res(q.result);
+    });
+    const all: { name: string }[] = await new Promise((res) => {
+      const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+      q.onsuccess = () => res(q.result);
+    });
+    return all.map((r) => r.name).sort();
+  });
+  expect(names, `logbook after three drops: ${JSON.stringify(names)}`).toEqual(['first.csv', 'second.csv', 'third.csv']);
+});
+
+// Every reading in the grid is a term of art — "Coast efficiency", "Max Q",
+// "Thrust-to-weight" — and none of them carried a title, a help affordance or a link. The
+// methods page defines all of them and had ZERO `id` attributes in 790 lines, so there was
+// nothing to point at even if they had. Learning what a number meant was: leave the report,
+// open the methods page, and read down 45 blocks of prose.
+test('a reading says where its definition is, and the link lands on it', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  const links = page.locator('a[href^="/methods#"]');
+  const n = await links.count();
+  expect(n, 'the readings grid should offer a definition per reading').toBeGreaterThanOrEqual(8);
+
+  // It opens beside the report rather than instead of it: a definition is a lookup, not a
+  // destination, and the report screen is the one you'd be giving up to read it.
+  await expect(links.first()).toHaveAttribute('target', '_blank');
+
+  // Follow one and prove the anchor is really there — a link to a page with no anchors
+  // scrolls to the top and looks like it worked.
+  const href = (await links.first().getAttribute('href'))!;
+  const id = href.split('#')[1];
+  await page.goto(`/methods/#${id}`);
+  const target = page.locator(`#${id}`);
+  await expect(target, `#${id} should be a heading on the methods page`).toBeVisible();
+  await expect(target).toHaveRole('heading');
+  // …and it is scrolled to, not merely present somewhere down the page.
+  const top = await target.evaluate((el) => el.getBoundingClientRect().top);
+  expect(top, `#${id} landed at y=${top}`).toBeLessThan(120);
 });

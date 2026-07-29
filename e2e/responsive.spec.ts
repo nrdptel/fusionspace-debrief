@@ -117,3 +117,34 @@ test('the spread column is absent on a phone rather than cut in half', async ({ 
   // The figures themselves are still on the page, in the panel above the table.
   await expect(page.getByText(/% on apogee/)).toBeVisible();
 });
+
+// The page not spilling sideways is necessary and not sufficient: a block can sit inside
+// the viewport and still hang out of its own card. The recovery map sized itself from
+// `clientWidth`, which includes the card's p-4, so it was drawn 32 px wider than the room
+// it had — at 390 px the card ended at x=374 and the canvas ran to x=389, over its own
+// border and one pixel short of the screen. The desktop never showed it: the 420 px cap
+// bites long before the padding does.
+test('the recovery map fits inside its own card, not just inside the screen', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Recovery' })).toBeVisible();
+
+  const fit = await page.evaluate(() => {
+    const c = document.querySelector('canvas[aria-describedby="ground-track-readout"]');
+    if (!c) return null;
+    const card = c.parentElement!.parentElement as HTMLElement;
+    const cs = getComputedStyle(card);
+    const cb = c.getBoundingClientRect();
+    const kb = card.getBoundingClientRect();
+    return {
+      canvasLeft: cb.left,
+      canvasRight: cb.right,
+      innerLeft: kb.left + parseFloat(cs.paddingLeft),
+      innerRight: kb.right - parseFloat(cs.paddingRight),
+    };
+  });
+  expect(fit, 'the recovery map should render for this fixture').not.toBeNull();
+  expect(fit!.canvasRight, `map right ${fit!.canvasRight} vs card inner right ${fit!.innerRight}`).toBeLessThanOrEqual(fit!.innerRight + 0.5);
+  expect(fit!.canvasLeft).toBeGreaterThanOrEqual(fit!.innerLeft - 0.5);
+  expect(await pageSpills(page)).toBe(false);
+});

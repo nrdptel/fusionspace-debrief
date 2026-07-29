@@ -28,6 +28,7 @@ const TAGLINE_DEFAULT =
 export default function SiteHeader({
   current,
   brandAsHeading = true,
+  unitsSlot,
 }: {
   /** Which surface this page is, if it is one. Docs pages leave it unset. */
   current?: (typeof SURFACES)[number]['key'];
@@ -36,6 +37,18 @@ export default function SiteHeader({
    * page's heading, so it must not compete with it in the document outline.
    */
   brandAsHeading?: boolean;
+  /**
+   * The unit control, on the surfaces that show numbers.
+   *
+   * Passed in rather than imported so this header stays a server component: the docs pages
+   * render it too, and they have no numbers on them, so shipping the unit machinery (and the
+   * client boundary it needs) to `/methods`, `/validation` and `/privacy` would be JS that
+   * can never do anything. It also mattered concretely — with everything wrapped in the
+   * provider, /methods went 107 kB → 111 kB and the extra chunk requests pushed the e2e
+   * static server over its file-descriptor limit mid-run (EMFILE), taking the last five
+   * tests with it.
+   */
+  unitsSlot?: React.ReactNode;
 }) {
   const Brand = brandAsHeading ? 'h1' : 'p';
   return (
@@ -48,9 +61,15 @@ export default function SiteHeader({
             {(current && TAGLINE[current]) || TAGLINE_DEFAULT}
           </p>
         </div>
+        {/* Top-right, which is where the page has always TOLD the flyer the unit switch is —
+            it just wasn't there. It sits above a flight rather than inside one, so the logbook's
+            apogee and speed columns can be read in metres before any file is dropped. */}
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <ThemeToggle />
-          <KofiButton />
+          {unitsSlot}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <KofiButton />
+          </div>
         </div>
       </div>
 

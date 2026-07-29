@@ -192,6 +192,32 @@ function altSlashForm(href) {
 }
 
 /**
+ * The route a navigation is for, without its query — the key every page is cached under.
+ *
+ * The site is a static export: one HTML document per route, and the query string is read by
+ * the app after it boots. `?ids=…` does not select a different document, it tells the
+ * comparison which flights to load out of this device's own logbook. So a page keyed on the
+ * full URL is keyed on something that isn't part of it.
+ *
+ * That was not academic. Every in-app address Debrief itself generates carries a query —
+ * `/compare/?ids=…&u=i` (the permalink the app offers as "give this comparison an address"),
+ * `/?u=m` (a shared link's units), `/?open=<id>` (read one flight from the compare surface)
+ * — and offline every one of them missed the cache and got the "not available offline"
+ * document, while the bare route beside it loaded fine. The whole promise is that one visit
+ * with signal is enough and after that it works at the field with none; these were exactly
+ * the addresses a flyer arrives by.
+ *
+ * Stripping on the way IN as well as the way out keeps one entry per route, so a season of
+ * bookmarked permalinks can't quietly become a season of duplicate cached shells.
+ */
+function routeKey(href) {
+  const url = new URL(href);
+  url.search = '';
+  url.hash = '';
+  return url.href;
+}
+
+/**
  * An honest answer for a page that isn't in the cache and can't be fetched.
  *
  * Self-contained on purpose: it is served when the network is gone, so it can't reach a
@@ -241,10 +267,12 @@ function offlineDocument(href) {
   });
 }
 
-async function putInCache(request, response) {
+/** `key` is a Request or a URL string — navigations store under their route (see `routeKey`),
+ *  everything else under its own request. */
+async function putInCache(key, response) {
   try {
     const cache = await caches.open(CACHE);
-    await cacheIfWhole(cache, request, response);
+    await cacheIfWhole(cache, key, response);
   } catch {
     /* quota, a cut-off body, or an uncacheable request — leave the cache as it was */
   }
@@ -288,10 +316,12 @@ self.addEventListener('fetch', (event) => {
         if (url.pathname.endsWith('/index.txt')) {
           return Response.redirect(url.pathname.slice(0, -'index.txt'.length) || '/', 302);
         }
-        const cached = await caches.match(request, MATCH);
+        // Keyed on the route, not on the address the flyer arrived by — see `routeKey`.
+        const key = routeKey(request.url);
+        const cached = await caches.match(key, MATCH);
         const network = fetch(request)
           .then((fresh) => {
-            putInCache(request, fresh.clone());
+            putInCache(key, fresh.clone());
             return fresh;
           })
           .catch(() => null);
@@ -305,7 +335,7 @@ self.addEventListener('fetch', (event) => {
         // and a server 308s between them. Offline there is no server, so the two forms have
         // to be reconciled here — a typed address or an old bookmark without the slash used
         // to miss the cache and fall through to the answer below.
-        const alt = await caches.match(altSlashForm(request.url), MATCH);
+        const alt = await caches.match(altSlashForm(key), MATCH);
         if (alt) return alt;
         // …and what used to be here was `caches.match('/')`: the home page, served under
         // whatever address was asked for. The app came up, which reads as success, while

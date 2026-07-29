@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 export default function DropZone({
   onFiles,
@@ -12,7 +12,6 @@ export default function DropZone({
   busy: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
 
   const pick = (files: FileList | null) => {
     if (files && files.length > 0) onFiles(Array.from(files));
@@ -20,30 +19,22 @@ export default function DropZone({
 
   return (
     <div>
+      {/* The box has no drag handlers of its own. A file dropped ANYWHERE in the window is
+          read now (components/useWindowFileDrop.ts) — the browser's default for a dropped
+          file is to navigate to it, which used to throw a flyer out of the app whenever they
+          released one in the margin, or on a report, where this box isn't rendered at all.
+          A local handler here would also have ingested the same files twice as the drop
+          bubbled up to the window. This stays as the visible affordance and the picker. */}
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          pick(e.dataTransfer.files);
-        }}
         aria-label="Flight log drop zone"
-        className={`rounded-xl border border-dashed p-10 text-center transition ${
-          dragging
-            ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-500/60 dark:bg-indigo-950/30'
-            : 'border-zinc-300 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-900/30'
-        }`}
+        className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-10 text-center transition dark:border-zinc-700 dark:bg-zinc-900/30"
       >
         <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
           Drop a flight log here
         </p>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           CSV, text, or Excel export from your altimeter — or any logger&apos;s CSV or
-          spreadsheet. Drop several at once to compare them.
+          spreadsheet. Drop several at once to compare them — anywhere on the page.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button

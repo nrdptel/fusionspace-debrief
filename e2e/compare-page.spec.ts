@@ -92,7 +92,18 @@ test('the compare picker opens a single flight on the analyze page', async ({ pa
   await expect(
     page.getByRole('heading', { name: 'Flight report for altusmetrum-telemetrum.csv' }),
   ).toBeVisible();
-  // The id is spent once used, so a refresh doesn't re-open it forever.
+  // The id is KEPT in the URL, which reverses what this test used to assert ("spent once
+  // used, so a refresh doesn't re-open it forever"). Spending it is what left the report
+  // with no address at all: all seven in-app links on that screen destroyed it, and Back
+  // landed on an empty drop zone. Every way back to the drop zone still exists — "Analyze
+  // another flight" clears the address, and a reload after that stays cleared — so keeping
+  // it costs nothing and buys Back, a refresh and a bookmark.
+  await expect(page).toHaveURL(/open=/);
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Flight report for altusmetrum-telemetrum.csv' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
   await expect(page).not.toHaveURL(/open=/);
 });
 

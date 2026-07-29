@@ -19,12 +19,22 @@
 import type { FlightMetrics } from './analyze/types';
 import { fmtAccel, fmtLength, fmtMach, fmtPressure, fmtSpeed, fmtTemp, fmtTime, fmtVoltage } from './display';
 import type { UnitChoice } from './display';
+import type { MethodId } from './methodIds';
 
 export interface Tile {
   label: string;
   value: string;
   sub?: string;
   primary?: boolean;
+  /**
+   * Which block on the methods page defines this reading.
+   *
+   * A flyer meeting "Coast efficiency", "Max Q" or "Thrust-to-weight" for the first time had
+   * nowhere to look: the tiles carried no title, no help affordance and no link, and the
+   * methods page had no anchors to point at anyway. Typed against the canonical id list, so
+   * a renamed block breaks the build rather than leaving a reading pointing at nothing.
+   */
+  method?: MethodId;
 }
 
 /** Mach (when known), the altitude the peak speed was reached at, and its
@@ -62,6 +72,20 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
  *  against and shows an RSO; ½mv² off a drogue-leg average is not one. */
 export function landedInRecord(m: FlightMetrics): boolean {
   return m.descentSource != null;
+}
+
+/** Where liftoff falls on the LOG's own clock, or null where the file already starts at
+ *  liftoff and the two clocks are the same number.
+ *
+ *  Two surfaces now print a time on the log's clock — the Events list and the recovery
+ *  map's readout — while every reading in the grid and the exports is seconds since
+ *  liftoff. On 27 of the corpus's 45 flights those disagree by half a second or more, and
+ *  on the ground-station GPS log by 960 s (apogee at 973.0 s against 13.0 s). Naming the
+ *  clock reconciles them without moving either, and the rule for whether to name it lives
+ *  here so a second surface cannot decide it differently from the first. */
+export function liftoffOnLogClock(events: { type: string; time: number }[]): number | null {
+  const l = events.find((e) => e.type === 'liftoff');
+  return l && Number.isFinite(l.time) && l.time >= 0.05 ? l.time : null;
 }
 
 /** The landing descent rate, or null where the record never reached the ground — the one
@@ -132,13 +156,13 @@ export function burnoutVelocitySub(m: FlightMetrics): string | undefined {
 export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   const out: Tile[] = [
     {
-      label: 'Apogee',
+      label: 'Apogee', method: 'apogee',
       value: fmtLength(m.apogeeAltitude, sys),
       sub: apogeeSub(m),
       primary: true,
     },
     {
-      label: 'Max velocity',
+      label: 'Max velocity', method: 'velocity-max-velocity',
       value: fmtSpeed(m.maxVelocity, sys),
       sub: maxVelocitySub(m, sys),
       primary: true,
@@ -148,7 +172,7 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   // show the tile when there's a real figure.
   if (Number.isFinite(m.maxAcceleration)) {
     out.push({
-      label: 'Max acceleration',
+      label: 'Max acceleration', method: 'acceleration',
       value: fmtAccel(m.maxAcceleration, sys),
       sub:
         m.accelerationSource === 'device'
@@ -161,21 +185,21 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   }
 
   if (m.avgBoostAcceleration != null)
-    out.push({ label: 'Avg acceleration', value: fmtAccel(m.avgBoostAcceleration, sys), sub: 'over the boost' });
+    out.push({ label: 'Avg acceleration', method: 'acceleration', value: fmtAccel(m.avgBoostAcceleration, sys), sub: 'over the boost' });
   if (m.liftoffTWR != null)
-    out.push({ label: 'Thrust-to-weight', value: `${m.liftoffTWR.toFixed(1)}:1`, sub: 'off the pad' });
+    out.push({ label: 'Thrust-to-weight', method: 'thrust-to-weight', value: `${m.liftoffTWR.toFixed(1)}:1`, sub: 'off the pad' });
   // All three burnout readings carry the same provenance, because all three are read at the
   // one instant burnout was located at — a burn time is only as measured as the burnout that
   // ends it, and a burnout altitude only as measured as the sample it is taken from.
-  if (m.burnTime != null) out.push({ label: 'Burn time', value: fmtTime(m.burnTime), sub: burnoutSub(m) });
+  if (m.burnTime != null) out.push({ label: 'Burn time', method: 'liftoff-burnout', value: fmtTime(m.burnTime), sub: burnoutSub(m) });
   if (m.burnoutAltitude != null)
-    out.push({ label: 'Burnout altitude', value: fmtLength(m.burnoutAltitude, sys), sub: burnoutSub(m) });
+    out.push({ label: 'Burnout altitude', method: 'liftoff-burnout', value: fmtLength(m.burnoutAltitude, sys), sub: burnoutSub(m) });
   if (m.burnoutVelocity != null)
-    out.push({ label: 'Burnout velocity', value: fmtSpeed(m.burnoutVelocity, sys), sub: burnoutVelocitySub(m) });
-  if (m.coastTime != null) out.push({ label: 'Coast to apogee', value: fmtTime(m.coastTime) });
+    out.push({ label: 'Burnout velocity', method: 'liftoff-burnout', value: fmtSpeed(m.burnoutVelocity, sys), sub: burnoutVelocitySub(m) });
+  if (m.coastTime != null) out.push({ label: 'Coast to apogee', method: 'coast-efficiency', value: fmtTime(m.coastTime) });
   if (m.coastEfficiency != null)
     out.push({
-      label: 'Coast efficiency',
+      label: 'Coast efficiency', method: 'coast-efficiency',
       value: `${Math.round(m.coastEfficiency * 100)}%`,
       // Named against what it is short OF. The figure is the vacuum coast this burnout speed
       // would have bought minus what the rocket actually gained, so on a fast, draggy flight it
@@ -187,15 +211,15 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     });
   if (m.maxDynamicPressure != null)
     out.push({
-      label: 'Max Q',
+      label: 'Max Q', method: 'mach-dynamic-pressure',
       value: fmtPressure(m.maxDynamicPressure, sys),
       sub: m.maxDynamicPressureAltitude != null ? `at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : undefined,
     });
   if (m.drogueDescentRate != null)
-    out.push({ label: 'Drogue descent', value: fmtSpeed(m.drogueDescentRate, sys) });
+    out.push({ label: 'Drogue descent', method: 'deployments-descent-rates', value: fmtSpeed(m.drogueDescentRate, sys) });
   if (m.wholeDescentRate != null)
     out.push({
-      label: 'Descent rate',
+      label: 'Descent rate', method: 'main-descent-rate',
       value: fmtSpeed(m.wholeDescentRate, sys),
       sub: landedInRecord(m)
         ? 'averaged apogee to landing — no deployment change is in the record'
@@ -203,22 +227,22 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     });
   if (m.mainDescentRate != null)
     out.push({
-      label: 'Main descent',
+      label: 'Main descent', method: 'main-descent-rate',
       value: fmtSpeed(m.mainDescentRate, sys),
     });
   // Where this file held the same flight twice and the copy that starts on the pad stopped
   // before the rocket landed, the clock came from the other copy. Two readings from two
   // recordings, shown as such rather than merged silently into the rest.
   const fromCopy = m.descentSource === 'second-copy' ? 'from this file’s second copy of the flight' : undefined;
-  if (m.descentTime != null) out.push({ label: 'Descent time', value: fmtTime(m.descentTime), sub: fromCopy });
-  if (m.flightTime != null) out.push({ label: 'Flight time', value: fmtTime(m.flightTime), sub: fromCopy });
+  if (m.descentTime != null) out.push({ label: 'Descent time', method: 'deployments-descent-rates', value: fmtTime(m.descentTime), sub: fromCopy });
+  if (m.flightTime != null) out.push({ label: 'Flight time', method: 'deployments-descent-rates', value: fmtTime(m.flightTime), sub: fromCopy });
   if (m.groundTemperature != null)
-    out.push({ label: 'Ground temp', value: fmtTemp(m.groundTemperature, sys) });
+    out.push({ label: 'Ground temp', method: 'ground-baseline-altitude', value: fmtTemp(m.groundTemperature, sys) });
   // Battery: the lowest it sagged to, with the resting voltage alongside so a
   // drop (a weak pack — a common cause of a charge that didn't fire) is visible.
   if (m.batteryMinV != null)
     out.push({
-      label: 'Battery low',
+      label: 'Battery low', method: 'battery',
       value: fmtVoltage(m.batteryMinV),
       sub: m.batteryStartV != null ? `${fmtVoltage(m.batteryStartV)} at rest` : undefined,
     });
@@ -226,13 +250,13 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   // Roll/spin about the long axis, when the logger recorded a roll-rate channel.
   if (m.peakRollRate != null)
     out.push({
-      label: 'Peak roll rate',
+      label: 'Peak roll rate', method: 'roll-spin',
       value: `${Math.round(m.peakRollRate)} °/s`,
       sub: `${(m.peakRollRate / 360).toFixed(1)} rev/s`,
     });
   if (m.rollRevolutions != null)
     out.push({
-      label: 'Revolutions',
+      label: 'Revolutions', method: 'roll-spin',
       value: m.rollRevolutions.toFixed(m.rollRevolutions < 10 ? 1 : 0),
       sub: 'total roll',
     });
@@ -240,7 +264,7 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   // How vertical the powered flight was, when the logger solved for attitude.
   if (m.tiltAtBurnout != null)
     out.push({
-      label: 'Tilt at burnout',
+      label: 'Tilt at burnout', method: 'roll-spin',
       value: `${Math.round(m.tiltAtBurnout)}°`,
       sub: 'off vertical',
     });

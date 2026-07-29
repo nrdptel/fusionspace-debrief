@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
-import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
+import { encodeUnits } from '@/lib/display';
+import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
 import { ingestFiles } from '@/lib/ingest';
+import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
 import { flightFromMapping } from '@/lib/mapped';
 import type { AnalyzedTable } from '@/lib/flight/columns';
@@ -14,6 +16,8 @@ import type { ColumnMapping } from '@/lib/flight/build';
 import ColumnMapper from './ColumnMapper';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
+import DropOverlay from './DropOverlay';
+import { useWindowFileDrop } from './useWindowFileDrop';
 
 /**
  * The comparison surface: a launch day's flights lined up side by side, as its own route.
@@ -30,11 +34,9 @@ import CompareView from './CompareView';
  */
 export default function CompareSurface() {
   const logbook = useLogbook();
-  const [sys, setSys] = useState<UnitChoice>('imperial');
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [state, setState] = useState<'picking' | 'loading' | 'ready' | 'mapping'>('picking');
   const [note, setNote] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
   /** Files from the last drop that aren't a format Debrief knows but do hold columns of
    *  numbers. Kept so this surface can offer the mapper on them, rather than naming them in
    *  a sentence and sending the flyer to another page to start the drop over. */
@@ -48,43 +50,9 @@ export default function CompareSurface() {
     addToIds: string[];
   } | null>(null);
 
-  // Units are a whole-app choice, remembered on this device and carried in the URL — the
-  // same rules as the analyze page, read the same way, so a link opens reading alike.
-  useEffect(() => {
-    setSys(
-      decodeUnits(new URLSearchParams(window.location.search).get('u')) ??
-        decodeUnits(window.localStorage.getItem('debrief.units')) ??
-        'imperial',
-    );
-  }, []);
-
-  const remember = useCallback((next: UnitChoice) => {
-    try {
-      const code = encodeUnits(next);
-      window.localStorage.setItem('debrief.units', code);
-      const url = new URL(window.location.href);
-      url.searchParams.set('u', code);
-      window.history.replaceState(null, '', url);
-    } catch {
-      /* storage blocked — the choice still applies to this view */
-    }
-  }, []);
-
-  const toggleUnits = useCallback(() => {
-    setSys((prev) => {
-      const next: UnitChoice = systemOf(prev) === 'imperial' ? 'metric' : 'imperial';
-      remember(next);
-      return next;
-    });
-  }, [remember]);
-
-  const setUnits = useCallback(
-    (next: Units) => {
-      setSys(next);
-      remember(next);
-    },
-    [remember],
-  );
+  // Units are a whole-app choice, owned above the header so the control is on every surface
+  // — this page used to keep a second copy of the same reader and writer.
+  const { sys } = useUnits();
 
   /** Assemble the given logbook ids, and put them in the URL so the view is reloadable. */
   const load = useCallback(async (ids: string[], pushUrl: boolean, extraNote?: string) => {
@@ -140,13 +108,17 @@ export default function CompareSurface() {
    * surfaces can't disagree about what a launch day holds. Everything lands in the logbook
    * on the way through, which is what gives the resulting comparison an address.
    */
+  // The same window-level catch the analyze page uses: this surface has a compact drop box,
+  // but a file released in the margins, on the logbook, or on a loaded comparison used to
+  // make the browser navigate away to the raw CSV. See components/useWindowFileDrop.ts.
   const onDropFiles = useCallback(
     async (files: File[]) => {
       const list = files.filter(Boolean);
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, forgotten } = await ingestFiles(list, MAX_COMPARE);
+      logbook.reportForgotten(forgotten);
       logbook.refresh();
 
       const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
@@ -257,9 +229,15 @@ export default function CompareSurface() {
     [mapping, comparison, load, logbook],
   );
 
+  // Only the mapper refuses — see the note in Analyzer.tsx; a drop during `loading`
+  // supersedes the load in flight rather than being turned away.
+  const canTakeADrop = state !== 'mapping';
+  const { dragging } = useWindowFileDrop({ onFiles: (files) => void onDropFiles(files), accept: canTakeADrop });
+
   if (state === 'mapping' && mapping) {
     return (
       <div className="mx-auto w-full max-w-5xl">
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
         <ColumnMapper
           table={mapping.table}
           suggested={mapping.suggested}
@@ -273,24 +251,26 @@ export default function CompareSurface() {
 
   if (state === 'ready' && comparison) {
     return (
-      <CompareView
-        comparison={comparison}
-        note={note ?? undefined}
-        sys={sys}
-        onToggleUnits={toggleUnits}
-        onSetUnits={setUnits}
-        onBack={back}
-        backLabel="← Compare other flights"
-        headingLevel="h1"
-        mappable={mappable.map((m) => m.name)}
-        onMapFile={onMapFile}
-      />
+      <>
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
+        <CompareView
+          comparison={comparison}
+          note={note ?? undefined}
+          sys={sys}
+          onBack={back}
+          backLabel="← Compare other flights"
+          headingLevel="h1"
+          mappable={mappable.map((m) => m.name)}
+          onMapFile={onMapFile}
+        />
+      </>
     );
   }
 
   const enough = logbook.recents.length >= 2;
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Compare flights
@@ -326,22 +306,13 @@ export default function CompareSurface() {
           drop zone: on this surface adding files is a step towards a comparison, not the
           headline. Shown whether or not the logbook already has enough — a flyer with a
           season logged still arrives with today's folder. */}
+      {/* No drag handlers of its own: the window owns the gesture now (useWindowFileDrop),
+          so a drop lands the same way whether it hits this box, the logbook below it, or the
+          margin beside it — and a local handler here would have ingested the same files a
+          second time as the event bubbled. The box stays as the visible affordance and the
+          file picker. */}
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          if (e.dataTransfer.files.length > 0) void onDropFiles(Array.from(e.dataTransfer.files));
-        }}
-        className={`rounded-lg border border-dashed px-4 py-5 text-center transition ${
-          dragging
-            ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-500/60 dark:bg-indigo-950/30'
-            : 'border-zinc-300 dark:border-zinc-700'
-        }`}
+        className="rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center transition dark:border-zinc-700"
       >
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {logbook.recents.length === 0
@@ -393,6 +364,8 @@ export default function CompareSurface() {
         onNote={logbook.note}
         onExport={logbook.exportAll}
         onImport={logbook.importAll}
+        forgotten={logbook.forgotten}
+        onDismissForgotten={logbook.clearForgotten}
       />
     </div>
   );

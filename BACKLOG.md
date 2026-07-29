@@ -142,6 +142,42 @@ memory, so a later pass doesn't have to rediscover them.
   - **[M] The ground track has no per-phase colour, no hover readout and no measure tool** (AltosUI's
     Map tab has all three, incl. a distance tool). "Where was it at 40 s, and how far is that from the
     road" needs an export to Google Earth today.
+    **DONE except the measure tool.** The map was a `role="img"` canvas with no handler on it at all;
+    it now colours each leg with the colour of the event that began it (the same `EVENT_COLOR` token
+    the charts mark that event with), draws a dot at each event, and reads a fix under the pointer, a
+    tap, or the arrow keys — Home/End for the ends, PageUp/PageDown event to event, Escape to clear.
+    The readout states the time (on the log's clock, named the way the Events list names it), the
+    distance and bearing from the pad, and the phase.
+    **It deliberately states NO altitude, and that took two goes to get right.** The first cut read
+    `series.altitude[i]` and published **−694 ft AGL at burnout** on the IREC TeleMega — the exact
+    instant the Events list correctly prints "—", because `altAt` (lib/analyze/index.ts) withholds an
+    ascent altitude where the barometric trace contradicts the flight's own speed. The second cut
+    over-corrected to "no height before apogee", which then said *nothing* at a burnout the Events
+    list publishes as **1,600 ft** on `altusmetrum-telemetrum.csv` — the same cross-surface
+    disagreement, in the other direction. A map is a plan view and the app already adjudicates
+    altitude in three places; a fourth surface reproducing `altAt` by eye is what both cuts were.
+    Still missing: a **measure tool** (drag between two points for a distance) — the half of AltosUI's
+    Map tab this didn't cover — and a bearing/distance between two picked fixes rather than only from
+    the pad.
+
+- **`EVENT_COLOR.drogue` and `EVENT_COLOR.main` are the same value** (`#0ea5e9`, sky-500, in
+  `lib/eventStyle.ts`), and `EVENT_COLOR.liftoff` is `#6366f1` — byte-identical to the charts' default
+  altitude stroke and to what the recovery map used for its own "you are here" marker until this run
+  (now a hollow ring in the page ink, because a filled indigo dot read as one more event marker). So
+  on a dual-deploy flight the drogue leg and the main leg of the ground track paint identically, and
+  their two key swatches are the same blue against different labels. The charts have always had this
+  — a drogue and a main draw the same dashed sky line — so fixing it is a one-token change with a
+  blast radius across the report, the comparison overlay and every figure export, not a map-local
+  patch. Worth doing deliberately; the labels carry the meaning meanwhile.
+
+- **The GPS channels come from the unsliced flight while the analysis series can be sliced.**
+  `FlightReport` passes `lat={gpsLat.values}` off the raw `flight`, while `series.time` comes from
+  `analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1)` (lib/analyze/index.ts:606) on a file that
+  holds its flight twice. Structurally the track would then span both copies while the time base
+  stopped at the cut. **Measured across the corpus: 10 fixtures carry a latitude channel and 0 of
+  them mismatch** — every doubled-recording file is a Blue Raven, which has no GPS. So this is a real
+  shape with no real file behind it: worth knowing before adding a GPS-carrying doubled log to the
+  corpus, not worth a guard that fires on nothing today.
   - **[M] The smoothing width is fixed and a baro-only log gets no acceleration trace at all.** AltosUI
     exposes a filter width ("a larger value smooths the data more") and computes both speed and
     acceleration from barometric data on accelerometer-less altimeters. A StratoLogger or Eggtimer
@@ -1379,6 +1415,74 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **DONE — twenty-one readings a flyer cannot look up, and a methods page nothing could link to.**
+  Every reading in the grid is a term of art — "Coast efficiency", "Max Q", "Thrust-to-weight",
+  "Tilt at burnout" — and `MetricGrid.tsx` carried **no `title`, no `aria-label` and no link**, on any
+  of them. `app/methods/page.tsx` defines all of them in 45 blocks across 790 lines and had **zero
+  `id` attributes**, so there was nothing to point at even if they had. Learning what a number meant
+  was: leave the report (which then had no address to come back to), open the methods page, and read
+  down it. Every block has a stable anchor now, every reading cites the one that defines it, and the
+  two lists are held together three ways — `MethodId` is a union of the canonical list so a typo
+  won't compile, and unit tests check that every id is rendered as a heading, that every reading
+  cites one, and that the fixture exercising them produces all 21.
+  **Still open:** the tooltip on the reading chooser (`ReadingChooser.tsx`) is still `title={label}`
+  — a verbatim copy of the visible text for 20 of the 21 entries. It now has somewhere to point.
+
+- **DONE — the unit control only existed inside a loaded analysis, while the page said it was
+  top-right.** `UnitsControl` was mounted at two call sites, both below a report or a comparison.
+  Measured at 1440 px: the analyze landing screen had **0** unit controls, the comparison picker
+  **0**, and on a report the button sat at **x=479, y=483 — 880 px from the right edge** — against
+  `app/page.tsx`'s own "switch feet and meters with one click (top-right)". Meanwhile the logbook on
+  that landing screen was already printing apogee and speed in those units, with no way to change
+  them. The choice is now owned by a `UnitsProvider` above the header on both surfaces that show
+  numbers, the control sits in the header (**x=1044, y=46**), and the two duplicate copies of the
+  reader/writer — one in `Analyzer`, one in `CompareSurface` — collapsed into it.
+  **The first attempt put the provider in the root layout, and that was wrong twice over.** It gave
+  `/methods`, `/validation` and `/privacy` a unit control over pages with no numbers on them, took
+  them from 107 kB to 111 kB of client JS, and the extra chunk requests pushed the e2e static server
+  past its file-descriptor limit **mid-run** — `EMFILE: too many open files`, killing the last five
+  tests with `ERR_CONNECTION_REFUSED` and looking exactly like flakiness. `SiteHeader` takes the
+  control as a slot now and stays a server component; the docs pages are byte-for-byte what they were.
+  **Still open:** on a report that runs 7,000 px the control is at the top, so changing units deep in
+  one means scrolling up. The section strip is already sticky and could carry it.
+
+- **DONE — the report had no address, so all seven in-app links on its own screen destroyed it.**
+  Measured on a loaded report at 1440 px: `main`/`header`/`footer` carry **7** same-origin links —
+  Analyze, Compare (×2), "Read the methods →", Methods, Validation, Privacy — and the report lives
+  only in React state, so clicking any of them and pressing Back lands on an empty drop zone. The
+  flight survives in the logbook; the report's zoom, label, notes and per-quantity unit overrides do
+  not, and nothing in the URL says which row to reopen. `?open=<id>` already restored a flight — the
+  mount effect read it and then **deleted it from the URL**, which is exactly what left the address
+  blank. Kept now, set when a save lands, cleared by "Analyze another flight". Back, a reload and a
+  bookmark all come back to the flight.
+  **And the id it names is stable now, which was a second bug underneath.** `saveRecent` minted a
+  fresh id on every save, and a save is what REOPENING a flight does — so clicking a logbook row
+  silently re-addressed the flight and broke every `/compare?ids=…` permalink that named it. Measured:
+  two flights dropped, permalink taken, flight one reopened → its id changed and the permalink fell
+  back to the **empty picker**, with no word about the flights it could not find. A save is a replace
+  in place, so it keeps the address it replaces.
+  **Still open:** `/compare?ids=…` falls back to the picker in silence whenever an id doesn't
+  resolve — a cleared logbook, or a link opened on another device. It should say which ids it
+  couldn't find, the way the analyze page says "That saved flight could no longer be read."
+  And the report's **label and notes still don't survive** the round trip; they are per-flight React
+  state cleared on `flight.source`. The logbook's own `note` is the precedent for making them stick.
+
+- **DONE — a flight dropped anywhere but the dashed box threw the flyer out of the app.** A
+  browser's default action for a dropped file is to NAVIGATE TO IT, and Debrief had exactly two
+  drop targets: `DropZone` on the idle screen and the compact box on `/compare`. Neither is
+  rendered once a report is open. So the most natural gesture on that screen — "read this one,
+  here's the next" — released the file on the altitude chart and left for a page of raw CSV,
+  taking the report, its zoom, its label and its notes, none of which have an address to come
+  back to. Measured with a real `DragEvent`: `dragover` on the drop zone came back
+  `defaultPrevented: true`, on the footer `false`, and on the report body `false` — with **zero**
+  file inputs and no drop zone anywhere on that screen. The window catches it now
+  (`components/useWindowFileDrop.ts`): the default is prevented for any drag carrying files, so a
+  stray drop is a no-op at worst, and the file is read wherever it lands. The column mapper is the
+  one phase that refuses — a new file would discard the mapping in progress — and it says so
+  rather than swallowing the drop silently. Both boxes lost their own drag handlers in the same
+  change: left in place beside the window's, a drop that hit the box was ingested **twice** (the
+  falsification produced `["first.csv","second.csv","third.csv","third.csv"]`).
+
 - **DONE — the flight card honours the reading chooser.** It took no `hidden` argument at all, so
   hiding a reading everywhere else still left it on the one artifact that leaves the device. Wired
   through `visibleRows`, with the label trap the note predicted: the card prints "Max accel" (four
@@ -1752,6 +1856,41 @@ memory, so a later pass doesn't have to rediscover them.
   action, say) and move them into one.
 
 ## Hardening
+
+- **DONE — the logbook forgot flights and said nothing.** `saveRecent`'s prune keeps every noted
+  flight plus the most recent `MAX = 12` un-noted ones, and it runs on every save. Measured: drop 15
+  distinct flights and the logbook holds **12** — `flight-01`, `-02` and `-03` gone, named nowhere on
+  the page. A launch day's folder is six files, so **two launch days fill the window and the third
+  eats the first**, which is precisely the "season worth comparing" the manual says to design for. The
+  escape hatch already existed (a noted flight is kept) but was one grey sentence at the FOOT of the
+  list, in the past tense, and never stated the number. Now: the heading carries `n/12 un-noted`
+  (amber within two of full), a save that prunes names what it dropped with the action that would have
+  kept it, and `UNNOTED_MAX` is exported so the copy cannot drift from the code. Verified end to end —
+  noting the oldest flight freed its slot AND carried it through twelve more drops.
+  **Still open:** the window is a COUNT, and what it is really bounding is bytes — twelve 11 MB
+  Blue Raven logs is 130 MB of IndexedDB on a phone, while twelve Eggtimer logs is under a megabyte.
+  A byte-budgeted window would keep far more of a typical season for the same storage.
+
+- **DONE — offline, every address Debrief itself generates fell through to "not available
+  offline".** The service worker looked a navigation up with `caches.match(request)`, keyed on the
+  whole URL including its query. The site is a static export — one document per route, and the query
+  is read after the app boots — so a cached `/compare/` was invisible to `/compare/?ids=…&u=i`, which
+  is the permalink the app offers as *"give this comparison an address"*. Measured after one online
+  visit, network cut: `/compare/` **200, real page**; `/compare/?ids=abc,def&u=i` **503, fallback**;
+  `/?u=m` **503**; `/?open=xyz` **503**; `/methods/` **200**; `/methods/?x=1` **503**. Every one of
+  those is an address a flyer arrives by — a bookmarked comparison, a shared link, a flight opened
+  from the compare surface — and the headline promise is that one visit with signal is enough.
+  Navigations are keyed on the route now, on the way in as well as out, so three distinct permalinks
+  leave **one** cached `/compare/` document rather than four. A route that genuinely isn't cached
+  still gets the honest 503, which the fix was checked not to break.
+
+- **The RSC payloads accumulate one cache entry per build-buster.** Noticed while measuring the
+  above: after three visits the cache held `/compare/index.txt` plus **three**
+  `/compare/index.txt?_rsc=…` copies of the same payload. The lookup already strips the buster
+  (`stripRscBuster`), but the store doesn't, so each new `_rsc` value adds an entry that nothing will
+  ever match by that name. Same shape as the navigation bug and the same one-line fix; left alone
+  here because a payload is small and this run's change was scoped to documents, where the failure
+  was user-visible.
 
 - **The 44 px touch floor is never exercised by any test that measures a phone layout.**
   `playwright.config.ts:66-71` defines exactly one project, `devices['Desktop Chrome']`, which is

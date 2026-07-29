@@ -10,12 +10,15 @@ import { flightFromMapping } from '@/lib/mapped';
 import type { RawFlight } from '@/lib/flight/types';
 import { analyzeAsync } from '@/lib/analyze/runner';
 import type { FlightAnalysis } from '@/lib/analyze/types';
-import { decodeUnits, encodeUnits, systemOf, type UnitChoice, type Units } from '@/lib/display';
+import { encodeUnits } from '@/lib/display';
+import { useUnits } from './UnitsProvider';
 import DropZone from './DropZone';
 import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
+import DropOverlay from './DropOverlay';
+import { useWindowFileDrop } from './useWindowFileDrop';
 import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import {
@@ -35,6 +38,7 @@ import { decodeFlight, payloadFromHash } from '@/lib/share';
 import { decodeBytes } from '@/lib/encoding';
 import { fileToText } from '@/lib/fileText';
 import { download } from '@/lib/download';
+import { MAPPING_BUSY } from '@/lib/dropCopy';
 
 type State =
   | { phase: 'idle' }
@@ -57,6 +61,7 @@ type State =
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
+
 
 /** What a batch drop couldn't read, said plainly. Names the files — a flyer who dropped a
  *  folder needs to know *which* one is missing — and keeps a logger's own guidance
@@ -90,28 +95,31 @@ function pairedNote(paired: string[]): string {
   return `Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`;
 }
 
-function readInitialUnits(): UnitChoice {
-  if (typeof window === 'undefined') return 'imperial';
-  // A shared link's units win over this device's remembered choice, so a link opens
-  // reading the way its sender saw it.
-  return (
-    decodeUnits(new URLSearchParams(window.location.search).get('u')) ??
-    decodeUnits(window.localStorage.getItem('debrief.units')) ??
-    'imperial'
-  );
-}
-
-/** Remember the choice on this device and put it in the URL, so a refresh, a shared
- *  link and the next visit all read the same way. */
-function rememberUnits(next: UnitChoice): void {
+/**
+ * Give the report on screen an address, or take it away again.
+ *
+ * The report lived only in React state, so every one of the SEVEN in-app links on that
+ * screen — Analyze and Compare in the header, "Read the methods →", and Methods, Validation
+ * and Privacy in the footer — destroyed it. Measured: click "Read the methods →", press
+ * Back, and you land on an empty drop zone. The flight itself survives in the logbook, but
+ * the report's zoom, its label, its notes and any per-quantity unit override do not, and
+ * nothing in the URL says which row to reopen.
+ *
+ * `?open=<id>` already restores a flight — the effect below has always read it. It also
+ * DELETED it from the URL immediately, which is precisely what left the address blank. Kept
+ * now, so Back, a refresh and a bookmark all land back on the flight.
+ *
+ * The id is a logbook key on this device, not flight data: nothing about the flight travels,
+ * and a link opened elsewhere resolves to nothing and says so.
+ */
+function rememberOpenId(id: string | null): void {
   try {
-    const code = encodeUnits(next);
-    window.localStorage.setItem('debrief.units', code);
     const url = new URL(window.location.href);
-    url.searchParams.set('u', code);
+    if (id) url.searchParams.set('open', id);
+    else url.searchParams.delete('open');
     window.history.replaceState(null, '', url);
   } catch {
-    /* a private window with storage blocked — the choice still applies to this view */
+    /* a browser refusing history writes — the report is still on screen */
   }
 }
 
@@ -142,7 +150,9 @@ function ReadingNote({ what }: { what?: { name: string; bytes?: number } }) {
 
 export default function Analyzer() {
   const [state, setState] = useState<State>({ phase: 'idle' });
-  const [sys, setSys] = useState<UnitChoice>('imperial');
+  // Owned by the app, not by this page — the control lives in the header on every surface
+  // now, including the ones with no flight loaded. See components/UnitsProvider.tsx.
+  const { sys } = useUnits();
   // The logbook and everything done to it, shared with the comparison surface so a note
   // added on either shows on both.
   const logbook = useLogbook();
@@ -158,24 +168,8 @@ export default function Analyzer() {
   }, []);
 
   useEffect(() => {
-    setSys(readInitialUnits());
     logbook.refresh();
   }, [logbook.refresh]);
-
-  // The fast path: the whole set flips between feet and metres, discarding any
-  // per-quantity overrides — one click back to a familiar system.
-  const toggleUnits = useCallback(() => {
-    setSys((prev) => {
-      const next: UnitChoice = systemOf(prev) === 'imperial' ? 'metric' : 'imperial';
-      rememberUnits(next);
-      return next;
-    });
-  }, []);
-
-  const setUnits = useCallback((next: Units) => {
-    setSys(next);
-    rememberUnits(next);
-  }, []);
 
   const ingest = useCallback(
     /** `mapping` is a hand-made column mapping the logbook kept with this flight, and
@@ -201,7 +195,11 @@ export default function Analyzer() {
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             ...(mapping ? { mapping } : {}),
             text,
-          }).then(logbook.refresh);
+          }).then((saved) => {
+            rememberOpenId(saved.id);
+            logbook.reportForgotten(saved.forgotten);
+            logbook.refresh();
+          });
         } else if (result.table.dataRows.length === 0) {
           set({
             phase: 'error',
@@ -214,7 +212,7 @@ export default function Analyzer() {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
       }
     },
-    [logbook.refresh, beginLoad],
+    [logbook.refresh, logbook.reportForgotten, beginLoad],
   );
 
   const onFile = useCallback(
@@ -266,8 +264,9 @@ export default function Analyzer() {
       // One set of rules for what a launch day's folder holds — including which summary
       // belongs to which log — shared with the comparison surface so the two can't disagree
       // about it (see lib/ingest.ts).
-      const { results, skipped, mappable, paired } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable, paired, forgotten } = await ingestFiles(list, MAX_COMPARE);
 
+      logbook.reportForgotten(forgotten);
       logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
@@ -292,6 +291,7 @@ export default function Analyzer() {
             ),
           );
         }
+        rememberOpenId(null);
         set({
           phase: 'compare',
           comparison: buildComparison(inputs),
@@ -301,6 +301,7 @@ export default function Analyzer() {
         });
       } else if (results.length === 1) {
         const r = results[0];
+        rememberOpenId(r.savedId ?? null);
         set({
           phase: 'report',
           flight: r.flight,
@@ -361,7 +362,8 @@ export default function Analyzer() {
         set({ phase: 'loading' });
         // Shared with the comparison surface, which opens the same mapper on a file from a
         // launch day's folder — see lib/mapped.
-        const { flight, analysis, save } = await flightFromMapping(fileName, text, table, mappings);
+        const { flight, analysis, save, forgotten } = await flightFromMapping(fileName, text, table, mappings);
+        void forgotten.then(logbook.reportForgotten);
         // Mapped out of a batch drop: put it back with the flights it arrived with, at the
         // comparison's own address. Awaited, because the id it was saved under is what
         // names it there — and if the save didn't happen there is nothing to add it to, so
@@ -375,7 +377,11 @@ export default function Analyzer() {
           }
         }
         set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
-        if (!addToIds) void save.then(logbook.refresh);
+        if (!addToIds)
+          void save.then((savedId) => {
+            rememberOpenId(savedId);
+            logbook.refresh();
+          });
       } catch (err) {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
@@ -383,7 +389,25 @@ export default function Analyzer() {
     [state, logbook.refresh, beginLoad, sys],
   );
 
-  const reset = useCallback(() => setState({ phase: 'idle' }), []);
+  const reset = useCallback(() => {
+    rememberOpenId(null);
+    setState({ phase: 'idle' });
+  }, []);
+
+  // A file dropped ANYWHERE reaches the app, rather than making the browser navigate to it —
+  // see components/useWindowFileDrop.ts. The mapper is the ONLY phase that can't take it: a
+  // new file there would discard the columns the flyer is part-way through mapping, so the
+  // drop is swallowed (still no navigation) and the overlay says so.
+  //
+  // `loading` deliberately still accepts. Superseding an analysis that is still running is
+  // designed behaviour — `beginLoad`'s token counter exists precisely so a slow result can't
+  // take the view back from a newer one — and refusing a drop because something is busy is
+  // the "fails only when you use it" control this project hunts for. Excluding it here broke
+  // `worker.spec.ts`'s "a slow in-flight analysis does not overwrite a newer load", which
+  // drops a second file mid-analysis and expects the mapper: the right catch, from the suite
+  // that already knew the rule.
+  const canTakeADrop = state.phase !== 'mapping';
+  const { dragging } = useWindowFileDrop({ onFiles, accept: canTakeADrop });
 
   /** Leaving the mapper. A file opened out of a batch drop goes back to the comparison it
    *  came from — dropping the flyer on an empty drop zone would throw away the launch day
@@ -459,9 +483,8 @@ export default function Analyzer() {
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('open');
     if (!id) return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete('open');
-    window.history.replaceState(null, '', url);
+    // Deliberately NOT stripped from the URL any more: it is the report's address, and
+    // removing it is what made Back land on an empty drop zone.
     void openRecent(id);
     // openRecent is stable; this runs once for the id the page arrived with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -482,6 +505,7 @@ export default function Analyzer() {
   if (state.phase === 'report') {
     return (
       <div className="space-y-6">
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
         <button
           type="button"
           onClick={reset}
@@ -506,8 +530,6 @@ export default function Analyzer() {
           analyzedAt={state.analyzedAt}
           sourceText={state.text}
           sys={sys}
-          onToggleUnits={toggleUnits}
-          onSetUnits={setUnits}
         />
       </div>
     );
@@ -515,23 +537,25 @@ export default function Analyzer() {
 
   if (state.phase === 'compare') {
     return (
-      <CompareView
-        comparison={state.comparison}
-        note={state.note}
-        sys={sys}
-        onToggleUnits={toggleUnits}
-        onSetUnits={setUnits}
-        onBack={reset}
-        permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
-        mappable={state.mappable?.map((m) => m.name)}
-        onMapFile={onMapDropped}
-      />
+      <>
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
+        <CompareView
+          comparison={state.comparison}
+          note={state.note}
+          sys={sys}
+          onBack={reset}
+          permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
+          mappable={state.mappable?.map((m) => m.name)}
+          onMapFile={onMapDropped}
+        />
+      </>
     );
   }
 
   if (state.phase === 'mapping') {
     return (
       <div className="mx-auto w-full max-w-5xl">
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
         <ColumnMapper
           table={state.table}
           suggested={state.suggested}
@@ -545,6 +569,7 @@ export default function Analyzer() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && <ReadingNote what={state.what} />}
       {state.phase === 'error' && (
@@ -564,6 +589,8 @@ export default function Analyzer() {
           onNote={logbook.note}
           onExport={logbook.exportAll}
           onImport={logbook.importAll}
+          forgotten={logbook.forgotten}
+          onDismissForgotten={logbook.clearForgotten}
         />
       )}
     </div>

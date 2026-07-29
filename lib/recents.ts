@@ -52,7 +52,13 @@ export interface StoredMapping {
 
 const DB_NAME = 'debrief';
 const STORE = 'recents';
-const MAX = 12; // most-recent un-noted flights to remember
+/** How many un-noted flights the logbook remembers. Exported because the surface has to
+ *  state the number — copy that says "a few" while the code says 12 is copy that will drift,
+ *  and the whole point of stating it is that a flyer can plan around it. Every entry holds
+ *  the file's full text, which is what bounds this: a season of 11 MB logs is not something
+ *  IndexedDB should be asked to hold on a phone. */
+export const UNNOTED_MAX = 12;
+const MAX = UNNOTED_MAX;
 const NOTED_MAX = 50; // hard cap on kept noted flights, to bound storage
 
 function idb(): Promise<IDBDatabase> {
@@ -86,11 +92,24 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
  * comparison built from a drop addressable, since `/compare?ids=…` names logbook keys —
  * or null when storage is unavailable (a private window), where the caller simply has
  * nothing to link to.
+ *
+ * `forgotten` names the flights this save pushed out of the un-noted window, in the order
+ * they left. The prune below has always run; what it has never done is SAY anything. A
+ * launch day is six files, so two of them fill the window and the third silently eats the
+ * first: dropping 15 flights leaves 12, and nowhere on the page did the three that went get
+ * named. Storage is genuinely bounded — every entry carries the whole file text — so the
+ * answer is not a bigger number, it is telling the flyer the rule and what it just cost
+ * them, while they can still do something about it.
  */
-export async function saveRecent(
-  rec: Omit<RecentFlight, 'id' | 'addedAt' | 'note'>,
-): Promise<string | null> {
+export interface SaveResult {
+  id: string | null;
+  /** File names dropped from the logbook to make room for this one. */
+  forgotten: string[];
+}
+
+export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'note'>): Promise<SaveResult> {
   let savedId: string | null = null;
+  const forgotten: string[] = [];
   try {
     const db = await idb();
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
@@ -109,8 +128,16 @@ export async function saveRecent(
     // drop established has to survive it or reopening a paired flight would silently
     // un-pair it — the second time, not the first, which is the worst way to lose a thing.
     const inheritedSummary = rec.summaryText ?? all.find((r) => isDup(r) && r.summaryText)?.summaryText;
-    for (const r of all) if (isDup(r)) store.delete(r.id);
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // KEEP the id when this file is already in the logbook. A logbook id is an ADDRESS —
+    // `/?open=<id>` is the report's, and `/compare?ids=a,b,c` names a comparison's flights —
+    // and minting a fresh one on every save quietly broke both. Measured: two flights
+    // dropped, a comparison permalink taken, then flight one reopened (which is all a click
+    // on its logbook row does) — its id changed, and the permalink fell back to the empty
+    // picker without a word about the flights it could no longer find. A save is a replace
+    // in place, so the address it replaces is the address it should keep.
+    const existing = all.find(isDup);
+    const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    for (const r of all) if (isDup(r) && r.id !== id) store.delete(r.id);
     store.put({
       ...rec,
       note: inheritedNote,
@@ -125,12 +152,18 @@ export async function saveRecent(
     const others = all.filter((r) => !isDup(r)).sort((a, b) => b.addedAt - a.addedAt);
     const noted = others.filter((r) => r.note);
     const unnoted = others.filter((r) => !r.note);
-    for (const r of unnoted.slice(MAX - 1)) store.delete(r.id);
-    for (const r of noted.slice(NOTED_MAX)) store.delete(r.id);
+    for (const r of unnoted.slice(MAX - 1)) {
+      store.delete(r.id);
+      forgotten.push(r.name);
+    }
+    for (const r of noted.slice(NOTED_MAX)) {
+      store.delete(r.id);
+      forgotten.push(r.name);
+    }
   } catch {
     /* storage unavailable — just don't remember */
   }
-  return savedId;
+  return { id: savedId, forgotten };
 }
 
 /** Remember the device-summary file a flight was paired with, so the pairing survives a

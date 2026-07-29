@@ -5,6 +5,7 @@ import type { RecentMeta } from '@/lib/recents';
 import { fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
+import { UNNOTED_MAX } from '@/lib/recents';
 import { sortRecents, filterRecents, personalBests, type LogbookSort } from '@/lib/logbook';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 
@@ -39,6 +40,8 @@ export default function RecentFlights({
   onNote,
   onExport,
   onImport,
+  forgotten = [],
+  onDismissForgotten,
 }: {
   recents: RecentMeta[];
   sys: UnitChoice;
@@ -49,6 +52,11 @@ export default function RecentFlights({
   onNote: (id: string, note: string) => void;
   onExport: () => void;
   onImport: (file: File) => Promise<number>;
+  /** Flights the last drop pushed out to make room. Named rather than left to be noticed by
+   *  counting — a launch day's folder is most of the un-noted window, so the third day used
+   *  to quietly eat the first. */
+  forgotten?: string[];
+  onDismissForgotten?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -147,12 +155,54 @@ export default function RecentFlights({
     });
   };
 
+  // How much of the un-noted window is spoken for. A noted flight is a logbook entry and is
+  // kept, so it doesn't count against this — which is exactly the thing worth knowing before
+  // the next launch day fills the rest.
+  const unnoted = recents.filter((r) => !r.note).length;
+  const nearlyFull = unnoted >= UNNOTED_MAX - 2;
+
   return (
     <div className="mt-8">
       {filePicker}
+      {/* What the last drop cost, named. The prune has always run; saying nothing about it
+          meant a flyer found out by counting, days later, with nothing to do about it. */}
+      {forgotten.length > 0 && (
+        <div
+          role="status"
+          className="mb-3 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <p>
+            <strong className="font-medium">
+              {forgotten.length === 1 ? 'One flight was' : `${forgotten.length} flights were`} forgotten
+            </strong>{' '}
+            to make room: <span className="font-mono">{forgotten.join(', ')}</span>. The logbook keeps the
+            last {UNNOTED_MAX} un-noted flights on this device — add a{' '}
+            <span aria-hidden="true">✎</span> note to a flight and it stays for good.
+          </p>
+          {onDismissForgotten && (
+            <button
+              type="button"
+              onClick={onDismissForgotten}
+              className="mt-1.5 font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
+            >
+              Got it
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-baseline justify-between gap-4 border-b border-zinc-200 pb-2 dark:border-zinc-800">
         <h2 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
           Recent flights
+          {/* How full the un-noted window is, stated where the flyer decides what to keep —
+              rather than only in a sentence under the list, and only ever in the past tense.
+              Quiet until it is nearly full, loud enough to act on when it is: a launch day's
+              folder is six files, half the window. */}
+          <span
+            className={`ml-2 font-normal ${nearlyFull ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`}
+            title={`The logbook keeps the last ${UNNOTED_MAX} flights you haven't noted. A noted flight is kept for good and doesn't use a slot.`}
+          >
+            {unnoted}/{UNNOTED_MAX} un-noted
+          </span>
         </h2>
         <div className="flex items-center gap-3">
           {chosen.length >= 2 && (

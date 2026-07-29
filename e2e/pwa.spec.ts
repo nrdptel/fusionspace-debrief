@@ -459,3 +459,80 @@ test('the build marker is never served from the cache', async ({ page, context }
   // is serving while you cannot reach it.
   expect(offline).toBe('network-error');
 });
+
+// Every in-app address Debrief itself generates carries a query — the comparison permalink
+// (`/compare/?ids=…&u=i`, the app's own "give this comparison an address"), a shared link's
+// units (`/?u=m`), and reading one flight from the compare surface (`/?open=<id>`). The cache
+// lookup keyed on the whole URL, so offline all three missed and got the "not available
+// offline" document while the bare route beside them loaded — the promise broken for exactly
+// the addresses a flyer arrives by. Keyed on the route now; the query is read after boot.
+test('the addresses the app generates work offline, not just the bare routes', async ({ page, context }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+  // Wait for the install to finish, not for two URLs to land — see the note above.
+  await page.waitForFunction(
+    async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg || reg.installing || reg.waiting || !reg.active) return false;
+      for (const k of await caches.keys()) {
+        const cache = await caches.open(k);
+        const all = await Promise.all(
+          ['/', '/compare/'].map((u) => cache.match(new URL(u, location.href).href, { ignoreVary: true })),
+        );
+        if (all.every(Boolean)) return true;
+      }
+      return false;
+    },
+    null,
+    { timeout: 20000 },
+  );
+
+  await context.setOffline(true);
+
+  // The comparison permalink, as the app writes it.
+  await page.goto('/compare/?ids=abc,def&u=i');
+  await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+
+  // A shared link's units, and reading one flight out of the logbook from /compare.
+  await page.goto('/?u=m');
+  await expect(page.getByRole('heading', { name: 'Debrief', level: 1 })).toBeVisible();
+  await page.goto('/?open=nosuchid');
+  await expect(page.getByRole('heading', { name: 'Debrief', level: 1 })).toBeVisible();
+
+  // A query on a doc route, with the slash form the app doesn't use, resolves too.
+  await page.goto('/methods?from=report');
+  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+
+  // …and a route that genuinely isn't cached still says so rather than serving a page that
+  // lies about which page it is. The fix must not turn the honest answer into a wrong one.
+  const res = await page.goto('/not-a-route/?x=1');
+  expect(res?.status()).toBe(503);
+  await expect(page.getByText(/available offline/i)).toBeVisible();
+
+  await context.setOffline(false);
+});
+
+// One document per route, however many permalinks a flyer bookmarks. Caching navigations
+// under the full URL would have grown a duplicate shell per distinct `?ids=` set.
+test('a season of permalinks does not become a season of cached shells', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20000,
+  });
+  for (const ids of ['a', 'b', 'c']) await page.goto(`/compare/?ids=${ids}`);
+  await page.waitForTimeout(500);
+  const docs = await page.evaluate(async () => {
+    const out: string[] = [];
+    for (const k of await caches.keys()) {
+      const cache = await caches.open(k);
+      for (const req of await cache.keys()) {
+        const u = new URL(req.url);
+        if (u.pathname === '/compare/') out.push(u.pathname + u.search);
+      }
+    }
+    return out;
+  });
+  expect(docs, `cached /compare/ documents: ${JSON.stringify(docs)}`).toEqual(['/compare/']);
+});

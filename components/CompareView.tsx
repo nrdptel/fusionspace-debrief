@@ -17,7 +17,6 @@ import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, type ReportMeta } from '@/lib/report';
 import { plotSvg } from '@/lib/svgChart';
-import UnitsControl from './UnitsControl';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
@@ -58,8 +57,6 @@ export default function CompareView({
   comparison,
   note,
   sys,
-  onToggleUnits,
-  onSetUnits,
   onBack,
   backLabel = '← Back to a single flight',
   permalink,
@@ -70,8 +67,6 @@ export default function CompareView({
   comparison: Comparison;
   note?: string;
   sys: UnitChoice;
-  onToggleUnits: () => void;
-  onSetUnits: (units: Units) => void;
   onBack: () => void;
   /** Where back goes depends on where the comparison came from: a drop on the analyze
    *  page returns to that one flight; the compare surface returns to its picker. */
@@ -439,7 +434,6 @@ export default function CompareView({
             Give this comparison an address →
           </a>
         )}
-        <UnitsControl sys={sys} onToggleUnits={onToggleUnits} onSetUnits={onSetUnits} />
       </div>
 
       <div>

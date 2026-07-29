@@ -4,6 +4,8 @@ import SiteFooter from '@/components/SiteFooter';
 import CompareSurface from '@/components/CompareSurface';
 import MethodsPointer from '@/components/MethodsPointer';
 import { SITE_URL } from '@/lib/links';
+import { UnitsProvider } from '@/components/UnitsProvider';
+import HeaderUnits from '@/components/HeaderUnits';
 
 export const metadata: Metadata = {
   title: 'Compare flights — Debrief',
@@ -14,11 +16,12 @@ export const metadata: Metadata = {
 
 export default function ComparePage() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
+    <UnitsProvider>
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
       {/* Chrome at the reading width; the comparison itself uses the full width, where the
           overlaid charts and the side-by-side table live. */}
       <div className="mx-auto w-full max-w-5xl">
-        <SiteHeader current="compare" brandAsHeading={false} />
+        <SiteHeader current="compare" brandAsHeading={false} unitsSlot={<HeaderUnits />} />
       </div>
 
       <section className="mt-8">
@@ -27,9 +30,10 @@ export default function ComparePage() {
 
       <MethodsPointer />
 
-      <div className="mx-auto w-full max-w-5xl">
-        <SiteFooter />
-      </div>
-    </main>
+        <div className="mx-auto w-full max-w-5xl">
+          <SiteFooter />
+        </div>
+      </main>
+    </UnitsProvider>
   );
 }

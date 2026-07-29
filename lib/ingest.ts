@@ -47,6 +47,11 @@ export interface IngestOutcome {
   /** "<summary file> → <log file>", one per summary that was read onto a flight. Empty on
    *  the ordinary single-file drop. */
   paired: string[];
+  /** Flights this drop pushed out of the logbook. The logbook keeps a bounded window of
+   *  un-noted flights (every entry holds the whole file text), and a launch day's folder is
+   *  most of that window — so the third day quietly ate the first. Named now, so the flyer
+   *  hears about it while they can still do something about it. */
+  forgotten: string[];
 }
 
 /** Does this file name belong to the rocket a summary names? Compared on letters and digits
@@ -116,6 +121,9 @@ function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summ
 export async function ingestFiles(files: File[], max: number): Promise<IngestOutcome> {
   const results: IngestedFlight[] = [];
   const skipped: { name: string; why: string }[] = [];
+  /** Flights the per-save prune pushed out of the logbook while reading this drop — a
+   *  launch day's worth of files is enough to do it, and it used to happen in silence. */
+  const forgotten: string[] = [];
   const mappable: { name: string; text: string }[] = [];
   const summaries: IngestOutcome['summaries'] = [];
 
@@ -139,7 +147,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         continue;
       }
       const analysis = await analyzeAsync(result.flight);
-      const savedId = await saveRecent({
+      const saved = await saveRecent({
         name: file.name,
         formatLabel: result.flight.formatLabel,
         apogeeM: analysis.metrics.apogeeAltitude ?? null,
@@ -147,7 +155,8 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
         text,
       });
-      results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId });
+      for (const n of saved.forgotten) forgotten.push(n);
+      results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id });
     } catch (e) {
       // A device summary throws on the way through the parsers, but it isn't rubbish: it
       // holds the altimeter's own figures for a flight logged beside it.
@@ -183,5 +192,5 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
           : `the device's own summary for “${s.figures.rocket}” — no log in this drop is named for that rocket, so Debrief can't tell which flight it belongs to`,
     });
   }
-  return { results, skipped, mappable, summaries: unpaired, paired };
+  return { results, skipped, mappable, summaries: unpaired, paired, forgotten };
 }

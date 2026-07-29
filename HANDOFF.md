@@ -2,147 +2,127 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — units that lied, and four readings the record doesn't support
+## This run — surfaces that looked finished and weren't
 
-Branch restarted from `origin/main` at `38a9a75`; production was serving exactly that SHA at session
-start, so there was no gap on the way in. Thirteen shipped increments, with record-keeping commits
-alongside them, on this run's working branch, via PR #23.
+Branch restarted from `origin/main` at `e8cbdcc`; the working branch was level with it at session
+start (0 ahead, 0 behind, measured after `git fetch --prune`). Focus was **UX and UI**, so the queue
+came from an eight-lens audit of the app rather than from the corpus.
 
-Two themes. **A number labelled with a unit it wasn't in** (1–3), and **a reading published that the
-record cannot support** (4–8). Every figure below was measured this run.
+Eight shipped commits across seven increments. Every figure below was measured this run.
 
-### Units
+### The increments
 
-1. **`a033138` — the JSON exports declared one acceleration unit and emitted another.** `jsonConv.acc`
-   converted to g unconditionally while `jsonUnits` declared the flyer's choice, so picking m/s²
-   produced `units.acceleration: "m/s²"` beside a figure in g: **15.62 emitted where the value in the
-   declared unit is 153.14**. Invisible to the suite, because every JSON assert passed `'imperial'` or
-   `'metric'` and both name acceleration in g.
-2. **`24e4590` — the acceleration chart and the data CSV ignored the per-quantity unit.** With m/s²
-   picked, the tile read **185 m/s²**, the chart's own accessible description said "peaking at
-   185 m/s²", and the heading above the curve said **Acceleration (g)** over a curve at ~18.9. The
-   velocity chart above it had already switched to mph. The e2e covering this picked m/s² and checked
-   only the velocity heading.
-3. **`019e244` — the JSON logger cross-check divided two speeds by g.** The cross-check renders twice
-   and the two copies decided the quantity separately; the JSON one tested apogee and max velocity and
-   let the rest fall through to the acceleration converter. **Three corpus files carry a reported
-   speed, all AltimeterCloud, all wrong**: burnout **59.83 m/s exported as 6.10**, descent **6.21 as
-   0.63**; **152.76 → 15.58**; **153.86 → 15.69**. `agreementPct` is computed from SI before either
-   conversion, so the row read "agree" while the numbers beside it were 9.8× apart.
+1. **`d89b80a` — the recovery map was a picture, and now it reads.** A `role="img"` canvas with no
+   handler on it of any kind, so *"where was it at 40 s, and how far is that from the road"* could
+   only be answered by saving KML and opening Google Earth. It reads now by pointer, tap and keyboard
+   (arrows step, shift steps ten, Home/End the ends, PageUp/PageDown event to event, Escape clears),
+   each leg stroked in the colour of the event that began it, a dot at each event, a key naming them.
 
-### Readings the record doesn't support
+   **It deliberately states no altitude, and getting there took two wrong answers.** The first cut
+   read `series.altitude[i]` and published **−694 ft AGL at burnout** on the IREC TeleMega — the exact
+   instant the Events list correctly prints "—", because `altAt` withholds an ascent altitude where
+   the barometric trace contradicts the flight's own speed. The second cut over-corrected to "no
+   height before apogee", which then said nothing at a burnout the Events list publishes as
+   **1,600 ft** on `altusmetrum-telemetrum.csv`. Same cross-surface disagreement, other direction. A
+   map is a plan view; altitude is adjudicated in three places already.
 
-4. **`d361cf8` — a peak speed differentiated across four missing GPS fixes.** The ascent-gap guard
-   tested the CLOCK only; a ground-station GPS log keeps writing a row a second through a dropout.
-   `fwgps__trf-f1machbuster-jan18__GPS_GS03748` loses four fixes at t=962.01–965.01 and the derivative
-   bridged them: **268.0, 497.0, 496.4, 268.7 m/s** where the climb either side averages **288**.
-   **497.0 m/s became the headline, at Mach 1.46** — and uncaveated, because `mach` falls back to the
-   ground speed of sound while the transonic search needs a finite one, so `transonicTime` was null and
-   every supersonic caveat is gated on it. One of 46 flights; now none. The rule counts samples, not
-   seconds. **The published accuracy claim moved with it**: "+28% for a GPS-derived peak" was that
-   artefact, stated on five surfaces. Measured without it: **+5%** on the speeds (**+8%** on the Mach
-   pair, **+9%** against the tracker's own summary), with the barometric derived peaks at **+23%,
-   +30% and +110%**.
-5. **`83d20b1` — corrected the figures that change published.** A review found the guard sound
-   (46/46 sweep, one flight moves, no over-withholding) and six things wrong around it: a withheld peak
-   reading "not in this log" (the opposite of true — `maxVelocityWithheld` now says which kind), a
-   FOURTH real measured-vs-derived pair the enumeration omitted (**endurance StratoLogger 410.8 vs
-   TeleMetrum 315.1 m/s, +30.4%**), a speed ratio printed under a Mach pair's name, a self-contradictory
-   comment, a vacuous assert, and two stale citations.
-6. **`d18f582` — a descent that never reached the ground was reported as a touchdown.** The analyzer
-   already withholds flight time and descent time there and says why; the descent RATE went on being
-   published and every surface read it as a landing — "averaged apogee **to landing**", "**Touched
-   down at** X", a landing energy squared out of it, a parachute Cd solved from it. **Six flights**:
-   the Kairos sustainer stops **2,540 m up, 62.8% of its own apogee**, and read "touched down at
-   148.5 ft/s" beside its own warning that the record never reaches the ground.
-7. **`4706024` — the Recovery card called the last GPS fix a landing.** On a 2.84 s log whose last
-   sample is **1,081.6 m AGL at 322.1 m/s, still climbing**, it printed "Landed from pad: 10 ft",
-   "Bearing 267° W", drew a landing cross and said "Walk from the pad toward W" — and the GPX and KML
-   carried a waypoint literally named `Landing`.
-8. **`5d1d165` — the timeline said "liftoff to landing" whatever the record held.** "**2.6 s liftoff
-   to landing**" above a bar with only Boost and Coast. **15 of the 42** corpus flights that render a
-   timeline said it without a landing.
+   Folded in from the same review: the map sized itself from `clientWidth` (which includes the card's
+   own `p-4`) and so ran **15 px outside its own card** at 390 px; the landing event no longer gets a
+   dot, because the ✕ already marks the landing at `stats.landingIndex` rather than the landing
+   event's index (**samples 479 and 474** on `featherweight-gps.csv` — two dots, two landing
+   positions); `pointercancel` clears, so a thumb scrolling past the map no longer pins a reading
+   nobody chose; the readout is no longer a live region (fed from `pointermove` it would have
+   announced per pointer sample) — announcements come from an sr-only region only a key or a tap
+   writes to.
 
-6–8 share one predicate, `landedInRecord`, because six surfaces were each deciding it separately.
+2. **`94ad1d5` — offline, every address Debrief itself writes fell through to the "not available
+   offline" page.** Measured after one online visit with the network cut:
 
-### Craft
+   | address | before |
+   |---|---|
+   | `/compare/` | 200, real page |
+   | `/compare/?ids=abc,def&u=i` | **503, fallback** |
+   | `/?u=m` | **503** |
+   | `/?open=xyz` | **503** |
+   | `/methods/` | 200 |
+   | `/methods/?x=1` | **503** |
 
-9. **`d476e3b` — apogee was the only primary tile with no qualifier.** On a telemetry log that cuts out
-   during boost the peak IS the last sample: **3,548 ft, "2.6 s to apogee"**, still climbing at
-   1,057 ft/s. Two corpus flights. The figure is kept and now says "at least this high".
-10. **`61ec3c7` — comparison columns all read the same, and both caption panels lied.** Four
-    AltimeterCloud recordings of one flight painted the identical `mercury__altimeterclo` — **1 of 4
-    distinct**, at both 1440 px and 390 px. Now **4 of 4** at both. Separately, both label/notes panels
-    said "Kept on your device" (this app's phrase for localStorage) over pure React state; the
-    single-flight report made the same false promise, so both were corrected.
-11. **`491f15e` — a phone could not tell two logbook rows apart.** At 390 px the name cell is 188 px and
-    all four rows painted `mercury__altimetercloud`. That is the surface you tick flights from.
-12. **`9dca573` — three chrome links under the touch floor**, found by the closing cold walk: the brand
-    eyebrow **102×16**, Tip **59×26**, the footer project line **358×20**. The CSS comment claimed the
-    eyebrow was covered by `nav a`; it lives in a header div. The e2e measured `nav a` too, so it passed
-    while seven targets were under the floor. Seven before, four after, all four prose.
-13. **`6bbd627` — the saved landing energy didn't say what it came off.** Where a flight lands with no
-    deployment change resolved, the figure is the whole descent averaged; the card said so and the
-    report printed the joules bare, on the artefact a cert write-up is read from.
+   Those three are the permalink the app offers under *"give this comparison an address"*, a shared
+   link's units, and reading one flight from the compare surface. `caches.match(request)` keys on the
+   whole URL; the site is a static export, so the query is read after boot and selects nothing.
+   Navigations are keyed on the route now, **on the way in as well as out** — storing under the full
+   URL grew a duplicate shell per bookmarked permalink (three `?ids=` sets left four cached
+   `/compare/` documents). A route that genuinely isn't cached still answers 503, checked explicitly.
 
-**Every assert added this run was falsified** — reverted against the old code and confirmed to fail for
-the expected reason. One passed its falsification first time (under m/s² the wrong converter is the
-identity) and was rewritten to run two unit choices.
+3. **`10f9d84` — the logbook forgot flights and said nothing.** `saveRecent` keeps every noted flight
+   plus the most recent `MAX = 12` un-noted ones and prunes on every save. Drop fifteen distinct
+   flights: the logbook holds **twelve**, and `flight-01`, `-02`, `-03` are gone, named nowhere. A
+   launch day is six files, so **two launch days fill the window and the third eats the first**. The
+   escape hatch existed (a noted flight is kept) but was one grey sentence at the foot of the list, in
+   the past tense, without the number. Now the heading carries `n/12 un-noted` (amber within two of
+   full), a save that prunes names what it dropped with the action that would have kept it, and
+   `UNNOTED_MAX` is exported so the copy can't drift from the code.
 
-### The landing block — done, and how
+4. **`64deed1` — a flight dropped anywhere but the dashed box threw the flyer out of the app.** The
+   browser's default for a dropped file is to navigate to it, and neither drop target is rendered once
+   a report is open. Measured with a real `DragEvent`: `dragover` on the drop zone is cancelled, on
+   the footer it is not, on the report body it is not — with **zero** file inputs on that screen. The
+   window catches it now; only the column mapper refuses, and says why. Both boxes lost their own drag
+   handlers, because leaving them beside the window's ingested a drop that hit the box **twice**.
 
-**A file boundary was read as a touchdown.** On `blueraven__trf-f1machbuster-jan18 LR` copy 1's trace
-freezes at 823.2 ft and the next sample, **0.020 s later, is −3.4 ft**: a step of **41,330 ft/s** on a
-flight whose recorded descent ran at 55. That sample is copy 2's pad. From it came a 122.90 s flight
-time (which "agrees" with the device's 123.02 by luck) and a published **54.8 ft/s** where the device's
-own summary states a **29.0 ft/s** main descent — a **3.6× landing-energy error**.
+5. **`dcc72f5` — a report had no address, and a flight was re-addressed every time it was saved.**
+   Seven in-app links on the report screen — Analyze, Compare (×2), "Read the methods →", Methods,
+   Validation, Privacy — and every one of them destroyed the report, because it lived only in React
+   state. `?open=<id>` already restored a flight; the mount effect **deleted it from the URL**
+   immediately after reading it. Underneath that, `saveRecent` minted a fresh id on every save — and
+   a save is what REOPENING a flight does — so clicking a logbook row silently broke every
+   `/compare?ids=…` permalink naming it, and /compare fell back to the empty picker without a word.
+   Thirteen tests encoded the old behaviour; one asserted the opposite outright ("the id is spent
+   once used") and is reversed deliberately.
 
-**The earlier attempt aimed at the wrong layer, and that is why it broke things.** It bounded the
-LANDING SEARCH, which is four interacting rules (the near-pad detector, the at-rest tail fallback,
-`descentIsInTheRecord`, and the `altClean[n−1] < 5` clause) plus the second-copy splice; two refinements
-each fixed one case and broke others. The defect is one layer up, in `nextFlightStart`: the cut between
-copies is placed at the **low point of the trough** after the join, and where the join IS the drop, that
-hands the first copy the next copy's opening pad samples. The landing detector was doing its job on
-samples it should never have been given. Fixed there (`966cf6a`), the landing block is untouched.
+6. **`18a9627` — the unit switch was not where the page says it is.** `app/page.tsx` says "one click
+   (top-right)". Measured at 1440 px: **0** controls on the analyze landing screen, **0** on the
+   comparison picker, and on a report **x=479, y=483 — 880 px from the right edge** — over a logbook
+   already printing apogee and speed in those units. A `UnitsProvider` above the header on both
+   surfaces that show numbers; the two duplicate copies of the reader/writer collapsed into it.
 
-The rule: a body released at the record's own peak reaches the ground at √(2gh) and no faster, so a step
-into the ground band quicker than that (doubled, for baro headroom) is the recording restarting. Every
-multi-segment corpus file trips it and clears the doubled bound by **9.6×, 32× and 315×**; a synthetic
-pair's genuine 25 m/s touchdown is **4× inside** it and its cut does not move.
+7. **`1a0e0c3` + `b787b8b` — twenty-one readings a flyer could not look up.** No title, no help
+   affordance and no link on any tile; the methods page defines all of them across 45 blocks and had
+   **zero `id` attributes**. Every block has an anchor now, every reading cites the one that defines
+   it, and three checks hold the lists together (a compiler-checked union, plus tests that each id is
+   rendered as a heading and that every reading cites one over a fixture pinned to produce all 21).
+   The closing cold walk then found the new links at **6x14 px** on a phone — a control at a sixth of
+   the touch floor, which `touch.spec.ts` could not see because its selector never reached into
+   `main`. Hit area expanded with a pseudo-element; the selector widened.
 
-Both copies of jan18 stop 250 m up, so neither holds a landing. It joins the six that already say so —
-**the census assert moves 6 → 7**. No landing event, no flight time, no descent time, no landing energy
-(`—`, no joules figure anywhere on the page), no parachute Cd; the 51 ft/s it does carry reads
-"averaged over the recorded descent — the record stops before the ground, so this is not a landing
-speed". **jan10's splice is byte-identical** (10,245 ft, 83.00 s, 64.76 s, `second-copy`) with its cut
-163 samples earlier; the Eggtimer anomaly's cut moves one sample, every reading identical.
+### What the review caught that the tests didn't
 
-**The assert that was written first and thrown away is worth more than the one that shipped.** "No
-landing may be arrived at faster than a vacuum fall from its own apogee" is the obvious physical
-statement and it is **wrong as a test**: a barometer lying on the ground with its charges fired bounces
-tens of metres between samples, and the widest genuine landing in this corpus (`stargazer1`, from 17.3 m
-of a 570 m flight) arrives at **11.3× that bound**. Rate does not separate a true touchdown from a false
-one. The height it was **approached from** does — widest genuine **3.04%** of apogee, next 2.30%,
-against jan18's **13.09%** — and the bound is 6%.
+The pre-push agent review paid for itself twice on increment 1, both times on cross-surface honesty —
+a number published on a new surface that another surface withholds, and then the mirror-image
+over-withholding. Neither was reachable by any assert that existed. **Send the diff out before every
+push; the honesty lens is the one that finds things.**
 
-**And the synthetic that reproduces it has to have a WANDERING pad between the copies.** The first
-version used a dead-flat zero and passed against the old code: with a flat trough the low point *is* the
-join, so cutting at either lands in the same place and nothing is handed across. The corpus file reads
-−1.0, +0.5, +0.5, −0.1 over its first four samples, and that wander is the whole mechanism.
+The existing suite paid for itself too: increment 4's first attempt refused drops during `loading`,
+and `worker.spec.ts`'s "a slow in-flight analysis does not overwrite a newer load" caught it. A
+baseline gate run before touching anything is what made that a finding rather than a mystery.
 
-### Done-check
+**Every assert added this run was falsified** — reverted against the code that lacks it and confirmed
+to fail naming the case. Two were vacuous on the first try and had to be moved: the "no landing dot"
+assert on a fixture with no landing event, and the "no double ingest" assert on a path that never
+dropped on the box.
 
-- **Gate on the branch head: 687 unit tests across 52 files, build clean, 178 e2e.** Sweep
-  `find . -name "*-tmp.*"` immediately before any run you intend to quote.
-- **Corpus suite green: 111 tests, 61 fixtures on disk.** Two denominators exist and both are right —
-  `corpusReads()` marks **37** analysed end to end (what the suite asserts), a looser sweep gets **46**.
-  Say which you mean: a count of 7 over the loose set was 6 over the suite's, and the difference was a
-  real fixture, not a bug.
-- **Cold walk** of the built export at `9dca573`, on a **phone at 390 px, offline** — a journey not
-  walked earlier this run. All five changed claims verified; offline reload served and usable; no
-  horizontal overflow. It produced increment 12.
-- **Benchmark** against the vendor tools: see BACKLOG.
-- **BACKLOG**: four entries this run invalidated were corrected, not left to mislead.
+### Three regressions the gate caught, and how each was diagnosed
+
+- **Refusing drops during `loading`** broke `worker.spec.ts`'s "a slow in-flight analysis does not
+  overwrite a newer load". Superseding a running analysis is designed behaviour.
+- **Twelve tests failing at 30 s** looked exactly like this suite's known load flakiness. The control
+  settled it: stash the change, re-run, **189 passed in 2.6 min**. Then bisecting the two halves of
+  the change put it on the URL wiring. *A control is worth more than an hour of theories.*
+- **`EMFILE: too many open files`** — putting the units provider in the root layout gave every page
+  the client bundle, and the extra chunk requests pushed the e2e static server past its
+  file-descriptor limit PART-WAY THROUGH a run. Every test after that failed with
+  `ERR_CONNECTION_REFUSED`. Found by reading the `[WebServer]` lines in the run log; every test
+  failure pointed somewhere else.
 
 ## Environment notes
 
@@ -151,126 +131,59 @@ join, so cutting at either lands in the same place and nothing is handed across.
 - **`npm install` is needed at session start** — the container ships without `node_modules`.
 - **`npm run fetch-fixtures` returns 401 here.** `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`.
 - **The image's Chromium is 1194 and Playwright wants 1228.** `npx playwright install chromium` (~2 min).
-- **A subagent's `*-tmp.test.ts` inflates the gate.** Four appeared mid-run from fan-out agents and
-  turned 52 files/664 tests into 53/666. Sweep `find . -name "*-tmp.*"` immediately before any gate run
-  you intend to quote — not just at the end.
-- **e2e flakes under fan-out load and a control proves nothing.** `compare.spec.ts` "a file a batch drop
-  could not read can be mapped" failed once at load 8.56 and passed alone and in a full re-run at 9.53.
-  Re-run the full suite, not the single test.
-- **`pkill -f "<pattern>"` kills its own shell** when the pattern appears in the command line running it;
-  the Bash tool returns exit 144 with no output and it reads like a crash. Bracket the first character.
-- **Measuring truncated text needs the painted string, not `innerText`.** `innerText` returns the whole
-  name whatever the box does with it, so an assertion on it passes while four columns read identically.
-  Measure with the element's own computed font, and across wrapped lines if it wraps.
-- **The harness appends an attribution footer to a PR body.** Stripped on #23; read every body back.
-- **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
-  Both jobs ran ~1.5 min (frontend) and ~4 min (e2e) all run.
-- **A browser in this container cannot reach the deployed site.** `curl` goes through the agent proxy
-  fine — `version.json`, the static `/methods` and `/validation` HTML, the JS chunks all fetch — but
-  Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`, with and
-  without `proxy: { server: HTTPS_PROXY }`, and the proxy reports no relay failures. So the
-  done-check's "walk the deployed URL" is only partly possible: the static pages can be verified by
-  fetching them, but the report is client-rendered, so **the live report itself cannot be walked from
-  here**. Walk the built export of the SHA you shipped instead, confirm `version.json` matches it, and
-  say that is what you did.
-- **`npx serve -s out` SILENTLY SERVES THE ANALYZE PAGE FOR EVERY ROUTE.** `-s`/`--single`
-  rewrites every path to `out/index.html`, so an ad-hoc walk of `/compare`, `/methods` or
-  `/validation` walks `/` instead and looks entirely plausible. Demonstrated:
-  `serve -s out` gives `/compare/` = **53,602 bytes, byte-identical to `/`**;
-  `serve -c e2e-serve.json` gives **40,090 bytes**, the real page. The e2e suite is NOT
-  affected — `playwright.config.ts` serves with `-c e2e-serve.json`, no `-s` — but every
-  hand-rolled Playwright probe this run used `-s`. Those only ever loaded `/`, so nothing
-  wrong was published, and an assert that a `/compare` test really ran on `/compare` is
-  cheap: it asserts on text only `CompareSurface.tsx` emits. **Use `-c e2e-serve.json` for
-  any manual walk**, and it gets the security headers too.
+- **NEVER run `npm run build` while `npm run test:e2e` is in flight.** The build deletes and recreates
+  `out/`, which is what the e2e webServer is serving: the run does not fail loudly, it comes back with
+  a SHORT COUNT and exit 0 — **122 passed** where a full run is 185. It also kills any hand-started
+  `npx serve` pointed at `out/`. If a suite reports fewer tests than the last full run, suspect this
+  before suspecting the code.
+- **Pipe a gate command and you throw away its exit code.** `npm run test:e2e 2>&1 | tail` reported
+  exit 0 over a run whose own summary said "1 failed". Redirect to a file and read `$?`.
+- **`npm run build` can crash in webpack's WasmHash** (`TypeError: Cannot read properties of undefined
+  (reading 'length')`) and dump ~2 MB of minified bundle into the terminal. `tsc --noEmit` passes
+  either side of it. `rm -rf .next` and rebuild — it is a cache flake, not a code error. Do not grep
+  that output for "error": the minified bundle matches.
+- **A subagent's `*-tmp.*` probe inflates the gate.** Sweep `find . -name "*-tmp.*"` immediately
+  before any gate run you intend to quote.
+- **A browser in this container cannot reach the deployed site.** `curl` works through the agent proxy;
+  Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`. Walk the
+  built export of the SHA you shipped and say that is what you did.
+- **`npx serve -s out` SILENTLY SERVES THE ANALYZE PAGE FOR EVERY ROUTE.** Use `-c e2e-serve.json`
+  for any manual walk. Verified again this run: `/compare/` is 40,090 bytes, `/` is 53,602.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
-
-### After the merges — PRs #24 and #25
-
-Four more increments landed on the branch after PR #23 merged, as PR #24: the vendor-tool benchmark
-recorded in `BACKLOG.md` with sources; the channel explorer no longer removing channels from its own
-menu (eleven entries to five on a Blue Raven, silently) and instead saying why each is blocked; the
-cross-check speaking up when two recordings **disagree about whether a charge fired** rather than
-emitting no descent row at all; and the report's two unnamed blocks — the metric grid and "Worth
-knowing" — getting the headings that make them reachable by heading navigation.
-
-Then PR #25: the report can be **navigated by section**. It runs 5,472 px on a desktop and 7,710 px —
-nine screens — on a phone and carried **zero** in-page links, so coming back to check one number meant
-scrolling past everything and no section could be linked to. The strip lists only what this flight has
-(8 links on a TeleMega with GPS, 7 on a Blue Raven low-rate, 6 on an AltimeterCloud), sits at 46 px on
-a phone with every link already at the touch floor, and every section that lacked an anchor has one.
-
-And the events list now **names its clock**. It is on the log's own time base (what the charts are
-drawn against) while every reading is seconds-since-liftoff, so on a file whose clock doesn't start at
-liftoff the same instant printed two numbers with neither named: **27 of the 45** corpus flights that
-carry both disagree by ≥0.5 s, the ground-station GPS log by **960 s** — apogee at 973.0 s in Events
-and 13.0 s in the grid. Neither clock moved; the heading says which one it is and where liftoff falls
-on it, and the test asserts the arithmetic reconciles rather than that a sentence exists.
-
-And the coast-efficiency sub-line stopped reading as a broken unit. "drag cost 18,282 ft" on a
-**6,292 ft** flight is correct arithmetic — the figure is the vacuum coast that burnout speed would
-have bought minus what was gained — but **20 of the 31** corpus flights that show it exceed their own
-apogee, up to **6.6×** (107,217 ft against 16,206 ft). Named against what it is short OF now, with the
-number untouched.
-
-**Falsifying these took two goes each time it mattered, and it is the lesson of the run.** The first attempt made the
-Recovery link unconditional and the test still passed, because the fixture it used carries lat/lon so
-the link was not dead there. The second time an assert was green while proving nothing — the other was
-the explorer's, where the falsification ran the wrong test by name. Falsify against the case the
-assert is *about*, and check the failure message names it.
-
-### After the merges — PR #26, and this run's last two increments
-
-PR #26 landed the coast-efficiency wording above. Then two more, on the branch as PR #27:
-
-**`966cf6a` — the landing block** (see above). The largest remaining wrong number in the app, and it
-turned out not to be in the landing block at all.
-
-**`d1fb121` — the section strip now pins.** The strip shipped in #25 scrolls away with the page, so it
-helped on arrival and not once you were deep in a report that runs **7,907 px — 9.4 screens — at
-390 px**. `sticky top-0` rather than `fixed` is how it earns the room it holds: until you have scrolled
-past where it already sat it costs nothing. Opaque against the page background (hit-tested at its own
-centre while content scrolls beneath it), sideways-scrolling still, gone in print, where every
-section is already on the paper. The jump targets
-carry a **4.5rem** scroll-margin — sized to the TALLEST the strip gets, 62 px at 390 px where the
-coarse-pointer rule holds every link to the 44 px touch floor, not the 42 px desktop average. 3.5rem was
-tried first and left a phone's heading 6 px underneath, which the browser walk caught and the first
-version of the assert would not have.
+- **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
 
 ## Pick up first, and why
 
-1. **Merge the Blue Raven's high-rate file into its low-rate flight.** Still the top item, and now
-   fully surveyed — BACKLOG carries every measurement, so this starts from facts rather than a plan.
-   The load-bearing ones: HR and LR share a zero EXACTLY on `Flight_Time_(s)` (0.000 s), but
-   `buildFlight` rebases each file to its own first sample and they differ, leaving them **0.062 s —
-   31 HR samples — apart** after building; never align on the LR wall clock (4,493 distinct stamps
-   for 12,489 rows); the LR file holds the flight twice with `Flight_Time` counting monotonically
-   across a join where the wall clock jumps back 124.880 s; `ChannelKind` has no gyro or quaternion
-   slot; and `lib/explore.ts:171-178` SILENTLY skips a channel of the wrong length.
-2. **Make the comparison and report captions actually stick.** The copy is honest now; sticky is the
-   feature. A comparison's label belongs to its id-set, not to the device, so it needs a key design —
-   the logbook's per-flight `note` (IndexedDB, `lib/recents.ts`) is the precedent, and `summaryText`
-   is now a second one: keep the SOURCE, re-derive the answer.
-3. **Deployment boundaries are parsed and thrown away across four parser families** — see BACKLOG.
-   The deploy latches are per-COPY on a file holding its flight twice, so read `nextFlightStart`
-   before trusting a latch index.
-4. **jan18's main descent is in neither copy.** Both stop at 250 m — above the 696 ft the device's own
-   summary says the main fired at — so Debrief has no main leg to read. The summary's own figure is
-   now surfaced (`Drogue descent · 56 ft/s`) and the main one is named as unusable because the device
-   wrote its unit as "feet". The Featherweight GPS recorded the same flight separately and reads a
-   50.7 m/s drogue and a 6.2 m/s main; whether that can supply it is the same multi-file mechanism
-   as (1).
-5. **The device summary states more than Debrief takes.** `Apo channel max accel,115.8 Gs` and
-   `Main channel max accel,187.5 Gs` are deployment shock, which Debrief has a concept for
-   (`FlightEvent.peakAccel`) and no `ReportedValue` slot for. `Max landing accel,280.0 Gs` likewise.
+The eight-lens audit's full output is in `BACKLOG.md`. Ranked by what a flyer loses:
 
-BACKLOG.md carries the rest, newest first.
+1. **The report's label and notes still don't survive the round trip.** The report has an address
+   now, so a link out and Back comes back to the flight — but `reportLabel` and `reportNotes` are
+   per-flight React state cleared on `flight.source`, so the two things a flyer TYPED are the two
+   things still lost. The logbook's own per-flight `note` (IndexedDB, `lib/recents.ts`) is the
+   precedent, and the id to key them on is now stable.
+2. **Two files sharing a basename collapse to one logbook entry** (`lib/recents.ts`, `isDup` keys on
+   `name` + `formatLabel` only), which also breaks the comparison permalink that names them by id.
+   Common in the wild: a logger that writes every export as `data.csv`.
+3. **The logbook forgets its sort and its search across a navigation the app performs itself**
+   (`RecentFlights.tsx`, plain `useState`). The audit also filed a false-empty-state flash from
+   `useLogbook` having no loading flag — **not reproducible**: sampled every 20 ms across three visits
+   with 8 flights at 20× CPU throttle on a 390 px viewport, the list painted first every time. In
+   `BACKLOG.md` marked unreproduced rather than fixed.
+4. **`EVENT_COLOR.drogue` and `EVENT_COLOR.main` are the same `#0ea5e9`**, so a dual-deploy flight's
+   drogue and main legs are indistinguishable on the new ground track — and on every chart, which has
+   always been true. One token, blast radius across the report, the comparison overlay and every
+   figure export.
+
+5. **A reload now re-parses and re-analyses the flight**, because the report has an address. That is
+   the same cost as opening it from the logbook and it is the right trade, but it is new: on a big log
+   a refresh is a six-second wait where it used to be instant. Worth a loading state that says which
+   flight is coming back.
+
+`BACKLOG.md` carries the rest, newest first — including the Blue Raven high-rate merge, which is
+still the largest single capability gap and is surveyed in full.
 
 ## The fixtures repo
 
-One commit there this run, on the same working-branch name: `expected.json`'s note for
-`blueraven jan18 LR` now records what that file does and does not hold — both copies stopping at
-250 m (820 ft), above the 696 ft the paired summary states the main fired at, so the main leg is in
-neither copy; the summary's −29.0 ft/s main and −55.9 ft/s drogue; the copy join at sample 6244
-(250.9 m → −1.0 m in 0.020 s); and the summary file's own mislabelling of a descent RATE as "feet".
-Metadata only — no assert changed and the corpus suite is unchanged at 111.
+No commit there this run. Nothing this run changed a fixture's contract: the corpus suite is
+unchanged, and the corpus was used to *measure* (10 GPS-carrying fixtures, 0 with a lat/lon vs
+`series.time` length mismatch) rather than to re-cut anything.

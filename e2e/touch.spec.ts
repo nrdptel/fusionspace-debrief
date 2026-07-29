@@ -87,10 +87,21 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
     // none of which this test could see. A link inside running prose is NOT a control and
     // stays out: 44 px mid-sentence is wrong, and each of those has a nav entry or a button
     // doing the same job at full size beside it.
-    const sel = 'button, select, summary, [role=button], nav a, header a, footer a, input:not([type=range])';
+    // `main a` was added after a link that is plainly a control slipped straight through
+    // this test: the "?" beside each reading, which opens that reading's definition, renders
+    // 6x14 px at a phone's type scale. It sits in a grid cell rather than a <nav>, so none of
+    // the selectors above could see it, and a closing cold walk found thirteen of them.
+    const sel =
+      'button, select, summary, [role=button], nav a, header a, footer a, main a, input:not([type=range])';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
       if (el.tagName === 'A' && el.closest('p, li')) continue;
-      const r = (el.closest('label') ?? el).getBoundingClientRect();
+      // A control kept small on purpose expands its HIT AREA with a pseudo-element rather
+      // than its box (see `.touch-area` in globals.css), so measure what a thumb can hit.
+      const box = el.closest('label') ?? el;
+      const after = el.classList.contains('touch-area') ? window.getComputedStyle(el, '::after') : null;
+      const r = after && after.content !== 'none'
+        ? { width: parseFloat(after.width), height: parseFloat(after.height) }
+        : box.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue; // hidden (e.g. the sr-only file input)
       if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
     }
