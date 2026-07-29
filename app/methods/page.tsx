@@ -495,7 +495,16 @@ export default function MethodsPage() {
             while their &ldquo;main descent rate&rdquo; cross-check read a{' '}
             <strong>121.6%</strong> disagreement — three had measured a main leg and the fourth had
             measured the whole descent. They had not disagreed; they had measured different things,
-            and the two are now separate readings that are only ever compared with their own kind.
+            and the two are now separate readings that are only ever compared with their own kind.{' '}
+            Finding the deployment is not the same as finding the ground: on{' '}
+            <strong>3 of the 37</strong> corpus flights analysed end to end, the record stops while
+            the rocket is still under canopy, and the main leg is then averaged from the deploy to
+            the last sample rather than to a touchdown. The loudest reads{' '}
+            <strong>50&nbsp;ft/s</strong> — the top of that 20–50&nbsp;ft/s band, and a figure that
+            means a main that failed if you take it as a landing speed, or a record that ends early
+            if you do not. The rate is still shown, because it measures the descent that WAS
+            recorded, but it says which it is, and no landing energy or parachute Cd is computed
+            from it.
           </Method>
           <Method id="recovery-ground-track" title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a

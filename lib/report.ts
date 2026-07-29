@@ -232,7 +232,12 @@ export function headlineRows(
     ]);
   }
   if (m.mainDescentRate != null) {
-    rows.push(['Main descent', fmtSpeed(m.mainDescentRate, sys)]);
+    rows.push([
+      'Main descent',
+      landedInRecord(m)
+        ? fmtSpeed(m.mainDescentRate, sys)
+        : `${fmtSpeed(m.mainDescentRate, sys)} — averaged from the main deploy to the last sample; the record stops before the ground, so this is not a landing speed`,
+    ]);
   }
   const copyNote = m.descentSource === 'second-copy' ? ' — from this file’s second copy of the flight' : '';
   if (m.descentTime != null) rows.push(['Descent time', fmtTime(m.descentTime) + copyNote]);

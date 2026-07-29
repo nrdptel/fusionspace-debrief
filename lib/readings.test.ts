@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { metricTiles } from './readings';
+import { descentStoppedAloft, metricTiles } from './readings';
 import { headlineRows, type RecoveryFigures } from './report';
 import type { FlightMetrics } from './analyze/types';
 
@@ -205,6 +205,51 @@ describe('the screen and the saved report agree on which readings exist', () => 
     expect(rows).not.toContain('Thrust-to-weight');
     expect(rows).not.toContain('Battery low');
     expect(rows).toContain('Apogee');
+  });
+});
+
+describe('a descent rate read off a record that never reached the ground', () => {
+  // `descentSource: null` is how the analysis says it never found a landing. The whole-descent
+  // tile has carried that caveat since the landing-energy card was written; the MAIN-leg tile
+  // did not, and a resolved main deploy is no guarantee of a landing — the file can simply
+  // stop while the rocket is still under canopy. 3 of the 37 corpus flights the suite analyses
+  // end to end are exactly that, the loudest an AltusMetrum TeleMetrum publishing 50 ft/s for
+  // its main, which reads as a main that failed rather than as a record that ends early.
+  const stoppedAloft = { ...EVERYTHING, descentSource: null, wholeDescentRate: null, flightTime: null, descentTime: null };
+
+  it('says so on the main-descent tile, not only on the whole-descent one', () => {
+    const tile = metricTiles(stoppedAloft, 'metric').find((t) => t.label === 'Main descent');
+    expect(tile?.value, 'the rate is still shown — it is a real reading of the leg that was recorded').toBeTruthy();
+    expect(tile?.sub).toMatch(/record stops before the ground/);
+    expect(tile?.sub).toMatch(/not a landing speed/);
+  });
+
+  it('carries the same caveat into the saved report', () => {
+    const row = headlineRows(stoppedAloft, 'metric').find(([l]) => l === 'Main descent');
+    expect(row?.[1]).toMatch(/record stops before the ground/);
+  });
+
+  it('explains the withheld landing energy by the missing ground, not by a missing rate', () => {
+    // The landing-energy card has two "nothing to show" messages and only one of them is
+    // true here. Deciding on `wholeDescentRate` alone sent a flight that HAD resolved a main
+    // to the wrong one — "no landing descent rate was read from this log (it may end at or
+    // before apogee)" over a log with a main leg in it that flew well past apogee.
+    expect(descentStoppedAloft(stoppedAloft), 'a resolved main that stops in the air').toBe(true);
+    expect(
+      descentStoppedAloft({ ...stoppedAloft, mainDescentRate: null, wholeDescentRate: 12.8 }),
+      'the whole-descent case it always caught',
+    ).toBe(true);
+    expect(descentStoppedAloft(EVERYTHING), 'a flight that landed is not this').toBe(false);
+    expect(
+      descentStoppedAloft({ ...stoppedAloft, mainDescentRate: null }),
+      'a log ending at or before apogee has no rate at all, and is the OTHER message',
+    ).toBe(false);
+  });
+
+  it('leaves the reading bare on a flight that did reach the ground', () => {
+    // The caveat has to be about the missing ground, not decoration on every main descent.
+    expect(metricTiles(EVERYTHING, 'metric').find((t) => t.label === 'Main descent')?.sub).toBeUndefined();
+    expect(headlineRows(EVERYTHING, 'metric').find(([l]) => l === 'Main descent')?.[1]).not.toMatch(/stops before the ground/);
   });
 });
 

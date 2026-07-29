@@ -105,6 +105,20 @@ export function landingRateIsWholeDescent(m: FlightMetrics): boolean {
   return landedInRecord(m) && m.mainDescentRate == null && m.wholeDescentRate != null;
 }
 
+/** True when a descent rate WAS read but the record stops before the ground — the state in
+ *  which the landing energy and the parachute Cd are withheld, and the one the panel has to
+ *  explain. It is not the same as "no descent rate at all", which is a log that ends at or
+ *  before apogee, and saying the second where the first is true is a wrong explanation
+ *  rather than a missing one.
+ *
+ *  Whichever leg was resolved counts. Testing `wholeDescentRate` alone missed every flight
+ *  that found its main deploy and then stopped recording under canopy — 3 of the 37 corpus
+ *  flights analysed end to end — which are exactly the ones carrying a number that looks
+ *  most like a landing. */
+export function descentStoppedAloft(m: FlightMetrics): boolean {
+  return !landedInRecord(m) && (m.mainDescentRate ?? m.wholeDescentRate) != null;
+}
+
 /** How burnout was located, in the same voice the peak speed and peak acceleration already
  *  use. Every reading taken AT that instant — the burn time, the altitude and the speed at
  *  burnout — inherits it, because all three are only as direct as the instant they were read
@@ -229,6 +243,19 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Main descent', method: 'main-descent-rate',
       value: fmtSpeed(m.mainDescentRate, sys),
+      // The same caveat the whole-descent tile above already carries, for the same reason.
+      // A resolved main deploy does NOT mean the record reached the ground: on 3 of the 37
+      // corpus flights the suite analyses end to end, the file stops in the air after the
+      // main fired, and the leg averaged from the deploy to the last sample was printed
+      // bare — 50 ft/s on a 2,841 m flight, read as a touchdown against the 20–50 ft/s band
+      // the seven genuinely-landed mains fall in. (The 121 km TeleMega reaches the same
+      // state at 143 ft/s through the generic mapper; it is a known-issue fixture, so the
+      // corpus assert does not count it.) `landingRate` has withheld the touchdown speed in
+      // this state since the landing-energy card was written; this tile went on publishing
+      // the number that card refuses.
+      sub: landedInRecord(m)
+        ? undefined
+        : 'averaged from the main deploy to the last sample — the record stops before the ground, so this is not a landing speed',
     });
   // Where this file held the same flight twice and the copy that starts on the pad stopped
   // before the rocket landed, the clock came from the other copy. Two readings from two

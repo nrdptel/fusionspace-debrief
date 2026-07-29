@@ -1015,6 +1015,47 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
     }
   });
 
+  // The same rule for the OTHER leg, which the check above could not see: it selects on
+  // `wholeDescentRate`, and a flight that resolved a main deploy has none. Resolving a
+  // deployment is not landing — the file can stop while the rocket is still under canopy —
+  // so these three carried a bare main-leg average under the label a flyer sizes a parachute
+  // against: 15.2, 13.1 and 9.4 m/s, the first of them 50 ft/s against the 20–50 ft/s band
+  // the genuinely-landed mains fall in. A fourth file is in the same state and is deliberately
+  // NOT in this set — the 121 km TeleMega reads 43.7 m/s for its "main" but is a knownIssue
+  // fixture the runner reaches only as parse-only, so it is not analysed here.
+  // `landingRate` already refused to turn any of them into a landing energy; the grid and the
+  // saved report published the number anyway, with nothing said.
+  // Timed out like the other whole-corpus sweeps: `corpusReads()` is memoised, so this costs
+  // nothing in a full run — but whichever of these tests runs FIRST pays the 9 s sweep, and
+  // vitest's default allowance is 5 s. Run the file alone, or with `-t`, and the one that
+  // happens to go first fails on the clock rather than on the code.
+  it('says the same thing about a main leg that stops in the air', { timeout: 60_000 }, () => {
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
+    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(37);
+    const mainStopsAloft = reads.filter((r) => r.metrics!.descentSource == null && r.metrics!.mainDescentRate != null);
+    // Named, so a fixture entering or leaving this state is a visible change.
+    expect(
+      mainStopsAloft.length,
+      `flights carrying a main-leg rate but no landing: ${mainStopsAloft.map((r) => r.file).join(', ')}`,
+    ).toBe(3);
+
+    for (const r of mainStopsAloft) {
+      const m = r.metrics!;
+      const short = r.file.split('/').pop() as string;
+      expect(landingRate(m), `${short}: no touchdown speed`).toBeNull();
+      expect(landedInRecord(m), `${short}: did not land in the record`).toBe(false);
+      // Kept, like the whole-descent case — it measures the leg that WAS recorded.
+      const tile = metricTiles(m, 'metric').find((t) => t.label === 'Main descent');
+      expect(tile, `${short}: the grid still shows the rate`).toBeTruthy();
+      expect(tile!.sub, `${short}: and says the record stops short`).toMatch(/stops before the ground/);
+      expect(tile!.sub, `${short}: and does not call it a landing`).toMatch(/not a landing speed/);
+      expect(
+        headlineRows(m, 'metric').find(([l]) => l === 'Main descent')?.[1],
+        `${short}: and the saved report says it too`,
+      ).toMatch(/stops before the ground/);
+    }
+  });
+
   // The other half of the same rule, and the one that put the seventh flight in the set
   // above: a touchdown has to be a return to the GROUND, so the sample before it is near the
   // ground too. A logger that restarts mid-flight writes the next copy's pad immediately after
