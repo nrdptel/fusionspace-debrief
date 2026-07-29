@@ -298,11 +298,18 @@ test('a comparison column can be moved into a deliberate order', async ({ page }
   const legend = await page.locator('.u-legend').first().innerText();
   expect(legend.indexOf('altusmetrum')).toBeLessThan(legend.indexOf('aim-xtra'));
 
-  // Ordering by a metric takes over, and the way back is offered.
+  // Ordering by a metric takes over — WITHOUT destroying the order underneath. This used to
+  // drop straight back to load order, which meant one exploratory click on "which went highest"
+  // erased a launch day's worth of moves; now the sort sits on top of the arrangement and
+  // clearing it returns to what the flyer made. Clearing that returns to the order they loaded in.
   await page.getByRole('button', { name: /^Apogee/ }).first().click();
   await expect(page.getByRole('button', { name: 'clear sort' })).toBeVisible();
   await page.getByRole('button', { name: 'clear sort' }).click();
-  expect((await names())[0]).toContain('aim-xtra');
+  expect((await names())[0], 'the flyer’s own order is what the sort was sitting on').toContain(
+    'altusmetrum-telemetrum',
+  );
+  await page.getByRole('button', { name: 'clear order' }).click();
+  expect((await names())[0], 'and that is the way back to the order they loaded in').toContain('aim-xtra');
 });
 
 // The launch day belongs on a launch day's comparison: increment by increment the date the

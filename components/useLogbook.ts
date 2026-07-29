@@ -1,6 +1,6 @@
 'use client';
 
-import { clearCaptions } from '@/lib/compareCaption';
+import { clearCaptions } from '@/lib/compareMemory';
 import { useCallback, useEffect, useState } from 'react';
 import {
   listRecents,
@@ -61,11 +61,12 @@ export function useLogbook(): Logbook {
 
   const clear = useCallback(async () => {
     await clearRecents();
-    // The comparison captions go too. Clear's own confirm promises that the file text, notes,
-    // report labels and column mappings go with the flights — and these live in localStorage
-    // rather than IndexedDB, so nothing was taking them: a title typed onto a launch day
-    // outlived "delete all N flights on this device", which makes that sentence untrue, and
-    // its key named flights that no longer existed.
+    // What was arranged about a comparison goes too — its label, its notes and the order the
+    // columns were put in. Clear's own confirm promises that the file text, notes, report labels
+    // and column mappings go with the flights, and these live in localStorage rather than
+    // IndexedDB, so nothing was taking them: a title typed onto a launch day outlived "delete all
+    // N flights on this device", which makes that sentence untrue, and every key named flights
+    // that no longer existed.
     clearCaptions();
     setForgotten([]);
     refresh();

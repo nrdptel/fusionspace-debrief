@@ -567,6 +567,92 @@ test('a comparison keeps the label and notes a flyer types', async ({ page }) =>
   await expect(page.locator('#compare-notes')).toHaveValue('');
 });
 
+// The column order is the other thing on this surface a flyer ARRANGES, and it was worse off than
+// the caption: a comparison has orders no metric produces — booster then sustainer, flight 1 to 6,
+// the cert flight last — and that order carries into the exported Markdown, the CSV, the clipboard
+// copy and the SVG figures, because they all read the same array. It took a RELOAD to lose the
+// caption; the order also died on a DROP, because CompareSurface renders CompareView only in its
+// `ready` state and a drop puts it into "Reading the flights…", unmounting the view.
+test('a comparison keeps the column order a flyer arranged', async ({ page }) => {
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  // Read the order off the header row itself — one "Move X left" button per flight column, in
+  // document order, which names the flight AND is what the flyer operates. Reading the header
+  // text instead means slicing past the metric column and a conditional trailing Spread one.
+  const names = async () =>
+    Promise.all(
+      (await page.getByRole('button', { name: /^Move .* left$/ }).all()).map(async (b) =>
+        ((await b.getAttribute('aria-label')) ?? '').replace(/^Move | left$/g, ''),
+      ),
+    );
+  const before = await names();
+  expect(before.length, 'two columns to swap').toBe(2);
+
+  await page.getByRole('button', { name: /^Move .* right$/ }).first().click();
+  const swapped = await names();
+  expect(swapped, 'the swap took').toEqual([before[1], before[0]]);
+
+  // A reload of an address built to be reloadable.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  expect(await names(), 'the order survived the reload').toEqual(swapped);
+
+  // …and the SAVED DOCUMENT is in the order that was arranged, not the order they loaded in.
+  // The table, the metrics CSV, the clipboard copy and the figures have always used the flyer's
+  // order; the Markdown, HTML and JSON took the raw comparison, so the write-up disagreed with
+  // the screen it was made from — and with the figures sitting beside it in the same bundle.
+  const [htmlDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  const saved = await readFile((await htmlDl.path())!, 'utf8');
+  // Pinned to the METRICS TABLE header row specifically, not to the first mention of each name
+  // in the file. The report also lists the flights in its <header> and can name them in the
+  // cross-check lede and in a caption, so an `indexOf` over the whole document would pass on a
+  // header list that followed the arrangement while the table of numbers did not.
+  const headRow = saved.match(/<tr><th>Metric<\/th>(.*?)<\/tr>/)?.[1];
+  expect(headRow, 'the saved report has a metrics table').toBeTruthy();
+  expect(
+    headRow!.indexOf(swapped[0]),
+    'the numbers table is in the order the flyer arranged, not the order they loaded',
+  ).toBeLessThan(headRow!.indexOf(swapped[1]));
+  expect(headRow!.indexOf(swapped[0]), 'both flights head a column').toBeGreaterThan(-1);
+
+  // …and a drop, which unmounts the view. The flight just added lands at the end rather than
+  // disappearing, because it is not in the remembered order.
+  const extra = await readFile(fixture('featherweight-gps.csv'), 'utf8');
+  await dropOnWindow(page, 'fwgps-order.csv', extra);
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  const grown = await names();
+  expect(grown.slice(0, 2), 'the arrangement survived the drop').toEqual(swapped);
+  expect(grown.length).toBe(3);
+
+  // A metric click ranks the columns WITHOUT destroying the arrangement underneath. It used to
+  // wipe it — one exploratory click on "which went highest" erased a launch day's worth of
+  // moves, and once the order was stored that loss was permanent rather than a re-drag away.
+  const arrangedThree = await names();
+  await page
+    .getByRole('rowheader', { name: 'Apogee', exact: true })
+    .getByRole('button', { name: 'Apogee', exact: true })
+    .click();
+  const ranked = await names();
+  expect(ranked, 'the ranking took').not.toEqual(arrangedThree);
+  await page.getByRole('button', { name: 'clear sort' }).click();
+  expect(await names(), 'clearing the ranking returns to the order the flyer made').toEqual(arrangedThree);
+
+  // …and "clear order" genuinely clears it, rather than coming back on the next load.
+  await page.getByRole('button', { name: 'clear order' }).click();
+  const loadedOrder = await names();
+  expect(loadedOrder, 'back to the order they loaded in').not.toEqual(grown);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  expect(await names(), 'a cleared order does not come back').toEqual(loadedOrder);
+});
+
 // An address can name a flight this device no longer holds — a link from a club thread, cleared
 // site data, a flight the logbook's prune forgot. Merging onto what the ADDRESS claimed rather
 // than onto what actually loaded left those dead ids in place, where they cost a slot on every

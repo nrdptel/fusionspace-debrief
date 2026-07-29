@@ -1559,13 +1559,21 @@ memory, so a later pass doesn't have to rediscover them.
   it falls to the picker entirely. Adding the rest of a launch day is the one thing this surface is
   for, and the mapper path on the same screen (`addToIds`) already appends correctly.
 
-- **DONE — the comparison's Label and Notes were lost on a navigation the surface itself offers.** Kept on this device now, keyed by the SET of flights and carried forward onto a set that grew — adding today's sixth log to the five lined up is the same write-up. Original entry:
+- **DONE — the comparison's Label, Notes and column ORDER were lost on a navigation the surface
+  itself offers.** All of it is kept on this device now, keyed by the SET of flights and carried
+  forward onto a set that grew — adding today's sixth log to the five lined up is the same
+  write-up. The order turned out to be worse off than the caption: it did not even take a reload to
+  lose, because `CompareSurface` renders `CompareView` only in its `ready` state and a drop puts it
+  into "Reading the flights…", which unmounts the view. Original entry:
   `components/CompareView.tsx:168` holds them as bare `useState` blanked whenever `syncKey` changes,
   and nothing persists them — while the panel's copy says they are kept. This is the same defect
   the report's label and notes had before they moved into the logbook entry, and the fix has a
   precedent to copy.
 
-- **The comparison exports in load order while the screen shows the flyer's order.**
+- **DONE — the comparison exported in load order while the screen showed the flyer's order.** All
+  three document writers take the ARRANGED comparison now, so the write-up matches the screen it
+  was made from and the figures beside it in the same bundle. Verified by reverting one call site:
+  the saved HTML came back in load order and the assert failed naming its own case. Original entry:
   `components/CompareView.tsx:404` hands the raw `comparison` to `compareMarkdown`/`compareJson`/
   `compareHtml`, which each destructure `comparison.flights`, while the on-screen table, the metrics
   CSV, the clipboard copy and the SVG figures all use the reordered list. So a flyer who drags the
