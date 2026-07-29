@@ -11,7 +11,10 @@ second agent told to refute it. Two more from the same sweep were fixed on the s
 exporting in load order; the Label/Notes panel claiming the caption is lost on reload) and one was
 refuted. They are written down rather than fixed because each needs its own gate.*
 
-- **The privacy page lists 2 of 19 stored keys and says Clear removes all of it.**
+- **DONE — the privacy page listed 2 of 19 stored keys and said Clear removed all of it.**
+  `lib/deviceData.ts` is the single registry now, the page renders itself from it, a test greps
+  the source and fails in both directions, and `ForgetDeviceData` is the control that makes the
+  promise true. Original entry:
   `app/privacy/page.tsx:55` names local storage once — "Your theme and units" — and `:106` adds
   "No cookies beyond the local theme/units preference described above." The app writes **19**
   `debrief.*` keys: the flyer's typed comparison caption (`compare.captions`), a fingerprint of
@@ -25,7 +28,10 @@ refuted. They are written down rather than fixed because each needs its own gate
   descending mass, body and canopy diameters, rail length, main-deploy altitude and motor delay.
   PRIVACY IS SACRED is the invariant this sits under, and the page is the artifact that states it.
 
-- **"How this file was read" is on screen and in none of the five exports.** Every writer in
+- **DONE — "How this file was read" was on screen and in none of the five exports.** All four
+  documents carry it now, under the heading the screen uses, and the JSON under its own key; the
+  analysis caveats are headed "Worth knowing" like the screen rather than the ambiguous "Notes".
+  Original entry: Every writer in
   `lib/report.ts` renders `analysis.warnings` as the document's Notes section (`:391`, `:463`,
   `:582`, and `analysisJson`'s `warnings` key) and none of them reads `flight.notes` — the parser
   provenance the report shows under that heading (`components/FlightReport.tsx:920`). Measured over

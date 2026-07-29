@@ -52,6 +52,15 @@ export interface IngestOutcome {
    *  most of that window — so the third day quietly ate the first. Named now, so the flyer
    *  hears about it while they can still do something about it. */
   forgotten: string[];
+  /** Files this drop NEVER OPENED, because `max` flights had already been read.
+   *
+   *  They appeared in no field at all before — not `results`, not `skipped` — so a caller could
+   *  not tell they existed. The analyze page recomputed the shortfall from its own input list and
+   *  said "Showing 6 of 8 files"; the compare surface had nothing to recompute from and counted
+   *  what came BACK instead, so it said nothing at all on an empty comparison, and on a loaded one
+   *  it named the wrong files. They are not in the logbook either — nothing read them — which the
+   *  drop box's own copy promises they would be, so a surface has to be able to say so. */
+  unread: string[];
 }
 
 /** Does this file name belong to the rocket a summary names? Compared on letters and digits
@@ -126,9 +135,14 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   const forgotten: string[] = [];
   const mappable: { name: string; text: string }[] = [];
   const summaries: IngestOutcome['summaries'] = [];
+  const unread: string[] = [];
 
-  for (const file of files) {
-    if (results.length >= max) break;
+  for (const [i, file] of files.entries()) {
+    if (results.length >= max) {
+      // Named rather than dropped on the floor. Everything from here on is unopened.
+      unread.push(...files.slice(i).map((f) => f.name));
+      break;
+    }
     let text = '';
     try {
       if (file.size > MAX_BYTES) {
@@ -192,5 +206,42 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
           : `the device's own summary for “${s.figures.rocket}” — no log in this drop is named for that rocket, so Debrief can't tell which flight it belongs to`,
     });
   }
-  return { results, skipped, mappable, summaries: unpaired, paired, forgotten };
+  return { results, skipped, mappable, summaries: unpaired, paired, forgotten, unread };
+}
+
+/** How many names one "not read" sentence will print before it starts counting instead. A drop can
+ *  carry 200 files (`MAX_DROPPED_FILES`), and an uncapped list ran to 7,500 characters — nearly
+ *  four phone screens of filenames above the comparison they were meant to annotate. */
+export const MAX_NAMED_UNREAD = 6;
+
+/**
+ * The sentence a surface shows when a drop was too full to read everything, built HERE rather than
+ * written out at each call site — the two surfaces had already drifted into computing this fact
+ * two different ways, which is what this module exists to stop.
+ *
+ * Three things it is careful about, each one a claim an earlier draft got wrong:
+ *
+ *  * it says the files were NOT READ, which is always true, and only adds "not in your logbook"
+ *    when that is certain. A logbook entry is identified by name, parser and bytes — so when an
+ *    unread file shares its NAME with one that was read (a launch day of six `data.csv`s is the
+ *    documented case, and a folder drop yields basenames), a row with that name is sitting in the
+ *    logbook and the flyer cannot tell which file it is;
+ *  * it says to drop them again to READ them, not to KEEP them. Nothing opened these files, so
+ *    nothing knows they are flights: a pad photo or a note-to-self past the cap gets named here
+ *    and then rejected on the second drop, and "keep" would have promised otherwise;
+ *  * it stops naming at `MAX_NAMED_UNREAD` and counts the rest.
+ */
+export function unreadNote(unread: string[], read: string[], max: number): string {
+  if (unread.length === 0) return '';
+  const one = unread.length === 1;
+  const shown = unread.slice(0, MAX_NAMED_UNREAD);
+  const rest = unread.length - shown.length;
+  const names = shown.join(', ') + (rest > 0 ? `, and ${rest} more` : '');
+  // A name that also came back as a flight is a name the logbook now holds, whichever file it was.
+  const readNames = new Set(read);
+  const absent = unread.every((n) => !readNames.has(n));
+  const logbook = absent
+    ? ` ${one ? "It isn't" : "They aren't"} in your logbook either — drop ${one ? 'it' : 'them'} on their own to read ${one ? 'it' : 'them'}.`
+    : ` Drop ${one ? 'it' : 'them'} on their own to read ${one ? 'it' : 'them'}.`;
+  return ` A comparison holds ${max} flights, so reading stopped there: ${one ? '1 file was' : `${unread.length} files were`} not read — ${names}.${logbook}`;
 }

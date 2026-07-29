@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight, ParseGuidanceError } from '@/lib/parsers';
 import { importRecent } from '@/lib/reopen';
-import { ingestFiles, MAX_BYTES } from '@/lib/ingest';
+import { ingestFiles, unreadNote, MAX_BYTES } from '@/lib/ingest';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import { flightFromMapping } from '@/lib/mapped';
@@ -292,17 +292,19 @@ export default function Analyzer() {
       // One set of rules for what a launch day's folder holds — including which summary
       // belongs to which log — shared with the comparison surface so the two can't disagree
       // about it (see lib/ingest.ts).
-      const { results, skipped, mappable, paired, forgotten } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable, paired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
 
       logbook.reportForgotten(forgotten);
       logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
         const notes: string[] = [];
-        // Only when the cap actually held some flights back from a larger drop.
-        if (results.length === MAX_COMPARE && list.length > MAX_COMPARE) {
-          notes.push(`Showing ${MAX_COMPARE} of ${list.length} files — compare up to ${MAX_COMPARE} at once.`);
-        }
+        // What the cap held back, from `ingestFiles` itself rather than recomputed here. The
+        // two surfaces each worked this out their own way, which is what this module exists to
+        // stop — and the sentence is built there too, so the claims it makes about a flyer's
+        // logbook are made once, where they are tested.
+        const notRead = unreadNote(unread, results.map((r) => r.name), MAX_COMPARE).trim();
+        if (notRead) notes.push(`Showing ${results.length} of ${list.length} files. ${notRead}`);
         if (paired.length > 0) notes.push(pairedNote(paired));
         if (skipped.length > 0) notes.push(skippedNote(skipped));
         // Every dropped flight went into the logbook, so this comparison HAS an address —
