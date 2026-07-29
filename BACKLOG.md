@@ -1415,6 +1415,22 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **DONE — a flight dropped anywhere but the dashed box threw the flyer out of the app.** A
+  browser's default action for a dropped file is to NAVIGATE TO IT, and Debrief had exactly two
+  drop targets: `DropZone` on the idle screen and the compact box on `/compare`. Neither is
+  rendered once a report is open. So the most natural gesture on that screen — "read this one,
+  here's the next" — released the file on the altitude chart and left for a page of raw CSV,
+  taking the report, its zoom, its label and its notes, none of which have an address to come
+  back to. Measured with a real `DragEvent`: `dragover` on the drop zone came back
+  `defaultPrevented: true`, on the footer `false`, and on the report body `false` — with **zero**
+  file inputs and no drop zone anywhere on that screen. The window catches it now
+  (`components/useWindowFileDrop.ts`): the default is prevented for any drag carrying files, so a
+  stray drop is a no-op at worst, and the file is read wherever it lands. The column mapper is the
+  one phase that refuses — a new file would discard the mapping in progress — and it says so
+  rather than swallowing the drop silently. Both boxes lost their own drag handlers in the same
+  change: left in place beside the window's, a drop that hit the box was ingested **twice** (the
+  falsification produced `["first.csv","second.csv","third.csv","third.csv"]`).
+
 - **DONE — the flight card honours the reading chooser.** It took no `hidden` argument at all, so
   hiding a reading everywhere else still left it on the one artifact that leaves the device. Wired
   through `visibleRows`, with the label trap the note predicted: the card prints "Max accel" (four

@@ -16,6 +16,8 @@ import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
+import DropOverlay from './DropOverlay';
+import { useWindowFileDrop } from './useWindowFileDrop';
 import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import {
@@ -35,6 +37,7 @@ import { decodeFlight, payloadFromHash } from '@/lib/share';
 import { decodeBytes } from '@/lib/encoding';
 import { fileToText } from '@/lib/fileText';
 import { download } from '@/lib/download';
+import { MAPPING_BUSY } from '@/lib/dropCopy';
 
 type State =
   | { phase: 'idle' }
@@ -57,6 +60,7 @@ type State =
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
+
 
 /** What a batch drop couldn't read, said plainly. Names the files — a flyer who dropped a
  *  folder needs to know *which* one is missing — and keeps a logger's own guidance
@@ -390,6 +394,21 @@ export default function Analyzer() {
 
   const reset = useCallback(() => setState({ phase: 'idle' }), []);
 
+  // A file dropped ANYWHERE reaches the app, rather than making the browser navigate to it —
+  // see components/useWindowFileDrop.ts. The mapper is the ONLY phase that can't take it: a
+  // new file there would discard the columns the flyer is part-way through mapping, so the
+  // drop is swallowed (still no navigation) and the overlay says so.
+  //
+  // `loading` deliberately still accepts. Superseding an analysis that is still running is
+  // designed behaviour — `beginLoad`'s token counter exists precisely so a slow result can't
+  // take the view back from a newer one — and refusing a drop because something is busy is
+  // the "fails only when you use it" control this project hunts for. Excluding it here broke
+  // `worker.spec.ts`'s "a slow in-flight analysis does not overwrite a newer load", which
+  // drops a second file mid-analysis and expects the mapper: the right catch, from the suite
+  // that already knew the rule.
+  const canTakeADrop = state.phase !== 'mapping';
+  const { dragging } = useWindowFileDrop({ onFiles, accept: canTakeADrop });
+
   /** Leaving the mapper. A file opened out of a batch drop goes back to the comparison it
    *  came from — dropping the flyer on an empty drop zone would throw away the launch day
    *  they were part-way through. */
@@ -487,6 +506,7 @@ export default function Analyzer() {
   if (state.phase === 'report') {
     return (
       <div className="space-y-6">
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
         <button
           type="button"
           onClick={reset}
@@ -520,23 +540,27 @@ export default function Analyzer() {
 
   if (state.phase === 'compare') {
     return (
-      <CompareView
-        comparison={state.comparison}
-        note={state.note}
-        sys={sys}
-        onToggleUnits={toggleUnits}
-        onSetUnits={setUnits}
-        onBack={reset}
-        permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
-        mappable={state.mappable?.map((m) => m.name)}
-        onMapFile={onMapDropped}
-      />
+      <>
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
+        <CompareView
+          comparison={state.comparison}
+          note={state.note}
+          sys={sys}
+          onToggleUnits={toggleUnits}
+          onSetUnits={setUnits}
+          onBack={reset}
+          permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
+          mappable={state.mappable?.map((m) => m.name)}
+          onMapFile={onMapDropped}
+        />
+      </>
     );
   }
 
   if (state.phase === 'mapping') {
     return (
       <div className="mx-auto w-full max-w-5xl">
+        <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
         <ColumnMapper
           table={state.table}
           suggested={state.suggested}
@@ -550,6 +574,7 @@ export default function Analyzer() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && <ReadingNote what={state.what} />}
       {state.phase === 'error' && (

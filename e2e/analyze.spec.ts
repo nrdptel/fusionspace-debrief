@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 
 // The filenames listed in a ZIP's central directory — enough to prove the bundle
 // packs what it should, without a ZIP library. Scans back for the end-of-central-
@@ -1065,4 +1066,69 @@ test('the recovery map marks a landing once, and names the clock it reads', asyn
   });
   const mapNote = ((await readout.innerText()).match(/log clock · liftoff at [\d.,]+ s/) ?? [''])[0];
   expect(mapNote, `map "${mapNote}" vs events "${eventsNote}"`).toBe(eventsNote);
+});
+
+/** Drop a real file onto an arbitrary element, the way a browser does — DataTransfer and all.
+ *  Returns whether the page cancelled the events, which is the only thing standing between a
+ *  dropped log and the browser navigating away from Debrief to render it. */
+async function dropFileOn(page: import('@playwright/test').Page, selector: string, name: string, contents: string) {
+  return page.evaluate(
+    ([sel, fileName, text]) => {
+      const file = new File([text], fileName, { type: 'text/csv' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const el = document.querySelector(sel) ?? document.body;
+      const fire = (type: string) => {
+        const ev = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt });
+        el.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      };
+      fire('dragenter');
+      return { over: fire('dragover'), drop: fire('drop') };
+    },
+    [selector, name, contents] as const,
+  );
+}
+
+// A browser's default action for a dropped file is to navigate to it. Debrief had two drop
+// targets and neither is rendered once a report is open, so the most natural gesture on that
+// screen — "read this one, here's the next" — released the file on the altitude chart and
+// left the app for a page of raw CSV, taking the report, its zoom, its label and its notes
+// with it, none of which have an address to come back to.
+test('a flight dropped anywhere is read, instead of throwing the flyer out of the app', async ({ page }) => {
+  const csv = readFileSync(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), 'utf8');
+  await page.goto('/');
+
+  // The idle screen, released in the FOOTER — outside the dashed box entirely.
+  const first = await dropFileOn(page, 'footer', 'first.csv', csv);
+  expect(first.over, 'dragover must be cancelled or the browser owns the drop').toBe(true);
+  expect(first.drop).toBe(true);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // …and now the case that cost a report: a second file released on the chart itself.
+  const second = await dropFileOn(page, '#altitude-chart', 'second.csv', csv);
+  expect(second.drop, 'the report screen has no drop zone at all — the window has to catch it').toBe(true);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect(page.getByText('second.csv').first()).toBeVisible();
+
+  // A third file, released ON the dashed box itself — the path that has two candidate
+  // handlers. The box used to have drop handlers of its own; leaving them beside the
+  // window's would ingest this one twice as the event bubbled up, and the logbook count
+  // below is what catches it.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await dropFileOn(page, '[aria-label="Flight log drop zone"]', 'third.csv', csv);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  const names = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((res) => {
+      const q = indexedDB.open('debrief');
+      q.onsuccess = () => res(q.result);
+    });
+    const all: { name: string }[] = await new Promise((res) => {
+      const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+      q.onsuccess = () => res(q.result);
+    });
+    return all.map((r) => r.name).sort();
+  });
+  expect(names, `logbook after three drops: ${JSON.stringify(names)}`).toEqual(['first.csv', 'second.csv', 'third.csv']);
 });
