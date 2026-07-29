@@ -6,6 +6,57 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+*The six below came out of a four-lens sweep late in the run, each one adversarially verified by a
+second agent told to refute it. Two more from the same sweep were fixed on the spot (the comparison
+exporting in load order; the Label/Notes panel claiming the caption is lost on reload) and one was
+refuted. They are written down rather than fixed because each needs its own gate.*
+
+- **The privacy page lists 2 of 19 stored keys and says Clear removes all of it.**
+  `app/privacy/page.tsx:55` names local storage once — "Your theme and units" — and `:106` adds
+  "No cookies beyond the local theme/units preference described above." The app writes **19**
+  `debrief.*` keys: the flyer's typed comparison caption (`compare.captions`), a fingerprint of
+  their own file's column headers (`mappings.v1`), and their rocket's parameters (`mass.kg`,
+  `dragmass.kg`, `diameter.m`, `chute.m`, `drogue.m`, `rail`, `maindeploy.m`, `delay.s`), plus
+  `plotView`, `plotPresets`, `compareChannel`, `hiddenEvents`, `report.hidden`,
+  `report.hiddenFigures`, `report.order`, `theme`, `units`. Line 65-66 then says clearing browser
+  data "or using the 'clear' control on the recents list" removes all of it — but
+  `components/useLogbook.ts:62` clears IndexedDB and `compare.captions` only, so **17 keys
+  survive**. A flyer lending a laptop presses Clear and the device still holds their rocket's
+  descending mass, body and canopy diameters, rail length, main-deploy altitude and motor delay.
+  PRIVACY IS SACRED is the invariant this sits under, and the page is the artifact that states it.
+
+- **"How this file was read" is on screen and in none of the five exports.** Every writer in
+  `lib/report.ts` renders `analysis.warnings` as the document's Notes section (`:391`, `:463`,
+  `:582`, and `analysisJson`'s `warnings` key) and none of them reads `flight.notes` — the parser
+  provenance the report shows under that heading (`components/FlightReport.tsx:920`). Measured over
+  the corpus: **29 of the flights that analyse end to end carry at least one parser note, and zero
+  of those notes reach ANY export.** On the iREC TeleMega file the screen says "Dropped 1135
+  row(s) with duplicate timestamps" — 7% of 15,938 rows — and the cert package a flyer hands in
+  never mentions it, nor that the altitude is the logger's own AGL channel rather than Debrief's
+  reduction. The flyer's TYPED notes ride into every format; the tool's own do not.
+
+- **Files past the comparison cap vanish on `/compare` — never read, never in the logbook, never
+  named.** `lib/ingest.ts:131` breaks at the cap, so files after the 6th are never opened and
+  appear in no field of `IngestOutcome`. `components/CompareSurface.tsx:165` derives its overflow
+  count from what ingest RETURNED rather than from what was dropped, so they are never mentioned.
+  Drop 8 logs onto an empty `/compare`: overflow computes to 0, `setNote(null)` runs, and two
+  flights are gone from the view AND absent from the logbook — under drop-box copy promising "they
+  go into the logbook below on the way through". With 4 already on screen and 10 dropped it is
+  worse: the note says "the last 4 stayed in your logbook", and those four were never opened. The
+  analyze page reports this correctly ("Showing 6 of 8 files"); the compare surface has no
+  equivalent, which is the cross-surface disagreement `lib/ingest.ts` exists to prevent.
+
+- **Methods promises a 2D-fix position is kept; the Featherweight GPS parsers drop it with the
+  altitude.** `lib/parsers/featherweightGps.ts:77`. Wants its own gate and a corpus run, because it
+  is a parser change on a recovery figure.
+
+- **A batch where nothing parses throws away every per-file reason and gives advice that cannot
+  work.** `components/Analyzer.tsx:364`.
+
+- **The "one choice" hide-readings control silently fails across the two surfaces: the same reading
+  is keyed on two different labels.** `lib/report.ts:743`. So "what I care about", answered once on
+  the flight report, is not what the comparison hides.
+
 - **Max Q is computed from an altitude the analysis refuses to print, and it is the structural
   load case.** `lib/analyze/index.ts:820` builds `airDensity` (and the speed-of-sound profile at
   `:819`) from `altClean`, the raw barometric trace — the very trace `altAt` (`:1031`) exists to
@@ -2198,6 +2249,22 @@ memory, so a later pass doesn't have to rediscover them.
   panel.) All five are an e2e regression now, which is what was actually missing.
 
 ## Benchmarked against the mature tools
+
+- **Printing the comparison: 31 interactive controls come out on paper.** Benchmarked against the
+  thing every vendor tool and every spreadsheet can do — print a clean sheet you can staple into a
+  cert package. Debrief's comparison does print, and the caption and notes a flyer typed make it
+  onto the page (measured: both present in the printed DOM). What comes with them, measured under
+  `emulateMedia({ media: 'print' })` on a three-flight comparison with real client rects rather
+  than a `display` check, is **31 buttons and 2 form fields**: a "← Compare other flights"
+  navigation control, and a `▼` sort caret beside every one of the twelve metric names. Only the
+  column-move `◀ ▶` arrows carry `print:hidden`. That is what a mature tool's print output has
+  that ours does not — a stylesheet that knows the difference between a control and a number.
+  **Not established, and worth measuring properly first:** whether the 1232 px table clips on A4.
+  The first probe compared the print-media layout width against A4's 680 px content width and
+  looked damning, but that measurement was taken at a 1280 px SCREEN viewport — Chrome reflows to
+  the paper width when it actually prints, so the comparison was meaningless. The generated PDF is
+  2 pages; its text could not be extracted (subset font encodings) to check which columns survived.
+  Measure by rendering the PDF to an image, or by driving a real print at the paper viewport.
 
 - **OpenRocket's data export against Debrief's, and theirs has three things ours doesn't.**
   Benchmarked the report's `Save .csv` (`analyzedDataCsv`) against OpenRocket's *Export data*

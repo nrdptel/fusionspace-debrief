@@ -15,10 +15,11 @@ depended on it.
 
 ### Shipped to production
 
-Five PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, increments 1–3),
+Seven PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, increments 1–3),
 **`fcbf447`** (#35, increments 4–5), **`31c58a7`** (#36, increments 6–8), **`d9fda30`** (#37,
-increments 9–10) and **`0647267`** (#38, increments 11–12). A sixth, **#39** (increment 13), is
-open and gated green. Production is serving `0647267`, confirmed against `/version.json`.
+increments 9–10), **`0647267`** (#38, increments 11–12), **`0a440c5`** (#39, increment 13) and
+**`694ca19`** (#40, increment 14). Production is serving **`694ca19`**, confirmed against
+`/version.json` — level with `origin/main`, no gap.
 
 **PR #34 — `ebf0d22`.** Three increments:
 
@@ -128,7 +129,7 @@ open and gated green. Production is serving `0647267`, confirmed against `/versi
     included, on the clipboard through the same `copyTable` the report's readings, the sample table
     and the comparison already share.
 
-### On the branch, gated green (PR #39)
+**PR #39 — `0a440c5`.**
 
 13. **The comparison's Label and Notes were lost on a navigation the surface itself offers.** They
     are the only two things on that screen a flyer TYPED, they ride into the exported Markdown,
@@ -145,6 +146,37 @@ open and gated green. Production is serving `0647267`, confirmed against `/versi
     position and slicing from the front dropped exactly the caption a flyer had returned to. And
     Clear takes the captions now: its confirm promises the report labels go with the flights, and
     these live in `localStorage` rather than IndexedDB, so nothing was taking them.
+
+**PR #40 — `694ca19`.**
+
+14. **The column order a flyer arranged was lost, and the saved document was never in it.** Two
+    defects that turned out to be one. The hand-made order was a bare `useState`, so a reload lost
+    it — and so did a DROP, because `CompareSurface` renders `CompareView` only in its `ready`
+    state. It joined the caption in one record, keyed by the same sorted set. Then, found while
+    correcting `BACKLOG.md` against a claim in my own new comments: `compareMarkdown`, `compareHtml`
+    and `compareJson` each destructure `comparison.flights` and were handed the RAW comparison, so
+    the write-up disagreed with the screen it was made from and with the figures beside it in the
+    same ZIP. Review caught that a metric click ERASED the arrangement underneath — an exploratory
+    click destroying a launch day's work, permanently once it was stored — and that a real
+    double-click on ▶ dropped one of its two moves.
+
+### On the branch, gated green (increment 15)
+
+15. **The privacy page listed 2 of 19 stored keys and said Clear removed all of it.** It named
+    local storage once, as "your theme and units", while the app writes **19** `debrief.*` keys —
+    the flyer's typed comparison caption, a fingerprint of their own file's column headings, and
+    their rocket's mass, drag mass, body/canopy/drogue diameters, rail, main-deploy altitude and
+    motor delay. `useLogbook.clear` takes IndexedDB plus one of them, so **17 survived** a control
+    the page said removed everything. `lib/deviceData.ts` is now the single registry; the page
+    renders itself from it; `deviceData.test.ts` greps the app's source for `debrief.*` and fails in
+    BOTH directions, so a new stored preference cannot reach production without appearing on the
+    privacy page; and `ForgetDeviceData` is the control that makes the promise true, scoped to
+    exactly the registered keys and reporting what was actually there. Checked by hand that the
+    registry is complete: every `.setItem` call site passes a literal or a module-level constant
+    (nothing is built at runtime, which a source-grep could not see), there is no `sessionStorage`,
+    no cookie anywhere in the app, one IndexedDB (`debrief`, the flights) and one Cache
+    (`debrief-runtime-v1`, the offline copy) — both already named on the page. The old "No cookies
+    beyond the local theme/units preference" is now "No cookies at all", which is true.
 
 ### What the reviews caught that the tests didn't
 
@@ -213,9 +245,15 @@ was right to say it is not itself proof.
   three, one timed out at the 5 s default, and the gate came back `1 failed | 755 passed` on code
   that was green. Sweep `git status --porcelain --untracked-files=all` and count the test FILES in
   the run against the last known-good number — the count is the tell, not the name. Tell every
-  agent you dispatch to write probes under the scratchpad, and never `git checkout <file>` to undo
-  a probe mutation: HEAD is the last COMMIT, not your working tree, and it silently reverted an
-  increment's worth of uncommitted work this run.
+  agent you dispatch to write probes under the scratchpad. An agent's stray `e2e/*.spec.ts` also
+  got swept into a commit by `git add -A` this run and had to be taken back out — read
+  `git show --stat` before pushing, not just the gate.
+
+- **NEVER `git checkout -- <file>` to undo a probe mutation.** HEAD is the last COMMIT, not your
+  working tree. This destroyed an increment's worth of uncommitted work TWICE in one run — the
+  second time after the first had already been written down here. `cp` the file to the scratchpad
+  before mutating it and `cp` it back; that is the only safe undo while a change is uncommitted.
+  Tell every agent you dispatch the same thing.
 - **A browser in this container cannot reach the deployed site.** `curl` works through the agent
   proxy; Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`. Walk
   the built export of the SHA you shipped and say that is what you did.
@@ -227,28 +265,39 @@ was right to say it is not itself proof.
 
 ## Pick up first, and why
 
-`BACKLOG.md` carries the eight-lens audit in full, each entry with the code evidence that verified
-it. Ranked by what a flyer loses:
+`BACKLOG.md` carries both audits in full, each entry with the code evidence that verified it.
 
-The opening fan-out's top four are all shipped (increments 6, 9, 11, 13). What is left, ranked:
+The opening fan-out's queue is fully shipped (increments 6, 9, 11, 13, 14). What replaced it is a
+four-lens sweep run late in the run — export fidelity, docs-vs-code, ingest failure, keyboard and
+state — which produced eight findings, each adversarially verified by a second agent told to refute
+it. Seven survived; two of those were fixed on the spot (the comparison exporting in load order,
+and the Label/Notes panel claiming the caption is lost on reload) and one was refused. The rest are
+written up in full at the top of `BACKLOG.md`'s **Correctness / honesty** section. Ranked by what a
+flyer loses:
 
-1. **The comparison's column SORT and ORDER are still not remembered** — increment 13 took the
-   label and notes half of that entry and left this one. A flyer who drags the columns into the
-   order their write-up needs gets that order in the exported Markdown, CSV, clipboard copy and SVG
-   figures, but not on the next load of an address built to be reloadable. `lib/compareCaption.ts`
-   is the fix to copy: same key (the sorted set of flight ids), same store, same eviction.
-2. **The logbook has no batch selection** — `toggle(id)` is the only mutator, one id per click. No
+1. **"How this file was read" is on screen and in none of the five exports.** Every writer in
+   `lib/report.ts` renders `analysis.warnings` and none of them reads `flight.notes` — the parser
+   provenance. Measured: **29 of the flights that analyse end to end carry a parser note, and zero
+   of those notes reach ANY export.** On the iREC TeleMega file the screen says 1,135 of 15,938
+   rows were dropped as duplicate timestamps and the cert package never mentions it. This is the
+   PROVENANCE-FIRST invariant, and it is the single biggest honesty gap left.
+2. **Files past the comparison cap vanish on `/compare`** — never read, never in the logbook, never
+   named, under drop-box copy promising they go into the logbook on the way through. With 4 on
+   screen and 10 dropped the note even names the wrong four. `lib/ingest.ts:131` breaks at the cap
+   so they appear in no field of `IngestOutcome`, and `CompareSurface:165` counts what came back
+   rather than what was dropped. The analyze page gets this right; the two surfaces disagree.
+3. **The logbook has no batch selection** — `toggle(id)` is the only mutator, one id per click. No
    select-all, no shift-click range, no "compare everything this search matched". The copy-out half
    shipped as increment 12; this is the half that remains.
-3. **Two footer links sit under the 44 px touch floor on a phone**, and `touch.spec.ts` cannot see
+4. **Two footer links sit under the 44 px touch floor on a phone**, and `touch.spec.ts` cannot see
    them. Measured at 390 px with `hasTouch: true` — which is what makes the `@media (pointer:
    coarse)` rule apply, and without it every control measures small and the reading is worthless:
    `Privacy` is 42x44 (two pixels under on width) and `ADA.gov →` is 59x16. Both are in the
    footer's navigation row, which the CSS comment calls a target row and pads rather than sizes.
-4. **`landedInRecord` conflates two questions and `descentSource: 'second-copy'` splits them** —
+5. **`landedInRecord` conflates two questions and `descentSource: 'second-copy'` splits them** —
    see `BACKLOG.md`. Latent (no corpus file reaches it), which is exactly why it was written down
    rather than fixed blind on a safety number.
-5. **The max-Q atmosphere is measured, and the obvious fix was REFUSED** — rebuilding the
+6. **The max-Q atmosphere is measured, and the obvious fix was REFUSED** — rebuilding the
    atmosphere on `altAt` moved jan10's max-Q to t=3.14 s, v=646.5 m/s at a stated 11.4 m, which is
    physically impossible and more confidently wrong than what is there. The full measurement is in
    `BACKLOG.md`. Do not re-attempt it without a plan for the altitude reference itself.

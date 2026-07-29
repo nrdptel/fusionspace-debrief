@@ -390,8 +390,18 @@ export function summaryText(
 
   if (analysis.warnings.length) {
     lines.push('');
-    lines.push('Notes');
+    lines.push('Worth knowing');
     for (const w of analysis.warnings) lines.push(`  - ${w}`);
+  }
+
+  // How the FILE was read, which is a different list from the caveats above and was in none of
+  // the exports. These say which channel the altitude came from, that rows were dropped, that a
+  // telemetry capture is lossy — the provenance the screen shows under this heading. A cert
+  // package quoting a record that silently discarded 1,135 of its 15,938 rows should say so.
+  if (flight.notes.length) {
+    lines.push('');
+    lines.push('How this file was read');
+    for (const n of flight.notes) lines.push(`  - ${n}`);
   }
 
   lines.push('');
@@ -461,8 +471,13 @@ export function summaryMarkdown(
   }
 
   if (analysis.warnings.length) {
-    out.push('', '## Notes', '');
+    out.push('', '## Worth knowing', '');
     for (const w of analysis.warnings) out.push(`- ${w}`);
+  }
+
+  if (flight.notes.length) {
+    out.push('', '## How this file was read', '');
+    for (const n of flight.notes) out.push(`- ${n}`);
   }
 
   out.push('');
@@ -579,8 +594,11 @@ export function summaryHtml(
     : '';
 
   const notesHtml = notes ? `<blockquote>${esc(notes).replace(/\n/g, '<br>')}</blockquote>` : '';
+  const readHtml = flight.notes.length
+    ? `<section><h2>How this file was read</h2><ul class="notes">${flight.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>`
+    : '';
   const warnHtml = analysis.warnings.length
-    ? `<section><h2>Notes</h2><ul class="notes">${analysis.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></section>`
+    ? `<section><h2>Worth knowing</h2><ul class="notes">${analysis.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></section>`
     : '';
 
   const inner = `  <header>
@@ -594,7 +612,8 @@ export function summaryHtml(
   ${eventRows ? `<section><h2>Events</h2><table><thead><tr><th>Event</th><th>Time</th><th>Altitude</th><th>Speed</th><th>Shock</th></tr></thead><tbody>${eventRows}</tbody></table></section>` : ''}
   ${crossRows ? `<section><h2>Logger’s own summary (cross-check)</h2><table><thead><tr><th>Reading</th><th>Logger</th><th>Debrief</th><th>Agreement</th></tr></thead><tbody>${crossRows}</tbody></table></section>` : ''}
   ${gpsHtml}
-  ${warnHtml}`;
+  ${warnHtml}
+  ${readHtml}`;
   return htmlDoc(title, inner);
 }
 
@@ -1178,6 +1197,10 @@ export function analysisJson(
       ...(e.peakAccel != null ? { peakAcceleration: acc(e.peakAccel) } : {}),
     })),
     warnings,
+    // How the file was read, beside the caveats about the analysis — the same split the screen
+    // and the written reports make. A consumer that wants to know whether rows were dropped, or
+    // which channel the altitude is, could not tell from this document before.
+    ...(flight.notes.length ? { howThisFileWasRead: flight.notes } : {}),
     disclaimer:
       'Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured. Parsed locally; nothing uploaded.',
   };

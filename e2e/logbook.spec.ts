@@ -245,11 +245,21 @@ test('the logbook copies out as a table, in the order and selection on screen', 
   // screen when the next one is clicked, so asserting it passes instantly and the read that
   // follows returns the previous copy — the same trap as asserting a heading that was already
   // there.
+  //
+  // …and EMPTY it first, rather than polling for content the last copy might already satisfy.
+  // The first version waited for "high.csv" on line 1, which is true of the sorted copy AND of
+  // the narrowed one that follows it — so when the write lost the race the poll passed on the
+  // stale five-line clipboard and the length assert failed. Flaky at the tail of a full suite,
+  // for a reason that had nothing to do with the code under test. Waiting for "anything at all"
+  // cannot be satisfied by the previous copy, whatever it held.
   const clip = async () => (await page.evaluate(() => navigator.clipboard.readText())).trim().split('\n');
   const copyAnd = async (expected: string) => {
+    await page.evaluate(() => navigator.clipboard.writeText(''));
     await page.getByRole('button', { name: 'Copy table' }).click();
-    await expect.poll(async () => (await clip())[1] ?? '').toContain(expected);
-    return clip();
+    await expect.poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).trim().length).toBeGreaterThan(0);
+    const lines = await clip();
+    expect(lines[1] ?? '', 'the copy that just landed, not the one before it').toContain(expected);
+    return lines;
   };
 
   const lines = await copyAnd('low.csv');
