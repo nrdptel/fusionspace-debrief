@@ -2250,6 +2250,22 @@ refuted. They are written down rather than fixed because each needs its own gate
 
 ## Benchmarked against the mature tools
 
+- **Printing the comparison: 31 interactive controls come out on paper.** Benchmarked against the
+  thing every vendor tool and every spreadsheet can do — print a clean sheet you can staple into a
+  cert package. Debrief's comparison does print, and the caption and notes a flyer typed make it
+  onto the page (measured: both present in the printed DOM). What comes with them, measured under
+  `emulateMedia({ media: 'print' })` on a three-flight comparison with real client rects rather
+  than a `display` check, is **31 buttons and 2 form fields**: a "← Compare other flights"
+  navigation control, and a `▼` sort caret beside every one of the twelve metric names. Only the
+  column-move `◀ ▶` arrows carry `print:hidden`. That is what a mature tool's print output has
+  that ours does not — a stylesheet that knows the difference between a control and a number.
+  **Not established, and worth measuring properly first:** whether the 1232 px table clips on A4.
+  The first probe compared the print-media layout width against A4's 680 px content width and
+  looked damning, but that measurement was taken at a 1280 px SCREEN viewport — Chrome reflows to
+  the paper width when it actually prints, so the comparison was meaningless. The generated PDF is
+  2 pages; its text could not be extracted (subset font encodings) to check which columns survived.
+  Measure by rendering the PDF to an image, or by driving a real print at the paper viewport.
+
 - **OpenRocket's data export against Debrief's, and theirs has three things ours doesn't.**
   Benchmarked the report's `Save .csv` (`analyzedDataCsv`) against OpenRocket's *Export data*
   tab ([user guide](https://openrocket.readthedocs.io/en/latest/user_guide/advanced_flight_simulation.html)).
