@@ -58,12 +58,19 @@ export default function FlightReport({
   analyzedAt,
   sourceText,
   sys,
+  caption,
+  onCaption,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
   analyzedAt: number;
   sourceText: string;
   sys: UnitChoice;
+  /** The label and notes kept with this flight in the logbook, when it has any. */
+  caption?: { label: string; notes: string };
+  /** Keep them. Absent where the flight has no logbook entry to keep them against — a
+   *  private window with storage refused — in which case the panel says so. */
+  onCaption?: (caption: { label: string; notes: string }) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -140,10 +147,31 @@ export default function FlightReport({
   // and belong to the flight in view, so a new flight clears them.
   const [reportLabel, setReportLabel] = useState('');
   const [reportNotes, setReportNotes] = useState('');
+  // Seeded from what the flight already carries rather than blanked: the report has an address
+  // now, so leaving and coming back returns the flight — and these two, the only things on the
+  // screen a flyer typed, were the two that didn't come with it. Keyed on `flight.source`, so
+  // opening a different flight still starts clean.
   useEffect(() => {
-    setReportLabel('');
-    setReportNotes('');
+    setReportLabel(caption?.label ?? '');
+    setReportNotes(caption?.notes ?? '');
+    // `caption` belongs to the flight; re-running on its identity would fight the typing below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flight.source]);
+
+  // Written back as it is typed, debounced so a sentence isn't a transaction per keystroke.
+  const captionRef = useRef(onCaption);
+  captionRef.current = onCaption;
+  useEffect(() => {
+    if (!captionRef.current) return;
+    const t = setTimeout(() => captionRef.current?.({ label: reportLabel, notes: reportNotes }), 400);
+    return () => clearTimeout(t);
+  }, [reportLabel, reportNotes]);
+  /** Flush now, without waiting out the debounce. Leaving the field is what a flyer does on
+   *  the way to clicking something else, and the debounce alone loses whatever was typed in
+   *  the last 400 ms — which on a short label is all of it. */
+  const flushCaption = useCallback(() => {
+    captionRef.current?.({ label: reportLabel, notes: reportNotes });
+  }, [reportLabel, reportNotes]);
   // Which readings this flyer wants in a report, remembered on this device and applied
   // both here and in every report export — the same decision, made once.
   const [hidden, setHidden] = useState<string[]>([]);
@@ -804,6 +832,7 @@ export default function FlightReport({
               type="text"
               value={reportLabel}
               onChange={(e) => setReportLabel(e.target.value)}
+              onBlur={flushCaption}
               placeholder="e.g. Nimbus IV · J450 · Flight 3"
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             />
@@ -816,14 +845,17 @@ export default function FlightReport({
               id="report-notes"
               value={reportNotes}
               onChange={(e) => setReportNotes(e.target.value)}
+              onBlur={flushCaption}
               rows={3}
               placeholder="Conditions, motor, anomalies — anything you'd add to a write-up."
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             />
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Appears at the top of the text, Markdown and JSON exports and the printed card. Held for
-            this view only — save an export before you leave or reload, or it goes.
+            Appears at the top of the text, Markdown and JSON exports and the printed card.
+            {onCaption
+              ? ' Kept with this flight on this device, so it is still here when you come back to it.'
+              : ' Held for this view only — this browser wouldn’t let Debrief remember the flight, so save an export before you leave.'}
           </p>
         </div>
       </details>

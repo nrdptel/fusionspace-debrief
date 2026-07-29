@@ -319,11 +319,15 @@ test('a report has an address, so a link out and Back comes back to it', async (
   await page.getByRole('link', { name: /Read the methods/ }).click();
   await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  // Waited for generously: coming back to a flight PARSES AND ANALYSES it again, which a
+  // navigation never used to do because the report used to evaporate. On a CI runner that
+  // outran the default 5 s deadline — the failure was the deadline, not the behaviour, which
+  // is the same trap units.spec.ts and worker.spec.ts each record for their own big waits.
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
 
   // A refresh too — an address you cannot reload is not one.
   await page.reload();
-  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
 
   // And leaving the report deliberately gives the address up, so a reload after "Analyze
   // another flight" doesn't drag the old flight back.
@@ -369,4 +373,57 @@ test('reopening a flight keeps its id, so a comparison permalink still resolves'
   // The permalink taken before the reopen still resolves to the comparison.
   await page.goto(permalink);
   await expect(page.getByText(/Comparing 2 flights/)).toBeVisible();
+});
+
+// The report has an address, so a link out and Back comes back to the flight — and the label
+// and notes, the only things on that screen a flyer actually TYPED, were the two that didn't
+// come with it. They ride into every text, Markdown, HTML and JSON export and the printed
+// card, so losing them costs a cert write-up its title.
+test('the label and notes a flyer types stay with the flight', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'captioned.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('open')).not.toBeNull();
+
+  await page.getByRole('group').filter({ hasText: 'Label this report' }).locator('summary').click();
+  await page.locator('#report-label').fill('Nimbus IV · J450 · L2 attempt');
+  await page.locator('#report-notes').fill('Gusty, 12 kt crosswind.');
+  // The panel says they are kept — the copy and the behaviour have to agree.
+  await expect(page.getByText(/Kept with this flight on this device/)).toBeVisible();
+
+  const openPanel = async () => {
+    await page.getByRole('group').filter({ hasText: 'Label this report' }).locator('summary').click();
+  };
+
+  // Out through an in-app link and back.
+  await page.getByRole('link', { name: /Read the methods/ }).click();
+  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+  await page.goBack();
+  // Waited for generously: coming back to a flight PARSES AND ANALYSES it again, which a
+  // navigation never used to do because the report used to evaporate. On a CI runner that
+  // outran the default 5 s deadline — the failure was the deadline, not the behaviour, which
+  // is the same trap units.spec.ts and worker.spec.ts each record for their own big waits.
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await openPanel();
+  await expect(page.locator('#report-label')).toHaveValue('Nimbus IV · J450 · L2 attempt');
+
+  // …and a full reload, which re-saves the flight on the way in. `saveRecent` rebuilds the
+  // record, so the caption has to be inherited there the way the note and the device summary
+  // already are, or reopening wipes it — the second time, not the first.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await openPanel();
+  await expect(page.locator('#report-label')).toHaveValue('Nimbus IV · J450 · L2 attempt');
+  await expect(page.locator('#report-notes')).toHaveValue('Gusty, 12 kt crosswind.');
+
+  // A different flight starts clean — a caption belongs to its flight, not to the device.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'other.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('heading', { name: /Flight report for other/ })).toBeVisible();
+  await openPanel();
+  await expect(page.locator('#report-label')).toHaveValue('');
 });

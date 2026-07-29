@@ -23,6 +23,7 @@ import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import {
   saveRecent,
+  saveCaption,
   listRecents,
   getRecent,
   removeRecent,
@@ -49,7 +50,18 @@ type State =
    *  comparison: mapping it puts it back with the flights it was dropped alongside,
    *  instead of stranding it as a report of its own. */
   | { phase: 'mapping'; fileName: string; text: string; table: AnalyzedTable; suggested: ColumnMapping[]; addToIds?: string[] }
-  | { phase: 'report'; flight: RawFlight; analysis: FlightAnalysis; analyzedAt: number; text: string; note?: string }
+  /** `savedId` is the logbook key this flight was stored under — the report's own address, and
+   *  what the label/notes a flyer types are kept against. Absent where storage was refused. */
+  | {
+      phase: 'report';
+      flight: RawFlight;
+      analysis: FlightAnalysis;
+      analyzedAt: number;
+      text: string;
+      note?: string;
+      savedId?: string;
+      caption?: { label: string; notes: string };
+    }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
   /** Files in the same drop that need their columns mapped. They are not failures — a
@@ -162,7 +174,10 @@ export default function Analyzer() {
   const reqRef = useRef(0);
   const beginLoad = useCallback(() => {
     const token = ++reqRef.current;
-    return (next: State) => {
+    // Takes an updater as well as a value, so a late arrival (the logbook id, which lands
+    // after the save resolves) can be folded into the state this load already set without
+    // re-deciding what that state is — and still only if this load is still the current one.
+    return (next: State | ((prev: State) => State)) => {
       if (reqRef.current === token) setState(next);
     };
   }, []);
@@ -176,7 +191,7 @@ export default function Analyzer() {
      *  `summaryText` the device summary it was dropped alongside — both present only when
      *  reopening one, so a custom file comes back as the flight the flyer made rather than as
      *  the mapper again, and a paired flight comes back with its cross-check. */
-    async (name: string, text: string, mapping?: StoredMapping[], summaryText?: string) => {
+    async (name: string, text: string, mapping?: StoredMapping[], summaryText?: string, caption?: { label: string; notes: string }) => {
       const set = beginLoad();
       try {
         if (text.trim().length === 0) {
@@ -186,7 +201,7 @@ export default function Analyzer() {
         const result = importRecent({ name, text, ...(mapping ? { mapping } : {}), ...(summaryText ? { summaryText } : {}) });
         if (result.kind === 'flight') {
           const analysis = await analyzeAsync(result.flight);
-          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text });
+          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text, ...(caption ? { caption } : {}) });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -197,6 +212,9 @@ export default function Analyzer() {
             text,
           }).then((saved) => {
             rememberOpenId(saved.id);
+            // The id arrives after the report is on screen (the save resolves later), so it is
+            // folded in rather than waited for — the report should not be held back for it.
+            if (saved.id) set((prev) => (prev.phase === 'report' ? { ...prev, savedId: saved.id ?? undefined } : prev));
             logbook.reportForgotten(saved.forgotten);
             logbook.refresh();
           });
@@ -257,7 +275,12 @@ export default function Analyzer() {
         return;
       }
       const set = beginLoad();
-      set({ phase: 'loading' });
+      // "the file" is wrong for a folder, and this is the longest wait the app has — every file
+      // parsed and analysed in turn. Say how many, and how much.
+      set({
+        phase: 'loading',
+        what: { name: `${list.length} files`, bytes: list.reduce((n, f) => n + f.size, 0) },
+      });
       await tick();
       // One set of rules for what a launch day's folder holds, shared with the comparison
       // surface so the two can't disagree about it (see lib/ingest.ts).
@@ -451,14 +474,24 @@ export default function Analyzer() {
 
   const openRecent = useCallback(
     async (id: string) => {
-      setState({ phase: 'loading' });
+      // Named as soon as the record is in hand rather than left as a bare "Reading the file…".
+      // This path is no longer only "clicked a logbook row": a report has an address now, so a
+      // reload and a Back both come through here, and both mean parsing and analysing the flight
+      // again — six seconds on a phone with an 11 MB log. A wait that long has to say what it is
+      // waiting for, or it reads as stuck.
+      // Two frames, and NEITHER is the generic "Reading the file…": the first covers the
+      // logbook read, which is all that is known before the record is in hand, and the second
+      // names the flight once it is. The generic fallback is what this path used to show for
+      // the whole wait.
+      setState({ phase: 'loading', what: { name: 'your saved flight' } });
       const rec = await getRecent(id);
       if (!rec) {
         setState({ phase: 'error', message: 'That saved flight could no longer be read.' });
         return;
       }
+      setState({ phase: 'loading', what: { name: rec.name, bytes: rec.text.length } });
       await tick();
-      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText);
+      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText, rec.caption);
     },
     [ingest],
   );
@@ -530,6 +563,8 @@ export default function Analyzer() {
           analyzedAt={state.analyzedAt}
           sourceText={state.text}
           sys={sys}
+          caption={state.caption}
+          onCaption={state.savedId ? (c) => void saveCaption(state.savedId as string, c) : undefined}
         />
       </div>
     );
@@ -573,7 +608,13 @@ export default function Analyzer() {
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && <ReadingNote what={state.what} />}
       {state.phase === 'error' && (
-        <div className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300">
+        // `alert`, not a bare div: this is the only account of what went wrong with a file, and
+        // it replaces a status line a screen reader had been following ("Reading …"), so
+        // arriving silently means the wait simply stops with nothing said.
+        <div
+          role="alert"
+          className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300"
+        >
           {state.message}
         </div>
       )}
