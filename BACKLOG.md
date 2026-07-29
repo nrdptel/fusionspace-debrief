@@ -75,7 +75,7 @@ memory, so a later pass doesn't have to rediscover them.
   safety number should not change on a path no real file exercises. Wants a synthetic or a new
   fixture first, then split the predicate.
 
-- **Logbook Import silently returns less than Export wrote.** `normalizeFlight`
+- **DONE — Logbook Import silently returned less than Export wrote.** `normalizeFlight`
   (`lib/recents.ts:322`) rebuilds each record field by field and never copies `caption` or
   `summaryText`, both of which `exportLogbook` does write. So a restore drops the report label and
   notes the flyer TYPED and the paired device-summary text — the second half of every cross-check
@@ -1535,21 +1535,31 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
-- **`Clear` wipes the noted flights the same screen promises are kept.** `clearRecents`
+- **Two footer links sit under the touch floor on a phone, and `touch.spec.ts` does not see
+  them.** Measured at 390 px with `hasTouch: true` (which is what makes the
+  `@media (pointer: coarse)` rule in `globals.css` apply — without it every control measures
+  small and the reading is worthless): `Privacy` is **42x44**, two pixels under on width, and
+  `ADA.gov →` is **59x16**. The `Read the methods →` link is 136x18 and is deliberately exempt —
+  the CSS says so, because a link inside a paragraph must not become 44 px tall. The first two
+  are in the footer's navigation row, which the same comment says IS a target row and is padded
+  rather than sized; the padding just does not quite reach. Everything else on the logbook, the
+  clear-confirm and the comparison clears the floor, and none of the three overflows 390 px.
+
+- **DONE — `Clear` wiped the noted flights the same screen promises are kept, on a double-click.** The confirm is a separate control now, counts what will go, names the noted ones, and offers the backup; it still takes them, because an explicit Clear is not the prune, but it says so. Original entry: `clearRecents`
   (`lib/recents.ts:291`) is a bare `objectStore.clear()` with no `note` filter, while `saveRecent`'s
   prune deliberately keeps every noted entry and the header copy says a noted flight "stays for
   good". The confirm is a second click on the same button in the same place — so a double-click on
   `Clear` destroys the whole logbook, its notes, its captions and its hand-made column mappings,
   with no undo and no prompt to Export first. It is the only irreversible control in the app.
 
-- **A drop onto a LOADED comparison replaces the set instead of adding to it.**
+- **DONE — a drop onto a LOADED comparison replaced the set instead of adding to it.**
   `components/CompareSurface.tsx:144` calls `load(ids, true)` with only the new drop's ids; nothing
   reads the ids already in `?ids=`. Drop four logs, then the other two of the launch day → a
   comparison of 2, the first four gone from the view and from the address. Drop just one more and
   it falls to the picker entirely. Adding the rest of a launch day is the one thing this surface is
   for, and the mapper path on the same screen (`addToIds`) already appends correctly.
 
-- **The comparison's Label and Notes are lost on a navigation the surface itself offers.**
+- **DONE — the comparison's Label and Notes were lost on a navigation the surface itself offers.** Kept on this device now, keyed by the SET of flights and carried forward onto a set that grew — adding today's sixth log to the five lined up is the same write-up. Original entry:
   `components/CompareView.tsx:168` holds them as bare `useState` blanked whenever `syncKey` changes,
   and nothing persists them — while the panel's copy says they are kept. This is the same defect
   the report's label and notes had before they moved into the logbook entry, and the fix has a
@@ -1561,7 +1571,10 @@ memory, so a later pass doesn't have to rediscover them.
   CSV, the clipboard copy and the SVG figures all use the reordered list. So a flyer who drags the
   columns into the order their write-up needs gets a different order in the saved document.
 
-- **The logbook has no batch selection and no way to copy the list out.**
+- **PARTLY DONE — the logbook has no batch selection.** Copying it out is done: `Copy table`
+  puts what is on screen — sort and search included — on the clipboard through the same
+  `copyTable` the report's readings, the sample table and the comparison share. What remains is
+  the selection half. Original entry:
   `components/RecentFlights.tsx:166` — `toggle(id)` is the only mutator of the selection, one id per
   click; there is no select-all, no shift-click range, and no "compare everything this search
   matched". A season's logbook is a table a flyer would want to sort, filter and paste into a
@@ -2044,7 +2057,7 @@ memory, so a later pass doesn't have to rediscover them.
   flake above turned out to be a real defect in the test's precondition rather than a timing
   wobble, so this one deserves the same treatment rather than a raised timeout.
 
-- **A dropped FOLDER cannot be read at all, on the gesture the ingest layer is named for.**
+- **DONE — a dropped FOLDER could not be read at all, on the gesture the ingest layer is named for.**
   `components/useWindowFileDrop.ts:75` reads only `dataTransfer.files`; nothing in the repo calls
   `webkitGetAsEntry()` or `dataTransfer.items`, and no file input sets `webkitdirectory`. The
   methods page tells flyers to "drop a launch day's folder at once" and `lib/ingest.ts` is written
