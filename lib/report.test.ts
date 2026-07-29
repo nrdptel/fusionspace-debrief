@@ -547,6 +547,27 @@ describe('comparison report', () => {
     expect(without.map((r) => r.label)).not.toContain('Main deploy at');
   });
 
+  it('marks the comparison cell whose descent leg stops before the ground', () => {
+    // The flight's own page says this rate is not a landing speed (the grid tile and the saved
+    // report both carry it). The comparison table is where that flight meets another recording
+    // of the same flight, and it printed the figure bare — a caveat on one surface and a
+    // confident claim on the other, over the number a flyer sizes a parachute against.
+    const mixed = comparison.flights.map((f, i) => ({
+      ...f,
+      metrics: {
+        ...f.metrics,
+        mainDescentRate: 13.4 + i * 1.8,
+        descentSource: i === 0 ? ('same-record' as const) : null,
+      },
+    }));
+    const cells = compareMetricRows(mixed, 'metric').find((r) => r.label === 'Main descent')!.cells;
+    expect(cells[0], 'the recording that landed reads plainly').not.toMatch(/stops in the air/);
+    expect(cells[1], 'the one that did not says so, in its own cell').toMatch(/stops in the air/);
+    // Both still carry their number — the leg was measured, it just is not a landing.
+    expect(cells[0]).toMatch(/^13 m\/s$/);
+    expect(cells[1]).toMatch(/^15 m\/s \(stops in the air\)$/);
+  });
+
   it('carries the raw figures beside the formatted cells, in flight order', () => {
     // What the table sorts its flight columns by — the same numbers the cells format,
     // so the on-screen order can't disagree with the values shown.

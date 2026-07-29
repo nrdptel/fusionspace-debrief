@@ -6,6 +6,83 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Correctness / honesty
 
+- **NOT A DEFECT — the velocity figure is still drawn and exported for a flight whose speed the
+  analysis calls physically impossible, and that is deliberate.** Filed by an audit lens as a rank-1
+  honesty failure: a figure peaking at 391,797 ft/s riding into the .html report beside a Max
+  velocity row reading "—". Checked, and refused on two counts. The trace is kept on purpose —
+  `lib/report.ts:628` states it: "the velocity column itself stays, exactly as its trace stays on
+  screen, so a mis-scaled column can still be seen and diagnosed" — while the DERIVED figures (Mach,
+  dynamic pressure) are withheld everywhere, which is where a believable wrong number would do the
+  damage. And the saved report does not print a bare "—": `lib/report.ts:175` emits
+  "withheld — the speed this trace gives is not physically possible", the same sentence the grid
+  tile carries. A finding is a claim until you have seen it yourself; this one did not survive.
+
+- **`landedInRecord` answers two different questions with one flag, and `descentSource:
+  'second-copy'` is where they come apart.** The predicate is `descentSource != null`, and a
+  second-copy splice sets that while supplying only `descentTime` and `flightTime`
+  (`lib/analyze/index.ts:486`) — the descent RATES still come from the first copy, which by
+  construction stopped before the ground (`descentFromSecondCopy` is consulted only where
+  `descentIsInTheRecord` already refused to read a landing). So on a doubled file whose first copy
+  caught a real descent but ended ≥5 m up, `landedInRecord` is true, no "stops before the ground"
+  caveat fires on any surface, and `landingRate` hands that truncated leg to the landing-energy
+  card as a touchdown speed. Two questions, one flag: *did the flight reach the ground in this
+  record* (true — the second copy shows it, and the CLOCK is honest) versus *was the rate measured
+  to the ground* (false). **Latent, not reachable on today's corpus** — the one `second-copy`
+  fixture, `blueraven…jan10`, carries no descent rates — which is why it was not fixed blind: a
+  safety number should not change on a path no real file exercises. Wants a synthetic or a new
+  fixture first, then split the predicate.
+
+- **Logbook Import silently returns less than Export wrote.** `normalizeFlight`
+  (`lib/recents.ts:322`) rebuilds each record field by field and never copies `caption` or
+  `summaryText`, both of which `exportLogbook` does write. So a restore drops the report label and
+  notes the flyer TYPED and the paired device-summary text — the second half of every cross-check
+  panel — and then reports "Restored N flights." Export/Import is the app's own documented way to
+  move a logbook between machines and the only insurance against Clear, so a restore that says it
+  succeeded and quietly returns less is worse than one that fails. Verified in the code; not yet
+  driven in the app.
+
+
+- **DONE — a main descent rate measured off a record that never reached the ground was published
+  bare.** Resolving a main deploy is not landing: the file can stop while the rocket is still under
+  canopy, and the leg is then averaged from the deploy to the last sample. **3 of the 37** corpus
+  flights analysed end to end are in that state, reading 15.2, 13.1 and 9.4 m/s — the first of them
+  50 ft/s, the top of the 20–50 ft/s band the genuinely-landed mains fall in, handed over as a
+  touchdown speed. (The 121 km TeleMega reads 43.7 m/s the same way but is a `knownIssue` fixture
+  the runner reaches only as parse-only, so it is outside the asserted set.) The neighbouring
+  whole-descent tile had carried the caveat since the landing-energy card was written and
+  `landingRate` already withheld the touchdown speed, so no landing energy or parachute Cd was ever
+  computed from these — the grid and the saved report printed the number anyway. Caveated on both,
+  plus the comparison table cell and the cross-check panel; `descentStoppedAloft` now makes the call
+  once. The landing-energy card was also explaining the withheld figure WRONGLY on these flights
+  ("no landing descent rate was read from this log — it may end at or before apogee", over a log
+  with a main leg in it that flew well past apogee).
+
+- **DONE — the comparison cross-checked a main leg that landed against one that stopped in the
+  air, and called it corroboration.** **Both** corpus groups whose recordings cross-check a main leg
+  are in this state: `iss-endurance-20211030` pairs a StratoLogger that landed (13.4 m/s) with a
+  TeleMetrum that stops aloft (15.2), and `trf-lemiv-l3-20250412` pairs a Blue Raven and a
+  Featherweight GPS that landed (8.1, 7.5) with a Quantum-FW that stops (9.4). Two different spans of
+  the descent, reported as two instruments agreeing — the same mistake the module already documents
+  for main-vs-whole (a 121.6% false disagreement), in the half a shared key could still get wrong.
+  A `partialLeg` flag now marks it, with its own ‡ footnote on the panel, in the Markdown and HTML
+  reports and in the comparison JSON.
+
+- **NOT A DEFECT — the drogue descent rate is published bare on every surface, and that is
+  correct.** Filed by an audit lens as the last uncaveated descent reading. It isn't one:
+  `drogueDescentRate = legRate(apogeeIdx, mainIdx)` (`lib/analyze/index.ts:1578`) runs between two
+  events that are both IN the record wherever the rate exists at all, so the span is the same
+  whether or not the file goes on to reach the ground. Checked in both directions before ruling —
+  a bare reading is not automatically a missing caveat. Held by a test now, so a later pass does not
+  re-file it.
+
+- **The per-fixture corpus `it()` is the one test in the suite with no timeout allowance.** The
+  whole-corpus invariants carry explicit 60 s/120 s timeouts; the per-fixture loop
+  (`lib/parsers/corpus.test.ts:350`) inherits vitest's 5 s default, and the largest Blue Raven HR
+  fixture takes **783 ms alone** — comfortable, until the box is loaded. It blew this run's baseline
+  (`Test timed out in 5000ms`) with npm install, a Playwright install and eight agents running, and
+  passed in 783 ms on a quiet box immediately after. A load-induced flake that reads exactly like a
+  parser regression. Give the loop an explicit allowance.
+
 - **DONE — the coast-efficiency sub-line printed a "drag cost" bigger than the flight.** The figure is
   the vacuum coast the burnout speed would have bought minus what the rocket actually gained, so on a
   fast, draggy flight it legitimately exceeds the whole flight: **20 of the 31** corpus flights that
@@ -1415,6 +1492,43 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **`Clear` wipes the noted flights the same screen promises are kept.** `clearRecents`
+  (`lib/recents.ts:291`) is a bare `objectStore.clear()` with no `note` filter, while `saveRecent`'s
+  prune deliberately keeps every noted entry and the header copy says a noted flight "stays for
+  good". The confirm is a second click on the same button in the same place — so a double-click on
+  `Clear` destroys the whole logbook, its notes, its captions and its hand-made column mappings,
+  with no undo and no prompt to Export first. It is the only irreversible control in the app.
+
+- **A drop onto a LOADED comparison replaces the set instead of adding to it.**
+  `components/CompareSurface.tsx:144` calls `load(ids, true)` with only the new drop's ids; nothing
+  reads the ids already in `?ids=`. Drop four logs, then the other two of the launch day → a
+  comparison of 2, the first four gone from the view and from the address. Drop just one more and
+  it falls to the picker entirely. Adding the rest of a launch day is the one thing this surface is
+  for, and the mapper path on the same screen (`addToIds`) already appends correctly.
+
+- **The comparison's Label and Notes are lost on a navigation the surface itself offers.**
+  `components/CompareView.tsx:168` holds them as bare `useState` blanked whenever `syncKey` changes,
+  and nothing persists them — while the panel's copy says they are kept. This is the same defect
+  the report's label and notes had before they moved into the logbook entry, and the fix has a
+  precedent to copy.
+
+- **The comparison exports in load order while the screen shows the flyer's order.**
+  `components/CompareView.tsx:404` hands the raw `comparison` to `compareMarkdown`/`compareJson`/
+  `compareHtml`, which each destructure `comparison.flights`, while the on-screen table, the metrics
+  CSV, the clipboard copy and the SVG figures all use the reordered list. So a flyer who drags the
+  columns into the order their write-up needs gets a different order in the saved document.
+
+- **The logbook has no batch selection and no way to copy the list out.**
+  `components/RecentFlights.tsx:166` — `toggle(id)` is the only mutator of the selection, one id per
+  click; there is no select-all, no shift-click range, and no "compare everything this search
+  matched". A season's logbook is a table a flyer would want to sort, filter and paste into a
+  cert document, and the readings table on the report already knows how to copy itself.
+
+- **The comparison forgets its column sort and its manual column order.**
+  `components/CompareView.tsx:111` — the only two controls on that surface not remembered; the
+  channel, the hidden readings and the rest all persist.
+
+
 - **DONE — the two things a flyer TYPES were the two things a report lost.** The report has an
   address now, so a link out and a Back come back to the flight — but `reportLabel` and
   `reportNotes` were per-flight React state cleared on `flight.source`, and they ride into every
@@ -1868,6 +1982,20 @@ memory, so a later pass doesn't have to rediscover them.
   action, say) and move them into one.
 
 ## Hardening
+
+- **A dropped FOLDER cannot be read at all, on the gesture the ingest layer is named for.**
+  `components/useWindowFileDrop.ts:75` reads only `dataTransfer.files`; nothing in the repo calls
+  `webkitGetAsEntry()` or `dataTransfer.items`, and no file input sets `webkitdirectory`. The
+  methods page tells flyers to "drop a launch day's folder at once" and `lib/ingest.ts` is written
+  around what a dropped folder means, but the drop yields one unreadable directory entry and the
+  app blames the folder for not being a flight log. Verified by search; not yet driven in a browser.
+
+- **The uPlot instance is destroyed and rebuilt on changes that are not the data.**
+  `components/Chart.tsx:374` — the effect whose cleanup calls `plot.destroy()` depends on `series`,
+  `markers` and `fmt` among others, so sorting the table, moving a column, toggling an event chip or
+  switching channels tears the chart down and builds a new one. On a long log that is the whole
+  render cost paid for a UI change that moved no samples.
+
 
 - **DONE — three of the six waits said "Reading the file…", and a failure was never announced.**
   `phase:'loading'` was entered six times and only three carried a file name. One of the silent ones

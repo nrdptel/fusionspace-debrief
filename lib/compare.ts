@@ -5,6 +5,7 @@
 // the resampling is what makes the overlay possible at all.
 
 import { formatFlownDay, type FlownAt } from './flight/flownAt';
+import { landedInRecord } from './readings';
 import type { EventType, FlightAnalysis, FlightMetrics } from './analyze/types';
 
 // Distinct, colour-blind-friendly-ish strokes; one per flight, in order. Caps the
@@ -202,6 +203,18 @@ export interface Agreement {
    *  higher than logged, so the spread shown is misleading (it may be smaller than it
    *  looks): flagged so the cross-check doesn't read a sensor limit as a flight gap. */
   saturated: boolean;
+  /** True when at least one contributing descent rate was measured over a leg that never
+   *  reached the ground — the file stops while the rocket is still under canopy.
+   *
+   *  It is not a floor like `saturated` and not a method difference like `mixedSource`: the
+   *  two recordings measured DIFFERENT SPANS of the descent, so the spread between them is
+   *  partly the spans and not the flight. Both corpus groups that cross-check a main leg are
+   *  in this state — iss-endurance pairs a StratoLogger that landed (13.4 m/s) with a
+   *  TeleMetrum that stops in the air (15.2), and trf-lemiv-l3 pairs two landed recordings
+   *  (8.1, 7.5) with a Quantum-FW that stops (9.4) — so this is the ordinary case for this
+   *  row, not an edge one. The same reasoning already keeps a main leg and a whole descent
+   *  on separate keys; this is the half of it that a shared key could still get wrong. */
+  partialLeg: boolean;
 }
 
 /**
@@ -368,6 +381,8 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     source?: (m: FlightMetrics) => string;
     /** Marks a contributing value as a floor rather than a true peak (a saturated sensor). */
     soft?: (m: FlightMetrics) => boolean;
+    /** Marks a contributing value as measured over a leg that stops before the ground. */
+    partial?: (m: FlightMetrics) => boolean;
   }[] = [
     // Apogee is altitude-sourced on every logger, so there's no measured/derived
     // mix to flag — even a GPS-vs-baro apogee pair is independent corroboration.
@@ -398,13 +413,19 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // the descent, where recovery problems actually show up. It's a looser corroboration
     // than the apogee — chute behaviour, wind and where the rate is sampled all vary — so
     // read a modest gap as ordinary spread, not a fault.
+    // The drogue leg needs no such flag: it runs apogee → main deploy, two events that are
+    // both IN the record wherever the rate exists at all, so it is the same span on every
+    // recording whether or not the file reaches the ground.
     { key: 'drogueDescentRate', label: 'drogue descent rate', get: (m) => m.drogueDescentRate },
-    { key: 'mainDescentRate', label: 'main descent rate', get: (m) => m.mainDescentRate },
+    // The main leg does. It runs main deploy → the last sample, and where that sample is not
+    // the ground the leg is short — a different span from a recording that landed, not a
+    // different reading of the same one.
+    { key: 'mainDescentRate', label: 'main descent rate', get: (m) => m.mainDescentRate, partial: (m) => !landedInRecord(m) },
     // Kept apart from the main leg on purpose. Four recordings of one corpus flight read
     // 24.6, 30.9 and 26.7 ft/s over their main legs while the fourth resolved no deployment
     // and read 71.3 ft/s over the whole descent; sharing a key reported that as a 121.6%
     // disagreement between instruments that had measured different things.
-    { key: 'wholeDescentRate', label: 'whole-descent rate', get: (m) => m.wholeDescentRate },
+    { key: 'wholeDescentRate', label: 'whole-descent rate', get: (m) => m.wholeDescentRate, partial: (m) => !landedInRecord(m) },
     // Everything below is a reading the comparison TABLE already shows. Leaving them out of
     // the cross-check meant the panel could report agreement — the sentence a flyer reads to
     // decide whether to trust the set — over a shorter list of readings than the table beside
@@ -450,8 +471,16 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // Keep each contributing flight's value with its measurement source, so the
     // spread and the mixed-source flag are read off exactly the same set.
     const contrib = flights
-      .map((f) => ({ v: s.get(f.metrics), src: s.source?.(f.metrics), soft: s.soft?.(f.metrics) ?? false }))
-      .filter((c): c is { v: number; src: string | undefined; soft: boolean } => c.v != null && Number.isFinite(c.v) && c.v > 0);
+      .map((f) => ({
+        v: s.get(f.metrics),
+        src: s.source?.(f.metrics),
+        soft: s.soft?.(f.metrics) ?? false,
+        partial: s.partial?.(f.metrics) ?? false,
+      }))
+      .filter(
+        (c): c is { v: number; src: string | undefined; soft: boolean; partial: boolean } =>
+          c.v != null && Number.isFinite(c.v) && c.v > 0,
+      );
     if (contrib.length < 2) continue;
     const vals = contrib.map((c) => c.v);
     const min = Math.min(...vals);
@@ -461,7 +490,8 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     // is undefined and ignored).
     const mixedSource = new Set(contrib.map((c) => c.src).filter((x): x is string => x != null)).size > 1;
     const saturated = contrib.some((c) => c.soft);
-    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource, saturated });
+    const partialLeg = contrib.some((c) => c.partial);
+    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource, saturated, partialLeg });
   }
   return out;
 }

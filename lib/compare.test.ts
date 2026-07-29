@@ -73,8 +73,17 @@ describe('crossCheck', () => {
     expect(partial.some((x) => x.key === 'maxAcceleration')).toBe(false);
   });
 
-  const descentFlight = (drogue: number | null, main: number | null): CompareFlight =>
-    ({ metrics: { apogeeAltitude: 2000, drogueDescentRate: drogue, mainDescentRate: main } as FlightMetrics }) as CompareFlight;
+  // `descentSource` is what says a landing was actually found; these recordings landed
+  // unless a test says otherwise.
+  const descentFlight = (drogue: number | null, main: number | null, landed = true): CompareFlight =>
+    ({
+      metrics: {
+        apogeeAltitude: 2000,
+        drogueDescentRate: drogue,
+        mainDescentRate: main,
+        descentSource: landed ? 'same-record' : null,
+      } as FlightMetrics,
+    }) as CompareFlight;
 
   it('cross-checks the descent rates when two recordings both caught recovery', () => {
     const a = crossCheck([descentFlight(22, 6.1), descentFlight(19, 5.8)]);
@@ -594,5 +603,78 @@ describe('recoveryDisagreement', () => {
       f('b', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.4 }),
     ];
     expect(recoveryDisagreement(bothWhole, [])).toBe('');
+  });
+});
+
+// Two recordings of one flight can resolve a main deploy and still not have measured the same
+// thing: where one file stops while the rocket is under canopy, its "main descent rate" covers
+// a shorter span than one that ran to the ground. Both corpus groups that cross-check a main
+// leg are in exactly that state — iss-endurance pairs a StratoLogger that landed (13.4 m/s)
+// with a TeleMetrum that stops in the air (15.2), and trf-lemiv-l3 pairs two landed recordings
+// (8.1, 7.5) with a Quantum-FW that stops (9.4). The module already keeps a main leg and a
+// whole descent on separate keys for the same reason; this is the half a shared key could
+// still get wrong, and it was reported as plain corroboration.
+describe('a cross-checked descent leg that stops before the ground', () => {
+  const leg = (main: number, landed: boolean): CompareFlight =>
+    ({
+      metrics: {
+        apogeeAltitude: 2000,
+        drogueDescentRate: 22,
+        mainDescentRate: main,
+        descentSource: landed ? 'same-record' : null,
+      } as FlightMetrics,
+    }) as CompareFlight;
+
+  it('flags the pair where one recording landed and the other did not', () => {
+    const a = crossCheck([leg(13.4, true), leg(15.2, false)]);
+    const main = a.find((x) => x.key === 'mainDescentRate')!;
+    expect(main.count, 'the cross-check still runs — the readings are worth showing').toBe(2);
+    expect(main.partialLeg).toBe(true);
+    // It is neither of the flags that already existed: not a measured/derived method split,
+    // and not a saturated sensor reading a floor.
+    expect(main.mixedSource).toBe(false);
+    expect(main.saturated).toBe(false);
+  });
+
+  it('leaves the pair unflagged when both recordings reached the ground', () => {
+    const both = crossCheck([leg(13.4, true), leg(12.9, true)]);
+    expect(both.find((x) => x.key === 'mainDescentRate')!.partialLeg).toBe(false);
+  });
+
+  it('flags a whole-descent leg the same way, and says so without naming a main', () => {
+    // The flag is wired onto `wholeDescentRate` too — a booster and a sustainer can both read a
+    // single descent with no deployment in it — so the footnote it triggers must not describe a
+    // main leg, and the row it appears on may have no main at all.
+    const whole = (rate: number, landed: boolean): CompareFlight =>
+      ({
+        metrics: {
+          apogeeAltitude: 2000,
+          mainDescentRate: null,
+          wholeDescentRate: rate,
+          descentSource: landed ? 'same-record' : null,
+        } as FlightMetrics,
+      }) as CompareFlight;
+    const a = crossCheck([whole(11.0, true), whole(45.3, false)]);
+    expect(a.find((x) => x.key === 'wholeDescentRate')!.partialLeg).toBe(true);
+    expect(a.some((x) => x.key === 'mainDescentRate'), 'neither recording has a main leg').toBe(false);
+  });
+
+  it('still flags a pair where BOTH recordings stop in the air', () => {
+    // `some`, not `mixed`: if neither reached the ground, neither figure is a landing rate and
+    // the spread is still partly the two files' differing stopping points. The footnote is
+    // worded so it claims no landed comparator that this set does not contain.
+    const a = crossCheck([leg(14.4, false), leg(21.7, false)]);
+    expect(a.find((x) => x.key === 'mainDescentRate')!.partialLeg).toBe(true);
+  });
+
+  // A regression pin, not evidence: the drogue spec carries no `partial` predicate at all, so
+  // this would hold however `landedInRecord` behaved. What actually establishes the drogue claim
+  // is the code — `drogueDescentRate` is only ever `legRate(apogeeIdx, mainIdx)` inside
+  // `if (mainIdx !== null && cameDown)` (lib/analyze/index.ts), two indices into the record — so
+  // the leg cannot run past the end of the file whether or not a landing was found. This test
+  // exists to fail if someone later wires `partial` onto that row by symmetry with the main leg.
+  it('leaves the drogue leg unflagged, and fails if a later pass wires the flag onto it', () => {
+    const a = crossCheck([leg(13.4, true), leg(15.2, false)]);
+    expect(a.find((x) => x.key === 'drogueDescentRate')!.partialLeg).toBe(false);
   });
 });

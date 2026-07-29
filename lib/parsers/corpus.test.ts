@@ -1015,6 +1015,45 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
     }
   });
 
+  // …and the same rule on the comparison surface, which is where two of these flights actually
+  // meet another recording of their own flight. Both corpus groups whose recordings cross-check
+  // a main leg pair one that reached the ground with one that stops in the air, so the "main
+  // descent rate" agreement the panel reports is between two different spans of the descent.
+  // That is 2 of 2 — the ordinary case for this row here, not an edge one.
+  it('flags a main-leg cross-check that pairs a landed recording with one that stops in the air', { timeout: 60_000 }, () => {
+    const groups = [
+      {
+        name: 'iss-endurance-20211030',
+        files: [
+          'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv',
+          'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv',
+        ],
+      },
+      {
+        name: 'trf-lemiv-l3-20250412',
+        files: [
+          'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+          'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv',
+          'generic-csv/genericcsv__trf-lemiv-l3__Quantum-FW_format.csv',
+        ],
+      },
+    ];
+    for (const g of groups) {
+      const inputs = g.files.map(loadForCompare).filter((x): x is CompareInput => x != null);
+      expect(inputs.length, `${g.name}: its recordings parse`).toBe(g.files.length);
+      const flights = buildComparison(inputs).flights;
+      // The group really is mixed — otherwise this test would pass by asserting nothing.
+      const landed = flights.filter((f) => f.metrics.mainDescentRate != null && landedInRecord(f.metrics));
+      const aloft = flights.filter((f) => f.metrics.mainDescentRate != null && !landedInRecord(f.metrics));
+      expect(landed.length, `${g.name}: a recording that reached the ground`).toBeGreaterThan(0);
+      expect(aloft.length, `${g.name}: a recording that stops in the air`).toBeGreaterThan(0);
+
+      const main = crossCheck(flights).find((a) => a.key === 'mainDescentRate');
+      expect(main, `${g.name}: the main leg is cross-checked`).toBeTruthy();
+      expect(main!.partialLeg, `${g.name}: and says the spans differ`).toBe(true);
+    }
+  });
+
   // The same rule for the OTHER leg, which the check above could not see: it selects on
   // `wholeDescentRate`, and a flight that resolved a main deploy has none. Resolving a
   // deployment is not landing — the file can stop while the rocket is still under canopy —

@@ -54,6 +54,41 @@ describe('parseLogbookFlights', () => {
     expect(out.map((f) => f.id)).toEqual(['ok']);
   });
 
+  // Export writes the WHOLE record; normalizeFlight rebuilt it field by field, and the two
+  // fields it forgot are the two a flyer would most notice going missing. A restore is the only
+  // insurance against Clear, so one that says it succeeded and quietly returns less is worse
+  // than one that fails.
+  it('carries the report caption and the paired device summary back in', () => {
+    const f = flight({ caption: { label: 'L3 cert attempt', notes: 'Gusty, 12 kt' }, summaryText: 'DEVICE SUMMARY\nApogee,5280' });
+    const [back] = parseLogbookFlights(JSON.stringify({ flights: [f] }));
+    expect(back.caption).toEqual({ label: 'L3 cert attempt', notes: 'Gusty, 12 kt' });
+    expect(back.summaryText).toBe('DEVICE SUMMARY\nApogee,5280');
+  });
+
+  it('rejects a malformed caption rather than blanking half of it', () => {
+    const of = (caption: unknown) => parseLogbookFlights(JSON.stringify({ flights: [flight({ caption } as Partial<RecentFlight>)] }))[0];
+    // A hand-edited backup must not be able to inject a shape the app then renders — and
+    // "reject" has to mean reject: coercing a bad member to '' restores half of what the flyer
+    // typed and still reports "Restored N flights", which is the failure this exists to end.
+    // Each of these has ONE bad member and one good one, so a blanking implementation would
+    // keep the good half and pass.
+    expect(of({ label: 42, notes: 'Gusty, 12 kt' }).caption).toBeUndefined();
+    expect(of({ label: 'Nimbus IV', notes: [] }).caption).toBeUndefined();
+    expect(of('a string').caption).toBeUndefined();
+    expect(of({ label: '', notes: '' }).caption, 'both blank is no caption, not an empty panel').toBeUndefined();
+    // Whitespace is blank too — `saveCaption` deletes such a caption, so import must not
+    // resurrect one that then rides back out through every reopen.
+    expect(of({ label: '  ', notes: '\n' }).caption).toBeUndefined();
+    // An ABSENT member is not a malformed one: a flyer who typed only a title typed something.
+    expect(of({ label: 'Just a title' }).caption).toEqual({ label: 'Just a title', notes: '' });
+  });
+
+  it('drops a summary that is not text', () => {
+    const of = (summaryText: unknown) => parseLogbookFlights(JSON.stringify({ flights: [flight({ summaryText } as Partial<RecentFlight>)] }))[0];
+    expect(of(17).summaryText).toBeUndefined();
+    expect(of('').summaryText, 'an empty summary is no summary').toBeUndefined();
+  });
+
   it('fills sane defaults for optional/older fields', () => {
     const json = JSON.stringify({ flights: [{ id: 'x', name: 'f.csv', text: 'data' }] });
     const [f] = parseLogbookFlights(json);
