@@ -1789,6 +1789,27 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Hardening
 
+- **DONE — offline, every address Debrief itself generates fell through to "not available
+  offline".** The service worker looked a navigation up with `caches.match(request)`, keyed on the
+  whole URL including its query. The site is a static export — one document per route, and the query
+  is read after the app boots — so a cached `/compare/` was invisible to `/compare/?ids=…&u=i`, which
+  is the permalink the app offers as *"give this comparison an address"*. Measured after one online
+  visit, network cut: `/compare/` **200, real page**; `/compare/?ids=abc,def&u=i` **503, fallback**;
+  `/?u=m` **503**; `/?open=xyz` **503**; `/methods/` **200**; `/methods/?x=1` **503**. Every one of
+  those is an address a flyer arrives by — a bookmarked comparison, a shared link, a flight opened
+  from the compare surface — and the headline promise is that one visit with signal is enough.
+  Navigations are keyed on the route now, on the way in as well as out, so three distinct permalinks
+  leave **one** cached `/compare/` document rather than four. A route that genuinely isn't cached
+  still gets the honest 503, which the fix was checked not to break.
+
+- **The RSC payloads accumulate one cache entry per build-buster.** Noticed while measuring the
+  above: after three visits the cache held `/compare/index.txt` plus **three**
+  `/compare/index.txt?_rsc=…` copies of the same payload. The lookup already strips the buster
+  (`stripRscBuster`), but the store doesn't, so each new `_rsc` value adds an entry that nothing will
+  ever match by that name. Same shape as the navigation bug and the same one-line fix; left alone
+  here because a payload is small and this run's change was scoped to documents, where the failure
+  was user-visible.
+
 - **The 44 px touch floor is never exercised by any test that measures a phone layout.**
   `playwright.config.ts:66-71` defines exactly one project, `devices['Desktop Chrome']`, which is
   `hasTouch: false` — so `@media (pointer: coarse)` (`app/globals.css:40`, the rule that sets
