@@ -35,7 +35,7 @@ export interface Logbook {
   clear: () => Promise<void>;
   note: (id: string, note: string) => Promise<void>;
   /** Download the whole logbook — flights and notes — as a file the flyer keeps. */
-  exportAll: () => Promise<void>;
+  exportAll: () => Promise<number>;
   /** Merge a backup back in; resolves with how many flights it restored. */
   importAll: (file: File) => Promise<number>;
 }
@@ -77,9 +77,20 @@ export function useLogbook(): Logbook {
     [refresh],
   );
 
-  const exportAll = useCallback(async () => {
+  // Resolves with how many flights the file actually holds. `exportLogbook` swallows an
+  // IndexedDB failure and still returns a well-formed envelope with an EMPTY flights array, so
+  // a storage-blocked browser wrote a `debrief-logbook.json` to Downloads that contained
+  // nothing — and the clear-confirm offers this as the way out before the app's only
+  // irreversible action. A backup that lands and says nothing is worse than one that fails.
+  const exportAll = useCallback(async (): Promise<number> => {
     const json = await exportLogbook();
     download(new Blob([json], { type: 'application/json' }), 'debrief-logbook.json');
+    try {
+      const flights = (JSON.parse(json) as { flights?: unknown[] }).flights;
+      return Array.isArray(flights) ? flights.length : 0;
+    } catch {
+      return 0;
+    }
   }, []);
 
   const importAll = useCallback(

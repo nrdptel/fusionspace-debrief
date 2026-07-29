@@ -85,7 +85,7 @@ test('a logbook can be exported and restored on a cleared device', async ({ page
 
   // Wipe the device.
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
-  await page.getByRole('button', { name: /tap to confirm/ }).click();
+  await page.getByRole('button', { name: /^Delete (all \d+|it)$/ }).click();
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
 
   // The empty state still offers a restore; importing the backup brings it back.
@@ -105,6 +105,119 @@ test('a logbook can be exported and restored on a cleared device', async ({ page
   await page.getByRole('group').filter({ hasText: 'Label this report' }).locator('summary').click();
   await expect(page.locator('#report-label'), 'the report label survived the round trip').toHaveValue('Nimbus IV · L1 cert');
   await expect(page.locator('#report-notes'), 'and so did the notes').toHaveValue('Gusty, 12 kt crosswind.');
+});
+
+// Clear is the only irreversible control in the app, and its confirm used to be a SECOND CLICK
+// ON THE SAME BUTTON in the same place — so a double-click destroyed a season of launch days,
+// every note, every report label and every hand-made column mapping, with no undo and nothing
+// said about what was going.
+test('a double-click cannot clear the logbook, and the confirm says what it would take', async ({ page }) => {
+  await page.goto('/');
+  for (const name of ['one.csv', 'two.csv']) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  await page.getByRole('button', { name: 'Add note for two.csv' }).click();
+  await page.getByRole('textbox', { name: 'Note for two.csv' }).fill('L1 cert, keep');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('L1 cert, keep')).toBeVisible();
+
+  const rows = page.getByRole('list', { name: 'Your flights' }).getByRole('listitem');
+  await expect(rows).toHaveCount(2);
+
+  // Double-click the trigger. The confirm is a different control in a different place, so the
+  // second click cannot reach it — here it lands back on the trigger, which is a disclosure and
+  // simply closes again. Either way nothing is deleted, which is the whole point.
+  await page.getByRole('button', { name: 'Clear', exact: true }).dblclick();
+
+  // A RELOAD is what settles "nothing was deleted": the clear would be an async IndexedDB
+  // write, so a count read straight after the double-click can see the old list and pass
+  // against the very bug this names.
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Your flights' }).getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByText('L1 cert, keep')).toBeVisible();
+
+  // Now open it deliberately. What it would take is stated, including the noted flight.
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  const confirm = page.getByRole('alert').filter({ hasText: 'Delete all 2 flights' });
+  await expect(confirm).toBeVisible();
+  await expect(confirm, 'the noted flight is called out, because Clear takes it too').toContainText(
+    'One of them has a note',
+  );
+  await expect(confirm).toContainText('cannot be undone');
+  // …and the backup is offered as the way out, rather than left to be known about.
+  await expect(confirm.getByRole('button', { name: 'Save a backup first' })).toBeVisible();
+  // The safe control has focus, not the destructive one.
+  await expect(confirm.getByRole('button', { name: 'Keep them' })).toBeFocused();
+
+  // The offered way out says what it actually wrote. `exportLogbook` swallows a storage failure
+  // and still hands back a well-formed envelope with an empty flights array, so "a download
+  // fired" was never evidence that the backup held anything — and this panel makes that file the
+  // sanctioned safety net for the app's only irreversible action.
+  const [backup] = await Promise.all([
+    page.waitForEvent('download'),
+    confirm.getByRole('button', { name: 'Save a backup first' }).click(),
+  ]);
+  expect(backup.suggestedFilename()).toBe('debrief-logbook.json');
+  await expect(confirm, 'the panel names the count the file actually holds').toContainText(
+    'Saved debrief-logbook.json — 2 flights in it.',
+  );
+  await expect(page.getByRole('list', { name: 'Your flights' }).getByRole('listitem'), 'saving a backup deletes nothing').toHaveCount(2);
+
+  // Escape closes it and hands focus back to the trigger — a Cancel that unmounts itself drops
+  // focus to the body and costs a keyboard flyer the whole page in tab stops.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alert').filter({ hasText: 'Delete all 2' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
+
+  // …and the deliberate path still works.
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete all 2' }).click();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
+});
+
+// The panel states a count and names the noted flights, so it must not go on standing over a
+// list that has changed underneath it — and it must not survive the list emptying, or a RESTORE
+// brings the armed red panel back with the flights it would delete.
+test('the clear-confirm disarms when the logbook it describes changes', async ({ page }) => {
+  await page.goto('/');
+  for (const name of ['one.csv', 'two.csv', 'three.csv']) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Delete all 3 flights' })).toBeVisible();
+
+  // Remove a row while it is open: the sentence would otherwise rewrite itself mid-read.
+  await page.getByRole('button', { name: 'Remove one.csv from recent flights' }).click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: /Delete all \d+ flights/ }),
+    'the confirm disarms rather than restating itself about a different list',
+  ).toHaveCount(0);
+
+  // …and it does not come back with a restore. Empty the list, then bring it back.
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export', exact: true }).click(),
+  ]);
+  const backupPath = await dl.path();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page.getByRole('button', { name: /^Delete all 2$/ }).click();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
+
+  await jsonInput(page).setInputFiles(backupPath);
+  await expect(page.getByText(/Restored 2 flights\./)).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: /Delete all/ }),
+    'a restore must not bring back an armed delete',
+  ).toHaveCount(0);
 });
 
 test('importing a file that is not a logbook reports it cleanly', async ({ page }) => {
@@ -363,12 +476,18 @@ test('a report has an address, so a link out and Back comes back to it', async (
 
   // Out through an ordinary in-app link, and back.
   await page.getByRole('link', { name: /Read the methods/ }).click();
-  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+  // Wait on the ADDRESS, not on a heading. The report screen renders its own "Where the numbers
+  // come from" card (components/MethodsPointer.tsx), so asserting that heading passed the instant
+  // the click landed — before the navigation had happened at all — and the `goBack()` below then
+  // unwound the wrong entry and left the page on `/` (or on `about:blank`). It failed roughly one
+  // run in three under CI's single worker, was diagnosed as re-analysis outrunning the deadline,
+  // and was papered over with a 20 s timeout and CI's one retry.
+  await page.waitForURL(/\/methods\/?(?:[?#]|$)/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();
   await page.goBack();
-  // Waited for generously: coming back to a flight PARSES AND ANALYSES it again, which a
-  // navigation never used to do because the report used to evaporate. On a CI runner that
-  // outran the default 5 s deadline — the failure was the deadline, not the behaviour, which
-  // is the same trap units.spec.ts and worker.spec.ts each record for their own big waits.
+  // Coming back to a flight PARSES AND ANALYSES it again, which a navigation never used to do
+  // because the report used to evaporate — so the wait is generous on purpose. It is NOT what
+  // used to fail here: see the note on `waitForURL` above.
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
 
   // A refresh too — an address you cannot reload is not one.
@@ -511,12 +630,18 @@ test('the label and notes a flyer types stay with the flight', async ({ page }) 
 
   // Out through an in-app link and back.
   await page.getByRole('link', { name: /Read the methods/ }).click();
-  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+  // Wait on the ADDRESS, not on a heading. The report screen renders its own "Where the numbers
+  // come from" card (components/MethodsPointer.tsx), so asserting that heading passed the instant
+  // the click landed — before the navigation had happened at all — and the `goBack()` below then
+  // unwound the wrong entry and left the page on `/` (or on `about:blank`). It failed roughly one
+  // run in three under CI's single worker, was diagnosed as re-analysis outrunning the deadline,
+  // and was papered over with a 20 s timeout and CI's one retry.
+  await page.waitForURL(/\/methods\/?(?:[?#]|$)/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();
   await page.goBack();
-  // Waited for generously: coming back to a flight PARSES AND ANALYSES it again, which a
-  // navigation never used to do because the report used to evaporate. On a CI runner that
-  // outran the default 5 s deadline — the failure was the deadline, not the behaviour, which
-  // is the same trap units.spec.ts and worker.spec.ts each record for their own big waits.
+  // Coming back to a flight PARSES AND ANALYSES it again, which a navigation never used to do
+  // because the report used to evaporate — so the wait is generous on purpose. It is NOT what
+  // used to fail here: see the note on `waitForURL` above.
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
   await openPanel();
   await expect(page.locator('#report-label')).toHaveValue('Nimbus IV · J450 · L2 attempt');

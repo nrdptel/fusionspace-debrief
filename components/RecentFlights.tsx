@@ -59,7 +59,7 @@ export default function RecentFlights({
   onClear: () => void;
   onCompare: (ids: string[]) => void;
   onNote: (id: string, note: string) => void;
-  onExport: () => void;
+  onExport: () => void | Promise<number>;
   onImport: (file: File) => Promise<number>;
   /** Flights the last drop pushed out to make room. Named rather than left to be noticed by
    *  counting — a launch day's folder is most of the un-noted window, so the third day used
@@ -74,7 +74,10 @@ export default function RecentFlights({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [importMsg, setImportMsg] = useState('');
+  const [exportMsg, setExportMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const clearRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const onImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,6 +125,24 @@ export default function RecentFlights({
       return next.size === prev.size ? prev : next;
     });
   }, [presentKey]);
+
+  // Disarm the clear-confirm whenever the list it is about changes. Two things went wrong
+  // without this, and the `onBlur` the old same-button confirm carried had covered both by
+  // accident. The panel states a COUNT and calls out the noted flights, so removing a row with
+  // ✕ rewrote the sentence under the flyer mid-read. And emptying the list took the panel off
+  // screen without unmounting the component, so `confirming` stayed true — and a restore, which
+  // is the opposite of deleting, brought the armed red panel straight back with it.
+  useEffect(() => {
+    setConfirming(false);
+    setExportMsg('');
+  }, [presentKey]);
+
+  // Focus the panel's SAFE control when it opens, so a keyboard or screen-reader flyer lands
+  // inside the thing that just appeared rather than being left on the trigger — and lands on
+  // "Keep them", never on the destructive one.
+  useEffect(() => {
+    if (confirming) cancelRef.current?.focus();
+  }, [confirming]);
 
   if (recents.length === 0) {
     return (
@@ -176,6 +197,9 @@ export default function RecentFlights({
   // kept, so it doesn't count against this — which is exactly the thing worth knowing before
   // the next launch day fills the rest.
   const unnoted = recents.filter((r) => !r.note).length;
+  // The ones a flyer deliberately kept. Counted so the Clear confirm can say they go too —
+  // "kept for good" is a rule about the PRUNE, and an explicit Clear takes them anyway.
+  const noted = recents.length - unnoted;
   const nearlyFull = unnoted >= UNNOTED_MAX - 2;
 
   return (
@@ -215,7 +239,13 @@ export default function RecentFlights({
               Quiet until it is nearly full, loud enough to act on when it is: a launch day's
               folder is six files, half the window. */}
           <span
-            className={`ml-2 font-normal ${nearlyFull ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`}
+            // The light/dark pair was inverted here — zinc-400 on white is 2.6:1 and amber-600
+            // is 3.2:1, both under the 4.5:1 floor, while the dark side used the DARKER token on
+            // a near-black page. No audit had ever reached this line: `/` is audited with an
+            // empty logbook, so the whole list is off the page. zinc-500 is 4.8:1 and amber-700
+            // is 5.0:1 on white, and the dark side takes the lighter token, as it does everywhere
+            // else in this file.
+            className={`ml-2 font-normal ${nearlyFull ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`}
             title={`The logbook keeps the last ${UNNOTED_MAX} flights you haven't noted. A noted flight is kept for good and doesn't use a slot.`}
           >
             {unnoted}/{UNNOTED_MAX} un-noted
@@ -248,26 +278,109 @@ export default function RecentFlights({
             Import
           </button>
           <button
+            ref={clearRef}
             type="button"
-            onClick={() => {
-              if (confirming) {
-                onClear();
-                setConfirming(false);
-              } else {
-                setConfirming(true);
-              }
-            }}
-            onBlur={() => setConfirming(false)}
-            className={`text-xs font-medium ${
-              confirming
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-            }`}
+            onClick={() => setConfirming((v) => !v)}
+            aria-expanded={confirming}
+            aria-controls="logbook-clear-confirm"
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
-            {confirming ? 'Clear all — tap to confirm' : 'Clear'}
+            Clear
           </button>
         </div>
       </div>
+
+      {/* The only irreversible control in the app, and the confirm used to be a SECOND CLICK ON
+          THE SAME BUTTON in the same place — so a double-click on "Clear" destroyed a season of
+          launch days, every note, every report label and every hand-made column mapping, with no
+          undo. It also said nothing about what it was about to take: `clearRecents` empties the
+          store outright, including the noted flights the heading two lines up calls kept.
+
+          So the confirm is a different control in a different place (a double-click cannot reach
+          it), it counts what will go and calls out the noted ones, and it offers the backup as the
+          way out rather than leaving the flyer to know Export exists.
+
+          It is a live region rather than a dialog. An `alertdialog` that nothing focuses is
+          announced to nobody — the role carries no live behaviour of its own — so a blind flyer
+          pressed Clear and heard "expanded" and not one word of the warning. `role="alert"` is
+          announced when it appears, which is the actual requirement here, and it does not promise
+          the modality (focus trap, aria-modal) that an inline panel does not have. Escape closes
+          it and focus goes back to the trigger, because a Cancel button that unmounts itself
+          drops focus to the body and costs a keyboard flyer twenty tab stops. */}
+      {confirming && (
+        <div
+          id="logbook-clear-confirm"
+          role="alert"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setConfirming(false);
+              clearRef.current?.focus();
+            }
+          }}
+          className="mt-3 rounded-md border border-red-300/70 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-200"
+        >
+          <p>
+            <strong className="font-medium">
+              Delete {recents.length === 1 ? 'the one flight' : `all ${recents.length} flights`} on this
+              device?
+            </strong>{' '}
+            {noted > 0 && (
+              <>
+                {noted === recents.length
+                  ? recents.length === 1
+                    ? 'It has a note, and a note does not save it here.'
+                    : 'All of them have notes, and a note does not save them here.'
+                  : `${noted === 1 ? 'One of them has a note' : `${noted} of them have notes`}, and a note does not save ${noted === 1 ? 'it' : 'them'} here.`}{' '}
+              </>
+            )}
+            {recents.length === 1 ? 'Its' : 'Their'} file text, notes, report labels and any column
+            mappings you made go too, and this cannot be undone.
+          </p>
+          {exportMsg && <p className="mt-1 font-medium">{exportMsg}</p>}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              ref={cancelRef}
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                clearRef.current?.focus();
+              }}
+              className="min-h-11 rounded-md border border-red-300 bg-white px-2.5 py-1 font-medium text-red-800 transition hover:bg-red-100 sm:min-h-0 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-950/60"
+            >
+              Keep them
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setExportMsg('Saving a backup…');
+                // What the file actually holds, not that a download fired. `exportLogbook`
+                // swallows a storage failure and still writes a well-formed envelope with an
+                // empty flights array, so the sanctioned way out could hand over a file with
+                // nothing in it right before the flyer pressed Delete.
+                const n = (await onExport()) ?? 0;
+                setExportMsg(
+                  n > 0
+                    ? `Saved debrief-logbook.json — ${n === 1 ? '1 flight' : `${n} flights`} in it.`
+                    : 'That backup came back empty — this browser would not let Debrief read the logbook, so do not delete it yet.',
+                );
+              }}
+              className="min-h-11 rounded-md border border-red-300 bg-white px-2.5 py-1 font-medium text-red-800 transition hover:bg-red-100 sm:min-h-0 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-950/60"
+            >
+              Save a backup first
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClear();
+                setConfirming(false);
+              }}
+              className="min-h-11 rounded-md bg-red-600 px-2.5 py-1 font-medium text-white transition hover:bg-red-500 sm:min-h-0"
+            >
+              Delete {recents.length === 1 ? 'it' : `all ${recents.length}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {searchable && (
         <div className="mt-3 flex items-center gap-2">

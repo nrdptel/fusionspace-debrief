@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 
 // Automated WCAG 2.0/2.1 A + AA audit of the key pages, in both light and dark
@@ -226,4 +227,36 @@ test('the section strip stays reachable six screens down, and jumps land clear o
       `${href} lands clear of the pinned strip (heading at ${Math.round(target.y)}, strip ends at ${Math.round(strip.y + strip.height)})`,
     ).toBeGreaterThanOrEqual(strip.y + strip.height);
   }
+});
+
+// The logbook's clear-confirm is the app's only irreversible control, and no audit above ever
+// renders it: `/` is audited with an EMPTY logbook, so the Clear button is not even on the page,
+// and every other audited surface unmounts the list entirely. A panel nothing audits is a panel
+// whose contrast, naming and roles nobody checks.
+//
+// Axe cannot see focus management, so the things that actually make this usable — focus landing
+// on the safe control, Escape returning it to the trigger — are asserted in logbook.spec.ts
+// instead. This covers what axe CAN see, on a surface it could not previously reach.
+test('a11y: the logbook and its clear-confirm', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'audit.csv', mimeType: 'text/csv', buffer: readFileSync(path.join(__dirname, '../public/samples/sample-altusmetrum.csv')) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: /Delete the one flight/ })).toBeVisible();
+
+  const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+  for (const v of violations) {
+    const node = v.nodes[0];
+    console.log(
+      `\n[${v.impact}] clear-confirm :: ${v.id} — ${v.help}` +
+        `\n  nodes: ${v.nodes.length} | ${(node?.target || []).join(' ')}` +
+        `\n  html: ${(node?.html || '').slice(0, 140)}`,
+    );
+  }
+  expect(violations.map((v) => v.id)).toEqual([]);
 });

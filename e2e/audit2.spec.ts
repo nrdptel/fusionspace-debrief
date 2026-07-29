@@ -47,7 +47,7 @@ test('recent flights can be removed individually and cleared', async ({ page }) 
   await expect(page.getByText('flight-b.csv', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
-  await page.getByRole('button', { name: /tap to confirm/ }).click();
+  await page.getByRole('button', { name: /^Delete (all \d+|it)$/ }).click();
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
 });
 

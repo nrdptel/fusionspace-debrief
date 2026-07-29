@@ -90,3 +90,24 @@ test('each surface describes itself', async ({ page }) => {
   await expect(page.getByText(/Line up a launch day, a season/)).toBeVisible();
   await expect(page.getByText(/Drop in a flight log from any altimeter/)).toHaveCount(0);
 });
+
+// Both surfaces take a flight file, and they disagreed about which ones a flyer may pick: the
+// analyze page filtered on a hand-typed `accept` list that had drifted behind the parsers, and
+// the comparison filtered on nothing at all. `.pf2` is PerfectFlite's own export — detected on
+// the extension alone, with a corpus fixture behind it — and the browser greyed it out.
+test('both file pickers offer every format the app can read', async ({ page }) => {
+  const accepts: string[] = [];
+  for (const [path, label] of [
+    ['/', 'Choose a flight log file'],
+    ['/compare', 'Choose flight logs to compare'],
+  ] as const) {
+    await page.goto(path);
+    const a = await page.getByLabel(label).getAttribute('accept');
+    expect(a, `${path} filters its picker at all`).toBeTruthy();
+    for (const ext of ['.csv', '.txt', '.xlsx', '.pf2']) {
+      expect(a, `${path} offers ${ext}`).toContain(ext);
+    }
+    accepts.push(a as string);
+  }
+  expect(new Set(accepts).size, `the two surfaces offer different files: ${JSON.stringify(accepts)}`).toBe(1);
+});

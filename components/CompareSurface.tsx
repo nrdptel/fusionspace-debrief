@@ -18,6 +18,7 @@ import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
 import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
+import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
 
 /**
  * The comparison surface: a launch day's flights lined up side by side, as its own route.
@@ -330,6 +331,7 @@ export default function CompareSurface() {
           <input
             type="file"
             multiple
+            accept={FLIGHT_FILE_ACCEPT}
             className="sr-only"
             aria-label="Choose flight logs to compare"
             onChange={(e) => {
