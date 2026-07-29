@@ -72,6 +72,11 @@ type State =
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
 
+/** What to say when a dropped folder yielded nothing. Shared by both surfaces that take a
+ *  drop, so they cannot describe the same gesture two different ways. */
+export const emptyFolderMessage = (names: string[]) =>
+  `Nothing in ${names.length === 1 ? `“${names[0]}”` : 'those folders'} looked like a flight log — Debrief reads CSV, text and spreadsheet exports, and looks one level or two inside a folder for them.`;
+
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 
@@ -430,7 +435,14 @@ export default function Analyzer() {
   // drops a second file mid-analysis and expects the mapper: the right catch, from the suite
   // that already knew the rule.
   const canTakeADrop = state.phase !== 'mapping';
-  const { dragging } = useWindowFileDrop({ onFiles, accept: canTakeADrop });
+  const { dragging } = useWindowFileDrop({
+    onFiles,
+    accept: canTakeADrop,
+    // A folder that held no flight log has to SAY so. Feeding the directory entry back to the
+    // parser — which is what the browser puts in `dataTransfer.files` for a folder — produced
+    // "Could not read this file." about the folder itself, which is the bug, not the report.
+    onEmptyFolder: (names) => setState({ phase: 'error', message: emptyFolderMessage(names) }),
+  });
 
   /** Leaving the mapper. A file opened out of a batch drop goes back to the comparison it
    *  came from — dropping the flyer on an empty drop zone would throw away the launch day

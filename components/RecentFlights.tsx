@@ -7,6 +7,7 @@ import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX } from '@/lib/recents';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
+import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
@@ -74,6 +75,7 @@ export default function RecentFlights({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [importMsg, setImportMsg] = useState('');
+  const [copyMsg, setCopyMsg] = useState('');
   const [exportMsg, setExportMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const clearRef = useRef<HTMLButtonElement>(null);
@@ -184,6 +186,34 @@ export default function RecentFlights({
   const rowNames = logbookRowNames(recents, (m) => fmtLength(m, sys), relativeTime);
   const rowName = (r: RecentMeta) => rowNames.get(r.id) ?? r.name;
 
+  // The logbook as a table, on the clipboard. Everything here could already be DOWNLOADED as a
+  // backup, and for a while that was the whole answer — but a backup is a restore file, not a
+  // season a flyer can read. The alternative these flights come from is a spreadsheet, and a
+  // spreadsheet's answer to "I want these numbers over there" is select, copy, paste. The
+  // report's readings, the sample table and the comparison have each shared `copyTable` for
+  // exactly this; the logbook was the one table you could not get out.
+  //
+  // What is copied is what is ON SCREEN — the current sort, and the current search — because
+  // that is the selection the flyer just made, and copying a different set than the one they
+  // are looking at is its own small betrayal.
+  const copyLogbook = async () => {
+    const header = ['Flight', 'Logger', 'When', `Apogee (${sys === 'metric' ? 'm' : 'ft'})`, `Max speed (${sys === 'metric' ? 'm/s' : 'ft/s'})`, 'Note'];
+    const rows = ordered.map((r) => [
+      r.name,
+      r.formatLabel,
+      r.flownAt ? formatFlownAt(r.flownAt) : `opened ${relativeTime(r.addedAt)}`,
+      r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—',
+      r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—',
+      r.note,
+    ]);
+    const ok = await copyTable(header, rows);
+    setCopyMsg(
+      ok
+        ? `Copied ${rows.length === 1 ? '1 flight' : `${rows.length} flights`} — paste them into a spreadsheet, an email or a cert document.`
+        : 'This browser wouldn’t let the page write to the clipboard. Export saves the whole logbook as a file instead.',
+    );
+  };
+
   const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set([...prev].filter((k) => present.has(k)));
@@ -261,6 +291,14 @@ export default function RecentFlights({
               Compare {chosen.length} flights
             </button>
           )}
+          <button
+            type="button"
+            onClick={copyLogbook}
+            title="Copy these flights to the clipboard — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Copy table
+          </button>
           <button
             type="button"
             onClick={onExport}
@@ -591,6 +629,11 @@ export default function RecentFlights({
         </p>
       )}
       {importMsg && <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">{importMsg}</p>}
+      {copyMsg && (
+        <p role="status" className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
+          {copyMsg}
+        </p>
+      )}
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
         Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks
         your best; tick two or more to compare. Add a <span aria-hidden="true">✎</span> note (motor,

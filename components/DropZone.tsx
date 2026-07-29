@@ -35,7 +35,8 @@ export default function DropZone({
         </p>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           CSV, text, or Excel export from your altimeter — or any logger&apos;s CSV or
-          spreadsheet. Drop several at once to compare them — anywhere on the page.
+          spreadsheet. Drop several at once, or a whole launch day&apos;s folder, to compare
+          them — anywhere on the page.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button

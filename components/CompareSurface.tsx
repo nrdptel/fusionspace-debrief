@@ -18,6 +18,7 @@ import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
 import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
+import { emptyFolderMessage } from './Analyzer';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
 
 /**
@@ -283,7 +284,11 @@ export default function CompareSurface() {
   // Only the mapper refuses — see the note in Analyzer.tsx; a drop during `loading`
   // supersedes the load in flight rather than being turned away.
   const canTakeADrop = state !== 'mapping';
-  const { dragging } = useWindowFileDrop({ onFiles: (files) => void onDropFiles(files), accept: canTakeADrop });
+  const { dragging } = useWindowFileDrop({
+    onFiles: (files) => void onDropFiles(files),
+    accept: canTakeADrop,
+    onEmptyFolder: (names) => setNote(emptyFolderMessage(names)),
+  });
 
   if (state === 'mapping' && mapping) {
     return (
@@ -367,7 +372,7 @@ export default function CompareSurface() {
       >
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {logbook.recents.length === 0
-            ? 'Your logbook is empty — drop a launch day’s files here to start'
+            ? 'Your logbook is empty — drop a launch day’s files, or its folder, here to start'
             : !enough
               ? 'One flight in your logbook — a comparison needs at least two'
               : 'Drop more flight logs here to add them'}
