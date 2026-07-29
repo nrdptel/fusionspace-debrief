@@ -16,6 +16,7 @@ import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, type ReportMeta } from '@/lib/report';
+import { captionCarriedForward, captionKey, loadCaption, rememberShown, saveCaption, type CompareCaption } from '@/lib/compareCaption';
 import { plotSvg } from '@/lib/svgChart';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
@@ -167,10 +168,35 @@ export default function CompareView({
   // set in view, so a different comparison clears it.
   const [reportLabel, setReportLabel] = useState('');
   const [reportNotes, setReportNotes] = useState('');
+  const loadedIds = useMemo(() => loaded.map((f) => f.id), [loaded]);
+  const captionOf = captionKey(loadedIds);
   useEffect(() => {
-    setReportLabel('');
-    setReportNotes('');
-  }, [syncKey]);
+    // Restored rather than blanked. These are the only two things on this screen the flyer
+    // TYPED, they ride into the exported Markdown, HTML and JSON, and a comparison has an
+    // address built to be reloadable — so coming back to it without them is the same loss the
+    // flight report's caption already had fixed.
+    // Nothing stored for this set? If it GREW out of the one just on screen, the title comes
+    // with it — adding today's sixth log to the five lined up is the same write-up with one
+    // more flight in it, and a drop appends now, so that is the ordinary way one gets built.
+    const stored = loadCaption(loadedIds);
+    const carried = stored ?? captionCarriedForward(loadedIds);
+    const next = carried ?? { label: '', notes: '' };
+    setReportLabel(next.label);
+    setReportNotes(next.notes);
+    rememberShown(loadedIds, next);
+    if (!stored && carried) saveCaption(loadedIds, carried);
+  }, [captionOf, loadedIds]);
+
+  // Written on EDIT, not in an effect. An effect keyed on the fields fires on mount with the
+  // empty initial state and deletes the stored caption before the restore above has run — the
+  // store is genuinely empty for that commit, which another tab can read, and every mount
+  // churns a delete and a re-insert through the eviction order for nothing.
+  const editCaption = (next: CompareCaption) => {
+    setReportLabel(next.label);
+    setReportNotes(next.notes);
+    rememberShown(loadedIds, next);
+    saveCaption(loadedIds, next);
+  };
   // Which readings the flyer wants — the same stored choice the flight report uses, so
   // "what I care about" is answered once rather than per surface.
   const [hidden, setHidden] = useState<string[]>([]);
@@ -511,7 +537,7 @@ export default function CompareView({
               id="compare-label"
               type="text"
               value={reportLabel}
-              onChange={(e) => setReportLabel(e.target.value)}
+              onChange={(e) => editCaption({ label: e.target.value, notes: reportNotes })}
               placeholder="e.g. Nimbus IV — booster vs sustainer"
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             />
@@ -523,7 +549,7 @@ export default function CompareView({
             <textarea
               id="compare-notes"
               value={reportNotes}
-              onChange={(e) => setReportNotes(e.target.value)}
+              onChange={(e) => editCaption({ label: reportLabel, notes: e.target.value })}
               rows={3}
               placeholder="What these recordings are, conditions — anything you'd add to a write-up."
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"

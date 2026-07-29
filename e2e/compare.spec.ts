@@ -519,6 +519,54 @@ test('a drop adds to the comparison on screen instead of replacing it', async ({
   expect(idsOf(), 'the same file is the same flight, not a fourth column').toEqual(after);
 });
 
+// The label and notes are the only two things on this surface a flyer actually TYPED, they ride
+// into the exported Markdown, HTML and JSON, and the comparison has an address built to be
+// reloadable — so coming back to it without them is the same loss the flight report's caption
+// already had fixed. They were bare `useState`, blanked on every change of the set.
+test('a comparison keeps the label and notes a flyer types', async ({ page }) => {
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  const openPanel = async () => {
+    const panel = page.getByRole('group').filter({ hasText: 'Label this comparison' });
+    if (!(await page.locator('#compare-label').isVisible())) await panel.locator('summary').click();
+  };
+  await openPanel();
+  await page.locator('#compare-label').fill('L3 cert — two altimeters');
+  await page.locator('#compare-notes').fill('Both bays, one airframe.');
+  // The label shows above the table once typed, which is how a flyer knows it took.
+  await expect(page.getByText('L3 cert — two altimeters').first()).toBeVisible();
+
+  // A reload of an address built to be reloadable.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  await openPanel();
+  await expect(page.locator('#compare-label'), 'the label survived the reload').toHaveValue('L3 cert — two altimeters');
+  await expect(page.locator('#compare-notes')).toHaveValue('Both bays, one airframe.');
+
+  // …and adding today's next flight is the same write-up with one more flight in it, not a new
+  // one. A drop appends now, so this is the ordinary way a comparison gets built.
+  const extra = await readFile(fixture('featherweight-gps.csv'), 'utf8');
+  await dropOnWindow(page, 'fwgps-extra.csv', extra);
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  await openPanel();
+  await expect(page.locator('#compare-label'), 'a set that grew keeps its title').toHaveValue('L3 cert — two altimeters');
+
+  // …and a title the flyer REMOVES stays removed. The first version of this kept a copy under
+  // the smaller set's key and carried it straight back on the next load — a caption that could
+  // not be deleted, painted over the table and embedded in every export.
+  await page.locator('#compare-label').fill('');
+  await page.locator('#compare-notes').fill('');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
+  await openPanel();
+  await expect(page.locator('#compare-label'), 'a cleared caption does not come back').toHaveValue('');
+  await expect(page.locator('#compare-notes')).toHaveValue('');
+});
+
 // An address can name a flight this device no longer holds — a link from a club thread, cleared
 // site data, a flight the logbook's prune forgot. Merging onto what the ADDRESS claimed rather
 // than onto what actually loaded left those dead ids in place, where they cost a slot on every
