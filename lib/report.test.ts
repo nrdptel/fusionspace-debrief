@@ -494,6 +494,66 @@ describe('report exports', () => {
   });
 });
 
+describe('how the file was read reaches the documents, not just the screen', () => {
+  // Measured on the real corpus before this existed: 29 of the flights that analyse end to end
+  // carry at least one parser note, and ZERO of those notes reached any export. Every writer
+  // rendered `analysis.warnings` — caveats about the ANALYSIS — and none of them read
+  // `flight.notes`, the provenance the report shows under "How this file was read". So a cert
+  // package quoting an AltOS record never said that 1,135 of its 15,938 rows were dropped as
+  // duplicate timestamps, or that the altitude is the logger's own AGL channel rather than
+  // Debrief's reduction of pressure. The flyer's TYPED notes rode into every format; the tool's
+  // own account of what it did rode into none.
+  const READ = [
+    'Altitude is the AltOS AGL “height” channel; values are read in AltOS’s native metric units.',
+    'Dropped 1135 row(s) with duplicate timestamps.',
+  ];
+  const flight = { ...tinyFlight(), notes: READ };
+  const analysis = analyzeFlight(flight);
+
+  it('carries every parser note into the text, Markdown and HTML reports', () => {
+    const txt = summaryText(flight, analysis, 'metric');
+    const md = summaryMarkdown(flight, analysis, 'metric');
+    const html = summaryHtml(flight, analysis, 'metric');
+    for (const doc of [txt, md, html]) {
+      expect(doc).toContain('How this file was read');
+      // The dropped-row count in particular: it is the one that changes what the numbers MEAN.
+      expect(doc).toContain('Dropped 1135 row(s) with duplicate timestamps.');
+      expect(doc).toContain('AltOS AGL');
+    }
+  });
+
+  it('carries them into the JSON under their own key, separate from the analysis caveats', () => {
+    const doc = JSON.parse(analysisJson(flight, analysis, 'metric')) as Record<string, unknown>;
+    expect(doc.howThisFileWasRead, 'a consumer can branch on this').toEqual(READ);
+    expect(doc.warnings, 'and it is still a different list from the analysis caveats').not.toEqual(READ);
+  });
+
+  it('says nothing at all when the parser had nothing to say', () => {
+    // An empty section is worse than none: it implies the tool checked and found nothing to
+    // report, on a document a flyer hands to someone else.
+    const quiet = tinyFlight();
+    const a = analyzeFlight(quiet);
+    expect(quiet.notes, 'the fixture really has none').toEqual([]);
+    expect(summaryText(quiet, a, 'metric')).not.toContain('How this file was read');
+    expect(summaryMarkdown(quiet, a, 'metric')).not.toContain('How this file was read');
+    expect(summaryHtml(quiet, a, 'metric')).not.toContain('How this file was read');
+    expect(JSON.parse(analysisJson(quiet, a, 'metric'))).not.toHaveProperty('howThisFileWasRead');
+  });
+
+  it('calls the analysis caveats what the screen calls them', () => {
+    // Both lists used to be impossible to tell apart in a saved document: the caveats were
+    // headed "Notes", which is also what the flyer's own typed notes are called on the same
+    // screen and in the same file. The screen says "Worth knowing"; so do the documents now.
+    const noisy = { ...tinyFlight(), notes: READ };
+    const a = analyzeFlight(noisy);
+    expect(a.warnings.length, 'this fixture produces caveats to head').toBeGreaterThan(0);
+    for (const doc of [summaryText(noisy, a, 'metric'), summaryMarkdown(noisy, a, 'metric'), summaryHtml(noisy, a, 'metric')]) {
+      expect(doc).toContain('Worth knowing');
+    }
+  });
+});
+
+
 describe('comparison report', () => {
   // Two flights of the same rocket, real ascents with slightly different apogees —
   // the redundant-altimeter case the cross-check is written for.
