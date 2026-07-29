@@ -1089,6 +1089,30 @@ test('the recovery map marks a landing once, and names the clock it reads', asyn
 /** Drop a real file onto an arbitrary element, the way a browser does — DataTransfer and all.
  *  Returns whether the page cancelled the events, which is the only thing standing between a
  *  dropped log and the browser navigating away from Debrief to render it. */
+/** Wait until the window's file-drop listener is actually attached.
+ *
+ *  It goes on in an effect (`components/useWindowFileDrop.ts`), so a synthetic `DragEvent`
+ *  dispatched straight after `goto` can arrive before hydration and land on nothing —
+ *  `dragover` comes back uncancelled and the test reads it as "the browser owns the drop".
+ *  A flyer cannot drag a file faster than the page mounts; a script can, which is why this
+ *  races here and nowhere a person is involved. `dragover` alone ingests nothing, so probing
+ *  with it costs the test no state. */
+async function waitForWindowDropListener(page: import('@playwright/test').Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const dt = new DataTransfer();
+          dt.items.add(new File(['T,Alt\n0,0\n'], 'probe.csv', { type: 'text/csv' }));
+          const ev = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt });
+          document.body.dispatchEvent(ev);
+          return ev.defaultPrevented;
+        }),
+      { message: 'the window never started listening for a dropped file' },
+    )
+    .toBe(true);
+}
+
 async function dropFileOn(page: import('@playwright/test').Page, selector: string, name: string, contents: string) {
   return page.evaluate(
     ([sel, fileName, text]) => {
@@ -1116,6 +1140,7 @@ async function dropFileOn(page: import('@playwright/test').Page, selector: strin
 test('a flight dropped anywhere is read, instead of throwing the flyer out of the app', async ({ page }) => {
   const csv = readFileSync(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), 'utf8');
   await page.goto('/');
+  await waitForWindowDropListener(page);
 
   // The idle screen, released in the FOOTER — outside the dashed box entirely.
   const first = await dropFileOn(page, 'footer', 'first.csv', csv);
