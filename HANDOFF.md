@@ -15,9 +15,10 @@ depended on it.
 
 ### Shipped to production
 
-Three PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, increments 1–3),
-**`fcbf447`** (#35, increments 4–5) and **`31c58a7`** (#36, increments 6–8). Production is serving
-`31c58a7`, confirmed against `/version.json`.
+Five PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, increments 1–3),
+**`fcbf447`** (#35, increments 4–5), **`31c58a7`** (#36, increments 6–8), **`d9fda30`** (#37,
+increments 9–10) and **`0647267`** (#38, increments 11–12). A sixth, **#39** (increment 13), is
+open and gated green. Production is serving `0647267`, confirmed against `/version.json`.
 
 **PR #34 — `ebf0d22`.** Three increments:
 
@@ -91,7 +92,7 @@ Three PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, in
    deadline raised to 20 s, cause recorded as re-analysis outrunning the clock, which is why the
    passing runs took 29 s. Waits on the address now: 5 of 5 clean, in 5 s.
 
-### On the branch, gated green
+**PR #37 — `d9fda30`.**
 
 9. **A drop onto a loaded comparison replaced it instead of adding to it.** `load(ids, true)` took
    only the new drop's ids and nothing read the address, so dropping the rest of a launch day came
@@ -108,6 +109,43 @@ Three PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, in
     appeared twice. It now polls until the window is actually listening. A full CI-mode run after:
     **202 passed, zero flaky.**
 
+**PR #38 — `0647267`.**
+
+11. **A dropped FOLDER could not be read at all**, on the gesture `lib/ingest` is named for and the
+    methods page advertises by name. `DataTransfer.files` holds one entry per dropped item, and for
+    a folder that entry IS the folder — a `File` with no bytes whose `arrayBuffer()` rejects — so
+    the app told the flyer their launch day was not a flight log. The contents come from the entry
+    API now, captured synchronously in the handler and walked in `lib/dropEntries.ts`, kept pure so
+    its three edges can be tested: `readEntries` answers a BATCH and must be drained; only what
+    could be a flight log is opened inside a folder (a launch-day folder also holds the pad photos,
+    and reading each one whole to reject it costs hundreds of megabytes for a sentence listing the
+    flyer's camera roll); and a dropped volume is a WIDE tree, which the depth cap alone does not
+    bound.
+
+12. **The logbook was the one table in Debrief you could not get out of it.** Benchmarked against
+    the alternative these flights come from — a spreadsheet, whose answer to "I want these numbers
+    over there" is select, copy, paste. `Copy table` puts what is on screen, sort and search
+    included, on the clipboard through the same `copyTable` the report's readings, the sample table
+    and the comparison already share.
+
+### On the branch, gated green (PR #39)
+
+13. **The comparison's Label and Notes were lost on a navigation the surface itself offers.** They
+    are the only two things on that screen a flyer TYPED, they ride into the exported Markdown,
+    HTML and JSON, the panel's copy says they are kept — and they were bare `useState` blanked on
+    every change of the set. A comparison has no id of its own, it IS its set of flights, so the
+    sorted set is the key. The key is EXACT, and that is the second attempt: the first also matched
+    any stored subset, which meant a caption could not be DELETED (clearing removed the exact key
+    while a subset copy survived and the next load carried it back), "grew out of" was really "any
+    subset" so an unrelated cert flight's title attached itself to a season overview, and every
+    intermediate set burned a slot. Carrying a title onto a set that GREW is done from the set just
+    on screen instead — session-local, exact, unable to resurrect anything, and at module scope
+    because the view unmounts during "Reading the flights…". Eviction drops the oldest by a stored
+    timestamp rather than the first key in the object, since re-writing a key keeps its insertion
+    position and slicing from the front dropped exactly the caption a flyer had returned to. And
+    Clear takes the captions now: its confirm promises the report labels go with the flights, and
+    these live in `localStorage` rather than IndexedDB, so nothing was taking them.
+
 ### What the reviews caught that the tests didn't
 
 The pre-push agent review paid for itself on every increment it saw, and always on the thing the
@@ -119,8 +157,12 @@ testing. On increment 4 it found that the new ‡ footnote described a "main leg
 fires for a whole-descent row, and that its wording asserted a landed comparator that a set of two
 truncated legs does not contain. On increment 5 it found that the round trip's only end-to-end
 evidence could pass vacuously — the assertion after `fill()` re-read what Playwright had just typed,
-and the export raced a fired-and-forgotten `saveCaption`. **Send the diff out before every push, and
-give the reviewer the domain rule it needs to judge the caveats.**
+and the export raced a fired-and-forgotten `saveCaption`. On increment 13 it found **seven** real
+defects in a design that had already passed its own tests — the un-deletable caption above, the
+subset match, a mount-time effect that deleted the store before the restore ran, eviction dropping
+the entry being edited, intermediate sets burning slots, an assert that could not fail, and captions
+outliving "Clear all N flights". **Send the diff out before every push, and give the reviewer the
+domain rule it needs to judge the caveats.**
 
 **Every assert added this run was falsified individually** — each mutation reverted one behaviour and
 the matching assert failed naming its own case. That discipline also caught a wrong number in the
@@ -166,8 +208,14 @@ was right to say it is not itself proof.
   every whole-corpus invariant carries an explicit 60 s. The largest Blue Raven HR fixture takes
   **783 ms alone** and blew that 5 s under load this run. A flake that reads exactly like a parser
   regression — the control is to re-run the one fixture on a quiet box.
-- **A subagent's `*-tmp.*` probe inflates the gate.** Sweep `find . -name "*-tmp.*"` immediately
-  before any gate run you intend to quote.
+- **A subagent's probe file inflates the gate, and `*-tmp.*` is not the pattern.** This run a
+  review agent left `zz-skeptic-{sweep,repro,head}.test.ts` at the REPO ROOT; vitest collected all
+  three, one timed out at the 5 s default, and the gate came back `1 failed | 755 passed` on code
+  that was green. Sweep `git status --porcelain --untracked-files=all` and count the test FILES in
+  the run against the last known-good number — the count is the tell, not the name. Tell every
+  agent you dispatch to write probes under the scratchpad, and never `git checkout <file>` to undo
+  a probe mutation: HEAD is the last COMMIT, not your working tree, and it silently reverted an
+  increment's worth of uncommitted work this run.
 - **A browser in this container cannot reach the deployed site.** `curl` works through the agent
   proxy; Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`. Walk
   the built export of the SHA you shipped and say that is what you did.
@@ -182,20 +230,28 @@ was right to say it is not itself proof.
 `BACKLOG.md` carries the eight-lens audit in full, each entry with the code evidence that verified
 it. Ranked by what a flyer loses:
 
-1. **`Clear` wipes the noted flights the same screen promises are kept for good**, on a
-   double-click, with no undo and no prompt to Export first. The only irreversible control in the
-   app. Its escape hatch — Export/Import — is whole as of increment 5, so this is now a fair fight,
-   but the confirm should say what it is about to destroy.
-2. **A drop onto a loaded comparison replaces the set instead of adding to it**
-   (`CompareSurface.tsx:144`), so adding the rest of a launch day throws away the assembly you had.
-3. **A dropped FOLDER cannot be read at all** (`useWindowFileDrop.ts:75` reads only
-   `dataTransfer.files`) — on the gesture `lib/ingest.ts` is named for and the methods page
-   advertises. Verified by search, not yet driven in a browser.
-4. **The comparison's label and notes, and its column sort and order, are not remembered** — the
-   same defect the report's label had before it moved into the logbook entry, with a fix to copy.
-5. **`landedInRecord` conflates two questions and `descentSource: 'second-copy'` splits them** —
+The opening fan-out's top four are all shipped (increments 6, 9, 11, 13). What is left, ranked:
+
+1. **The comparison's column SORT and ORDER are still not remembered** — increment 13 took the
+   label and notes half of that entry and left this one. A flyer who drags the columns into the
+   order their write-up needs gets that order in the exported Markdown, CSV, clipboard copy and SVG
+   figures, but not on the next load of an address built to be reloadable. `lib/compareCaption.ts`
+   is the fix to copy: same key (the sorted set of flight ids), same store, same eviction.
+2. **The logbook has no batch selection** — `toggle(id)` is the only mutator, one id per click. No
+   select-all, no shift-click range, no "compare everything this search matched". The copy-out half
+   shipped as increment 12; this is the half that remains.
+3. **Two footer links sit under the 44 px touch floor on a phone**, and `touch.spec.ts` cannot see
+   them. Measured at 390 px with `hasTouch: true` — which is what makes the `@media (pointer:
+   coarse)` rule apply, and without it every control measures small and the reading is worthless:
+   `Privacy` is 42x44 (two pixels under on width) and `ADA.gov →` is 59x16. Both are in the
+   footer's navigation row, which the CSS comment calls a target row and pads rather than sizes.
+4. **`landedInRecord` conflates two questions and `descentSource: 'second-copy'` splits them** —
    see `BACKLOG.md`. Latent (no corpus file reaches it), which is exactly why it was written down
    rather than fixed blind on a safety number.
+5. **The max-Q atmosphere is measured, and the obvious fix was REFUSED** — rebuilding the
+   atmosphere on `altAt` moved jan10's max-Q to t=3.14 s, v=646.5 m/s at a stated 11.4 m, which is
+   physically impossible and more confidently wrong than what is there. The full measurement is in
+   `BACKLOG.md`. Do not re-attempt it without a plan for the altitude reference itself.
 
 The Blue Raven high-rate merge remains the largest single capability gap and is surveyed in full in
 `BACKLOG.md`.

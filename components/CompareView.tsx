@@ -16,7 +16,7 @@ import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, type ReportMeta } from '@/lib/report';
-import { captionCarriedForward, captionKey, loadCaption, rememberShown, saveCaption, type CompareCaption } from '@/lib/compareCaption';
+import { captionKey, loadMemory, memoryCarriedForward, rememberCompare, rememberShown, EMPTY, type CompareMemory, type CompareSort } from '@/lib/compareMemory';
 import { plotSvg } from '@/lib/svgChart';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
@@ -92,6 +92,11 @@ export default function CompareView({
   // Keyed off the set, not the order, so re-sorting the table doesn't rebuild the
   // chart and throw away the flyer's zoom.
   const syncKey = useMemo(() => `compare-${loaded.map((f) => f.id).join('-')}`, [loaded]);
+  // A comparison has no id of its own — it IS its set of flights — so the set is what everything
+  // the flyer arranged about it is stored under. `captionOf` is that set, order-independent, so a
+  // re-ordering is not a different comparison.
+  const loadedIds = useMemo(() => loaded.map((f) => f.id), [loaded]);
+  const captionOf = captionKey(loadedIds);
   // The channel the flyer was last looking at, remembered on this device: comparing a
   // season's boosts means velocity every time, and clicking past altitude on each one is
   // the tool forgetting what it was just told.
@@ -108,95 +113,136 @@ export default function CompareView({
   // Order the flights by one of the metrics. A launch day is six files at once, and
   // "which went highest" shouldn't mean reading across a wide table by eye — so any
   // row can order the columns, and the order carries into the chart legend and every
-  // export, because they all read the same array.
-  const [sort, setSort] = useState<{ label: string; dir: 'desc' | 'asc' } | null>(null);
+  // export, because they all read the same array — which is true as of `arranged` below,
+  // and was not before it.
   // …or put them in a deliberate order by hand. Ranking by a metric answers "which went
   // highest"; a launch day also has orders that no metric produces — booster then sustainer,
   // flight 1 to 6, the cert flight last. Moving a column is the flyer taking over, so it
   // clears the metric sort, and clicking a metric hands it back.
-  const [manual, setManual] = useState<string[] | null>(null);
-  const flights = useMemo(() => {
-    if (manual) {
-      const byId = new Map(loaded.map((f) => [f.id, f]));
-      const chosen = manual.map((id) => byId.get(id)).filter((f): f is (typeof loaded)[number] => !!f);
-      // Anything not in the remembered order (a flight added since) keeps its loaded place
-      // at the end rather than disappearing.
-      return [...chosen, ...loaded.filter((f) => !manual.includes(f.id))];
-    }
-    if (!sort) return loaded;
-    const row = compareMetricRows(loaded, sys).find((r) => r.label === sort.label);
-    if (!row) return loaded;
-    const sign = sort.dir === 'desc' ? -1 : 1;
-    return loaded
-      .map((f, i) => ({ f, i }))
-      .sort((a, b) => {
-        const av = row.values[a.i];
-        const bv = row.values[b.i];
-        // A flight without this figure sinks to the end, keeping its loaded order.
-        if (!Number.isFinite(av) || !Number.isFinite(bv)) {
-          if (Number.isFinite(av)) return -1;
-          if (Number.isFinite(bv)) return 1;
-          return a.i - b.i;
+  //
+  // The sort and the hand-made order live in the same state as the label and notes, and are
+  // stored the same way, because they are the same kind of thing: work the flyer did on this
+  // comparison, which every export reads. See lib/compareMemory.ts.
+  // Seeded from storage on the FIRST render rather than in the effect below, so a reload paints
+  // the table once, already arranged. The effect alone meant every reload of a six-column
+  // comparison painted it in load order and then shuffled it. Safe to read storage here because
+  // this view is never server-rendered: the surface reaches `ready` only after the flights come
+  // back from IndexedDB, so there is no prerendered markup for this to disagree with.
+  const [memory, setMemory] = useState<CompareMemory>(
+    () => loadMemory(loadedIds) ?? memoryCarriedForward(loadedIds) ?? EMPTY,
+  );
+  const { label: reportLabel, notes: reportNotes, order: manual, sort } = memory;
+  // The latest memory, updated SYNCHRONOUSLY by `remember` rather than at the next render. A real
+  // double-click on "Move ▶" fires two handlers in one tick; the second read the pre-first-click
+  // state, so the second move was lost — and once the order is stored, a lost move is not a
+  // repaint away from correct, it is written down and comes back on every reload.
+  const memoryRef = useRef(memory);
+  /** Change part of what this comparison remembers, and keep it. */
+  const remember = (patch: Partial<CompareMemory> | ((prev: CompareMemory) => Partial<CompareMemory> | null)) => {
+    const prev = memoryRef.current;
+    const p = typeof patch === 'function' ? patch(prev) : patch;
+    if (!p) return;
+    const next = { ...prev, ...p };
+    memoryRef.current = next;
+    setMemory(next);
+    rememberShown(loadedIds, next);
+    // Written on EDIT, not in an effect keyed on the fields. That effect fires on mount with the
+    // empty initial state and deletes the stored record before the restore below has run — the
+    // store is genuinely empty for that commit, which another tab can read, and every mount
+    // churns a delete and a re-insert through the eviction order for nothing.
+    rememberCompare(loadedIds, p);
+  };
+  /** The columns in the order this memory puts them in.
+   *
+   *  A metric sort WINS over the hand-made order while it is set, and does not erase it: clicking
+   *  a metric row to see which went highest used to throw away a six-flight arrangement, with no
+   *  way back — and once the order was stored, that loss was permanent rather than a re-drag away.
+   *  Clearing the sort now returns to the flyer's own order, and clearing that returns to the
+   *  order they loaded in. */
+  const arrangeBy = useCallback(
+    (mem: CompareMemory): CompareFlight[] => {
+      if (mem.sort) {
+        const row = compareMetricRows(loaded, sys).find((r) => r.label === mem.sort?.label);
+        if (row) {
+          const sign = mem.sort.dir === 'desc' ? -1 : 1;
+          return loaded
+            .map((f, i) => ({ f, i }))
+            .sort((a, b) => {
+              const av = row.values[a.i];
+              const bv = row.values[b.i];
+              // A flight without this figure sinks to the end, keeping its loaded order.
+              if (!Number.isFinite(av) || !Number.isFinite(bv)) {
+                if (Number.isFinite(av)) return -1;
+                if (Number.isFinite(bv)) return 1;
+                return a.i - b.i;
+              }
+              return av === bv ? a.i - b.i : sign * (av - bv);
+            })
+            .map((x) => x.f);
         }
-        return av === bv ? a.i - b.i : sign * (av - bv);
-      })
-      .map((x) => x.f);
-  }, [loaded, manual, sort, sys]);
+      }
+      if (mem.order) {
+        const wanted = mem.order;
+        const byId = new Map(loaded.map((f) => [f.id, f]));
+        const chosen = wanted.map((id) => byId.get(id)).filter((f): f is CompareFlight => !!f);
+        // Anything not in the remembered order (a flight added since) keeps its loaded place
+        // at the end rather than disappearing.
+        return [...chosen, ...loaded.filter((f) => !wanted.includes(f.id))];
+      }
+      return loaded;
+    },
+    [loaded, sys],
+  );
+  const flights = useMemo(() => arrangeBy(memory), [arrangeBy, memory]);
   // The header labels, computed against the set on screen — so they change when the set
   // does, and stay stable while it is only reordered.
   const columnLabels = useMemo(() => distinguishingLabels(flights.map((f) => f.name)), [flights]);
 
-  // Third click on the same metric clears the sort, back to the order they loaded in.
+  // Third click on the same metric drops the sort — back to the flyer's own order if they made
+  // one, else the order the flights loaded in. It does NOT touch that order.
   const cycleSort = (label: string) => {
-    setManual(null);
-    setSort((s) => (s?.label !== label ? { label, dir: 'desc' } : s.dir === 'desc' ? { label, dir: 'asc' } : null));
+    remember((prev) => ({
+      sort:
+        prev.sort?.label !== label
+          ? { label, dir: 'desc' }
+          : prev.sort.dir === 'desc'
+            ? { label, dir: 'asc' }
+            : null,
+    }));
   };
   /** Swap a flight one place left or right, and take over from any metric sort. */
   const move = (id: string, delta: -1 | 1) => {
-    const order = flights.map((f) => f.id);
-    const i = order.indexOf(id);
-    const j = i + delta;
-    if (i < 0 || j < 0 || j >= order.length) return;
-    [order[i], order[j]] = [order[j], order[i]];
-    setSort(null);
-    setManual(order);
+    // Derived from the LATEST memory, not from the rendered `flights`: two moves in one tick must
+    // compose, and the render behind a double-click is one move stale.
+    remember((prev) => {
+      const next = arrangeBy(prev).map((f) => f.id);
+      const i = next.indexOf(id);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= next.length) return null;
+      [next[i], next[j]] = [next[j], next[i]];
+      return { sort: null, order: next };
+    });
   };
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // An optional caption for the comparison — for a redundant-altimeter or staged-flight
-  // write-up. It rides into the exported bundle's Markdown and JSON, and belongs to the
-  // set in view, so a different comparison clears it.
-  const [reportLabel, setReportLabel] = useState('');
-  const [reportNotes, setReportNotes] = useState('');
-  const loadedIds = useMemo(() => loaded.map((f) => f.id), [loaded]);
-  const captionOf = captionKey(loadedIds);
+  // Restored rather than blanked. The caption is the only thing on this screen the flyer TYPED
+  // and the column order is the only thing they ARRANGED; both ride into the exported Markdown,
+  // HTML, JSON, CSV and figures, and a comparison has an address built to be reloadable — so
+  // coming back to it without them is the same loss the flight report's caption already had
+  // fixed. The order was worse off than the caption: a DROP unmounts this view, so it did not
+  // even take a reload to lose it.
   useEffect(() => {
-    // Restored rather than blanked. These are the only two things on this screen the flyer
-    // TYPED, they ride into the exported Markdown, HTML and JSON, and a comparison has an
-    // address built to be reloadable — so coming back to it without them is the same loss the
-    // flight report's caption already had fixed.
-    // Nothing stored for this set? If it GREW out of the one just on screen, the title comes
-    // with it — adding today's sixth log to the five lined up is the same write-up with one
+    // Nothing stored for this set? If it GREW out of the one just on screen, the arrangement
+    // comes with it — adding today's sixth log to the five lined up is the same write-up with one
     // more flight in it, and a drop appends now, so that is the ordinary way one gets built.
-    const stored = loadCaption(loadedIds);
-    const carried = stored ?? captionCarriedForward(loadedIds);
-    const next = carried ?? { label: '', notes: '' };
-    setReportLabel(next.label);
-    setReportNotes(next.notes);
+    const stored = loadMemory(loadedIds);
+    const carried = stored ?? memoryCarriedForward(loadedIds);
+    const next = carried ?? EMPTY;
+    memoryRef.current = next;
+    setMemory(next);
     rememberShown(loadedIds, next);
-    if (!stored && carried) saveCaption(loadedIds, carried);
+    if (!stored && carried) rememberCompare(loadedIds, carried);
   }, [captionOf, loadedIds]);
-
-  // Written on EDIT, not in an effect. An effect keyed on the fields fires on mount with the
-  // empty initial state and deletes the stored caption before the restore above has run — the
-  // store is genuinely empty for that commit, which another tab can read, and every mount
-  // churns a delete and a re-insert through the eviction order for nothing.
-  const editCaption = (next: CompareCaption) => {
-    setReportLabel(next.label);
-    setReportNotes(next.notes);
-    rememberShown(loadedIds, next);
-    saveCaption(loadedIds, next);
-  };
   // Which readings the flyer wants — the same stored choice the flight report uses, so
   // "what I care about" is answered once rather than per surface.
   const [hidden, setHidden] = useState<string[]>([]);
@@ -403,6 +449,14 @@ export default function CompareView({
     download(new Blob([overlaySvg(active)], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
   };
 
+  // The comparison AS ARRANGED, for anything that writes a document. `comparison` holds the
+  // flights in the order they loaded; `flights` is the order the flyer put them in, which the
+  // table, the metrics CSV, the clipboard copy and the figures have always used. The Markdown,
+  // HTML and JSON took the raw object, so a flyer who dragged the columns into the order their
+  // write-up needs got a DIFFERENT order in the saved document than on the screen they arranged —
+  // and the figures beside it in the same bundle disagreed with the table above it.
+  const arranged = useMemo(() => ({ ...comparison, flights }), [comparison, flights]);
+
   // One self-contained HTML comparison report — the cross-check, the metrics matrix and the
   // overlay charts inline — to document a redundant-altimeter or stage check as a single
   // portable file. The overlay figures are those actually offered (acceleration only when a
@@ -412,7 +466,7 @@ export default function CompareView({
       .map((k) => metrics.find((m) => m.key === k))
       .filter((m): m is MetricDef => !!m)
       .map((m) => ({ title: m.label, svg: overlaySvg(m) }));
-    download(new Blob([compareHtml(comparison, sys, note, reportMeta, figs)], { type: 'text/html' }), 'compare-debrief.html');
+    download(new Blob([compareHtml(arranged, sys, note, reportMeta, figs)], { type: 'text/html' }), 'compare-debrief.html');
   };
 
   // The comparison as one report-grade ZIP: the Markdown write-up (cross-check +
@@ -428,10 +482,10 @@ export default function CompareView({
       // all-barometric comparison), so the bundle never holds an empty acceleration plot.
       const figureKeys = (['altitude', 'velocity', 'acceleration'] as MetricKey[]).filter((k) => metrics.some((m) => m.key === k));
       const entries: ZipEntry[] = [
-        { name: 'compare-summary.md', data: compareMarkdown(comparison, sys, note, reportMeta) },
+        { name: 'compare-summary.md', data: compareMarkdown(arranged, sys, note, reportMeta) },
         { name: 'compare-metrics.csv', data: metricsCsv() },
         { name: 'compare-data.csv', data: overlayCsv() },
-        { name: 'compare.json', data: compareJson(comparison, sys, note, reportMeta) },
+        { name: 'compare.json', data: compareJson(arranged, sys, note, reportMeta) },
         ...figureKeys.map((k) => ({ name: `compare-${k}.svg`, data: overlaySvg(metrics.find((m) => m.key === k)!) })),
       ];
       download(await zip(entries), 'compare-debrief.zip');
@@ -537,7 +591,7 @@ export default function CompareView({
               id="compare-label"
               type="text"
               value={reportLabel}
-              onChange={(e) => editCaption({ label: e.target.value, notes: reportNotes })}
+              onChange={(e) => remember({ label: e.target.value })}
               placeholder="e.g. Nimbus IV — booster vs sustainer"
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             />
@@ -549,15 +603,17 @@ export default function CompareView({
             <textarea
               id="compare-notes"
               value={reportNotes}
-              onChange={(e) => editCaption({ label: reportLabel, notes: e.target.value })}
+              onChange={(e) => remember({ notes: e.target.value })}
               rows={3}
               placeholder="What these recordings are, conditions — anything you'd add to a write-up."
               className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             />
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Rides into the exported bundle&apos;s Markdown and JSON. Held for this view only — save an
-            export before you leave or reload, or it goes.
+            Rides into the exported bundle&apos;s Markdown, HTML and JSON. Kept on this device for
+            these flights — along with the order you put the columns in — so a reload, or adding
+            the next log of the day, comes back to the write-up you were making. Clearing the
+            logbook takes it with the flights.
           </p>
         </div>
       </details>
@@ -668,11 +724,12 @@ export default function CompareView({
                 {(sort || manual) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSort(null);
-                      setManual(null);
-                    }}
-                    title="Back to the order the flights loaded in"
+                    onClick={() => remember(sort ? { sort: null } : { order: null })}
+                    title={
+                      sort && manual
+                        ? 'Drop the ranking, back to the order you put them in'
+                        : 'Back to the order the flights loaded in'
+                    }
                     className="ml-2 font-medium normal-case tracking-normal text-indigo-600 hover:underline dark:text-indigo-400"
                   >
                     {sort ? 'clear sort' : 'clear order'}
