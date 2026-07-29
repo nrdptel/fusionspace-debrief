@@ -40,6 +40,35 @@ test('a logbook can be exported and restored on a cleared device', async ({ page
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('H128, L1 cert')).toBeVisible();
 
+  // …and a report label and notes, which are kept with the flight rather than with the view.
+  // The export has always written them; the IMPORT rebuilt each record field by field and
+  // silently left them behind, so a restore came back without the two things on that screen
+  // the flyer had actually typed — and said "Restored 1 flight." while doing it.
+  await page.getByText('cert.csv', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page.getByRole('group').filter({ hasText: 'Label this report' }).locator('summary').click();
+  await page.locator('#report-label').fill('Nimbus IV · L1 cert');
+  await page.locator('#report-notes').fill('Gusty, 12 kt crosswind.');
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+  // The caption is written to IndexedDB by a fired-and-forgotten `saveCaption`, and the notes
+  // field is only flushed by the blur the click above happens to fire — so WAIT for the write
+  // rather than assuming it beat the export. Re-reading the input Playwright just typed into
+  // proves nothing about the app at all; this polls the store the export actually reads.
+  const storedCaption = () =>
+    page.evaluate(async () => {
+      const db: IDBDatabase = await new Promise((res) => {
+        const q = indexedDB.open('debrief');
+        q.onsuccess = () => res(q.result);
+      });
+      const all: { caption?: { label: string; notes: string } }[] = await new Promise((res) => {
+        const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+        q.onsuccess = () => res(q.result);
+      });
+      return all[0]?.caption ?? null;
+    });
+  await expect.poll(storedCaption).toEqual({ label: 'Nimbus IV · L1 cert', notes: 'Gusty, 12 kt crosswind.' });
+
   // Export the logbook to a file.
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
@@ -47,6 +76,12 @@ test('a logbook can be exported and restored on a cleared device', async ({ page
   ]);
   expect(dl.suggestedFilename()).toBe('debrief-logbook.json');
   const backupPath = await dl.path();
+
+  // What the backup FILE holds, read off disk — the half of the round trip that no amount of
+  // in-page polling can establish, and the input to the import being tested below.
+  const backup = JSON.parse(readFileSync(backupPath as string, 'utf8'));
+  expect(backup.flights[0].caption).toEqual({ label: 'Nimbus IV · L1 cert', notes: 'Gusty, 12 kt crosswind.' });
+  expect(backup.flights[0].summaryText, 'this flight was dropped without a device summary').toBeUndefined();
 
   // Wipe the device.
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
@@ -61,6 +96,15 @@ test('a logbook can be exported and restored on a cleared device', async ({ page
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
   await expect(page.getByText('cert.csv', { exact: true })).toBeVisible();
   await expect(page.getByText('H128, L1 cert')).toBeVisible();
+
+  // …and the restored flight still carries what the flyer typed onto the report. Checked in the
+  // store as well as on screen: the store is what a later reopen and every export read from.
+  await expect.poll(storedCaption).toEqual({ label: 'Nimbus IV · L1 cert', notes: 'Gusty, 12 kt crosswind.' });
+  await page.getByText('cert.csv', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page.getByRole('group').filter({ hasText: 'Label this report' }).locator('summary').click();
+  await expect(page.locator('#report-label'), 'the report label survived the round trip').toHaveValue('Nimbus IV · L1 cert');
+  await expect(page.locator('#report-notes'), 'and so did the notes').toHaveValue('Gusty, 12 kt crosswind.');
 });
 
 test('importing a file that is not a logbook reports it cleanly', async ({ page }) => {

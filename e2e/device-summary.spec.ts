@@ -95,6 +95,64 @@ test('a paired device summary survives a reload and comes back with the flight',
   await expect(third.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
 });
 
+// A backup is the only insurance against Clear, and the pairing has to be inside it. The
+// export has always written `summaryText`; the IMPORT rebuilt each record field by field and
+// dropped it, so a restored flight came back with Debrief's read and no cross-check panel —
+// the altimeter's own figures, which are the whole point of having paired the files.
+test('a paired device summary survives a backup and restore', async ({ page }) => {
+  const lr = readFileSync(fx('blueraven-app-lr.csv'));
+  const summary = readFileSync(fx('blueraven-app.summary.csv'));
+
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'BlRv_SN0829_LR_05-11-2024.csv', mimeType: 'text/csv', buffer: lr },
+    { name: 'BlRv_SN0829_summary_05-11-2024_.csv', mimeType: 'text/csv', buffer: summary },
+  ]);
+  await expect(page.getByRole('region', { name: /logger.s own summary/i })).toBeVisible();
+
+  // The pairing is attached after the drop is fully read, so wait for it to reach the store
+  // rather than assuming it beat the Export click.
+  const storedSummary = () =>
+    page.evaluate(async () => {
+      const db: IDBDatabase = await new Promise((res) => {
+        const q = indexedDB.open('debrief');
+        q.onsuccess = () => res(q.result);
+      });
+      const all: { summaryText?: string }[] = await new Promise((res) => {
+        const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+        q.onsuccess = () => res(q.result);
+      });
+      return all.some((r) => typeof r.summaryText === 'string' && r.summaryText.length > 0);
+    });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
+  await expect.poll(storedSummary).toBe(true);
+
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export', exact: true }).click(),
+  ]);
+  const backupPath = (await dl.path()) as string;
+  const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
+  const paired = backup.flights.find((f: { summaryText?: string }) => f.summaryText);
+  expect(paired, 'the backup file carries the summary text').toBeTruthy();
+
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page.getByRole('button', { name: /tap to confirm/ }).click();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
+
+  await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath);
+  await expect(page.getByText(/Restored \d+ flights?\./)).toBeVisible();
+  await expect.poll(storedSummary, { message: 'the restore kept the summary, not just the log' }).toBe(true);
+
+  // …and the cross-check panel is on the page again, re-read from the restored source.
+  await page.getByRole('button', { name: /BlRv_SN0829_LR_05-11-2024\.csv/ }).first().click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  const back = page.getByRole('region', { name: /logger.s own summary/i });
+  await expect(back, 'the restored flight still has the device’s own figures').toBeVisible();
+  await expect(back.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
+});
+
 // Same files, same rules, either surface. The pairing used to live inside the analyze page,
 // so dropping a log and its summary on /compare produced "a device summary for X, not a
 // flight record" and nothing else — the word "cross-check" appeared nowhere on the page.

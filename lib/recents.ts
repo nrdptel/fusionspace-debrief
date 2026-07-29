@@ -338,7 +338,38 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // …and keeps a hand-made column mapping, or a restored logbook would ask the flyer to
     // map every custom file again.
     ...(mappingOf(r.mapping) ? { mapping: mappingOf(r.mapping)! } : {}),
+    // …and the label and notes the flyer TYPED onto the report. `exportLogbook` writes the
+    // whole record, so these were in every backup file already; rebuilding the record field
+    // by field here is what dropped them on the way back in. They ride into every text,
+    // Markdown, HTML and JSON export and the printed card, so a restore that loses them costs
+    // a cert write-up its title — and says "Restored N flights" while doing it.
+    ...(captionOf(r.caption) ? { caption: captionOf(r.caption)! } : {}),
+    // …and the device-summary file this flight was paired with, which is the other half of
+    // every cross-check panel. Without it a restored flight comes back with Debrief's read and
+    // not the altimeter's own stated figures, which is the comparison a flyer restored the
+    // logbook to keep.
+    ...(typeof r.summaryText === 'string' && r.summaryText ? { summaryText: r.summaryText } : {}),
   };
+}
+
+/** A stored/imported report caption, or null when it isn't one. Same rule as `flownAtOf` and
+ *  `mappingOf`: REJECTED rather than coerced. A member of the wrong type fails the whole
+ *  caption, because blanking it instead would restore half of what the flyer typed and still
+ *  report "Restored N flights" — the precise failure this is here to end. An absent member is
+ *  a different thing from a wrong one and is allowed: a flyer who typed only a title typed
+ *  something.
+ *
+ *  Blank is judged the way `saveCaption` judges it — on the trimmed strings — so import cannot
+ *  resurrect a whitespace-only caption that the writer would have deleted, which would then
+ *  ride back out through `saveRecent`'s inheritance on every reopen. */
+function captionOf(v: unknown): { label: string; notes: string } | null {
+  if (!v || typeof v !== 'object') return null;
+  const c = v as Record<string, unknown>;
+  if (c.label !== undefined && typeof c.label !== 'string') return null;
+  if (c.notes !== undefined && typeof c.notes !== 'string') return null;
+  const label = typeof c.label === 'string' ? c.label : '';
+  const notes = typeof c.notes === 'string' ? c.notes : '';
+  return label.trim() || notes.trim() ? { label, notes } : null;
 }
 
 /** A stored/imported column mapping, or null when it isn't one. Same rule as `flownAtOf`:
