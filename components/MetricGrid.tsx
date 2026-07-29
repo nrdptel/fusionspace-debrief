@@ -33,7 +33,7 @@ function ReadingLabel({ tile, className }: { tile: Tile; className: string }) {
         rel="noopener"
         aria-label={`How ${tile.label.toLowerCase()} is worked out — opens the methods page`}
         title={`How ${tile.label.toLowerCase()} is worked out, and where it can be wrong`}
-        className="font-normal text-zinc-400 no-underline transition hover:text-indigo-600 dark:text-zinc-500 dark:hover:text-indigo-400 print:hidden"
+        className="touch-area font-normal text-zinc-400 no-underline transition hover:text-indigo-600 dark:text-zinc-500 dark:hover:text-indigo-400 print:hidden"
       >
         <span aria-hidden="true">?</span>
       </a>
