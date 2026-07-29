@@ -8,7 +8,7 @@ Branch restarted from `origin/main` at `e8cbdcc`; the working branch was level w
 start (0 ahead, 0 behind, measured after `git fetch --prune`). Focus was **UX and UI**, so the queue
 came from an eight-lens audit of the app rather than from the corpus.
 
-Four shipped increments. Every figure below was measured this run.
+Eight shipped commits across seven increments. Every figure below was measured this run.
 
 ### The increments
 
@@ -70,6 +70,31 @@ Four shipped increments. Every figure below was measured this run.
    window catches it now; only the column mapper refuses, and says why. Both boxes lost their own drag
    handlers, because leaving them beside the window's ingested a drop that hit the box **twice**.
 
+5. **`dcc72f5` — a report had no address, and a flight was re-addressed every time it was saved.**
+   Seven in-app links on the report screen — Analyze, Compare (×2), "Read the methods →", Methods,
+   Validation, Privacy — and every one of them destroyed the report, because it lived only in React
+   state. `?open=<id>` already restored a flight; the mount effect **deleted it from the URL**
+   immediately after reading it. Underneath that, `saveRecent` minted a fresh id on every save — and
+   a save is what REOPENING a flight does — so clicking a logbook row silently broke every
+   `/compare?ids=…` permalink naming it, and /compare fell back to the empty picker without a word.
+   Thirteen tests encoded the old behaviour; one asserted the opposite outright ("the id is spent
+   once used") and is reversed deliberately.
+
+6. **`18a9627` — the unit switch was not where the page says it is.** `app/page.tsx` says "one click
+   (top-right)". Measured at 1440 px: **0** controls on the analyze landing screen, **0** on the
+   comparison picker, and on a report **x=479, y=483 — 880 px from the right edge** — over a logbook
+   already printing apogee and speed in those units. A `UnitsProvider` above the header on both
+   surfaces that show numbers; the two duplicate copies of the reader/writer collapsed into it.
+
+7. **`1a0e0c3` + `b787b8b` — twenty-one readings a flyer could not look up.** No title, no help
+   affordance and no link on any tile; the methods page defines all of them across 45 blocks and had
+   **zero `id` attributes**. Every block has an anchor now, every reading cites the one that defines
+   it, and three checks hold the lists together (a compiler-checked union, plus tests that each id is
+   rendered as a heading and that every reading cites one over a fixture pinned to produce all 21).
+   The closing cold walk then found the new links at **6x14 px** on a phone — a control at a sixth of
+   the touch floor, which `touch.spec.ts` could not see because its selector never reached into
+   `main`. Hit area expanded with a pseudo-element; the selector widened.
+
 ### What the review caught that the tests didn't
 
 The pre-push agent review paid for itself twice on increment 1, both times on cross-surface honesty —
@@ -85,6 +110,19 @@ baseline gate run before touching anything is what made that a finding rather th
 to fail naming the case. Two were vacuous on the first try and had to be moved: the "no landing dot"
 assert on a fixture with no landing event, and the "no double ingest" assert on a path that never
 dropped on the box.
+
+### Three regressions the gate caught, and how each was diagnosed
+
+- **Refusing drops during `loading`** broke `worker.spec.ts`'s "a slow in-flight analysis does not
+  overwrite a newer load". Superseding a running analysis is designed behaviour.
+- **Twelve tests failing at 30 s** looked exactly like this suite's known load flakiness. The control
+  settled it: stash the change, re-run, **189 passed in 2.6 min**. Then bisecting the two halves of
+  the change put it on the URL wiring. *A control is worth more than an hour of theories.*
+- **`EMFILE: too many open files`** — putting the units provider in the root layout gave every page
+  the client bundle, and the extra chunk requests pushed the e2e static server past its
+  file-descriptor limit PART-WAY THROUGH a run. Every test after that failed with
+  `ERR_CONNECTION_REFUSED`. Found by reading the `[WebServer]` lines in the run log; every test
+  failure pointed somewhere else.
 
 ## Environment notes
 
@@ -118,27 +156,28 @@ dropped on the box.
 
 The eight-lens audit's full output is in `BACKLOG.md`. Ranked by what a flyer loses:
 
-1. **The report has no address, so every in-app link destroys it.** Analyze, Compare, "Read the
-   methods →", and the three footer links all leave the report screen, and the report lives only in
-   React state — its zoom, label and notes go with it. `?open=<id>` and the `#hash` share link can
-   restore one, and neither is offered at the moment of leaving. This is the same one-way door
-   increment 4 closed for drops, still open for clicks.
-2. **The landing screen has no unit control, and the page's own copy says it does** —
-   "switch feet and meters with one click (top-right)" (`app/page.tsx:76`), where the top-right holds
-   ThemeToggle and KofiButton. `UnitsControl` mounts only inside a loaded report or comparison, while
-   the logbook rows on that very screen print apogee and speed in the current units. Doing it properly
-   means lifting the unit choice above `SiteHeader` (a context), which also fixes the audit's separate
-   finding that the control sits somewhere different on each surface.
-3. **Two files sharing a basename collapse to one logbook entry** (`lib/recents.ts`, `isDup` keys on
+1. **The report's label and notes still don't survive the round trip.** The report has an address
+   now, so a link out and Back comes back to the flight — but `reportLabel` and `reportNotes` are
+   per-flight React state cleared on `flight.source`, so the two things a flyer TYPED are the two
+   things still lost. The logbook's own per-flight `note` (IndexedDB, `lib/recents.ts`) is the
+   precedent, and the id to key them on is now stable.
+2. **Two files sharing a basename collapse to one logbook entry** (`lib/recents.ts`, `isDup` keys on
    `name` + `formatLabel` only), which also breaks the comparison permalink that names them by id.
    Common in the wild: a logger that writes every export as `data.csv`.
-4. **The logbook forgets its sort and its search across a navigation the app performs itself**
-   (`RecentFlights.tsx`, plain `useState`), and `useLogbook` has no loading flag, so both surfaces
-   paint a false empty state before the first read lands.
-5. **`EVENT_COLOR.drogue` and `EVENT_COLOR.main` are the same `#0ea5e9`**, so a dual-deploy flight's
+3. **The logbook forgets its sort and its search across a navigation the app performs itself**
+   (`RecentFlights.tsx`, plain `useState`). The audit also filed a false-empty-state flash from
+   `useLogbook` having no loading flag — **not reproducible**: sampled every 20 ms across three visits
+   with 8 flights at 20× CPU throttle on a 390 px viewport, the list painted first every time. In
+   `BACKLOG.md` marked unreproduced rather than fixed.
+4. **`EVENT_COLOR.drogue` and `EVENT_COLOR.main` are the same `#0ea5e9`**, so a dual-deploy flight's
    drogue and main legs are indistinguishable on the new ground track — and on every chart, which has
    always been true. One token, blast radius across the report, the comparison overlay and every
    figure export.
+
+5. **A reload now re-parses and re-analyses the flight**, because the report has an address. That is
+   the same cost as opening it from the logbook and it is the right trade, but it is new: on a big log
+   a refresh is a six-second wait where it used to be instant. Worth a loading state that says which
+   flight is coming back.
 
 `BACKLOG.md` carries the rest, newest first — including the Blue Raven high-rate merge, which is
 still the largest single capability gap and is surveyed in full.
