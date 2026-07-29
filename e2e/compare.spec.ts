@@ -677,3 +677,43 @@ test('a comparison drops the ids it could not read, instead of carrying them for
   await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
   expect(idsOf().slice(0, 2)).toEqual(live);
 });
+
+// A comparison holds six flights. Drop eight and `ingestFiles` stops reading at the sixth — so
+// files seven and eight were never opened, appeared in NO field of the outcome, and this surface
+// derived its "left behind" count from what came BACK rather than from what was dropped. On an
+// empty comparison that arithmetic gave zero: six columns, no note, and two flights gone from the
+// view AND absent from the logbook, under drop-box copy promising "they go into the logbook below
+// on the way through". The analyze page got this right by recomputing from its own input list;
+// the two surfaces disagreed, which is the thing lib/ingest.ts exists to prevent.
+test('a drop past the cap names the files it never read', async ({ page }) => {
+  const bytes = await readFile(fixture('altusmetrum-telemetrum.csv'));
+  const eight = Array.from({ length: 8 }, (_, i) => ({
+    name: `flight-${i + 1}.csv`,
+    mimeType: 'text/csv',
+    buffer: bytes,
+  }));
+
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles(eight);
+  await expect(page.getByRole('heading', { name: 'Comparing 6 flights' })).toBeVisible();
+
+  // Named, not counted — a flyer has to know WHICH two to drop again.
+  const note = page.getByRole('status').filter({ hasText: 'reading stopped there' });
+  await expect(note).toContainText('flight-7.csv');
+  await expect(note).toContainText('flight-8.csv');
+  await expect(note, 'and that they are not where the drop box says they went').toContainText(
+    "aren't in your logbook",
+  );
+  await expect(note, 'and that dropping them again READS them — nothing has said they are flights').toContainText(
+    'to read them',
+  );
+
+  // …and that is the truth, not a hedge: the logbook holds the six that were read, and the two
+  // it names are genuinely absent.
+  await page.goto('/');
+  await expect(page.getByRole('checkbox', { name: /^Select flight-\d\.csv .*to compare$/ })).toHaveCount(6);
+  await expect(
+    page.getByRole('checkbox', { name: /^Select flight-7\.csv/ }),
+    'the file the note named is really not there',
+  ).toHaveCount(0);
+});

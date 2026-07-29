@@ -2,11 +2,19 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — a gate that lies, and two numbers that did
+## This run — a gate that lied, and the sentences that did
 
 Branch restarted from `origin/main` at `1539d69`, level with it at session start (0 ahead, measured
 after `git fetch --prune`). No focus was named, so the queue came from the opening fan-out — eight
-lenses over the app, each finding adversarially verified before anything was scoped.
+lenses over the app, each finding adversarially verified before anything was scoped — and, once
+that queue drained around increment 14, from a second four-lens sweep.
+
+**The through-line of the back half was sentences that were not true**: a comparison panel saying a
+caption would be lost after it had been made to survive; a privacy page naming 2 of 19 stored keys
+and promising a control removed all of them; a report showing "How this file was read" on screen
+and in none of its five exports; a drop that lost files and said nothing. Three of those were
+*introduced or worsened by an increment in this same run* and caught by the pre-push review — which
+is the argument for that review, in one line.
 
 **The baseline gate was RED before anything was touched**, and that was the first finding rather
 than a mystery: `npx serve` crashed twice with `EMFILE` part-way through the e2e run and took three
@@ -15,11 +23,11 @@ depended on it.
 
 ### Shipped to production
 
-Seven PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, increments 1–3),
+Eight PRs merged to `main`, each CI-green before merging: **`ebf0d22`** (#34, increments 1–3),
 **`fcbf447`** (#35, increments 4–5), **`31c58a7`** (#36, increments 6–8), **`d9fda30`** (#37,
-increments 9–10), **`0647267`** (#38, increments 11–12), **`0a440c5`** (#39, increment 13) and
-**`694ca19`** (#40, increment 14). Production is serving **`694ca19`**, confirmed against
-`/version.json` — level with `origin/main`, no gap.
+increments 9–10), **`0647267`** (#38, increments 11–12), **`0a440c5`** (#39, increment 13),
+**`694ca19`** (#40, increment 14) and **`daae740`** (#41, increments 15–16). Production is serving
+**`daae740`**, confirmed against `/version.json` — level with `origin/main`, no gap.
 
 **PR #34 — `ebf0d22`.** Three increments:
 
@@ -160,7 +168,7 @@ increments 9–10), **`0647267`** (#38, increments 11–12), **`0a440c5`** (#39,
     click destroying a launch day's work, permanently once it was stored — and that a real
     double-click on ▶ dropped one of its two moves.
 
-### On the branch, gated green (increment 15)
+**PR #41 — `daae740`.**
 
 15. **The privacy page listed 2 of 19 stored keys and said Clear removed all of it.** It named
     local storage once, as "your theme and units", while the app writes **19** `debrief.*` keys —
@@ -177,6 +185,25 @@ increments 9–10), **`0647267`** (#38, increments 11–12), **`0a440c5`** (#39,
     no cookie anywhere in the app, one IndexedDB (`debrief`, the flights) and one Cache
     (`debrief-runtime-v1`, the offline copy) — both already named on the page. The old "No cookies
     beyond the local theme/units preference" is now "No cookies at all", which is true.
+
+16. **"How this file was read" was on screen and in none of the five exports.** Every writer in
+    `lib/report.ts` rendered `analysis.warnings` and none read `flight.notes`. Measured over the
+    corpus: **29 of the flights that analyse end to end carry a parser note and ZERO reached any
+    export** — so a cert package quoting the iREC TeleMega record never said 1,135 of its 15,938
+    rows were dropped as duplicate timestamps. All four documents carry it now, under the heading
+    the screen uses; an empty section never renders; and the analysis caveats are headed "Worth
+    knowing" like the screen, which no longer collides with the flyer's own notes in the same file.
+
+### On the branch, gated green (increment 17)
+
+17. **Files past the comparison cap vanished — never read, never in the logbook, never named.**
+    `ingestFiles` broke at the cap and the skipped files appeared in NO field of `IngestOutcome`,
+    so `/compare` computed its shortfall from what came BACK: drop 8 logs onto an empty comparison
+    and the arithmetic gave zero, so nothing was said while two flights left the view AND stayed
+    out of the logbook, under drop-box copy promising the opposite. With 4 on screen and 10
+    dropped it named the wrong four. `IngestOutcome.unread` carries them now and both surfaces
+    NAME them — the analyze page had been recomputing the shortfall its own way, which is the
+    cross-surface disagreement `lib/ingest.ts` exists to prevent.
 
 ### What the reviews caught that the tests didn't
 
@@ -275,29 +302,27 @@ and the Label/Notes panel claiming the caption is lost on reload) and one was re
 written up in full at the top of `BACKLOG.md`'s **Correctness / honesty** section. Ranked by what a
 flyer loses:
 
-1. **"How this file was read" is on screen and in none of the five exports.** Every writer in
-   `lib/report.ts` renders `analysis.warnings` and none of them reads `flight.notes` — the parser
-   provenance. Measured: **29 of the flights that analyse end to end carry a parser note, and zero
-   of those notes reach ANY export.** On the iREC TeleMega file the screen says 1,135 of 15,938
-   rows were dropped as duplicate timestamps and the cert package never mentions it. This is the
-   PROVENANCE-FIRST invariant, and it is the single biggest honesty gap left.
-2. **Files past the comparison cap vanish on `/compare`** — never read, never in the logbook, never
-   named, under drop-box copy promising they go into the logbook on the way through. With 4 on
-   screen and 10 dropped the note even names the wrong four. `lib/ingest.ts:131` breaks at the cap
-   so they appear in no field of `IngestOutcome`, and `CompareSurface:165` counts what came back
-   rather than what was dropped. The analyze page gets this right; the two surfaces disagree.
-3. **The logbook has no batch selection** — `toggle(id)` is the only mutator, one id per click. No
+1. **Methods promises a 2D-fix position is kept; the Featherweight GPS parsers drop it with the
+   altitude** (`lib/parsers/featherweightGps.ts:77`). A docs-vs-code gap on a recovery figure, so
+   it wants its own gate and its own corpus run — which is exactly why it was written down rather
+   than fixed at the end of a run.
+2. **A batch where nothing parses throws away every per-file reason and gives advice that cannot
+   work** (`components/Analyzer.tsx:364`). The one remaining ingest-honesty finding from the sweep.
+3. **The "one choice" hide-readings control silently fails across the two surfaces** — the same
+   reading is keyed on two different labels (`lib/report.ts:743`), so "what I care about",
+   answered once on the flight report, is not what the comparison hides.
+4. **The logbook has no batch selection** — `toggle(id)` is the only mutator, one id per click. No
    select-all, no shift-click range, no "compare everything this search matched". The copy-out half
    shipped as increment 12; this is the half that remains.
-4. **Two footer links sit under the 44 px touch floor on a phone**, and `touch.spec.ts` cannot see
+5. **Two footer links sit under the 44 px touch floor on a phone**, and `touch.spec.ts` cannot see
    them. Measured at 390 px with `hasTouch: true` — which is what makes the `@media (pointer:
    coarse)` rule apply, and without it every control measures small and the reading is worthless:
    `Privacy` is 42x44 (two pixels under on width) and `ADA.gov →` is 59x16. Both are in the
    footer's navigation row, which the CSS comment calls a target row and pads rather than sizes.
-5. **`landedInRecord` conflates two questions and `descentSource: 'second-copy'` splits them** —
+6. **`landedInRecord` conflates two questions and `descentSource: 'second-copy'` splits them** —
    see `BACKLOG.md`. Latent (no corpus file reaches it), which is exactly why it was written down
    rather than fixed blind on a safety number.
-6. **The max-Q atmosphere is measured, and the obvious fix was REFUSED** — rebuilding the
+7. **The max-Q atmosphere is measured, and the obvious fix was REFUSED** — rebuilding the
    atmosphere on `altAt` moved jan10's max-Q to t=3.14 s, v=646.5 m/s at a stated 11.4 m, which is
    physically impossible and more confidently wrong than what is there. The full measurement is in
    `BACKLOG.md`. Do not re-attempt it without a plan for the altitude reference itself.
@@ -307,8 +332,14 @@ The Blue Raven high-rate merge remains the largest single capability gap and is 
 
 ## The fixtures repo
 
-No commit there this run. Nothing changed a fixture's contract: the corpus was used to *measure*
-(37 analysed end to end; 3 carrying a main leg with no landing; 2 of 2 same-flight groups mixing a
-landed main with one that stops in the air) rather than to re-cut anything. The three flights and
-both groups are named in the asserts, so a fixture entering or leaving those states is a visible
-change rather than a silent one.
+No commit there this run — the working tree is clean and the branch still sits on its previous
+run's `4862db7`. Nothing changed a fixture's contract: the corpus was used to *measure* rather than
+to re-cut anything.
+
+The full split, printed by forcing the count assert to fail rather than inferred: **61 fixtures —
+37 analysed end to end, 7 mapped-but-unanalysable (three AltOS `.eeprom`, two Entacore `.xtra`, one
+`.bin`, one MissileWorks `.rff`), 9 parse-only, 8 rejected.** Of the 37: 3 carry a main leg with no
+landing; 2 of 2 same-flight groups mix a landed main with one that stops in the air; and **29 carry
+at least one parser note**, which is the number increment 16 was measured against. Those flights
+and both groups are named in the asserts, so a fixture entering or leaving one of those states is a
+visible change rather than a silent one.

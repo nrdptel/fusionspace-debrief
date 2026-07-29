@@ -7,7 +7,7 @@ import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogb
 import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
-import { ingestFiles } from '@/lib/ingest';
+import { ingestFiles, unreadNote } from '@/lib/ingest';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
 import { flightFromMapping } from '@/lib/mapped';
@@ -143,7 +143,7 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired, forgotten } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
       logbook.refresh();
 
@@ -160,13 +160,25 @@ export default function CompareSurface() {
       const fresh = ids.filter((id) => !current.includes(id));
       const merged = [...current, ...fresh].slice(0, MAX_COMPARE);
       // What the cap left behind, named — a comparison silently one flight short is the same
-      // kind of quiet loss the logbook's prune used to be. They are in the logbook either way,
-      // which is where the flyer picks a different set from.
+      // kind of quiet loss the logbook's prune used to be.
+      //
+      // TWO different things, and saying one sentence about both named the wrong files. Flights
+      // that LOADED but did not fit the merge are in the logbook, which is where the flyer picks a
+      // different set from. Files `ingestFiles` never opened are not in the logbook at all —
+      // nothing read them — and this surface could not see them, so on an empty comparison it
+      // computed an overflow of zero and said nothing while two of eight dropped files vanished.
       const overflow = [...current, ...fresh].length - merged.length;
+      // NOT "the last N": that count is measured over the merged candidate list, so on a drop of
+      // ten onto four already there it means candidates 3–6 — while a flyer who just dropped eight
+      // files reads "the last 4" as the last four THEY dropped, which are among the ones never
+      // read. Two sentences naming different files with the same words.
       const overflowNote =
         overflow > 0
-          ? ` A comparison holds ${MAX_COMPARE} flights, so ${overflow === 1 ? 'the last one' : `the last ${overflow}`} stayed in your logbook — use “Compare other flights” to pick a different set.`
+          ? ` A comparison holds ${MAX_COMPARE} flights, so ${overflow === 1 ? 'one of them stayed' : `${overflow} of them stayed`} in your logbook — use “Compare other flights” to pick a different set.`
           : '';
+      // Built in lib/ingest.ts, so the two surfaces cannot drift into saying it differently — and
+      // so the claims it makes about the logbook are made in one place, where they are tested.
+      const notRead = unreadNote(unread, results.map((r) => r.name), MAX_COMPARE);
 
       // A file that needs mapping is only offered when the flights it would join have an
       // address — that address is what it rejoins them at. It is the MERGED one: gating on this
@@ -190,14 +202,14 @@ export default function CompareSurface() {
           : '';
 
       if (merged.length >= 2) {
-        void load(merged, true, `${leftNote}${pairedNote}${overflowNote}`.trim() || undefined);
+        void load(merged, true, `${leftNote}${pairedNote}${overflowNote}${notRead}`.trim() || undefined);
         return;
       }
       setState('picking');
       setNote(
         results.length === 0
-          ? `Nothing in that drop could be read as a flight.${leftNote}`
-          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}${pairedNote}`,
+          ? `Nothing in that drop could be read as a flight.${leftNote}${notRead}`
+          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}${pairedNote}${notRead}`,
       );
     },
     [load, logbook],
@@ -379,7 +391,9 @@ export default function CompareSurface() {
         </p>
         <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
           Drop {MAX_COMPARE} or fewer and they&apos;re compared straight away; they go into the
-          logbook below on the way through, and never leave this device.
+          logbook below on the way through, and never leave this device. Reading stops once{' '}
+          {MAX_COMPARE} flights are in — that&apos;s one stroke colour each, and more than that is
+          a chart nobody can read — so anything after them is named for you rather than opened.
         </p>
         <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
           Choose flight logs
