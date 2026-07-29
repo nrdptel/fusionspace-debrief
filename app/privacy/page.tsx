@@ -3,6 +3,8 @@ import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_URL, REPO_URL } from '@/lib/links';
+import { DEVICE_DATA, DEVICE_DATA_KINDS, deviceDataOfKind } from '@/lib/deviceData';
+import ForgetDeviceData from '@/components/ForgetDeviceData';
 
 const GITHUB_ISSUES = `${REPO_URL}/issues`;
 
@@ -49,21 +51,53 @@ export default function PrivacyPage() {
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
               <strong>Recent flights</strong> — kept in your browser&apos;s local database
-              (IndexedDB) so you can reopen a file without choosing it again.
-            </li>
-            <li>
-              <strong>Your theme and units</strong> — a small local-storage value remembering
-              light/dark and feet/metres.
+              (IndexedDB) so you can reopen a file without choosing it again. This is the one the
+              logbook&apos;s own <em>Clear</em> takes, and it says how many and what goes with them.
             </li>
             <li>
               <strong>An offline copy of the app</strong> — a service worker caches Debrief&apos;s own
               pages and code (so it works without a signal at the field). It caches the app itself,
               never your flight files.
             </li>
+            <li>
+              <strong>{DEVICE_DATA.length} small settings</strong> — everything below, in local
+              storage. Some of it is more than a preference, so it is all named rather than
+              summarised.
+            </li>
           </ul>
-          <p className="mt-2">
-            Clearing your browser data (or using the &ldquo;clear&rdquo; control on the recents list)
-            removes all of it.
+
+          {/* Rendered from lib/deviceData.ts, which is the list the app actually writes: a test
+              greps the source for `debrief.*` and fails if a key is stored without appearing
+              here. This section used to read "Your theme and units — a small local-storage value"
+              while nineteen keys existed, including the flyer's own typed text and their rocket's
+              dimensions, and it said the logbook's Clear removed all of it while Clear took the
+              flights and one key. A privacy page a person cannot check is not one. */}
+          <div className="mt-4 space-y-4">
+            {DEVICE_DATA_KINDS.map((k) => (
+              <div key={k.kind}>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{k.heading}</h3>
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{k.lede}</p>
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+                  {deviceDataOfKind(k.kind).map((d) => (
+                    <li key={d.key}>
+                      {d.what} <code className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{d.key}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-4">
+            None of it is sent anywhere, and none of it identifies you — but a shared or borrowed
+            laptop is exactly the case a privacy page is for, so here is the control that takes all
+            of it at once. The flights are separate: they live in the local database above, and the
+            logbook&apos;s own <em>Clear</em> is what removes those.
+          </p>
+          <ForgetDeviceData />
+          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+            Clearing your browser data for this site removes everything on this page, the flights
+            and the offline copy together.
           </p>
         </section>
 
@@ -75,6 +109,13 @@ export default function PrivacyPage() {
             Browsers never send the fragment to a server, so the flight still isn&apos;t uploaded —
             the link works because whoever opens it decodes it in their own browser. Treat a share
             link like the file itself: only send it to people you&apos;d give the flight to.
+          </p>
+          <p className="mt-2">
+            One consequence worth knowing, since the rest of this page is exhaustive about what is
+            kept: opening a share link leaves the whole flight in that browser&apos;s{' '}
+            <strong>address bar and session history</strong>. That is the browser&apos;s own record
+            of where you have been rather than Debrief&apos;s storage — nothing above reaches it,
+            and clearing history is what does.
           </p>
         </section>
 
@@ -103,7 +144,10 @@ export default function PrivacyPage() {
           </h2>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>No tracking pixels, advertising, or third-party analytics.</li>
-            <li>No cookies beyond the local theme/units preference described above.</li>
+            <li>
+              No cookies at all. The settings above are local storage, which is a different thing:
+              it stays in your browser and is never attached to a request.
+            </li>
             <li>No selling, renting, or sharing of anything — there is nothing to share.</li>
           </ul>
         </section>
