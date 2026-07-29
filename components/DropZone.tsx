@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
 
 export default function DropZone({
   onFiles,
@@ -59,7 +60,7 @@ export default function DropZone({
           type="file"
           multiple
           aria-label="Choose a flight log file"
-          accept=".csv,.txt,.log,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept={FLIGHT_FILE_ACCEPT}
           className="sr-only"
           onChange={(e) => pick(e.target.files)}
         />
