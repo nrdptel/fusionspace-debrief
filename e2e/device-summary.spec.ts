@@ -138,7 +138,7 @@ test('a paired device summary survives a backup and restore', async ({ page }) =
   expect(paired, 'the backup file carries the summary text').toBeTruthy();
 
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
-  await page.getByRole('button', { name: /tap to confirm/ }).click();
+  await page.getByRole('button', { name: /^Delete (all \d+|it)$/ }).click();
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
 
   await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath);
