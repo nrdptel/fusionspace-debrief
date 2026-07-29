@@ -25,7 +25,7 @@ import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
 import { copyTable } from '@/lib/copyTable';
-import { landedInRecord, landingRate } from '@/lib/readings';
+import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import GpsApogee from './GpsApogee';
@@ -574,10 +574,9 @@ export default function FlightReport({
   // that clock and every reading is on seconds-since-liftoff, so the offset is what tells a
   // reader the two are describing the same instant. Null where the file already starts at
   // liftoff and the note would say nothing.
-  const liftoffOnLogClock = (() => {
-    const l = events.find((e) => e.type === 'liftoff');
-    return l && Number.isFinite(l.time) && l.time >= 0.05 ? l.time : null;
-  })();
+  // Shared with the recovery map's readout, which prints a time on the same clock — see
+  // lib/readings.ts, so the two surfaces cannot decide differently whether to name it.
+  const liftoffClock = liftoffOnLogClock(events);
 
   // Where a flyer can jump to. The report runs 5,472 px on a desktop and 7,710 px — nine
   // screens — on a phone, and carried no in-page links at all, so coming back to check one
@@ -1086,9 +1085,9 @@ export default function FlightReport({
               the ground-station GPS log puts apogee at 973.0 s here and 13.0 s in the grid,
               and 27 of the corpus's 45 flights disagree by half a second or more. Naming the
               clock and where liftoff falls on it reconciles them without moving either. */}
-          {liftoffOnLogClock != null && (
+          {liftoffClock != null && (
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              log clock · liftoff at {fmtTime(liftoffOnLogClock)}
+              log clock · liftoff at {fmtTime(liftoffClock)}
             </span>
           )}
         </div>
@@ -1188,6 +1187,7 @@ export default function FlightReport({
           descentFromIndex={(events.find((e) => e.type === 'main') ?? events.find((e) => e.type === 'apogee'))?.index}
           apogeeIndex={events.find((e) => e.type === 'apogee')?.index}
           apogeeAltitude={metrics.apogeeAltitude}
+          events={events}
         />
       )}
 

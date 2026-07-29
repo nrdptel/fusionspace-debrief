@@ -928,3 +928,141 @@ test('the events list names its clock, so it reconciles with the readings', asyn
   expect(Number.isFinite(apogeeOnLogClock), 'the events list states an apogee time').toBe(true);
   expect(Math.abs(liftoff + toApogee - apogeeOnLogClock), `${liftoff} + ${toApogee} should be ${apogeeOnLogClock}`).toBeLessThan(0.6);
 });
+
+// The ground track used to be a picture: a canvas with role="img" and no handler on it, so
+// "where was it at 40 s, and how far is that from the road" could only be answered by
+// exporting KML and opening Google Earth. It reads now — by pointer, by touch and by
+// keyboard.
+test('the ground track can be read at a point, without a mouse', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: 'Recovery' })).toBeVisible();
+
+  const map = page.locator('canvas[aria-describedby="ground-track-readout"]');
+  const readout = page.locator('#ground-track-readout');
+  await map.scrollIntoViewIfNeeded();
+  // Nothing is claimed until something is picked, and the line says how to pick one.
+  await expect(readout).toContainText(/arrow keys/);
+
+  // The keyboard path. PageDown steps event to event, which is how a flight's shape is
+  // read off the ground in four keystrokes rather than four hundred.
+  await map.focus();
+  await expect(map).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(readout).not.toContainText(/arrow keys/);
+  await page.keyboard.press('PageDown'); // liftoff
+  await page.keyboard.press('PageDown'); // burnout
+  const atBurnout = (await readout.innerText()).trim();
+  expect(atBurnout, `burnout reading: ${atBurnout}`).toMatch(/after burnout/);
+  // What the map states is a GROUND position, and only that. It deliberately carries no
+  // altitude: the honest ascent height is `altAt`'s (lib/analyze/index.ts), which withholds
+  // only where the barometric trace is actually contradicted, and a fourth surface guessing
+  // at that rule disagreed with the Events list in both directions during review — first
+  // publishing −694 ft at a burnout the Events list prints "—" for, then withholding a
+  // burnout height the Events list publishes as 1,600 ft.
+  expect(atBurnout, `the map must not state a height: ${atBurnout}`).not.toMatch(/AGL/);
+  expect(atBurnout).toMatch(/from pad · \d+° [NESW]+/);
+
+  // The time is on the LOG's clock, like the Events list beside it — and where that clock
+  // doesn't start at liftoff, the readout says so rather than printing a bare number that
+  // disagrees with every reading in the grid.
+  const eventsNote = await page.evaluate(() => {
+    const h = document.getElementById('events');
+    return h?.parentElement?.querySelector('span')?.textContent?.trim() ?? '';
+  });
+  const mapNamesClock = /log clock · liftoff at/.test(atBurnout);
+  expect(
+    mapNamesClock,
+    `the map and the Events list must make the same call about naming the clock; events said "${eventsNote}", map said "${atBurnout}"`,
+  ).toBe(/log clock · liftoff at/.test(eventsNote));
+
+  await page.keyboard.press('PageDown'); // apogee
+  await expect(readout).toContainText(/after apogee/);
+
+  // Escape puts it back, so a reading is never a state with no way out of it.
+  await page.keyboard.press('Escape');
+  await expect(readout).toContainText(/arrow keys/);
+
+  // The key names the events the dots on the track are drawn for, in flight order.
+  const key = page.getByRole('list', { name: 'What the dots on the map mark' });
+  await expect(key).toContainText('Liftoff');
+  await expect(key).toContainText('Apogee');
+
+  // And the pointer reads the same element, rather than a second readout that can disagree.
+  const box = (await map.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.5);
+  await expect(readout).not.toContainText(/arrow keys/);
+  await page.mouse.move(box.x - 80, box.y - 80);
+  await expect(readout).toContainText(/arrow keys/);
+
+  // A gesture the browser takes for scrolling is not a choice. The map deliberately does
+  // not own the touch action (a thumb must be able to scroll the report past a 356 px
+  // block), so a finger landing on it fires pointerdown — and then pointercancel when the
+  // UA claims the gesture. Without clearing on that, scrolling past the map leaves a
+  // distance and bearing for a fix nobody picked, with Escape the only way out and no
+  // keyboard on a phone.
+  await page.evaluate(() => {
+    const c = document.querySelector('canvas[aria-describedby="ground-track-readout"]')!;
+    const r = c.getBoundingClientRect();
+    c.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.6, clientY: r.top + r.height * 0.5, bubbles: true, pointerType: 'touch' }));
+  });
+  await expect(readout).not.toContainText(/arrow keys/);
+  await page.evaluate(() => {
+    const c = document.querySelector('canvas[aria-describedby="ground-track-readout"]')!;
+    c.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerType: 'touch' }));
+  });
+  await expect(readout).toContainText(/arrow keys/);
+
+  // Hovering is not a choice either: the visible line follows the pointer, but nothing is
+  // announced. A live region fed from pointermove reads a new position aloud per pixel.
+  const spoken = page.locator('p.sr-only[role="status"]');
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.5);
+  await expect(readout).not.toContainText(/arrow keys/);
+  await expect(spoken).toHaveText('');
+  await map.focus();
+  await page.keyboard.press('End');
+  await expect(spoken).toContainText(/from the pad, bearing/);
+});
+
+// The two asserts above that this fixture cannot exercise, on the one that can:
+// `featherweight-gps-groundstation.csv` carries a Landing event AND a log clock that starts
+// 180 s before liftoff. Split out rather than left in the first test, where both passed
+// while proving nothing — the file has no landing event and its clock offset is 0.
+test('the recovery map marks a landing once, and names the clock it reads', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-gps-groundstation.csv'));
+  await expect(page.getByRole('heading', { name: 'Recovery' })).toBeVisible();
+
+  // The Events list has a Landing, so the omission below is a decision, not an absence.
+  const events = page.locator('#events').locator('xpath=../..');
+  await expect(events).toContainText('Landing');
+
+  // …and the map's key does NOT repeat it. The ✕ already marks the landing, placed at
+  // `stats.landingIndex` — the last valid fix — while the landing event has its own index.
+  // On featherweight-gps.csv those are samples 479 and 474: a second dot would put a second
+  // landing position on the same card, a different distance from the pad than the stat
+  // grid right beneath it.
+  const key = page.getByRole('list', { name: 'What the dots on the map mark' });
+  await expect(key).toContainText('Apogee');
+  await expect(key).not.toContainText('Landing');
+
+  // This file's clock starts 180 s before liftoff, so a bare time off the map would
+  // disagree with every reading in the grid — apogee reads 193 s here and 13 s there.
+  // Both surfaces name the clock, from one helper (lib/readings.ts), or neither does.
+  const map = page.locator('canvas[aria-describedby="ground-track-readout"]');
+  const readout = page.locator('#ground-track-readout');
+  await map.scrollIntoViewIfNeeded();
+  await map.focus();
+  await page.keyboard.press('End');
+  await expect(readout).toContainText(/log clock · liftoff at/);
+  const eventsNote = await page.evaluate(() => {
+    const h = document.getElementById('events');
+    return h?.parentElement?.querySelector('span')?.textContent?.trim() ?? '';
+  });
+  const mapNote = ((await readout.innerText()).match(/log clock · liftoff at [\d.,]+ s/) ?? [''])[0];
+  expect(mapNote, `map "${mapNote}" vs events "${eventsNote}"`).toBe(eventsNote);
+});

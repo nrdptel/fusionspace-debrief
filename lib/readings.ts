@@ -64,6 +64,20 @@ export function landedInRecord(m: FlightMetrics): boolean {
   return m.descentSource != null;
 }
 
+/** Where liftoff falls on the LOG's own clock, or null where the file already starts at
+ *  liftoff and the two clocks are the same number.
+ *
+ *  Two surfaces now print a time on the log's clock — the Events list and the recovery
+ *  map's readout — while every reading in the grid and the exports is seconds since
+ *  liftoff. On 27 of the corpus's 45 flights those disagree by half a second or more, and
+ *  on the ground-station GPS log by 960 s (apogee at 973.0 s against 13.0 s). Naming the
+ *  clock reconciles them without moving either, and the rule for whether to name it lives
+ *  here so a second surface cannot decide it differently from the first. */
+export function liftoffOnLogClock(events: { type: string; time: number }[]): number | null {
+  const l = events.find((e) => e.type === 'liftoff');
+  return l && Number.isFinite(l.time) && l.time >= 0.05 ? l.time : null;
+}
+
 /** The landing descent rate, or null where the record never reached the ground — the one
  *  place that decision is made, so a panel cannot read a rate the flight didn't land at. */
 export function landingRate(m: FlightMetrics): number | null {

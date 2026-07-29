@@ -1,14 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { fmtLength, fmtSpeed, lengthIn, unitsOf } from '@/lib/display';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fmtLength, fmtSpeed, fmtTime, lengthIn, unitsOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { groundTrack, recoveryStats, compass, trackGpx, trackKml, descentWind, ascentLean, windProfile } from '@/lib/gps';
+import type { FlightEvent } from '@/lib/analyze/types';
+import { EVENT_COLOR } from '@/lib/eventStyle';
+import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+
+/** The plot is square and capped, so a wide column doesn't stretch a north-up map. */
+const MAX_SIZE = 420;
 
 /** A round ring spacing (1/2/5 × 10ⁿ) giving a handful of rings across `maxM`. */
 function niceStep(maxM: number): number {
@@ -17,6 +23,30 @@ function niceStep(maxM: number): number {
   const norm = raw / pow;
   const mult = norm >= 5 ? 5 : norm >= 2 ? 2 : 1;
   return Math.max(1, mult * pow);
+}
+
+/** Where the flight was, and what it was doing, at one fix — everything the readout
+ *  under the map states. `phase` is the event the leg started at, so the track's
+ *  colour and this line always name the same thing. */
+interface FixReading {
+  index: number;
+  /** Seconds on the LOG's own clock — the base the charts and the Events list use, named
+   *  as such beside the readout. On a file whose clock doesn't start at liftoff this is a
+   *  different number from the seconds-since-liftoff the readings grid quotes, and the
+   *  ground-station GPS log puts apogee at 973.0 s here against 13.0 s there. */
+  t: number;
+  /** Metres from the pad, and the compass bearing from the pad to here. */
+  distM: number;
+  bearing: number;
+  /** The last event at or before this fix — what the rocket was doing here.
+   *
+   *  NOTE: no height. The map is a plan view and the app already states altitude in three
+   *  places that adjudicate it properly; a fourth statement here would have to reproduce
+   *  `altAt` (lib/analyze/index.ts), which withholds an ascent altitude only where the
+   *  barometric trace is actually contradicted. A first cut withheld every pre-apogee
+   *  height instead, which said "no height" at a burnout the Events list publishes as
+   *  1,600 ft — the same cross-surface disagreement, in the other direction. */
+  phase: FlightEvent | null;
 }
 
 /** The recovery (walkback) view: a north-up, equal-scale ground track of where
@@ -33,6 +63,7 @@ export default function GroundTrack({
   apogeeIndex,
   apogeeAltitude,
   landed,
+  events,
 }: {
   lat: Float64Array;
   lon: Float64Array;
@@ -54,12 +85,26 @@ export default function GroundTrack({
   /** Apogee sample index and altitude (m AGL), for the off-vertical reading. */
   apogeeIndex?: number;
   apogeeAltitude?: number;
+  /** The flight's events, aligned with the same sample clock. They colour the track leg
+   *  by leg — each leg takes the colour of the event that began it, the same token the
+   *  charts mark that event with — and give the readout something to name a fix by. */
+  events?: FlightEvent[];
 }) {
   const dark = useIsDark();
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
   const [copied, setCopied] = useState(false);
+  /** The fix being read, if any. Set by a hover, a tap, or the arrow keys — one piece of
+   *  state, so the pointer and the keyboard drive the same marker and the same line of
+   *  text rather than two parallel readouts that can disagree. */
+  const [cursor, setCursor] = useState<number | null>(null);
+  /** Whether the fix in `cursor` was chosen deliberately (a key press or a tap) rather than
+   *  swept over with a pointer. Only a deliberate choice is announced: a hover crossing the
+   *  map changes the fix on nearly every pixel, and a live region fed from that would read
+   *  a new position aloud per pointer sample. */
+  const [deliberate, setDeliberate] = useState(false);
 
   const track = useMemo(() => groundTrack(lat, lon), [lat, lon]);
   const stats = useMemo(() => (track ? recoveryStats(track) : null), [track]);
@@ -88,16 +133,99 @@ export default function GroundTrack({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const ro = new ResizeObserver(() => setWidth(host.clientWidth));
+    // `contentRect` is the CONTENT box — the room inside the card's own p-4. `clientWidth`,
+    // which this used to read, includes that padding, so the map was drawn 32 px wider than
+    // the space it had: at a 390 px viewport the card ended at x=374 and the canvas ran to
+    // x=389, hanging 15 px out of its own border and stopping 1 px short of the screen edge.
+    // Invisible on a desktop, where the 420 px cap bites long before the padding does.
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
     ro.observe(host);
-    setWidth(host.clientWidth);
     return () => ro.disconnect();
   }, []);
 
+  const size = Math.min(width, MAX_SIZE);
+
+  /** The pad-centred, equal-scale projection, plus the screen position of every fix.
+   *  One computation feeds three consumers — the map, the hover hit-test and the
+   *  highlight overlay — so a point can never be drawn somewhere the pointer doesn't
+   *  find it. `valid` lists the indices that actually have a fix, in order, which is
+   *  also the sequence the arrow keys step along. */
+  const proj = useMemo(() => {
+    if (!track || size <= 0) return null;
+    const { east, north } = track;
+    let half = 10;
+    for (let i = 0; i < east.length; i++) {
+      if (!Number.isFinite(east[i]) || !Number.isFinite(north[i])) continue;
+      half = Math.max(half, Math.abs(east[i]), Math.abs(north[i]));
+    }
+    half *= 1.12;
+    const margin = 16;
+    const scale = (size / 2 - margin) / half;
+    const px = (e: number) => size / 2 + e * scale;
+    const py = (n: number) => size / 2 - n * scale; // north is up
+    const valid: number[] = [];
+    for (let i = 0; i < east.length; i++) {
+      if (Number.isFinite(east[i]) && Number.isFinite(north[i])) valid.push(i);
+    }
+    return { half, scale, px, py, valid };
+  }, [track, size]);
+
+  /** Every event on the flight's clock, in order — what names the phase a fix falls in.
+   *  This is the WHOLE list, including events the GPS has no fix for: naming the phase only
+   *  from events that happen to land on a fix means a dropout over apogee silently relabels
+   *  the entire descent "after burnout". `altusmetrum-telemetrum.csv` alone carries 108
+   *  non-finite fixes in 529 samples, so that is a live case, not a corner. */
+  const phases = useMemo(() => {
+    if (!events) return [];
+    return events.filter((e) => e.index >= 0).slice().sort((a, b) => a.index - b.index);
+  }, [events]);
+
+  /** The subset that can actually be DRAWN on the ground — an event with no fix has no
+   *  position, and pinning it to the nearest one would put a labelled dot somewhere the
+   *  rocket wasn't. Landing is excluded deliberately: the ✕ already marks it, and it is
+   *  placed at `stats.landingIndex` (the last valid fix) rather than at the landing event's
+   *  index. On `featherweight-gps.csv` those are samples 474 and 479 — two dots, two
+   *  distances from the pad, one landing. */
+  const marks = useMemo(() => {
+    if (!track) return [];
+    const n = Math.min(track.east.length, track.north.length);
+    return phases.filter(
+      (e) => e.type !== 'landing' && e.index < n && Number.isFinite(track.east[e.index]) && Number.isFinite(track.north[e.index]),
+    );
+  }, [track, phases]);
+
+  /** Whether the log's clock needs naming beside a time read off it — the same call the
+   *  Events list makes, from the same helper. */
+  const liftoffClock = useMemo(() => liftoffOnLogClock(phases), [phases]);
+
+  /** Read one fix into the line of text under the map. */
+  const readAt = useCallback(
+    (i: number): FixReading | null => {
+      if (!track) return null;
+      const e = track.east[i];
+      const no = track.north[i];
+      if (!Number.isFinite(e) || !Number.isFinite(no)) return null;
+      let bearing = (Math.atan2(e, no) * 180) / Math.PI;
+      if (bearing < 0) bearing += 360;
+      let phase: FlightEvent | null = null;
+      for (const m of phases) {
+        if (m.index <= i) phase = m;
+        else break;
+      }
+      return {
+        index: i,
+        t: time && i < time.length ? time[i] : NaN,
+        distM: Math.hypot(e, no),
+        bearing,
+        phase,
+      };
+    },
+    [track, phases, time],
+  );
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !track || !stats || width <= 0) return;
-    const size = Math.min(width, 420);
+    if (!canvas || !track || !stats || !proj || size <= 0) return;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = size * dpr;
     canvas.height = size * dpr;
@@ -114,17 +242,7 @@ export default function GroundTrack({
     ctx.clearRect(0, 0, size, size);
 
     const { east, north } = track;
-    // Equal-scale bounds about the pad, with a little breathing room.
-    let half = 10;
-    for (let i = 0; i < east.length; i++) {
-      if (!Number.isFinite(east[i]) || !Number.isFinite(north[i])) continue;
-      half = Math.max(half, Math.abs(east[i]), Math.abs(north[i]));
-    }
-    half *= 1.12;
-    const margin = 16;
-    const scale = (size / 2 - margin) / half;
-    const px = (e: number) => size / 2 + e * scale;
-    const py = (n: number) => size / 2 - n * scale; // north is up
+    const { half, scale, px, py } = proj;
 
     // Range rings centred on the pad, labelled in the display unit.
     const step = niceStep(half);
@@ -146,23 +264,52 @@ export default function GroundTrack({
     ctx.fillText('N', size / 2, 12);
     ctx.textAlign = 'start';
 
-    // The track itself, skipping gaps in the fix.
-    ctx.strokeStyle = accent;
+    // The track itself, skipping gaps in the fix. Each leg is stroked in the colour of
+    // the event that began it — the same token the charts mark that event with — so the
+    // shape on the ground reads as boost, coast, drogue and main rather than as one
+    // undifferentiated squiggle. With no events (or none that land on a fix) the whole
+    // track is the accent, exactly as before.
     ctx.lineWidth = 1.75;
-    ctx.beginPath();
-    let pen = false;
-    for (let i = 0; i < east.length; i++) {
-      if (!Number.isFinite(east[i]) || !Number.isFinite(north[i])) {
-        pen = false;
-        continue;
+    let legAt = 0;
+    let legColor = marks.length > 0 ? (dark ? '#a1a1aa' : '#71717a') : accent; // before the first event: on the pad
+    const strokeLeg = (from: number, to: number, color: string) => {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      let pen = false;
+      for (let i = from; i <= to && i < east.length; i++) {
+        if (!Number.isFinite(east[i]) || !Number.isFinite(north[i])) {
+          pen = false;
+          continue;
+        }
+        const x = px(east[i]);
+        const y = py(north[i]);
+        if (pen) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+        pen = true;
       }
-      const x = px(east[i]);
-      const y = py(north[i]);
-      if (pen) ctx.lineTo(x, y);
-      else ctx.moveTo(x, y);
-      pen = true;
+      ctx.stroke();
+    };
+    for (const m of marks) {
+      // Legs overlap by one sample so consecutive colours meet rather than leaving a
+      // one-segment hole at every event.
+      if (m.index > legAt) strokeLeg(legAt, m.index, legColor);
+      legAt = m.index;
+      legColor = EVENT_COLOR[m.type];
     }
-    ctx.stroke();
+    strokeLeg(legAt, east.length - 1, legColor);
+
+    // A dot on the ground at each event, in the event's own colour — where the rocket
+    // was when it lit, burned out, topped out and put its charges out.
+    for (const m of marks) {
+      ctx.fillStyle = EVENT_COLOR[m.type];
+      ctx.strokeStyle = dark ? '#18181b' : '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px(east[m.index]), py(north[m.index]), 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1.75;
 
     // Pad marker (origin).
     ctx.strokeStyle = ink;
@@ -184,7 +331,132 @@ export default function GroundTrack({
     ctx.moveTo(lx + 5, ly - 5);
     ctx.lineTo(lx - 5, ly + 5);
     ctx.stroke();
-  }, [track, stats, width, dark, sys]);
+  }, [track, stats, proj, marks, size, dark, sys]);
+
+  /** The highlight, on its own canvas above the map. A separate layer so following the
+   *  pointer costs one dot and a crosshair rather than a full redraw of a track that can
+   *  run to tens of thousands of fixes. */
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay || !track || !proj || size <= 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    overlay.width = size * dpr;
+    overlay.height = size * dpr;
+    overlay.style.width = `${size}px`;
+    overlay.style.height = `${size}px`;
+    const ctx = overlay.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    if (cursor == null) return;
+    const e = track.east[cursor];
+    const no = track.north[cursor];
+    if (!Number.isFinite(e) || !Number.isFinite(no)) return;
+    const x = proj.px(e);
+    const y = proj.py(no);
+    // The line back to the pad IS the reading — distance and bearing from the pad are
+    // what the text says, drawn so the two can't be read as different things.
+    ctx.strokeStyle = dark ? 'rgba(228,228,231,0.55)' : 'rgba(39,39,42,0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(size / 2, size / 2);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // A hollow ring in the page's own ink, not a filled dot in the accent — `#6366f1` is
+    // `EVENT_COLOR.liftoff` and the default track stroke, so a filled indigo marker read as
+    // one more event dot instead of "you are here". A ring reads as a cursor at any size,
+    // and it doesn't hide the fix it is marking.
+    ctx.strokeStyle = dark ? '#fafafa' : '#18181b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = dark ? '#18181b' : '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, 7.75, 0, Math.PI * 2);
+    ctx.stroke();
+  }, [cursor, track, proj, size, dark]);
+
+  /** The fix nearest the pointer, in screen space. Nearest-in-pixels rather than
+   *  nearest-along-the-track: on a canopy descent the track doubles back over itself, and
+   *  a flyer pointing at a spot means the spot, not the earlier pass over it. */
+  const nearestTo = useCallback(
+    (cx: number, cy: number): number | null => {
+      if (!track || !proj) return null;
+      let best = -1;
+      let bestD = Infinity;
+      for (const i of proj.valid) {
+        const dx = proj.px(track.east[i]) - cx;
+        const dy = proj.py(track.north[i]) - cy;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      }
+      // Beyond this the pointer isn't over the track at all, and snapping to a fix a
+      // third of the map away would state a reading the flyer never asked for.
+      return best >= 0 && bestD <= 40 * 40 ? best : null;
+    },
+    [track, proj],
+  );
+
+  const onPointer = useCallback(
+    (ev: React.PointerEvent<HTMLCanvasElement>) => {
+      const rect = ev.currentTarget.getBoundingClientRect();
+      setCursor(nearestTo(ev.clientX - rect.left, ev.clientY - rect.top));
+      setDeliberate(ev.type === 'pointerdown');
+    },
+    [nearestTo],
+  );
+
+  /** Arrow keys walk the track, so every reading the hover gives is reachable without a
+   *  pointer — and on a phone, where there is no hover at all, a tap does the same thing.
+   *  Home/End are the pad and the last fix; PageUp/PageDown jump event to event, which is
+   *  how you get to "where was it at apogee" in one keystroke rather than four hundred. */
+  const onKeyDown = useCallback(
+    (ev: React.KeyboardEvent<HTMLCanvasElement>) => {
+      if (!proj || proj.valid.length === 0) return;
+      const valid = proj.valid;
+      const at = cursor == null ? -1 : valid.indexOf(cursor);
+      const go = (pos: number) => {
+        ev.preventDefault();
+        setCursor(valid[Math.max(0, Math.min(valid.length - 1, pos))]);
+        setDeliberate(true);
+      };
+      const step = ev.shiftKey ? 10 : 1;
+      switch (ev.key) {
+        case 'ArrowRight':
+        case 'ArrowUp':
+          return go(at < 0 ? 0 : at + step);
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          return go(at < 0 ? valid.length - 1 : at - step);
+        case 'Home':
+          return go(0);
+        case 'End':
+          return go(valid.length - 1);
+        case 'PageDown': {
+          const next = marks.find((m) => m.index > (cursor ?? -1));
+          if (next) go(valid.indexOf(next.index));
+          return;
+        }
+        case 'PageUp': {
+          const prev = [...marks].reverse().find((m) => m.index < (cursor ?? Infinity));
+          if (prev) go(valid.indexOf(prev.index));
+          return;
+        }
+        case 'Escape':
+          ev.preventDefault();
+          setDeliberate(false);
+          return setCursor(null);
+      }
+    },
+    [proj, cursor, marks],
+  );
 
   if (!track || !stats) return null;
 
@@ -202,6 +474,16 @@ export default function GroundTrack({
         sys,
       )} from the pad.`;
 
+  const reading = cursor == null ? null : readAt(cursor);
+  /** The same line the map shows, as a sentence, for the sr-only live region — empty unless
+   *  the fix was chosen deliberately, so a hover announces nothing. */
+  const announced =
+    reading && deliberate
+      ? `${Number.isFinite(reading.t) ? `${fmtTime(reading.t)}, ` : ''}${fmtLength(reading.distM, sys)} from the pad, bearing ${Math.round(
+          reading.bearing,
+        )} degrees ${compass(reading.bearing)}${reading.phase ? `, after ${reading.phase.label.toLowerCase()}` : ''}.`
+      : '';
+
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -212,7 +494,98 @@ export default function GroundTrack({
       </div>
 
       <div ref={hostRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <canvas ref={canvasRef} role="img" aria-label={ariaLabel} className="mx-auto block" />
+        <div className="relative mx-auto" style={{ width: size || undefined, height: size || undefined }}>
+          <canvas
+            ref={canvasRef}
+            role="img"
+            aria-label={`${ariaLabel} Focus this map and use the arrow keys to read a fix — Home and End for its ends, Page Up and Page Down to step between events, Escape to clear.`}
+            aria-describedby="ground-track-readout"
+            tabIndex={0}
+            onPointerMove={onPointer}
+            onPointerDown={onPointer}
+            /* Only a mouse leaving clears the reading. A touch pointer is *removed* when
+               the finger lifts, so the browser fires pointerleave immediately after
+               pointerup — an unguarded clear here wiped every tap on a phone the instant
+               it landed, and the map read as if it did nothing at all. */
+            onPointerLeave={(ev) => {
+              if (ev.pointerType === 'mouse') setCursor(null);
+            }}
+            /* …but a gesture the browser TAKES for scrolling is not a tap, and leaving that
+               reading on screen pins a fix the flyer never chose: a thumb that lands on the
+               map to scroll the report past it would otherwise leave a distance and bearing
+               behind, with Escape (no keyboard) the only way out. `pointercancel` is exactly
+               the signal that the UA claimed the gesture. */
+            onPointerCancel={() => setCursor(null)}
+            onKeyDown={onKeyDown}
+            /* No `touch-none`: the map is 358 px tall on a phone, and owning the touch
+               gesture there would mean a thumb that lands on it can't scroll the report
+               past it. A tap reads a fix (pointerdown), a drag still scrolls the page. */
+            className="block cursor-crosshair"
+          />
+          <canvas ref={overlayRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0" />
+        </div>
+
+        {/* The reading itself. It holds its height whether or not a fix is picked, so
+            following the track doesn't shove the page up and down under the pointer, and it
+            is the same element for hover, tap and the arrow keys.
+            NOT a live region. It was one, and that was wrong: `onPointerMove` sets a new
+            fix on nearly every pixel of travel, so a mouse crossing the map would have
+            queued an announcement per pointer sample. The announcements live in the
+            sr-only region below, which only discrete choices write to. */}
+        <p
+          id="ground-track-readout"
+          className="mx-auto mt-3 min-h-[2.5rem] max-w-[420px] text-center text-xs text-zinc-600 dark:text-zinc-400"
+        >
+          {reading ? (
+            <>
+              <span className="font-mono">
+                {Number.isFinite(reading.t) && <>{fmtTime(reading.t)} · </>}
+                {fmtLength(reading.distM, sys)} from pad · {Math.round(reading.bearing)}°{' '}
+                {compass(reading.bearing)}
+                {reading.phase && <> · after {reading.phase.label.toLowerCase()}</>}
+              </span>
+              {/* Which clock that time is on. The Events list above states the same thing for
+                  the same reason: these are the log's own seconds, what the charts are drawn
+                  against, while every reading in the grid is seconds since liftoff. On the
+                  ground-station GPS log the two differ by 960 s for one instant. Shown only
+                  where the file's clock doesn't already start at liftoff, so a flight where
+                  they agree isn't given a distinction it doesn't have. */}
+              {liftoffClock != null && (
+                <span className="mt-0.5 block">log clock · liftoff at {fmtTime(liftoffClock)}</span>
+              )}
+            </>
+          ) : (
+            <>Point at the track — or focus it and use the arrow keys — to read where the rocket was, when.</>
+          )}
+        </p>
+
+        {/* What a screen reader hears, and only when a fix was chosen deliberately — a key
+            press or a tap, never a hover. Hovering is a pointer user's gesture and produces
+            no announcement at all; the visible line above still follows the pointer. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {announced}
+        </p>
+
+        {/* The key. It is the events list, in the colours the charts already draw them in,
+            so a dot on the ground and a dashed line on the altitude plot are the same
+            event rather than two things that happen to look similar. */}
+        {marks.length > 0 && (
+          <ul
+            aria-label="What the dots on the map mark"
+            className="mx-auto mt-2 flex max-w-[420px] flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400"
+          >
+            {marks.map((m) => (
+              <li key={`${m.type}-${m.index}`} className="inline-flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: EVENT_COLOR[m.type] }}
+                />
+                {m.label}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">

@@ -142,6 +142,42 @@ memory, so a later pass doesn't have to rediscover them.
   - **[M] The ground track has no per-phase colour, no hover readout and no measure tool** (AltosUI's
     Map tab has all three, incl. a distance tool). "Where was it at 40 s, and how far is that from the
     road" needs an export to Google Earth today.
+    **DONE except the measure tool.** The map was a `role="img"` canvas with no handler on it at all;
+    it now colours each leg with the colour of the event that began it (the same `EVENT_COLOR` token
+    the charts mark that event with), draws a dot at each event, and reads a fix under the pointer, a
+    tap, or the arrow keys — Home/End for the ends, PageUp/PageDown event to event, Escape to clear.
+    The readout states the time (on the log's clock, named the way the Events list names it), the
+    distance and bearing from the pad, and the phase.
+    **It deliberately states NO altitude, and that took two goes to get right.** The first cut read
+    `series.altitude[i]` and published **−694 ft AGL at burnout** on the IREC TeleMega — the exact
+    instant the Events list correctly prints "—", because `altAt` (lib/analyze/index.ts) withholds an
+    ascent altitude where the barometric trace contradicts the flight's own speed. The second cut
+    over-corrected to "no height before apogee", which then said *nothing* at a burnout the Events
+    list publishes as **1,600 ft** on `altusmetrum-telemetrum.csv` — the same cross-surface
+    disagreement, in the other direction. A map is a plan view and the app already adjudicates
+    altitude in three places; a fourth surface reproducing `altAt` by eye is what both cuts were.
+    Still missing: a **measure tool** (drag between two points for a distance) — the half of AltosUI's
+    Map tab this didn't cover — and a bearing/distance between two picked fixes rather than only from
+    the pad.
+
+- **`EVENT_COLOR.drogue` and `EVENT_COLOR.main` are the same value** (`#0ea5e9`, sky-500, in
+  `lib/eventStyle.ts`), and `EVENT_COLOR.liftoff` is `#6366f1` — byte-identical to the charts' default
+  altitude stroke and to what the recovery map used for its own "you are here" marker until this run
+  (now a hollow ring in the page ink, because a filled indigo dot read as one more event marker). So
+  on a dual-deploy flight the drogue leg and the main leg of the ground track paint identically, and
+  their two key swatches are the same blue against different labels. The charts have always had this
+  — a drogue and a main draw the same dashed sky line — so fixing it is a one-token change with a
+  blast radius across the report, the comparison overlay and every figure export, not a map-local
+  patch. Worth doing deliberately; the labels carry the meaning meanwhile.
+
+- **The GPS channels come from the unsliced flight while the analysis series can be sliced.**
+  `FlightReport` passes `lat={gpsLat.values}` off the raw `flight`, while `series.time` comes from
+  `analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1)` (lib/analyze/index.ts:606) on a file that
+  holds its flight twice. Structurally the track would then span both copies while the time base
+  stopped at the cut. **Measured across the corpus: 10 fixtures carry a latitude channel and 0 of
+  them mismatch** — every doubled-recording file is a Blue Raven, which has no GPS. So this is a real
+  shape with no real file behind it: worth knowing before adding a GPS-carrying doubled log to the
+  corpus, not worth a guard that fires on nothing today.
   - **[M] The smoothing width is fixed and a baro-only log gets no acceleration trace at all.** AltosUI
     exposes a filter width ("a larger value smooths the data more") and computes both speed and
     acceleration from barometric data on accelerometer-less altimeters. A StratoLogger or Eggtimer
