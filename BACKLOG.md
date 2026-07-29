@@ -1857,6 +1857,23 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Hardening
 
+- **DONE — three of the six waits said "Reading the file…", and a failure was never announced.**
+  `phase:'loading'` was entered six times and only three carried a file name. One of the silent ones
+  is now the path a **reload and a Back** take, because a report has an address — and coming back
+  means parsing and analysing the flight again, six seconds on a phone with an 11 MB log. An unnamed
+  six-second wait reads as stuck and gets tapped again. The reopen names the flight (and the logbook
+  read before it), and a batch drop says how many files and how much rather than "the file". The
+  error banner gained `role="alert"`: it replaces a status line a screen reader was following, so
+  arriving silently meant the wait simply stopped with nothing said.
+
+- **DONE — `worker.spec.ts`'s big-log test raced its own precondition.** It dispatched the second
+  drop on `[aria-label="Flight log drop zone"]`, which is on screen only while the app is idle or
+  loading — so whenever the 200,000-row analysis finished first there was nothing to dispatch on and
+  it timed out at 30 s waiting for an element that had correctly gone away. It failed in three of
+  five full runs once the suite got slower. It no longer needs the element (a drop anywhere is read
+  now) and dispatches on `body`, after waiting for the "Reading …" status — which is what makes it
+  test what its name says: the second drop must land while the first analysis is still running.
+
 - **DONE — the logbook forgot flights and said nothing.** `saveRecent`'s prune keeps every noted
   flight plus the most recent `MAX = 12` un-noted ones, and it runs on every save. Measured: drop 15
   distinct flights and the logbook holds **12** — `flight-01`, `-02` and `-03` gone, named nowhere on

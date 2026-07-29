@@ -53,7 +53,20 @@ test('a slow in-flight analysis does not overwrite a newer load', async ({ page 
     d.items.add(new File(['t,h,spd\n0,0,0\n0.1,5,50\n0.2,12,80\n0.3,6,-10'], 'mystery.csv', { type: 'text/csv' }));
     return d;
   });
-  await page.locator('[aria-label="Flight log drop zone"]').dispatchEvent('drop', { dataTransfer: dt });
+  // Dispatched on the BODY, once the big flight is confirmed to be mid-analysis.
+  //
+  // This used to wait for the drop zone and dispatch on it, which is a race the test cannot
+  // win: the drop zone is on screen only while the app is idle or loading, so if the
+  // 200,000-row analysis happened to finish first there was nothing to dispatch on and the
+  // test timed out waiting for an element that had correctly gone away. It also no longer
+  // needs it — a file dropped ANYWHERE is read now, which is the whole point of the
+  // window-level drop — and body is on screen in every phase.
+  //
+  // Waiting for the "Reading …" status first is what makes this test test what it says: the
+  // second drop has to land while the first analysis is still running, or "a slow in-flight
+  // analysis does not overwrite a newer load" is proving nothing.
+  await expect(page.getByRole('status').filter({ hasText: /Reading/ })).toBeVisible({ timeout: 20_000 });
+  await page.locator('body').dispatchEvent('drop', { dataTransfer: dt });
 
   // The mapper is the newer action, so it has to appear — waited for, not slept past. A
   // fixed sleep here made this test flaky: a 200,000-row analysis on a loaded machine can

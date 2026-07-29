@@ -257,7 +257,12 @@ export default function Analyzer() {
         return;
       }
       const set = beginLoad();
-      set({ phase: 'loading' });
+      // "the file" is wrong for a folder, and this is the longest wait the app has — every file
+      // parsed and analysed in turn. Say how many, and how much.
+      set({
+        phase: 'loading',
+        what: { name: `${list.length} files`, bytes: list.reduce((n, f) => n + f.size, 0) },
+      });
       await tick();
       // One set of rules for what a launch day's folder holds, shared with the comparison
       // surface so the two can't disagree about it (see lib/ingest.ts).
@@ -451,12 +456,22 @@ export default function Analyzer() {
 
   const openRecent = useCallback(
     async (id: string) => {
-      setState({ phase: 'loading' });
+      // Named as soon as the record is in hand rather than left as a bare "Reading the file…".
+      // This path is no longer only "clicked a logbook row": a report has an address now, so a
+      // reload and a Back both come through here, and both mean parsing and analysing the flight
+      // again — six seconds on a phone with an 11 MB log. A wait that long has to say what it is
+      // waiting for, or it reads as stuck.
+      // Two frames, and NEITHER is the generic "Reading the file…": the first covers the
+      // logbook read, which is all that is known before the record is in hand, and the second
+      // names the flight once it is. The generic fallback is what this path used to show for
+      // the whole wait.
+      setState({ phase: 'loading', what: { name: 'your saved flight' } });
       const rec = await getRecent(id);
       if (!rec) {
         setState({ phase: 'error', message: 'That saved flight could no longer be read.' });
         return;
       }
+      setState({ phase: 'loading', what: { name: rec.name, bytes: rec.text.length } });
       await tick();
       await ingest(rec.name, rec.text, rec.mapping, rec.summaryText);
     },
@@ -573,7 +588,13 @@ export default function Analyzer() {
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && <ReadingNote what={state.what} />}
       {state.phase === 'error' && (
-        <div className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300">
+        // `alert`, not a bare div: this is the only account of what went wrong with a file, and
+        // it replaces a status line a screen reader had been following ("Reading …"), so
+        // arriving silently means the wait simply stops with nothing said.
+        <div
+          role="alert"
+          className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300"
+        >
           {state.message}
         </div>
       )}

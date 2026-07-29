@@ -1183,3 +1183,61 @@ test('a reading says where its definition is, and the link lands on it', async (
   const top = await target.evaluate((el) => el.getBoundingClientRect().top);
   expect(top, `#${id} landed at y=${top}`).toBeLessThan(120);
 });
+
+// A wait has to say what it is waiting for. Three of the six transitions into `loading` passed
+// no file name, so they fell back to "Reading the file…" — and one of them is now the path a
+// RELOAD and a Back take, since a report has an address: coming back to a flight means parsing
+// and analysing it again, which is six seconds on a phone with an 11 MB log. A six-second
+// unnamed wait reads as stuck and gets tapped again.
+test('a wait names the flight it is reading, and a failure is announced', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  // Polled, not read once: the address is the logbook id, which only exists when the save
+  // resolves — a moment after the report paints. Reading it immediately passes on a quiet
+  // machine and races under parallel workers.
+  await expect.poll(() => new URL(page.url()).searchParams.get('open')).not.toBeNull();
+  const address = page.url();
+
+  // Reopen it the way a reload does, and record what the wait said. Watched from INSIDE the
+  // page with a MutationObserver rather than polled from the driver: a poll loop here was
+  // running 200 `evaluate` round-trips against a page that is parsing a flight, and this suite
+  // runs two workers — it was tipping the 200,000-row worker test over its own 30 s deadline.
+  // A test that destabilises its neighbours is a bad test even when it passes.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __waits: string[] };
+    w.__waits = [];
+    const record = () => {
+      for (const el of document.querySelectorAll('[role="status"]')) {
+        const t = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (/Reading/.test(t) && !w.__waits.includes(t)) w.__waits.push(t);
+      }
+    };
+    // Observed on `document`, not `document.documentElement`: an init script runs before any
+    // page script, when the root element does not exist yet and observing it throws.
+    new MutationObserver(record).observe(document, { childList: true, subtree: true, characterData: true });
+    record();
+  });
+  await page.goto(address);
+  await expect(page.locator('#readings-heading')).toBeVisible({ timeout: 20_000 });
+  const said = new Set<string>(await page.evaluate(() => (window as unknown as { __waits: string[] }).__waits));
+  // Asserted on what was NEVER said rather than on catching one frame: the wait passes through
+  // two states (the logbook read, then the flight itself) and either can be too short to
+  // sample. What must never appear on this path is the generic fallback.
+  const heard = [...said].join(' | ') || '(nothing)';
+  expect(said.size, `no wait was observed at all; sampled: ${heard}`).toBeGreaterThan(0);
+  const generic = [...said].filter((t) => /Reading the file/.test(t));
+  expect(generic, `the reopen wait fell back to the generic line; sampled: ${heard}`).toEqual([]);
+
+  // And a file that can't be read announces itself, rather than replacing a status line a
+  // screen reader was following with a silent one.
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'empty.csv', mimeType: 'text/csv', buffer: Buffer.from('   ') });
+  // Scoped to the page's own content: Next ships a permanent `__next-route-announcer__` with
+  // role="alert", so an unscoped query matches two things and says nothing useful about either.
+  await expect(page.locator('main [role="alert"]')).toContainText(/empty/i);
+});
