@@ -80,3 +80,49 @@ export function personalBests(recents: RecentMeta[]): { apogeeId: string | null;
     speedId: uniqueMaxId(recents, (r) => r.maxVelocityMs),
   };
 }
+
+/**
+ * What to CALL each flight where a name has to identify it on its own — the accessible name
+ * of a row's select, note and remove controls, and any message that names a flight the flyer
+ * can no longer see.
+ *
+ * Two flights can share a file name: plenty of loggers write every export under one fixed
+ * name, and the logbook keeps them apart by their contents rather than collapsing them. A
+ * unique name is not optional here — three pairs of identically-named controls that do
+ * different things is a screen reader with no way to tell which row it is on.
+ *
+ * So: the bare name where it is already unique; otherwise the facts the row itself paints,
+ * which are what a flyer would use to tell them apart; and where even those collide — a
+ * batch drop of one rocket's files all read "just now", and two apogees can round to the
+ * same figure — an ordinal, because SOMETHING has to be different.
+ *
+ * Returned as a map rather than a predicate so the "is it unique" question is answered once
+ * over the whole list instead of per row, and numbered against the list's own order, which
+ * does not move when the flyer re-sorts the view.
+ */
+export function logbookRowNames(recents: RecentMeta[], fmtApogee: (m: number) => string, opened: (addedAt: number) => string): Map<string, string> {
+  const tally = (xs: string[]) => xs.reduce((m, x) => m.set(x, (m.get(x) ?? 0) + 1), new Map<string, number>());
+
+  const byName = tally(recents.map((r) => r.name));
+  const described = recents.map((r) => {
+    if ((byName.get(r.name) ?? 0) < 2) return r.name;
+    const when = r.flownAt ? `flown ${formatFlownAt(r.flownAt)}` : `opened ${opened(r.addedAt)}`;
+    return `${r.name}, ${when}${r.apogeeM != null ? `, apogee ${fmtApogee(r.apogeeM)}` : ''}`;
+  });
+
+  const byDescription = tally(described);
+  const used = new Map<string, number>();
+  const out = new Map<string, string>();
+  recents.forEach((r, i) => {
+    const label = described[i];
+    const total = byDescription.get(label) ?? 0;
+    if (total < 2) {
+      out.set(r.id, label);
+      return;
+    }
+    const n = (used.get(label) ?? 0) + 1;
+    used.set(label, n);
+    out.set(r.id, `${label} (${n} of ${total})`);
+  });
+  return out;
+}

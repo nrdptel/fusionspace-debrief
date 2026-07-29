@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortRecents, filterRecents, personalBests } from './logbook';
+import { sortRecents, filterRecents, personalBests, logbookRowNames } from './logbook';
 import type { RecentMeta } from './recents';
 
 const rec = (id: string, addedAt: number, apogeeM: number | null, maxVelocityMs: number | null): RecentMeta => ({
@@ -107,5 +107,49 @@ describe('sorting and searching by the launch day', () => {
     const list = [at('a', '2021-10-30T20:07'), at('b', '2024-05-11T14:09')];
     expect(filterRecents(list, 'oct 2021').map((r) => r.id)).toEqual(['a']);
     expect(filterRecents(list, '2024-05').map((r) => r.id)).toEqual(['b']);
+  });
+});
+
+// A flight's file name stopped being unique the moment the logbook started keeping two files
+// that share one. These names are what a screen reader reads off the three controls on a row,
+// so "unique" is the requirement, not a nicety.
+describe('logbookRowNames', () => {
+  const ft = (m: number) => `${Math.round(m * 3.28084).toLocaleString()} ft`;
+  const opened = () => 'just now';
+  const row = (id: string, name: string, apogeeM: number | null, stamp?: string): RecentMeta => ({
+    id,
+    name,
+    formatLabel: 'Test',
+    addedAt: 0,
+    apogeeM,
+    maxVelocityMs: null,
+    note: '',
+    ...(stamp ? { flownAt: { stamp, zone: 'UTC' as const } } : {}),
+  });
+
+  it('leaves a name that is already unique alone', () => {
+    const names = logbookRowNames([row('a', 'one.csv', 300), row('b', 'two.csv', 900)], ft, opened);
+    expect([...names.values()]).toEqual(['one.csv', 'two.csv']);
+  });
+
+  it('describes a repeated name by what the row already shows', () => {
+    const names = logbookRowNames([row('a', 'data.csv', 300), row('b', 'data.csv', 900)], ft, opened);
+    expect(names.get('a')).toBe('data.csv, opened just now, apogee 984 ft');
+    expect(names.get('b')).toBe('data.csv, opened just now, apogee 2,953 ft');
+  });
+
+  it('still tells apart two flights that agree on every fact the row shows', () => {
+    // The case the description alone cannot reach, and the likeliest one: a batch drop of one
+    // rocket's files all read "just now", carry no launch date, and can round to one figure.
+    const names = logbookRowNames([row('a', 'data.csv', 300), row('b', 'data.csv', 300)], ft, opened);
+    expect(names.get('a')).toBe('data.csv, opened just now, apogee 984 ft (1 of 2)');
+    expect(names.get('b')).toBe('data.csv, opened just now, apogee 984 ft (2 of 2)');
+  });
+
+  it('never gives two flights the same name, whatever they have in common', () => {
+    const same = ['a', 'b', 'c', 'd'].map((id) => row(id, 'data.csv', null));
+    const names = logbookRowNames(same, ft, opened);
+    expect(new Set(names.values()).size, `collided: ${[...names.values()].join(' / ')}`).toBe(4);
+    expect(names.size).toBe(4);
   });
 });

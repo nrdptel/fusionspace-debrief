@@ -71,6 +71,28 @@ export const UNNOTED_MAX = 12;
 const MAX = UNNOTED_MAX;
 const NOTED_MAX = 50; // hard cap on kept noted flights, to bound storage
 
+/** The parts of a stored flight that decide whether two entries are the same flight. */
+type FlightIdentity = Pick<RecentFlight, 'name' | 'formatLabel' | 'text'>;
+
+/**
+ * Two logbook entries are the same flight when they are the same FILE: the same name, read by
+ * the same parser, with the same bytes behind it.
+ *
+ * The name alone is not identity, and treating it as identity lost flights. Plenty of loggers
+ * write every export under one fixed name, so a launch day arrives as six files all called
+ * `data.csv` — and keying on the name meant the second one REPLACED the first: the earlier
+ * entry deleted outright, its id handed to the newer flight (so `/?open=<id>` and every
+ * `/compare?ids=…` naming it now resolved to different numbers), and its note and report label
+ * transplanted onto a flight that was never theirs. A drop of six returned six flights on
+ * screen and one row in the logbook, and nothing anywhere said which five had gone.
+ *
+ * Reopening a flight must stay a replace-in-place — that is what keeps its address stable —
+ * and it does: a reopen saves the text it was stored with, so it matches itself exactly.
+ */
+export function isSameStoredFlight(a: FlightIdentity, b: FlightIdentity): boolean {
+  return a.name === b.name && a.formatLabel === b.formatLabel && a.text === b.text;
+}
+
 function idb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') return reject(new Error('no indexedDB'));
@@ -123,7 +145,7 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
   try {
     const db = await idb();
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
-    const isDup = (r: RecentFlight) => r.name === rec.name && r.formatLabel === rec.formatLabel;
+    const isDup = (r: RecentFlight) => isSameStoredFlight(r, rec);
     const store = tx(db, 'readwrite');
     // Swallow a quota/abort failure (e.g. a very large file text) instead of
     // letting it surface as an uncaught transaction error.

@@ -7,7 +7,9 @@ import { readFileSync } from 'node:fs';
 // flight — note and all — returns. Everything stays on-device; the "file" never
 // leaves the browser except as a download the user keeps.
 
-function eggtimerCsv(): string {
+/** `peak` is the apogee in the file's own units — the parameter exists so two flights can be
+ *  told apart by their numbers rather than by their file names. */
+function eggtimerCsv(peak = 300): string {
   const lines = ['T,Alt,VRaw,VFilt'];
   let tms = 0;
   const push = (alt: number, v: number) => {
@@ -15,8 +17,8 @@ function eggtimerCsv(): string {
     tms += 100;
   };
   for (let i = 0; i < 20; i++) push(0, 0);
-  for (let i = 0; i < 30; i++) push((i / 30) ** 0.5 * 300, 200 * (1 - i / 30));
-  for (let i = 0; i < 80; i++) push(Math.max(0, 300 - i * 4), -20);
+  for (let i = 0; i < 30; i++) push((i / 30) ** 0.5 * peak, 200 * (1 - i / 30));
+  for (let i = 0; i < 80; i++) push(Math.max(0, peak - i * (peak / 75)), -20);
   return lines.join('\n');
 }
 
@@ -373,6 +375,72 @@ test('reopening a flight keeps its id, so a comparison permalink still resolves'
   // The permalink taken before the reopen still resolves to the comparison.
   await page.goto(permalink);
   await expect(page.getByText(/Comparing 2 flights/)).toBeVisible();
+});
+
+// Plenty of loggers write every export under one fixed name, so a launch day arrives as six
+// files all called `data.csv`. The logbook keyed a flight on its file name, so the second one
+// REPLACED the first: the earlier entry deleted outright, its id handed to the newer flight —
+// and that id is what `/?open=<id>` and every `/compare?ids=…` resolve through, so a row the
+// flyer clicked gave back numbers that were never its own.
+test('two flights that share a file name are two flights, not one', async ({ page }) => {
+  await page.goto('/');
+  for (const peak of [300, 1200]) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name: 'data.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv(peak)) });
+    await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+
+  const stored = () =>
+    page.evaluate(async () => {
+      const db: IDBDatabase = await new Promise((res) => {
+        const q = indexedDB.open('debrief');
+        q.onsuccess = () => res(q.result);
+      });
+      const all: { id: string; name: string; apogeeM: number | null; addedAt: number }[] = await new Promise((res) => {
+        const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+        q.onsuccess = () => res(q.result);
+      });
+      return all
+        .sort((a, b) => a.addedAt - b.addedAt)
+        .map((r) => ({ id: r.id, name: r.name, apogeeM: r.apogeeM, addedAt: r.addedAt }));
+    });
+
+  const entries = await stored();
+  expect(entries.map((e) => e.name), 'both were dropped under the one name').toEqual(['data.csv', 'data.csv']);
+  expect(new Set(entries.map((e) => e.id)).size, 'each flight keeps its own address').toBe(2);
+  expect(entries[0].apogeeM).toBeLessThan(entries[1].apogeeM as number);
+
+  const rows = page.getByRole('list', { name: 'Your flights' }).getByRole('listitem');
+  await expect(rows, 'both flights are in the logbook').toHaveCount(2);
+
+  // The three controls on a row named the flight by file name alone, which left a screen
+  // reader two identically-named buttons that open different flights.
+  const labels = await rows.getByRole('checkbox').evaluateAll((els) =>
+    els.map((e) => e.getAttribute('aria-label') ?? ''),
+  );
+  expect(new Set(labels).size, `both rows offer the same control: ${JSON.stringify(labels)}`).toBe(2);
+
+  // …and the first flight's address still gives back the first flight.
+  //
+  // Reopening SAVES — a replace in place is what keeps a logbook id stable — and that save is
+  // fired after the report is on screen rather than awaited before it. So wait for the write
+  // to LAND before reading the store: "nothing was deleted, nothing was rewritten" asserted
+  // against a store the reopen has not touched yet is satisfied by any behaviour at all.
+  // `addedAt` is stamped on every save, so a bumped one is the reopen's own write arriving.
+  await page.goto(`/?open=${entries[0].id}`);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect
+    .poll(async () => (await stored()).find((e) => e.id === entries[0].id)?.addedAt ?? 0)
+    .toBeGreaterThan(entries[0].addedAt);
+
+  const after = await stored();
+  expect(after, 'a reopen must not delete the other flight').toHaveLength(2);
+  expect(
+    after.find((r) => r.id === entries[0].id)?.apogeeM,
+    'a reopen must not rewrite the flight it opened',
+  ).toBeCloseTo(entries[0].apogeeM as number, 3);
 });
 
 // The report has an address, so a link out and Back comes back to the flight — and the label
