@@ -128,8 +128,16 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
     // drop established has to survive it or reopening a paired flight would silently
     // un-pair it — the second time, not the first, which is the worst way to lose a thing.
     const inheritedSummary = rec.summaryText ?? all.find((r) => isDup(r) && r.summaryText)?.summaryText;
-    for (const r of all) if (isDup(r)) store.delete(r.id);
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // KEEP the id when this file is already in the logbook. A logbook id is an ADDRESS —
+    // `/?open=<id>` is the report's, and `/compare?ids=a,b,c` names a comparison's flights —
+    // and minting a fresh one on every save quietly broke both. Measured: two flights
+    // dropped, a comparison permalink taken, then flight one reopened (which is all a click
+    // on its logbook row does) — its id changed, and the permalink fell back to the empty
+    // picker without a word about the flights it could no longer find. A save is a replace
+    // in place, so the address it replaces is the address it should keep.
+    const existing = all.find(isDup);
+    const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    for (const r of all) if (isDup(r) && r.id !== id) store.delete(r.id);
     store.put({
       ...rec,
       note: inheritedNote,

@@ -230,8 +230,9 @@ test('measures the parachute Cd from the descent, and remembers the inputs', asy
   await expect(panel.getByText(/terminal · rule of thumb/)).toBeVisible();
 
   // The inputs stick across a reload (localStorage).
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('region', { name: 'Parachute Cd (measured)' }).getByLabel(/Canopy diameter/)).toHaveValue(
     '36',
   );
@@ -254,8 +255,9 @@ test('measures the drogue Cd from the drogue-phase descent on a dual-deploy flig
   await expect(panel.getByText(/in the thinner air aloft/)).toBeVisible();
 
   // The inputs stick across a reload (localStorage).
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('region', { name: 'Drogue Cd (measured)' }).getByLabel(/Drogue diameter/)).toHaveValue('15');
 });
 
@@ -276,8 +278,9 @@ test('measures the drag coefficient from the coast, and remembers the inputs', a
   await expect(drag.getByText(/over Mach/)).toBeVisible();
 
   // The inputs stick across a reload (localStorage).
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByLabel(/Coast mass/)).toHaveValue('53');
   await expect(page.getByLabel(/Body diameter/)).toHaveValue('2.1');
 });
@@ -295,8 +298,9 @@ test('reports rail-exit velocity from a logged velocity, and remembers the rail'
 
   // Picking a different rail length sticks across a reload (localStorage).
   await page.getByLabel('Launch rail length').selectOption({ label: '12 ft (3.7 m)' });
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByLabel('Launch rail length')).toHaveValue(/3\.6/);
 });
 
@@ -331,8 +335,9 @@ test('computes landing energy from a supplied descending mass, and remembers it'
   expect(md).toMatch(/Landing energy \| [\d.]+ ft·lbf \(at [\d.]+ oz descending\)/);
 
   // The mass sticks across a reload (localStorage).
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByLabel(/Descending mass/)).toHaveValue('24');
 });
 
@@ -369,8 +374,9 @@ test('reads the main deploy altitude and checks it against a set value', async (
   expect(md).toMatch(/Main deploy check \| fired at [\d,]+ ft, set 500 ft —/);
 
   // The set altitude sticks across a reload (localStorage).
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('region', { name: 'Main deploy altitude' }).getByLabel(/Set main deploy altitude/)).toHaveValue(
     '500',
   );
@@ -391,8 +397,9 @@ test('frames the coast time as the ideal ejection delay and checks a flown delay
   await expect(panel.getByText(/fires about .* before/)).toBeVisible();
 
   // The flown delay sticks across a reload (localStorage).
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('region', { name: 'Ejection delay' }).getByLabel(/Motor delay flown/)).toHaveValue('4');
 });
 

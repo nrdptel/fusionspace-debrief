@@ -88,8 +88,9 @@ test('units choice survives a reload', async ({ page }) => {
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await page.getByRole('button', { name: /Units:/ }).click();
   await expect(page.getByRole('button', { name: /Units:/ })).toContainText('meters');
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: /Units:/ })).toContainText('meters');
 });
 

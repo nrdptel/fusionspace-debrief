@@ -105,6 +105,34 @@ function readInitialUnits(): UnitChoice {
   );
 }
 
+/**
+ * Give the report on screen an address, or take it away again.
+ *
+ * The report lived only in React state, so every one of the SEVEN in-app links on that
+ * screen — Analyze and Compare in the header, "Read the methods →", and Methods, Validation
+ * and Privacy in the footer — destroyed it. Measured: click "Read the methods →", press
+ * Back, and you land on an empty drop zone. The flight itself survives in the logbook, but
+ * the report's zoom, its label, its notes and any per-quantity unit override do not, and
+ * nothing in the URL says which row to reopen.
+ *
+ * `?open=<id>` already restores a flight — the effect below has always read it. It also
+ * DELETED it from the URL immediately, which is precisely what left the address blank. Kept
+ * now, so Back, a refresh and a bookmark all land back on the flight.
+ *
+ * The id is a logbook key on this device, not flight data: nothing about the flight travels,
+ * and a link opened elsewhere resolves to nothing and says so.
+ */
+function rememberOpenId(id: string | null): void {
+  try {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('open', id);
+    else url.searchParams.delete('open');
+    window.history.replaceState(null, '', url);
+  } catch {
+    /* a browser refusing history writes — the report is still on screen */
+  }
+}
+
 /** Remember the choice on this device and put it in the URL, so a refresh, a shared
  *  link and the next visit all read the same way. */
 function rememberUnits(next: UnitChoice): void {
@@ -206,6 +234,7 @@ export default function Analyzer() {
             ...(mapping ? { mapping } : {}),
             text,
           }).then((saved) => {
+            rememberOpenId(saved.id);
             logbook.reportForgotten(saved.forgotten);
             logbook.refresh();
           });
@@ -300,6 +329,7 @@ export default function Analyzer() {
             ),
           );
         }
+        rememberOpenId(null);
         set({
           phase: 'compare',
           comparison: buildComparison(inputs),
@@ -309,6 +339,7 @@ export default function Analyzer() {
         });
       } else if (results.length === 1) {
         const r = results[0];
+        rememberOpenId(r.savedId ?? null);
         set({
           phase: 'report',
           flight: r.flight,
@@ -384,7 +415,11 @@ export default function Analyzer() {
           }
         }
         set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
-        if (!addToIds) void save.then(logbook.refresh);
+        if (!addToIds)
+          void save.then((savedId) => {
+            rememberOpenId(savedId);
+            logbook.refresh();
+          });
       } catch (err) {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
       }
@@ -392,7 +427,10 @@ export default function Analyzer() {
     [state, logbook.refresh, beginLoad, sys],
   );
 
-  const reset = useCallback(() => setState({ phase: 'idle' }), []);
+  const reset = useCallback(() => {
+    rememberOpenId(null);
+    setState({ phase: 'idle' });
+  }, []);
 
   // A file dropped ANYWHERE reaches the app, rather than making the browser navigate to it —
   // see components/useWindowFileDrop.ts. The mapper is the ONLY phase that can't take it: a
@@ -483,9 +521,8 @@ export default function Analyzer() {
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('open');
     if (!id) return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete('open');
-    window.history.replaceState(null, '', url);
+    // Deliberately NOT stripped from the URL any more: it is the report's address, and
+    // removing it is what made Back land on an empty drop zone.
     void openRecent(id);
     // openRecent is stable; this runs once for the id the page arrived with.
     // eslint-disable-next-line react-hooks/exhaustive-deps

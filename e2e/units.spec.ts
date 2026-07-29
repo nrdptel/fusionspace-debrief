@@ -69,9 +69,10 @@ test('the choice rides in the URL and is remembered on this device', async ({ pa
   await expect(page).toHaveURL(/[?&]u=/);
   expect(await read(page)).toMatch(/km\/h/);
 
-  // A reload reads it back from the URL…
+  // A reload reads it back from the URL… and comes back to the flight, because the report
+  // has an address now (`?open=<id>`) rather than evaporating on every navigation. The
+  // sample no longer needs re-loading by hand here, which is the point of the address.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
   expect(await read(page)).toMatch(/km\/h/);
 

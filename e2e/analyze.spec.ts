@@ -384,9 +384,20 @@ test('the explorer keeps named views and applies them to the next flight', async
   await chip.click();
   await expect(page.getByRole('button', { name: 'Remove Velocity from the plot' })).toBeVisible();
 
-  // It survives a reload and a different flight, which is the point of naming it.
+  // It survives a reload and a different flight, which is the point of naming it. The
+  // comment said "a different flight" long before the test did one — it reloaded and
+  // re-loaded the same sample. Now that a report has an address the reload brings this
+  // flight back on its own, so the second half can be what it always claimed: a genuinely
+  // different log, dropped over the top.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toBeVisible();
+  // Back to the drop zone first — the report screen has no file input of its own, which is
+  // exactly what increment 4's window-level drop was for.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for featherweight-raven-fip/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Boost check', exact: true })).toBeVisible();
 
   // And it can be forgotten.
@@ -529,8 +540,9 @@ test('the readings in a report are the flyer’s choice, and follow into the exp
   expect(JSON.parse(await read(json)).metrics.flightTime).not.toBeNull();
 
   // Remembered on this device, so the next flight opens the way the last one was left.
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText('1 off')).toBeVisible();
 });
@@ -722,8 +734,9 @@ test('the figures a report carries are the flyer’s choice, and it holds across
   expect(html).not.toContain('<figcaption>Velocity</figcaption>');
 
   // The choice is remembered on this device, like the units and the readings.
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: 'Velocity', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
 
@@ -843,8 +856,9 @@ test('the explorer lets you choose which events are called out', async ({ page }
   await expect(page.getByRole('button', { name: /marking apogee on the plot/i })).toHaveAttribute('aria-pressed', 'true');
 
   // …and the choice survives a reload and the next flight, like the saved view does.
+  // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
+  // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
   const burnoutAgain = page.getByRole('button', { name: /burnout on the plot/i });
   await expect(burnoutAgain).toHaveAttribute('aria-pressed', 'false');

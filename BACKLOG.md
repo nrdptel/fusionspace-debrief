@@ -1415,6 +1415,27 @@ memory, so a later pass doesn't have to rediscover them.
 
 ## Craft & product feel
 
+- **DONE — the report had no address, so all seven in-app links on its own screen destroyed it.**
+  Measured on a loaded report at 1440 px: `main`/`header`/`footer` carry **7** same-origin links —
+  Analyze, Compare (×2), "Read the methods →", Methods, Validation, Privacy — and the report lives
+  only in React state, so clicking any of them and pressing Back lands on an empty drop zone. The
+  flight survives in the logbook; the report's zoom, label, notes and per-quantity unit overrides do
+  not, and nothing in the URL says which row to reopen. `?open=<id>` already restored a flight — the
+  mount effect read it and then **deleted it from the URL**, which is exactly what left the address
+  blank. Kept now, set when a save lands, cleared by "Analyze another flight". Back, a reload and a
+  bookmark all come back to the flight.
+  **And the id it names is stable now, which was a second bug underneath.** `saveRecent` minted a
+  fresh id on every save, and a save is what REOPENING a flight does — so clicking a logbook row
+  silently re-addressed the flight and broke every `/compare?ids=…` permalink that named it. Measured:
+  two flights dropped, permalink taken, flight one reopened → its id changed and the permalink fell
+  back to the **empty picker**, with no word about the flights it could not find. A save is a replace
+  in place, so it keeps the address it replaces.
+  **Still open:** `/compare?ids=…` falls back to the picker in silence whenever an id doesn't
+  resolve — a cleared logbook, or a link opened on another device. It should say which ids it
+  couldn't find, the way the analyze page says "That saved flight could no longer be read."
+  And the report's **label and notes still don't survive** the round trip; they are per-flight React
+  state cleared on `flight.source`. The logbook's own `note` is the precedent for making them stick.
+
 - **DONE — a flight dropped anywhere but the dashed box threw the flyer out of the app.** A
   browser's default action for a dropped file is to NAVIGATE TO IT, and Debrief had exactly two
   drop targets: `DropZone` on the idle screen and the compact box on `/compare`. Neither is

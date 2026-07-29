@@ -301,3 +301,72 @@ test('the logbook says what it keeps, and names what it forgot', async ({ page }
   await notice.getByRole('button', { name: 'Got it' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'forgotten' })).toHaveCount(0);
 });
+
+// The report lived only in React state, so all seven in-app links on that screen — Analyze
+// and Compare in the header, "Read the methods →", and Methods/Validation/Privacy in the
+// footer — destroyed it, and Back landed on an empty drop zone. `?open=<id>` already restored
+// a flight; the mount effect deleted it from the URL immediately after reading it, which is
+// exactly what left the report without an address.
+test('a report has an address, so a link out and Back comes back to it', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'addressed.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('open')).not.toBeNull();
+
+  // Out through an ordinary in-app link, and back.
+  await page.getByRole('link', { name: /Read the methods/ }).click();
+  await expect(page.getByRole('heading', { name: /Where the numbers come from/ })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // A refresh too — an address you cannot reload is not one.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // And leaving the report deliberately gives the address up, so a reload after "Analyze
+  // another flight" doesn't drag the old flight back.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  expect(new URL(page.url()).searchParams.get('open')).toBeNull();
+  await page.reload();
+  await expect(page.getByLabel('Flight log drop zone')).toBeVisible();
+});
+
+// A logbook id is an address: `/?open=<id>` is a report's and `/compare?ids=a,b` names a
+// comparison's flights. `saveRecent` used to mint a fresh id every time, and a save is what
+// REOPENING a flight does — so clicking a logbook row silently broke every comparison
+// permalink that named it, and /compare fell back to the empty picker without a word.
+test('reopening a flight keeps its id, so a comparison permalink still resolves', async ({ page }) => {
+  await page.goto('/');
+  for (const name of ['one.csv', 'two.csv']) {
+    await page.getByLabel('Choose a flight log file').setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  const idsOf = () =>
+    page.evaluate(async () => {
+      const db: IDBDatabase = await new Promise((res) => {
+        const q = indexedDB.open('debrief');
+        q.onsuccess = () => res(q.result);
+      });
+      const all: { id: string; name: string }[] = await new Promise((res) => {
+        const q = db.transaction('recents', 'readonly').objectStore('recents').getAll();
+        q.onsuccess = () => res(q.result);
+      });
+      return all.sort((a, b) => a.name.localeCompare(b.name)).map((r) => r.id);
+    });
+
+  const before = await idsOf();
+  expect(before).toHaveLength(2);
+  const permalink = `/compare?ids=${before.join(',')}`;
+
+  // Reopen the first flight — which is all that clicking its logbook row does.
+  await page.goto(`/?open=${before[0]}`);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  expect(await idsOf(), 'a reopen must not re-address the flight').toEqual(before);
+
+  // The permalink taken before the reopen still resolves to the comparison.
+  await page.goto(permalink);
+  await expect(page.getByText(/Comparing 2 flights/)).toBeVisible();
+});
