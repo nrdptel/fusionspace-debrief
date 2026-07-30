@@ -446,6 +446,17 @@ function loadForCompare(file: string): CompareInput | null {
 }
 
 /**
+ * Hand the event loop back for one tick.
+ *
+ * A test that analyses the whole corpus is ten seconds of solid, synchronous CPU, and a vitest
+ * worker that never yields cannot answer the reporter's `onTaskUpdate` RPC. That call times out
+ * and the RUN exits 1 — reporting `929 passed` and `1 error` in the same summary, which reads
+ * exactly like a flake and is not one. It happened twice in CI on a two-core runner while every
+ * assertion passed. Any sweep over all the fixtures should `await breathe()` every few files.
+ */
+const breathe = () => new Promise((r) => setTimeout(r, 0));
+
+/**
  * One analysis reduced to a single comparable string — every metric, every event, and every
  * sample of every series.
  *
@@ -883,7 +894,7 @@ describe('what a composite may claim', () => {
     void s;
   });
 
-  it('no corpus record holds two burns, so no mark can be called a staging event', () => {
+  it('no corpus record holds two burns, so no mark can be called a staging event', async () => {
     // `EventType` has no separation or second-ignition member, and this is why one cannot be
     // grounded: count sustained axial thrust runs over whole records and the staged files do
     // NOT stand out. If a record ever arrives that genuinely holds two separable burns, this
@@ -908,7 +919,16 @@ describe('what a composite may claim', () => {
 
     let twoOrMore = 0;
     let deviceRecords = 0;
+    let since = 0;
     for (const f of spec.fixtures) {
+      // Analysing the whole corpus is ~10 s of solid CPU, and a worker that never yields cannot
+      // answer vitest's `onTaskUpdate` RPC — which times out and fails the RUN with every test
+      // passing. Seen twice in CI on a two-core runner. Yielding costs nothing and keeps the
+      // reporter alive; see HANDOFF.md.
+      if (++since >= 5) {
+        since = 0;
+        await breathe();
+      }
       let loaded;
       try {
         loaded = loadForCompare(f.file);
@@ -1248,12 +1268,18 @@ describe('the record’s last height is stated, never subtracted', () => {
     });
   }
 
-  it('no flight is told to take anything off its heights', { timeout: 120_000 }, () => {
+  it('no flight is told to take anything off its heights', { timeout: 120_000 }, async () => {
     // The whole class, not the five above: whatever a record's last sample says, the note must
     // not carry an imperative. `subtract that` was the exact wording that shipped.
     const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
     let seen = 0;
+    let since = 0;
     for (const f of spec.fixtures) {
+      // See the note on `breathe` — a sweep that never yields fails the run without failing a test.
+      if (++since >= 5) {
+        since = 0;
+        await breathe();
+      }
       // Several corpus files are deliberate rejections carrying guidance (a Blue Raven
       // high-rate file, a device summary saved beside its log), and `loadForCompare` lets
       // that throw through rather than swallowing it. A file that does not analyse has no

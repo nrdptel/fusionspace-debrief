@@ -201,6 +201,33 @@ runtime, and the run was very nearly written off as "CI congested, merge next se
 slow job is distinguishable from a stale cache at a glance, and it reported the true completion
 immediately.
 
+**And a second one, which cost this run two CI cycles: `npm test` can exit 1 with every test
+passing, and it is NOT a flake.**
+
+```
+ Test Files  63 passed (63)
+      Tests  929 passed (929)
+     Errors  1 error
+
+Error: [vitest-worker]: Timeout calling "onTaskUpdate"
+```
+
+A test that analyses the whole corpus is ~10 s of solid **synchronous** CPU. A vitest worker
+blocked that long cannot answer the reporter's `onTaskUpdate` RPC; the call times out, vitest
+reports it as an unhandled error, and the process exits 1 with a fully green suite. It reproduces
+— **it was re-run once on the assumption that it was a flake, and failed identically** — because
+it is a property of the test, not of the runner's mood. A four-core dev box stays under the wire
+where a two-core CI runner does not, so it will not show up locally.
+
+The fix is `await breathe()` (defined beside `loadForCompare` in `lib/parsers/corpus.test.ts`)
+every few fixtures inside any full-corpus sweep. **Write it into any new sweep from the start.**
+
+Reading rule, because this failure mode is genuinely misleading: on a red `Test` step, pull the
+tail of the log with `get_job_logs` before concluding anything. The `Tests` count says whether an
+assertion failed and the `Errors` line says what else went wrong. Do not merge red, and do not
+re-run without reading — a green suite exiting 1 is exactly the thing that teaches a future run
+to wave real failures through.
+
 ## Pick up first, and why
 
 **`ROADMAP.md` is the queue. D1, D2 and D3 are SHIPPED and live in production; D4 is IN PROGRESS
