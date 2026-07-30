@@ -2,89 +2,126 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — the Sev-1 that gated D1, then D1 itself
+## This run — D1 shipped: every flight in one download, and the flyer says which is theirs
 
 Branch restarted from `origin/main` at `ae4148a`, level with it at session start (0 ahead, measured
-after `git fetch --prune`). `ROADMAP.md` named the goal: fix the segmentation Sev-1, then ship D1 —
-every flight in one download, and the flyer says which is theirs.
+after `git fetch --prune`). `ROADMAP.md` named the goal: fix the segmentation Sev-1, then ship D1.
+Both are done. **The baseline gate was GREEN before anything was touched** — 773 unit (116 of them
+the corpus half), build clean, 215 e2e — which is worth recording because the last two runs
+inherited a red one.
 
-**The baseline gate was GREEN before anything was touched** — 773 unit (116 of them the corpus half,
-linked from a local `debrief-fixtures` checkout), build clean, 215 e2e. That is worth recording
-because the last two runs inherited a red one.
+### What a flyer can DO that they could not before
+
+**Drop a launch-day download, see every flight in it, open any of them — and on any record at all,
+say which stretch is theirs and have the analysis read that instead. And it is remembered.**
+
+Before this run, a file holding a 300 m sport flight and a 3,000 m certification flight was read as
+ONE flight: apogee 1,671 m, time-to-apogee 45.1 s, burn time 27.8 s, flight time 156.5 s, against a
+first flight that flew to 204 m in 7.0 s and was down in 20.6 s — with one warning on screen, about
+derived velocity, and nothing about the file holding two flights.
 
 ### Shipped to production
 
-_(updated as each PR merges — see the end of this file for the current state)_
+**PR #46**, six commits, merged on green. See the PR body for the full account; the short version:
 
-### Increment 1 — the segmentation Sev-1, and it was wider than the entry said
+1. **`b30e0e9`** — the segmentation Sev-1. Every threshold measured against the flight in hand
+   rather than the record's own highest flight.
+2. **`9c1ced4`** — this file, refreshed mid-run.
+3. **`91d4a74`** — every flight in the download listed, and seven ways to fool the segmenter closed.
+4. **`1bd9098`** — the picker: open any flight, without going back to the vendor software.
+5. **`1af6bb3`** — the manual crop, and the report made to be OF the stretch it reads.
+6. **`de04e1d`** — every document says which stretch it is of; and where the read is a guess, so
+   does the report.
+7. **`178449b`** — the crop is remembered, and the recovery card keeps the file's pad under it.
+8. **`640778a`** — a type error CI caught that the local gate had reported unread.
 
-`nextFlightStart` asked whether the trace had reached **half the RECORD's peak**, so a launch day
-holding a 300 m sport flight and a 3,000 m certification flight tripped nothing and the two were read
-as one: apogee 1,671 m, time-to-apogee 45.1 s, burn time 27.8 s, flight time 156.5 s, against a first
-flight that flew to 204 m and was down in 20.6 s — with one warning on screen, about derived
-velocity. The cliff is exactly 2.00x in both directions, reproduced here before anything was changed.
+### The one thing that went wrong, and it is a process lesson
 
-**Two things the backlog entry did not know, both measured:**
+**A type error reached CI.** The gate was run — all three commands, all three redirected to files,
+`build=$?` echoed — and then the results were read out of the LOG FILES instead of out of the
+command's own stdout. `tsc --noEmit` had failed on two test files; the build never ran; and the e2e
+suite that followed passed 217 tests against the `out/` a previous build had left standing. **A
+green e2e after a failed build is the specific shape of that lie.** `npx vitest run` does not
+type-check, so both files passed every assertion they made. The incantation that captures all three
+codes together is in *Environment notes* below — use it.
 
-1. **The ground band carried the same defect, and worse.** `Math.max(3, peak * 0.05)` on the corpus
-   121 km flight is 3.8 km — a rocket still that high counted as landed. Patching the climb threshold
-   alone and leaving the band turns real corpus records into false splits; measured, the naive patch
-   produced 5 new splits across 34 records. The band is capped at 50 m now.
-2. **The same noise floor was lying to a flyer on a real file.** A misparsed Blue Raven `@LOG_LOW`
-   fragment (a known parser gap — 13 m of barometric wobble over 34 s) was told it "holds more than
-   one flight" and to go and split it in the vendor software, because half of its own 9.5 m peak is
-   4.75 m and the wobble under 3 m read as a landing.
+### What the pre-push reviews were worth
 
-Every threshold is per-flight now, and physical questions replace the arithmetic one: did the record
-DESCEND into the band or step into it (a logger restart); if it descended, was the mean rate one the
-rocket could have fallen at; does the record come back ABOVE the height it had already reached, or
-back to it within two seconds (a dropout or a transonic dip, not a landing). A second flight must
-also be a flight — past the floor and climbing between 10 m/s and 2√(2gh), measured over the top half
-of its own ascent.
+Four review passes over the run, three lenses each, every finding adversarially verified by a second
+agent told to refute it. **Fourteen real defects, none of which the author's own tests could have
+caught** — they were built from the same mental model as the code. Five were Sev-1:
 
-**The constants are measured, not chosen**, and the measurement is worth keeping:
+1. A transonic dip that recovers **gradually** cut a 9,729 m Mach flight down to a 390 m "flight".
+   The guard against it looked at one sample, so it held or failed on one reading of noise.
+2. A baseline drifting while the flyer waits between launches put the original Sev-1 straight back:
+   a 3,000 m second flight after a ten-minute wait averaged 9.5 m/s and was refused as "not a
+   flight".
+3. Taking the deck's ground from the whole rest of the record let one sample below it, anywhere
+   later, collapse the band under the level the first flight actually rested at — **1,235.7 s of
+   flight time against an honest 224.5 s**, with the multi-flight warning gone too.
+4. Making the report be OF the stretch fixed nine surfaces and **broke a tenth**: `groundTrack`
+   derives the pad from the first fixes of whatever it is handed, so a crop starting in the air had
+   its pad in the air. On the corpus LEMIV L3 GPS record, cropping to apogee-onward moved the
+   walk-back from 3,866 ft on 208° SW to **4,676 ft on 127° SE** — 81° and 810 ft wrong, on the one
+   surface a flyer physically acts on.
+5. `fileSegments` re-asked the doubled-recording question with the pad flag hardcoded, so on a
+   file with no quiet pad window the strip offered flight 2 and destroyed itself when it was
+   opened.
 
-- **flight floor: 100 m, coming down to a quarter of the record's own best, never under 30 m** — the
-  largest NON-flight excursion across the 46 corpus records that analyse is 76 m (a Blue Raven pad
-  transient, once per copy); the others are 39, 48, 49, 61 m. The smallest real corpus flight is 52 m
-  (a generic-CSV SRAD computer), then 203 m (the Jolly Logic AltimeterThree sample). The adaptive
-  part is what keeps a club session of sub-100 m flights from being merged — an AltimeterThree logs
-  a whole afternoon into one file.
-- **ground band: a fraction of the flight's own height, capped at 50 m, measured from where the
-  record's ground actually is** — and clamped at the pad below, because the corpus Eggtimer anomaly
-  ends 445 m BELOW its own pad and a deck taken from there sits underground.
-- **minimum climb 10 m/s** — half the slowest climb that can clear the floor (a 100 m coast takes at
-  most 4.5 s, so 22 m/s); 2,000 m of drift over five minutes is 6.7 m/s. The three real second
-  flights in the corpus average 120, 139 and 176 m/s, at 30–36% of the upper bound, while the two
-  artefacts that clear the floor are 5x and 51x over it.
+A sixth was a measurement error in the author's own prose: the calibration sweep had been run over
+the 34 records a named parser claims, when **46 analyse**. The other twelve go through the column
+mapper, and they include the StratoLogger whose 196 m one-sample boost transient is the sharpest
+case in the corpus. **`importFlight` returning `kind: 'mapping'` is not a file Debrief cannot read
+— it is a file the flyer maps by hand and then reads. Sweep them.**
+
+**Send the diff out before every push.** Three of those five Sev-1s were in code that had already
+passed a full green gate.
+
+### How the segmentation works now, in one paragraph
+
+The walk carries the peak of the segment it is inside, and at every return to that flight's own
+ground band asks: did the record descend into it or step into it (a logger restart); if it
+descended, was the mean rate one the rocket could have fallen at; does it come back above the
+height already reached, or back to it within two seconds (a dropout, or the transonic push). A
+second flight must also be a flight — past a floor and climbing between 10 m/s and 2√(2gh),
+measured over the top half of its own ascent. The ground under all of it is LOCAL: the lowest the
+trace gets within a minute either side of the sample, clamped at the pad below and at 200 m above.
+
+**Every constant is measured, and the measurement is the point:**
+
+- **flight floor 100 m**, coming down to a quarter of the record's own best and never under 30 m.
+  The largest non-flight excursion across the 46 corpus records is 76 m (a Blue Raven pad
+  transient); the others are 39, 48, 49, 61 m. The adaptive part is what keeps a club session from
+  being merged — a Jolly Logic AltimeterThree logs a whole afternoon into one file.
+- **ground band**: a fraction of the flight's own height capped at 50 m, measured from where the
+  record's ground actually is, clamped at the pad below (the corpus Eggtimer anomaly ends 445 m
+  UNDER its own pad).
+- **minimum climb 10 m/s** — half the slowest climb that can clear the floor; 2,000 m of drift over
+  five minutes is 6.7 m/s. The three real second flights in the corpus average 120, 139, 176 m/s.
 - **two seconds to rejoin** — a transonic dip is back above where it was in 0.45–0.80 s over four
-  shapes of the artefact; the two corpus Blue Ravens take 18.4 and 20.2 s, and the Eggtimer 4.2 s.
+  shapes of that artefact; the two corpus Blue Ravens take 18.4 and 20.2 s, the Eggtimer 4.2 s.
+- **ten seconds between climbs**, for the "this may not be one flight" note. Nobody launches again
+  in ten seconds, and without it the pad transient reads as a separate climb on two corpus records.
 
-Verified by running the analyzer at `origin/main` and the analyzer in the working tree over **every
-corpus record that analyses — 46 of them**, diffing ten headline readings and the whole warning set
-per record: **44 identical, 2 moved, both deliberately** (the fragment above; and an Eggtimer whose
-cut moves one sample, 0.05 s). Six new pairs from 8x to 100x apart in both directions, each of which
-fails against the old rule; nine guard tests; every new assert falsified by mutation.
+### How to verify a segmentation change
 
-**The pre-push review found three defects in the fix, two of them Sev-1**, and they are the reason
-this increment took as long as it did — all three are cases the author's own tests could not have
-caught, because the tests were built from the same mental model as the code:
+This is the harness the whole run was built on, and the next session should reuse it rather than
+rebuild it:
 
-1. **A transonic dip that recovers GRADUALLY** was read as a logger restart and cut a 9,729 m Mach
-   flight down to a 390 m "flight". The guard that was supposed to stop it looked at one sample.
-2. **A baseline drifting while the flyer waits between launches** put the original Sev-1 straight
-   back: measured from a fixed band near the ground, a 3,000 m second flight after a ten-minute wait
-   averaged 9.5 m/s and was refused as "not a flight". The climb rate is measured over the top half
-   of the ascent now, which no drift reaches.
-3. **A single-sample spike between apogee and touchdown** moved the anchor of the free-fall clock and
-   the real landing was read straight through. The test is a mean descent RATE now, which a spike
-   cannot move.
+```bash
+git worktree add /tmp/base origin/main            # …then symlink node_modules and __corpus__
+npx vite-node <probe>.ts                          # import BOTH analyzers, diff every metric
+```
 
-A fourth finding was a measurement error in the author's own prose: the calibration sweep had been run
-over the 34 records a named parser claims, when **46 analyse** — the other 12 go through the column
-mapper, and they include the StratoLogger whose 196 m one-sample boost transient is the sharpest case
-in the corpus. **Sweep the mapper's records too; `importFlight` returning `kind: 'mapping'` is not a
-file Debrief cannot read, it is a file the flyer maps by hand and then reads.**
+A probe that imports `analyzeFlight` from the working tree and from a worktree at `origin/main`,
+runs both over every corpus record that analyses (**46** — use `buildFlight` on the mapper's own
+suggestion for the twelve that need it), and prints only what moved. This run's answer: **44
+identical, 2 moved and both deliberately.** Nothing else gives that confidence, and it takes ten
+minutes to set up.
+
+**And falsify every assert.** Every new one this run was reverted by mutation and watched to fail
+naming its own case. Two of them failed to falsify on the first try and were rewritten — an assert
+that cannot fail is worse than no assert, and the only way to know is to try.
 
 ## Environment notes
 
@@ -152,44 +189,44 @@ to warn about it puts it in the repository just as surely as using it would.)
 `Neer Patel <135655563+nrdptel@users.noreply.github.com>` before the first commit and check
 `git log -1 --format='%an <%ae>'` afterwards. Signing is inherited and works (`gpg.format=ssh`).
 
-## What the opening fan-out established about D1
+## Pick up first, and why
 
-Six lenses, each finding adversarially verified. What survived and matters:
+**`ROADMAP.md` is the queue, and D1 is SHIPPED. The next unstarted milestone is D2 — read the file
+the card actually holds.** A raw binary download off an altimeter should open, instead of sending
+the flyer back to the vendor software to export a CSV first.
 
-1. **The detector is fully re-entrant on the remainder.** A three-flight synthetic yields
-   299.9 / 499.8 / 249.9 m against a true 300 / 500 / 250 — so listing every flight in a download is a
-   SHAPE change (a segment list on `FlightAnalysis`), not new detection maths.
-2. **The one hard trap: the pad baseline is re-derived on every slice.** A crop starting 1.5 s after
-   liftoff on a 300 m synthetic reports apogee 170.7 m — 43% low — and fires the "doesn't appear to
-   start on the pad" warning. Any flyer-supplied crop MUST carry the file's own datum, which is what
-   `analyzeFlight`'s third parameter already exists for (`lib/analyze/index.ts:547`); the doubled-
-   recording branch is its only caller today.
-3. **`sliceFlight` does not re-zero time**, and `...flight` carries meta/notes/reported/flownAt
-   across unchanged — so a segment's timeline reads in FILE time, which is what a picker wants.
-4. **No benchmark tool has a crop control, and none shows a file holding several flights.** AltosUI,
-   the Featherweight Interface Program, the Blue Raven app, PerfectFlite's DT4U and the Eggtimer
-   Quantum all present a flight LIST at download time on the device and write one file per flight. So
-   the parity gap is precisely the sentence at `lib/analyze/index.ts:630` telling the flyer to split
-   the CSV by hand — and a neutral per-segment list (apogee on the shared datum, offset, duration,
-   all already measured) replaces it without reviving the auto-chooser the repo deliberately deleted.
-5. **Nothing anywhere states the analysis extent.** Only the channel explorer names its window. Ten
-   surfaces plus the logbook and the clipboard were enumerated; `flight.notes` reached four export
-   writers last run and not the other six (`.csv`, `.gpx`, `.kml` and all three comparison writers),
-   so a crop stated on the report would be silently absent from the shareable card, the comparison
-   and the data exports. **That is the surface list any crop work has to satisfy.**
-6. **The chart's horizontal drag is already fully consumed by uPlot's zoom**, and `Chart` already
-   reports its visible x-range through `onView`. A crop UI should build on that rather than fight it.
-   The Analyzer state machine has six phases and **no re-analyse path** — that is the gap to close.
-   The worker message is `{ id, flight }`.
+What the last run's fan-out established about D2, still true and worth not re-deriving:
+`ParseInput` is `{ name, text }` (`lib/parsers/types.ts:3`), so **bytes are structurally
+unreachable for any parser** — that shape has to grow before a binary parser can exist. Seven
+corpus fixtures are raw binary the generic mapper reads zero columns from, and three named logger
+families produce them. For the "just pulled the SD card" flyer this is a task that cannot be
+completed at all.
+
+**Two things D1 did not do, and they are D3's starting point rather than D1's leftovers** — both
+are the logbook being keyed on FILES where it now needs to be keyed on FLIGHTS:
+
+1. The logbook row carries the FILE's apogee whichever flight is on screen.
+2. A comparison built from ids re-reads each flight whole, so a cropped flight joins a comparison
+   uncropped and disagrees with its own report.
+
+Both are in `BACKLOG.md` with the shape of the fix. A third — two flights to the same height within
+1% still called "the same flight written twice" — is filed there too, and is genuinely unsettleable
+from the altitude column alone.
+
+**Two benchmark findings against the vendor apps**, also filed: Debrief numbers the flights in a
+download by position while the flyer's altimeter numbers them its own way (an AltosUI window saying
+"flight 7" against a Debrief strip saying "flight 1"), and the vendor apps can pull ONE flight off
+the device, which is why a multi-flight file is unusual for them and ordinary here.
+
+`BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. **There is no
+open Sev-1 as of this run.**
 
 ## The fixtures repo
 
-No commit there this run so far — the working tree is clean and the branch sits on its previous run's
-`4862db7`. Nothing changed a fixture's contract.
+No commit there this run — the working tree is clean and the branch still sits on its previous
+run's `4862db7`. Nothing changed a fixture's contract: the corpus was used to MEASURE, over and
+over, and two fixtures changed what Debrief SAYS about them without changing what they are.
 
-## Pick up first, and why
-
-**Start at `ROADMAP.md`.** It holds the queue and the Sev-1 that preempted it is closed.
-
-`BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. Its top section
-now records the segmentation fix as DONE with the two things the original entry did not know.
+The split, printed rather than inferred: **46 of the 61 fixtures analyse** — 34 through a named
+parser and 12 through the column mapper on its own suggestion. That second number is the one this
+run learned the hard way; every corpus measurement before it had been taken over 34.

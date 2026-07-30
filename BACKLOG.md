@@ -48,6 +48,23 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **Debrief numbers the flights in a download by position; the flyer's altimeter numbers them
+  its own way, and the two need not agree.** Benchmarked against how the vendor apps do this
+  same job: AltosUI, the Featherweight Interface Program and the Eggtimer Quantum all present
+  the flight list *on the device before the download*, so their numbering is the device's own
+  and is authoritative — it knows where the flights are because it recorded them. Debrief's list
+  is inferred from the trace after the fact, and calls the first flight in the file "flight 1"
+  whatever the device called it. A flyer holding an AltosUI window that says "flight 7" and a
+  Debrief strip that says "flight 1" has no way to tell whether they are looking at the same
+  thing. Two things would close it, both cheap and neither done: where a file's header or a
+  column carries the device's own flight number, use it and say so; and where it does not, say
+  "the first flight in this file" rather than a bare number that reads like a device's.
+
+- **The vendor apps can do something Debrief structurally cannot: pull ONE flight off the
+  device.** That is the whole reason a multi-flight file is unusual for them and ordinary here —
+  their users never handle one. Worth stating on the methods page as what Debrief is for, rather
+  than leaving the flight list reading as a poor imitation of a device browser.
+
 - **A comparison built from logbook ids re-reads every flight whole**, so a flight a flyer cropped
   joins a comparison uncropped and the comparison's figures disagree with the report's for the same
   flight. `lib/compareFromLogbook.ts` re-analyses from the stored text and never asks for
@@ -2461,9 +2478,15 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   altitude-vs-velocity plot as well as against time). Per-column sort is done since (above).
   Still missing next to a spreadsheet: cell/column selection — only whole-row text selection
   works, so copying one channel out means the CSV export.
-- **A per-device flight list.** The vendor apps read several flights off one device and
-  let you pick between them; Debrief's logbook is close but is keyed on files, not flights
-  from one download session.
+- **DONE (2026-07-30) — a per-device flight list.** The report lists every flight in a
+  multi-flight download and reads any of them on a click, and a flyer can crop any record by
+  hand. Read against what this entry actually asked for, though, the parity is on the REPORT
+  and not in the logbook: the logbook is still keyed on files, so a launch day is one row
+  carrying the FILE's apogee whichever flight is on screen, and a comparison built from ids
+  re-reads each flight whole. That half is D3's starting point — see the two entries at the
+  top of this section. Original entry:
+  The vendor apps read several flights off one device and let you pick between them; Debrief's
+  logbook is close but is keyed on files, not flights from one download session.
 - Found by driving a season into the logbook: it sorts but couldn't be *searched* — now it
   can (name, logger, note, launch day; all terms in any order), and the row shows the launch
   day the file stated rather than "3d ago". Three parsers read a date (AltOS and a
