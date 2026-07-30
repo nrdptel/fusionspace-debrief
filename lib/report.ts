@@ -332,6 +332,38 @@ function gpsCrossRow(m: FlightAnalysis['metrics'], sys: UnitChoice): [string, st
   return ['Apogee', fmtLength(gps, sys), fmtLength(m.apogeeAltitude, sys), agreement];
 }
 
+
+/**
+ * Which stretch of the file the reading is of, as a sentence — for the documents, where a
+ * reader has no picker to look at and no chart to check against.
+ *
+ * Null for the ordinary whole-file reading, because "Debrief read the file" is not worth a
+ * line. Present whenever it is NOT the whole file, which is exactly when a report that says
+ * nothing reads as a report of the whole thing: a cert package built from flight 2 of a
+ * launch day would otherwise carry that flight's numbers under the file's name with nothing
+ * anywhere saying which flight it was.
+ */
+export function extentNote(analysis: FlightAnalysis): string | null {
+  const e = analysis.extent;
+  if (e.source === 'file') return null;
+  const stretch = `${fmtTime(e.startTime)} to ${fmtTime(e.endTime)} of a ${fmtTime(e.fileEndTime)} file`;
+  const which = analysis.segments?.find((seg) => seg.from === e.from && seg.to === e.to);
+  const of = analysis.segments?.length;
+  if (which && of) {
+    return `Read ${stretch} — flight ${which.index} of the ${of} this file holds${e.source === 'chosen' ? ', chosen by the flyer' : ''}.`;
+  }
+  return e.source === 'chosen'
+    ? `Read ${stretch} — a stretch chosen by the flyer, not Debrief's own segmentation.`
+    : `Read ${stretch} — the flight Debrief segmented out of a record that holds more than one.`;
+}
+
+/** The provenance list a document prints under "How this file was read": what the parser
+ *  wanted the reader to know, with the stretch that was read at the head of it. */
+function howRead(flight: RawFlight, analysis: FlightAnalysis): string[] {
+  const note = extentNote(analysis);
+  return note ? [note, ...flight.notes] : flight.notes;
+}
+
 export function summaryText(
   flight: RawFlight,
   analysis: FlightAnalysis,
@@ -398,10 +430,11 @@ export function summaryText(
   // the exports. These say which channel the altitude came from, that rows were dropped, that a
   // telemetry capture is lossy — the provenance the screen shows under this heading. A cert
   // package quoting a record that silently discarded 1,135 of its 15,938 rows should say so.
-  if (flight.notes.length) {
+  const read = howRead(flight, analysis);
+  if (read.length) {
     lines.push('');
     lines.push('How this file was read');
-    for (const n of flight.notes) lines.push(`  - ${n}`);
+    for (const n of read) lines.push(`  - ${n}`);
   }
 
   lines.push('');
@@ -475,9 +508,10 @@ export function summaryMarkdown(
     for (const w of analysis.warnings) out.push(`- ${w}`);
   }
 
-  if (flight.notes.length) {
+  const read = howRead(flight, analysis);
+  if (read.length) {
     out.push('', '## How this file was read', '');
-    for (const n of flight.notes) out.push(`- ${n}`);
+    for (const n of read) out.push(`- ${n}`);
   }
 
   out.push('');
@@ -594,8 +628,9 @@ export function summaryHtml(
     : '';
 
   const notesHtml = notes ? `<blockquote>${esc(notes).replace(/\n/g, '<br>')}</blockquote>` : '';
-  const readHtml = flight.notes.length
-    ? `<section><h2>How this file was read</h2><ul class="notes">${flight.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>`
+  const readList = howRead(flight, analysis);
+  const readHtml = readList.length
+    ? `<section><h2>How this file was read</h2><ul class="notes">${readList.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>`
     : '';
   const warnHtml = analysis.warnings.length
     ? `<section><h2>Worth knowing</h2><ul class="notes">${analysis.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></section>`
@@ -1200,7 +1235,21 @@ export function analysisJson(
     // How the file was read, beside the caveats about the analysis — the same split the screen
     // and the written reports make. A consumer that wants to know whether rows were dropped, or
     // which channel the altitude is, could not tell from this document before.
-    ...(flight.notes.length ? { howThisFileWasRead: flight.notes } : {}),
+    ...(howRead(flight, analysis).length ? { howThisFileWasRead: howRead(flight, analysis) } : {}),
+    // …and the same thing as data, because a consumer should not have to parse a sentence to
+    // find out that this document is one flight out of a launch day.
+    read: {
+      from: sec(analysis.extent.startTime),
+      to: sec(analysis.extent.endTime),
+      fileEnds: sec(analysis.extent.fileEndTime),
+      chosenBy: analysis.extent.source === 'chosen' ? 'flyer' : analysis.extent.source === 'segmented' ? 'debrief' : 'whole file',
+      ...(analysis.segments
+        ? {
+            flightsInFile: analysis.segments.length,
+            flight: analysis.segments.find((seg) => seg.from === analysis.extent.from && seg.to === analysis.extent.to)?.index ?? null,
+          }
+        : {}),
+    },
     disclaimer:
       'Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured. Parsed locally; nothing uploaded.',
   };

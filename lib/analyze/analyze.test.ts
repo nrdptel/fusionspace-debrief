@@ -1123,6 +1123,72 @@ describe('a file holding more than one flight', () => {
     expect(a.extent.source).toBe('chosen');
   });
 
+  it('says so when it read a record as one flight that does not look like one', () => {
+    // The honest half of "every flight in one download". Where the walk refuses a boundary it
+    // cannot justify — a first flight under the floor, most of all — the reading comes back as
+    // an ordinary report over the whole record, with a liftoff from one flight and an apogee
+    // from another under one set of headline numbers. It has to say so.
+    const day = (apogees: number[]) => {
+      const time: number[] = [];
+      const alt: number[] = [];
+      let t = 0;
+      const push = (a: number) => {
+        time.push(t);
+        alt.push(a);
+        t += 0.1;
+      };
+      for (const apogee of apogees) {
+        const climb = Math.round(Math.sqrt((2 * apogee) / G0) / 0.1);
+        const fall = Math.round(apogee / 15 / 0.1);
+        for (let i = 0; i < 600; i++) push(0); // a minute of standing about, as a launch day has
+        for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
+        for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
+        for (let i = 0; i < 600; i++) push(0);
+      }
+      const { flight } = syntheticBaroFlight();
+      return {
+        ...flight,
+        time: Float64Array.from(time),
+        channels: [{ ...flight.channels[0], values: Float64Array.from(alt) }],
+      };
+    };
+    const unsure = (f: RawFlight) =>
+      analyzeFlight(f).warnings.some((w) => /could not justify cutting/.test(w));
+
+    // Under the floor: exactly the case the segmenter refuses, and the one that used to be
+    // silent. The reading is still of the whole record — this says so rather than changing it.
+    for (const apogees of [[20, 3000], [80, 900], [25, 25], [90, 4000]]) {
+      expect(unsure(day(apogees)), `[${apogees.join(', ')}]`).toBe(true);
+    }
+    // A single flight, and a day the walk DID split, say nothing of the kind — including a
+    // club session of 40–60 m flights, which the floor comes down far enough to cut.
+    for (const apogees of [[300], [3000], [300, 3000], [400, 400, 400], [40, 60, 50]]) {
+      expect(unsure(day(apogees)), `[${apogees.join(', ')}]`).toBe(false);
+    }
+  });
+
+  it('does not call a liftoff transient a second climb', () => {
+    // Two corpus iREC records leave a 49 m pressure transient as the rocket clears the pad,
+    // 3.8 s before the real climb, and a corpus StratoLogger dives for one sample mid-boost.
+    // Both read as "two climbs" on a count alone, and both are one flight.
+    for (const [bump, gapS] of [
+      [49, 3.8],
+      [76, 0.3],
+      [200, 0.05],
+    ]) {
+      const f = launchDay([3000]);
+      const alt = f.channels[0].values;
+      const at = Math.round((20 * 0.1 + 0.2) / 0.1); // just after liftoff
+      const width = Math.max(1, Math.round(gapS / 0.1));
+      for (let i = at; i < at + width; i++) alt[i] = bump;
+      for (let i = at + width; i < at + width + width; i++) alt[i] = 0;
+      const a = analyzeFlight(f);
+      const what = `${bump} m transient, ${gapS} s of ground after it`;
+      expect(a.warnings.some((w) => /could not justify cutting/.test(w)), what).toBe(false);
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(false);
+    }
+  });
+
   it('does not split on a dropout that reads zero before the rocket ever climbed', () => {
     // A GPS that loses lock through the boost reads ~0 until it reacquires — that is not
     // a landing, and it happens before any climb, so the file is one flight.

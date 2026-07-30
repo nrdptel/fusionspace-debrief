@@ -48,6 +48,22 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **A stretch the flyer chose does not survive a reload.** The crop lives in the report's state
+  only: `RecentFlight` (`lib/recents.ts:26`) stores the file's text, the hand-made column mapping
+  and the caption, and nothing about which stretch of it was read — so a reload, a reopen from the
+  logbook, and a comparison built by id all come back to Debrief's own segmentation. "Controls
+  that forget" is on the standing tell list, and this is the largest one the crop leaves. It wants
+  seconds on the file's own clock rather than sample indices (a re-parse can change the count, and
+  a stored index would then point at a different sample), resolved back to indices on reopen —
+  `indexAtOrAfter` in `components/CropControl.tsx` is already that search. **This is what stands
+  between D1 and SHIPPED.**
+
+- **The logbook row still holds the whole file's apogee after a flight is opened out of it.**
+  `saveRecent` writes `apogeeM` from the first analysis, and reading another flight in the same
+  file does not revisit it — so a launch day that lists as one row shows flight 1's apogee whatever
+  is on screen. Correct as far as it goes (the row is the FILE), but it will read as a
+  disagreement once the crop persists, and the two want deciding together.
+
 - **Two flights to the same height in one file are called "the same flight written twice", and there
   is no evidence in the trace that separates them.** `recordedTwice` (`lib/analyze/index.ts`) compares
   the two segments' peaks on one datum and calls agreement within 1% a doubled recording. A launch day

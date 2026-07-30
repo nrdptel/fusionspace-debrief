@@ -238,7 +238,16 @@ export default function FlightReport({
     };
   }, [massKg, setMainDeployM, delayS, events, metrics.coastTime]);
 
-  const stem = reportStem(flight.source);
+  // Every export's filename. It carries the stretch when the report is of one, because two
+  // flights out of one download would otherwise leave the same file name in the flyer's
+  // Downloads folder twice — the collision the logbook already had to fix once.
+  const stem = useMemo(() => {
+    const base = reportStem(flight.source);
+    const e = analysis.extent;
+    if (e.source === 'file') return base;
+    const which = analysis.segments?.find((seg) => seg.from === e.from && seg.to === e.to);
+    return which ? `${base}-flight-${which.index}` : `${base}-${Math.round(e.startTime)}s-${Math.round(e.endTime)}s`;
+  }, [flight.source, analysis.extent, analysis.segments]);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
   const gpsLat = getChannel(flight, 'latitude');
   const gpsLon = getChannel(flight, 'longitude');

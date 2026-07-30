@@ -96,7 +96,27 @@ The review also caught that the calibration sweep had been run over 34 records w
 
 ## D1 — Every flight in one download, and the flyer says which is theirs
 
-**Status:** IN PROGRESS — current milestone
+**Status:** IN PROGRESS — current milestone. All three clauses of the *done when* are built and
+pinned; what remains before it can be marked SHIPPED is that **a chosen stretch does not survive a
+reload** (`BACKLOG.md`), which is the difference between a capability and a demonstration.
+
+**Built so far, with the check that pins each:**
+
+- *see every flight it contains* — `FlightAnalysis.segments` lists them with each apogee on the
+  file's own datum. `lists every flight in the download, not just the one it read`, and the corpus
+  suite pins the count on the Eggtimer anomaly.
+- *open any of them* — a strip above the readings, and the report re-reads without leaving the
+  page. `a launch day gives up every flight in it, and any of them can be read` (e2e, including
+  the 44 px touch floor and an axe audit).
+- *select a stretch and say "this is my flight"* — the chart is the selector, the two boxes are
+  the same choice typed. `a flyer can say which stretch of a record is their flight, and the
+  analysis reads it` (e2e), plus six unit tests over the crop's own traps — the file's datum, the
+  file's pad pressure, the way back out, the list surviving the crop, and a crop that spans a
+  boundary saying so.
+- *and when a record the tool cannot segment confidently says so* — the trace is counted
+  separately from the segmentation, and where the two disagree the report says which. `says so
+  when it read a record as one flight that does not look like one`, and a whole-corpus invariant
+  that it says it about **none of the 46 records that analyse**.
 
 **Outcome.** A launch-day download gives up every flight in it, and where the automatic read is
 uncertain the flyer can simply say which stretch is theirs.

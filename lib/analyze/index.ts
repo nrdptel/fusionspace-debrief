@@ -360,6 +360,10 @@ const DECK_CAP_M = 50;
  *  measurements this sits between. */
 const REJOIN_S = 2;
 
+/** And how long a record has to sit on the ground between two climbs before they are two
+ *  climbs rather than one with a dip in it. Nobody launches again ten seconds later. */
+const UNSEGMENTED_GAP_S = 10;
+
 /** The ground band for a flight that reached `peak`. */
 const deckFor = (peak: number) => Math.max(3, Math.min(peak * 0.05, DECK_CAP_M));
 
@@ -517,6 +521,74 @@ function flightAtHighestBelow(
   const rate = climb > 0 ? (peak - altitude[lo]) / climb : Infinity;
   if (!(rate >= MIN_CLIMB_MS) || !(rate <= tooFast(height))) return no;
   return { ok: true, peak, peakIdx };
+}
+
+
+/**
+ * What to say about a record the walk could NOT cut, but which does not look like one flight.
+ *
+ * The segmenter refuses a boundary it cannot justify, and every one of those refusals is
+ * silent: the reading comes back as an ordinary flight report over the whole record. That is
+ * the honest half of "every flight in one download" — where Debrief cannot tell, it has to
+ * say so rather than read through it, because the alternative is a liftoff from one flight
+ * and an apogee from another under one set of headline numbers.
+ *
+ * The signal is not another threshold on the same question. It is the count of times the
+ * trace leaves the ground and comes back to it — measured on the record's own ground band,
+ * with no flight floor at all. Where that count is more than one and the walk still found no
+ * cut, the two disagree, and the flyer is the one who can settle it.
+ */
+function unsegmentedNote(altitude: Float64Array, time: Float64Array, noise: number): string | null {
+  const n = altitude.length;
+  const ground = localGround(altitude, time);
+  let peak = 0;
+  for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) peak = altitude[i];
+  if (!(peak > 0)) return null;
+  // "Off the ground" against the record's OWN noise, never against its best flight — that is
+  // the mistake this whole function exists downstream of. A record whose pad wobbles by 3 m
+  // needs a 15 m bar; one whose pad is quiet needs 3.
+  const bar = Math.max(3, 5 * noise);
+  const minClimb = Math.max(15, 8 * noise);
+  const climbs: { peak: number; at: number; from: number; to: number }[] = [];
+  let up = false;
+  let runPeak = 0;
+  let runAt = 0;
+  let runFrom = 0;
+  for (let i = 0; i < n; i++) {
+    const h = altitude[i];
+    if (!Number.isFinite(h)) continue;
+    const above = h - ground[i] > bar;
+    if (above) {
+      if (!up) { up = true; runPeak = 0; runAt = i; runFrom = i; }
+      if (h - ground[i] > runPeak) { runPeak = h - ground[i]; runAt = i; }
+    } else if (up) {
+      up = false;
+      climbs.push({ peak: runPeak, at: runAt, from: runFrom, to: i });
+    }
+  }
+  if (up) climbs.push({ peak: runPeak, at: runAt, from: runFrom, to: n - 1 });
+  // Two climbs with a moment of ground between them are one climb with a dip in it. Nobody
+  // launches again ten seconds later, so anything closer than that is the trace, not the day:
+  // the pressure transient a rocket leaves clearing the pad reads as a separate 49 m climb
+  // 3.8 s before the real one on two corpus iREC records, and a single-sample dive on a
+  // corpus StratoLogger reads as one 0.05 s later.
+  const merged: typeof climbs = [];
+  for (const c of climbs) {
+    const last = merged[merged.length - 1];
+    if (last && time[c.from] - time[last.to] < UNSEGMENTED_GAP_S) {
+      if (c.peak > last.peak) { last.peak = c.peak; last.at = c.at; }
+      last.to = c.to;
+    } else merged.push({ ...c });
+  }
+  const real = merged.filter((c) => c.peak >= minClimb);
+  if (real.length < 2) return null;
+  const where = real.slice(1, 4).map((c) => formatSeconds(time[c.at] - time[0])).join(', ');
+  return (
+    `Debrief read this record as one flight, but the trace leaves the ground and returns to it ` +
+    `${real.length} times — the later climbs peak around ${where}. It could not justify cutting the record ` +
+    `there, so nothing has been split: if these are separate flights, choose the stretch that is yours ` +
+    `and the analysis will read that instead. If they are one flight, the readings below are of all of it.`
+  );
 }
 
 /**
@@ -1136,6 +1208,13 @@ function analyzeWhole(
       ],
     };
   }
+
+  // …and where there is no cut, say whether the record still looks like it holds more than
+  // one flight. The walk refuses a boundary it cannot justify — a climb under the floor, a
+  // dip it read through — and a refusal that produces no sentence is a reading of the whole
+  // record presented as a reading of one flight. `unsegmented` is what that refusal knows.
+  const unsure = depth === 0 ? unsegmentedNote(altitude, time, baselineNoise) : null;
+  if (unsure) warnings.push(unsure);
 
   // Keep the pre-filter altitude (baseline-subtracted, still carrying any
   // ejection spikes/noise) so the explorer can show it against the cleaned line.

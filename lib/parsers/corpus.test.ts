@@ -705,6 +705,38 @@ const DOUBLE_RECORDINGS: { file: string; says: SegmentSays; why: string; segment
   },
 ];
 
+describe('a record read as one flight that does not look like one says so', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // Where the segmenter refuses a boundary it cannot justify, the report says so rather than
+  // reading through it silently. The whole point of the sentence is that it appears on a
+  // record that IS several flights and could not be split — so on the corpus, where every
+  // multi-flight record either splits or is one flight written twice, it must never appear.
+  // A false alarm here tells the owner of a clean 8,317 m iREC flight their file holds two.
+  it('never says it about a real corpus record', () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    const said: string[] = [];
+    let analysed = 0;
+    for (const fx of spec.fixtures) {
+      // A fixture Debrief deliberately rejects throws here; that is its contract, asserted
+      // elsewhere, and it has no analysis to ask this question of.
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(fx.file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      analysed++;
+      if (loaded.analysis.warnings.some((w) => /could not justify cutting/.test(w))) said.push(fx.file);
+    }
+    expect(analysed, 'the corpus was really there').toBeGreaterThan(20);
+    expect(said, `${analysed} records analysed`).toEqual([]);
+  }, 60_000);
+});
+
 describe('a file that holds the same flight twice says so', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});

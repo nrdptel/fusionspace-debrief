@@ -108,6 +108,13 @@ export default function MethodsPage() {
             <em>file&apos;s</em> own pad baseline, so the rows are comparable with each other: a later
             flight starts in the trough after the one before and has no quiet pad window of its own.
           {' '}
+            Debrief&apos;s segmentation is a reading of the trace, and you can overrule it: pick
+            any flight from the list, or frame a stretch on the chart and say that is yours. The
+            analysis then reads exactly what you chose — measured against the{' '}
+            <em>file&apos;s</em> own pad baseline, not against wherever the selection starts,
+            because a stretch out of the middle of a flight has no pad in it. Every document says
+            which stretch it is of.
+          {' '}
             Every part of that test is measured against <strong>the flight in hand</strong>, never
             against the highest flight in the file. That distinction is the whole of it: asking
             instead whether the trace had reached half the <em>file&apos;s</em> best worked only while
@@ -133,6 +140,19 @@ export default function MethodsPage() {
             readings then span it and whatever follows. A dropout that reads zero <em>before</em> the
             rocket ever climbed (a GPS losing lock through the boost) is not a landing and never
             splits a file.
+          {' '}
+            <strong>And where Debrief reads a record as one flight that does not look like one,
+            it says so.</strong> That is the other half of this: every refusal above is silent on
+            its own, and a record it declined to cut comes back as an ordinary report over all of
+            it — with a liftoff from one flight and an apogee from another under one set of
+            headline numbers. So the trace is counted separately: how many times it leaves the
+            ground and comes back, measured against the record&apos;s own pad noise with no floor
+            at all, and with climbs less than ten seconds apart treated as one (nobody launches
+            again in ten seconds, and the pressure transient a rocket leaves clearing the pad
+            reads as a 49&nbsp;m climb 3.8&nbsp;s before the real one on two corpus records).
+            Where that count disagrees with the segmentation, the report says which and invites
+            you to choose the stretch that is yours. Across the 46 corpus records that analyse it
+            says it about none of them.
           {' '}
             Debrief reads the <strong>first</strong> flight in the file, and the climb always comes
             from it, because it is the copy that starts on the pad. Reading a later copy
