@@ -68,15 +68,17 @@ wild, ideas too big for one pass. One line each, newest first.
   from a board with a 5611, and replace it with a real comparison.** `groundPressureAgrees` is
   the backstop until then: a board decoded with the wrong scaling disagrees with its own stated
   ground pressure and is refused rather than read.
-- **`normalizeFlight` has now silently dropped three different members of `RecentFlight` on the
-  way back in from a backup** — the report caption, the chosen stretch, and (this run) the file's
-  own bytes, which made the one documented way to move a logbook between machines restore every
-  raw download as mojibake. Each was found after shipping the member. The rebuild is field by
-  field on purpose (a hand-edited backup must not be able to inject a shape), so the fix is not to
-  spread the object — it is that **anything added to `RecentFlight` needs a line in
-  `normalizeFlight` and a round-trip assert in the same commit**. Worth a structural guard: a test
-  that enumerates the interface's members and fails when one has no validator, so the fourth time
-  is caught by the suite rather than by a review.
+- **DONE — `normalizeFlight` had silently dropped three different members of `RecentFlight` on the
+  way back in from a backup**: the report caption, the chosen stretch, and the file's own bytes,
+  the last of which made the one documented way to move a logbook between machines restore every
+  raw download as mojibake. Each was found after shipping the member, two of them by review rather
+  than by the suite. The rebuild is field by field on purpose — a hand-edited backup must not be
+  able to inject a shape the app then trusts — so the fix was not to spread the object but to make
+  the second listing impossible to forget. `lib/recents.test.ts` now round-trips a fixture typed
+  `Required<RecentFlight>`: adding a member to that interface, optional or not, stops the file
+  COMPILING until the fixture populates it, and then fails the round-trip until `normalizeFlight`
+  carries it. Both halves verified by mutation — the typecheck names the missing property, the
+  test names the member that did not survive.
 - **The AltOS raw download reads three log formats and refuses the rest, and the rest includes
   EasyMini.** `lib/parsers/altosEeprom.ts` reads log format 1 (TeleMetrum v1, 8-byte records) and
   the 32-byte TeleMega/EasyMega family. The 16-byte family — EasyMini, TeleMetrum v2, TeleMini,
