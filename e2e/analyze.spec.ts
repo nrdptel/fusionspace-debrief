@@ -1444,6 +1444,20 @@ test('a launch day gives up every flight in it, and any of them can be read', as
   });
   await expect(apogee).toContainText(/7\d\d ft|8\d\d ft/); // ~250 m
 
+  // The samples behind the plot are the FLIGHT's, not the file's. This is the join that was
+  // off by the crop's offset: the recorded columns came from the whole file while Debrief's
+  // own series came from the stretch, so every recorded value was shifted by 298 samples.
+  await page.locator('summary').filter({ hasText: 'Show the samples' }).click();
+  const samples = page.locator('table').last();
+  const firstRow = await samples.locator('tbody tr').nth(1).innerText();
+  // Flight 3 starts at 129.5 s of the file, and the table keeps the file's clock.
+  expect(firstRow, `the sample table starts inside flight 3, not at the file's first sample`).toMatch(
+    /^1[23]\d(\.\d)?/,
+  );
+  const rowCount = await page.getByText(/[\d,]+ rows · exact values/).innerText();
+  const sampleRows = Number(rowCount.match(/([\d,]+) rows/)![1].replace(/,/g, ''));
+  expect(sampleRows, 'the table holds the flight, not the file').toBeLessThan(600);
+
   // And back to the first, which is where the file started.
   await picker.getByRole('button', { name: /Flight 1/ }).click();
   await expect(picker.getByRole('button', { name: /Flight 1/ })).toHaveAttribute('aria-current', 'true', {
@@ -1464,4 +1478,71 @@ test('a launch day gives up every flight in it, and any of them can be read', as
     console.log(`\n[${v.impact}] flight picker :: ${v.id} — ${v.help}\n  ${(v.nodes[0]?.html || '').slice(0, 140)}`);
   }
   expect(violations.map((v) => v.id)).toEqual([]);
+});
+
+// Debrief's segmentation is a reading of the trace, and the flyer can overrule it. This is
+// the load-bearing half of that: a record the tool reads as one flight, cropped by hand to
+// the stretch the flyer says is theirs, with the analysis honouring the choice.
+test('a flyer can say which stretch of a record is their flight, and the analysis reads it', async ({ page }) => {
+  // One file, two things in it: a 40 m bench pop at the start (below the segmenter's floor,
+  // so it reads the file as one record beginning there), then the real 900 m flight.
+  const rows: string[] = ['Time (s),Altitude (m)'];
+  let t = 0;
+  const push = (a: number) => {
+    rows.push(`${t.toFixed(1)},${a.toFixed(1)}`);
+    t += 0.1;
+  };
+  for (const apogee of [40, 900]) {
+    const climb = Math.round(Math.sqrt((2 * apogee) / 9.80665) / 0.1);
+    const fall = Math.round(apogee / 15 / 0.1);
+    for (let i = 0; i < 20; i++) push(0);
+    for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
+    for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
+    for (let i = 0; i < 30; i++) push(0);
+  }
+  const realFlightStartsAt = 20 * 0.1 + Math.round(Math.sqrt((2 * 40) / 9.80665) / 0.1) * 0.1 + Math.round(40 / 15 / 0.1) * 0.1 + 30 * 0.1;
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'bench-then-flight.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // Read whole, the headline apogee tile carries a time-to-apogee that starts at the bench
+  // pop and ends at the real flight's peak — a clock spanning both.
+  const apogeeTile = page.locator('[data-reading="Apogee"]');
+  const before = (await apogeeTile.textContent()) ?? '';
+  expect(before).toMatch(/to apogee/);
+
+  // The crop row says what it would do before it is pressed.
+  const crop = page.getByText('This stretch is my flight');
+  await expect(crop).toBeVisible();
+  const from = page.getByLabel('From (s)');
+  const to = page.getByLabel('To (s)');
+  await from.fill(realFlightStartsAt.toFixed(1));
+  await to.fill(t.toFixed(1));
+  const read = page.getByRole('button', { name: 'Read this stretch' });
+  await expect(read).toBeEnabled();
+  await read.click();
+
+  // The analysis is of the stretch chosen, and it says so.
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 15_000 });
+  const apogee = page.locator('[data-reading="Apogee"]');
+  await expect(apogee).toContainText(/2,9\d\d ft|3,0\d\d ft/); // ~900 m
+  // …and the clock on it is the real flight's, not one that started at the bench pop.
+  await expect(apogeeTile).not.toHaveText(before);
+  await expect(apogeeTile).toContainText(/1[0-9]\.\d s to apogee/); // ~13.5 s for a 900 m climb
+
+  // There is a way back out — the state is not one-way.
+  const whole = page.getByRole('button', { name: 'Read the whole file' });
+  await expect(whole).toBeVisible();
+  await whole.click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden({ timeout: 15_000 });
+
+  // A stretch too short to read refuses out loud rather than failing when pressed.
+  await from.fill('1.0');
+  await to.fill('1.1');
+  await expect(read).toBeDisabled();
+  await expect(page.getByText(/too few to read a flight from/)).toBeVisible();
 });

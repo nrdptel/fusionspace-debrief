@@ -254,6 +254,10 @@ export interface AnalyzeOptions {
   /** The pad PRESSURE, for a record with no altitude channel: altitude derived from pressure
    *  takes its reference from that, and a datum in metres cannot correct it. Internal. */
   padPressure?: number;
+  /** Whether the FILE started on the pad. A crop out of the middle of a flight has no quiet
+   *  window of its own, so the question has to be answered about the record it came from.
+   *  Internal. */
+  padLikely?: boolean;
   /** The flyer's own answer to "which stretch is my flight". Honoured over Debrief's
    *  segmentation, and measured against the FILE's pad rather than the crop's first samples —
    *  a crop starting 1.5 s after liftoff otherwise re-zeroes altitude to mid-air and reads

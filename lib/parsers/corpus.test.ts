@@ -678,7 +678,7 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
 // wobble under 3 m as a landing — so a flyer holding a fragment their altimeter never filled
 // was told it held several flights and sent back to the vendor software to split it.
 type SegmentSays = 'written twice' | 'more than one flight' | 'neither';
-const DOUBLE_RECORDINGS: { file: string; says: SegmentSays; why: string }[] = [
+const DOUBLE_RECORDINGS: { file: string; says: SegmentSays; why: string; segments?: number }[] = [
   {
     file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
     says: 'written twice',
@@ -693,6 +693,10 @@ const DOUBLE_RECORDINGS: { file: string; says: SegmentSays; why: string }[] = [
     file: 'eggtimer/eggtimer__reddit-seb-earlydeploy-anomaly__Eggtimer_Data.csv',
     says: 'more than one flight',
     why: '4,661 ft then 8,969 ft — 92% apart, and the file has no quiet pad window to share a datum from',
+    // TWO, and the count is the assert: this record ends 445 m BELOW its own pad, and a
+    // height measured from there credits a 10 m wobble in the tail with 455 m of climb. That
+    // put a third "flight" in the list, of a file that holds one flight and an artefact.
+    segments: 2,
   },
   {
     file: 'blueraven/blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-Low.txt',
@@ -718,6 +722,9 @@ describe('a file that holds the same flight twice says so', () => {
       expect(w.some((x) => /holds more than one flight/.test(x)), `${short}: "more than one flight"`).toBe(
         c.says === 'more than one flight',
       );
+      if (c.segments != null) {
+        expect(loaded!.analysis.segments?.length, `${short}: flights listed`).toBe(c.segments);
+      }
     });
   }
 });

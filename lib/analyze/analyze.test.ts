@@ -858,6 +858,61 @@ describe('a file holding more than one flight', () => {
     }
   });
 
+  it('finds the landing when the ground under it is higher, and the record later leaves it', () => {
+    // Two ways to get this wrong, and the second is the one that survived the first attempt.
+    // A deck fixed at the pad never sees a rocket at rest 55 m up — terrain, or 6.5 hPa over
+    // a launch day — and the second flight is silently lost. But taking that ground from the
+    // whole REST of the record is worse: one sample below it, anywhere later, collapses the
+    // band under the level the first flight actually rested at. Measured on a day whose
+    // airframe was carried back down off the rise afterwards, that printed a 1,235.7 s
+    // flight time against an honest 224.5 s, with the multi-flight warning gone too.
+    //
+    // The rocket lands ON the rise, so the trace descends TO it and stays there — it does not
+    // touch the pad in between. That is the shape every other test here misses.
+    for (const [first, second, rest] of [
+      [3000, 4000, 55],
+      [3000, 4000, 90],
+      [1000, 1200, 51],
+      [500, 700, 30],
+    ]) {
+      const time: number[] = [];
+      const alt: number[] = [];
+      let t = 0;
+      const push = (a: number) => {
+        time.push(t);
+        alt.push(a);
+        t += 0.1;
+      };
+      // A flight of `height` that leaves `from` and comes down onto `onto`, so the trace
+      // never touches anything lower than the ground it is actually on.
+      const flightOnto = (height: number, from: number, onto: number) => {
+        const climb = Math.round(Math.sqrt((2 * height) / G0) / 0.1);
+        const fall = Math.round(height / 15 / 0.1);
+        for (let i = 0; i <= climb; i++) push(from + height * Math.sin((Math.PI / 2) * (i / climb)));
+        for (let i = 1; i <= fall; i++) push(onto + (from + height - onto) * (1 - i / fall));
+      };
+      for (let i = 0; i < 20; i++) push(0); // the pad
+      flightOnto(first, 0, rest); // …up from the pad, and down onto the rise
+      for (let i = 0; i < 6000; i++) push(rest); // ten minutes of standing about
+      flightOnto(second, rest, rest); // the next flight, off the rise and back onto it
+      for (let i = 0; i < 200; i++) push(rest);
+      for (let i = 1; i <= 1200; i++) push(rest * (1 - i / 1200)); // carried back down
+
+      const { flight } = syntheticBaroFlight();
+      const a = analyzeFlight({
+        ...flight,
+        time: Float64Array.from(time),
+        channels: [{ ...flight.channels[0], values: Float64Array.from(alt) }],
+      });
+      const what = `[${first}, ${second}] landing ${rest} m up, record ending at the pad`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(first * 1.15);
+      // The tell the wrong version printed: a flight time spanning the whole afternoon.
+      const honest = Math.sqrt((2 * first) / G0) + (first - rest) / 15 + 30;
+      expect(a.metrics.flightTime == null || a.metrics.flightTime < honest, what).toBe(true);
+    }
+  });
+
   it('does not read a drifting baseline after touchdown as another flight', () => {
     // A logger left running writes the weather: the pad pressure wanders through an
     // afternoon and the trace climbs hundreds of metres over hundreds of seconds. It clears
@@ -1032,6 +1087,32 @@ describe('a file holding more than one flight', () => {
     const a = analyzeFlight(day, { read: { from: two.from, to: two.to } });
     expect(a.segments).toHaveLength(3);
     expect(a.segments!.map((s) => s.read)).toEqual([false, true, false]);
+  });
+
+  it('says so when the stretch a flyer chose reaches across more than one flight', () => {
+    // The crop is honoured whatever is in it — the flyer said this is their flight. But a
+    // selection that still holds a landing and another launch produces liftoff from one and
+    // apogee from another, which is the original Sev-1 arrived at by a different road.
+    const day = launchDay([300, 1200, 250]);
+    const a = analyzeFlight(day, { read: { from: 40, to: 900 } });
+    expect(a.warnings.some((w) => /reaches across more than one of the flights/.test(w))).toBe(true);
+    // …and a selection that is one flight says nothing of the kind.
+    const two = analyzeFlight(day).segments![1];
+    const b = analyzeFlight(day, { read: { from: two.from, to: two.to } });
+    expect(b.warnings.some((w) => /reaches across more than one of the flights/.test(w))).toBe(false);
+  });
+
+  it('treats a crop of the whole file as no crop at all', () => {
+    // "Read the whole file" is the way out of a crop, so it has to land on the ordinary
+    // reading — the segmentation running again, and no sentence telling the flyer they chose
+    // a stretch when what they chose was all of it.
+    const day = launchDay([300, 1200, 250]);
+    const whole = analyzeFlight(day);
+    const back = analyzeFlight(day, { read: { from: 0, to: day.time.length } });
+    expect(back.extent.source).toBe('segmented');
+    expect(back.warnings.some((w) => /You chose the stretch/.test(w))).toBe(false);
+    expect(back.metrics.apogeeAltitude).toBe(whole.metrics.apogeeAltitude);
+    expect(back.segments?.map((s) => s.read)).toEqual([true, false, false]);
   });
 
   it('marks no flight as the one being read when the crop is the flyer’s own', () => {

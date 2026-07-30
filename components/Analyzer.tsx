@@ -9,6 +9,7 @@ import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import { flightFromMapping } from '@/lib/mapped';
 import type { RawFlight } from '@/lib/flight/types';
 import { analyzeAsync } from '@/lib/analyze/runner';
+import { sliceFlight } from '@/lib/flight/slice';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
@@ -54,6 +55,12 @@ type State =
    *  what the label/notes a flyer types are kept against. Absent where storage was refused. */
   | {
       phase: 'report';
+      /** The whole file, whatever stretch of it is on screen — what the crop control offers
+       *  and what a re-read is taken from. */
+      file: RawFlight;
+      /** The stretch the report is OF: the file itself, or a slice of it. Every surface that
+       *  joins a recorded channel to the analysis's own series reads this one, so the two
+       *  cannot be off by the crop's offset. */
       flight: RawFlight;
       analysis: FlightAnalysis;
       analyzedAt: number;
@@ -63,6 +70,8 @@ type State =
       caption?: { label: string; notes: string };
       /** True while another flight in the same file is being read. */
       reading?: boolean;
+      /** Why the last stretch the flyer asked for could not be read. */
+      readError?: string;
     }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
@@ -208,7 +217,15 @@ export default function Analyzer() {
         const result = importRecent({ name, text, ...(mapping ? { mapping } : {}), ...(summaryText ? { summaryText } : {}) });
         if (result.kind === 'flight') {
           const analysis = await analyzeAsync(result.flight);
-          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text, ...(caption ? { caption } : {}) });
+          set({
+            phase: 'report',
+            file: result.flight,
+            flight: result.flight,
+            analysis,
+            analyzedAt: Date.now(),
+            text,
+            ...(caption ? { caption } : {}),
+          });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -252,18 +269,27 @@ export default function Analyzer() {
   const readStretch = useCallback(
     async (from: number, to: number) => {
       if (state.phase !== 'report') return;
-      const flight = state.flight;
+      const file = state.file;
       const token = ++reqRef.current;
-      setState((prev) => (prev.phase === 'report' ? { ...prev, reading: true } : prev));
+      setState((prev) => (prev.phase === 'report' ? { ...prev, reading: true, readError: undefined } : prev));
       try {
-        const analysis = await analyzeAsync(flight, { read: { from, to } });
+        const analysis = await analyzeAsync(file, { read: { from, to } });
         if (reqRef.current !== token) return;
+        // The report becomes a report OF the stretch: the same slice the analysis read, so
+        // the recorded channels, the GPS fixes and the sample table line up with its series
+        // instead of being the whole file's under the crop's clock.
+        const shown = sliceFlight(file, analysis.extent.from, analysis.extent.to);
         setState((prev) =>
-          prev.phase === 'report' ? { ...prev, analysis, analyzedAt: Date.now(), reading: false } : prev,
+          prev.phase === 'report'
+            ? { ...prev, flight: shown, analysis, analyzedAt: Date.now(), reading: false, readError: undefined }
+            : prev,
         );
-      } catch {
+      } catch (err) {
+        // The stretch stays refused rather than half-applied: what is on screen is still the
+        // reading it was, and the row says why the new one could not be made.
         if (reqRef.current !== token) return;
-        setState((prev) => (prev.phase === 'report' ? { ...prev, reading: false } : prev));
+        const why = err instanceof Error ? err.message : 'That stretch could not be read.';
+        setState((prev) => (prev.phase === 'report' ? { ...prev, reading: false, readError: why } : prev));
       }
     },
     [state],
@@ -365,6 +391,7 @@ export default function Analyzer() {
         rememberOpenId(r.savedId ?? null);
         set({
           phase: 'report',
+          file: r.flight,
           flight: r.flight,
           analysis: r.analysis,
           analyzedAt: Date.now(),
@@ -437,7 +464,7 @@ export default function Analyzer() {
             return;
           }
         }
-        set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
+        set({ phase: 'report', file: flight, flight, analysis, analyzedAt: Date.now(), text });
         if (!addToIds)
           void save.then((savedId) => {
             rememberOpenId(savedId);
@@ -610,8 +637,10 @@ export default function Analyzer() {
           sys={sys}
           caption={state.caption}
           onCaption={state.savedId ? (c) => void saveCaption(state.savedId as string, c) : undefined}
+          fileTime={state.file.time}
           onRead={readStretch}
           reading={state.reading}
+          readError={state.readError}
         />
       </div>
     );
