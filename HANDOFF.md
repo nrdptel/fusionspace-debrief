@@ -2,7 +2,7 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — D3 shipped: a flight can carry several recordings
+## This run — D3 shipped and is live; D4 started
 
 Branch level with `origin/main` at `8266c2a` at session start. `ROADMAP.md` named the goal: D3 was
 the next unstarted milestone. **The baseline gate was GREEN before anything was touched** — 61 unit
@@ -28,7 +28,14 @@ in a season's count, and two runs at the crowns.
    over every metric, event and sample of every series. This is the instrument D3's own *done when*
    names: *"asserted by the corpus suite rather than by eye"*.
 3. **`2396eb1` — the report says which recording it is reading, and offers the others.**
-   `RecordingPicker`, plus one sentence in the .txt/.md/.html/JSON exports.
+   `RecordingPicker`, plus one sentence in the .txt/.md/.html/JSON exports and on the shareable
+   PNG. All three merged as **`f8c8db2` (#51)** and confirmed live on debrief.fusionspace.co.
+
+Then, on a branch restarted from that merge:
+
+4. **`a75bdda` — D4's alignment core**, and the measurement that shaped it (below).
+5. **`1fb5c96` — how closely a flight's recordings agree, on its own row.** The largest gap D3
+   left: "apogee within 0.03% · top speed within 6.70%", per reading, from the stored figures.
 
 ### The Sev-1 this run found, and why it was fixed inside the milestone
 
@@ -118,10 +125,10 @@ above the readings, with the others one click away. Twenty tiles repeating one f
 and the one reading that genuinely comes from elsewhere already names its own source
 (`descentSource === 'second-copy'`). `Tile.sub` is the seam if that ever changes.
 
-Three gaps, all filed in `BACKLOG.md` and all named in `ROADMAP.md` as **D5's starting point**:
+Three gaps were filed. **The first is closed since** (increment 5 above); the other two are in
+`BACKLOG.md` and named in `ROADMAP.md` as D5's starting point:
 
-1. the spread between a flight's recordings is not on its row, though `crossCheck` already computes
-   it;
+1. ~~the spread between a flight's recordings is not on its row~~ — **done**, increment 5;
 2. a grouped flight has no one-click overlay of its own recordings;
 3. the comparison still hedges — *"If these are recordings of the same flight…"* — when
    `flightId` now knows.
@@ -182,29 +189,55 @@ first commit. Signing is inherited and works (`gpg.format=ssh`).
 
 ## Pick up first, and why
 
-**`ROADMAP.md` is the queue. D1, D2 and D3 are SHIPPED; the next unstarted milestone is D4 — stitch
-per-stage logs into one composite flight.**
+**`ROADMAP.md` is the queue. D1, D2 and D3 are SHIPPED and live in production; D4 is IN PROGRESS
+— its alignment core is built and its composite surface is not.**
 
-D4 needs D3's recording dimension, which now exists — but read its note before scoping: nothing in
-`lib/` matches stitch, composite or per-stage, and `EventType` has no separation or second-ignition
-member. It needs a stated alignment method (a shared event, or overlapping wall clocks) and it must
-say which it used. **A wrong composite is the most damaging thing this product can produce, so the
-refusal path matters as much as the success path.**
+### What D4 already knows, so you do not have to re-derive it
 
-Two things D3 leaves that D4 will want:
+The corpus's one real staged pair is `iss-kairos-20240323` — a Kairos booster and sustainer, each
+on its own TeleMega. Measuring it refuted the milestone's own note twice:
 
-- **The corpus's `same_flight_group` column is NOT a same-flight signal**, and D4 is exactly where
-  someone will reach for it. It conflates three relations: independent instruments, the same
-  recording exported into two containers, and different STAGES of one launch. `iss-kairos` and
-  `iss-sg1.2` are staged flights sitting in that column — which makes them D4's fixtures, not D3's,
-  and `iss-sg1.2` (a TeleMega sustainer at 2,113 m beside two StratoLogger boosters at 465 m) is the
-  negative case for any automatic grouping.
-- **`RECON_GROUPS` in `lib/parsers/corpus.test.ts`** is the honest subset — 6 of the 15 declared
-  groups — and is where a staged-flight fixture's contract should sit beside its redundant-recording
-  cousins.
+1. **The sustainer's log carries no clock at all.** `flownAt` is undefined; the booster's is a GPS
+   UTC stamp. So "overlapping wall clocks", one of the two alignment methods the roadmap proposed,
+   does not exist on the only real pair there is.
+2. **The method that works is the launch.** Every stage leaves the pad together, so each record's
+   own liftoff is the same instant. The booster's log opens 0.2 s before it; the sustainer's
+   carries a 307.5 s pad wait before it.
+3. **Do NOT try to check "did this record contain the launch" from the record alone.** Both
+   obvious tests were tried and both failed. Altitude is useless — the analyzer takes each
+   record's pad datum from its own opening samples, so a log beginning at 1,000 m in the air reads
+   zero there too. Motion before the liftoff is worse: over all 50 corpus flights, ordinary
+   SINGLE-stage records show pre-liftoff climb rates from 0 to 141 m/s, because plenty of loggers
+   begin at boost and the detector fires a little way in. **There is no threshold between "a
+   sustainer lighting up at altitude" and "a StratoLogger that records only the flight."** The
+   first draft flagged 14 of 50 corpus flights; the rule was deleted rather than tuned.
+4. **What replaced it is corroboration.** Until separation every board is in the same rocket and
+   records the same first-stage burn, so lined up on the launch those instants must be one. The
+   corpus pair agrees to **0.29 s**; a sustainer whose logger started at its own ignition would be
+   out by the staging delay, which is seconds. `lib/stitch.ts`, tolerance 1 s, and the spread
+   ships on the alignment as a number the flyer can check.
 
-`BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. **There is no
-open Sev-1 as of this run.**
+### The next increment
+
+**The composite surface: one timeline whose events read in order across staging.** The blocker is
+named: `EventType` (`lib/analyze/types.ts`) has no separation or second-ignition member, which is
+why both boards currently call the FIRST-stage burn "burnout" — convenient for the corroboration
+above, useless for telling a staging story. Adding those members is the next thing, and it touches
+the analyzer, so it gets its own gate, its own corpus run and its own push.
+
+Two traps waiting there:
+
+- **`same_flight_group` in the fixtures manifest is not a staging signal.** It conflates
+  independent instruments, the same recording exported into two containers, and different STAGES
+  of one launch. `iss-kairos` and `iss-sg1.2` are the staged ones; `iss-sg1.2` (a TeleMega
+  sustainer at 2,113 m beside two StratoLogger boosters at 465 m and a 9.5 m fragment) is the
+  negative case for anything automatic.
+- **A wrong composite is the most damaging thing this product can produce.** The refusal path
+  matters as much as the success path, and `lib/stitch.ts` already refuses more readily than it
+  aligns. Keep it that way.
+
+`BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. **There is
+no open Sev-1 as of this run.**
 
 ## The fixtures repo
 
