@@ -836,7 +836,7 @@ export default function MethodsPage() {
             in tenths of a millibar, with two auxiliary words written once a second. In both, the
             altitude you see is derived from the barometer&apos;s own pressure readings rather than from
             a height the board had already computed.
-            <p className="mt-3">
+            <span className="mt-3 block">
               Two rules keep this a measurement rather than a plausible decode. Every one of these files
               in the test corpus has the vendor&apos;s own export of the <em>same bytes</em> sitting
               beside it, and every reading Debrief takes is checked against it — exactly, not within a
@@ -846,14 +846,14 @@ export default function MethodsPage() {
               readings disagree about how long the flight was. Misreading a binary record layout does
               not fail loudly — it produces a perfectly plausible flight out of misaligned bytes — so
               the only safe answer to a file that does not check out is to say so.
-            </p>
-            <p className="mt-3">
+            </span>
+            <span className="mt-3 block">
               An Entacore AIM <code>.bin</code> or <code>.xtra</code> is <em>not</em> read yet. Both are
               containers Debrief can identify but has no verified reading of, and there is no
               sample-for-sample ground truth to check a guess against — so a file like that is named for
               what it is and pointed at the AIM XTRA software&apos;s CSV export, instead of being reported
               as though it were not a flight log at all.
-            </p>
+            </span>
           </Method>
           <Method id="what-debrief-isnt" title="What Debrief isn't">
             Debrief reads flights you have already flown. It is <em>not</em> a simulator: it doesn&apos;t
