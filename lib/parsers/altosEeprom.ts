@@ -7,15 +7,19 @@
 // there are no columns: the log is a stream of fixed-size typed records.
 //
 // Clean-room from the AltOS log record layout and the MS5607 datasheet's own compensation
-// arithmetic, checked sample-for-sample against the CSV AltosUI exports from the same
-// file: every pressure this reads matches that export exactly (integer-identical on the
-// MS5607 path, within 0.003 Pa on the TeleMetrum v1 float path) across all three raw
-// downloads in the corpus. See `altosEeprom.test.ts`.
+// arithmetic, checked sample-for-sample against the CSV AltosUI exports from the same file,
+// across all three raw downloads in the corpus. On the two MS5607 boards every one of the
+// 6,820 pressures is IDENTICAL to that export — the arithmetic is integer either side. On
+// the TeleMetrum v1 board it is a float conversion on both sides and none of the 2,206
+// samples is bit-identical; the worst disagreement is 0.0035 Pa, a thousandth of the least
+// significant digit AltosUI prints. See `altosEeprom.test.ts`.
 //
-// What it does NOT do is guess. A log format this has never been shown is refused by
-// number rather than decoded on the assumption that it looks like its neighbours, and
-// even the formats it does read are cross-checked against a figure the file states about
-// itself before a single sample is handed back — see `groundPressureAgrees`.
+// What it does NOT do is guess. A log format this has never been shown is refused by number
+// rather than decoded on the assumption that it looks like its neighbours. And a 32-byte
+// format is read only if the pressure it decodes agrees with the ground pressure the file
+// states about itself — see `groundPressureAgrees`, and note what that does NOT cover: log
+// format 1's flight record carries no ground pressure to check against, and nothing
+// cross-checks the ACCELEROMETER on any format. Both rest on the corpus alone.
 
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { Channel, RawFlight } from '../flight/types';
@@ -43,12 +47,21 @@ const ERASED = 0xff;
 const FORMAT_FULL = 1;
 
 /**
- * The 32-byte TeleMega/EasyMega family. One record layout across the generation: a
- * 32-bit MS5607 pressure and temperature pair, an IMU, and a high-g accelerometer whose
- * counts-per-g the header states. 16 (EasyMega v2) and 22 (TeleMega v6) are the two the
- * corpus proves; the rest are the same struct in the same generation of the firmware, and
- * are read only because `groundPressureAgrees` re-checks that claim against the file
- * itself before anything is returned.
+ * The 32-byte TeleMega/EasyMega family: a 32-bit MS5607 pressure and temperature pair, an
+ * IMU, and a high-g accelerometer whose counts-per-g the board's own header states.
+ *
+ * Be precise about what is known here. **16 (EasyMega v2) and 22 (TeleMega v6) are measured**
+ * — the corpus holds a download in each, with AltosUI's export of the same bytes beside it.
+ * The other four are read on an ASSUMPTION: that this generation of the firmware writes one
+ * record layout, which is what AltOS's own log-format numbering implies and what nothing here
+ * has checked. That assumption is not taken on trust — `groundPressureAgrees` re-derives the
+ * pressure and holds it against a figure the file states about itself before any sample is
+ * returned, so a board that lays its records out differently is refused rather than read.
+ *
+ * What that check does NOT cover is the accelerometer: it is read from a fixed offset with no
+ * second source to test it against. A future format that moved it would give a wrong g figure
+ * on a flight whose altitude was right. Narrow this set, or find a fixture, before trusting
+ * peak acceleration off a format that is not 16 or 22.
  */
 const FORMAT_MEGA = new Set([10, 15, 16, 19, 21, 22]);
 
@@ -202,7 +215,8 @@ export function scaleBy2e21(d1: number, sens: number): number {
 /**
  * TeleMetrum v1 pressure: a 12-bit ADC reading of an MP3H6115A, whose transfer function
  * the datasheet gives as Vout = Vs·(0.009·P − 0.095). Inverted, with the reading scaled to
- * its full-scale count. Verified against the AltosUI export of the same file to 0.003 Pa.
+ * its full-scale count. Both sides of that comparison are float conversions, so none of the
+ * 2,206 corpus samples is bit-identical to AltosUI's; the worst disagreement is 0.0035 Pa.
  */
 function mp3h6115a(count: number): number {
   return ((count / 16 / 2047 + 0.095) / 0.009) * 1000;
@@ -326,14 +340,22 @@ export const altosEepromParser: Parser = {
 
     const t0 = zeroTick ?? time[0];
     const perMss = countsPerMss(header);
+    const notes: string[] = [
+      'Read straight from the raw download off the board — the same records AltosUI reads, with no CSV export in between. Altitude is derived from the barometer’s own pressure readings rather than from a height the board had already computed.',
+    ];
     const channels: Channel[] = [
       chan('pressure', 'Pressure', 'Pa', pressure),
     ];
-    if (perMss !== null && groundAccel !== null) {
+    if (perMss !== null && groundAccel !== null && sitsStill(accel, groundAccel, perMss)) {
       // Net of gravity, exactly as AltOS reports it — see `countsPerMss`.
       const g: Channel = chan('accelAxial', 'Acceleration', 'm/s²', accel.map((v) => (groundAccel - v) / perMss));
       g.gravityRemoved = true;
       channels.push(g);
+    } else if (perMss !== null && groundAccel !== null) {
+      // Read, and not believed. See `sitsStill`.
+      notes.push(
+        'The accelerometer readings in this download don’t agree with the resting reading the board wrote for itself before the flight, so they are left out rather than shown. Everything below is the barometer’s.',
+      );
     }
     if (temperature.length) channels.push(chan('temperature', 'Temperature', '°C', temperature));
 
@@ -344,9 +366,7 @@ export const altosEepromParser: Parser = {
       time: Float64Array.from(time, (tick) => (tick - t0) / HZ),
       channels,
       meta: metaOf(header, format as number),
-      notes: [
-        'Read straight from the raw download off the board — the same records AltosUI reads, with no CSV export in between. Altitude is derived from the barometer’s own pressure readings rather than from a height the board had already computed.',
-      ],
+      notes,
     };
 
     const flown = attachGps(flight, fixes, time);
@@ -377,6 +397,35 @@ function megaCalibration(header: EepromHeader): Ms5607 | null {
     if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0 || v >= 0x7fffffff) return null;
   }
   return c as Ms5607;
+}
+
+/**
+ * Does the accelerometer read what the board says it read while sitting on the pad?
+ *
+ * The barometer has `groundPressureAgrees` behind it; this is the same idea for the other
+ * sensor, and it is the only thing standing behind the accelerometer's byte offset on a log
+ * format the corpus does not contain. The board writes its own resting reading into the flight
+ * record, the log opens on the same rocket on the same pad, and the two have to agree. Read
+ * the wrong two bytes and they will not.
+ *
+ * The OPENING samples, and only a few of them, deliberately. A download does not begin at
+ * rest and run to ignition: AltOS keeps a ring buffer and marks the flight record once its
+ * boost detection has fired, which is a fraction of a second AFTER the motor lit — so a mean
+ * over the first fifth of a second is already partly under thrust (on one corpus file it is
+ * a whole g away from rest, and an earlier version of this check threw that flight's
+ * accelerometer away for it). The median of the first five is still the rocket standing on
+ * the pad.
+ *
+ * Half a g is far wider than the noise — the three corpus downloads sit within 0.022, 0.050
+ * and 0.051 g of their own stated resting reading — and far narrower than a misread field,
+ * which lands hundreds of g out or pins at the rail.
+ */
+function sitsStill(accel: number[], ground: number, perMss: number): boolean {
+  const n = Math.min(5, accel.length);
+  if (n === 0) return false;
+  const opening = accel.slice(0, n).sort((a, b) => a - b);
+  const median = opening[opening.length >> 1];
+  return Math.abs((ground - median) / perMss) <= 0.5 * 9.80665;
 }
 
 /**

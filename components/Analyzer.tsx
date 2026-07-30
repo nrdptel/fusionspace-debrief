@@ -40,7 +40,7 @@ import {
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
 import { decodeBytes } from '@/lib/encoding';
-import { fileToText } from '@/lib/fileText';
+import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 
@@ -270,7 +270,11 @@ export default function Analyzer() {
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             ...(mapping ? { mapping } : {}),
             text,
-            ...(bytes ? { bytes } : {}),
+            // The bytes reach the PARSERS on every file — that is what lets a binary format be
+            // read at all. They reach the LOGBOOK only for the files whose text is not the
+            // file, which is the rule `lib/ingest.ts` follows on the batch path and this one
+            // did not: every CSV dropped here was being stored twice.
+            ...(bytes && !textIsTheFile(text) ? { bytes } : {}),
           }).then((saved) => {
             rememberOpenId(saved.id);
             // The id arrives after the report is on screen (the save resolves later), so it is

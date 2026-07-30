@@ -183,10 +183,11 @@ telling the flyer their flight log is not a flight log.
   text view.
 - *an AltOS `.eeprom`* — three log formats (TeleMetrum v1's 8-byte records off an MP3H6115A, and
   the 32-byte TeleMega/EasyMega family's raw MS5607 conversions). All three corpus downloads have
-  AltosUI's own export of the same bytes beside them, and **every pressure matches it** — integer
-  identical on the MS5607 path, within 0.003 Pa on the float path, over 9,000 samples. Apogee and
-  peak acceleration land inside the tolerances the paired CSVs are already held to against a
-  *second altimeter*.
+  AltosUI's own export of the same bytes beside them, and **every pressure matches it**: on the two
+  MS5607 boards all 6,820 are IDENTICAL, the arithmetic being integer either side; on the older
+  TeleMetrum v1 both sides convert in floating point, none of the 2,206 is bit-identical, and the
+  worst disagreement is 0.0035 Pa. Apogee and peak acceleration land inside the tolerances the
+  paired CSVs are already held to against a *second altimeter*.
 - *an RRC3 `.rff`* — the .NET-serialised `List<Int16>` the mDACS software saves. The file holds
   exactly as many barometer readings as mDACS printed rows for, all 3,541 agree to the last tenth
   of a millibar, and Debrief's read of the raw file is asserted **identical** — not close — to its

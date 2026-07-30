@@ -48,6 +48,15 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **`normalizeFlight` has now silently dropped three different members of `RecentFlight` on the
+  way back in from a backup** — the report caption, the chosen stretch, and (this run) the file's
+  own bytes, which made the one documented way to move a logbook between machines restore every
+  raw download as mojibake. Each was found after shipping the member. The rebuild is field by
+  field on purpose (a hand-edited backup must not be able to inject a shape), so the fix is not to
+  spread the object — it is that **anything added to `RecentFlight` needs a line in
+  `normalizeFlight` and a round-trip assert in the same commit**. Worth a structural guard: a test
+  that enumerates the interface's members and fails when one has no validator, so the fourth time
+  is caught by the suite rather than by a review.
 - **The AltOS raw download reads three log formats and refuses the rest, and the rest includes
   EasyMini.** `lib/parsers/altosEeprom.ts` reads log format 1 (TeleMetrum v1, 8-byte records) and
   the 32-byte TeleMega/EasyMega family. The 16-byte family — EasyMini, TeleMetrum v2, TeleMini,

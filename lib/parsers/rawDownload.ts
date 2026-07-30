@@ -37,16 +37,27 @@ export function looksBinary(bytes: Uint8Array, text: string): boolean {
   return nul / n >= 0.05 && text.includes('\uFFFD');
 }
 
-/** Which logger's raw download this is, where the file says so. */
-function nameIt(input: ParseInput): string | null {
+/** What this file is, and — only where the file actually names its maker — where to take it. */
+interface Named {
+  what: string;
+  /** The one instruction that fits this vendor's own software. Absent when the file says only
+   *  what SHAPE it is: a .bin off an unknown board could be any logger, and sending that flyer
+   *  to the AIM XTRA software would be a confident wrong answer. */
+  where?: string;
+}
+
+function nameIt(input: ParseInput): Named | null {
+  const aim = { what: 'an Entacore AIM XTRA raw flight file', where: 'open it in the AIM XTRA software and export the flight to CSV' };
   const head = Math.min(input.bytes.length, 4096);
   for (let i = 0; i + BOOST_ARCHIVE.length <= head; i++) {
     let k = 0;
     while (k < BOOST_ARCHIVE.length && input.bytes[i + k] === BOOST_ARCHIVE.charCodeAt(k)) k++;
-    if (k === BOOST_ARCHIVE.length) return 'an Entacore AIM XTRA raw flight file';
+    if (k === BOOST_ARCHIVE.length) return aim;
   }
-  if (/\.xtra$/i.test(input.name)) return 'an Entacore AIM XTRA raw flight file';
-  if (/\.bin$/i.test(input.name) && input.bytes.length > 1024 * 1024) return 'a raw flash snapshot off an altimeter';
+  if (/\.xtra$/i.test(input.name)) return aim;
+  // A .bin says nothing about which board wrote it. Name the shape, and send the flyer to
+  // their OWN altimeter's software rather than to a vendor picked out of a hat.
+  if (/\.bin$/i.test(input.name) && input.bytes.length > 1024 * 1024) return { what: 'a raw flash snapshot off an altimeter' };
   return null;
 }
 
@@ -57,13 +68,14 @@ function nameIt(input: ParseInput): string | null {
  */
 export function refuseRawDownload(input: ParseInput, mappable: boolean): void {
   if (mappable || !looksBinary(input.bytes, input.text)) return;
-  const what = nameIt(input);
+  const named = nameIt(input);
   const known =
     'Debrief reads two raw downloads straight off the card today: an Altus Metrum ' +
     '.eeprom and a MissileWorks RRC3 .rff.';
+  const onward = named?.where ?? 'open the file in your altimeter’s own software and export or save-as CSV';
   throw new ParseGuidanceError(
-    what
-      ? `This is ${what}, and Debrief can’t read that format yet — so rather than guess at it, it won’t. ${known} For this one, open it in the AIM XTRA software and export the flight to CSV, then drop that here. It still never leaves your device.`
-      : `This file is a binary download off a device rather than a text export, and Debrief doesn’t recognise the format — so rather than guess at it, it won’t. ${known} For anything else, open the file in your altimeter’s own software and export or save-as CSV, then drop that here.`,
+    named
+      ? `This is ${named.what}, and Debrief can’t read that format yet — so rather than guess at it, it won’t. ${known} For this one, ${onward}, then drop that here. It still never leaves your device.`
+      : `This file is a binary download off a device rather than a text export, and Debrief doesn’t recognise the format — so rather than guess at it, it won’t. ${known} For anything else, ${onward}, then drop that here.`,
   );
 }

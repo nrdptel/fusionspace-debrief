@@ -171,7 +171,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         text,
         // A raw binary download does not survive as text — keep the file itself, or the
         // logbook row reopens as mojibake. See `textIsTheFile`.
-        ...(textIsTheFile(file.name, bytes, text) ? {} : { bytes }),
+        ...(textIsTheFile(text) ? {} : { bytes }),
       });
       for (const n of saved.forgotten) forgotten.push(n);
       results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id });

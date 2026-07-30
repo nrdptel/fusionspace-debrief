@@ -839,13 +839,16 @@ export default function MethodsPage() {
             <span className="mt-3 block">
               Two rules keep this a measurement rather than a plausible decode. Every one of these files
               in the test corpus has the vendor&apos;s own export of the <em>same bytes</em> sitting
-              beside it, and every reading Debrief takes is checked against it — exactly, not within a
-              tolerance. And a file whose shape Debrief has not been shown is refused by name: an AltOS
-              log format it does not know, a record layout whose pressures disagree with the ground
-              pressure the file states about itself, an RRC3 log whose once-a-second markers and whose
-              readings disagree about how long the flight was. Misreading a binary record layout does
-              not fail loudly — it produces a perfectly plausible flight out of misaligned bytes — so
-              the only safe answer to a file that does not check out is to say so.
+              beside it, and every reading Debrief takes is checked against that export — identically,
+              where both sides do the arithmetic in whole numbers (the newer Altus Metrum boards and the
+              RRC3, 10,361 readings), and to within four thousandths of a pascal on the one older board
+              where both sides convert in floating point. And a file whose shape Debrief has not been
+              shown is refused by name: an AltOS log format it does not know, a record layout whose
+              pressures disagree with the ground pressure the file states about itself, an RRC3 log
+              whose once-a-second markers and whose readings disagree about how long the flight was.
+              Misreading a binary record layout does not fail loudly — it produces a perfectly plausible
+              flight out of misaligned bytes — so the only safe answer to a file that does not check out
+              is to say so.
             </span>
             <span className="mt-3 block">
               An Entacore AIM <code>.bin</code> or <code>.xtra</code> is <em>not</em> read yet. Both are

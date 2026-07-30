@@ -43,7 +43,7 @@ it.** That is the whole reason this milestone was shippable, and it is the bar f
 
 | file | check | result |
 | --- | --- | --- |
-| TeleMetrum v1 `.eeprom` (format 1) | every pressure vs AltosUI’s CSV of the same file | worst 0.003 Pa over 2,206 samples |
+| TeleMetrum v1 `.eeprom` (format 1) | every pressure vs AltosUI’s CSV of the same file | none bit-identical (both sides convert in float); worst 0.0035 Pa over 2,206 |
 | EasyMega v2 `.eeprom` (format 16) | same | **0 Pa** (integer path) |
 | TeleMega v6 `.eeprom` (format 22) | same | **0 Pa**, 5,228 samples, across a tick rollover |
 | RRC3 `.rff` | count and value vs the mDACS text export | 3,541 of 3,541, exact |
@@ -110,9 +110,18 @@ Both new parsers **refuse rather than guess**, and every refusal is a check the 
   misreading where the readings start shifts the whole flight and still looks plausible;
 - an RRC3 file whose once-a-second markers and whose readings disagree about how long the flight was
   is refused — the only check a raw log with no timestamps in it offers on the 20 Hz clock it is
-  read with.
+  read with;
+- and the ACCELEROMETER is dropped, with a note saying so, where the opening samples disagree with
+  the resting reading the board wrote for itself. That one came out of the review: the pressure had
+  a second source and the accelerometer had none, so its byte offset rested on the corpus alone.
+  Note the trap inside it — **a download does not begin at rest.** AltOS keeps a ring buffer and
+  marks the flight record once boost detection has fired, so a mean over the first fifth of a second
+  is already partly under thrust; the first draft of this check threw a real flight's accelerometer
+  away for exactly that. The median of the first five samples is still the rocket on the pad.
 
-Every one of those refusals has a test that doctors the real corpus file until it fires.
+Every one of those refusals has a test that doctors the real corpus file until it fires — including
+one that rewrites the hex body to read the accelerometer two bytes to the left, which is what a
+misread record layout actually IS.
 
 ### What was deliberately left out
 
@@ -126,6 +135,49 @@ Every one of those refusals has a test that doctors the real corpus file until i
   gets the analyzer’s derived velocity. On the TeleMega that means `maxVelocity` is withheld
   entirely. **Checked, not a regression:** strip the velocity column out of the CSV read of that same
   flight and the CSV path withholds it too, identically.
+
+### What the pre-push review caught, and what it did not
+
+An adversarial fan-out over the finished diff — four independent lenses (the decoders byte for
+byte, the plumbing end to end, whether the code does what the comments and copy say, and tests
+that would stay green if the code broke), each finding then handed to a verifier told to refute
+it. It found **one Sev-1 and four Sev-2s that the author's own tests could not have caught**,
+because those tests were built from the same mental model as the code:
+
+- **Sev-1 — a logbook backup threw the bytes away.** `normalizeFlight` rebuilds each record field
+  by field and never copied `bytes`; `JSON.stringify` turns a `Uint8Array` into
+  `{"0":80,"1":75,…}` anyway. So the one documented way to move a logbook between machines
+  restored every raw download as the mojibake its text always was. They travel as base64 now, and
+  the round-trip is a unit test that falsifies in both directions. **This is the THIRD member that
+  field-by-field rebuild has silently lost** — the report caption, then the chosen stretch, now the
+  file itself. Anything added to `RecentFlight` needs a line in `normalizeFlight` and a round-trip
+  assert in the same commit.
+- **Sev-2 — the single-file drop stored the bytes of EVERY file.** `textIsTheFile` was applied on
+  the batch path and not on the one a flyer actually uses, so the logbook held two copies of every
+  CSV — the exact cost the rule exists to avoid.
+- **Sev-2 — any large `.bin` was told to open it "in the AIM XTRA software".** The namer correctly
+  returns a vendor-NEUTRAL description for a flash dump off an unknown board, and then the message
+  routed it through the branch hard-coded to one vendor. A Raven owner got a confident wrong answer.
+- **Sev-2 — a share link was offered for a raw download** (found independently and already fixed).
+- **Sev-2 — /methods claimed every reading is checked "exactly, not within a tolerance".** True of
+  the 10,361 readings where both sides do integer arithmetic; false of the 2,206 on the TeleMetrum
+  v1, where both sides convert in float and NONE is bit-identical. The page and four comments now
+  say which is which, and the test asserts exact equality on the integer paths rather than a
+  tolerance that covered both.
+
+And three tests that could not have failed: the `.rff` clock test recomputed the expected stamps
+from the row count with the same constant the parser uses (it reads mDACS's own Time column now,
+which turned up a real 0.01 s hiccup in that export); the GPS test compared only the FIRST fix,
+which agrees under any whole-track shift (it compares all 321 now, within one sample — 114 land on
+AltosUI's row and 207 one row later, because a GPS record and a barometer sample can share a tick);
+and the exact-arithmetic test passed under the very mutation it existed to catch, because the
+double happens to be right on this corpus (there is a direct test of the scaling helper now, on a
+case where it is not).
+
+**Run this fan-out. It is not optional, and it is not a formality** — the author cannot see these,
+by construction. Two practical notes: tell every agent to write probes under the scratchpad, and
+sweep anyway, because one of them left `if (false as boolean)` inside a shipped parser and two left
+probe files at the repo root.
 
 ### Gate, at the last commit
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSameStoredFlight, parseLogbookFlights, type RecentFlight } from './recents';
+import { isSameStoredFlight, parseLogbookFlights, serializeLogbook, type RecentFlight } from './recents';
 
 // parseLogbookFlights is the pure half of the backup/restore feature — it turns
 // the bytes of an export file into valid flight records, so it can be exercised
@@ -158,6 +158,54 @@ describe('the stretch a flyer chose', () => {
       const got = parseLogbookFlights(JSON.stringify({ flights: [{ ...base, read: bad }] }));
       expect(got, `read: ${JSON.stringify(bad)}`).toHaveLength(1);
       expect(got[0].read, `read: ${JSON.stringify(bad)}`).toBeUndefined();
+    }
+  });
+});
+
+
+// The backup file is how a logbook moves between machines, and it is rebuilt field by field
+// on the way back in — which has now silently dropped three different members (the report
+// caption, the chosen stretch, and the file's own bytes). So the round-trip is asserted.
+describe('a backup carries the file itself, for the flights whose text is not the file', () => {
+  const raw = (): RecentFlight =>
+    flight({
+      id: 'rff1',
+      name: 'XPRS_Scratch.rff',
+      formatLabel: 'MissileWorks RRC3 (raw .rff download)',
+      // What `decodeBytes` makes of a binary file: a lossy view, which is exactly why the
+      // bytes have to travel too.
+      text: '\u0000\uFFFD\uFFFD\uFFFD',
+      bytes: new Uint8Array([0x00, 0x01, 0xff, 0xfe, 0x80, 0x42, 0x00, 0x99, 0x7f]),
+    });
+
+  it('round-trips a raw download’s bytes through export and import', () => {
+    const back = parseLogbookFlights(serializeLogbook([raw()], 1))[0];
+    expect(back, 'the flight came back at all').toBeTruthy();
+    expect(back.bytes, 'the file itself').toBeTruthy();
+    expect([...(back.bytes as Uint8Array)]).toEqual([...(raw().bytes as Uint8Array)]);
+  });
+
+  it('does not write a bytes member for a flight that has none', () => {
+    const json = serializeLogbook([flight()], 1);
+    expect(json).not.toContain('bytesB64');
+    expect(parseLogbookFlights(json)[0].bytes).toBeUndefined();
+  });
+
+  it('never writes the array form JSON.stringify would have made of it', () => {
+    // `{"0":0,"1":1,…}` is what a Uint8Array serialises to untouched: a dozen characters per
+    // byte, and unreadable on the way back. Its absence is the whole point of the base64 key.
+    const json = serializeLogbook([raw()], 1);
+    expect(json).not.toContain('"0":0');
+    expect(json.length, 'a nine-byte file should not cost a hundred characters').toBeLessThan(json.replace(/"bytesB64":"[^"]*"/, '').length + 40);
+  });
+
+  it('refuses a hand-edited bytes member rather than handing a parser something else', () => {
+    const good = JSON.parse(serializeLogbook([raw()], 1));
+    for (const bad of [12, null, {}, '', '!!!not base64!!!']) {
+      const doctored = { ...good, flights: [{ ...good.flights[0], bytesB64: bad }] };
+      const back = parseLogbookFlights(JSON.stringify(doctored))[0];
+      expect(back, `bytesB64=${JSON.stringify(bad)}: the flight still restores`).toBeTruthy();
+      expect(back.bytes, `bytesB64=${JSON.stringify(bad)}: no bytes`).toBeUndefined();
     }
   });
 });

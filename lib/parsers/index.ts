@@ -51,11 +51,14 @@ const AUTO_THRESHOLD = 0.6;
  * the whole thing — the bytes AND the decoded text — rather than a shape that varies by
  * call site. This is the single place either one is derived.
  *
- * Bytes are encoded from text through a getter, not up front: a text import that no
- * binary parser ever looks at (which is nearly all of them, and some are tens of MB)
- * should not pay for a second copy of the file. The re-encode is UTF-8, so it round-trips
- * a file that really was text and is only ever a fallback for a caller — the share link, a
- * logbook row saved before the logbook kept bytes — that has nothing better.
+ * Bytes are encoded from text through a MEMOISED getter rather than up front, so the copy is
+ * made once and only if something asks for it. Be honest about what that is worth: a binary
+ * parser's `detect` reads the bytes of every file it is offered, so a text import handed to
+ * the full parser list pays the encode anyway. What the getter saves is the second and third
+ * copy, and the whole cost on a caller that passes its own parser list. The re-encode is
+ * UTF-8, so it round-trips a file that really was text, and it is only ever a fallback for a
+ * caller — the share link, a logbook row saved before the logbook kept bytes — with nothing
+ * better to offer.
  */
 function wholeFile(raw: FileInput): ParseInput {
   // Strip a UTF-8 BOM (common on Windows exports) so the first header cell and

@@ -127,10 +127,12 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
       // carry no new barometer reading.
       expect(missing, `${p.what}: samples AltosUI has no row for`).toBe(0);
       expect(compared).toBeGreaterThan(1000);
-      // 0.01 Pa is a hundredth of the least significant digit AltosUI prints. The MS5607
-      // path is integer arithmetic and lands exactly; the TeleMetrum v1 path is floating
-      // point and lands within 0.003 Pa.
-      expect(worst, `${p.what}: worst pressure disagreement over ${compared} samples`).toBeLessThan(0.01);
+      // 0.01 Pa is a hundredth of the least significant digit AltosUI prints. On the two
+      // MS5607 boards the arithmetic is integer either side and EVERY sample is identical —
+      // asserted as such, because a tolerance there would hide a real drift. The TeleMetrum
+      // v1 path is a float conversion on both sides, and lands within 0.0035 Pa.
+      const float = p.what.startsWith('TeleMetrum');
+      expect(worst, `${p.what}: worst pressure disagreement over ${compared} samples`).toBeLessThan(float ? 0.01 : 1e-12);
     });
   }
 
@@ -166,11 +168,32 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
     // this deliberately does not.
     expect(fixes).toBeLessThan(flight.time.length / 10);
 
-    const first = [...lat!.values].findIndex(Number.isFinite);
-    const truthLat = altosUi(p, 'latitude').get(round2(flight.time[first]));
-    expect(truthLat).toBeDefined();
-    expect(lat!.values[first]).toBeCloseTo(truthLat as number, 6);
-    expect(lon!.values[first]).toBeCloseTo(altosUi(p, 'longitude').get(round2(flight.time[first])) as number, 6);
+    // EVERY fix, against the position AltosUI wrote at that moment — not just the first one.
+    // Comparing only the first agreed under any whole-track shift, because the CSV has no
+    // position before its own first fix either: it could not have caught a track slipped a
+    // second late, which is the mistake this placement can actually make.
+    //
+    // WITHIN ONE SAMPLE, and that is a real difference rather than slack. A GPS record and a
+    // barometer sample can carry the same tick, and AltosUI writes its row from the state it
+    // had when it reached that sample — so a fix logged at the same tick as a sample shows up
+    // on the NEXT row there, while this puts it on the sample bearing its own stamp. Measured
+    // across this flight: 114 fixes land on the same row as AltosUI's and 207 one row later,
+    // none anywhere else. Ten milliseconds on a receiver that reports once a second; a slip of
+    // a whole second is a hundred rows and fails this.
+    const truthLat = altosUi(p, 'latitude');
+    const truthLon = altosUi(p, 'longitude');
+    let compared = 0;
+    for (let i = 0; i < flight.time.length; i++) {
+      if (!Number.isFinite(lat!.values[i])) continue;
+      const here = round2(flight.time[i]);
+      const next = i + 1 < flight.time.length ? round2(flight.time[i + 1]) : here;
+      const near = (mine: number, truth: Map<number, number>) =>
+        [here, next].some((t) => truth.has(t) && Math.abs((truth.get(t) as number) - mine) < 5e-7);
+      expect(near(lat!.values[i], truthLat), `latitude at ${here}s: ${lat!.values[i]} vs AltosUI ${truthLat.get(here)} / ${truthLat.get(next)}`).toBe(true);
+      expect(near(lon!.values[i], truthLon), `longitude at ${here}s`).toBe(true);
+      compared++;
+    }
+    expect(compared, 'fixes compared against the AltosUI export').toBe(fixes);
     // The GPS date is a real UTC stamp off the fix, so the logbook knows when it flew.
     expect(flight.flownAt?.zone).toBe('UTC');
     expect(flight.flownAt?.stamp.startsWith('2024-03-23')).toBe(true);
@@ -265,6 +288,28 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
     expect(getChannel(r.flight, 'pressure')!.values[0]).toBe(getChannel(straight, 'pressure')!.values[0]);
   });
 
+  it('drops the accelerometer, and says so, when it disagrees with the board’s resting reading', () => {
+    // The barometer has a cross-check against a figure the file states about itself; this is
+    // the same for the other sensor, and on a log format the corpus does not contain it is the
+    // ONLY thing standing behind the accelerometer's byte offset. Move the resting reading and
+    // the channel has to go — a wrong g figure on a flight whose altitude is right is the
+    // hardest kind of wrong number to notice.
+    for (const p of PAIRS.filter(have)) {
+      const straight = readEeprom(p);
+      expect(getChannel(straight, 'accelAxial'), `${p.what}: reads an accelerometer normally`).toBeTruthy();
+
+      // Read the accelerometer two bytes to the left of where it lives — which is what a
+      // misread record layout IS, and what the resting reading exists to catch.
+      const doctored = shiftAccel(text(p.eeprom));
+      expect(doctored, `${p.what}: the file really changed`).not.toBe(text(p.eeprom));
+      const moved = altosEepromParser.parse({ name: 'x.eeprom', text: doctored, bytes: new Uint8Array() });
+      expect(getChannel(moved, 'accelAxial'), `${p.what}: the disbelieved channel is withheld`).toBeUndefined();
+      expect(moved.notes.join(' '), `${p.what}: and the report says why`).toMatch(/don’t agree with the resting reading/);
+      // The barometer is untouched by any of that — this withholds one channel, not the flight.
+      expect(getChannel(moved, 'pressure')!.values[0]).toBe(getChannel(straight, 'pressure')!.values[0]);
+    }
+  });
+
   it('keeps the raw download out of the column mapper it used to fall into', () => {
     for (const p of PAIRS.filter(have)) {
       const r = importFlight({ name: p.eeprom.split('/').pop() as string, bytes: new Uint8Array(readFileSync(CORPUS + p.eeprom)) });
@@ -272,3 +317,27 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
     }
   });
 });
+
+/** Rewrite a download's hex body so every sensor record's accelerometer field reads a value
+ *  it never held — the shape of a misread byte offset. The barometer bytes are untouched. */
+function shiftAccel(eeprom: string): string {
+  const cut = eeprom.search(/\n\}\r?\n/) + 2;
+  const head = eeprom.slice(0, cut);
+  const bytes = Uint8Array.from(eeprom.slice(cut).trim().split(/\s+/).map((h) => parseInt(h, 16)));
+  // The record size is the file's own log format, not something to infer from its length:
+  // an 8-byte log is also a whole number of 32-byte blocks.
+  const size = (JSON.parse(head) as { log_format: number }).log_format === 1 ? 8 : 32;
+  // Log format 1 keeps the accelerometer at offset 4; the 32-byte family keeps it at 30.
+  const at = size === 8 ? 4 : 30;
+  for (let o = 0; o + size <= bytes.length; o += size) {
+    if (String.fromCharCode(bytes[o]) !== 'A') continue;
+    const v = ((bytes[o + at] | (bytes[o + at + 1] << 8)) + 3000) & 0xffff;
+    bytes[o + at] = v & 0xff;
+    bytes[o + at + 1] = v >> 8;
+  }
+  const hex: string[] = [];
+  for (let i = 0; i < bytes.length; i += 32) {
+    hex.push(Array.from(bytes.slice(i, i + 32)).map((v) => v.toString(16).padStart(2, '0')).join(' '));
+  }
+  return `${head}\n${hex.join('\n')}\n`;
+}

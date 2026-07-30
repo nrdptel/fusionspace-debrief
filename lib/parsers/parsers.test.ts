@@ -307,6 +307,20 @@ describe('a binary download off a card is named, not called "not a flight log"',
     expect(() => importFlight({ name: 'FLIGHT01.DAT', bytes: blob(4096) })).toThrow(/binary download off a device/);
   });
 
+  it('does not send a flash dump off an unknown board to one vendor’s software', () => {
+    // A .bin says nothing about which board wrote it. Naming the SHAPE is fair; naming a
+    // vendor is not, and telling a Raven owner to open their file in the AIM XTRA software
+    // is a confident wrong answer — worse than the vague one it replaced.
+    const big = blob(2 * 1024 * 1024);
+    expect(() => importFlight({ name: 'FLIGHT.BIN', bytes: big })).toThrow(/raw flash snapshot off an altimeter/);
+    expect(() => importFlight({ name: 'FLIGHT.BIN', bytes: big })).toThrow(/your altimeter’s own software/);
+    expect(() => importFlight({ name: 'FLIGHT.BIN', bytes: big })).not.toThrow(/AIM XTRA/);
+    // …while a file that DOES name its maker still gets that maker's own instruction.
+    const xtra = blob(4096);
+    xtra.set(new TextEncoder().encode('serialization::archive'), 4);
+    expect(() => importFlight({ name: 'x.xtra', bytes: xtra })).toThrow(/AIM XTRA software/);
+  });
+
   it('leaves a text export alone, including a NUL-heavy UTF-16 one', () => {
     // UTF-16 is half NUL bytes. It is still text, it still decodes cleanly, and it still
     // belongs in the column mapper — this is the case the NUL count alone would get wrong.

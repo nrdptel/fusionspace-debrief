@@ -19,6 +19,20 @@ const TXT = 'missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Dat
 
 const bytes = () => new Uint8Array(readFileSync(CORPUS + RFF));
 
+/** The Time column of the mDACS text export, in seconds, in file order. */
+function mdacsTimes(): number[] {
+  const text = decodeBytes(new Uint8Array(readFileSync(CORPUS + TXT)));
+  const out: number[] = [];
+  for (const line of text.split(/\r?\n/).slice(1)) {
+    const cells = line.split('\t');
+    if (cells.length < 3) continue;
+    const t = Number(cells[0]);
+    // Same rows the pressure reader keeps, so the two line up index for index.
+    if (Number.isFinite(t) && Number.isFinite(Number(cells[2]))) out.push(t);
+  }
+  return out;
+}
+
 /** The Pressure column of the mDACS text export, in mbar, in file order. */
 function mdacsPressures(): number[] {
   const text = decodeBytes(new Uint8Array(readFileSync(CORPUS + TXT)));
@@ -76,12 +90,27 @@ describe.skipIf(!existsSync(CORPUS + RFF))('MissileWorks RRC3 raw .rff download'
     expect(mine, `${mine.toFixed(0)} ft from the pressure vs ${theirs.toFixed(0)} ft from mDACS’s altitude column`).toBeLessThan(theirs * 1.04);
   });
 
-  it('puts the flight on the RRC3’s own 20 Hz clock', () => {
+  it('puts the flight on the RRC3’s own 20 Hz clock — the one mDACS stamps', () => {
     const flight = unwrap(importFlight({ name: 'XPRS_Scratch_2015.rff', bytes: bytes() }));
     expect(flight.time[0]).toBe(0);
-    expect(flight.time[1]).toBeCloseTo(0.05, 10);
-    // …and the last sample lands where mDACS's own last row does.
-    expect(flight.time[flight.time.length - 1]).toBeCloseTo((mdacsPressures().length - 1) / 20, 6);
+    // Read out of the export's own Time column, not recomputed from the row count with the
+    // same constant the parser uses — that version of this test agreed with itself and could
+    // not have caught a wrong sample rate.
+    const stamps = mdacsTimes();
+    expect(stamps.length, 'rows in the mDACS export').toBe(flight.time.length);
+    expect(stamps[1], 'mDACS’s own second stamp').toBeCloseTo(0.05, 10);
+    // mDACS's own stamps step by exactly 0.05 s across 3,539 of the 3,540 intervals, and by
+    // 0.06 s once — a single rounding hiccup in its printing, 177 seconds into the flight.
+    // Said as a count rather than as a tolerance, because that is the actual shape of the
+    // disagreement and a loose band would hide a real drift behind it.
+    let steps = 0;
+    for (let i = 1; i < stamps.length; i++) if (Math.abs(stamps[i] - stamps[i - 1] - 0.05) > 1e-9) steps++;
+    expect(steps, 'intervals in the mDACS export that are not 0.05 s').toBe(1);
+    let worst = 0;
+    for (let i = 0; i < stamps.length; i++) worst = Math.max(worst, Math.abs(stamps[i] - flight.time[i]));
+    // Floating point: the difference is 0.01 s plus 2e-14 of representation. Compared with a
+    // hair of slack rather than written as 0.0100001, which would read as a measurement.
+    expect(worst, 'worst clock disagreement with the mDACS export, seconds').toBeLessThan(0.0101);
   });
 
   it('refuses rather than guessing when the log does not open on the pad', () => {

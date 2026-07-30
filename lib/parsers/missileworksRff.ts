@@ -17,8 +17,10 @@
 // calibration lives somewhere this file does not carry and inventing one would put a
 // made-up number on a report.
 //
-// Read against the mDACS text export of the same flight: all 3,541 barometer samples
-// match it exactly, and the file holds exactly 3,541 of them. See `missileworksRff.test.ts`.
+// Read against the mDACS text export of the same flight: all 3,541 barometer samples match it
+// exactly, and the file holds exactly 3,541 of them. The corpus file ends on a lone 0xffff of
+// erased flash, which is why the marker count below counts PAIRS rather than halving a word
+// count. See `missileworksRff.test.ts`.
 
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
@@ -160,13 +162,20 @@ export const missileworksRffParser: Parser = {
     }
 
     const pressure: number[] = [];
-    let auxWords = 0;
+    /** Once-a-second markers, counted as the PAIRS they are written as. Counting the words
+     *  and halving them is not the same thing: the log ends on a lone 0xffff of erased flash,
+     *  and any odd auxiliary word would round the count up — both inflate the clock check
+     *  below, which is the one thing standing behind the 20 Hz assumption. */
+    let markers = 0;
     for (let i = start; i < words.length; i++) {
       const w = words[i];
       // An erased or unwritten word ends the log; a pressure of zero is not a reading.
       if (w === 0) break;
       if (w >= AUX) {
-        auxWords++;
+        if (i + 1 < words.length && words[i + 1] >= AUX) {
+          markers++;
+          i++; // step over the pair's second word so it cannot start another
+        }
         continue;
       }
       pressure.push(w * 10); // tenths of a millibar → Pa (1 mbar = 100 Pa)
@@ -183,7 +192,7 @@ export const missileworksRffParser: Parser = {
     // stream wrongly, and they disagree if the 20 Hz clock is not this file's clock —
     // which is the assumption a raw log with no timestamps in it cannot otherwise test.
     const bySeconds = pressure.length / HZ;
-    const byMarkers = auxWords / 2;
+    const byMarkers = markers;
     if (Math.abs(byMarkers - bySeconds) > 0.1 * bySeconds + 2) {
       throw new ParseGuidanceError(
         `Debrief read this mDACS raw flight file (.rff) but does not believe the result: its once-a-second markers say ${byMarkers.toFixed(0)} seconds of flight while its readings say ${bySeconds.toFixed(0)}, so the log is not written the way Debrief has been shown. Open it in mDACS and export the flight data as text, and drop that instead.`,
