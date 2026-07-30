@@ -25,6 +25,13 @@ export interface RecentMeta {
 
 export interface RecentFlight extends RecentMeta {
   text: string;
+  /** The file's own bytes, kept only for the files whose text is NOT the file — a raw
+   *  binary download off a card, an .xlsx workbook. Everything else round-trips through
+   *  `text` and storing a second copy would only shrink how many flights fit in the
+   *  browser's quota. `lib/fileText.ts#textIsTheFile` is the test; `importRecent` reads
+   *  this in preference to the text whenever it is here. Absent on nearly every row,
+   *  including every row written before the logbook kept bytes at all. */
+  bytes?: Uint8Array;
   /** The text of the device-summary file that was dropped alongside this log, when one was.
    *  The SOURCE, not the figures read out of it — the same reason the mapping below is kept
    *  as data: a stored answer is frozen at the version that wrote it, while a stored source

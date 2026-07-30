@@ -223,3 +223,64 @@ describe('Altus Metrum parser', () => {
     expect(getChannel(flight, 'accelAxial')).toBeTruthy();
   });
 });
+
+// D2's structural precondition. `ParseInput` was `{ name, text }`, so the bytes of a
+// dropped file reached no parser at all and a binary format could not be read even in
+// principle. These pin the contract that replaced it: a parser is handed the WHOLE file,
+// whichever half the caller happened to have.
+describe('a parser is handed the file, not just its text', () => {
+  /** A parser that records what it was given and never claims anything. */
+  function spy() {
+    const seen: { name: string; text: string; bytes: Uint8Array }[] = [];
+    return {
+      seen,
+      parser: {
+        id: 'spy',
+        label: 'spy',
+        detect(input: { name: string; text: string; bytes: Uint8Array }) {
+          seen.push({ name: input.name, text: input.text, bytes: input.bytes });
+          return 0;
+        },
+        parse(): never {
+          throw new Error('never');
+        },
+      },
+    };
+  }
+
+  it('encodes the bytes from the text when the caller only had text', () => {
+    const { seen, parser } = spy();
+    importFlight({ name: 'x.csv', text: 'time,altitude\n0,0\n1,10\n' }, [parser]);
+    expect(seen).toHaveLength(1);
+    expect(new TextDecoder().decode(seen[0].bytes)).toBe('time,altitude\n0,0\n1,10\n');
+  });
+
+  it('decodes the text from the bytes when the caller only had bytes', () => {
+    const { seen, parser } = spy();
+    const bytes = new TextEncoder().encode('time,altitude\n0,0\n1,10\n');
+    importFlight({ name: 'x.csv', bytes }, [parser]);
+    expect(seen[0].text).toBe('time,altitude\n0,0\n1,10\n');
+    expect(seen[0].bytes).toBe(bytes);
+  });
+
+  it('hands over the bytes it was given, not a re-encode of the text', () => {
+    // The whole point: a file whose text is a LOSSY view of it — every byte the decoder
+    // could not read became U+FFFD, and re-encoding that gives a different file. A parser
+    // that read the re-encode would be reading something the flyer never dropped.
+    const { seen, parser } = spy();
+    const bytes = new Uint8Array([0x00, 0x01, 0xff, 0xfe, 0x80, 0x42, 0x00, 0x99]);
+    importFlight({ name: 'flight.rff', bytes }, [parser]);
+    expect([...seen[0].bytes]).toEqual([...bytes]);
+    // …and the text really is the lossy view, so this is not a distinction without a
+    // difference: the two disagree about the file.
+    expect([...new TextEncoder().encode(seen[0].text)]).not.toEqual([...bytes]);
+  });
+
+  it('strips a UTF-8 BOM from the text on both paths', () => {
+    const { seen, parser } = spy();
+    importFlight({ name: 'a.csv', text: '﻿time,alt\n0,0\n' }, [parser]);
+    importFlight({ name: 'b.csv', bytes: new Uint8Array([0xef, 0xbb, 0xbf, 0x74, 0x69, 0x6d, 0x65]) }, [parser]);
+    expect(seen[0].text.startsWith('time')).toBe(true);
+    expect(seen[1].text).toBe('time');
+  });
+});

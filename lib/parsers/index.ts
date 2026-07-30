@@ -3,8 +3,9 @@
 // falls back to the generic path: an analysed table plus a best-guess column
 // mapping for the user to confirm. Adding a logger = adding one module here.
 
-import { ParseGuidanceError, type ParseInput, type Parser } from './types';
+import { ParseGuidanceError, type FileInput, type ParseInput, type Parser } from './types';
 import type { RawFlight } from '../flight/types';
+import { decodeBytes } from '../encoding';
 import { parseTable } from '../csv';
 import { analyzeTable, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
@@ -19,7 +20,7 @@ import { altimeterCloudParser } from './altimeterCloud';
 import { missileworksRrc3Parser } from './missileworksRrc3';
 import { deviceSummaryParser } from './deviceSummary';
 
-export type { ParseInput, Parser } from './types';
+export type { FileInput, ParseInput, Parser } from './types';
 export { ParseGuidanceError } from './types';
 
 export const PARSERS: Parser[] = [
@@ -39,6 +40,32 @@ export const PARSERS: Parser[] = [
 ];
 
 const AUTO_THRESHOLD = 0.6;
+
+/**
+ * Fill in whichever half of the file the caller didn't have, so every parser is handed
+ * the whole thing — the bytes AND the decoded text — rather than a shape that varies by
+ * call site. This is the single place either one is derived.
+ *
+ * Bytes are encoded from text through a getter, not up front: a text import that no
+ * binary parser ever looks at (which is nearly all of them, and some are tens of MB)
+ * should not pay for a second copy of the file. The re-encode is UTF-8, so it round-trips
+ * a file that really was text and is only ever a fallback for a caller — the share link, a
+ * logbook row saved before the logbook kept bytes — that has nothing better.
+ */
+function wholeFile(raw: FileInput): ParseInput {
+  // Strip a UTF-8 BOM (common on Windows exports) so the first header cell and
+  // delimiter detection aren't thrown off. `decodeBytes` already does this for the
+  // bytes path, including the double-encoded form the RRC3 mDACS export writes.
+  const text = raw.text !== undefined ? raw.text.replace(/^﻿/, '') : decodeBytes(raw.bytes as Uint8Array);
+  if (raw.bytes) return { name: raw.name, text, bytes: raw.bytes };
+  let encoded: Uint8Array | null = null;
+  const input = { name: raw.name, text };
+  Object.defineProperty(input, 'bytes', {
+    get: () => (encoded ??= new TextEncoder().encode(text)),
+    enumerable: true,
+  });
+  return input as ParseInput;
+}
 
 export interface AutoResult {
   kind: 'flight';
@@ -72,10 +99,8 @@ export function suggestMapping(table: AnalyzedTable): ColumnMapping[] {
  * Identify and import a flight file. Named formats parse straight through;
  * anything else comes back as a table + suggested mapping for confirmation.
  */
-export function importFlight(raw: ParseInput, parsers: Parser[] = PARSERS): ImportResult {
-  // Strip a UTF-8 BOM (common on Windows exports) so the first header cell and
-  // delimiter detection aren't thrown off.
-  const input: ParseInput = { name: raw.name, text: raw.text.replace(/^﻿/, '') };
+export function importFlight(raw: FileInput, parsers: Parser[] = PARSERS): ImportResult {
+  const input = wholeFile(raw);
 
   let best: { parser: Parser; score: number } | null = null;
   for (const parser of parsers) {

@@ -224,6 +224,10 @@ export default function Analyzer() {
     async (
       name: string,
       text: string,
+      /** The file's own bytes, where this path has them. A raw binary download's text is a
+       *  lossy view of it, so the parsers have to be handed the file itself — and the
+       *  logbook has to keep it, or reopening the row re-reads the mojibake. */
+      bytes?: Uint8Array,
       mapping?: StoredMapping[],
       summaryText?: string,
       caption?: { label: string; notes: string },
@@ -231,11 +235,20 @@ export default function Analyzer() {
     ) => {
       const set = beginLoad();
       try {
-        if (text.trim().length === 0) {
+        // A raw binary download decodes to text that is mostly replacement characters, and
+        // could in principle trim to nothing — but the file is plainly not empty, and the
+        // parsers read its bytes. Only a file with neither is empty.
+        if (text.trim().length === 0 && !bytes?.length) {
           set({ phase: 'error', message: 'That file is empty.' });
           return;
         }
-        const result = importRecent({ name, text, ...(mapping ? { mapping } : {}), ...(summaryText ? { summaryText } : {}) });
+        const result = importRecent({
+          name,
+          text,
+          ...(bytes ? { bytes } : {}),
+          ...(mapping ? { mapping } : {}),
+          ...(summaryText ? { summaryText } : {}),
+        });
         if (result.kind === 'flight') {
           // The stretch the flyer chose, restored. Stored in SECONDS on the file's own clock
           // and resolved to samples here, against the parse this build makes of the text —
@@ -260,6 +273,7 @@ export default function Analyzer() {
             ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
             ...(mapping ? { mapping } : {}),
             text,
+            ...(bytes ? { bytes } : {}),
           }).then((saved) => {
             rememberOpenId(saved.id);
             // The id arrives after the report is on screen (the save resolves later), so it is
@@ -353,9 +367,10 @@ export default function Analyzer() {
         // Read from the bytes, not file.text(): an .xlsx workbook is unzipped to
         // CSV, and a UTF-16 export (RRC3 mDACS, Excel "Unicode Text", …) is decoded
         // from its BOM rather than assumed UTF-8.
-        const text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const text = await fileToText(file.name, bytes);
         await tick(); // let the loading state paint before parsing
-        await ingest(file.name, text);
+        await ingest(file.name, text, bytes);
       } catch (err) {
         // A deliberate, user-facing message (e.g. an .xlsx that couldn't be
         // unzipped) should reach the flyer, not be hidden behind a generic line.
@@ -609,9 +624,9 @@ export default function Analyzer() {
         setState({ phase: 'error', message: 'That saved flight could no longer be read.' });
         return;
       }
-      setState({ phase: 'loading', what: { name: rec.name, bytes: rec.text.length } });
+      setState({ phase: 'loading', what: { name: rec.name, bytes: rec.bytes?.length ?? rec.text.length } });
       await tick();
-      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText, rec.caption, rec.read);
+      await ingest(rec.name, rec.text, rec.bytes, rec.mapping, rec.summaryText, rec.caption, rec.read);
     },
     [ingest],
   );
