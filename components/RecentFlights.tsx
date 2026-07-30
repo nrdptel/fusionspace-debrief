@@ -752,31 +752,32 @@ export default function RecentFlights({
                     </span>
                     Recorded {group.recordings.length} times — reported by{' '}
                     <span className="font-mono break-all">{r.name}</span>
-                    {/* How closely they agree, which is what a flyer flew two altimeters FOR —
-                        and the figure they otherwise work out by hand from the two rows. Per
-                        reading, never one number for the flight: on the corpus's four-altimeter
-                        flight the apogees agree to 0.027% and the derived top speeds to 6.70%,
-                        so a single figure would be a false reassurance or a false alarm
-                        depending which reading it happened to take. Never a consensus — the
+                    {/* How closely they agree on APOGEE, which is what a flyer flew two
+                        altimeters FOR and the figure they otherwise work out by hand from two
+                        rows. Apogee alone, and that is a measurement rather than a
+                        simplification — see `recordingSpread`, where the corpus says why a top
+                        speed here would flag correct groupings as wrong. Never a consensus: the
                         flight is still reported by the one recording the flyer nominated. */}
                     {recordingSpread(group).map((sp) => {
-                      // Past the same threshold the comparison panel already colours a row
-                      // amber at — one number, one meaning, rather than two surfaces each
-                      // deciding for themselves what "wide" is. A gap this size is usually
-                      // the flyer having joined two files that are not one flight, and it
-                      // should not read in the same quiet grey as 0.03% agreement.
-                      const wide = sp.pct > CROSS_CHECK_WIDE;
+                      // Rounded first, then compared — so the threshold the flyer can SEE is the
+                      // threshold the code applies, and two rows both painted "10.0%" cannot
+                      // come out one amber and one grey.
+                      const shown = sp.pct < 0.05 ? '0.05' : sp.pct.toFixed(sp.pct < 1 ? 2 : 1);
+                      const wide = parseFloat(shown) > CROSS_CHECK_WIDE;
                       return (
                         <span
                           key={sp.label}
                           className={`shrink-0 font-normal ${wide ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`}
                           title={
-                            `The full range across ${sp.count === group.recordings.length ? 'all' : sp.count} of this flight's ${group.recordings.length} recordings, ` +
-                            `as a share of their mean. Each instrument's own reading is below; nothing is averaged.` +
-                            (wide ? ' A gap this wide is worth chasing — two recordings of one flight rarely disagree by this much, so check these really are one flight.' : '')
+                            `The full range between ${sp.count === group.recordings.length ? 'all' : sp.count} of this flight's ${group.recordings.length} recordings, ` +
+                            `as a share of what they read on average — a measure of how far apart the instruments are, not a reading of its own. ` +
+                            `Each one's own apogee is listed when you open this.` +
+                            (wide
+                              ? ' A gap this wide is worth chasing: across every same-flight group in the validation corpus the apogees agree to within 2.3%, so check these really are one flight.'
+                              : '')
                           }
                         >
-                          · {sp.label} within {sp.pct < 0.05 ? '0.05' : sp.pct.toFixed(sp.pct < 1 ? 2 : 1)}%
+                          · {sp.label}{sp.count < group.recordings.length ? ` (${sp.count} of ${group.recordings.length})` : ''} within {shown}%
                         </span>
                       );
                     })}

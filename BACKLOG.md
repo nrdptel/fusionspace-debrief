@@ -118,14 +118,15 @@ wild, ideas too big for one pass. One line each, newest first.
   late; the fix is to carry the id into the report state rather than after it. Worth knowing that
   this also makes any test that checks the strip immediately after the heading a flake.
 
-- **DONE (2026-07-30) — the spread between a flight's recordings is on its logbook row**, per
-  reading: *"apogee within 0.03% · top speed within 6.70%"*. Measured on the corpus first, which
-  is what settled the shape: `ac-lilnuke`'s four recordings agree to 0.027% on apogee and spread
-  6.70% on top speed — nearly 250 times apart — so one "agreement" figure per flight would have
-  been a false reassurance or a false alarm depending which reading it happened to take. Computed
-  from the stored readings rather than by re-analysing, so opening the list cannot move a number.
-  What is still missing is the same figure for the readings BELOW apogee and top speed (descent
-  rates, max-Q), which the logbook does not store and which would need the full analyses.
+- **DONE (2026-07-30) — the APOGEE spread between a flight's recordings is on its logbook row**,
+  amber past 10%. Apogee only, and the corpus is why: over the six same-flight groups the apogee
+  spread runs 0.03%–2.29% while the top-speed spread runs 2.56%–81.65%, the two widest being
+  exactly the groups that pair a device-measured speed with a derived one. Showing a top-speed
+  spread would have flagged two documented, correctly-grouped corpus flights as wrong, and the
+  logbook stores no `maxVelocitySource` to caveat it with. Suppressed entirely when any recording
+  carries a crop, since a cropped recording's stored apogee is the crop's apogee. **What is still
+  missing** is a caveated speed spread on the COMPARISON surface, which has the analyses and
+  already computes `mixedSource` — that is where it belongs, not on the row.
 - **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
   Compare works, which is two more steps than a surface that already knows they are one flight
   should charge. Blocked behind the `compareFromLogbook` crop bug below, because a comparison

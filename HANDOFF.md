@@ -35,7 +35,8 @@ Then, on a branch restarted from that merge:
 
 4. **`a75bdda` — D4's alignment core**, and the measurement that shaped it (below).
 5. **`1fb5c96` — how closely a flight's recordings agree, on its own row.** The largest gap D3
-   left: "apogee within 0.03% · top speed within 6.70%", per reading, from the stored figures.
+   left: "apogee within 0.05%", amber past 10%, from the stored figures. Apogee only — the
+   corpus says a top-speed spread would flag correctly-grouped flights as wrong.
 
 ### The Sev-1 this run found, and why it was fixed inside the milestone
 

@@ -22,6 +22,13 @@ export interface RecentMeta {
   /** A free-text logbook note (motor, conditions, cert…). A noted flight is kept
    *  rather than pruned — it's a logbook entry, not just a recent. */
   note: string;
+  /** The stretch of this file the flyer chose to read, when they chose one — the same window
+   *  `RecentFlight.read` stores, projected so a LIST can see it.
+   *
+   *  The list needs it because a cropped recording's stored apogee is the CROP's apogee, and a
+   *  surface that compares one recording's reading with another's has to know it is comparing
+   *  two stretches rather than two instruments. Absent on almost every row. */
+  read?: { fromS: number; toS: number };
   /** Which FLIGHT this recording belongs to, where the flyer has said that two files are one
    *  flight flown on two altimeters.
    *
@@ -451,7 +458,7 @@ export async function setFlightIds(changes: { id: string; flightId: string | nul
  * against a browser's IndexedDB. Pure and exported so it doesn't.
  */
 export function toMeta(rec: RecentFlight): RecentMeta {
-  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note, flownAt, flightId } = rec;
+  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note, flownAt, flightId, read } = rec;
   return {
     id,
     name,
@@ -465,6 +472,8 @@ export function toMeta(rec: RecentFlight): RecentMeta {
     ...(flownAt ? { flownAt } : {}),
     // Only where the flyer has said this file is one recording of a flight that has several.
     ...(flightId ? { flightId } : {}),
+    // …and only where they chose a stretch of it, which is almost never.
+    ...(read ? { read } : {}),
   };
 }
 

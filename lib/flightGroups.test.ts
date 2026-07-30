@@ -202,42 +202,54 @@ describe('recordingSpread', () => {
     row(id, { flightId: '1784', apogeeM: [756.675, 756.544, 756.659, 756.745][i], maxVelocityMs: [164.83, 167.78, 156.91, 159.42][i] }),
   );
 
-  it('reports the corpus’s four-altimeter flight the way it actually reads', () => {
-    // The number this exists for, and the reason it is per reading: four boards in one airframe
-    // agree on the apogee to 0.027% and disagree about the top speed by 6.70% — 250 times wider
-    // because one is measured off a barometer and the other differentiated out of it.
+  it('reports the corpus\u2019s four-altimeter flight the way it actually reads', () => {
     const out = recordingSpread(groupRecordings(four)[0]);
-    expect(out.map((s) => s.label)).toEqual(['apogee', 'top speed']);
+    expect(out.map((s) => s.label)).toEqual(['apogee']);
     expect(out[0].pct).toBeCloseTo(0.027, 2);
-    expect(out[1].pct).toBeCloseTo(6.70, 2);
-    expect(out.every((s) => s.count === 4)).toBe(true);
+    expect(out[0].count).toBe(4);
+  });
+
+  it('never reports a TOP SPEED spread, because two boards can measure it two different ways', () => {
+    // Measured over all six same-flight groups in the corpus: apogee runs 0.03% to 2.29% and
+    // never higher, because apogee is altitude-sourced on every logger. Top speed runs 2.56% to
+    // 81.65%, and the two widest — 26.37% on iss-endurance and 81.65% on trf-lemiv-l3 — are
+    // exactly the two groups that pair a device-MEASURED speed with a DERIVED one. Those are
+    // documented, correctly-grouped flights, so a row showing that figure would have told their
+    // owners their grouping was wrong. The logbook stores no `maxVelocitySource` and so cannot
+    // caveat it; the comparison surface, which has the whole analysis, already does.
+    const mixed = [row('device', { flightId: 'device', apogeeM: 2841, maxVelocityMs: 315 }), row('derived', { flightId: 'device', apogeeM: 2855, maxVelocityMs: 410 })];
+    const out = recordingSpread(groupRecordings(mixed)[0]);
+    expect(out.map((s) => s.label)).toEqual(['apogee']);
+    expect(out[0].pct, 'the apogee spread is the honest one, and it is small').toBeLessThan(1);
+  });
+
+  it('says nothing at all when a recording carries a crop', () => {
+    // A cropped recording's stored apogee is the CROP's apogee. Comparing it with an uncropped
+    // one measures two different stretches and paints the flyer's own choice as instrument
+    // disagreement — measured: an ordinary "look at the motor" crop of one corpus recording
+    // stores 646.6 m where the whole flight reads 756.7, which is a fabricated 15% gap.
+    const cropped = [row('a', { flightId: 'a', apogeeM: 646.6, read: { fromS: 5, toS: 20 } }), row('b', { flightId: 'a', apogeeM: 756.7 })];
+    expect(recordingSpread(groupRecordings(cropped)[0])).toEqual([]);
+    // …and it comes back once the crop is gone.
+    const whole = [row('a', { flightId: 'a', apogeeM: 756.6 }), row('b', { flightId: 'a', apogeeM: 756.7 })];
+    expect(recordingSpread(groupRecordings(whole)[0])).toHaveLength(1);
   });
 
   it('is zero — not absent — when two recordings agree exactly', () => {
-    // The .eeprom-beside-its-own-CSV case. Perfect agreement is a real and reassuring answer.
     const pair = [row('a', { flightId: 'a', apogeeM: 2995.674 }), row('b', { flightId: 'a', apogeeM: 2995.674 })];
     expect(recordingSpread(groupRecordings(pair)[0])[0]).toEqual({ label: 'apogee', pct: 0, count: 2 });
   });
 
-  it('leaves a withheld reading out and says how many it had', () => {
-    // A withheld top speed is not a top speed of nought, and averaging it in would invent a
-    // disagreement out of a missing number.
+  it('leaves a withheld apogee out and says how many it had', () => {
     const mixed = [
-      row('a', { flightId: 'a', apogeeM: 1000, maxVelocityMs: 200 }),
-      row('b', { flightId: 'a', apogeeM: 1010, maxVelocityMs: null }),
-      row('c', { flightId: 'a', apogeeM: 1005, maxVelocityMs: 202 }),
+      row('a', { flightId: 'a', apogeeM: 1000 }),
+      row('b', { flightId: 'a', apogeeM: null }),
+      row('c', { flightId: 'a', apogeeM: 1005 }),
     ];
-    const out = recordingSpread(groupRecordings(mixed)[0]);
-    expect(out.find((s) => s.label === 'apogee')).toEqual({ label: 'apogee', pct: expect.closeTo(0.997, 2), count: 3 });
-    expect(out.find((s) => s.label === 'top speed')!.count, 'two of three, and it says so').toBe(2);
+    expect(recordingSpread(groupRecordings(mixed)[0])[0].count, 'two of three, and it says so').toBe(2);
   });
 
   it('says nothing at all about a flight recorded once', () => {
     expect(recordingSpread(groupRecordings([row('solo')])[0])).toEqual([]);
-  });
-
-  it('drops a reading only one recording has, rather than calling it 0% agreement', () => {
-    const one = [row('a', { flightId: 'a', apogeeM: 1000, maxVelocityMs: 200 }), row('b', { flightId: 'a', apogeeM: 1000, maxVelocityMs: null })];
-    expect(recordingSpread(groupRecordings(one)[0]).map((s) => s.label)).toEqual(['apogee']);
   });
 });

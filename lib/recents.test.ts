@@ -440,6 +440,7 @@ describe('the list projection carries every member the list can show', () => {
     maxVelocityMs: 427.0,
     flownAt: { stamp: '2025-04-12T12:45', zone: 'UTC' },
     note: 'L3 cert, M1297',
+    read: { fromS: 12.5, toS: 320.25 },
     flightId: 'm0',
   };
 
