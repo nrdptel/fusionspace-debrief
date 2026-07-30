@@ -175,7 +175,12 @@ double happens to be right on this corpus (there is a direct test of the scaling
 case where it is not).
 
 **Run this fan-out. It is not optional, and it is not a formality** — the author cannot see these,
-by construction. Two practical notes: tell every agent to write probes under the scratchpad, and
+by construction. What it cost and what it returned, so the next session can judge: **28 agents,
+two hours wall-clock, 2.7M subagent tokens; 24 findings raised, 11 survived adversarial
+verification, and all 11 were worth fixing.** Several of the thirteen it dismissed were worth
+fixing too — the verifiers refuted them as "already handled" because the working tree had moved
+under them while they checked, or as "a real measurement, not a defect", and the underlying gap
+was still real. Read the dismissals; do not just take the count. Two practical notes: tell every agent to write probes under the scratchpad, and
 sweep anyway, because one of them left `if (false as boolean)` inside a shipped parser and two left
 probe files at the repo root.
 
