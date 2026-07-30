@@ -48,6 +48,41 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **The AltOS raw download reads three log formats and refuses the rest, and the rest includes
+  EasyMini.** `lib/parsers/altosEeprom.ts` reads log format 1 (TeleMetrum v1, 8-byte records) and
+  the 32-byte TeleMega/EasyMega family. The 16-byte family — EasyMini, TeleMetrum v2, TeleMini,
+  EasyMotor — is refused by number with a message that names the format and points at AltosUI's CSV
+  export. EasyMini is one of the most-flown altimeters in the hobby, so this is the biggest single
+  gap left in D2's outcome. It is refused rather than attempted for one reason and one reason only:
+  **there is no 16-byte fixture in the corpus**, so a decode of it could not be measured against
+  anything, and a misread record layout produces a plausible flight rather than an error. Get one
+  `.eeprom` from a 16-byte board WITH the AltosUI CSV export of the same flight and this is an
+  afternoon: the record is `{ type, csum, tick, … }` like the others, the barometer is the same
+  MS5607 whose coefficients the header already carries, and `groundPressureAgrees` already exists to
+  check the layout against the file's own stated ground pressure before anything is returned.
+- **Temperature is dropped from an AltOS log format 1 download.** The raw reading and the °C AltosUI
+  prints are related by `raw × 0.015 − 295.87` across the one corpus file (310 paired samples, 64 of
+  them off by 0.06 °C, which is the CSV's own rounding) — but that is a curve fit, not the sensor's
+  transfer function, so it is not shipped. The 32-byte formats DO carry temperature, because it falls
+  out of the MS5607's documented compensation and matched AltosUI to 0.05 °C. Resolve it from the
+  TeleMetrum v1 hardware's thermistor circuit rather than from more fitting.
+- **The RRC3's temperature and battery voltage are in the `.rff` and are not read.** Two auxiliary
+  16-bit words per second, at 0x6E8D–0x6F67 and 0x7EDC–0x7EE4 on the corpus file. mDACS displays a
+  temperature and a voltage that track them, but neither is a linear function of them (the voltage
+  moves in steps of 0.019448 V while the word moves by 1, and the temperature deltas and the word
+  deltas do not share a sign consistently), so the calibration is not in this file. The text export
+  carries both, which is the workaround.
+- **`lib/fileAccept.test.ts` cannot see a parser that detects on CONTENT.** Its sweep greps parser
+  sources for `endsWith('.ext')` so that adding a name-anchored parser fails the test until the
+  picker offers that extension. Both new binary parsers detect on the file's bytes instead, so
+  `.eeprom` and `.rff` had to be added to `FLIGHT_FILE_EXTENSIONS` by hand and nothing would have
+  caught it if they had not been. The guard needs a second half — something that knows a parser
+  exists for a shape the picker does not name.
+- **The default vitest reporter's test count drifts by one or two between identical runs** (835, 836
+  and 837 observed on the same tree, every file passing, `Test Files 62 passed` every time; the JSON
+  reporter is stable at 826). Some suites build their cases from the corpus at run time. Harmless
+  today, but it means a headline test count is not evidence of anything — quote the file count and
+  the exit codes. Worth finding which suite varies and pinning it, so the number becomes a signal.
 - **Debrief numbers the flights in a download by position; the flyer's altimeter numbers them
   its own way, and the two need not agree.** Benchmarked against how the vendor apps do this
   same job: AltosUI, the Featherweight Interface Program and the Eggtimer Quantum all present
