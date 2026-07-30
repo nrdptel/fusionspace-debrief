@@ -218,14 +218,14 @@ describe('the pad a recovery reading is measured from', () => {
     const pad = padOrigin(lat, lon)!;
     expect(pad.lat0).toBeCloseTo(34, 6);
 
-    const wholeStats = recoveryStats(groundTrack(lat, lon)!, n - 1);
+    const wholeStats = recoveryStats(groundTrack(lat, lon)!)!;
     const cropLat = lat.slice(120);
     const cropLon = lon.slice(120);
     // Without the file's pad the crop's own first fixes become the reference…
-    const naive = recoveryStats(groundTrack(cropLat, cropLon)!, cropLat.length - 1);
+    const naive = recoveryStats(groundTrack(cropLat, cropLon)!)!;
     expect(naive.landingDistance).toBeLessThan(wholeStats.landingDistance * 0.9);
     // …and with it, the crop reads exactly what the whole file reads.
-    const fixed = recoveryStats(groundTrack(cropLat, cropLon, 16, pad)!, cropLat.length - 1);
+    const fixed = recoveryStats(groundTrack(cropLat, cropLon, 16, pad)!)!;
     expect(fixed.landingDistance).toBeCloseTo(wholeStats.landingDistance, 6);
     expect(fixed.landingBearing).toBeCloseTo(wholeStats.landingBearing, 6);
     expect(fixed.maxDrift).toBeCloseTo(wholeStats.maxDrift, 6);

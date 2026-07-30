@@ -107,7 +107,16 @@ file Debrief cannot read, it is a file the flyer maps by hand and then reads.**
   opening fan-out first and do the baseline gate while it runs.
 - **NEVER run `npm run build` while `npm run test:e2e` is in flight.** The build deletes and recreates
   `out/`, which is what the e2e webServer serves: the run comes back with a SHORT COUNT and exit 0.
-- **Pipe a gate command and you throw away its exit code.** Redirect to a file and read `$?`.
+- **Pipe a gate command and you throw away its exit code. Redirecting is not enough either —
+  you have to READ the code.** This run redirected all three gate commands to files, printed
+  `build=$?`, and then grepped the LOG FILES for the results instead of reading the command's own
+  stdout. `tsc --noEmit` had failed on two test files; the build never ran; and the e2e suite then
+  passed 217 tests against the `out/` a PREVIOUS build had left, so nothing looked wrong until CI
+  said so. Run the three, capture all three exit codes, and echo them on one line:
+  `npm test > u.log 2>&1; U=$?; npm run build > b.log 2>&1; B=$?; npm run test:e2e > e.log 2>&1; E=$?; echo "UNIT=$U BUILD=$B E2E=$E"`.
+  A green e2e after a failed build is the specific lie to watch for.
+- **`npx vitest run` does NOT type-check.** A test file can pass every assertion and still fail
+  `tsc`. The build is the only thing that catches a wrong signature in a test.
 - **The per-fixture corpus `it()` has no timeout allowance** and inherits vitest's 5 s default, while
   every whole-corpus invariant carries an explicit 60 s. The largest Blue Raven HR fixture takes
   ~1.3 s alone and has blown that 5 s under load before — re-run the one fixture on a quiet box.

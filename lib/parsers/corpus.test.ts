@@ -725,7 +725,7 @@ describe('a stretch a flyer chose keeps the file’s pad under it', () => {
     const lat = getChannel(file, 'latitude')!;
     const lon = getChannel(file, 'longitude')!;
     const pad = padOrigin(lat.values, lon.values)!;
-    const whole = recoveryStats(groundTrack(lat.values, lon.values)!, lat.values.length - 1);
+    const whole = recoveryStats(groundTrack(lat.values, lon.values)!)!;
 
     const apogee = analyzeFlight(file).events.find((e) => e.type === 'apogee')!;
     const crop = sliceFlight(file, apogee.index, file.time.length);
@@ -733,10 +733,10 @@ describe('a stretch a flyer chose keeps the file’s pad under it', () => {
     const co = getChannel(crop, 'longitude')!.values;
 
     // Without the file's pad this record reads 4,676 ft on 127° SE against 3,866 ft on 208° SW.
-    const naive = recoveryStats(groundTrack(cl, co)!, cl.length - 1);
+    const naive = recoveryStats(groundTrack(cl, co)!)!;
     expect(Math.abs(naive.landingBearing - whole.landingBearing)).toBeGreaterThan(50);
 
-    const fixed = recoveryStats(groundTrack(cl, co, 16, pad)!, cl.length - 1);
+    const fixed = recoveryStats(groundTrack(cl, co, 16, pad)!)!;
     expect(fixed.landingDistance).toBeCloseTo(whole.landingDistance, 6);
     expect(fixed.landingBearing).toBeCloseTo(whole.landingBearing, 6);
     expect(fixed.maxDrift).toBeCloseTo(whole.maxDrift, 6);
