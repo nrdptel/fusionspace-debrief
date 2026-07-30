@@ -10,6 +10,7 @@ import { parseTable } from '../csv';
 import { analyzeTable, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
 import { altusMetrumParser } from './altusmetrum';
+import { altosEepromParser } from './altosEeprom';
 import { perfectFliteParser } from './perfectflite';
 import { eggtimerParser } from './eggtimer';
 import { blueRavenParser } from './blueraven';
@@ -25,6 +26,7 @@ export { ParseGuidanceError } from './types';
 
 export const PARSERS: Parser[] = [
   altusMetrumParser,
+  altosEepromParser,
   perfectFliteParser,
   eggtimerParser,
   blueRavenParser,
