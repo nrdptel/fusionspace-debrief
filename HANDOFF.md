@@ -292,7 +292,25 @@ was right to say it is not itself proof.
 
 ## Pick up first, and why
 
-`BACKLOG.md` carries both audits in full, each entry with the code evidence that verified it.
+**Start at `ROADMAP.md`, not here and not in `BACKLOG.md`.** The owner's read was that the project was
+not progressing in usability or feature richness, and the repo agreed: of the last 40 commits on
+`main`, 25 were corrections and 5 added a capability — 4 of those 5 being two-clause subjects whose
+second clause was itself a correction — while `BACKLOG.md` reached 212 entries of which none proposed
+one. `ROADMAP.md` now holds the queue, and `MAINTAINING.md`'s *Each pass* makes the next milestone the
+default goal with defects preempting only on Sev-1, capped at one increment in four.
+
+**Before D1, fix the Sev-1 at the top of `BACKLOG.md`**: multi-flight segmentation mis-reads any
+launch-day file whose flights differ by more than 2x in apogee, and prints a flight time that spans
+two flights with no caveat. It is measured, it is already visible on a real corpus file, and the
+methods page describes a test that is not the one the code performs.
+
+**The current milestone is D1** — every flight in one download, and the flyer says which is theirs.
+Read the measured baseline at the top of `ROADMAP.md` first; it corrects several things a reasonable
+person would otherwise assume, including that Debrief already assembles some files across sources and
+already puts several recordings on one shared timeline.
+
+`BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s. It carries both audits in full,
+each entry with the code evidence that verified it — real measurements worth keeping, but not the plan.
 
 The opening fan-out's queue is fully shipped (increments 6, 9, 11, 13, 14). What replaced it is a
 four-lens sweep run late in the run — export fidelity, docs-vs-code, ingest failure, keyboard and
