@@ -7,7 +7,9 @@ proposes a capability.
 
 Read it to file into, and to screen for a **Sev-1** — a wrong number on a surface a flyer would act
 on, or a one-way door. Those preempt the milestone immediately. Everything else waits its turn under
-the one-in-four quota in `MAINTAINING.md`.
+the one-in-four quota on **unqueued** defect work in `MAINTAINING.md` — which caps clearing entries
+from this file, and deliberately does **not** cap craft or product work, because that now has its own
+track in `ROADMAP.md` with its own *done when*.
 
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.

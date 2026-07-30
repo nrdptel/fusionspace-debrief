@@ -2,7 +2,39 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — D3 shipped and is live; D4 started
+## Read this first: the queue now has TWO tracks
+
+**`ROADMAP.md` was restructured on 2026-07-30 and a run now ships from both tracks, alternating.**
+This is the single thing to understand before scoping anything.
+
+| track | next unstarted |
+|---|---|
+| **D — capability** | D4 (in progress) → then D5 |
+| **P — product & craft** | **P1 — one design system, adopted** |
+
+The owner's direction was that both apps still read as thrown-together rather than as products the
+public can pick up, measured against the vendor tools and the desktop sims. The cause was structural,
+not effort: `ROADMAP.md` was the queue and it contained **only** capability milestones, so a hands-off
+run could not ship product work as its main job — and the old "one increment in four may be defect
+**or polish** work" quota capped the very thing that was missing. The quota now covers only *unqueued*
+defect work; craft with a *done when* is a P-track milestone and is not capped.
+
+**Two new files, both binding, both to be read at session start:**
+- **`DESIGN.md`** — the design system: tokens, type and spacing scale, component vocabulary, the five
+  required states, number presentation, product shape, the touch contract. **Read it before writing a
+  component.** Both repos carry an identical copy; a change to one is a change to both, same run.
+- **`COMPETITION.md`** — the accumulating gap against the Featherweight Interface Program, AltosUI,
+  the vendor apps and a spreadsheet. The done-check now requires one row added or resolved per run.
+
+**P1 is the next P-track milestone, and this repo is the worse of the two.** Measured 2026-07-30:
+**50 components, zero cross-component imports** — there is no shared primitive layer at all — plus 12+
+card treatments and `text-xs` used **212** times against `text-sm` **82**, which puts most
+decision-grade numbers at caption size in an app whose entire job is presenting them. Build the
+vocabulary `DESIGN.md` §5 names, using the same names the sibling repo uses so the two converge rather
+than forking a second dialect. Convert one surface per increment and **ship the pinning check with the
+first slice**.
+
+## Last capability run — D3 shipped and is live; D4 started
 
 Branch level with `origin/main` at `8266c2a` at session start. `ROADMAP.md` named the goal: D3 was
 the next unstarted milestone. **The baseline gate was GREEN before anything was touched** — 61 unit
