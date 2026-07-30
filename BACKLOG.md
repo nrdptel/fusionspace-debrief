@@ -1,8 +1,35 @@
 # Backlog
 
+**This is a DEFECT LEDGER, not the work queue.** The queue is `ROADMAP.md`. This file was already
+right about itself — "not a roadmap; a memory" — but for a long time nothing else was the roadmap, so
+a session that treated it as the queue could only ship fixes. It holds 212 entries and not one of them
+proposes a capability.
+
+Read it to file into, and to screen for a **Sev-1** — a wrong number on a surface a flyer would act
+on, or a one-way door. Those preempt the milestone immediately. Everything else waits its turn under
+the one-in-four quota in `MAINTAINING.md`.
+
 Things noticed but not done — rough edges, missing affordances, formats seen in the
-wild, ideas too big for one pass. One line each, newest first. Not a roadmap; a
-memory, so a later pass doesn't have to rediscover them.
+wild, ideas too big for one pass. One line each, newest first.
+
+## SEV-1 — open, preempts the current milestone
+
+- **Multi-flight segmentation silently mis-reads any launch-day file whose flights differ by more than
+  2x in apogee, and prints the result as headline readings.** `nextFlightStart`
+  (`lib/analyze/index.ts:316`) uses `const high = peak * 0.5` where `peak` is the **file's** peak, not
+  each flight's own, so a second flight is only detected if it reaches half the biggest flight in the
+  file. Measured by transcribing the function verbatim into a standalone probe: `[1000, 2000]` is
+  detected; `[1000, 2010]` returns null; so do `[300, 3000]`, `[150, 900]` and `[1200, 400]`. The
+  cliff is exactly 2.00x, in both directions. When it misses, liftoff is pinned in the first flight
+  (`lib/analyze/index.ts:920`) while apogee comes from a later one, so `timeToApogee`, `burnTime` and
+  `flightTime` span two flights and are printed with no caveat (`lib/readings.ts:144`, `:208`). The
+  only structural guard, `ascentGapBreaksPeak`, needs a >1.5 s sample gap a continuous download does
+  not have. `app/methods/page.tsx:100` tells the flyer the test is "something a rocket cannot do:
+  return to the ground and climb again" and never states the half-the-peak condition — which is
+  exactly what fails. Shipped coverage is 1.005x, 1.6x and `[300, 500, 250]`, the last sitting exactly
+  ON the 0.5 boundary, so the whole failing region is untested. Already observed on real data: the
+  18.3 s flight time for a 10,245 ft flight recorded further down this file. Fix, and pin with cases
+  beyond 2x in both directions.
 
 ## Correctness / honesty
 
