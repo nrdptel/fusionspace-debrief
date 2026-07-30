@@ -414,9 +414,10 @@ refuted. They are written down rather than fixed because each needs its own gate
   - **[M] The Blue Raven's 3-D solution is mapped only as Velocity_Up and Tilt_Angle.**
     `Velocity_DR/CR`, `Inertial_DR/CR_position`, `Future_Angle` and `Roll_Angle` never reach the
     explorer, so downrange distance and lean direction need GPS that many flights don't carry.
-  - **[M] AltosUI graphs the raw `.eeprom` directly; Debrief refuses it** and tells the flyer to export
-    CSV from their altimeter's own software first — so Debrief can never be the only tool an AltOS
-    flyer opens. (AltosUI itself notes telemetry files "produce poor graphs" next to the eeprom.)
+  - **[DONE — D2] AltosUI graphs the raw `.eeprom` directly; Debrief refuses it.** Fixed:
+    `lib/parsers/altosEeprom.ts` reads the raw download for three log formats, checked pressure-for-
+    pressure against AltosUI's own export of the same bytes. An AltOS flyer no longer has to open
+    AltosUI first. (AltosUI itself notes telemetry files "produce poor graphs" next to the eeprom.)
   - **[M] No time cursor linking the charts, the sample table and the ground track.** AltosUI's Replay
     shares flight time between map and graph. Debrief has per-chart hover and a table that follows
     zoom, so you cannot step to one instant and read every channel AND the ground position together.
@@ -1667,11 +1668,20 @@ refuted. They are written down rather than fixed because each needs its own gate
   on no real file here, which is worse than nothing — revisit when a dated generic export
   turns up, and note that Y/M/D roles would also need guarding against a "Day" column that
   means something else.
-- Native binary logs still can't be *read*: an AltOS `.eeprom` (3 in the corpus), an
-  Entacore `.bin`/`.xtra` and an RRC3 `.rff` now get an honest "no flight data here" with
-  a route onward, but a real reader for the AltOS eeprom format (documented, open source)
-  would cover files a flyer already has on disk — and each of those three has a paired CSV
-  export in the corpus, so there is ground truth to check a reader against.
+- **Done (D2):** the AltOS `.eeprom` and the RRC3 `.rff` are read directly now, each measured
+  sample-for-sample against the vendor's own export of the same bytes. What remains is the
+  **Entacore AIM `.bin`/`.xtra`**, and it is blocked on ground truth rather than on effort. The
+  `.xtra` is a Boost serialization archive (`serialization::archive` header, then a
+  variable-length record stream carrying float32 timestamps and a repeating 3.3 constant); the
+  `.bin` is a 4 MB raw flash snapshot, a tagged variable-length stream with a recurring
+  `81 0b .. 81 0c ..` framing. Both are identifiable and neither is decodable with confidence:
+  the corpus has a flight-summary SCREENSHOT for these files and no per-sample export, and
+  Entacore's founder called the `.xtra` partially corrupt in the source thread. **Do not attempt
+  this without one of: the AIM XTRA software's CSV export of one of these exact flights, or
+  Entacore's record layout.** Every raw download that shipped in D2 had the vendor's own reading
+  of the same bytes to check against, and a binary decoder that cannot be checked produces a
+  plausible flight out of misaligned bytes rather than failing loudly. The files are recognised
+  and named today (`lib/parsers/rawDownload.ts`), which is the part that could be done honestly.
 - Checked, no finding: coast efficiency (height gained burnout→apogee over the drag-free
   v²/2g) is above 1 on nothing in the corpus — 29 flights report one and the highest is 82%
   (an AltimeterCloud flight). A value over 1 would mean the burnout velocity, burnout altitude

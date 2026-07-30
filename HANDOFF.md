@@ -2,126 +2,134 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — D1 shipped: every flight in one download, and the flyer says which is theirs
+## This run — D2 shipped: the file the card actually holds now opens
 
-Branch restarted from `origin/main` at `ae4148a`, level with it at session start (0 ahead, measured
-after `git fetch --prune`). `ROADMAP.md` named the goal: fix the segmentation Sev-1, then ship D1.
-Both are done. **The baseline gate was GREEN before anything was touched** — 773 unit (116 of them
-the corpus half), build clean, 215 e2e — which is worth recording because the last two runs
-inherited a red one.
+Branch restarted from `origin/main` at `5b6c76c` (D1's merge), level with it at session start.
+`ROADMAP.md` named the goal: D2 was the next unstarted milestone. **The baseline gate was GREEN
+before anything was touched** — 807 unit, build clean, 218 e2e — and production was confirmed
+serving `5b6c76c` before this run began.
 
 ### What a flyer can DO that they could not before
 
-**Drop a launch-day download, see every flight in it, open any of them — and on any record at all,
-say which stretch is theirs and have the analysis read that instead. And it is remembered.**
+**Pull the card out of an Altus Metrum board or a MissileWorks RRC3, drop the file their own
+software downloaded, and read the flight.** No CSV export first.
 
-Before this run, a file holding a 300 m sport flight and a 3,000 m certification flight was read as
-ONE flight: apogee 1,671 m, time-to-apogee 45.1 s, burn time 27.8 s, flight time 156.5 s, against a
-first flight that flew to 204 m in 7.0 s and was down in 20.6 s — with one warning on screen, about
-derived velocity, and nothing about the file holding two flights.
+Before this run that file produced *"Debrief couldn’t find any data rows in this file. Is it a
+flight log export?"* — a false sentence about a flight log, and the same dead end D1 closed for
+multi-flight downloads: go back to the vendor’s software.
 
-### Shipped to production
+### The five increments
 
-**PR #46**, six commits, merged on green. See the PR body for the full account; the short version:
+1. **`a121e34` — a parser is handed the file, not just its text.** `ParseInput` was
+   `{ name, text }`, so a binary format could not be read *even in principle*. It now carries the
+   file’s bytes too, always, with `importFlight#wholeFile` the single place either half is derived
+   from the other (lazily on the encode side, so a text import never pays for a second copy). The
+   logbook has the same problem one layer down — it stores a flight as text and re-parses it on
+   every reopen — so it now keeps the bytes for exactly the files whose text is *not* the file
+   (`lib/fileText.ts#textIsTheFile`), and not for the ones that round-trip.
+2. **`457e75c` — the AltOS `.eeprom`.** Three log formats: TeleMetrum v1’s 8-byte records off a
+   12-bit MP3H6115A, and the 32-byte TeleMega/EasyMega family’s raw MS5607 conversions,
+   compensated with the factory coefficients the file’s own header carries.
+3. **`82fffda` — the MissileWorks RRC3 `.rff`.** A .NET BinaryFormatter stream holding a
+   `List<Int16>`; inside it, barometer readings in tenths of a millibar with two auxiliary words
+   written once a second.
+4. **`f1e0ad4` — say what a raw download is, instead of saying it isn’t a flight log.**
+5. **`1461454` — three e2e walks** through the real drop handler, worker and logbook.
 
-1. **`b30e0e9`** — the segmentation Sev-1. Every threshold measured against the flight in hand
-   rather than the record's own highest flight.
-2. **`9c1ced4`** — this file, refreshed mid-run.
-3. **`91d4a74`** — every flight in the download listed, and seven ways to fool the segmenter closed.
-4. **`1bd9098`** — the picker: open any flight, without going back to the vendor software.
-5. **`1af6bb3`** — the manual crop, and the report made to be OF the stretch it reads.
-6. **`de04e1d`** — every document says which stretch it is of; and where the read is a guess, so
-   does the report.
-7. **`178449b`** — the crop is remembered, and the recovery card keeps the file's pad under it.
-8. **`640778a`** — a type error CI caught that the local gate had reported unread.
+### What made this a measurement rather than a plausible decode
 
-### The one thing that went wrong, and it is a process lesson
+**Every raw download in the corpus has the vendor’s own export of the same bytes sitting beside
+it.** That is the whole reason this milestone was shippable, and it is the bar for the next one.
 
-**A type error reached CI.** The gate was run — all three commands, all three redirected to files,
-`build=$?` echoed — and then the results were read out of the LOG FILES instead of out of the
-command's own stdout. `tsc --noEmit` had failed on two test files; the build never ran; and the e2e
-suite that followed passed 217 tests against the `out/` a previous build had left standing. **A
-green e2e after a failed build is the specific shape of that lie.** `npx vitest run` does not
-type-check, so both files passed every assertion they made. The incantation that captures all three
-codes together is in *Environment notes* below — use it.
+| file | check | result |
+| --- | --- | --- |
+| TeleMetrum v1 `.eeprom` (format 1) | every pressure vs AltosUI’s CSV of the same file | worst 0.003 Pa over 2,206 samples |
+| EasyMega v2 `.eeprom` (format 16) | same | **0 Pa** (integer path) |
+| TeleMega v6 `.eeprom` (format 22) | same | **0 Pa**, 5,228 samples, across a tick rollover |
+| RRC3 `.rff` | count and value vs the mDACS text export | 3,541 of 3,541, exact |
+| RRC3 `.rff` | apogee vs Debrief’s own read of that export’s pressure column | identical to 6 dp |
 
-### What the pre-push reviews were worth
+Peak acceleration off the raw `.eeprom` came out *identical* to the CSV path on all three files
+(245.5, 620.3, 829.5 m/s²), which is the strongest single signal that the accelerometer scaling and
+the board’s two-point calibration are read the way AltOS writes them. Apogee lands inside the
+tolerances the paired CSVs are already held to against a **second altimeter**, so the corpus pins
+the raw read against ground truth rather than against another reading of the same file.
 
-Four review passes over the run, three lenses each, every finding adversarially verified by a second
-agent told to refute it. **Fourteen real defects, none of which the author's own tests could have
-caught** — they were built from the same mental model as the code. Five were Sev-1:
+### The traps, and what each one cost
 
-1. A transonic dip that recovers **gradually** cut a 9,729 m Mach flight down to a 390 m "flight".
-   The guard against it looked at one sample, so it held or failed on one reading of noise.
-2. A baseline drifting while the flyer waits between launches put the original Sev-1 straight back:
-   a 3,000 m second flight after a ten-minute wait averaged 9.5 m/s and was refused as "not a
-   flight".
-3. Taking the deck's ground from the whole rest of the record let one sample below it, anywhere
-   later, collapse the band under the level the first flight actually rested at — **1,235.7 s of
-   flight time against an honest 224.5 s**, with the multi-flight warning gone too.
-4. Making the report be OF the stretch fixed nine surfaces and **broke a tenth**: `groundTrack`
-   derives the pad from the first fixes of whatever it is handed, so a crop starting in the air had
-   its pad in the air. On the corpus LEMIV L3 GPS record, cropping to apogee-onward moved the
-   walk-back from 3,866 ft on 208° SW to **4,676 ft on 127° SE** — 81° and 810 ft wrong, on the one
-   surface a flyer physically acts on.
-5. `fileSegments` re-asked the doubled-recording question with the pad flag hardcoded, so on a
-   file with no quiet pad window the strip offered flight 2 and destroyed itself when it was
-   opened.
+- **The MS5607 coefficients are in the header, and AltOS writes `2147483647` for "this board has
+  none".** A plain finite check sails through that and produces pressures in the billions.
+- **The tick counter is 16-bit and rolls over every 655.36 s.** A naive "did it go down?" unwrap is
+  wrong, because records genuinely come back a tick or two out of order at the boundary — a
+  temperature record stamped 65531 lands *after* a sensor record stamped 4. Measured cost of getting
+  it wrong: one corpus flight gained a spurious 655.36 s and reported 975 seconds. The fix is to put
+  each tick on the turn of the counter *nearest* the one before it.
+- **`0xff` is erased flash, not a record.** It is the tail of every download, carries no tick, and
+  dragged the clock to 65535 when it was let into the unwrap.
+- **The GPS is not the barometer’s clock.** A fix lands on the sample it was stamped with and
+  nowhere else; AltosUI’s CSV repeats the last position on all hundred rows a second, and those are
+  held values, not readings. The 3-satellite rule (position kept, height dropped) is the same one
+  the CSV parser already applies.
+- **`textIsTheFile` had to exist before the logbook could hold a binary flight.** The e2e walk that
+  reloads and re-reads the `.rff` from its logbook row fails within seconds if the bytes are not
+  stored — verified by mutation, not by reasoning.
+- **A guard tightened for a hypothetical broke two shipped behaviours.** Changing the "that file is
+  empty" check from `text.trim().length === 0` to `… && !bytes?.length` meant a file of blank lines
+  was no longer empty. Two e2e tests caught it. A binary file’s text is full of replacement
+  characters and never trims to nothing, so the original guard was already right.
 
-A sixth was a measurement error in the author's own prose: the calibration sweep had been run over
-the 34 records a named parser claims, when **46 analyse**. The other twelve go through the column
-mapper, and they include the StratoLogger whose 196 m one-sample boost transient is the sharpest
-case in the corpus. **`importFlight` returning `kind: 'mapping'` is not a file Debrief cannot read
-— it is a file the flyer maps by hand and then reads. Sweep them.**
+### Where this stopped, and why — read this before touching Entacore
 
-**Send the diff out before every push.** Three of those five Sev-1s were in code that had already
-passed a full green gate.
+**The Entacore AIM `.bin` and `.xtra` are still unread, and that was a decision, not a shortfall.**
 
-### How the segmentation works now, in one paragraph
+- The `.xtra` is a Boost serialization archive (`serialization::archive` header, then a
+  variable-length record stream carrying float32 timestamps and a repeating 3.3 constant).
+- The `.bin` is a 4 MB raw flash snapshot: a tagged variable-length stream with a recurring
+  `81 0b .. 81 0c ..` framing.
+- Both are *identifiable*. Neither is *checkable*: the corpus has a flight-summary screenshot for
+  these files and no per-sample export, and Entacore’s founder called the `.xtra` partially corrupt
+  in the source thread.
 
-The walk carries the peak of the segment it is inside, and at every return to that flight's own
-ground band asks: did the record descend into it or step into it (a logger restart); if it
-descended, was the mean rate one the rocket could have fallen at; does it come back above the
-height already reached, or back to it within two seconds (a dropout, or the transonic push). A
-second flight must also be a flight — past a floor and climbing between 10 m/s and 2√(2gh),
-measured over the top half of its own ascent. The ground under all of it is LOCAL: the lowest the
-trace gets within a minute either side of the sample, clamped at the pad below and at 200 m above.
+Misreading a binary record layout does not fail loudly — it produces a perfectly plausible flight
+out of misaligned bytes, which is the worst thing this product can produce. **Do not attempt it
+without either the AIM XTRA software’s CSV export of one of these exact flights, or Entacore’s
+record layout.** What shipped instead is the honest half: those files are named for what they are
+and pointed at the export that works.
 
-**Every constant is measured, and the measurement is the point:**
+### The pattern worth reusing
 
-- **flight floor 100 m**, coming down to a quarter of the record's own best and never under 30 m.
-  The largest non-flight excursion across the 46 corpus records is 76 m (a Blue Raven pad
-  transient); the others are 39, 48, 49, 61 m. The adaptive part is what keeps a club session from
-  being merged — a Jolly Logic AltimeterThree logs a whole afternoon into one file.
-- **ground band**: a fraction of the flight's own height capped at 50 m, measured from where the
-  record's ground actually is, clamped at the pad below (the corpus Eggtimer anomaly ends 445 m
-  UNDER its own pad).
-- **minimum climb 10 m/s** — half the slowest climb that can clear the floor; 2,000 m of drift over
-  five minutes is 6.7 m/s. The three real second flights in the corpus average 120, 139, 176 m/s.
-- **two seconds to rejoin** — a transonic dip is back above where it was in 0.45–0.80 s over four
-  shapes of that artefact; the two corpus Blue Ravens take 18.4 and 20.2 s, the Eggtimer 4.2 s.
-- **ten seconds between climbs**, for the "this may not be one flight" note. Nobody launches again
-  in ten seconds, and without it the pad transient reads as a separate climb on two corpus records.
+Both new parsers **refuse rather than guess**, and every refusal is a check the file can fail:
 
-### How to verify a segmentation change
+- an AltOS log format the parser has not been shown is named *by number* rather than decoded on the
+  assumption it resembles its neighbours;
+- a 32-byte AltOS layout is trusted only if the pressure it decodes agrees within 2% with the ground
+  pressure the file states *about itself* in its own flight record — two completely independent
+  sources, so agreement is evidence the layout was read the way that firmware wrote it. This is what
+  lets the parser accept log formats the corpus does not contain;
+- an RRC3 log that does not open on a reading a rocket could have taken on a pad is refused, because
+  misreading where the readings start shifts the whole flight and still looks plausible;
+- an RRC3 file whose once-a-second markers and whose readings disagree about how long the flight was
+  is refused — the only check a raw log with no timestamps in it offers on the 20 Hz clock it is
+  read with.
 
-This is the harness the whole run was built on, and the next session should reuse it rather than
-rebuild it:
+Every one of those refusals has a test that doctors the real corpus file until it fires.
 
-```bash
-git worktree add /tmp/base origin/main            # …then symlink node_modules and __corpus__
-npx vite-node <probe>.ts                          # import BOTH analyzers, diff every metric
-```
+### What was deliberately left out
 
-A probe that imports `analyzeFlight` from the working tree and from a worktree at `origin/main`,
-runs both over every corpus record that analyses (**46** — use `buildFlight` on the mapper's own
-suggestion for the twelve that need it), and prints only what moved. This run's answer: **44
-identical, 2 moved and both deliberately.** Nothing else gives that confidence, and it takes ten
-minutes to set up.
+- **Temperature on AltOS log format 1.** The relation between the raw reading and the °C AltosUI
+  prints fits `raw × 0.015 − 295.87` over the corpus file, but that is a curve fit, not the format’s
+  own arithmetic — so it is not shipped. Temperature on the 32-byte formats *is* shipped, because it
+  falls straight out of the MS5607’s documented compensation and matched to 0.05 °C.
+- **Temperature and battery voltage on the RRC3.** Both words are in the file; neither is a linear
+  function of what mDACS displays, so the calibration lives somewhere the file does not carry.
+- **Velocity on either.** Neither logger records one — AltOS computes it — so a pressure-only flight
+  gets the analyzer’s derived velocity. On the TeleMega that means `maxVelocity` is withheld
+  entirely. **Checked, not a regression:** strip the velocity column out of the CSV read of that same
+  flight and the CSV path withholds it too, identically.
 
-**And falsify every assert.** Every new one this run was reverted by mutation and watched to fail
-naming its own case. Two of them failed to falsify on the first try and were rewritten — an assert
-that cannot fail is worse than no assert, and the only way to know is to try.
+### Gate, at the last commit
+
+`UNIT=0 TSC=0 BUILD=0 E2E=0` — **829 unit**, typecheck clean, build clean, **221 e2e**.
 
 ## Environment notes
 
@@ -191,42 +199,45 @@ to warn about it puts it in the repository just as surely as using it would.)
 
 ## Pick up first, and why
 
-**`ROADMAP.md` is the queue, and D1 is SHIPPED. The next unstarted milestone is D2 — read the file
-the card actually holds.** A raw binary download off an altimeter should open, instead of sending
-the flyer back to the vendor software to export a CSV first.
+**`ROADMAP.md` is the queue, and D2 is SHIPPED. The next unstarted milestone is D3 — one flight can
+carry several recordings.** A flight flown on two altimeters should be one flight in the logbook,
+not two, counted once by the personal-best crowns.
 
-What the last run's fan-out established about D2, still true and worth not re-deriving:
-`ParseInput` is `{ name, text }` (`lib/parsers/types.ts:3`), so **bytes are structurally
-unreachable for any parser** — that shape has to grow before a binary parser can exist. Seven
-corpus fixtures are raw binary the generic mapper reads zero columns from, and three named logger
-families produce them. For the "just pulled the SD card" flyer this is a task that cannot be
-completed at all.
+D1 already left two of D3’s pieces named and measured, and they are the same defect twice: the
+logbook is keyed on FILES where it now needs to be keyed on FLIGHTS.
 
-**Two things D1 did not do, and they are D3's starting point rather than D1's leftovers** — both
-are the logbook being keyed on FILES where it now needs to be keyed on FLIGHTS:
-
-1. The logbook row carries the FILE's apogee whichever flight is on screen.
+1. The logbook row carries the FILE’s apogee whichever flight is on screen.
 2. A comparison built from ids re-reads each flight whole, so a cropped flight joins a comparison
    uncropped and disagrees with its own report.
 
-Both are in `BACKLOG.md` with the shape of the fix. A third — two flights to the same height within
-1% still called "the same flight written twice" — is filed there too, and is genuinely unsettleable
-from the altitude column alone.
+Both are in `BACKLOG.md` with the shape of the fix. The roadmap’s own note on D3 is worth heeding:
+the pivot is **not** to widen `RawFlight` — introduce a `Flight` that owns `recordings` and leave
+`RawFlight` as exactly what it is, one recording from one file through one parser, so no parser and
+no analysis input shape moves.
 
-**Two benchmark findings against the vendor apps**, also filed: Debrief numbers the flights in a
-download by position while the flyer's altimeter numbers them its own way (an AltosUI window saying
-"flight 7" against a Debrief strip saying "flight 1"), and the vendor apps can pull ONE flight off
-the device, which is why a multi-flight file is unusual for them and ordinary here.
+Two smaller things this run leaves behind, both filed in `BACKLOG.md`:
+
+- **the Entacore files**, blocked on ground truth as described above — not on effort;
+- `lib/fileAccept.test.ts` sweeps parser sources for `endsWith('.ext')` to catch a picker that greys
+  out a format the app parses. The two new parsers detect on *content*, not on the extension, so the
+  sweep does not see them and `.eeprom` / `.rff` were added to the picker by hand. A content-detecting
+  parser is invisible to that guard.
 
 `BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. **There is no
 open Sev-1 as of this run.**
 
 ## The fixtures repo
 
-No commit there this run — the working tree is clean and the branch still sits on its previous
-run's `4862db7`. Nothing changed a fixture's contract: the corpus was used to MEASURE, over and
-over, and two fixtures changed what Debrief SAYS about them without changing what they are.
+No commit there this run — the working tree is clean and the branch still sits on its previous run’s
+`4862db7`. Nothing changed a fixture’s contract: four fixtures changed what Debrief SAYS about them
+without changing what they are, and those contract updates live in `lib/parsers/corpus-overrides.json`
+in THIS repo, which is exactly what that file exists for. **Remove those four override entries once
+`debrief-fixtures` is re-cut**, or the corpus’s own `expected.json` and the override will drift.
 
-The split, printed rather than inferred: **46 of the 61 fixtures analyse** — 34 through a named
-parser and 12 through the column mapper on its own suggestion. That second number is the one this
-run learned the hard way; every corpus measurement before it had been taken over 34.
+The split, printed by the suite rather than inferred: **`61 fixtures: 41 analysed, 0
+mapped-but-unanalysable, 9 parse-only, 11 rejected`**. Analysed rose from 37 (the three AltOS
+`.eeprom` downloads and the RRC3 `.rff`), rejected from 8 (the three Entacore raw files, now named
+rather than dropped into the mapper), and the mapped-but-unanalysable set is **empty** where it was
+seven. Both of the numbers the suite asserts — `analysed >= 41` and `steppedAround === 0` — are held
+there so a parser regression that put one back in the column mapper cannot pass as a still-green
+suite.

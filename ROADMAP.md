@@ -162,7 +162,50 @@ flyer's own say-so stops being a fallback and becomes the route.
 
 ## D2 — Read the file the card actually holds
 
-**Status:** NOT STARTED
+**Status:** SHIPPED 2026-07-30 — pinned by `an Altus Metrum raw .eeprom download opens into a
+report` and `an RRC3 raw .rff download opens, and survives a reload through the logbook` (both
+`e2e/raw-download.spec.ts`, both walking the real app), by `altosEeprom.test.ts` and
+`missileworksRff.test.ts` measuring every reading against the vendors' own exports of the same
+bytes, and by the corpus invariant that the mapped-but-unanalysable set is now **empty** where it
+was seven.
+
+**What a flyer can do that they could not before:** pull the card out of an Altus Metrum board or a
+MissileWorks RRC3, drop the file their own software downloaded, and read the flight — no CSV export
+first. And where Debrief still cannot read a raw download, it says what the file is instead of
+telling the flyer their flight log is not a flight log.
+
+**Each clause of the *done when*, and the check that pins it:**
+
+- *the shape has to grow before a binary parser can exist* — `ParseInput` carries the file's bytes
+  as well as its text, always, with `importFlight` the single place either is derived from the
+  other. Pinned by `a parser is handed the file, not just its text` (`parsers.test.ts`), including
+  the case that matters: the bytes handed over are the ones given, never a re-encode of a lossy
+  text view.
+- *an AltOS `.eeprom`* — three log formats (TeleMetrum v1's 8-byte records off an MP3H6115A, and
+  the 32-byte TeleMega/EasyMega family's raw MS5607 conversions). All three corpus downloads have
+  AltosUI's own export of the same bytes beside them, and **every pressure matches it** — integer
+  identical on the MS5607 path, within 0.003 Pa on the float path, over 9,000 samples. Apogee and
+  peak acceleration land inside the tolerances the paired CSVs are already held to against a
+  *second altimeter*.
+- *an RRC3 `.rff`* — the .NET-serialised `List<Int16>` the mDACS software saves. The file holds
+  exactly as many barometer readings as mDACS printed rows for, all 3,541 agree to the last tenth
+  of a millibar, and Debrief's read of the raw file is asserted **identical** — not close — to its
+  read of that export's pressure column.
+- *with the corpus fixtures that currently yield zero columns asserted as read* — the
+  stepped-around count is asserted `=== 0`, and the analysed count rose from 37 to 41.
+
+**What this delivered against its *done when*, and what it did not.** Two of the three named logger
+families are read. **The Entacore AIM `.bin` and `.xtra` are not, deliberately.** The `.xtra` is a
+Boost serialization archive of a C++ object graph and the `.bin` a tagged variable-length flash
+stream; the corpus carries a screenshot of that flight and no sample-for-sample ground truth for
+either, so a decoder for them could not be measured against anything. Every raw download that *did*
+ship came with the vendor's own reading of the same bytes to check against, and that is the bar this
+repo sets. What shipped instead is the honest half: those files are now recognised and named —
+"this is an Entacore AIM XTRA raw flight file, and Debrief can't read that format yet" — where
+before they produced *"Debrief couldn't find any data rows in this file. Is it a flight log
+export?"*, which is false about a flight log. **The remaining work is filed in `BACKLOG.md`**: it
+needs either the AIM XTRA software's CSV export of one of these exact flights, or Entacore's record
+layout. Do not attempt it without one.
 
 **Outcome.** The raw download off an altimeter opens, instead of sending the flyer back to the vendor
 software to export a CSV first.
