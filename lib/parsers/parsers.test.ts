@@ -223,3 +223,119 @@ describe('Altus Metrum parser', () => {
     expect(getChannel(flight, 'accelAxial')).toBeTruthy();
   });
 });
+
+// D2's structural precondition. `ParseInput` was `{ name, text }`, so the bytes of a
+// dropped file reached no parser at all and a binary format could not be read even in
+// principle. These pin the contract that replaced it: a parser is handed the WHOLE file,
+// whichever half the caller happened to have.
+describe('a parser is handed the file, not just its text', () => {
+  /** A parser that records what it was given and never claims anything. */
+  function spy() {
+    const seen: { name: string; text: string; bytes: Uint8Array }[] = [];
+    return {
+      seen,
+      parser: {
+        id: 'spy',
+        label: 'spy',
+        detect(input: { name: string; text: string; bytes: Uint8Array }) {
+          seen.push({ name: input.name, text: input.text, bytes: input.bytes });
+          return 0;
+        },
+        parse(): never {
+          throw new Error('never');
+        },
+      },
+    };
+  }
+
+  it('encodes the bytes from the text when the caller only had text', () => {
+    const { seen, parser } = spy();
+    importFlight({ name: 'x.csv', text: 'time,altitude\n0,0\n1,10\n' }, [parser]);
+    expect(seen).toHaveLength(1);
+    expect(new TextDecoder().decode(seen[0].bytes)).toBe('time,altitude\n0,0\n1,10\n');
+  });
+
+  it('decodes the text from the bytes when the caller only had bytes', () => {
+    const { seen, parser } = spy();
+    const bytes = new TextEncoder().encode('time,altitude\n0,0\n1,10\n');
+    importFlight({ name: 'x.csv', bytes }, [parser]);
+    expect(seen[0].text).toBe('time,altitude\n0,0\n1,10\n');
+    expect(seen[0].bytes).toBe(bytes);
+  });
+
+  it('hands over the bytes it was given, not a re-encode of the text', () => {
+    // The whole point: a file whose text is a LOSSY view of it — every byte the decoder
+    // could not read became U+FFFD, and re-encoding that gives a different file. A parser
+    // that read the re-encode would be reading something the flyer never dropped.
+    const { seen, parser } = spy();
+    const bytes = new Uint8Array([0x00, 0x01, 0xff, 0xfe, 0x80, 0x42, 0x00, 0x99]);
+    importFlight({ name: 'flight.rff', bytes }, [parser]);
+    expect([...seen[0].bytes]).toEqual([...bytes]);
+    // …and the text really is the lossy view, so this is not a distinction without a
+    // difference: the two disagree about the file.
+    expect([...new TextEncoder().encode(seen[0].text)]).not.toEqual([...bytes]);
+  });
+
+  it('strips a UTF-8 BOM from the text on both paths', () => {
+    const { seen, parser } = spy();
+    importFlight({ name: 'a.csv', text: '﻿time,alt\n0,0\n' }, [parser]);
+    importFlight({ name: 'b.csv', bytes: new Uint8Array([0xef, 0xbb, 0xbf, 0x74, 0x69, 0x6d, 0x65]) }, [parser]);
+    expect(seen[0].text.startsWith('time')).toBe(true);
+    expect(seen[1].text).toBe('time');
+  });
+});
+
+// A raw download that no parser can read is told what it is — not told it isn't a flight.
+describe('a binary download off a card is named, not called "not a flight log"', () => {
+  /** A NUL-heavy blob that decodes to mojibake: what a flash dump actually looks like. */
+  function blob(n: number, seed: number[] = []): Uint8Array {
+    const b = new Uint8Array(n);
+    for (let i = 0; i < n; i++) b[i] = i % 7 === 0 ? 0 : 0x80 + (i % 0x40);
+    b.set(seed, 0);
+    return b;
+  }
+
+  it('names an Entacore AIM XTRA raw flight file by its container', () => {
+    const b = blob(4096);
+    b.set(new TextEncoder().encode('serialization::archive'), 4);
+    expect(() => importFlight({ name: 'skys_limit.xtra', bytes: b })).toThrow(/Entacore AIM XTRA raw flight file/);
+    // …and says which raw downloads it CAN read, so the flyer knows where the line is.
+    expect(() => importFlight({ name: 'skys_limit.xtra', bytes: b })).toThrow(/\.eeprom and a MissileWorks RRC3 \.rff/);
+  });
+
+  it('says something true about a binary download it cannot name at all', () => {
+    expect(() => importFlight({ name: 'FLIGHT01.DAT', bytes: blob(4096) })).toThrow(/binary download off a device/);
+  });
+
+  it('does not send a flash dump off an unknown board to one vendor’s software', () => {
+    // A .bin says nothing about which board wrote it. Naming the SHAPE is fair; naming a
+    // vendor is not, and telling a Raven owner to open their file in the AIM XTRA software
+    // is a confident wrong answer — worse than the vague one it replaced.
+    const big = blob(2 * 1024 * 1024);
+    expect(() => importFlight({ name: 'FLIGHT.BIN', bytes: big })).toThrow(/raw flash snapshot off an altimeter/);
+    expect(() => importFlight({ name: 'FLIGHT.BIN', bytes: big })).toThrow(/your altimeter’s own software/);
+    expect(() => importFlight({ name: 'FLIGHT.BIN', bytes: big })).not.toThrow(/AIM XTRA/);
+    // …while a file that DOES name its maker still gets that maker's own instruction.
+    const xtra = blob(4096);
+    xtra.set(new TextEncoder().encode('serialization::archive'), 4);
+    expect(() => importFlight({ name: 'x.xtra', bytes: xtra })).toThrow(/AIM XTRA software/);
+  });
+
+  it('leaves a text export alone, including a NUL-heavy UTF-16 one', () => {
+    // UTF-16 is half NUL bytes. It is still text, it still decodes cleanly, and it still
+    // belongs in the column mapper — this is the case the NUL count alone would get wrong.
+    const utf16 = new Uint8Array(2 * 200);
+    const line = 'Notes about this flight, written by hand, no numbers at all.\n'.repeat(6);
+    for (let i = 0; i < Math.min(line.length, 200); i++) utf16[i * 2] = line.charCodeAt(i);
+    expect(importFlight({ name: 'notes.txt', bytes: utf16 }).kind).toBe('mapping');
+  });
+
+  it('leaves a binary file alone when the mapper can still find columns in it', () => {
+    const csv = 'time,altitude\n0,0\n1,10\n2,40\n3,90\n';
+    const b = new Uint8Array(csv.length + 400);
+    b.set(new TextEncoder().encode(csv), 0);
+    // …trailing NULs and high bytes, as a truncated download off a card would have.
+    for (let i = csv.length; i < b.length; i++) b[i] = i % 5 === 0 ? 0 : 0xc0;
+    expect(importFlight({ name: 'half.csv', bytes: b }).kind).toBe('mapping');
+  });
+});

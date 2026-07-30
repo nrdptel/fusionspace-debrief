@@ -48,6 +48,50 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **`normalizeFlight` has now silently dropped three different members of `RecentFlight` on the
+  way back in from a backup** — the report caption, the chosen stretch, and (this run) the file's
+  own bytes, which made the one documented way to move a logbook between machines restore every
+  raw download as mojibake. Each was found after shipping the member. The rebuild is field by
+  field on purpose (a hand-edited backup must not be able to inject a shape), so the fix is not to
+  spread the object — it is that **anything added to `RecentFlight` needs a line in
+  `normalizeFlight` and a round-trip assert in the same commit**. Worth a structural guard: a test
+  that enumerates the interface's members and fails when one has no validator, so the fourth time
+  is caught by the suite rather than by a review.
+- **The AltOS raw download reads three log formats and refuses the rest, and the rest includes
+  EasyMini.** `lib/parsers/altosEeprom.ts` reads log format 1 (TeleMetrum v1, 8-byte records) and
+  the 32-byte TeleMega/EasyMega family. The 16-byte family — EasyMini, TeleMetrum v2, TeleMini,
+  EasyMotor — is refused by number with a message that names the format and points at AltosUI's CSV
+  export. EasyMini is one of the most-flown altimeters in the hobby, so this is the biggest single
+  gap left in D2's outcome. It is refused rather than attempted for one reason and one reason only:
+  **there is no 16-byte fixture in the corpus**, so a decode of it could not be measured against
+  anything, and a misread record layout produces a plausible flight rather than an error. Get one
+  `.eeprom` from a 16-byte board WITH the AltosUI CSV export of the same flight and this is an
+  afternoon: the record is `{ type, csum, tick, … }` like the others, the barometer is the same
+  MS5607 whose coefficients the header already carries, and `groundPressureAgrees` already exists to
+  check the layout against the file's own stated ground pressure before anything is returned.
+- **Temperature is dropped from an AltOS log format 1 download.** The raw reading and the °C AltosUI
+  prints are related by `raw × 0.015 − 295.87` across the one corpus file (310 paired samples, 64 of
+  them off by 0.06 °C, which is the CSV's own rounding) — but that is a curve fit, not the sensor's
+  transfer function, so it is not shipped. The 32-byte formats DO carry temperature, because it falls
+  out of the MS5607's documented compensation and matched AltosUI to 0.05 °C. Resolve it from the
+  TeleMetrum v1 hardware's thermistor circuit rather than from more fitting.
+- **The RRC3's temperature and battery voltage are in the `.rff` and are not read.** Two auxiliary
+  16-bit words per second, at 0x6E8D–0x6F67 and 0x7EDC–0x7EE4 on the corpus file. mDACS displays a
+  temperature and a voltage that track them, but neither is a linear function of them (the voltage
+  moves in steps of 0.019448 V while the word moves by 1, and the temperature deltas and the word
+  deltas do not share a sign consistently), so the calibration is not in this file. The text export
+  carries both, which is the workaround.
+- **`lib/fileAccept.test.ts` cannot see a parser that detects on CONTENT.** Its sweep greps parser
+  sources for `endsWith('.ext')` so that adding a name-anchored parser fails the test until the
+  picker offers that extension. Both new binary parsers detect on the file's bytes instead, so
+  `.eeprom` and `.rff` had to be added to `FLIGHT_FILE_EXTENSIONS` by hand and nothing would have
+  caught it if they had not been. The guard needs a second half — something that knows a parser
+  exists for a shape the picker does not name.
+- **The default vitest reporter's test count drifts by one or two between identical runs** (835, 836
+  and 837 observed on the same tree, every file passing, `Test Files 62 passed` every time; the JSON
+  reporter is stable at 826). Some suites build their cases from the corpus at run time. Harmless
+  today, but it means a headline test count is not evidence of anything — quote the file count and
+  the exit codes. Worth finding which suite varies and pinning it, so the number becomes a signal.
 - **Debrief numbers the flights in a download by position; the flyer's altimeter numbers them
   its own way, and the two need not agree.** Benchmarked against how the vendor apps do this
   same job: AltosUI, the Featherweight Interface Program and the Eggtimer Quantum all present
@@ -414,9 +458,10 @@ refuted. They are written down rather than fixed because each needs its own gate
   - **[M] The Blue Raven's 3-D solution is mapped only as Velocity_Up and Tilt_Angle.**
     `Velocity_DR/CR`, `Inertial_DR/CR_position`, `Future_Angle` and `Roll_Angle` never reach the
     explorer, so downrange distance and lean direction need GPS that many flights don't carry.
-  - **[M] AltosUI graphs the raw `.eeprom` directly; Debrief refuses it** and tells the flyer to export
-    CSV from their altimeter's own software first — so Debrief can never be the only tool an AltOS
-    flyer opens. (AltosUI itself notes telemetry files "produce poor graphs" next to the eeprom.)
+  - **[DONE — D2] AltosUI graphs the raw `.eeprom` directly; Debrief refuses it.** Fixed:
+    `lib/parsers/altosEeprom.ts` reads the raw download for three log formats, checked pressure-for-
+    pressure against AltosUI's own export of the same bytes. An AltOS flyer no longer has to open
+    AltosUI first. (AltosUI itself notes telemetry files "produce poor graphs" next to the eeprom.)
   - **[M] No time cursor linking the charts, the sample table and the ground track.** AltosUI's Replay
     shares flight time between map and graph. Debrief has per-chart hover and a table that follows
     zoom, so you cannot step to one instant and read every channel AND the ground position together.
@@ -1667,11 +1712,20 @@ refuted. They are written down rather than fixed because each needs its own gate
   on no real file here, which is worse than nothing — revisit when a dated generic export
   turns up, and note that Y/M/D roles would also need guarding against a "Day" column that
   means something else.
-- Native binary logs still can't be *read*: an AltOS `.eeprom` (3 in the corpus), an
-  Entacore `.bin`/`.xtra` and an RRC3 `.rff` now get an honest "no flight data here" with
-  a route onward, but a real reader for the AltOS eeprom format (documented, open source)
-  would cover files a flyer already has on disk — and each of those three has a paired CSV
-  export in the corpus, so there is ground truth to check a reader against.
+- **Done (D2):** the AltOS `.eeprom` and the RRC3 `.rff` are read directly now, each measured
+  sample-for-sample against the vendor's own export of the same bytes. What remains is the
+  **Entacore AIM `.bin`/`.xtra`**, and it is blocked on ground truth rather than on effort. The
+  `.xtra` is a Boost serialization archive (`serialization::archive` header, then a
+  variable-length record stream carrying float32 timestamps and a repeating 3.3 constant); the
+  `.bin` is a 4 MB raw flash snapshot, a tagged variable-length stream with a recurring
+  `81 0b .. 81 0c ..` framing. Both are identifiable and neither is decodable with confidence:
+  the corpus has a flight-summary SCREENSHOT for these files and no per-sample export, and
+  Entacore's founder called the `.xtra` partially corrupt in the source thread. **Do not attempt
+  this without one of: the AIM XTRA software's CSV export of one of these exact flights, or
+  Entacore's record layout.** Every raw download that shipped in D2 had the vendor's own reading
+  of the same bytes to check against, and a binary decoder that cannot be checked produces a
+  plausible flight out of misaligned bytes rather than failing loudly. The files are recognised
+  and named today (`lib/parsers/rawDownload.ts`), which is the part that could be done honestly.
 - Checked, no finding: coast efficiency (height gained burnout→apogee over the drag-free
   v²/2g) is above 1 on nothing in the corpus — 29 flights report one and the highest is 82%
   (an AltimeterCloud flight). A value over 1 would mean the burnout velocity, burnout altitude

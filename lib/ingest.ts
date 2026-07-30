@@ -15,7 +15,7 @@ import { summaryFigures } from './parsers/deviceSummary';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
 import { attachSummaryText, saveRecent } from './recents';
-import { fileToText } from './fileText';
+import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
 
@@ -149,8 +149,9 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         skipped.push({ name: file.name, why: 'too large to read in the browser' });
         continue;
       }
-      text = await fileToText(file.name, new Uint8Array(await file.arrayBuffer()));
-      const result = importFlight({ name: file.name, text });
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      text = await fileToText(file.name, bytes);
+      const result = importFlight({ name: file.name, text, bytes });
       if (result.kind !== 'flight') {
         // Kept, not dropped: a surface can offer to open the mapper on it. Only where
         // there is something to map — a binary download or a note to self reaches the
@@ -168,6 +169,9 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
         ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
         text,
+        // A raw binary download does not survive as text — keep the file itself, or the
+        // logbook row reopens as mojibake. See `textIsTheFile`.
+        ...(textIsTheFile(text) ? {} : { bytes }),
       });
       for (const n of saved.forgotten) forgotten.push(n);
       results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id });

@@ -230,16 +230,20 @@ function runFixture(fx: Fixture) {
   // not as UTF-8 — otherwise a UTF-16 export (e.g. the RRC3 mDACS text file) would be
   // tested as mojibake the real drop-a-file path never sees. Keeps the corpus faithful
   // to production input.
-  const text = decodeBytes(new Uint8Array(readFileSync(CORPUS + fx.file)));
+  // …and hand over the BYTES beside it, exactly as the drop-a-file path does. Some corpus
+  // fixtures are raw downloads off a card whose text is a lossy view of them; a runner that
+  // passed only the text would be testing a different file than the app reads.
+  const bytes = new Uint8Array(readFileSync(CORPUS + fx.file));
+  const text = decodeBytes(bytes);
 
   if (fx.expect.kind === 'reject') {
     // Debrief declines these on purpose (e.g. a Blue Raven high-rate file with no altitude)
     // with a helpful, user-facing message.
-    expect(() => importFlight({ name, text })).toThrow(fx.expect.rejectMatch);
+    expect(() => importFlight({ name, text, bytes })).toThrow(fx.expect.rejectMatch);
     return;
   }
 
-  const res = importFlight({ name, text });
+  const res = importFlight({ name, text, bytes });
   expect(res.kind).toBe(fx.expect.kind);
 
   if (res.kind === 'mapping') {
@@ -365,12 +369,15 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     const parseOnly = reads.filter((r) => r.reach === 'parse-only');
     const rejected = reads.filter((r) => r.reach === 'rejected');
     const summary = `${reads.length} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
-    // The stepped-around set is raw binary downloads the generic mapper reads no columns
-    // from — an AltOS .eeprom, an Entacore .bin/.xtra, an RRC3 .rff. They belong in the
-    // corpus (the app has a screen that names exactly these and says to export CSV), but
-    // they prove nothing about the analysis, so they are counted apart from what does.
-    expect(analysed, summary).toBeGreaterThanOrEqual(37);
-    expect(steppedAround.length, summary).toBeLessThanOrEqual(7);
+    // The stepped-around set WAS seven raw downloads off a card that the generic mapper
+    // read no columns from — files that reached the end of the pipeline and proved nothing
+    // about the analysis. It is now empty: four are read (three AltOS .eeprom downloads and
+    // the RRC3 .rff) and three are refused by name (the Entacore raw files, which Debrief
+    // cannot read and now says so instead of reporting them as not flight logs). Both
+    // numbers are held here, because a parser regression that put one back in the mapper
+    // would otherwise show up as a still-green suite.
+    expect(analysed, summary).toBeGreaterThanOrEqual(41);
+    expect(steppedAround.length, summary).toBe(0);
   });
 });
 
@@ -379,8 +386,8 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
 function loadForCompare(file: string): CompareInput | null {
   const path = CORPUS + file;
   if (!existsSync(path)) return null;
-  const text = decodeBytes(new Uint8Array(readFileSync(path)));
-  const res = importFlight({ name: file.split('/').pop() as string, text });
+  const bytes = new Uint8Array(readFileSync(path));
+  const res = importFlight({ name: file.split('/').pop() as string, text: decodeBytes(bytes), bytes });
   let flight;
   if (res.kind === 'flight') flight = res.flight;
   else if (res.kind === 'mapping') {
@@ -718,7 +725,8 @@ describe('a stretch a flyer chose keeps the file’s pad under it', () => {
   it('reads the same walk-back off a crop as off the whole file', () => {
     const path = CORPUS + FILE;
     if (!existsSync(path)) return;
-    const res = importFlight({ name: FILE.split('/').pop() as string, text: decodeBytes(new Uint8Array(readFileSync(path))) });
+    const bytes = new Uint8Array(readFileSync(path));
+    const res = importFlight({ name: FILE.split('/').pop() as string, text: decodeBytes(bytes), bytes });
     expect(res.kind).toBe('flight');
     if (res.kind !== 'flight') return;
     const file = res.flight;
@@ -858,8 +866,8 @@ describe('a log that did not start on the pad says how far out its heights are',
 function loadReported(file: string) {
   const path = CORPUS + file;
   if (!existsSync(path)) return null;
-  const text = decodeBytes(new Uint8Array(readFileSync(path)));
-  const res = importFlight({ name: file.split('/').pop() as string, text });
+  const bytes = new Uint8Array(readFileSync(path));
+  const res = importFlight({ name: file.split('/').pop() as string, text: decodeBytes(bytes), bytes });
   return res.kind === 'flight' ? (res.flight.reported ?? null) : null;
 }
 
@@ -947,8 +955,8 @@ describe('an apogee the record never reached is labelled as a floor', () => {
 function loadRawFlight(file: string) {
   const path = CORPUS + file;
   if (!existsSync(path)) return null;
-  const text = decodeBytes(new Uint8Array(readFileSync(path)));
-  const res = importFlight({ name: file.split('/').pop() as string, text });
+  const bytes = new Uint8Array(readFileSync(path));
+  const res = importFlight({ name: file.split('/').pop() as string, text: decodeBytes(bytes), bytes });
   return res.kind === 'flight' ? res.flight : null;
 }
 
@@ -1082,10 +1090,12 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
 
   it('publishes no landing rate, and no landing energy, for any of them', () => {
     const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
-    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(37);
+    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(41);
     const stopsInTheAir = reads.filter((r) => r.metrics!.descentSource == null && r.metrics!.wholeDescentRate != null);
     // Named so a fixture entering or leaving this state is a visible change, not a silent one.
-    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(7);
+    // Eight since the RRC3 raw download became readable: it is the same flight as the mDACS
+    // text export already in this set, and that record stops several hundred feet up.
+    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(8);
 
     for (const r of stopsInTheAir) {
       const m = r.metrics!;

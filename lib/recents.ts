@@ -25,6 +25,13 @@ export interface RecentMeta {
 
 export interface RecentFlight extends RecentMeta {
   text: string;
+  /** The file's own bytes, kept only for the files whose text is NOT the file — a raw
+   *  binary download off a card, an .xlsx workbook. Everything else round-trips through
+   *  `text` and storing a second copy would only shrink how many flights fit in the
+   *  browser's quota. `lib/fileText.ts#textIsTheFile` is the test; `importRecent` reads
+   *  this in preference to the text whenever it is here. Absent on nearly every row,
+   *  including every row written before the logbook kept bytes at all. */
+  bytes?: Uint8Array;
   /** The text of the device-summary file that was dropped alongside this log, when one was.
    *  The SOURCE, not the figures read out of it — the same reason the mapping below is kept
    *  as data: a stored answer is frozen at the version that wrote it, while a stored source
@@ -347,7 +354,46 @@ export async function exportLogbook(): Promise<string> {
   } catch {
     /* nothing stored / storage unavailable */
   }
-  return JSON.stringify({ kind: EXPORT_KIND, version: 1, exportedAt: Date.now(), flights }, null, 0);
+  return serializeLogbook(flights, Date.now());
+}
+
+/**
+ * The backup file's contents, as a pure function of the flights — so the round-trip against
+ * `parseLogbookFlights` is a unit test rather than a hope.
+ *
+ * A `Uint8Array` is not a JSON type. `JSON.stringify` turns it into `{"0":80,"1":75,…}` —
+ * a dozen characters per byte of file — and the field-by-field rebuild on the way back in
+ * would reject that anyway. So a raw download's bytes travel as base64 under their own key,
+ * and the array itself is dropped. This is the THIRD member that rebuild has silently lost
+ * (the report caption, then the chosen stretch, now the file itself), which is why the
+ * round-trip is asserted rather than reasoned about.
+ */
+export function serializeLogbook(flights: RecentFlight[], exportedAt: number): string {
+  const out = flights.map(({ bytes, ...rest }) => (bytes?.length ? { ...rest, bytesB64: bytesToBase64(bytes) } : rest));
+  return JSON.stringify({ kind: EXPORT_KIND, version: 1, exportedAt, flights: out }, null, 0);
+}
+
+/** Bytes → base64, in chunks so a multi-megabyte file can't blow the argument limit. */
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return btoa(bin);
+}
+
+/** A restored raw download's bytes, or null when the member isn't one. Rejected rather than
+ *  coerced, like every other restored member: a hand-edited backup must not be able to hand a
+ *  binary parser something that isn't the file. */
+function bytesOf(v: unknown): Uint8Array | null {
+  if (typeof v !== 'string' || !v) return null;
+  try {
+    const bin = atob(v);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out.length ? out : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Coerce an unknown record to a RecentFlight, or null if it isn't one. */
@@ -385,6 +431,11 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // record, so a backup carries it; rebuilding field by field here is exactly what dropped
     // the caption once, and this is the same class of thing — something the flyer decided.
     ...(readWindowOf(r.read) ? { read: readWindowOf(r.read)! } : {}),
+    // …and the FILE, for the raw downloads whose text is only a lossy view of it. Without
+    // this a restored .rff comes back as the mojibake its text always was, and the flyer is
+    // told their flight log is not a flight log — on the one path that exists to move a
+    // logbook to another machine.
+    ...(bytesOf(r.bytesB64) ? { bytes: bytesOf(r.bytesB64)! } : {}),
   };
 }
 

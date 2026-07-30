@@ -424,11 +424,14 @@ export function findHeaderRow(rows: string[][]): number {
 /**
  * Is there anything here a flyer could actually map?
  *
- * Not every file that falls through to the mapper is a table at all: a native binary
- * download (an AltOS .eeprom, an Entacore .bin, an RRC3 .rff), a screenshot, a note to
+ * Not every file that falls through to the mapper is a table at all: a raw download off a
+ * card that no parser recognises (an Entacore .bin or .xtra), a screenshot, a note to
  * self. Those read as one column of nothing, and asking someone to "set a time column"
  * there is an instruction they cannot follow. Every such file in the corpus lands on
  * exactly this shape, while a real export's columns are numeric throughout.
+ *
+ * This is also the gate on `refuseRawDownload`: a file that IS bytes and has nothing
+ * mappable in it gets told what it is instead of being shown an empty table.
  *
  * One rule, in one place, because two surfaces ask it: the mapper (to say what actually
  * happened instead of showing a table of nothing) and a batch drop (to decide whether a

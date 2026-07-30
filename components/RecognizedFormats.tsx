@@ -35,7 +35,9 @@ export default function RecognizedFormats() {
         ))}
       </ul>
       <p className="mt-2.5 text-xs text-zinc-500 dark:text-zinc-400">
-        Auto-detected from the file. Anything else — any logger that exports a CSV or an Excel spreadsheet —
+        Auto-detected from the file, including the raw download straight off the card for Altus Metrum
+        (<span className="font-mono">.eeprom</span>) and MissileWorks RRC3 (<span className="font-mono">.rff</span>)
+        — no CSV export needed first. Anything else — any logger that exports a CSV or an Excel spreadsheet —
         works through a quick column mapper.
       </p>
     </section>

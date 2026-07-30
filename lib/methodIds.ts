@@ -55,6 +55,7 @@ export const METHOD_IDS = [
   'units',
   'offline',
   'formats-privacy',
+  'raw-downloads',
   'what-debrief-isnt',
 ] as const;
 

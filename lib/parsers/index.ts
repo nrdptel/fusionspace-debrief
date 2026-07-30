@@ -3,12 +3,14 @@
 // falls back to the generic path: an analysed table plus a best-guess column
 // mapping for the user to confirm. Adding a logger = adding one module here.
 
-import { ParseGuidanceError, type ParseInput, type Parser } from './types';
+import { ParseGuidanceError, type FileInput, type ParseInput, type Parser } from './types';
 import type { RawFlight } from '../flight/types';
+import { decodeBytes } from '../encoding';
 import { parseTable } from '../csv';
-import { analyzeTable, type AnalyzedTable } from '../flight/columns';
+import { analyzeTable, hasMappableColumns, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
 import { altusMetrumParser } from './altusmetrum';
+import { altosEepromParser } from './altosEeprom';
 import { perfectFliteParser } from './perfectflite';
 import { eggtimerParser } from './eggtimer';
 import { blueRavenParser } from './blueraven';
@@ -17,13 +19,16 @@ import { entacoreAimParser } from './entacoreAim';
 import { featherweightGpsParser, featherweightGpsGroundStationParser } from './featherweightGps';
 import { altimeterCloudParser } from './altimeterCloud';
 import { missileworksRrc3Parser } from './missileworksRrc3';
+import { missileworksRffParser } from './missileworksRff';
 import { deviceSummaryParser } from './deviceSummary';
+import { refuseRawDownload } from './rawDownload';
 
-export type { ParseInput, Parser } from './types';
+export type { FileInput, ParseInput, Parser } from './types';
 export { ParseGuidanceError } from './types';
 
 export const PARSERS: Parser[] = [
   altusMetrumParser,
+  altosEepromParser,
   perfectFliteParser,
   eggtimerParser,
   blueRavenParser,
@@ -32,6 +37,7 @@ export const PARSERS: Parser[] = [
   featherweightGpsParser,
   featherweightGpsGroundStationParser,
   missileworksRrc3Parser,
+  missileworksRffParser,
   altimeterCloudParser,
   // Not a flight at all — a device's key,value summary export. Registered so it is
   // recognised and explained rather than dropped into the column mapper.
@@ -39,6 +45,35 @@ export const PARSERS: Parser[] = [
 ];
 
 const AUTO_THRESHOLD = 0.6;
+
+/**
+ * Fill in whichever half of the file the caller didn't have, so every parser is handed
+ * the whole thing — the bytes AND the decoded text — rather than a shape that varies by
+ * call site. This is the single place either one is derived.
+ *
+ * Bytes are encoded from text through a MEMOISED getter rather than up front, so the copy is
+ * made once and only if something asks for it. Be honest about what that is worth: a binary
+ * parser's `detect` reads the bytes of every file it is offered, so a text import handed to
+ * the full parser list pays the encode anyway. What the getter saves is the second and third
+ * copy, and the whole cost on a caller that passes its own parser list. The re-encode is
+ * UTF-8, so it round-trips a file that really was text, and it is only ever a fallback for a
+ * caller — the share link, a logbook row saved before the logbook kept bytes — with nothing
+ * better to offer.
+ */
+function wholeFile(raw: FileInput): ParseInput {
+  // Strip a UTF-8 BOM (common on Windows exports) so the first header cell and
+  // delimiter detection aren't thrown off. `decodeBytes` already does this for the
+  // bytes path, including the double-encoded form the RRC3 mDACS export writes.
+  const text = raw.text !== undefined ? raw.text.replace(/^﻿/, '') : decodeBytes(raw.bytes as Uint8Array);
+  if (raw.bytes) return { name: raw.name, text, bytes: raw.bytes };
+  let encoded: Uint8Array | null = null;
+  const input = { name: raw.name, text };
+  Object.defineProperty(input, 'bytes', {
+    get: () => (encoded ??= new TextEncoder().encode(text)),
+    enumerable: true,
+  });
+  return input as ParseInput;
+}
 
 export interface AutoResult {
   kind: 'flight';
@@ -72,10 +107,8 @@ export function suggestMapping(table: AnalyzedTable): ColumnMapping[] {
  * Identify and import a flight file. Named formats parse straight through;
  * anything else comes back as a table + suggested mapping for confirmation.
  */
-export function importFlight(raw: ParseInput, parsers: Parser[] = PARSERS): ImportResult {
-  // Strip a UTF-8 BOM (common on Windows exports) so the first header cell and
-  // delimiter detection aren't thrown off.
-  const input: ParseInput = { name: raw.name, text: raw.text.replace(/^﻿/, '') };
+export function importFlight(raw: FileInput, parsers: Parser[] = PARSERS): ImportResult {
+  const input = wholeFile(raw);
 
   let best: { parser: Parser; score: number } | null = null;
   for (const parser of parsers) {
@@ -103,5 +136,9 @@ export function importFlight(raw: ParseInput, parsers: Parser[] = PARSERS): Impo
 
   const { rows } = parseTable(input.text);
   const table = analyzeTable(rows);
+  // Last: a raw download off a card that no parser above could read. It has no columns in
+  // it, so the mapper would tell the flyer their flight log isn't a flight log. Say what
+  // it actually is instead.
+  refuseRawDownload(input, hasMappableColumns(table));
   return { kind: 'mapping', table, suggested: suggestMapping(table) };
 }

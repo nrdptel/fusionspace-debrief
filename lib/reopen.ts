@@ -20,8 +20,10 @@ import type { RecentFlight } from './recents';
  *  and re-reading the device summary it was paired with when it carries one of those.
  *  Falls back to the mapper result — never to a wrong flight — if the stored mapping no
  *  longer builds (an edited backup, a role this build no longer has). */
-export function importRecent(rec: Pick<RecentFlight, 'name' | 'text' | 'mapping' | 'summaryText'>): ImportResult {
-  const base = withSummary(importFlight({ name: rec.name, text: rec.text }), rec.summaryText);
+export function importRecent(rec: Pick<RecentFlight, 'name' | 'text' | 'bytes' | 'mapping' | 'summaryText'>): ImportResult {
+  // `bytes` where the row has them — a raw binary download's text is a lossy view of it,
+  // so re-reading that text would hand the parser a different file than the one dropped.
+  const base = withSummary(importFlight({ name: rec.name, text: rec.text, ...(rec.bytes ? { bytes: rec.bytes } : {}) }), rec.summaryText);
   if (base.kind !== 'mapping' || !rec.mapping?.length) return base;
   try {
     const flight = buildFlight({
