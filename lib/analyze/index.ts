@@ -8,7 +8,15 @@
 import type { RawFlight, Channel } from '../flight/types';
 import { getChannel } from '../flight/types';
 import { G0 } from '../units';
-import type { FlightAnalysis, FlightEvent, FlightMetrics, FlightSegment, FlightSeries } from './types';
+import type {
+  AnalyzeOptions,
+  FlightAnalysis,
+  FlightEvent,
+  FlightMetrics,
+  FlightSegment,
+  FlightSeries,
+  ReadWindow,
+} from './types';
 import {
   medianFilter,
   hampelFilter,
@@ -675,7 +683,7 @@ function descentFromSecondCopy(
 
   let second: FlightAnalysis;
   try {
-    second = analyzeFlight(sliceFlight(flight, cut, flight.time.length), 1, datum);
+    second = analyzeFlight(sliceFlight(flight, cut, flight.time.length), { depth: 1, datum });
   } catch {
     return null; // too few samples, no channels — the first copy stands on its own
   }
@@ -777,6 +785,7 @@ function allFlights(
   time: Float64Array,
   cuts: number[],
   dt: number,
+  read: ReadWindow | null,
   readApogee: number,
 ): FlightSegment[] {
   const n = altitude.length;
@@ -785,16 +794,50 @@ function allFlights(
     const to = i + 1 < cuts.length ? cuts[i + 1] : n;
     let peak = -Infinity;
     for (let k = from; k < to; k++) if (Number.isFinite(clean[k]) && clean[k] > peak) peak = clean[k];
+    // The row the analysis is OF carries the analysis's own apogee, so the list and the
+    // headline reading cannot disagree. A crop that is not one of these flights matches no
+    // row, and the strip says so rather than marking one the readings do not belong to.
+    const isRead = !!read && read.from === from && read.to === to;
     return {
       index: i + 1,
       from,
       to,
       startTime: time[from],
       endTime: time[Math.max(from, to - 1)],
-      apogeeM: i === 0 && Number.isFinite(readApogee) ? readApogee : peak,
-      read: i === 0,
+      apogeeM: isRead && Number.isFinite(readApogee) ? readApogee : peak,
+      read: isRead,
     };
   });
+}
+
+/**
+ * Every flight in the FILE, worked out without analysing it — for a report that is showing a
+ * crop and still has to offer the way back to the others.
+ *
+ * Without this a flyer who opens flight 2 of a launch day loses the list that got them there:
+ * the crop is a slice, a slice holds one flight, and the strip vanishes. That is a state with
+ * no way out of it, which is worse than the thing it was trying to help with.
+ */
+function fileSegments(flight: RawFlight, read: ReadWindow): FlightSegment[] | undefined {
+  const time = flight.time;
+  const n = time.length;
+  if (n < 4) return undefined;
+  const dt = medianDt(time);
+  const altCh = getChannel(flight, 'altitude');
+  const presCh = getChannel(flight, 'pressure');
+  let altitude: Float64Array;
+  if (altCh) altitude = altCh.values.slice();
+  else if (presCh) {
+    const baseShort = Math.max(3, Math.min(n, Math.round(0.3 / (dt || 0.1))));
+    altitude = altitudeFromPressure(presCh.values, median(presCh.values, 0, baseShort));
+  } else return undefined;
+  const offset = padBaseline(altitude, dt).offset;
+  for (let i = 0; i < n; i++) altitude[i] -= offset;
+  const firstCut = nextFlightStart(altitude, time);
+  if (firstCut == null) return undefined;
+  const cuts = flightCuts(altitude, time, firstCut);
+  if (cuts.length === 2 && recordedTwice(altitude, firstCut, true)) return undefined;
+  return allFlights(altitude, time, cuts, dt, read, NaN);
 }
 
 /** "3 of them", or "at least 24 of them" where the walk stopped counting. */
@@ -815,15 +858,79 @@ function othersAt(segments: FlightSegment[]): string {
 }
 
 /**
- * @param depth  recursion guard for the multi-segment branch below.
- * @param datum  a ground reference to use INSTEAD of this record's own pad window, in the
- *   altitude channel's raw units. Only the multi-segment branch passes it, and only to read
- *   the second copy of a doubled recording: that copy starts in the trough between the two
- *   and has no pad of its own, so measuring it against itself is what made an earlier
- *   attempt read 10,723 ft where the device said 10,266. It is one altitude column, so the
- *   file's datum is the second copy's datum too.
+ * Read a flight.
+ *
+ * `opts.read` is the flyer's own answer to "which stretch of this file is my flight", and it
+ * is the only option a caller outside this module has any business setting: it overrules
+ * Debrief's segmentation, and it is measured against the FILE's own pad rather than against
+ * the crop's opening samples. That distinction is the whole of it — a crop starting 1.5 s
+ * after liftoff on a 300 m record reads 170.7 m, 43% low, if it takes its own baseline.
+ *
+ * The rest are internal. `depth` guards the multi-segment recursion below; `datum` and
+ * `padPressure` are the file's ground references, handed to a slice that has no pad of its
+ * own. That copy starts in the trough between two recordings, and measuring it against itself
+ * is what made an earlier attempt read 10,723 ft where the device said 10,266.
  */
-export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): FlightAnalysis {
+export function analyzeFlight(flight: RawFlight, opts: AnalyzeOptions = {}): FlightAnalysis {
+  const { depth = 0, datum, padPressure: padPressureIn } = opts;
+
+  // The flyer's crop, honoured before anything else is read. The file's own ground references
+  // are taken from the WHOLE record first and handed to the slice, because a stretch chosen
+  // from the middle of a flight has no pad in it to measure against.
+  if (opts.read && depth === 0) {
+    const { from, to } = opts.read;
+    const lo = Math.max(0, Math.min(from, flight.time.length - 1));
+    const hi = Math.max(lo + 4, Math.min(to, flight.time.length));
+    const refs = groundReferences(flight);
+    const cropped = analyzeFlight(sliceFlight(flight, lo, hi), { depth: 1, ...refs });
+    // The file's own flights come along, so the strip that offered this crop is still there
+    // to offer the others. Marked against the crop: where it IS one of them the row says so,
+    // and where it is a stretch of the flyer's own no row is marked.
+    const segments = fileSegments(flight, { from: lo, to: hi });
+    return {
+      ...cropped,
+      ...(segments ? { segments } : {}),
+      extent: {
+        from: lo,
+        to: hi,
+        startTime: flight.time[lo],
+        endTime: flight.time[hi - 1],
+        fileEndTime: flight.time[flight.time.length - 1],
+        source: 'chosen',
+      },
+      warnings: [
+        `You chose the stretch Debrief read: ${formatSeconds(flight.time[lo])} to ${formatSeconds(flight.time[hi - 1])} of a ${formatSeconds(flight.time[flight.time.length - 1])} file. Every reading here is of that stretch, measured against the file's own pad baseline rather than the start of your selection.`,
+        ...cropped.warnings,
+      ],
+    };
+  }
+  return analyzeWhole(flight, depth, datum, padPressureIn);
+}
+
+/**
+ * The ground this file was launched from, in the units each reference is used in. Taken from
+ * the whole record so a slice out of the middle can be measured against the pad rather than
+ * against wherever it happens to start.
+ */
+function groundReferences(flight: RawFlight): { datum?: number; padPressure?: number } {
+  const dt = medianDt(flight.time);
+  const n = flight.time.length;
+  const altCh = getChannel(flight, 'altitude');
+  if (altCh) return { datum: padBaseline(altCh.values.slice(), dt).offset };
+  const presCh = getChannel(flight, 'pressure');
+  if (presCh) {
+    const baseShort = Math.max(3, Math.min(n, Math.round(0.3 / (dt || 0.1))));
+    return { padPressure: median(presCh.values, 0, baseShort) };
+  }
+  return {};
+}
+
+function analyzeWhole(
+  flight: RawFlight,
+  depth: number,
+  datum: number | undefined,
+  padPressureIn: number | undefined,
+): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
   const n = time.length;
@@ -843,7 +950,9 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   if (altCh) {
     altitude = altCh.values.slice();
   } else if (presCh) {
-    const padPressure = median(presCh.values, 0, baseShort);
+    // A crop hands in the FILE's pad pressure: a stretch out of the middle of a flight has
+    // no pad of its own, and altitude derived from pressure takes its reference from that.
+    const padPressure = padPressureIn ?? median(presCh.values, 0, baseShort);
     altitude = altitudeFromPressure(presCh.values, padPressure);
     warnings.push('No altitude channel — altitude was derived from barometric pressure.');
   } else {
@@ -853,7 +962,10 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // Pad baseline from the quiet pre-launch window (see `padBaseline`) — unless a caller
   // handed us the file's own datum, which only the doubled-recording branch does.
   const { baseEnd, offset: ownOffset } = padBaseline(altitude, dt);
-  const baseOffset = datum ?? ownOffset;
+  // A supplied pad PRESSURE has already put this altitude on the file's ground — subtracting
+  // a baseline taken from the slice's own opening samples would move it a second time, and
+  // on a crop that starts mid-climb that reads 205 m off a 300 m flight.
+  const baseOffset = datum ?? (padPressureIn != null && !altCh ? 0 : ownOffset);
   for (let i = 0; i < n; i++) altitude[i] -= baseOffset;
 
   // If there's no real quiet window, the file probably starts mid-flight, so the
@@ -882,7 +994,7 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // copy genuinely lacks is said instead, below.
   const secondFlightAt = nextFlightStart(altitude, time);
   if (secondFlightAt != null && depth === 0) {
-    const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1);
+    const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), { depth: 1 });
     const opening = formatSeconds(time[secondFlightAt] - time[0]);
     const cuts = flightCuts(altitude, time, secondFlightAt);
     // Two different files trip this detector, and telling them apart changes what the flyer
@@ -909,10 +1021,20 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     const base = spliced ? { ...first, metrics: { ...first.metrics, ...spliced.metrics } } : first;
     // Every flight in the download, not just the one that was read. A doubled recording is
     // one flight and gets no list — "flight 2 of 2" would be a second flight that isn't there.
-    const segments = twice ? undefined : allFlights(altitude, time, cuts, dt, base.metrics.apogeeAltitude);
+    const segments = twice
+      ? undefined
+      : allFlights(altitude, time, cuts, dt, { from: 0, to: secondFlightAt }, base.metrics.apogeeAltitude);
     return {
       ...base,
       ...(segments ? { segments } : {}),
+      extent: {
+        from: 0,
+        to: secondFlightAt,
+        startTime: time[0],
+        endTime: time[secondFlightAt - 1],
+        fileEndTime: time[n - 1],
+        source: 'segmented',
+      },
       warnings: [
         twice
           ? `This file holds the same flight written twice — the record returns to the ground and climbs again to the same height (within ${(RECORDED_TWICE_AGREEMENT * 100).toFixed(0)}%, measured against this file's own pad baseline). Debrief read the first copy (the opening ${opening} of the file), which is the one that starts on the pad. There is no second flight to read.`
@@ -2377,5 +2499,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     );
   }
 
-  return { series, events, metrics, warnings };
+  return {
+    series,
+    events,
+    metrics,
+    warnings,
+    extent: {
+      from: 0,
+      to: n,
+      startTime: time[0],
+      endTime: time[n - 1],
+      fileEndTime: time[n - 1],
+      source: 'file',
+    },
+  };
 }

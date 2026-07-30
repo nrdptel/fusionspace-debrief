@@ -23,6 +23,7 @@ import { useCurrentSection } from './useCurrentSection';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import FlightPicker from './FlightPicker';
 import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
@@ -60,12 +61,19 @@ export default function FlightReport({
   sys,
   caption,
   onCaption,
+  onRead,
+  reading,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
   analyzedAt: number;
   sourceText: string;
   sys: UnitChoice;
+  /** Read a different stretch of the same file — one of the other flights in a launch-day
+   *  download. Absent where the surface has no way to re-read (a shared link). */
+  onRead?: (from: number, to: number) => void;
+  /** True while a re-read is in flight, so the picker can refuse a second click. */
+  reading?: boolean;
   /** The label and notes kept with this flight in the logbook, when it has any. */
   caption?: { label: string; notes: string };
   /** Keep them. Absent where the flight has no logbook entry to keep them against — a
@@ -683,6 +691,17 @@ export default function FlightReport({
           )}
         </div>
       )}
+      {/* Which flight in the download this is, when the file holds several. */}
+      {analysis.segments && analysis.segments.length > 1 && onRead && (
+        <FlightPicker
+          segments={analysis.segments}
+          extent={analysis.extent}
+          sys={sys}
+          onRead={onRead}
+          busy={reading}
+        />
+      )}
+
       {/* File / format line */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">

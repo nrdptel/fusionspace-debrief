@@ -102,8 +102,11 @@ export default function MethodsPage() {
             one file — and read as a single flight the record is nonsense: the highest point belongs
             to a later flight while liftoff belongs to the first, so time-to-apogee spans both. The
             test is something a rocket cannot do: return to the ground and climb again. Where that
-            happens, Debrief reads the first flight, says how much of the file it used, and leaves the
-            rest — split the file, or export the flights separately, to read the others.
+            happens the report lists <strong>every flight in the file</strong> — where each one starts
+            and how high it went — reads the first, and lets you open any of the others without going
+            back to your altimeter&apos;s software. Each apogee in that list is measured against the{' '}
+            <em>file&apos;s</em> own pad baseline, so the rows are comparable with each other: a later
+            flight starts in the trough after the one before and has no quiet pad window of its own.
           {' '}
             Every part of that test is measured against <strong>the flight in hand</strong>, never
             against the highest flight in the file. That distinction is the whole of it: asking

@@ -215,6 +215,7 @@ function analysis(t0: number, apogee: number): FlightAnalysis {
     events: [{ type: 'liftoff', label: 'Liftoff', time: t0, index: 2, altitude: 50, provenance: 'measured' }],
     metrics: metrics(apogee),
     warnings: [],
+    extent: { from: 0, to: 5, startTime: t0 - 2, endTime: t0 + 2, fileEndTime: t0 + 2, source: 'file' },
   };
 }
 

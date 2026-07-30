@@ -223,6 +223,44 @@ export interface FlightSegment {
   read: boolean;
 }
 
+/** Which stretch of the record this analysis is of, and who chose it. Always present, so no
+ *  surface has to guess whether it is looking at a whole file. */
+export interface ReadExtent {
+  /** First sample read, and one past the last, in the FILE's own indexing. */
+  from: number;
+  to: number;
+  /** Seconds on the file's own clock. */
+  startTime: number;
+  endTime: number;
+  /** The file's last sample, so a surface can say "24 s of a 108 s file" without the file. */
+  fileEndTime: number;
+  /** `file` — the whole record. `segmented` — Debrief cut it and read one flight.
+   *  `chosen` — the flyer said which stretch is theirs, and that overrules the segmentation. */
+  source: 'file' | 'segmented' | 'chosen';
+}
+
+/** Read only this stretch of the record. Sample indices into the file, `to` exclusive. */
+export interface ReadWindow {
+  from: number;
+  to: number;
+}
+
+export interface AnalyzeOptions {
+  /** Recursion guard for the multi-segment branch. Internal to the analyzer. */
+  depth?: number;
+  /** A ground reference to use INSTEAD of this record's own pad window, in the altitude
+   *  channel's raw units — for a slice that has no pad of its own. Internal. */
+  datum?: number;
+  /** The pad PRESSURE, for a record with no altitude channel: altitude derived from pressure
+   *  takes its reference from that, and a datum in metres cannot correct it. Internal. */
+  padPressure?: number;
+  /** The flyer's own answer to "which stretch is my flight". Honoured over Debrief's
+   *  segmentation, and measured against the FILE's pad rather than the crop's first samples —
+   *  a crop starting 1.5 s after liftoff otherwise re-zeroes altitude to mid-air and reads
+   *  43% low. */
+  read?: ReadWindow;
+}
+
 export interface FlightAnalysis {
   series: FlightSeries;
   events: FlightEvent[];
@@ -233,4 +271,6 @@ export interface FlightAnalysis {
    *  one that was read marked. Absent — not an empty array — for the ordinary single-flight
    *  file, so a surface can branch on presence. */
   segments?: FlightSegment[];
+  /** Which stretch of the file this analysis is of. */
+  extent: ReadExtent;
 }

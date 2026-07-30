@@ -978,6 +978,70 @@ describe('a file holding more than one flight', () => {
     expect(a.segments).toBeUndefined();
   });
 
+  it('honours the stretch a flyer chose over its own segmentation', () => {
+    const day = launchDay([300, 1200, 250]);
+    const whole = analyzeFlight(day);
+    const two = whole.segments![1];
+    const a = analyzeFlight(day, { read: { from: two.from, to: two.to } });
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(1150);
+    expect(a.metrics.apogeeAltitude).toBeLessThan(1250);
+    expect(a.extent.source).toBe('chosen');
+    expect(a.extent.from).toBe(two.from);
+    expect(a.extent.to).toBe(two.to);
+    expect(a.extent.fileEndTime).toBeCloseTo(day.time[day.time.length - 1], 5);
+    // …and it says so, because a report of part of a file that does not say which part is a
+    // report of a file the flyer cannot check.
+    expect(a.warnings.some((w) => /You chose the stretch Debrief read/.test(w))).toBe(true);
+  });
+
+  it('measures a crop against the FILE’s pad, not against where the selection starts', () => {
+    // The trap this exists for: the pad baseline is re-derived on every slice, so a crop that
+    // begins in the air re-zeroes altitude to mid-air. Measured, a crop starting 1.5 s after
+    // liftoff on a 300 m flight read 170.7 m — 43% low — and fired the "doesn't appear to
+    // start on the pad" warning as if that were the flyer's problem.
+    const day = launchDay([300]);
+    const dt = 0.1;
+    const midAir = Math.round(3.5 / dt); // 1.5 s after liftoff, well up the climb
+    const a = analyzeFlight(day, { read: { from: midAir, to: day.time.length } });
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(290);
+    expect(a.metrics.apogeeAltitude).toBeLessThan(310);
+  });
+
+  it('measures a crop of a pressure-only record against the file’s pad PRESSURE', () => {
+    // A metre datum cannot correct an altitude derived from pressure — the reference is the
+    // pad pressure, and a crop out of the middle of the flight has none of its own.
+    const day = launchDay([300]);
+    const alt = day.channels[0].values;
+    // Standard-atmosphere pressure for each AGL sample, from a 101325 Pa pad.
+    const pressure = Float64Array.from(alt, (h) => 101325 * Math.pow(1 - (2.25577e-5 * h), 5.25588));
+    const asPressure = {
+      ...day,
+      channels: [{ kind: 'pressure' as const, label: 'P', unit: 'Pa', values: pressure }],
+    };
+    const whole = analyzeFlight(asPressure);
+    const midAir = Math.round(3.5 / 0.1);
+    const cropped = analyzeFlight(asPressure, { read: { from: midAir, to: day.time.length } });
+    expect(cropped.metrics.apogeeAltitude).toBeCloseTo(whole.metrics.apogeeAltitude, 0);
+  });
+
+  it('keeps the file’s other flights on a crop, so there is a way back to them', () => {
+    // Opening flight 2 must not take the list that offered it: a slice holds one flight, so
+    // the strip would vanish and the flyer would be in a state with no way out.
+    const day = launchDay([300, 1200, 250]);
+    const two = analyzeFlight(day).segments![1];
+    const a = analyzeFlight(day, { read: { from: two.from, to: two.to } });
+    expect(a.segments).toHaveLength(3);
+    expect(a.segments!.map((s) => s.read)).toEqual([false, true, false]);
+  });
+
+  it('marks no flight as the one being read when the crop is the flyer’s own', () => {
+    const day = launchDay([300, 1200, 250]);
+    const a = analyzeFlight(day, { read: { from: 40, to: 900 } });
+    expect(a.segments).toHaveLength(3);
+    expect(a.segments!.some((s) => s.read)).toBe(false);
+    expect(a.extent.source).toBe('chosen');
+  });
+
   it('does not split on a dropout that reads zero before the rocket ever climbed', () => {
     // A GPS that loses lock through the boost reads ~0 until it reacquires — that is not
     // a landing, and it happens before any climb, so the file is one flight.

@@ -61,6 +61,8 @@ type State =
       note?: string;
       savedId?: string;
       caption?: { label: string; notes: string };
+      /** True while another flight in the same file is being read. */
+      reading?: boolean;
     }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
@@ -236,6 +238,35 @@ export default function Analyzer() {
       }
     },
     [logbook.refresh, logbook.reportForgotten, beginLoad],
+  );
+
+  /**
+   * Read a different stretch of the flight already on screen — one of the other flights in a
+   * launch-day download, or a crop the flyer chose.
+   *
+   * Deliberately NOT a reload: the file is already parsed, so this re-runs the analysis over
+   * the same `RawFlight`. The flight, its text and its logbook id all stay exactly as they
+   * are, which is what keeps the report's address, its label and its notes attached to the
+   * file rather than to whichever stretch of it is being read.
+   */
+  const readStretch = useCallback(
+    async (from: number, to: number) => {
+      if (state.phase !== 'report') return;
+      const flight = state.flight;
+      const token = ++reqRef.current;
+      setState((prev) => (prev.phase === 'report' ? { ...prev, reading: true } : prev));
+      try {
+        const analysis = await analyzeAsync(flight, { read: { from, to } });
+        if (reqRef.current !== token) return;
+        setState((prev) =>
+          prev.phase === 'report' ? { ...prev, analysis, analyzedAt: Date.now(), reading: false } : prev,
+        );
+      } catch {
+        if (reqRef.current !== token) return;
+        setState((prev) => (prev.phase === 'report' ? { ...prev, reading: false } : prev));
+      }
+    },
+    [state],
   );
 
   const onFile = useCallback(
@@ -579,6 +610,8 @@ export default function Analyzer() {
           sys={sys}
           caption={state.caption}
           onCaption={state.savedId ? (c) => void saveCaption(state.savedId as string, c) : undefined}
+          onRead={readStretch}
+          reading={state.reading}
         />
       </div>
     );

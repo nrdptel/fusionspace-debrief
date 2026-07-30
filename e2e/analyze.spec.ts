@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -1385,4 +1386,82 @@ test('a wait names the flight it is reading, and a failure is announced', async 
   // Scoped to the page's own content: Next ships a permanent `__next-route-announcer__` with
   // role="alert", so an unscoped query matches two things and says nothing useful about either.
   await expect(page.locator('main [role="alert"]')).toContainText(/empty/i);
+});
+
+// A launch day is not one flight, and until now Debrief read the first of them and told the
+// flyer to go back to their altimeter's software and export the rest separately. The download
+// they already have holds every flight; this is the flyer opening one of the others.
+test('a launch day gives up every flight in it, and any of them can be read', async ({ page }) => {
+  // Three flights in one continuously-running download: 300 m, 1,200 m, 250 m. The middle one
+  // is the tallest deliberately — the rule this replaces measured every flight against the
+  // file's best, so on this file it found nothing at all.
+  const rows: string[] = ['Time (s),Altitude (m)'];
+  let t = 0;
+  const push = (a: number) => {
+    rows.push(`${t.toFixed(1)},${a.toFixed(1)}`);
+    t += 0.1;
+  };
+  for (const apogee of [300, 1200, 250]) {
+    const climb = Math.round(Math.sqrt((2 * apogee) / 9.80665) / 0.1);
+    const fall = Math.round(apogee / 15 / 0.1);
+    for (let i = 0; i < 20; i++) push(0);
+    for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
+    for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
+    for (let i = 0; i < 20; i++) push(0);
+  }
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'launch-day.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // The file says how many flights it holds, and names them.
+  const picker = page.getByRole('region', { name: '3 flights in this file' });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('button', { name: /Flight 1/ })).toHaveAttribute('aria-current', 'true');
+  await expect(picker).toContainText('Reading flight 1');
+
+  // What is on screen is the FIRST flight, not a timeline spanning all three.
+  const apogee = page.locator('[data-reading="Apogee"]');
+  await expect(apogee).toContainText(/9\d\d ft|1,0\d\d ft/); // ~300 m
+  await expect(page.getByText(/holds more than one flight/)).toContainText('3 of them');
+
+  // Open the second flight. The report re-reads without going back to the drop zone.
+  await picker.getByRole('button', { name: /Flight 2/ }).click();
+  await expect(picker.getByRole('button', { name: /Flight 2/ })).toHaveAttribute('aria-current', 'true', {
+    timeout: 15_000,
+  });
+  await expect(apogee).toContainText(/3,9\d\d ft|4,0\d\d ft/); // ~1,200 m
+  // …and it says the stretch it read is the flyer's choice, not its own segmentation.
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible();
+
+  // The third flight is reachable from there too — the picker does not reset to the file.
+  await picker.getByRole('button', { name: /Flight 3/ }).click();
+  await expect(picker.getByRole('button', { name: /Flight 3/ })).toHaveAttribute('aria-current', 'true', {
+    timeout: 15_000,
+  });
+  await expect(apogee).toContainText(/7\d\d ft|8\d\d ft/); // ~250 m
+
+  // And back to the first, which is where the file started.
+  await picker.getByRole('button', { name: /Flight 1/ }).click();
+  await expect(picker.getByRole('button', { name: /Flight 1/ })).toHaveAttribute('aria-current', 'true', {
+    timeout: 15_000,
+  });
+  await expect(apogee).toContainText(/9\d\d ft|1,0\d\d ft/);
+
+  // Every row is a real touch target, on the surface a flyer uses at the range.
+  for (const n of [1, 2, 3]) {
+    const box = await picker.getByRole('button', { name: new RegExp(`Flight ${n}`) }).boundingBox();
+    expect(box, `flight ${n} has a box`).toBeTruthy();
+    expect(box!.height, `flight ${n} clears the 44 px touch floor`).toBeGreaterThanOrEqual(44);
+  }
+
+  // …and the strip itself passes the same audit every other surface is held to.
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  for (const v of violations) {
+    console.log(`\n[${v.impact}] flight picker :: ${v.id} — ${v.help}\n  ${(v.nodes[0]?.html || '').slice(0, 140)}`);
+  }
+  expect(violations.map((v) => v.id)).toEqual([]);
 });
