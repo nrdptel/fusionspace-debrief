@@ -769,7 +769,7 @@ export default function FlightReport({
           was recorded more than once. Above the flight picker, because it is the wider
           question: which instrument, then which flight of that instrument's download. */}
       {recordings && recordings.length > 1 && recordingId && onRecording && (
-        <RecordingPicker recordings={recordings} currentId={recordingId} sys={sys} onOpen={onRecording} />
+        <RecordingPicker recordings={recordings} currentId={recordingId} sys={sys} hidden={hidden} onOpen={onRecording} />
       )}
 
       {/* Which flight in the download this is, when the file holds several. */}
@@ -1353,7 +1353,7 @@ export default function FlightReport({
       </div>
 
       {/* The shareable card closes the report, once everything it summarizes is shown. */}
-      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} xRange={chartRange} hidden={hidden} />
+      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} xRange={chartRange} hidden={hidden} recording={recordingMeta} />
 
       {/* Print-only provenance line, so a card that leaves the screen says where
           it came from. */}

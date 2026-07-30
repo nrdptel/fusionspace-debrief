@@ -1682,6 +1682,14 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
     'aria-current',
     'true',
   );
+  // The card marking where you are stays in the tab order. `disabled` would take the only
+  // "you are here" marker in the strip out of it, so a keyboard user could reach every
+  // recording except the one they are reading.
+  const hereCard = strip.getByRole('button', { name: new RegExp(`${reportedAfter.replace('.', '\\.')} · reading`) });
+  await expect(hereCard).toHaveAttribute('aria-disabled', 'true');
+  await hereCard.focus();
+  await expect(hereCard).toBeFocused();
+
   // …and the OTHER recording is one click away, with its own reading.
   await strip.getByRole('button', { name: new RegExp(reportedFirst.replace('.', '\\.')) }).click();
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });

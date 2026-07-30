@@ -64,6 +64,19 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **Switching recording on a flight report drops keyboard focus to `<body>`.** `onOpen` →
+  `openRecent` sets `phase: 'loading'`, which unmounts the whole `FlightReport` subtree for a full
+  re-parse and re-analyse — measured at six seconds on a phone with an 11 MB log — so a keyboard or
+  screen-reader flyer is returned to the top of the document and has to find their place again. The
+  wait itself IS announced (`role="status"`), so what is lost is the reading position, not the
+  news. Same shape as opening a flight from the logbook, so fix it once for both.
+- **A folder drop that yields exactly one readable flight gets no recording strip and no
+  `recording` line in any export**, because that branch of `onFiles` (`components/Analyzer.tsx`)
+  never puts `savedId` into state — the id is right there on the line above, used for
+  `rememberOpenId`. `onCaption` is gated on the same thing and has been missing on this path for
+  longer, so it is one fix for both: thread `r.savedId` into the report state. It means "the report
+  says which recording it is reading" is not true on one of the three ways a report gets on screen.
+
 - **NAR high-power competition scores several altitude systems on one flight as their AVERAGE**,
   rounded up to the next foot (<https://www.nar.org/contest-flying/high-power-competition/>), and
   Debrief deliberately computes no such mean — a blended number on a measurement surface is what

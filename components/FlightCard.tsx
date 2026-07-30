@@ -5,6 +5,7 @@ import type { FlightMetrics, FlightSeries } from '@/lib/analyze/types';
 import { fmtLength } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { flightCardStats } from '@/lib/flightCard';
+import { recordingLine, type ReportMeta } from '@/lib/report';
 import { download } from '@/lib/download';
 
 const ACTION_BTN =
@@ -25,6 +26,8 @@ function drawCard(
   data: {
     stem: string;
     formatLabel: string;
+    /** Which recording of the flight this is, when it has several. */
+    recording?: ReportMeta['recording'];
     series: FlightSeries;
     metrics: FlightMetrics;
     sys: UnitChoice;
@@ -34,7 +37,7 @@ function drawCard(
     hidden?: string[];
   },
 ) {
-  const { stem, formatLabel, series, metrics, sys, xRange, hidden } = data;
+  const { stem, formatLabel, series, metrics, sys, xRange, hidden, recording } = data;
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -79,11 +82,22 @@ function drawCard(
   ctx.fillStyle = '#4f46e5'; // indigo-600
   ctx.fillText(chipText, chipX + 14, chipY + 23);
 
+  // Which recording of the flight this is, where the flyer has said it was flown on more than
+  // one altimeter. This is the one surface that LEAVES the device — it exists to be posted to a
+  // club chat or a forum — so it is the worst place for two images of ONE launch to go out with
+  // different apogees and nothing saying they are the same flight. The file name alone cannot
+  // say it; every other document Debrief writes says it; this said nothing.
+  if (recording) {
+    ctx.fillStyle = MUTED;
+    ctx.font = `500 18px ${sans}`;
+    ctx.fillText(recordingLine(recording), PAD, PAD + 76);
+  }
+
   // Stat blocks.
   const stats = flightCardStats(metrics, sys, hidden);
   const cols = stats.length;
   const blockW = (W - PAD * 2) / cols;
-  const statTop = PAD + 110;
+  const statTop = PAD + (recording ? 132 : 110);
   stats.forEach((s, i) => {
     const x = PAD + i * blockW;
     ctx.fillStyle = MUTED;
@@ -242,6 +256,7 @@ export default function FlightCard({
   formatLabel,
   xRange,
   hidden,
+  recording,
 }: {
   series: FlightSeries;
   metrics: FlightMetrics;
@@ -254,14 +269,17 @@ export default function FlightCard({
   /** The readings this flyer has turned off, from the same stored profile the grid and
    *  every report read. */
   hidden?: string[];
+  /** Which recording of the flight this is, when the flyer has said it was recorded more than
+   *  once — so two cards of ONE launch cannot go out to a forum as two launches. */
+  recording?: ReportMeta['recording'];
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange, hidden });
-  }, [series, metrics, sys, stem, formatLabel, xRange, hidden]);
+    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange, hidden, recording });
+  }, [series, metrics, sys, stem, formatLabel, xRange, hidden, recording]);
 
   const save = useCallback(() => {
     canvasRef.current?.toBlob((blob) => blob && download(blob, `${stem}-card.png`));

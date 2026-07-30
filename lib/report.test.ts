@@ -848,3 +848,21 @@ describe('a document says which recording of the flight it is', () => {
     expect('recording' in JSON.parse(analysisJson(flight, analysis, 'imperial', 0))).toBe(false);
   });
 });
+
+/**
+ * The shareable PNG is the one surface that LEAVES the flyer's device — it exists to be posted
+ * to a club chat or a forum. Two cards of ONE launch, with two altimeters' apogees on them and
+ * nothing saying they are the same flight, read as two launches to everyone who sees them.
+ *
+ * `drawCard` needs a canvas, so what is pinned here is the sentence it draws and the rule that
+ * feeds it; the wiring is `recording={recordingMeta}` at the one call site.
+ */
+describe('the shareable card says which recording it is of', () => {
+  it('draws the same sentence as every other document', () => {
+    // One string, one builder — so the image and the .txt a flyer sends with it cannot say
+    // different things about the same flight.
+    expect(recordingLine({ of: 2, reportedBy: 'primary.csv', isReportedBy: false })).toBe(
+      'One of 2 recordings of this flight — reported by primary.csv',
+    );
+  });
+});

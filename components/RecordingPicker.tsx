@@ -24,6 +24,7 @@ export default function RecordingPicker({
   recordings,
   currentId,
   sys,
+  hidden,
   onOpen,
 }: {
   /** Every recording of this flight, the one that reports it first. */
@@ -32,9 +33,15 @@ export default function RecordingPicker({
    *  because a flyer can open any of them. */
   currentId: string;
   sys: UnitChoice;
+  /** The readings this flyer has turned off, from the same stored profile the grid, every
+   *  report and the shareable card read. A reading hidden everywhere else must not reappear
+   *  here — this strip was the one surface that ignored the choice. */
+  hidden?: string[];
   onOpen: (id: string) => void;
 }) {
   const reportsIt = recordings[0]?.id;
+  const showApogee = !hidden?.includes('Apogee');
+  const showSpeed = !hidden?.includes('Max velocity');
   return (
     <section
       aria-labelledby="recordings-of-this-flight"
@@ -56,10 +63,9 @@ export default function RecordingPicker({
             <li key={rec.id}>
               <button
                 type="button"
-                onClick={() => onOpen(rec.id)}
-                disabled={here}
-                {...(here ? { 'aria-current': 'true' as const } : {})}
-                className={`flex min-h-11 max-w-full flex-col items-start rounded-md border px-3 py-1.5 text-left text-xs transition disabled:cursor-default ${
+                onClick={() => (here ? undefined : onOpen(rec.id))}
+                {...(here ? { 'aria-current': 'true' as const, 'aria-disabled': true as const } : {})}
+                className={`flex min-h-11 max-w-full flex-col items-start rounded-md border px-3 py-1.5 text-left text-xs transition aria-disabled:cursor-default ${
                   here
                     ? 'border-indigo-400 bg-indigo-50 text-indigo-900 dark:border-indigo-500/50 dark:bg-indigo-950/40 dark:text-indigo-100'
                     : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100'
@@ -78,7 +84,12 @@ export default function RecordingPicker({
                 <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
                   {here
                     ? 'the readings below'
-                    : `${rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—'} · ${rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—'}`}
+                    : [
+                        showApogee ? (rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—') : null,
+                        showSpeed ? (rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—') : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                   {rec.id === reportsIt ? ' · reports this flight' : ''}
                 </span>
               </button>
