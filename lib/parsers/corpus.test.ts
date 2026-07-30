@@ -477,9 +477,19 @@ function digestOf(analysis: ReturnType<typeof analyzeFlight>): string {
     return v.toPrecision(12);
   };
 
-  const { metrics, events, series } = analysis;
+  const { metrics, events, series, warnings } = analysis;
   for (const key of Object.keys(metrics).sort()) feed(`m:${key}=${num((metrics as unknown as Record<string, unknown>)[key])};`);
-  for (const e of events) feed(`e:${e.type}@${num(e.time)}#${e.index};`);
+  // Every member of FlightEvent, not just the three that identify it. `provenance` says whether
+  // the logger flagged this event or Debrief detected it, and `peakAccel` is the deployment
+  // snatch shock — a printed reading on the screen and in all four documents. Neither is
+  // derivable from anything else here, so a regression in the shock window, or an event
+  // flipping from device-reported to derived, would have passed in silence.
+  for (const e of events) feed(`e:${e.type}|${e.label}@${num(e.time)}#${e.index}^${num(e.altitude)}~${e.provenance}!${num(e.peakAccel)};`);
+  // The caveats Debrief prints about the flight. They are output — "Worth knowing" on screen
+  // and a section in every export — so a reworded, added or dropped warning across all 50
+  // corpus flights is a change to what the tool SAYS about real flights, and left out of the
+  // hash it was a change this snapshot could not see.
+  for (const w of warnings) feed(`w:${w};`);
   for (const key of Object.keys(series).sort()) {
     const v = (series as unknown as Record<string, unknown>)[key];
     if (v instanceof Float64Array) {

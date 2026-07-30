@@ -413,10 +413,22 @@ cheaply instead of re-derived. Newest first.
   alternatives were a mean, a maximum, or showing every recording's reading everywhere with no
   headline. Rejected all three: the safety spine says several recordings of one flight are
   independent measurements that can disagree, never a consensus dressed as certainty, and a max is
-  a best-of dressed as a measurement. It also matches what a flyer actually has to do — a cert
-  document quotes an apogee from a named altimeter. The nomination is the flyer's, changeable in
-  one click, and the recordings that are not reporting the flight keep their own readings on
-  screen rather than being hidden.
+  a best-of dressed as a measurement. The nomination is the flyer's, changeable in one click, and
+  the recordings that are not reporting the flight keep their own readings on screen rather than
+  being hidden.
+
+  **Checked against governing practice afterwards, and it holds:** Tripoli's altitude-record form
+  carries a single altimeter-of-record block — Manufacturer / Model / Reported Accuracy — so the
+  flyer states which instrument's number is the flight's number, and only one application is filed
+  per flight regardless of how many altimeters flew
+  (<https://tccrockets.com/v2/tcc-documents/recordform.pdf>,
+  <https://tccrockets.com/v2/tcc-documents/recordclasses.pdf>). **One counter-example, recorded
+  rather than buried:** NAR high-power *competition* scores multiple altitude systems on one flight
+  as the AVERAGE of all systems, rounded up to the next foot
+  (<https://www.nar.org/contest-flying/high-power-competition/>). Debrief still does not compute
+  that mean — a blended number on a measurement surface is the thing the spine forbids — but a
+  flyer entering NAR competition needs it, and the comparison surface already shows them every
+  contributing reading. Filed in `BACKLOG.md` as a real, cited gap rather than settled here.
 - **2026-07-30 — the crop Sev-1 was fixed inside D3's first slice rather than as its own pass.**
   Rejected: filing it and shipping the milestone slice alone. It is one function — the same
   replace-in-place D3 had to add a member to — and adding `flightId` there without fixing the rule

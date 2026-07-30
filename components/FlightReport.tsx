@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
-import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
+import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, recordingLine, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -242,9 +242,11 @@ export default function FlightReport({
   // are not two launches. Absent on every ordinary flight, and then no document gains a line.
   const recordingMeta = useMemo(() => {
     if (!recordings || recordings.length < 2 || !recordingId) return undefined;
-    const index = recordings.findIndex((r) => r.id === recordingId);
-    if (index < 0) return undefined;
-    return { index: index + 1, of: recordings.length, reportedBy: recordings[0].name };
+    if (!recordings.some((r) => r.id === recordingId)) return undefined;
+    // By ID, never by name. Two same-model altimeters write their exports under the same
+    // default name, and the logbook keeps such rows apart by their contents — so comparing
+    // names would have the BACKUP's report claim to be the one the flight is reported by.
+    return { of: recordings.length, reportedBy: recordings[0].name, isReportedBy: recordings[0].id === recordingId };
   }, [recordings, recordingId]);
   const reportMeta = useMemo(
     () => ({ label: reportLabel, notes: reportNotes, hidden, ...(recordingMeta ? { recording: recordingMeta } : {}) }),
@@ -791,6 +793,16 @@ export default function FlightReport({
             {flight.formatLabel}
           </span>
           <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
+          {/* On PAPER this is the only place the recording can be named: the strip above is
+              `print:hidden`, and printing is how a certification package is actually produced.
+              Without it two printed reports of one launch are indistinguishable from two
+              launches — the exact thing this reading exists to prevent. Hidden on screen,
+              where the strip says it better and in more detail. */}
+          {recordingMeta && (
+            <span className="hidden shrink-0 text-xs text-zinc-500 print:inline dark:text-zinc-400">
+              {recordingLine(recordingMeta)}
+            </span>
+          )}
         </div>
         <div className="flex flex-col gap-2 print:hidden">
           {/* Primary actions — what you do with the flight — stay in view even on a

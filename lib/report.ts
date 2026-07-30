@@ -144,17 +144,26 @@ export interface ReportMeta {
    *  The file name in the header already names the recording; what it cannot say is that the
    *  flight has others and which one it is reported by. A cert write-up quoting an apogee has
    *  to be able to state which instrument read it, and a reader who finds two Debrief reports
-   *  of the same launch has to be able to tell they are not two launches. */
-  recording?: { index: number; of: number; reportedBy: string };
+   *  of the same launch has to be able to tell they are not two launches.
+   *
+   *  `of` is a count and it is grounded. There is deliberately no INDEX: the recordings are
+   *  ordered by when each was last opened, so "recording 3 of 4" renumbers itself when a flyer
+   *  merely looks at one, and an ordinal that reads as an identity in a certification document
+   *  must not be a fact about this afternoon's clicking.
+   *
+   *  `isReportedBy` is decided by the caller from the logbook ID, never from the file name.
+   *  Two same-model altimeters — the canonical primary-and-backup pair — write their exports
+   *  under the same default name, and the logbook keeps such rows apart by their contents; a
+   *  name comparison would have the BACKUP's report claim to be the one the flight is reported
+   *  by, which is a false statement about provenance in the one document this exists for. */
+  recording?: { of: number; reportedBy: string; isReportedBy: boolean };
 }
 
 /** The one sentence every document says about being one recording of several. Built here so
- *  the four surfaces that print it cannot drift into saying different things. */
-export function recordingLine(rec: NonNullable<ReportMeta['recording']>, source: string): string {
-  const which = `Recording ${rec.index} of ${rec.of} of this flight`;
-  return rec.reportedBy === source
-    ? `${which} — the one this flight is reported by`
-    : `${which} — reported by ${rec.reportedBy}`;
+ *  the surfaces that print it cannot drift into saying different things. */
+export function recordingLine(rec: NonNullable<ReportMeta['recording']>): string {
+  const which = `One of ${rec.of} recordings of this flight`;
+  return rec.isReportedBy ? `${which} — the one it is reported by` : `${which} — reported by ${rec.reportedBy}`;
 }
 
 /** Trim a user string, returning undefined when it's empty — so an untouched field
@@ -396,7 +405,7 @@ export function summaryText(
   lines.push('Debrief — flight report');
   if (label) lines.push(label);
   lines.push(`${flight.source} · ${flight.formatLabel}`);
-  if (meta?.recording) lines.push(recordingLine(meta.recording, flight.source));
+  if (meta?.recording) lines.push(recordingLine(meta.recording));
   // When it flew, where the file states it — the date a cert document or logbook wants,
   // and a different fact from when this report was produced.
   if (flight.flownAt) lines.push(`Flew ${formatFlownAt(flight.flownAt)}`);
@@ -485,7 +494,7 @@ export function summaryMarkdown(
   const flew = flight.flownAt ? ` · Flew ${cell(formatFlownAt(flight.flownAt))}` : '';
   const stamp = analyzedAt ? ` · Analyzed ${formatAnalyzedAt(analyzedAt)}` : '';
   out.push(`**${cell(flight.source)}** · ${cell(flight.formatLabel)}${flew}${stamp}`);
-  if (meta?.recording) out.push('', `*${cell(recordingLine(meta.recording, flight.source))}*`);
+  if (meta?.recording) out.push('', `*${cell(recordingLine(meta.recording))}*`);
   out.push('');
   if (notes) {
     // A blockquote keeps the flyer's own words distinct from the read; each line
@@ -659,7 +668,7 @@ export function summaryHtml(
   const inner = `  <header>
     <h1>${esc(label || 'Debrief — flight report')}</h1>
     <div class="src">${esc(flight.source)} · ${esc(flight.formatLabel)}${stamp}</div>
-    ${meta?.recording ? `<div class="src">${esc(recordingLine(meta.recording, flight.source))}</div>` : ''}
+    ${meta?.recording ? `<div class="src">${esc(recordingLine(meta.recording))}</div>` : ''}
     ${notesHtml}
   </header>
 
@@ -1261,7 +1270,7 @@ export function analysisJson(
     // documents of one launch are not two launches, and a consumer should not have to read
     // English to tell.
     ...(meta?.recording
-      ? { recording: { index: meta.recording.index, of: meta.recording.of, reportedBy: meta.recording.reportedBy, isReportedBy: meta.recording.reportedBy === flight.source } }
+      ? { recording: { of: meta.recording.of, reportedBy: meta.recording.reportedBy, isReportedBy: meta.recording.isReportedBy } }
       : {}),
     // …and the same thing as data, because a consumer should not have to parse a sentence to
     // find out that this document is one flight out of a launch day.

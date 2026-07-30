@@ -788,31 +788,52 @@ describe('comparison report', () => {
 describe('a document says which recording of the flight it is', () => {
   const flight = tinyFlight();
   const analysis = analyzeFlight(flight);
-  const of2 = { recording: { index: 2, of: 2, reportedBy: 'primary.csv' } };
-  const isPrimary = { recording: { index: 1, of: 2, reportedBy: 'tiny.csv' } };
+  const backup = { recording: { of: 2, reportedBy: 'primary.csv', isReportedBy: false } };
+  const isPrimary = { recording: { of: 2, reportedBy: 'tiny.csv', isReportedBy: true } };
 
   it('names the recording that reports the flight when this is not it', () => {
-    expect(recordingLine(of2.recording, 'tiny.csv')).toBe('Recording 2 of 2 of this flight — reported by primary.csv');
+    expect(recordingLine(backup.recording)).toBe('One of 2 recordings of this flight — reported by primary.csv');
   });
 
   it('says so plainly when this IS the one the flight is reported by', () => {
-    // Not "reported by tiny.csv" on tiny.csv's own report, which reads like a pointer
-    // somewhere else and sends a cert writer looking for a second document.
-    expect(recordingLine(isPrimary.recording, 'tiny.csv')).toBe('Recording 1 of 2 of this flight — the one this flight is reported by');
+    // Not "reported by <this file>", which reads like a pointer somewhere else and sends a cert
+    // writer looking for a second document.
+    expect(recordingLine(isPrimary.recording)).toBe('One of 2 recordings of this flight — the one it is reported by');
+  });
+
+  it('never prints an ordinal, because the order is not a fact about the flight', () => {
+    // The recordings are ordered by when each was last OPENED — `listRecents` sorts on
+    // `addedAt` and every save, including a reopen, stamps it afresh. So "recording 3 of 4"
+    // renumbers itself when a flyer merely looks at one, and an ordinal in a certification
+    // document must not be a fact about this afternoon's clicking. The COUNT is grounded; the
+    // index is not, so it is not printed.
+    for (const line of [recordingLine(backup.recording), recordingLine(isPrimary.recording)]) {
+      expect(line).not.toMatch(/\b(?:Recording|recording) [0-9]+\b/);
+      expect(line).not.toMatch(/[0-9]+ of 2/);
+    }
+  });
+
+  it('decides which one reports the flight by identity, never by file name', () => {
+    // Two same-model altimeters — the canonical primary-and-backup pair — write their exports
+    // under the same default name, and the logbook keeps such rows apart by their contents.
+    // A name comparison would have the BACKUP's own report claim to be the one the flight is
+    // reported by: a false statement about provenance, in the document this exists for.
+    const sameName = { recording: { of: 2, reportedBy: 'tiny.csv', isReportedBy: false } };
+    expect(recordingLine(sameName.recording)).toBe('One of 2 recordings of this flight — reported by tiny.csv');
+    expect(JSON.parse(analysisJson(flight, analysis, 'imperial', 0, sameName)).recording.isReportedBy).toBe(false);
   });
 
   it('reaches the text, Markdown and HTML reports', () => {
-    const line = recordingLine(of2.recording, 'tiny.csv');
-    expect(summaryText(flight, analysis, 'imperial', 0, of2)).toContain(line);
-    expect(summaryMarkdown(flight, analysis, 'imperial', 0, of2)).toContain(line);
-    expect(summaryHtml(flight, analysis, 'imperial', 0, of2)).toContain(line);
+    const line = recordingLine(backup.recording);
+    expect(summaryText(flight, analysis, 'imperial', 0, backup)).toContain(line);
+    expect(summaryMarkdown(flight, analysis, 'imperial', 0, backup)).toContain(line);
+    expect(summaryHtml(flight, analysis, 'imperial', 0, backup)).toContain(line);
   });
 
   it('reaches the JSON export as data, not only as a sentence', () => {
-    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 0, of2));
-    expect(doc.recording).toEqual({ index: 2, of: 2, reportedBy: 'primary.csv', isReportedBy: false });
-    const own = JSON.parse(analysisJson(flight, analysis, 'imperial', 0, isPrimary));
-    expect(own.recording.isReportedBy, 'a consumer can tell without comparing strings').toBe(true);
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 0, backup));
+    expect(doc.recording).toEqual({ of: 2, reportedBy: 'primary.csv', isReportedBy: false });
+    expect(JSON.parse(analysisJson(flight, analysis, 'imperial', 0, isPrimary)).recording.isReportedBy).toBe(true);
   });
 
   it('adds nothing at all to an ordinary flight’s documents', () => {
@@ -822,8 +843,7 @@ describe('a document says which recording of the flight it is', () => {
       summaryMarkdown(flight, analysis, 'imperial', 0),
       summaryHtml(flight, analysis, 'imperial', 0),
     ]) {
-      expect(doc).not.toContain('Recording');
-      expect(doc).not.toContain('of this flight');
+      expect(doc).not.toContain('recordings of this flight');
     }
     expect('recording' in JSON.parse(analysisJson(flight, analysis, 'imperial', 0))).toBe(false);
   });

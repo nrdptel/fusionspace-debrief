@@ -69,9 +69,16 @@ export default function RecordingPicker({
                   {rec.name}
                   {here ? ' · reading' : ''}
                 </span>
+                {/* No figure on the card you are reading — the whole page below IS that
+                    figure, at full precision and with its caveats. Repeating it here would
+                    also be repeating the LOGBOOK's copy of it, which is the reading of the
+                    stretch this recording was last saved over: crop the flight and the two
+                    disagree until the next save, which would paint a difference between one
+                    instrument and itself on the surface built to show real ones. */}
                 <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—'} ·{' '}
-                  {rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—'}
+                  {here
+                    ? 'the readings below'
+                    : `${rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—'} · ${rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—'}`}
                   {rec.id === reportsIt ? ' · reports this flight' : ''}
                 </span>
               </button>

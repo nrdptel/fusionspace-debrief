@@ -64,6 +64,29 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **NAR high-power competition scores several altitude systems on one flight as their AVERAGE**,
+  rounded up to the next foot (<https://www.nar.org/contest-flying/high-power-competition/>), and
+  Debrief deliberately computes no such mean — a blended number on a measurement surface is what
+  the safety spine forbids. That reasoning is right for the headline reading and it leaves a real
+  flyer without a number a governing body asks them for. Worth reconsidering as an explicitly
+  labelled, explicitly cited COMPETITION figure on the comparison surface, beside the individual
+  readings and never instead of them — the same shape the logger's own reported figures already
+  take. Note the contrast that makes the call non-obvious: Tripoli's record form does the opposite,
+  naming one altimeter of record (<https://tccrockets.com/v2/tcc-documents/recordform.pdf>).
+- **The logbook is a list of FILES a flyer opened, where a real flight log is a list of FLIGHTS a
+  ROCKET made.** Benchmarked against what flyers actually fill in: a club flight card asks for
+  rocket name and make, every motor with manufacturer and delay, all-up weight, recovery
+  configuration, "First Flight?", "Cert Flight?", and a post-flight evaluation with "Good Flight?"
+  (<https://www.crmrc.org/CRMRC%20Flight%20Card.pdf>); Tripoli's record form adds total impulse,
+  stage count, field elevation and launch temperature
+  (<https://tccrockets.com/v2/tcc-documents/recordform.pdf>). Debrief has one free-text note for all
+  of it. Ranked, the three that would be missed most: (1) an AIRFRAME the flights hang off, so the
+  logbook answers "how has this bird flown"; (2) motor and recovery-outcome fields, i.e. whether the
+  flight was any GOOD — apogee and speed cannot say that; (3) career counters, which mDACS reads off
+  the altimeter as Total Flights, Total Flight Time and Total Ascent Elevation
+  (<https://www.apogeerockets.com/downloads/PDFs/mDACS-usb-io-user-manual.pdf>). This is roadmap
+  material, not a defect — filed here so the next decomposition has the citations.
+
 - **The report's recording strip pops in after the report has rendered.** `savedId` arrives
   asynchronously — `openRecent` fires `saveRecent` un-awaited and folds the id into state when it
   resolves (`components/Analyzer.tsx`) — and the strip is keyed on it, so a two-altimeter flight's
@@ -2638,11 +2661,20 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   works, so copying one channel out means the CSV export.
 - **DONE (2026-07-30) — a per-device flight list.** The report lists every flight in a
   multi-flight download and reads any of them on a click, and a flyer can crop any record by
-  hand. Read against what this entry actually asked for, though, the parity is on the REPORT
-  and not in the logbook: the logbook is still keyed on files, so a launch day is one row
-  carrying the FILE's apogee whichever flight is on screen, and a comparison built from ids
-  re-reads each flight whole. That half is D3's starting point — see the two entries at the
-  top of this section. Original entry:
+  hand. Read against what this entry actually asked for, though, the parity was on the REPORT
+  and not in the logbook. **D3 (2026-07-30) closed half of that and only half**, so read the
+  two carefully:
+
+  - *Several recordings of one flight are one logbook row* — DONE. `RecentMeta.flightId`, one
+    entry, counted once by the crowns, each recording still openable.
+  - *A launch day's SEVERAL FLIGHTS in one file are still one row* — STILL OPEN, and it is a
+    different problem: it is one FILE holding several flights, where D3 solved several files
+    holding one flight. The row still carries the FILE's apogee whichever flight is on screen.
+    The grouping mechanism does not help, because a recording is a row and these flights share
+    one. It needs the crop to be addressable, which is where the entry below about
+    `compareFromLogbook` dropping `rec.read` becomes load-bearing.
+
+  A comparison built from ids also still re-reads each flight whole. Original entry:
   The vendor apps read several flights off one device and let you pick between them; Debrief's
   logbook is close but is keyed on files, not flights from one download session.
 - Found by driving a season into the logbook: it sorts but couldn't be *searched* — now it
