@@ -188,24 +188,18 @@ history. Verify and move on.
 **Git identity is wrong out of the box**, as above. Check `git log -1 --format='%an <%ae>'` after your
 first commit. Signing is inherited and works (`gpg.format=ssh`).
 
-## Where this run stopped, and the one thing outstanding
+## Where this run ended
 
-**PR #52 is open, and merging it is the first thing to do.** Everything on the branch is verified;
-what is not verified is CI's own `e2e` job, which had been running 25+ minutes against a usual 5
-when the run's time budget ran out. It was not merged, because merging deploys straight to
-production and the pull request is the only thing that guarantees the full suite runs first.
+**Both pull requests merged and live.** `f8c8db2` (#51, D3) and `b4e8878` (#52, D4's first slice
+plus D3's spread gap), each merged only after CI went green on the exact branch tip.
 
-What IS established on that exact SHA:
-
-- the local gate, three times over: `UNIT=0 BUILD=0 E2E=0` — 63 unit files / 915 tests, typecheck
-  clean, build clean, 223 e2e, with the corpus symlinked so the corpus suite really ran;
-- CI's `frontend` job green, which is the one that fetches the real corpus and runs the 116-test
-  half a container without the corpus skips.
-
-So: re-read the check runs (`pull_request_read` with `get_check_runs`), and merge on green. If the
-`e2e` job is still hung, re-run it from the Actions tab rather than merging past it. **Squash, and
-set the merge commit message explicitly** — a squash inherits the PR body otherwise, and the
-harness appends an attribution footer to that body every time it is written.
+**One thing to know about reading CI here, because it nearly cost this run its last increment.**
+`pull_request_read` with `get_check_runs` served a STALE `in_progress` for the `e2e` job for
+roughly forty minutes after it had actually finished. The job completed in 3m24s, its normal
+runtime, and the run was very nearly written off as "CI congested, merge next session". Poll
+`actions_get` with `get_workflow_job` instead — it carries per-STEP timestamps, so a genuinely
+slow job is distinguishable from a stale cache at a glance, and it reported the true completion
+immediately.
 
 ## Pick up first, and why
 
