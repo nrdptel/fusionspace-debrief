@@ -48,6 +48,26 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **The MS5607 conversion ignored the `ms5611` flag AltOS writes beside its coefficients** —
+  fixed. The two parts share a calibration block and a formula and differ in the scaling of the
+  offset and sensitivity terms by one binary place, and the reference implementation switches on
+  that flag. Both corpus boards write `false`, so the sample-for-sample check against AltosUI
+  could never have caught it: a 5611 read as a 5607 gives a pressure about an atmosphere out.
+  Found by writing the conversion a SECOND time from the vendor's implementation rather than
+  from the datasheet — which also settled a real open question, that every division in it floors
+  (an arithmetic shift on a signed long) rather than truncating toward zero. Those two agree
+  above the calibration reference temperature, which is every reading in the corpus, and
+  disagree by one count below it.
+- **The MS5607 cold-weather branch and the MS5611 branch are still unverified against a real
+  reading**, because no corpus download enters either — every AltOS flight here stays above
+  20 °C and both boards are 5607s. What holds them is the second transcription above, which
+  catches a slip in the shipped code and NOT a misreading of the datasheet, since both readings
+  are the same person's. An earlier attempt tested only that the correction is *continuous* at
+  its boundary and caught none of three deliberate mutations — every term vanishes at the
+  boundary whatever its coefficient. **Get an AltOS `.eeprom` from a flight above ~11 km, or
+  from a board with a 5611, and replace it with a real comparison.** `groundPressureAgrees` is
+  the backstop until then: a board decoded with the wrong scaling disagrees with its own stated
+  ground pressure and is refused rather than read.
 - **`normalizeFlight` has now silently dropped three different members of `RecentFlight` on the
   way back in from a backup** — the report caption, the chosen stretch, and (this run) the file's
   own bytes, which made the one documented way to move a logbook between machines restore every

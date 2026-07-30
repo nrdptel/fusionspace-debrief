@@ -179,6 +179,37 @@ by construction. Two practical notes: tell every agent to write probes under the
 sweep anyway, because one of them left `if (false as boolean)` inside a shipped parser and two left
 probe files at the repo root.
 
+### The second review round, after the merge
+
+The same fan-out's fourth lens — *tests that would stay green if the code broke* — landed after
+the first round was already merged, and it was the sharpest of the four. Eight findings, and one
+of them turned into a real defect once chased:
+
+- **The MS5607 conversion ignored the `ms5611` flag AltOS writes beside its own coefficients.**
+  Found by writing the conversion out a SECOND time, from the vendor's implementation rather than
+  from the datasheet. The two parts differ in the scaling of two terms by one binary place, both
+  corpus boards write `false`, and a 5611 read as a 5607 is about an atmosphere out. The same
+  exercise settled a genuine open question: every division in that conversion FLOORS — it is an
+  arithmetic shift on a signed long — rather than truncating toward zero. Those agree above the
+  calibration reference temperature, which is every reading in the corpus, and disagree by one
+  count below it.
+- **The acceleration and temperature channels were never compared to the vendor export at all** —
+  only pressure was. Measured, once asked: both agree to half of AltosUI's last printed digit,
+  over every sample. Nothing was wrong; nothing said so either.
+- **Three `.eeprom` tests returned early and printed as passes** when their corpus pair was
+  missing, including the two heaviest asserts in the file. A corpus that is absent is a legitimate
+  skip; a corpus that is present but incomplete now throws.
+- Four more: the `.rff` detector's test never reached the check that identifies the file, half of
+  `looksBinary`'s two-part rule could be deleted with the suite still green, `STATE_NAMES` could be
+  shifted by one while printing "coast → main → landed" through a rocket's drogue, and the
+  logbook's keep-the-bytes rule had e2e cover and no unit cover.
+
+**The lesson worth carrying: a property test can be weaker than it looks.** The first answer to
+the cold branch checked that the correction is continuous at its boundary — which sounds like a
+real invariant and caught NONE of three deliberate mutations, because every term vanishes at the
+boundary whatever its coefficient. Mutate before believing a test, including the tests you write
+to answer a review.
+
 ### Gate, at the last commit
 
 `UNIT=0 TSC=0 BUILD=0 E2E=0` — **62 unit files green**, typecheck clean, build clean, **222 e2e**.
