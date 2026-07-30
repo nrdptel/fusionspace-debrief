@@ -14,6 +14,29 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **DONE — `lib/stitch.ts` shipped a safeguard with zero power against the failure it named, and it
+  rejected two of the corpus's six redundant-board groups.** The alignment lines per-stage logs up on
+  their shared liftoff, and it corroborated that against the burnout the boards both recorded,
+  refusing above 1 s. Both halves were wrong. **Zero power:** lined up on liftoff, the gap between
+  two boards' burnouts is exactly |burn duration_i − burn duration_j|, so the staging delay — the one
+  error the check existed to catch, and an unbounded one — is not a term in it. Sweeping the delay
+  from 2 s to 5,000 s leaves the reported figure at 0.30 s while the composite is wrong by the whole
+  delay. **False refusals:** run over the six groups where several boards are bolted into ONE
+  airframe recording ONE burn — the check's premise stated exactly — it refused `iss-endurance`
+  (TeleMetrum 2.900 s against StratoLogger 0.050 s) and `trf-lemiv-l3` (3.160 / 2.300 / 1.750 /
+  1.550 s across four boards in one rocket). All nine files carry `knownIssue: None`; the analyzer
+  simply does not define burnout the same way twice, a `measured` burn running 0.769–6.040 s across
+  the corpus against a `derived` one's 0.050–23.910 s. **And it never separated flights anyway:** the
+  genuine staged pair agrees to 0.290 s, but the Kairos booster paired against 32 unrelated corpus
+  flights was accepted three times, at 0.750 s (a June 2023 IREC flight) and 0.910 s. Removed rather
+  than widened — a guard that fires on correct data is worse than none, and this one bought nothing
+  for it. The burn durations still ship, now named per recording and provenance-labelled, because a
+  2.85 s spread means nothing until you know one board measured that moment and the other derived it.
+  The six groups are a corpus test now (`recordings of one launch line up on it, whatever their
+  burnouts say`), so reinstating the gate is a red build rather than an argument. **Not user-facing
+  at any point** — `alignStages` had no caller outside its own tests — but the module's own header
+  and `ROADMAP.md` both stated the refuted claim, which is the class MAINTAINING.md forbids outright.
+
 - **DONE — reopening a cropped flight threw the crop away, so it survived one reload and not two.**
   `saveRecent`'s replace-in-place carried the note, the paired device summary and the report caption
   forward by name, and `read` — the stretch a flyer had said was THEIR flight — was not on that list.

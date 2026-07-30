@@ -351,12 +351,13 @@ Three things it did not do. **One is closed since**, and the other two are filed
 
 ## D4 — Stitch per-stage logs into one composite flight
 
-**Status:** IN PROGRESS — the alignment and its refusal are shipped and pinned by
-`lib/stitch.test.ts` (7 cases) and by `iss-kairos: Kairos booster + sustainer: both stages caught
-the launch, so they line up on it` (`lib/parsers/corpus.test.ts`, over the corpus's real two-stage
-pair). **This slice is groundwork and says so**: it decides whether two per-stage logs CAN be put
-on one clock and produces the offsets or a refusal. A flyer sees nothing yet, because a composite
-surface built before the alignment was measured is exactly the guess this milestone must not make.
+**Status:** IN PROGRESS — the alignment is shipped and pinned by `lib/stitch.test.ts` (10 cases),
+by `iss-kairos: Kairos booster + sustainer: both stages caught the launch, so they line up on it`
+over the corpus's real two-stage pair, and by six `recordings of one launch line up on it, whatever
+their burnouts say` cases over the redundant-board groups (`lib/parsers/corpus.test.ts`).
+**This slice is groundwork and says so**: it decides whether two per-stage logs CAN be put on one
+clock and produces the offsets or a refusal. A flyer sees nothing yet, because a composite surface
+built before the alignment was measured is exactly the guess this milestone must not make.
 
 **What was measured, and what it refuted — read this before extending it.** The corpus's one real
 staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on its own TeleMega.
@@ -377,22 +378,41 @@ staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on it
   only have meant telling the owner of a plain single-stage flight that their file was already
   moving when the log opened. The first draft of `lib/stitch.ts` did exactly that on 14 of 50
   corpus flights; the rule was deleted rather than tuned until the corpus looked tidy.
-- **So the alignment is CORROBORATED instead of gatekept.** Until the stages separate every board
-  is bolted into the same rocket, so every one of them records the same first-stage burn; lined up
-  on liftoff, those instants must be one. On the corpus's pair they fall **0.29 s** apart. A wrong
-  offset — a sustainer whose logger started at its own ignition — shows up here as a gap of
-  exactly the staging delay it is wrong by, which is seconds. The tolerance is 1 s, in the wide
-  gap between those two, and the spread rides out on the alignment as a number a flyer can check
-  rather than a claim they have to take.
+- **A THIRD rule was tried, shipped, and then removed — this is the most important thing on the
+  page.** The reading was that until the stages separate every board is bolted into the same
+  rocket, so every one of them records the same first-stage burn; lined up on liftoff those
+  instants must be one, and a gap of seconds catches a sustainer whose logger started at its own
+  ignition. It shipped with a 1 s tolerance. Measurement then refuted it in three ways at once,
+  and the numbers are all reproducible from the corpus:
 
-**And that check is much weaker than it first looks — the second review caught this and it is the
-most important thing on this page.** Lined up on liftoff, the gap between two boards' burnouts is
-|booster burn duration − sustainer burn duration|. **The staging delay never enters the
-arithmetic**, because a sustainer log that starts at its own ignition carries no trace of it.
-Measured: a booster burning 5.1 s beside a wrongly-aligned sustainer burning 4.5–5.6 s passes
-every time, and HPR motors of similar burn time are the ordinary case. It is also simply
-unavailable on half the corpus's staged flights — neither StratoLogger booster on `iss-sg1.2`
-marks a burnout at all, so that alignment ships with `burnSpreadS: null`.
+  1. **It has no power against the failure it named — not weak power, none.** Lined up on liftoff,
+     the gap between two boards' burnouts is exactly |burn duration_i − burn duration_j|. **The
+     staging delay is not a term in it**, because a sustainer log that opens at its own ignition
+     carries no trace of the delay. Sweeping the delay from 2 s to 5,000 s leaves the number at
+     0.30 s every time, while the composite is wrong by the whole delay.
+  2. **It refused correct data — two of the corpus's six redundant-board groups.** Several boards
+     bolted into ONE airframe recording ONE burn is the rule's premise stated exactly, and a 1 s
+     tolerance rejected `iss-endurance` (TeleMetrum **2.900 s** against StratoLogger **0.050 s**)
+     and `trf-lemiv-l3`, four boards in one rocket (**3.160 / 2.300 / 1.750 / 1.550 s**). All nine
+     files carry `knownIssue: None`. The mechanism is this repo's own analyzer: a burnout found on
+     the signed axial trace may be sought up to `BURNOUT_TAIL_S` past the velocity peak while the
+     baro path takes the peak itself, so across the corpus a `measured` burn runs 0.769–6.040 s
+     and a `derived` one runs 0.050–23.910 s. Two loggers on one motor compare DEFINITIONS.
+  3. **It never separated one flight from another either.** The genuine staged pair agrees to
+     0.290 s — but the Kairos booster paired against 32 unrelated corpus flights was accepted
+     three times, including a June 2023 IREC flight at 0.750 s and an SG1.2 sustainer from a
+     different launch at 0.910 s. No tolerance sits between those and 0.290 s.
+
+  A guard that rejects correct real data is worse than no guard, and this one bought nothing in
+  exchange. It is gone rather than widened. The burn durations still ship — named per recording
+  and **provenance-labelled**, because a 2.85 s spread means nothing until you know one board
+  measured that moment and the other derived it — but nothing gates on them, and the six
+  redundant-board groups are now a corpus test so that reinstating the gate is a red build rather
+  than an argument.
+
+The alignment therefore rests on the liftoff alone. It is also simply true that half the corpus's
+staged flights have nothing to compare anyway — neither StratoLogger booster on `iss-sg1.2` marks a
+burnout at all, so that alignment ships with `burnDurationSpreadS: null`.
 
 So `StageAlignment.verified` is **false on every result**, as a field rather than an omission, so
 that a surface built on this has to look at it. **A composite built from these offsets is the

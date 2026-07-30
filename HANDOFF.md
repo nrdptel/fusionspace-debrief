@@ -188,24 +188,18 @@ history. Verify and move on.
 **Git identity is wrong out of the box**, as above. Check `git log -1 --format='%an <%ae>'` after your
 first commit. Signing is inherited and works (`gpg.format=ssh`).
 
-## Where this run stopped, and the one thing outstanding
+## Where this run ended
 
-**PR #52 is open, and merging it is the first thing to do.** Everything on the branch is verified;
-what is not verified is CI's own `e2e` job, which had been running 25+ minutes against a usual 5
-when the run's time budget ran out. It was not merged, because merging deploys straight to
-production and the pull request is the only thing that guarantees the full suite runs first.
+**Both pull requests merged and live.** `f8c8db2` (#51, D3) and `b4e8878` (#52, D4's first slice
+plus D3's spread gap), each merged only after CI went green on the exact branch tip.
 
-What IS established on that exact SHA:
-
-- the local gate, three times over: `UNIT=0 BUILD=0 E2E=0` — 63 unit files / 915 tests, typecheck
-  clean, build clean, 223 e2e, with the corpus symlinked so the corpus suite really ran;
-- CI's `frontend` job green, which is the one that fetches the real corpus and runs the 116-test
-  half a container without the corpus skips.
-
-So: re-read the check runs (`pull_request_read` with `get_check_runs`), and merge on green. If the
-`e2e` job is still hung, re-run it from the Actions tab rather than merging past it. **Squash, and
-set the merge commit message explicitly** — a squash inherits the PR body otherwise, and the
-harness appends an attribution footer to that body every time it is written.
+**One thing to know about reading CI here, because it nearly cost this run its last increment.**
+`pull_request_read` with `get_check_runs` served a STALE `in_progress` for the `e2e` job for
+roughly forty minutes after it had actually finished. The job completed in 3m24s, its normal
+runtime, and the run was very nearly written off as "CI congested, merge next session". Poll
+`actions_get` with `get_workflow_job` instead — it carries per-STEP timestamps, so a genuinely
+slow job is distinguishable from a stale cache at a glance, and it reported the true completion
+immediately.
 
 ## Pick up first, and why
 
@@ -231,19 +225,30 @@ on its own TeleMega. Measuring it refuted the milestone's own note twice:
    begin at boost and the detector fires a little way in. **There is no threshold between "a
    sustainer lighting up at altitude" and "a StratoLogger that records only the flight."** The
    first draft flagged 14 of 50 corpus flights; the rule was deleted rather than tuned.
-4. **What replaced it is corroboration.** Until separation every board is in the same rocket and
-   records the same first-stage burn, so lined up on the launch those instants must be one. The
-   corpus pair agrees to **0.29 s**; a sustainer whose logger started at its own ignition would be
-   out by the staging delay, which is seconds. `lib/stitch.ts`, tolerance 1 s, and the spread
-   ships on the alignment as a number the flyer can check.
+4. **A third rule was tried, SHIPPED, and then removed — read this before you reinvent it.** The
+   reading is genuinely persuasive: until separation every board is in the same rocket recording
+   the same first-stage burn, so lined up on the launch those instants must be one, and a gap of
+   seconds catches a sustainer whose logger started at its own ignition. It shipped as a 1 s gate.
+   Three measurements killed it. **It has no power against that failure**: lined up on liftoff the
+   gap is exactly |burn duration_i − burn duration_j|, the staging delay is not a term, and
+   sweeping the delay from 2 s to 5,000 s leaves the figure at 0.30 s while the composite is wrong
+   by the whole delay. **It refused correct data**: two of the corpus's six redundant-board
+   groups — `iss-endurance` (TeleMetrum 2.900 s vs StratoLogger 0.050 s) and `trf-lemiv-l3`
+   (3.160 / 2.300 / 1.750 / 1.550 s across four boards in one rocket), all nine files
+   `knownIssue: None` — because a `measured` burn runs 0.769–6.040 s across the corpus where a
+   `derived` one runs 0.050–23.910 s, so two loggers on one motor are comparing definitions.
+   **And it did not separate flights**: the genuine pair is 0.290 s, but the Kairos booster paired
+   with 32 unrelated flights was accepted three times, at 0.750 s (a June 2023 IREC flight) and
+   0.910 s. The burn durations still ship, named and provenance-labelled, and **nothing gates on
+   them**; the six groups are a corpus test now, so putting the gate back is a red build.
 
 ### The next increment
 
 **The composite surface: one timeline whose events read in order across staging.** The blocker is
 named: `EventType` (`lib/analyze/types.ts`) has no separation or second-ignition member, which is
-why both boards currently call the FIRST-stage burn "burnout" — convenient for the corroboration
-above, useless for telling a staging story. Adding those members is the next thing, and it touches
-the analyzer, so it gets its own gate, its own corpus run and its own push.
+why both boards currently call the FIRST-stage burn "burnout" — useless for telling a staging
+story. Adding those members is the next thing, and it touches the analyzer, so it gets its own
+gate, its own corpus run and its own push.
 
 Two traps waiting there:
 
@@ -252,9 +257,12 @@ Two traps waiting there:
   of one launch. `iss-kairos` and `iss-sg1.2` are the staged ones; `iss-sg1.2` (a TeleMega
   sustainer at 2,113 m beside two StratoLogger boosters at 465 m and a 9.5 m fragment) is the
   negative case for anything automatic.
-- **A wrong composite is the most damaging thing this product can produce.** The refusal path
-  matters as much as the success path, and `lib/stitch.ts` already refuses more readily than it
-  aligns. Keep it that way.
+- **A wrong composite is the most damaging thing this product can produce.** `lib/stitch.ts`
+  refuses exactly two things — fewer than two recordings, and a recording with no liftoff to line
+  up on — and it is honest about that rather than dressed up: `verified` is false on every result
+  it returns. The temptation is to add a third check so a composite can be called measured. Point 4
+  above is what happened the last time that temptation was acted on. **A check that cannot fail on
+  the error it names is not a safeguard, and one that fires on correct data is a defect.**
 
 `BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. **There is
 no open Sev-1 as of this run.**

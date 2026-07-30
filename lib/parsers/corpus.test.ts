@@ -804,17 +804,19 @@ describe('per-stage logs of one launch', () => {
       expect(apogeeT[1], `${g.name}: the sustainer peaks after the booster (${apogeeT[0].toFixed(1)}s vs ${apogeeT[1].toFixed(1)}s)`).toBeGreaterThan(
         apogeeT[0],
       );
-      // The alignment is corroborated by an event it was NOT built from, and the module reports
-      // that as a number rather than a claim. Until separation both boards are bolted into the
-      // same rocket, so both record the BOOSTER's burn — `EventType` has no separation or
-      // second-ignition member, so that first burn is what each record calls "burnout". Two
-      // instruments, lined up on liftoff alone, then agreeing to a fraction of a second about a
-      // different moment is the evidence; a wrong offset shows up as a gap of what it is wrong by.
-      expect(out.alignment.burnSpreadS, `${g.name}: corroborated at all`).not.toBeNull();
+      // What the two records say about the burn they shared, reported and NOT gated on. Until
+      // separation both boards are bolted into the same rocket, so both record the BOOSTER's
+      // burn — `EventType` has no separation or second-ignition member, so that first burn is
+      // what each record calls "burnout". The two burn DURATIONS falling 0.29 s apart here is a
+      // real measurement of these two TeleMegas; it is not evidence that the offsets are right,
+      // because the staging delay is not a term in it. `lib/stitch.test.ts` holds the three
+      // measurements behind that sentence, and `lib/stitch.ts` the reasoning.
+      expect(out.alignment.burnDurationSpreadS, `${g.name}: both boards marked the burn`).not.toBeNull();
       expect(
-        out.alignment.burnSpreadS!,
-        `${g.name}: the two boards agree on the booster burnout to ${out.alignment.burnSpreadS!.toFixed(2)} s`,
-      ).toBeLessThan(1);
+        out.alignment.burnDurationSpreadS!,
+        `${g.name}: the two boards' burn durations differ by ${out.alignment.burnDurationSpreadS!.toFixed(2)} s`,
+      ).toBeCloseTo(0.29, 1);
+      expect(out.alignment.burns.map((b) => b.provenance), `${g.name}: and both found it the same way`).toEqual(['measured', 'measured']);
       // …and that burn lands where a first-stage burn belongs, seconds after the launch — a
       // floor a plausible-looking but badly wrong offset would not clear.
       const burnoutT = stages.map((st, i) => onComposite(i, st.analysis.events.find((e) => e.type === 'burnout')!.time));
@@ -862,6 +864,33 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
       if (acc) expect(acc.max / G0, `${g.name}: max acceleration ${(acc.max / G0).toFixed(0)} g is sane`).toBeLessThan(200);
       const vel = agree.find((a) => a.key === 'maxVelocity');
       if (vel) expect(vel.max, `${g.name}: max speed ${vel.max.toFixed(0)} m/s is sane`).toBeLessThan(4000);
+    });
+  }
+
+  // These groups are the sharpest available test of `alignStages`, and they run here rather than
+  // in `lib/stitch.test.ts` because only the corpus has the real numbers.
+  //
+  // Every board in one of these groups is bolted into ONE airframe recording ONE burn. That is
+  // the premise `lib/stitch.ts` was tempted to gate on, stated exactly — so whatever refuses a
+  // staged pair must not refuse these. A 1 s burn-duration tolerance shipped once and rejected
+  // two of the six: `iss-endurance` at 2.85 s (TeleMetrum 2.900 s `measured` against StratoLogger
+  // 0.050 s `derived`) and `trf-lemiv-l3` at 1.61 s across its four boards. Nothing was wrong with
+  // any of the nine files — the loggers simply do not define burnout the same way, and across the
+  // corpus a `measured` burn runs 0.769–6.040 s where a `derived` one runs 0.050–23.910 s.
+  //
+  // So this exists to make the cost of reinstating that gate a red test rather than an argument.
+  for (const g of RECON_GROUPS) {
+    it(`${g.name}: recordings of one launch line up on it, whatever their burnouts say`, () => {
+      const inputs = g.files.map(loadForCompare).filter((x): x is CompareInput => x != null);
+      expect(inputs.map((i) => i.name), `${g.name}: every recording parses`).toEqual(g.files);
+      const out = alignStages(inputs.map((i) => ({ name: i.name.split('/').pop() as string, analysis: i.analysis })));
+      expect(out.ok, `${g.name}: ${out.ok ? '' : `REFUSED — ${out.refusal.why}`}`).toBe(true);
+      if (!out.ok) return;
+      // One airframe: lined up on their own liftoffs, every recording's launch is one instant.
+      const at = inputs.map((i, k) => i.analysis.events.find((e) => e.type === 'liftoff')!.time + out.alignment.offsets[k]);
+      for (const t of at) expect(t).toBeCloseTo(at[0], 6);
+      // And nothing here is ever called verified, no matter how tightly the boards agree.
+      expect(out.alignment.verified).toBe(false);
     });
   }
 });
