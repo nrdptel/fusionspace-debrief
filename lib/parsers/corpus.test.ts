@@ -15,6 +15,7 @@ import { headlineRows } from '../report';
 import { groundTrack, padOrigin, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
+import { alignStages, openedAtRest } from '../stitch';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -748,6 +749,81 @@ const RECON_GROUPS: {
     ],
   },
 ];
+
+/**
+ * The corpus's own STAGED flight: a booster and a sustainer, each on its own TeleMega, recording
+ * one launch from two places. This is a different relation from the redundant recordings below —
+ * these two instruments measured different parts of one flight, not the same part twice — and
+ * conflating them is the whole risk in `lib/stitch.ts`.
+ *
+ * `same_flight_group` in the fixtures manifest does NOT distinguish the two: it also holds the
+ * same recording exported into two containers, and pairs of stages. Anything automatic must not
+ * read it as "recordings of one flight".
+ */
+const STAGED_GROUPS: { name: string; files: string[]; apogeesM: number[] }[] = [
+  {
+    name: 'iss-kairos: Kairos booster + sustainer',
+    files: [
+      'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv',
+      'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv',
+    ],
+    // Two stages, two different heights — which is exactly why a cross-check must NOT be run
+    // over them the way it is over the redundant groups below.
+    apogeesM: [2973, 4045],
+  },
+];
+
+describe('per-stage logs of one launch', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  for (const g of STAGED_GROUPS) {
+    it(`${g.name}: both stages caught the launch, so they line up on it`, () => {
+      const loaded = g.files.map(loadForCompare);
+      expect(loaded.map((x) => x != null), `${g.name}: every stage parses`).toEqual(g.files.map(() => true));
+      const stages = loaded.map((x, i) => ({ name: g.files[i].split('/').pop() as string, analysis: x!.analysis }));
+
+      // Each stage reached its own height — the reason a composite is worth building and a
+      // cross-check is not.
+      stages.forEach((s, i) => {
+        expect(s.analysis.metrics.apogeeAltitude, `${g.name}: stage ${i + 1} apogee`).toBeCloseTo(g.apogeesM[i], -1);
+      });
+
+      // Both logs opened with the rocket sitting still, so both contain the pad departure.
+      for (const s of stages) {
+        expect(openedAtRest(s.analysis), `${s.name}: opened at rest`).toBe(true);
+      }
+
+      const out = alignStages(stages);
+      expect(out.ok, `${g.name}: ${out.ok ? '' : out.refusal.why}`).toBe(true);
+      if (!out.ok) return;
+      expect(out.alignment.method).toBe('shared liftoff');
+
+      // The offsets put both launches at one instant, and the sustainer's apogee AFTER the
+      // booster's — the order that makes it a staged flight rather than two flights.
+      const liftoffs = stages.map((s) => s.analysis.events.find((e) => e.type === 'liftoff')!.time);
+      const onComposite = (i: number, t: number) => t + out.alignment.offsets[i];
+      expect(onComposite(0, liftoffs[0])).toBeCloseTo(onComposite(1, liftoffs[1]), 6);
+      const apogeeT = stages.map((s, i) => onComposite(i, s.analysis.events.find((e) => e.type === 'apogee')!.time));
+      expect(apogeeT[1], `${g.name}: the sustainer peaks after the booster (${apogeeT[0].toFixed(1)}s vs ${apogeeT[1].toFixed(1)}s)`).toBeGreaterThan(
+        apogeeT[0],
+      );
+      // The alignment is corroborated by an event it was NOT built from. Until separation both
+      // boards are bolted into the same rocket, so both of them record the BOOSTER's burnout —
+      // `EventType` has no separation or second-ignition member, so that first burn is what each
+      // record calls "burnout". Two instruments, lined up on liftoff alone, then agreeing to a
+      // fraction of a second about a different moment is evidence the offset is right; a wrong
+      // offset would show up here as a gap of whatever it was wrong by.
+      const burnouts = stages.map((st, i) => onComposite(i, st.analysis.events.find((e) => e.type === 'burnout')!.time));
+      const gap = Math.abs(burnouts[0] - burnouts[1]);
+      expect(gap, `${g.name}: the two boards agree on the booster burnout to ${gap.toFixed(2)} s (${burnouts.map((t) => t.toFixed(2)).join(' vs ')})`).toBeLessThan(1);
+      // Both of them, on the composite clock, land within the booster's burn — a sanity floor
+      // that a plausible-looking but badly wrong offset would not clear.
+      for (const t of burnouts) expect(t, `${g.name}: burnout at ${t.toFixed(2)} s after launch`).toBeGreaterThan(1);
+    });
+  }
+});
 
 describe('same-flight reconciliation (redundant recordings agree)', () => {
   if (!present) {

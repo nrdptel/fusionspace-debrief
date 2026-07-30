@@ -64,6 +64,15 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **`e2e/compare.spec.ts` → "a file a batch drop could not read can be mapped into the comparison
+  it arrived with" is flaky.** Failed once in a full-suite run (`Comparing 3 flights` heading not
+  found within 5 s at the step after the mapper submits), then passed twice individually and
+  passed in a clean full-suite re-run — 223/223. The changed files that run could not reach it
+  (`lib/stitch.ts` has no importer outside its own test), so it is timing, not a regression: the
+  assertion after the mapper's redirect carries the default 5 s where the surrounding steps use
+  15–20 s, and the redirect waits on a logbook save. Give that one assertion the same timeout as
+  its neighbours.
+
 - **Switching recording on a flight report drops keyboard focus to `<body>`.** `onOpen` →
   `openRecent` sets `phase: 'loading'`, which unmounts the whole `FlightReport` subtree for a full
   re-parse and re-analyse — measured at six seconds on a phone with an 11 MB log — so a keyboard or
