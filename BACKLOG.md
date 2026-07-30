@@ -12,10 +12,24 @@ the one-in-four quota in `MAINTAINING.md`.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-## SEV-1 — open, preempts the current milestone
+## SEV-1 — none open
 
-- **Multi-flight segmentation silently mis-reads any launch-day file whose flights differ by more than
-  2x in apogee, and prints the result as headline readings.** `nextFlightStart`
+- **DONE — multi-flight segmentation mis-read any launch-day file whose flights differ by more than
+  2x in apogee.** Every threshold in `nextFlightStart` is measured against the flight in hand now,
+  never against the record's own highest flight, and three things a record does that are not a
+  landing are named rather than guessed at: a dip that reaches the ground band sooner than free fall
+  from that height allows, a climb back above the height already reached (a dropout mid-ascent), and,
+  after touchdown, a drifting baseline or a single-sample spike. Pinned by
+  `finds the second flight however far apart the two apogees are` over six pairs from 8x to 100x in
+  both directions, plus four guard tests, each falsified by mutation. **Two things the original entry
+  did not know, both measured this run:** the `ground` band at `:317` carried the same defect and
+  patching `high` alone would have turned real corpus logs into false splits — 5% of the corpus
+  121 km flight is 3.8 km, so a rocket still that high counted as landed; and the same noise floor
+  had Debrief telling the owner of a 19 ft misparsed Blue Raven fragment (13 m of wobble over 34 s)
+  that their file held several flights and to go and split it in the vendor software. Corpus diff
+  before/after: 33 of 34 records byte-identical, the 34th moving its cut by one sample (0.05 s).
+  Original entry:
+  `nextFlightStart`
   (`lib/analyze/index.ts:316`) uses `const high = peak * 0.5` where `peak` is the **file's** peak, not
   each flight's own, so a second flight is only detected if it reaches half the biggest flight in the
   file. Measured by transcribing the function verbatim into a standalone probe: `[1000, 2000]` is

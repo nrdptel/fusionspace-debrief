@@ -67,27 +67,23 @@ land here, unlike in a repo that ships none — they land as small affordances o
 whatever order a defect sweep surfaced them, while both North Star ambitions' headline items sit
 still.
 
-### The Sev-1 that preempts all of this
+### The Sev-1 that preempted all of this — fixed 2026-07-30
 
-**`nextFlightStart` mis-reads any launch-day file whose flights differ by more than 2× in apogee, and
-prints the result with no caveat.** `lib/analyze/index.ts:316` reads
-`const high = peak * 0.5; // "really flew" — half the record's own best` — half the **file's** peak,
-not each flight's own. Measured by transcribing the function verbatim into a standalone probe:
-`[1000, 2000]` is detected; `[1000, 2010]` returns null; so do `[300, 3000]`, `[150, 900]` and
-`[1200, 400]`. The cliff is exactly 2.00×, in both directions.
+**`nextFlightStart` mis-read any launch-day file whose flights differ by more than 2× in apogee, and
+printed the result with no caveat.** The cliff was exactly 2.00×, in both directions, and past it a
+`[300, 3000]` day reported apogee 1,671 m, time-to-apogee 45.1 s, burn time 27.8 s and flight time
+156.5 s against a first flight that flew to 204 m in 7.0 s and was down in 20.6 s — with **one**
+warning on screen, about derived velocity, and nothing at all about the file holding two flights.
 
-When it misses, liftoff is pinned in the first flight and apogee comes from a later one, so
-`timeToApogee`, `burnTime` and `flightTime` span two flights and are printed as headline readings.
-`app/methods/page.tsx:100` tells the flyer the test is *"something a rocket cannot do: return to the
-ground and climb again"* — the half-the-peak condition is never stated, and it is exactly what fails.
-Shipped test coverage is 1.005×, 1.6× and `[300, 500, 250]` — the last sitting exactly *on* the 0.5
-boundary — so the whole failing region has none. It is not hypothetical: `BACKLOG.md:1222` already
-records an **18.3 s flight time for a 10,245 ft flight** on a real corpus file, where the fall alone
-is ≥ 25.2 s.
-
-By this repo's own damage ranking that is tier 1 — *a wrong number on a surface a flyer would act on*
-— so it is a Sev-1 and it preempts the milestone. Fix it before starting D1, and pin it with tests
-that cover beyond 2×.
+Every threshold is measured against the flight in hand now, never against the record's own highest
+flight, and the fix turned out to be wider than the one line the entry named: the *ground* band
+carried the same defect (5% of the corpus 121 km flight is 3.8 km, so a rocket still that high
+counted as landed), and patching the climb threshold alone would have turned real corpus records into
+false splits. Pinned by `finds the second flight however far apart the two apogees are` in
+`lib/analyze/analyze.test.ts`, over six pairs from 8× to 100× in both directions, plus four guard
+tests for the artefacts the wider band exposes — a transonic dip, a mid-ascent dropout, post-landing
+drift, a post-landing spike. Each was falsified by mutation. Corpus: 33 of 34 records byte-identical,
+the 34th moving its cut by one sample.
 
 ---
 

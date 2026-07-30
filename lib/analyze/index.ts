@@ -296,12 +296,107 @@ function padBaseline(altitude: Float64Array, dt: number): { baseEnd: number; off
 }
 
 /**
+ * The smallest climb this reads as a flight when it is deciding where one record ends and
+ * the next begins. Below it, a bump in the trace is ground noise rather than a flight.
+ *
+ * Measured, not chosen: across the 34 corpus records that analyse from an altitude channel,
+ * the largest excursion that is NOT a flight — the pressure transient a rocket leaves as it
+ * clears the pad, and the spikes a logger writes after touchdown — is 76 m (Blue Raven
+ * `jan10 LR`, which writes it twice, once per copy); the others are 39, 48, 49 and 61 m. The
+ * smallest real flight in the corpus is 209 m (an AltimeterCloud). 100 m sits between the
+ * two with 31% clear of the largest artefact and better than 2x clear of the smallest flight.
+ *
+ * The cost is stated rather than hidden: a launch day whose flights are all under 100 m is
+ * read as one flight, and says so on the methods page.
+ */
+const FLIGHT_FLOOR_M = 100;
+
+/** A climb slower than this is weather, not a rocket — a barometer drifting through an
+ *  afternoon, or a flyer carrying the airframe back up a hill with the logger still running.
+ *
+ *  Half of the slowest climb that can clear the floor above: a coast to 100 m takes at most
+ *  √(2·100/g) = 4.5 s, so even that flight averages 22 m/s, while 2,000 m of barometric
+ *  drift over five minutes averages 6.7. The three real second flights in the corpus average
+ *  120, 139 and 176 m/s. */
+const MIN_CLIMB_MS = 10;
+
+/** "Back on the deck" has to mean near the ground. A fraction of the record's own peak does
+ *  not: on the corpus 121 km flight, 5% is 3.8 km, and a rocket still that high has not
+ *  landed. The band is a fraction of the flight's own height up to this cap, which covers
+ *  the barometric drift of a long recording without ever leaving the ground behind. */
+const DECK_CAP_M = 50;
+
+/** The ground band for a flight that reached `peak`. */
+const deckFor = (peak: number) => Math.max(3, Math.min(peak * 0.05, DECK_CAP_M));
+
+/** A body released at `peak` reaches the ground at √(2gh) and no faster. Doubled for
+ *  barometric headroom, this bounds both directions: a step DOWN into the ground band
+ *  quicker than this is not a fall the rocket took, and a mean climb rate above it is not
+ *  an ascent an airframe flew. The corpus files that trip the first clear it by 9.6x, 32x
+ *  and 315x; the real climbs measured against the second sit at 30–36% of it, while the two
+ *  artefacts that clear the flight floor are 5x and 51x over. */
+const tooFast = (peak: number) => 2 * Math.sqrt(2 * G0 * Math.max(0, peak));
+
+/**
+ * Is there another flight in `altitude` from `from` on? Answered by shape, not by size
+ * relative to anything else in the file: it has to climb past the flight floor, and it has
+ * to climb at a rate an airframe makes — neither the crawl of a drifting barometer nor the
+ * single-sample leap of a spike.
+ *
+ * `peakIdx` is where that climb tops out, which is what the caller needs to find the trough
+ * between the two flights.
+ */
+function nextFlightIn(
+  altitude: Float64Array,
+  time: Float64Array,
+  from: number,
+): { peakIdx: number } | null {
+  const n = altitude.length;
+  let peak = -Infinity;
+  let peakIdx = -1;
+  for (let i = from; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) { peak = altitude[i]; peakIdx = i; }
+  if (peakIdx < 0 || peak < FLIGHT_FLOOR_M) return null;
+  // From where it left this flight's own ground band to where it topped out.
+  const deck = deckFor(peak);
+  let lo = peakIdx;
+  while (lo > from && (!Number.isFinite(altitude[lo - 1]) || altitude[lo - 1] > deck)) lo--;
+  const climb = time[peakIdx] - time[lo];
+  const rate = climb > 0 ? peak / climb : Infinity;
+  if (!(rate >= MIN_CLIMB_MS) || !(rate <= tooFast(peak))) return null;
+  return { peakIdx };
+}
+
+/**
  * Where a second flight begins in a record that holds more than one, or null for the
  * normal single-flight file. The test is a thing a rocket cannot do: come back to the
- * ground and then climb again. So look for the ground return that follows the first real
- * climb, and a later climb back to a substantial height — both measured as fractions of
- * the record's own peak, so it works the same on a 600 ft sport flight and a 27,000 ft
- * one, and sits far above any noise near the pad.
+ * ground and then climb again.
+ *
+ * **Every threshold here is measured against the flight in hand, never against the record's
+ * own highest flight.** That distinction is the whole of this function's history. The
+ * earlier version asked whether the trace had reached half the RECORD's peak, which reads
+ * correctly only while a file's flights are within 2x of each other: a launch day of a
+ * 300 m sport flight and a 3,000 m certification flight tripped nothing at all, and the two
+ * were read as one — liftoff pinned in the first, apogee taken from the second, and
+ * `timeToApogee`, `burnTime` and `flightTime` spanning both and printed as headline
+ * readings with no caveat. The cliff was exactly 2.00x, in both directions.
+ *
+ * So the walk carries the peak of the segment it is inside, and asks three physical
+ * questions at every return to that segment's own ground band:
+ *
+ *   - Did the record DESCEND into the band, or jump into it? A logger that restarts
+ *     mid-flight writes the next copy's pad straight after the last sample of the one
+ *     before, and the join is a fall no rocket could have taken. On the corpus Blue Raven
+ *     `jan18 LR` the trace is still at 823.2 ft and the sample 0.020 s later is −3.4 ft, a
+ *     step of 41,330 ft/s on a flight whose descent ran at 55. From that came a 122.90 s
+ *     flight time and a 55 ft/s descent rate published against the device's own stated
+ *     29.0 — a 3.6x error in the landing energy read off it.
+ *   - If it descended, did it take at least as long as a body dropped from that peak? A
+ *     barometric port reads the rocket below the pad through the transonic push; that dip
+ *     is not a landing, and on a 98 m segment it reaches the ground band 4.5 s sooner than
+ *     free fall from that height allows.
+ *   - Does the record come back ABOVE the height it had already reached? Then it never left
+ *     the sky. A trace that drops out to zero mid-ascent and resumes 1.2 km higher lost its
+ *     data; it did not land and launch again.
  *
  * A Blue Raven backup file in the corpus holds one flight recorded twice: it climbs to
  * 10,230 ft by 18 s, drops to 0, then climbs to 10,266 ft again. Read as one flight its
@@ -310,68 +405,59 @@ function padBaseline(altitude: Float64Array, dt: number): { baseEnd: number; off
  */
 function nextFlightStart(altitude: Float64Array, time: Float64Array): number | null {
   const n = altitude.length;
-  let peak = 0;
-  for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) peak = altitude[i];
-  if (!(peak > 0)) return null;
-  const high = peak * 0.5; // "really flew" — half the record's own best
-  const ground = Math.max(3, peak * 0.05); // back on the deck
-  // A body released at the record's own peak reaches the ground at √(2gh) and no faster, so
-  // a step into the ground band quicker than that is not something this rocket did. Doubled
-  // for barometric headroom; the three corpus files that trip it clear the doubled bound by
-  // 9.6x, 32x and 315x, while a synthetic pair's genuine 25 m/s touchdown is 4x inside it.
-  const arrivedTooFast = 2 * Math.sqrt(2 * G0 * peak);
-  let flew = false; // has the record climbed high yet?
-  let landed = -1; // …and come back down
+  let segPeak = 0; // the highest this segment has reached…
+  let segPeakIdx = 0; // …and when
+  let flew = false; // has it climbed far enough to be a flight at all?
   for (let i = 0; i < n; i++) {
     const h = altitude[i];
     if (!Number.isFinite(h)) continue;
-    if (landed < 0) {
-      // A dip to the ground before anything climbed (a GPS losing lock through the
-      // boost reads zero) is not a landing, so `flew` has to come first.
-      if (h >= high) flew = true;
-      else if (flew && h <= ground) landed = i;
-    } else if (h >= high) {
-      // Up again after coming down: another flight is in this file.
-      //
-      // First, did the record DESCEND into that ground band, or jump into it? A logger that
-      // restarts mid-flight writes the next copy's pad straight after the last sample of the
-      // one before, and the join is a fall no rocket could have taken. Cutting at the trough
-      // there hands the first copy the NEXT copy's pad samples, and the landing detector
-      // takes one: on the corpus Blue Raven `jan18 LR` the trace is still at 823.2 ft and the
-      // sample 0.020 s later is −3.4 ft, a step of 41,330 ft/s on a flight whose descent ran
-      // at 55. From that came a 122.90 s flight time and a 55 ft/s descent rate published
-      // against the device's own stated 29.0 — a 3.6x error in the landing energy read off it.
-      // The first copy ends AT the join, and what it then lacks (it stops 250.9 m up, 13.1%
-      // of its own apogee) is withheld and said, or supplied by the second copy where the
-      // file holds one flight twice.
-      let before = landed - 1;
-      while (before >= 0 && !Number.isFinite(altitude[before])) before--;
-      if (
-        before >= 0 &&
-        time[landed] > time[before] &&
-        (altitude[before] - altitude[landed]) / (time[landed] - time[before]) > arrivedTooFast
-      ) {
-        return landed >= 4 ? landed : null;
+    if (h > segPeak) { segPeak = h; segPeakIdx = i; }
+    // A dip to the ground before anything climbed (a GPS losing lock through the boost
+    // reads zero) is not a landing, so the climb has to come first.
+    if (!flew) { flew = segPeak >= FLIGHT_FLOOR_M; continue; }
+    const deck = deckFor(segPeak);
+    if (h > deck) continue;
+
+    let before = i - 1;
+    while (before >= 0 && !Number.isFinite(altitude[before])) before--;
+    const step =
+      before >= 0 && time[i] > time[before] ? (altitude[before] - altitude[i]) / (time[i] - time[before]) : 0;
+    const jumped = step > tooFast(segPeak);
+    const cameDown = time[i] - time[segPeakIdx] >= Math.sqrt((2 * segPeak) / G0);
+    // Neither a fall it could have made nor a step a logger wrote: an artefact in the trace.
+    // Read through it — the segment continues, and its peak stands.
+    if (!jumped && !cameDown) continue;
+
+    // …and if the record climbs straight back above where it had already been, it never
+    // left the sky either.
+    let back = -1;
+    for (let k = i; k < n; k++) if (Number.isFinite(altitude[k]) && altitude[k] > deck) { back = k; break; }
+    if (back >= 0 && altitude[back] >= segPeak) continue;
+
+    const next = nextFlightIn(altitude, time, i);
+    if (!next) return null; // it came down and stayed down: one flight, in full.
+
+    // A join is cut AT the join. Cutting at the trough there hands the first copy the NEXT
+    // copy's pad samples, and the landing detector takes one. The first copy ends at the
+    // join, and what it then lacks (on `jan18 LR` it stops 250.9 m up, 13.1% of its own
+    // apogee) is withheld and said, or supplied by the second copy where the file holds one
+    // flight twice.
+    if (jumped) return i >= 4 ? i : null;
+
+    // A real landing is cut at the LOW POINT between the two — the first sample of the
+    // trough — rather than where the record crossed the ground band, so the first flight
+    // gets its touchdown and the next one the quiet stretch its baseline is measured from.
+    let low = Infinity;
+    for (let k = i; k < next.peakIdx; k++) if (Number.isFinite(altitude[k]) && altitude[k] < low) low = altitude[k];
+    let cut = i;
+    for (let k = i; k < next.peakIdx; k++) {
+      if (Number.isFinite(altitude[k]) && altitude[k] <= low + 1) {
+        cut = k;
+        break;
       }
-      // Otherwise cut at the LOW POINT between the two — the first sample of the trough —
-      // rather than where the record crossed the ground band. The band is a fraction of the
-      // file's own highest flight, so on a lower one it sits well up the descent, and cutting
-      // there would end the first flight before it landed and start the next one already in
-      // the air, with its pad baseline taken from a rocket still coming down (20 m out on a
-      // synthetic pair, enough to hide a third flight entirely). The trough gives the first
-      // flight its touchdown and the next one the quiet stretch its baseline is measured from.
-      let low = Infinity;
-      for (let k = landed; k < i; k++) if (Number.isFinite(altitude[k]) && altitude[k] < low) low = altitude[k];
-      let cut = landed;
-      for (let k = landed; k < i; k++) {
-        if (Number.isFinite(altitude[k]) && altitude[k] <= low + 1) {
-          cut = k;
-          break;
-        }
-      }
-      // Too short a first segment to analyze is better read whole than truncated to nothing.
-      return cut >= 4 ? cut : null;
     }
+    // Too short a first segment to analyze is better read whole than truncated to nothing.
+    return cut >= 4 ? cut : null;
   }
   return null;
 }

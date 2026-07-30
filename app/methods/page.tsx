@@ -103,9 +103,26 @@ export default function MethodsPage() {
             to a later flight while liftoff belongs to the first, so time-to-apogee spans both. The
             test is something a rocket cannot do: return to the ground and climb again. Where that
             happens, Debrief reads the first flight, says how much of the file it used, and leaves the
-            rest — split the file, or export the flights separately, to read the others. A dropout that
-            reads zero <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is
-            not a landing and never splits a file.
+            rest — split the file, or export the flights separately, to read the others.
+          {' '}
+            Every part of that test is measured against <strong>the flight in hand</strong>, never
+            against the highest flight in the file. That distinction is the whole of it: asking
+            instead whether the trace had reached half the <em>file&apos;s</em> best worked only while
+            a download&apos;s flights were within 2x of each other, so a day holding a 300&nbsp;m
+            sport flight and a 3,000&nbsp;m certification flight tripped nothing and the two were read
+            as one, with a flight time spanning both. Three things a record does that are{' '}
+            <em>not</em> a landing are named rather than guessed at: a dip that reaches the ground
+            band sooner than a body dropped from that height could have fallen (the transonic push on
+            a barometric port does this); a climb back <em>above</em> the height the record had
+            already reached, which is a dropout in the middle of one ascent rather than a second
+            launch; and, after touchdown, a baseline drifting through the weather or a single-sample
+            spike — neither climbs at a rate an airframe makes. A climb under 100&nbsp;m is not
+            treated as a flight at all, which is what keeps ground noise from splitting a file: the
+            largest non-flight excursion across the corpus is 76&nbsp;m and the smallest real flight
+            in it is 209&nbsp;m. The cost of that floor is stated rather than hidden — a download
+            whose flights are <em>all</em> under 100&nbsp;m is read as one. A dropout that reads zero{' '}
+            <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is not a
+            landing and never splits a file.
           {' '}
             Debrief reads the <strong>first</strong> flight in the file, and the climb always comes
             from it, because it is the copy that starts on the pad. Reading a later copy
