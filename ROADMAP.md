@@ -317,11 +317,25 @@ source (`descentSource === 'second-copy'` prints *"from this file's second copy 
 If a future pass ever lets one report take readings from more than one recording, that is when
 per-tile labelling earns its place — and the seam is `Tile.sub`.
 
-Three things it does NOT do, each filed in `BACKLOG.md`:
+Three things it did not do. **One is closed since**, and the other two are filed in `BACKLOG.md`:
 
-- **The spread between recordings is not on the flight's row.** A flyer sees each recording's
-  reading side by side and can work the gap out; they cannot see "apogee within 0.03%" at a
-  glance, and `crossCheck` already computes exactly that figure for the comparison surface.
+- ~~The spread between recordings is not on the flight's row.~~ **DONE 2026-07-30** — the row now
+  reads *"Recorded 2 times — reported by X · apogee within 0.05%"*, amber past 10%.
+
+  **Apogee alone, and that is a measurement rather than a simplification.** Apogee is
+  altitude-sourced on every logger, so two recordings of it carry no measured-versus-derived mix.
+  Top speed does not survive the same treatment, and the corpus is emphatic: over the six
+  same-flight groups the apogee spread runs 0.03%–2.29% and never higher, while the top-speed
+  spread runs 2.56%–**81.65%** — and the two widest, 26.37% on `iss-endurance` and 81.65% on
+  `trf-lemiv-l3`, are exactly the two groups pairing a device-MEASURED speed with a DERIVED one.
+  Those are documented, correctly-grouped flights, so a row showing that figure would have told
+  their owners their grouping was wrong. The logbook stores no `maxVelocitySource` and cannot
+  caveat it; the comparison surface, which holds the whole analysis, already does.
+
+  It also says nothing at all when any recording carries a crop, because a cropped recording's
+  stored apogee is the CROP's apogee — comparing it with an uncropped one paints the flyer's own
+  choice as instrument disagreement. Pinned by `recordingSpread` (`lib/flightGroups.test.ts`) and
+  asserted in the e2e walk.
 - **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
   Compare works and is two more steps than it should be. Fix `compareFromLogbook` dropping the
   crop first — it is filed, and D3 multiplies it by the number of recordings.
@@ -337,7 +351,58 @@ Three things it does NOT do, each filed in `BACKLOG.md`:
 
 ## D4 — Stitch per-stage logs into one composite flight
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — the alignment and its refusal are shipped and pinned by
+`lib/stitch.test.ts` (7 cases) and by `iss-kairos: Kairos booster + sustainer: both stages caught
+the launch, so they line up on it` (`lib/parsers/corpus.test.ts`, over the corpus's real two-stage
+pair). **This slice is groundwork and says so**: it decides whether two per-stage logs CAN be put
+on one clock and produces the offsets or a refusal. A flyer sees nothing yet, because a composite
+surface built before the alignment was measured is exactly the guess this milestone must not make.
+
+**What was measured, and what it refuted — read this before extending it.** The corpus's one real
+staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on its own TeleMega.
+
+- **The sustainer's log carries no clock at all** (`flownAt` is undefined; the booster's is a GPS
+  UTC stamp). So aligning on overlapping wall clocks — one of the two methods the note below
+  proposed — does not exist on the only real pair there is.
+- **Both logs DO contain the launch**: the booster's opens 0.2 s before liftoff, the sustainer's
+  carries a 307.5 s pad wait before the same instant (liftoff at 307.67 s on its own clock). Every stage leaves the pad together, so that
+  is the shared event, and it is the method that shipped.
+- **Two ways of checking whether a record contains the launch were tried and BOTH failed.**
+  Altitude is useless — the analyzer takes each record's pad datum from its own opening samples,
+  so a log beginning at 1,000 m in the air reads zero there too. Motion before the liftoff is
+  worse than useless: measured over all 50 corpus flights, ordinary SINGLE-stage records show
+  speeds before their own detected liftoff ranging from 0 to thousands of metres per second, because plenty of loggers begin recording at boost
+  and the detector fires a little way into it. **There is no threshold that separates "a sustainer
+  lighting up at altitude" from "a StratoLogger that records only the flight."** Picking one would
+  only have meant telling the owner of a plain single-stage flight that their file was already
+  moving when the log opened. The first draft of `lib/stitch.ts` did exactly that on 14 of 50
+  corpus flights; the rule was deleted rather than tuned until the corpus looked tidy.
+- **So the alignment is CORROBORATED instead of gatekept.** Until the stages separate every board
+  is bolted into the same rocket, so every one of them records the same first-stage burn; lined up
+  on liftoff, those instants must be one. On the corpus's pair they fall **0.29 s** apart. A wrong
+  offset — a sustainer whose logger started at its own ignition — shows up here as a gap of
+  exactly the staging delay it is wrong by, which is seconds. The tolerance is 1 s, in the wide
+  gap between those two, and the spread rides out on the alignment as a number a flyer can check
+  rather than a claim they have to take.
+
+**And that check is much weaker than it first looks — the second review caught this and it is the
+most important thing on this page.** Lined up on liftoff, the gap between two boards' burnouts is
+|booster burn duration − sustainer burn duration|. **The staging delay never enters the
+arithmetic**, because a sustainer log that starts at its own ignition carries no trace of it.
+Measured: a booster burning 5.1 s beside a wrongly-aligned sustainer burning 4.5–5.6 s passes
+every time, and HPR motors of similar burn time are the ordinary case. It is also simply
+unavailable on half the corpus's staged flights — neither StratoLogger booster on `iss-sg1.2`
+marks a burnout at all, so that alignment ships with `burnSpreadS: null`.
+
+So `StageAlignment.verified` is **false on every result**, as a field rather than an omission, so
+that a surface built on this has to look at it. **A composite built from these offsets is the
+flyer's statement, not a measurement**, and the next increment is what makes that honest: let the
+flyer say which recording is the first stage — the same shape as D1's crop and D3's grouping,
+where the flyer states what the data cannot.
+
+**There is deliberately no fallback.** A stage that missed the launch could be placed by assuming
+a staging delay or by correlating the traces; both produce a composite that reads exactly like a
+measured one. Where the evidence is not there, the answer is that Debrief cannot do it.
 
 **Outcome.** A staged flight logged on separate devices reads as one flight.
 

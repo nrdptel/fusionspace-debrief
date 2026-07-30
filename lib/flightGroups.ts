@@ -146,3 +146,54 @@ export function planGrouping(ids: string[], primaryId: string): { id: string; fl
 export function planSeparation(group: FlightGroup): { id: string; flightId: null }[] {
   return group.recordings.map((r) => ({ id: r.id, flightId: null }));
 }
+
+/** How far apart a flight's recordings read. */
+export interface RecordingSpread {
+  label: string;
+  /** The full range across the recordings, as a percentage of their mean. */
+  pct: number;
+  /** How many recordings contributed. Shown, so a spread over two of four cannot read as a
+   *  spread over four. */
+  count: number;
+}
+
+/**
+ * How closely a flight's recordings agree on APOGEE, from the readings the logbook already
+ * holds — or nothing, when the figures are not comparable.
+ *
+ * The number a redundant-altimeter flyer actually wants at a glance, and the one they otherwise
+ * work out by hand: two altimeters agreeing to a fraction of a percent is the confidence they
+ * flew two for, and a wide gap is the flag worth chasing. It is NOT a consensus — nothing here
+ * blends the readings, and the flight is still reported by the one recording the flyer nominated.
+ *
+ * **Apogee only, and that is a measurement rather than a simplification.** Apogee is
+ * altitude-sourced on every logger, so two recordings of it have no measured-versus-derived mix
+ * to confuse the spread — `lib/compare.ts` says the same thing where it declines to flag one.
+ * TOP SPEED does not survive the same treatment: one board can measure it while another
+ * differentiates it out of an altitude, and the difference between the two methods swamps the
+ * difference between the instruments. Over the six same-flight groups in the corpus the apogee
+ * spread runs 0.03% to 2.29% — never above two and a half percent — while the top-speed spread
+ * runs 2.56% to **81.65%**, and the two widest (26.37% and 81.65%) are exactly the two groups
+ * that mix a device-measured speed with a derived one. A row showing that figure would have told
+ * the owner of two documented, correctly-grouped corpus flights that their grouping was wrong.
+ * The logbook stores no `maxVelocitySource`, so the row cannot qualify it even in principle;
+ * the comparison surface, which has the whole analysis, is where a caveated speed spread belongs.
+ *
+ * **Nothing at all when any recording carries a crop.** A cropped recording's stored apogee is
+ * the CROP's apogee, so comparing it with an uncropped one measures two different stretches and
+ * paints the flyer's own choice as instrument disagreement. `components/RecordingPicker.tsx`
+ * already declines to print a figure for exactly this reason one level down.
+ *
+ * Read off the stored figures rather than re-analysing, so opening this list cannot move a
+ * number: these are the same values the rows themselves paint.
+ */
+export function recordingSpread(group: FlightGroup): RecordingSpread[] {
+  if (group.recordings.length < 2) return [];
+  if (group.recordings.some((r) => r.read)) return [];
+  const vals = group.recordings.map((r) => r.apogeeM).filter((v): v is number => v != null && Number.isFinite(v));
+  if (vals.length < 2) return [];
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return [{ label: 'apogee', pct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length }];
+}

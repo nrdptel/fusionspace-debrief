@@ -1620,6 +1620,15 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
   await expect(flightRows).toHaveCount(2, { timeout: 10_000 });
   await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toBeVisible();
 
+  // How closely they agree, on the row — the figure a flyer flew two altimeters FOR, and the one
+  // they otherwise work out by hand from two rows. Per reading, never one number for the flight.
+  const spread = page.getByRole('button', { name: /^Recorded 2 times/ });
+  await expect(spread).toContainText(/apogee within [0-9.]+%/);
+  // These two fixtures are NOT one flight — the walk says they are, which is what a flyer joining
+  // the wrong two files does. A gap that size has to read as a flag rather than as a quiet
+  // figure, at the same threshold the comparison panel already uses.
+  await expect(spread.locator('span.text-amber-700, span.text-amber-400').first()).toBeVisible();
+
   // Both recordings are still there, each with what IT read — no mean, no maximum.
   const recordings = page.getByRole('list', { name: /^Recordings of / });
   await expect(page.getByText('reports this flight')).toBeVisible();
