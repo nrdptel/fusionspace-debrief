@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
 import { summaryFigures } from './deviceSummary';
@@ -36,6 +36,11 @@ const SPEC = `${CORPUS}expected.json`;
 // fix and its updated expectation land together even though the corpus (and its
 // expected.json) is a separately-released asset that lags the code.
 const OVERRIDES = fileURLToPath(new URL('./corpus-overrides.json', import.meta.url));
+/** One line per corpus flight: its whole analysis reduced to a hash (see `digestOf`). Committed,
+ *  and CI-reachable, so a change that moves a reading nobody thought to assert is a diff in a
+ *  commit rather than a thing found months later. Regenerate with
+ *  `CORPUS_DIGESTS=write npx vitest run lib/parsers/corpus.test.ts`. */
+const DIGESTS = fileURLToPath(new URL('./corpus-digests.json', import.meta.url));
 const present = existsSync(SPEC);
 
 const G0 = 9.80665;
@@ -379,6 +384,46 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     expect(analysed, summary).toBeGreaterThanOrEqual(41);
     expect(steppedAround.length, summary).toBe(0);
   });
+
+  /**
+   * Every corpus flight's WHOLE analysis, against a committed snapshot.
+   *
+   * Milestone D3's *done when* asks for this by name: a flight can now carry several
+   * recordings, and every ordinary single-recording flight — which is every fixture in this
+   * corpus, since a grouping is a logbook fact and not a file's — has to produce exactly what
+   * it produced before, "asserted by the corpus suite rather than by eye". The golden values
+   * above only pin the numbers somebody thought to assert; this pins the ones nobody did.
+   *
+   * When it goes red, read the named files first. A change that legitimately moves an analysis
+   * is a change to what Debrief SAYS about real flights, so it belongs in a commit that says so
+   * — regenerate with `CORPUS_DIGESTS=write npx vitest run lib/parsers/corpus.test.ts` and put
+   * the diff in that commit, never in a later one.
+   */
+  it('every flight analyses to exactly what it analysed to before', { timeout: 120_000 }, () => {
+    const reads = corpusReads().filter((r) => r.digest);
+    const now = Object.fromEntries(reads.map((r) => [r.file, r.digest]));
+
+    if (process.env.CORPUS_DIGESTS === 'write') {
+      writeFileSync(DIGESTS, `${JSON.stringify(now, Object.keys(now).sort(), 2)}\n`);
+      throw new Error(`wrote ${Object.keys(now).length} digests to ${DIGESTS} — re-run without CORPUS_DIGESTS=write`);
+    }
+
+    expect(existsSync(DIGESTS), `${DIGESTS} is missing — regenerate it with CORPUS_DIGESTS=write`).toBe(true);
+    const before = JSON.parse(readFileSync(DIGESTS, 'utf8')) as Record<string, string>;
+
+    // Named individually rather than as one object diff, so a failure says WHICH flights moved
+    // instead of printing sixty hashes side by side.
+    const moved = reads.filter((r) => before[r.file] != null && before[r.file] !== r.digest).map((r) => r.file.split('/').pop());
+    expect(moved, `${moved.length} flight(s) analyse differently than the committed snapshot`).toEqual([]);
+
+    // A fixture the snapshot has never seen is a corpus that moved under a pinned lock file, or
+    // a digest nobody regenerated. Either way it is not covered, and silence would read as
+    // coverage.
+    const unseen = reads.filter((r) => before[r.file] == null).map((r) => r.file.split('/').pop());
+    expect(unseen, 'fixtures with no committed digest').toEqual([]);
+    const gone = Object.keys(before).filter((f) => !(f in now)).map((f) => f.split('/').pop());
+    expect(gone, 'digests for fixtures that no longer analyse').toEqual([]);
+  });
 });
 
 /** Load one corpus file to an analysed flight (named parser, else the generic mapper),
@@ -399,9 +444,74 @@ function loadForCompare(file: string): CompareInput | null {
   return { id: file, name: file, formatLabel: 'x', analysis: analyzeFlight(flight) };
 }
 
+/**
+ * One analysis reduced to a single comparable string — every metric, every event, and every
+ * sample of every series.
+ *
+ * This is the instrument behind "an ordinary flight's analysis does not move", and it exists
+ * because the golden values only pin the numbers somebody thought to assert. A change that
+ * shifts a velocity trace by a sample, drops an event, or perturbs the air-density profile
+ * passes every named assert in this file and changes this string.
+ *
+ * Values are rounded to twelve significant figures before hashing. That is not a tolerance in
+ * any meaningful sense — a real regression moves a reading in its third or fourth digit, never
+ * its thirteenth — and it buys immunity to the one thing that would make this guard lie: `Math`
+ * is not required to be bit-identical across engines and platforms, so a digest taken from the
+ * last bit of a `Math.pow` would go red on a machine where nothing at all had changed. Say what
+ * it is rather than overclaim: identical to twelve significant figures, not byte-identical.
+ */
+function digestOf(analysis: ReturnType<typeof analyzeFlight>): string {
+  // FNV-1a over the printable form. A hash rather than the values themselves, so the committed
+  // snapshot stays a few kilobytes instead of tens of megabytes.
+  let h = 0x811c9dc5;
+  const feed = (s: string) => {
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  };
+  const num = (v: unknown): string => {
+    if (typeof v !== 'number') return String(v);
+    if (Number.isNaN(v)) return 'NaN';
+    if (!Number.isFinite(v)) return v > 0 ? 'Inf' : '-Inf';
+    return v.toPrecision(12);
+  };
+
+  const { metrics, events, series, warnings } = analysis;
+  for (const key of Object.keys(metrics).sort()) feed(`m:${key}=${num((metrics as unknown as Record<string, unknown>)[key])};`);
+  // Every member of FlightEvent, not just the three that identify it. `provenance` says whether
+  // the logger flagged this event or Debrief detected it, and `peakAccel` is the deployment
+  // snatch shock — a printed reading on the screen and in all four documents. Neither is
+  // derivable from anything else here, so a regression in the shock window, or an event
+  // flipping from device-reported to derived, would have passed in silence.
+  for (const e of events) feed(`e:${e.type}|${e.label}@${num(e.time)}#${e.index}^${num(e.altitude)}~${e.provenance}!${num(e.peakAccel)};`);
+  // The caveats Debrief prints about the flight. They are output — "Worth knowing" on screen
+  // and a section in every export — so a reworded, added or dropped warning across all 50
+  // corpus flights is a change to what the tool SAYS about real flights, and left out of the
+  // hash it was a change this snapshot could not see.
+  for (const w of warnings) feed(`w:${w};`);
+  for (const key of Object.keys(series).sort()) {
+    const v = (series as unknown as Record<string, unknown>)[key];
+    if (v instanceof Float64Array) {
+      feed(`s:${key}[${v.length}]`);
+      for (let i = 0; i < v.length; i++) feed(num(v[i]));
+      feed(';');
+    } else {
+      feed(`s:${key}=${num(v)};`);
+    }
+  }
+  // Segments and extent too: which flight of a launch day was read is part of the answer.
+  feed(`x:${num(analysis.extent.from)}-${num(analysis.extent.to)};`);
+  for (const s of analysis.segments ?? []) feed(`g:${s.index}/${s.from}-${s.to}@${num(s.apogeeM)};`);
+  return h.toString(16).padStart(8, '0');
+}
+
 /** One fixture, reduced to the scalars the whole-corpus invariants need. */
 interface CorpusRead {
   file: string;
+  /** The whole analysis as one string — see `digestOf`. Empty where the fixture never
+   *  analysed. Computed inside the shared pass, so no series is kept alive for it. */
+  digest: string;
   /** How far the runner gets with this fixture — the same branches `runFixture` takes. */
   reach: 'analysed' | 'stepped-around' | 'parse-only' | 'rejected';
   metrics: ReturnType<typeof analyzeFlight>['metrics'] | null;
@@ -459,6 +569,7 @@ function corpusReads(): CorpusRead[] {
   for (const fx of byFile.values()) {
     const base: CorpusRead = {
       file: fx.file,
+      digest: '',
       reach: 'parse-only',
       metrics: null,
       bestClimbQ: 0,
@@ -541,6 +652,7 @@ function corpusReads(): CorpusRead[] {
     }
     out.push({
       file: fx.file,
+      digest: digestOf(loaded.analysis),
       // A knownIssue file still analyses; it is just not asserted by `runFixture`. For the
       // count below, what matters is whether the pipeline could read it at all.
       reach: fx.knownIssue ? 'parse-only' : 'analysed',
@@ -645,7 +757,14 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
   for (const g of RECON_GROUPS) {
     it(g.name, () => {
       const inputs = g.files.map(loadForCompare).filter((x): x is CompareInput => x != null);
-      expect(inputs.length, `${g.name}: both recordings parse`).toBeGreaterThanOrEqual(2);
+      // EVERY recording, not "at least two". The four-altimeter group is the tightest
+      // corroboration in the corpus, and a parser regression that stopped reading two of them
+      // would quietly degrade it to a pair and still pass a `>= 2` check — the strongest case
+      // here turning into an ordinary one with nothing saying so.
+      expect(
+        inputs.map((i) => i.name),
+        `${g.name}: every recording parses`,
+      ).toEqual(g.files);
       const agree = crossCheck(buildComparison(inputs).flights);
 
       // Two recordings of one flight see the same apogee — corroboration, tight.

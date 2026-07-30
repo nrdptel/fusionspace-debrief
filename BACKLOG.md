@@ -14,6 +14,22 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **DONE — reopening a cropped flight threw the crop away, so it survived one reload and not two.**
+  `saveRecent`'s replace-in-place carried the note, the paired device summary and the report caption
+  forward by name, and `read` — the stretch a flyer had said was THEIR flight — was not on that list.
+  Reopening a flight IS a save, so the crop was read from storage on the way in (which is why one
+  reload looked fine, and why the D1 walk that reloads once was green) and wiped on the way out: the
+  second visit silently read the whole record again, printing a flight time that spans two flights
+  off a launch-day file. That is D1's *and it is remembered* clause failing on the second use rather
+  than the first, which is the worst way to lose a thing. **Reproduced before it was touched** with a
+  walk that crops, reloads, reloads again — the second assertion failed. Closed structurally rather
+  than by adding a fourth name to the list: `replaceInPlace` is pure, exported and unit-tested (five
+  cases, including that a member is found on whichever stored copy has it), and a compile-time check
+  fails when a member of `RecentFlight` is classified as neither the file's nor the flyer's. The
+  e2e walk now reloads TWICE. **This is the fourth member that field-by-field rebuild has silently
+  lost** — the report caption, then the chosen stretch through the backup, then the file's own bytes,
+  now the chosen stretch again through the reopen.
+
 - **DONE — multi-flight segmentation mis-read any launch-day file whose flights differ by more than
   2x in apogee.** Every threshold in `nextFlightStart` is measured against the flight in hand now,
   never against the record's own highest flight, and three things a record does that are not a
@@ -47,6 +63,108 @@ wild, ideas too big for one pass. One line each, newest first.
   beyond 2x in both directions.
 
 ## Correctness / honesty
+
+- **Switching recording on a flight report drops keyboard focus to `<body>`.** `onOpen` →
+  `openRecent` sets `phase: 'loading'`, which unmounts the whole `FlightReport` subtree for a full
+  re-parse and re-analyse — measured at six seconds on a phone with an 11 MB log — so a keyboard or
+  screen-reader flyer is returned to the top of the document and has to find their place again. The
+  wait itself IS announced (`role="status"`), so what is lost is the reading position, not the
+  news. Same shape as opening a flight from the logbook, so fix it once for both.
+- **A folder drop that yields exactly one readable flight gets no recording strip and no
+  `recording` line in any export**, because that branch of `onFiles` (`components/Analyzer.tsx`)
+  never puts `savedId` into state — the id is right there on the line above, used for
+  `rememberOpenId`. `onCaption` is gated on the same thing and has been missing on this path for
+  longer, so it is one fix for both: thread `r.savedId` into the report state. It means "the report
+  says which recording it is reading" is not true on one of the three ways a report gets on screen.
+
+- **NAR high-power competition scores several altitude systems on one flight as their AVERAGE**,
+  rounded up to the next foot (<https://www.nar.org/contest-flying/high-power-competition/>), and
+  Debrief deliberately computes no such mean — a blended number on a measurement surface is what
+  the safety spine forbids. That reasoning is right for the headline reading and it leaves a real
+  flyer without a number a governing body asks them for. Worth reconsidering as an explicitly
+  labelled, explicitly cited COMPETITION figure on the comparison surface, beside the individual
+  readings and never instead of them — the same shape the logger's own reported figures already
+  take. Note the contrast that makes the call non-obvious: Tripoli's record form does the opposite,
+  naming one altimeter of record (<https://tccrockets.com/v2/tcc-documents/recordform.pdf>).
+- **The logbook is a list of FILES a flyer opened, where a real flight log is a list of FLIGHTS a
+  ROCKET made.** Benchmarked against what flyers actually fill in: a club flight card asks for
+  rocket name and make, every motor with manufacturer and delay, all-up weight, recovery
+  configuration, "First Flight?", "Cert Flight?", and a post-flight evaluation with "Good Flight?"
+  (<https://www.crmrc.org/CRMRC%20Flight%20Card.pdf>); Tripoli's record form adds total impulse,
+  stage count, field elevation and launch temperature
+  (<https://tccrockets.com/v2/tcc-documents/recordform.pdf>). Debrief has one free-text note for all
+  of it. Ranked, the three that would be missed most: (1) an AIRFRAME the flights hang off, so the
+  logbook answers "how has this bird flown"; (2) motor and recovery-outcome fields, i.e. whether the
+  flight was any GOOD — apogee and speed cannot say that; (3) career counters, which mDACS reads off
+  the altimeter as Total Flights, Total Flight Time and Total Ascent Elevation
+  (<https://www.apogeerockets.com/downloads/PDFs/mDACS-usb-io-user-manual.pdf>). This is roadmap
+  material, not a defect — filed here so the next decomposition has the citations.
+
+- **The report's recording strip pops in after the report has rendered.** `savedId` arrives
+  asynchronously — `openRecent` fires `saveRecent` un-awaited and folds the id into state when it
+  resolves (`components/Analyzer.tsx`) — and the strip is keyed on it, so a two-altimeter flight's
+  report paints, then grows a 99–203 px band above the readings a beat later and everything below
+  it moves. Measured on the built export of `2396eb1`: absent immediately after the report heading
+  appears, present at both 390 px (358×203) and 1280 px (1232×99) within 2.5 s. Not wrong, just
+  late; the fix is to carry the id into the report state rather than after it. Worth knowing that
+  this also makes any test that checks the strip immediately after the heading a flake.
+
+- **The spread between a flight's recordings is not on its logbook row.** A grouped flight shows
+  each recording's apogee and top speed side by side, so a flyer can work the gap out by eye; the
+  figure itself — "apogee within 0.03%" — is already computed by `crossCheck` (`lib/compare.ts`)
+  for the comparison surface and is the number they actually want at a glance. Measured on the
+  corpus: `ac-lilnuke`'s four recordings agree to 0.03% on apogee and spread 6.7% on top speed, so
+  one "agreement" figure per flight would be a lie — it has to be per reading, or the worst of them
+  named.
+- **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
+  Compare works, which is two more steps than a surface that already knows they are one flight
+  should charge. Blocked behind the `compareFromLogbook` crop bug below, because a comparison
+  button on a grouped flight multiplies that defect by the number of recordings.
+- **The comparison still hedges about what it is comparing.** *"If these are recordings of the
+  same flight, the independent readings agree to within …"* (`components/CompareView.tsx`, and the
+  same sentence in `compareMarkdown` and `compareJson`'s `sameFlight: {verdict:'unknown'}`) was a
+  hedge because nothing knew. `RecentMeta.flightId` now knows. A comparison built from one flight's
+  recordings can state it, and one built across flights the files date days apart already refutes
+  it — those two answers should not both read as "unknown".
+
+- **`logbookRowNames` disambiguates a grouped flight's row against recordings the flyer cannot
+  see.** It is still called with the whole `recents` list (`components/RecentFlights.tsx:214`), so
+  where a flight is reported by one of four identically-named AltimeterCloud files, the accessible
+  name of its ✎ and ✕ controls can be qualified by an apogee that is on a hidden recording rather
+  than the one the row paints. Measured shape: four `mercury__altimetercloud` files, one distinct
+  name; grouped, the list shows one row and the namer is still resolving four. Fix: name over
+  `FlightGroup[]`, so the disambiguator sees what the screen shows.
+- **The logbook's prune counts rows, so it can take one recording of a grouped flight and leave the
+  rest.** `saveRecent` keeps the most recent `UNNOTED_MAX` un-noted ROWS
+  (`lib/recents.ts`); a two-recording flight occupies two of the twelve, and a launch day can push
+  one half out while the other stays — the flight silently changes which recording reports it (the
+  survivor is promoted) and the "N flights were forgotten" note names a file, not a flight. Fix:
+  prune by flight, and name the flight.
+- **A comparison built from ids still re-reads each flight whole, so a cropped flight joins a
+  comparison uncropped** — `lib/compareFromLogbook.ts:54` calls `analyzeAsync(result.flight)` with
+  no `{ read: window }` although `getRecent` has already returned `rec.read`; `importRecent`
+  (`lib/reopen.ts:23`) does not accept it either, and `readToWindow` sits in
+  `components/Analyzer.tsx:98`, on the wrong side of the lib/components line. Already filed further
+  down this file; re-filed here because D3 multiplies it by the number of recordings, and it should
+  be fixed before a grouped flight gains a one-click overlay of its own recordings.
+- **The `same_flight_group` column in the fixtures manifest is not a same-flight signal**, and
+  anything automatic must not read it as one. It conflates three relations: genuinely independent
+  instruments (`iss-irec2023`, `ac-lilnuke`), the SAME recording exported into two containers
+  (`iss-stargazer1`'s `.eeprom` + its AltosUI CSV, `trf-rrc3-xprs2015`'s `.rff` + its mDACS text),
+  and different STAGES of one launch (`iss-kairos`, `iss-sg1.2` — a TeleMega sustainer at 2,113 m
+  beside two StratoLogger boosters at 465 m and a 9.5 m fragment). Reading it as "recordings of one
+  flight" would group a booster with a sustainer, which is D4's job and a wrong composite.
+  `RECON_GROUPS` in `lib/parsers/corpus.test.ts` already carries the honest subset — 6 of the 15.
+- **Three genuinely-redundant instrument pairs in the corpus are not asserted by `RECON_GROUPS`**:
+  `iss-intrepid3tf2-20230305` (two StratoLogger CF units, apogee 4,957.0 vs 4,939.6 m — 0.35%; max
+  speed 847.6 vs 846.1 — 0.18%), `trf-f1-jan18` (Blue Raven LR 1,918.0 m + Featherweight GPS
+  1,909.4 m — 0.45%), and `iss-sg1.2`'s two StratoLoggers, which both read 465.1 m — a 0.00% spread
+  and the exact tie that used to cost a flyer their crown. Adding them widens the reconciliation
+  guard at no cost; the first pair is `knownIssue` today, so check what arming it implies first.
+- **`RECON_GROUPS` asserts `inputs.length >= 2`, not `=== g.files.length`**
+  (`lib/parsers/corpus.test.ts`), so a parser regression that stopped reading two of the four
+  `ac-lilnuke` recordings would still pass the four-altimeter group — the tightest corroboration in
+  the corpus quietly degrading to a pair.
 
 - **The MS5607 conversion ignored the `ms5611` flag AltOS writes beside its coefficients** —
   fixed. The two parts share a calibration block and a formula and differ in the scaling of the
@@ -2556,11 +2674,20 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   works, so copying one channel out means the CSV export.
 - **DONE (2026-07-30) — a per-device flight list.** The report lists every flight in a
   multi-flight download and reads any of them on a click, and a flyer can crop any record by
-  hand. Read against what this entry actually asked for, though, the parity is on the REPORT
-  and not in the logbook: the logbook is still keyed on files, so a launch day is one row
-  carrying the FILE's apogee whichever flight is on screen, and a comparison built from ids
-  re-reads each flight whole. That half is D3's starting point — see the two entries at the
-  top of this section. Original entry:
+  hand. Read against what this entry actually asked for, though, the parity was on the REPORT
+  and not in the logbook. **D3 (2026-07-30) closed half of that and only half**, so read the
+  two carefully:
+
+  - *Several recordings of one flight are one logbook row* — DONE. `RecentMeta.flightId`, one
+    entry, counted once by the crowns, each recording still openable.
+  - *A launch day's SEVERAL FLIGHTS in one file are still one row* — STILL OPEN, and it is a
+    different problem: it is one FILE holding several flights, where D3 solved several files
+    holding one flight. The row still carries the FILE's apogee whichever flight is on screen.
+    The grouping mechanism does not help, because a recording is a row and these flights share
+    one. It needs the crop to be addressable, which is where the entry below about
+    `compareFromLogbook` dropping `rec.read` becomes load-bearing.
+
+  A comparison built from ids also still re-reads each flight whole. Original entry:
   The vendor apps read several flights off one device and let you pick between them; Debrief's
   logbook is close but is keyed on files, not flights from one download session.
 - Found by driving a season into the logbook: it sorts but couldn't be *searched* — now it

@@ -52,6 +52,7 @@ export const METHOD_IDS = [
   'built-in-views',
   'unrecognized-file',
   'logbook-backup',
+  'one-flight-several-recordings',
   'units',
   'offline',
   'formats-privacy',

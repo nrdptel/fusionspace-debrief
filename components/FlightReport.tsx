@@ -5,7 +5,7 @@ import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
-import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
+import { summaryText, summaryMarkdown, summaryHtml, analyzedDataCsv, analysisJson, recordingLine, reportStem, formatAnalyzedAt, reportTable, type RecoveryFigures } from '@/lib/report';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -23,7 +23,9 @@ import { useCurrentSection } from './useCurrentSection';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import type { RecentMeta } from '@/lib/recents';
 import FlightPicker from './FlightPicker';
+import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
@@ -68,6 +70,9 @@ export default function FlightReport({
   onRead,
   reading,
   readError,
+  recordings,
+  recordingId,
+  onRecording,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
@@ -92,6 +97,14 @@ export default function FlightReport({
   /** Keep them. Absent where the flight has no logbook entry to keep them against — a
    *  private window with storage refused — in which case the panel says so. */
   onCaption?: (caption: { label: string; notes: string }) => void;
+  /** Every recording of this flight, the one that reports it first — where the flyer has said
+   *  that two files are one flight flown on two altimeters. Absent, or of length one, on every
+   *  ordinary flight, and then nothing about this page changes. */
+  recordings?: RecentMeta[];
+  /** Which of them these readings are of. */
+  recordingId?: string;
+  /** Open another recording of this flight. */
+  onRecording?: (id: string) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -223,9 +236,21 @@ export default function FlightReport({
     });
   }, []);
 
+  // Which recording of the flight this document is, where the flyer has said the flight was
+  // flown on more than one altimeter — so a cert write-up quoting an apogee can state which
+  // instrument read it, and a reader holding two Debrief reports of one launch can tell they
+  // are not two launches. Absent on every ordinary flight, and then no document gains a line.
+  const recordingMeta = useMemo(() => {
+    if (!recordings || recordings.length < 2 || !recordingId) return undefined;
+    if (!recordings.some((r) => r.id === recordingId)) return undefined;
+    // By ID, never by name. Two same-model altimeters write their exports under the same
+    // default name, and the logbook keeps such rows apart by their contents — so comparing
+    // names would have the BACKUP's report claim to be the one the flight is reported by.
+    return { of: recordings.length, reportedBy: recordings[0].name, isReportedBy: recordings[0].id === recordingId };
+  }, [recordings, recordingId]);
   const reportMeta = useMemo(
-    () => ({ label: reportLabel, notes: reportNotes, hidden }),
-    [reportLabel, reportNotes, hidden],
+    () => ({ label: reportLabel, notes: reportNotes, hidden, ...(recordingMeta ? { recording: recordingMeta } : {}) }),
+    [reportLabel, reportNotes, hidden, recordingMeta],
   );
   // The recovery figures a flyer entered — the descending mass (landing energy) and the
   // set main-deploy altitude (the fired-where-set check) — ride into the exported report
@@ -740,6 +765,13 @@ export default function FlightReport({
           )}
         </div>
       )}
+      {/* Which RECORDING of this flight these readings are, when the flyer has said the flight
+          was recorded more than once. Above the flight picker, because it is the wider
+          question: which instrument, then which flight of that instrument's download. */}
+      {recordings && recordings.length > 1 && recordingId && onRecording && (
+        <RecordingPicker recordings={recordings} currentId={recordingId} sys={sys} hidden={hidden} onOpen={onRecording} />
+      )}
+
       {/* Which flight in the download this is, when the file holds several. */}
       {analysis.segments && analysis.segments.length > 1 && onRead && (
         <FlightPicker
@@ -761,6 +793,16 @@ export default function FlightReport({
             {flight.formatLabel}
           </span>
           <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
+          {/* On PAPER this is the only place the recording can be named: the strip above is
+              `print:hidden`, and printing is how a certification package is actually produced.
+              Without it two printed reports of one launch are indistinguishable from two
+              launches — the exact thing this reading exists to prevent. Hidden on screen,
+              where the strip says it better and in more detail. */}
+          {recordingMeta && (
+            <span className="hidden shrink-0 text-xs text-zinc-500 print:inline dark:text-zinc-400">
+              {recordingLine(recordingMeta)}
+            </span>
+          )}
         </div>
         <div className="flex flex-col gap-2 print:hidden">
           {/* Primary actions — what you do with the flight — stay in view even on a
@@ -1311,7 +1353,7 @@ export default function FlightReport({
       </div>
 
       {/* The shareable card closes the report, once everything it summarizes is shown. */}
-      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} xRange={chartRange} hidden={hidden} />
+      <FlightCard series={series} metrics={metrics} sys={sys} stem={stem} formatLabel={flight.formatLabel} xRange={chartRange} hidden={hidden} recording={recordingMeta} />
 
       {/* Print-only provenance line, so a card that leaves the screen says where
           it came from. */}

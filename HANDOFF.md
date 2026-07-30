@@ -2,292 +2,171 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
-## This run — D2 shipped: the file the card actually holds now opens
+## This run — D3 shipped: a flight can carry several recordings
 
-Branch restarted from `origin/main` at `5b6c76c` (D1's merge), level with it at session start.
-`ROADMAP.md` named the goal: D2 was the next unstarted milestone. **The baseline gate was GREEN
-before anything was touched** — 807 unit, build clean, 218 e2e — and production was confirmed
-serving `5b6c76c` before this run began.
+Branch level with `origin/main` at `8266c2a` at session start. `ROADMAP.md` named the goal: D3 was
+the next unstarted milestone. **The baseline gate was GREEN before anything was touched** — 61 unit
+files / 856 tests, build clean, 222 e2e — once the right Chromium was installed (see below).
 
 ### What a flyer can DO that they could not before
 
-**Pull the card out of an Altus Metrum board or a MissileWorks RRC3, drop the file their own
-software downloaded, and read the flight.** No CSV export first.
+**Keep a two-altimeter flight as ONE flight.** One logbook entry, counted once by the ★ that marks
+their best, with each instrument's own reading still there, and the one they nominate named on the
+report and in every document they hand in.
 
-Before this run that file produced *"Debrief couldn’t find any data rows in this file. Is it a
-flight log export?"* — a false sentence about a flight log, and the same dead end D1 closed for
-multi-flight downloads: go back to the vendor’s software.
+Before this run the logbook was keyed on FILES: a flight recorded twice was two rows, two entries
+in a season's count, and two runs at the crowns.
 
-### The five increments
+### The three increments
 
-1. **`a121e34` — a parser is handed the file, not just its text.** `ParseInput` was
-   `{ name, text }`, so a binary format could not be read *even in principle*. It now carries the
-   file’s bytes too, always, with `importFlight#wholeFile` the single place either half is derived
-   from the other (lazily on the encode side, so a text import never pays for a second copy). The
-   logbook has the same problem one layer down — it stores a flight as text and re-parses it on
-   every reopen — so it now keeps the bytes for exactly the files whose text is *not* the file
-   (`lib/fileText.ts#textIsTheFile`), and not for the ones that round-trip.
-2. **`457e75c` — the AltOS `.eeprom`.** Three log formats: TeleMetrum v1’s 8-byte records off a
-   12-bit MP3H6115A, and the 32-byte TeleMega/EasyMega family’s raw MS5607 conversions,
-   compensated with the factory coefficients the file’s own header carries.
-3. **`82fffda` — the MissileWorks RRC3 `.rff`.** A .NET BinaryFormatter stream holding a
-   `List<Int16>`; inside it, barometer readings in tenths of a millibar with two auxiliary words
-   written once a second.
-4. **`f1e0ad4` — say what a raw download is, instead of saying it isn’t a flight log.**
-5. **`1461454` — three e2e walks** through the real drop handler, worker and logbook.
+1. **`1bd32b9` — two altimeters' recordings of one flight are one flight.** `RecentMeta.flightId`,
+   one optional string, absent on nearly every row: absent means a flight of its own, equal to the
+   row's own id means this recording REPORTS the flight, any other id names the recording that
+   does. `lib/flightGroups.ts` is the only thing that reads it. The logbook renders flights, the
+   crowns run over flights, and a Sev-1 in `saveRecent` was fixed on the way (below).
+2. **`257537c` — every corpus flight's whole analysis against a committed snapshot.** 50 digests
+   over every metric, event and sample of every series. This is the instrument D3's own *done when*
+   names: *"asserted by the corpus suite rather than by eye"*.
+3. **`2396eb1` — the report says which recording it is reading, and offers the others.**
+   `RecordingPicker`, plus one sentence in the .txt/.md/.html/JSON exports.
 
-### What made this a measurement rather than a plausible decode
+### The Sev-1 this run found, and why it was fixed inside the milestone
 
-**Every raw download in the corpus has the vendor’s own export of the same bytes sitting beside
-it.** That is the whole reason this milestone was shippable, and it is the bar for the next one.
+**Reopening a cropped flight threw the crop away, so it survived one reload and not two.**
+`saveRecent`'s replace-in-place carried the note, the paired summary and the report caption forward
+BY NAME, and `read` was not on that list. A reopen IS a save, so the crop was read from storage on
+the way in — which is why one reload looked fine, and why D1's walk, which reloads once, was green —
+and wiped on the way out. The second visit silently read the whole record again: a launch-day file
+back to reporting a flight time that spans two flights, with nothing on screen saying the flyer's
+own answer had been discarded.
 
-| file | check | result |
-| --- | --- | --- |
-| TeleMetrum v1 `.eeprom` (format 1) | every pressure vs AltosUI’s CSV of the same file | none bit-identical (both sides convert in float); worst 0.0035 Pa over 2,206 |
-| EasyMega v2 `.eeprom` (format 16) | same | **0 Pa** (integer path) |
-| TeleMega v6 `.eeprom` (format 22) | same | **0 Pa**, 5,228 samples, across a tick rollover |
-| RRC3 `.rff` | count and value vs the mDACS text export | 3,541 of 3,541, exact |
-| RRC3 `.rff` | apogee vs Debrief’s own read of that export’s pressure column | identical to 6 dp |
+**Reproduced before it was touched** with a throwaway walk that crops, reloads, reloads again. It
+was fixed inside D3's first slice rather than as its own pass because it is one function — the same
+replace-in-place D3 had to add `flightId` to — and adding a member without fixing the rule would
+have lost the grouping in exactly the same way.
 
-Peak acceleration off the raw `.eeprom` came out *identical* to the CSV path on all three files
-(245.5, 620.3, 829.5 m/s²), which is the strongest single signal that the accelerometer scaling and
-the board’s two-point calibration are read the way AltOS writes them. Apogee lands inside the
-tolerances the paired CSVs are already held to against a **second altimeter**, so the corpus pins
-the raw read against ground truth rather than against another reading of the same file.
+**Closed structurally, and this is the pattern to reuse.** `replaceInPlace` is pure, exported and
+unit-tested, and a compile-time check fails when a member of `RecentFlight` is classified as neither
+the file's nor the flyer's:
 
-### The traps, and what each one cost
+```ts
+type Unclassified = Exclude<keyof RecentFlight, FromTheFile | FlyerOwned>;
+const _everyMemberIsClassified: Unclassified extends never ? true : [...] = true;
+```
 
-- **The MS5607 coefficients are in the header, and AltOS writes `2147483647` for "this board has
-  none".** A plain finite check sails through that and produces pressures in the billions.
-- **The tick counter is 16-bit and rolls over every 655.36 s.** A naive "did it go down?" unwrap is
-  wrong, because records genuinely come back a tick or two out of order at the boundary — a
-  temperature record stamped 65531 lands *after* a sensor record stamped 4. Measured cost of getting
-  it wrong: one corpus flight gained a spurious 655.36 s and reported 975 seconds. The fix is to put
-  each tick on the turn of the counter *nearest* the one before it.
-- **`0xff` is erased flash, not a record.** It is the tail of every download, carries no tick, and
-  dragged the clock to 65535 when it was let into the unwrap.
-- **The GPS is not the barometer’s clock.** A fix lands on the sample it was stamped with and
-  nowhere else; AltosUI’s CSV repeats the last position on all hundred rows a second, and those are
-  held values, not readings. The 3-satellite rule (position kept, height dropped) is the same one
-  the CSV parser already applies.
-- **`textIsTheFile` had to exist before the logbook could hold a binary flight.** The e2e walk that
-  reloads and re-reads the `.rff` from its logbook row fails within seconds if the bytes are not
-  stored — verified by mutation, not by reasoning.
-- **A guard tightened for a hypothetical broke two shipped behaviours.** Changing the "that file is
-  empty" check from `text.trim().length === 0` to `… && !bytes?.length` meant a file of blank lines
-  was no longer empty. Two e2e tests caught it. A binary file’s text is full of replacement
-  characters and never trims to nothing, so the original guard was already right.
+**This is the FOURTH member a field-by-field rebuild has lost in this one file** — the report
+caption, the chosen stretch through the backup, the file's own bytes, now the chosen stretch again
+through the reopen. There were three such rebuilds and only one was guarded. All three are now:
+`serializeLogbook` by its `Required<RecentFlight>` fixture, `replaceInPlace` by the type above, and
+`toMeta` (the list projection) by a `Required<RecentMeta>` fixture.
 
-### Where this stopped, and why — read this before touching Entacore
+### What the pre-push review found that the author could not — read this before the next one
 
-**The Entacore AIM `.bin` and `.xtra` are still unread, and that was a decision, not a shortfall.**
+An adversarial fan-out over the finished diff, four lenses, each finding handed to skeptics told to
+refute it. **It found two Sev-1s and eight Sev-2s in code that had already passed the full gate**,
+and they all had ONE root cause the author could not see: *the row rendered a FLIGHT while every
+control on it still acted on one FILE.*
 
-- The `.xtra` is a Boost serialization archive (`serialization::archive` header, then a
-  variable-length record stream carrying float32 timestamps and a repeating 3.3 constant).
-- The `.bin` is a 4 MB raw flash snapshot: a tagged variable-length stream with a recurring
-  `81 0b .. 81 0c ..` framing.
-- Both are *identifiable*. Neither is *checkable*: the corpus has a flight-summary screenshot for
-  these files and no per-sample export, and Entacore’s founder called the `.xtra` partially corrupt
-  in the source thread.
+- the ✕ deleted one recording and left the flight on screen under the survivor's name;
+- the note vanished when the flight changed hands, because the row moved and the note did not;
+- the prune took a noted cert flight's backup recording for good — a secondary can never carry a
+  note, since the note control is on the row the list shows, so a joined cert flight could not be
+  protected at all;
+- joining two already-grouped flights ejected a third recording into a flight of its own;
+- the un-noted meter, the search gate and the Clear confirm counted files under a list of flights;
+- a tick outlived its row when the flyer nominated a different recording;
+- `setFlightIds` wrote whole records back from a stale snapshot, and its comment claimed the
+  opposite;
+- and `replaceInPlace` could resurrect a crop the flyer had cancelled, from an older duplicate row —
+  the exact inverse of the bug being fixed, which is what the reviewers were told to hunt hardest.
 
-Misreading a binary record layout does not fail loudly — it produces a perfectly plausible flight
-out of misaligned bytes, which is the worst thing this product can produce. **Do not attempt it
-without either the AIM XTRA software’s CSV export of one of these exact flights, or Entacore’s
-record layout.** What shipped instead is the honest half: those files are named for what they are
-and pointed at the export that works.
+**The lesson: when a surface changes what a row MEANS, every control on that row is a finding until
+proved otherwise.** Enumerate them — the tick, the open, the note, the remove, the counts, the
+names, the search, the copy — and say what each one now means.
 
-### The pattern worth reusing
+### Two traps this run hit that will otherwise cost the next one
 
-Both new parsers **refuse rather than guess**, and every refusal is a check the file can fail:
+- **A mutation that fails to COMPILE proves nothing, and looks like proof.** Falsifying the report
+  strip with `{false && …}` "passed" — because that never built, and `npm run test:e2e` then served
+  the `out/` a previous build had left. Always `npx tsc --noEmit` (or read the build's exit code)
+  before believing a mutation survived. The build-clean version of the same mutation
+  (`length > 99`) failed the walk immediately.
+- **An assertion scoped with `.first()` will pick the wrong row.** The note-follows-the-flight
+  assertion passed under mutation because `.first()` had selected a different flight's note button.
+  Scope e2e assertions to the row under test (`flightRows.filter({ hasText: … })`).
 
-- an AltOS log format the parser has not been shown is named *by number* rather than decoded on the
-  assumption it resembles its neighbours;
-- a 32-byte AltOS layout is trusted only if the pressure it decodes agrees within 2% with the ground
-  pressure the file states *about itself* in its own flight record — two completely independent
-  sources, so agreement is evidence the layout was read the way that firmware wrote it. This is what
-  lets the parser accept log formats the corpus does not contain;
-- an RRC3 log that does not open on a reading a rocket could have taken on a pad is refused, because
-  misreading where the readings start shifts the whole flight and still looks plausible;
-- an RRC3 file whose once-a-second markers and whose readings disagree about how long the flight was
-  is refused — the only check a raw log with no timestamps in it offers on the 20 Hz clock it is
-  read with;
-- and the ACCELEROMETER is dropped, with a note saying so, where the opening samples disagree with
-  the resting reading the board wrote for itself. That one came out of the review: the pressure had
-  a second source and the accelerometer had none, so its byte offset rested on the corpus alone.
-  Note the trap inside it — **a download does not begin at rest.** AltOS keeps a ring buffer and
-  marks the flight record once boost detection has fired, so a mean over the first fifth of a second
-  is already partly under thrust; the first draft of this check threw a real flight's accelerometer
-  away for exactly that. The median of the first five samples is still the rocket on the pad.
+### The corpus digest, and what it is honestly worth
 
-Every one of those refusals has a test that doctors the real corpus file until it fires — including
-one that rewrites the hex body to read the accelerometer two bytes to the left, which is what a
-misread record layout actually IS.
+`digestOf` hashes every metric, every event, every sample of every series, the read extent and the
+segments, at `toPrecision(12)`. Falsified by scaling apogee by `1 + 1e-9` — four orders inside the
+tightest golden tolerance in the file, invisible to every named assert — which moved all 50.
 
-### What was deliberately left out
+**Twelve significant figures, not byte-identity, and the comment says so.** `Math` is not required
+to be bit-identical across engines, so a digest taken from the last bit of a `pow` would go red on a
+machine where nothing had changed. **This was tested, not assumed: CI's `frontend` job went green on
+the committed snapshot**, so the digests are stable across this container and GitHub's runner.
 
-- **Temperature on AltOS log format 1.** The relation between the raw reading and the °C AltosUI
-  prints fits `raw × 0.015 − 295.87` over the corpus file, but that is a curve fit, not the format’s
-  own arithmetic — so it is not shipped. Temperature on the 32-byte formats *is* shipped, because it
-  falls straight out of the MS5607’s documented compensation and matched to 0.05 °C.
-- **Temperature and battery voltage on the RRC3.** Both words are in the file; neither is a linear
-  function of what mDACS displays, so the calibration lives somewhere the file does not carry.
-- **Velocity on either.** Neither logger records one — AltOS computes it — so a pressure-only flight
-  gets the analyzer’s derived velocity. On the TeleMega that means `maxVelocity` is withheld
-  entirely. **Checked, not a regression:** strip the velocity column out of the CSV read of that same
-  flight and the CSV path withholds it too, identically.
+Regenerate with `CORPUS_DIGESTS=write npx vitest run lib/parsers/corpus.test.ts`, and put the diff in
+the commit that moved the reading. A snapshot updated later proves nothing.
 
-### What the pre-push review caught, and what it did not
+### What D3 delivered against its *done when*, and what it did not
 
-An adversarial fan-out over the finished diff — four independent lenses (the decoders byte for
-byte, the plumbing end to end, whether the code does what the comments and copy say, and tests
-that would stay green if the code broke), each finding then handed to a verifier told to refute
-it. It found **one Sev-1 and four Sev-2s that the author's own tests could not have caught**,
-because those tests were built from the same mental model as the code:
+All four clauses hold. On *"each headline reading naming which recording it came from"*, read what
+shipped rather than the words: **the readings are named per PAGE, not per tile.** A report is of one
+recording, so every headline figure on it comes from the same instrument and the page says which,
+above the readings, with the others one click away. Twenty tiles repeating one file name is noise,
+and the one reading that genuinely comes from elsewhere already names its own source
+(`descentSource === 'second-copy'`). `Tile.sub` is the seam if that ever changes.
 
-- **Sev-1 — a logbook backup threw the bytes away.** `normalizeFlight` rebuilds each record field
-  by field and never copied `bytes`; `JSON.stringify` turns a `Uint8Array` into
-  `{"0":80,"1":75,…}` anyway. So the one documented way to move a logbook between machines
-  restored every raw download as the mojibake its text always was. They travel as base64 now, and
-  the round-trip is a unit test that falsifies in both directions. **This is the THIRD member that
-  field-by-field rebuild has silently lost** — the report caption, then the chosen stretch, now the
-  file itself. **Closed structurally rather than by discipline**: `lib/recents.test.ts` round-trips
-  a fixture typed `Required<RecentFlight>`, so adding a member to that interface stops the file
-  compiling until the fixture populates it and then fails the round-trip until `normalizeFlight`
-  carries it. Both halves verified by mutation.
-- **Sev-2 — the single-file drop stored the bytes of EVERY file.** `textIsTheFile` was applied on
-  the batch path and not on the one a flyer actually uses, so the logbook held two copies of every
-  CSV — the exact cost the rule exists to avoid.
-- **Sev-2 — any large `.bin` was told to open it "in the AIM XTRA software".** The namer correctly
-  returns a vendor-NEUTRAL description for a flash dump off an unknown board, and then the message
-  routed it through the branch hard-coded to one vendor. A Raven owner got a confident wrong answer.
-- **Sev-2 — a share link was offered for a raw download** (found independently and already fixed).
-- **Sev-2 — /methods claimed every reading is checked "exactly, not within a tolerance".** True of
-  the 10,361 readings where both sides do integer arithmetic; false of the 2,206 on the TeleMetrum
-  v1, where both sides convert in float and NONE is bit-identical. The page and four comments now
-  say which is which, and the test asserts exact equality on the integer paths rather than a
-  tolerance that covered both.
+Three gaps, all filed in `BACKLOG.md` and all named in `ROADMAP.md` as **D5's starting point**:
 
-And three tests that could not have failed: the `.rff` clock test recomputed the expected stamps
-from the row count with the same constant the parser uses (it reads mDACS's own Time column now,
-which turned up a real 0.01 s hiccup in that export); the GPS test compared only the FIRST fix,
-which agrees under any whole-track shift (it compares all 321 now, within one sample — 114 land on
-AltosUI's row and 207 one row later, because a GPS record and a barometer sample can share a tick);
-and the exact-arithmetic test passed under the very mutation it existed to catch, because the
-double happens to be right on this corpus (there is a direct test of the scaling helper now, on a
-case where it is not).
-
-**Run this fan-out. It is not optional, and it is not a formality** — the author cannot see these,
-by construction. What it cost and what it returned, so the next session can judge: **28 agents,
-two hours wall-clock, 2.7M subagent tokens; 24 findings raised, 11 survived adversarial
-verification, and all 11 were worth fixing.** Several of the thirteen it dismissed were worth
-fixing too — the verifiers refuted them as "already handled" because the working tree had moved
-under them while they checked, or as "a real measurement, not a defect", and the underlying gap
-was still real. Read the dismissals; do not just take the count. Two practical notes: tell every agent to write probes under the scratchpad, and
-sweep anyway, because one of them left `if (false as boolean)` inside a shipped parser and two left
-probe files at the repo root.
-
-### The second review round, after the merge
-
-The same fan-out's fourth lens — *tests that would stay green if the code broke* — landed after
-the first round was already merged, and it was the sharpest of the four. Eight findings, and one
-of them turned into a real defect once chased:
-
-- **The MS5607 conversion ignored the `ms5611` flag AltOS writes beside its own coefficients.**
-  Found by writing the conversion out a SECOND time, from the vendor's implementation rather than
-  from the datasheet. The two parts differ in the scaling of two terms by one binary place, both
-  corpus boards write `false`, and a 5611 read as a 5607 is about an atmosphere out. The same
-  exercise settled a genuine open question: every division in that conversion FLOORS — it is an
-  arithmetic shift on a signed long — rather than truncating toward zero. Those agree above the
-  calibration reference temperature, which is every reading in the corpus, and disagree by one
-  count below it.
-- **The acceleration and temperature channels were never compared to the vendor export at all** —
-  only pressure was. Measured, once asked: both agree to half of AltosUI's last printed digit,
-  over every sample. Nothing was wrong; nothing said so either.
-- **Three `.eeprom` tests returned early and printed as passes** when their corpus pair was
-  missing, including the two heaviest asserts in the file. A corpus that is absent is a legitimate
-  skip; a corpus that is present but incomplete now throws.
-- Four more: the `.rff` detector's test never reached the check that identifies the file, half of
-  `looksBinary`'s two-part rule could be deleted with the suite still green, `STATE_NAMES` could be
-  shifted by one while printing "coast → main → landed" through a rocket's drogue, and the
-  logbook's keep-the-bytes rule had e2e cover and no unit cover.
-
-**The lesson worth carrying: a property test can be weaker than it looks.** The first answer to
-the cold branch checked that the correction is continuous at its boundary — which sounds like a
-real invariant and caught NONE of three deliberate mutations, because every term vanishes at the
-boundary whatever its coefficient. Mutate before believing a test, including the tests you write
-to answer a review.
-
-### Gate, at the last commit
-
-`UNIT=0 TSC=0 BUILD=0 E2E=0` — **61 unit files green, 855 tests**, typecheck clean, build clean,
-**222 e2e**. Run against a pristine `git archive` of the commit rather than the working tree,
-with `node_modules` and the corpus symlinked in — which is the only way to gate honestly while
-review agents are still running, and one of them had already left a mutation in a shipped parser
-by then.
-
-One thing to know before you read a number off the default reporter: its unit *test* count drifts
-by one or two between runs (835/836/837 observed on one tree) while every file passes and the
-JSON reporter stays put. Some suites build their cases from the corpus at run time. Quote the file
-count and the exit codes; a headline test count is not a stable figure in this repo.
+1. the spread between a flight's recordings is not on its row, though `crossCheck` already computes
+   it;
+2. a grouped flight has no one-click overlay of its own recordings;
+3. the comparison still hedges — *"If these are recordings of the same flight…"* — when
+   `flightId` now knows.
 
 ## Environment notes
 
 - **Git identity defaults to the harness's.** Wrong again this run; set before the first commit —
   `git config user.name "Neer Patel"` / `user.email "135655563+nrdptel@users.noreply.github.com"`.
-- **The harness appends an attribution footer to a PR body.** Read the body back after posting and
-  strip it, and set the merge commit message explicitly for the same reason.
-- **The harness REQUIRES that footer on every issue/PR comment you author**, which the zero-trace
-  invariant forbids. The manual says the harness wins, so comments carry it and the report says so.
-  The requirement is scoped to comments and reviews — not to PR bodies, and not to commit messages,
-  so stripping the auto-appended one from a body honours both and commits stay clean.
+- **The harness appends an attribution footer to a PR body.** It did again. Read the body back after
+  posting and strip it; set the merge commit message explicitly for the same reason.
+- **Chromium 1194 ships in this image; Playwright 1.61.1 wants 1228.** `npx playwright install
+  chromium` works here (~2 min) and must be run **from the repo root** — run it from another
+  directory and it exits 0 having done nothing, and the whole suite then fails with 222 ×
+  `Executable doesn't exist`, which reads exactly like a code regression.
 - **`npm install` is needed at session start** — the container ships without `node_modules`.
 - **`npm run fetch-fixtures` returns 401 here.** `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`.
-- **`npx playwright install chromium` works here and takes ~2 min.** With it, the full e2e suite runs
-  locally: 215 passed in 3.4 min. Do it at session start — it makes the local gate complete.
-- **`npx vite-node <probe>.ts` is the fastest way to drive the real pipeline from a probe.** It
-  resolves the repo's TypeScript with no config, so a probe under the scratchpad can import
-  `/home/user/fusionspace-debrief/lib/...` by absolute path. `tsx` is not installed; `vite-node` is.
-- **This box has 4 cores**, so a parallel fan-out runs about two agents at a time. Dispatch the
-  opening fan-out first and do the baseline gate while it runs.
-- **NEVER run `npm run build` while `npm run test:e2e` is in flight.** The build deletes and recreates
-  `out/`, which is what the e2e webServer serves: the run comes back with a SHORT COUNT and exit 0.
-- **Pipe a gate command and you throw away its exit code. Redirecting is not enough either —
-  you have to READ the code.** This run redirected all three gate commands to files, printed
-  `build=$?`, and then grepped the LOG FILES for the results instead of reading the command's own
-  stdout. `tsc --noEmit` had failed on two test files; the build never ran; and the e2e suite then
-  passed 217 tests against the `out/` a PREVIOUS build had left, so nothing looked wrong until CI
-  said so. Run the three, capture all three exit codes, and echo them on one line:
-  `npm test > u.log 2>&1; U=$?; npm run build > b.log 2>&1; B=$?; npm run test:e2e > e.log 2>&1; E=$?; echo "UNIT=$U BUILD=$B E2E=$E"`.
-  A green e2e after a failed build is the specific lie to watch for.
-- **`npx vitest run` does NOT type-check.** A test file can pass every assertion and still fail
-  `tsc`. The build is the only thing that catches a wrong signature in a test.
-- **The per-fixture corpus `it()` has no timeout allowance** and inherits vitest's 5 s default, while
-  every whole-corpus invariant carries an explicit 60 s. The largest Blue Raven HR fixture takes
-  ~1.3 s alone and has blown that 5 s under load before — re-run the one fixture on a quiet box.
-- **A subagent's probe file inflates the gate.** Tell every agent you dispatch to write probes under
-  the scratchpad, and sweep `git status --porcelain --untracked-files=all` before staging. Read
-  `git show --stat` before pushing, not just the gate.
-- **NEVER `git checkout -- <file>` to undo a probe mutation.** HEAD is the last COMMIT, not your
-  working tree. `cp` the file to the scratchpad before mutating it and `cp` it back; that is the only
-  safe undo while a change is uncommitted. Mutation-testing a shipped function is exactly this case —
-  back the file up first.
-- **A browser in this container cannot reach the deployed site.** `curl` works through the agent
-  proxy; Playwright's Chromium gets `ERR_CONNECTION_RESET` on `https://debrief.fusionspace.co`. Walk
-  the built export of the SHA you shipped and say that is what you did.
-- **Any static server with an `index.html` fallback silently serves the analyze page for every
-  route.** Use `npm run serve:out` — the same `scripts/e2e-server.mjs` the suite starts.
+  Confirm the corpus really ran: `lib/parsers/corpus.test.ts` should report **119 tests**.
+- **`npx vite-node <probe>.ts` drives the real pipeline from a probe**, resolving the repo's
+  TypeScript with no config. Note `lib/analyze` exports `analyzeFlight`, not `analyze`, and
+  `FlightMetrics` members are bare numbers (`metrics.apogeeAltitude`), not `{value}` objects.
+- **A probe reading corpus files must use the repo's own decoder.** `buf.toString('utf8')` on the
+  UTF-16LE RRC3 text export produces mojibake that `looksBinary` correctly refuses — which reads
+  exactly like a parser bug and is not one.
+- **This box has 4 cores**, so a fan-out runs about two agents at a time. An eight-lens opening
+  fan-out took ~29 min wall clock.
+- **NEVER run `npm run build` while `npm run test:e2e` is in flight**, and **read all three exit
+  codes on one line**: `npm test > u.log 2>&1; U=$?; npm run build > b.log 2>&1; B=$?; npm run
+  test:e2e > e.log 2>&1; E=$?; echo "UNIT=$U BUILD=$B E2E=$E"`. A green e2e after a failed build is
+  the specific lie to watch for — it happened once this run (`UNIT=0 BUILD=2 E2E=0`, three type
+  errors in a test file that `vitest` had run happily).
+- **`npx vitest run` does NOT type-check.** The build is the only thing that catches a wrong
+  signature in a test.
+- **A subagent WILL leave something behind.** Sweep `git status --porcelain --untracked-files=all`
+  and read `git diff` before every `git add`. Tell every agent to write probes under the scratchpad
+  and to `npx tsc --noEmit` before believing a mutation.
+- **A browser here cannot reach the deployed site** (`ERR_CONNECTION_RESET`); `curl` works through
+  the proxy. Walk the built export of the SHA you shipped and say that is what you did.
+- **Use `npm run serve:out`** for a manual walk — any static server with an `index.html` fallback
+  serves the analyze page for every route.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
-- **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
-  Opening the PR is what runs it, and it takes about 5 minutes.
-- **A `curl` to `api.github.com` cannot see this repository.** It is private, and the proxy carries
-  no credentials, so an unauthenticated check-runs poll returns nothing and a watcher built on it
-  waits forever while reporting nothing wrong — silence that looks exactly like "still running".
-  Read CI through the GitHub MCP tools (`pull_request_read` with `get_check_runs`), not `curl`.
-- **A subagent WILL leave a mutation in a tracked file.** One of this run's reviewers left
-  `if (false as boolean)` in a shipped parser and another left a probe at the repo root, both while
-  the main session was mid-gate. Sweep `git status --porcelain --untracked-files=all` and read
-  `git diff` before every `git add`, and stage explicit paths rather than `-A` while agents are
-  running.
+- **CI does not run on a working branch** — `test.yml` fires on push to `main` and on
+  `pull_request`. Opening the PR is what runs it; ~2 min for `frontend`, longer for `e2e`. Read it
+  through the GitHub MCP tools (`pull_request_read` with `get_check_runs`), never `curl` —
+  the repo is private and the proxy carries no credentials, so an unauthenticated poll returns
+  nothing and waits forever while reporting nothing wrong.
 
 ## Two things about this container that will otherwise cost you a session
 
@@ -296,58 +175,48 @@ It fires on GitHub's own squash-merge commits, because its rule expects a commit
 to the harness's vendor rather than to this project. Those commits are authored correctly, committed
 by GitHub, and signed by GitHub — check with `git cat-file commit <sha> | grep gpgsig`. Doing what it
 asks would write the forbidden vendor identity into every future commit and rewrite already-deployed
-history, and `git commit --amend` is blocked by the permission classifier here anyway. Verify and move
-on. (The identity it asks for is not written here on purpose: this file is committed, and quoting it
-to warn about it puts it in the repository just as surely as using it would.)
+history. Verify and move on.
 
-**Git identity is wrong out of the box.** A fresh container arrives with the harness vendor's name and
-`noreply@` address. Set `user.name` / `user.email` per-repo to
-`Neer Patel <135655563+nrdptel@users.noreply.github.com>` before the first commit and check
-`git log -1 --format='%an <%ae>'` afterwards. Signing is inherited and works (`gpg.format=ssh`).
+**Git identity is wrong out of the box**, as above. Check `git log -1 --format='%an <%ae>'` after your
+first commit. Signing is inherited and works (`gpg.format=ssh`).
 
 ## Pick up first, and why
 
-**`ROADMAP.md` is the queue, and D2 is SHIPPED. The next unstarted milestone is D3 — one flight can
-carry several recordings.** A flight flown on two altimeters should be one flight in the logbook,
-not two, counted once by the personal-best crowns.
+**`ROADMAP.md` is the queue. D1, D2 and D3 are SHIPPED; the next unstarted milestone is D4 — stitch
+per-stage logs into one composite flight.**
 
-D1 already left two of D3’s pieces named and measured, and they are the same defect twice: the
-logbook is keyed on FILES where it now needs to be keyed on FLIGHTS.
+D4 needs D3's recording dimension, which now exists — but read its note before scoping: nothing in
+`lib/` matches stitch, composite or per-stage, and `EventType` has no separation or second-ignition
+member. It needs a stated alignment method (a shared event, or overlapping wall clocks) and it must
+say which it used. **A wrong composite is the most damaging thing this product can produce, so the
+refusal path matters as much as the success path.**
 
-1. The logbook row carries the FILE’s apogee whichever flight is on screen.
-2. A comparison built from ids re-reads each flight whole, so a cropped flight joins a comparison
-   uncropped and disagrees with its own report.
+Two things D3 leaves that D4 will want:
 
-Both are in `BACKLOG.md` with the shape of the fix. The roadmap’s own note on D3 is worth heeding:
-the pivot is **not** to widen `RawFlight` — introduce a `Flight` that owns `recordings` and leave
-`RawFlight` as exactly what it is, one recording from one file through one parser, so no parser and
-no analysis input shape moves.
-
-Two smaller things this run leaves behind, both filed in `BACKLOG.md`:
-
-- **the Entacore files**, blocked on ground truth as described above — not on effort;
-- `lib/fileAccept.test.ts` sweeps parser sources for `endsWith('.ext')` to catch a picker that greys
-  out a format the app parses. The two new parsers detect on *content*, not on the extension, so the
-  sweep does not see them and `.eeprom` / `.rff` were added to the picker by hand. A content-detecting
-  parser is invisible to that guard.
+- **The corpus's `same_flight_group` column is NOT a same-flight signal**, and D4 is exactly where
+  someone will reach for it. It conflates three relations: independent instruments, the same
+  recording exported into two containers, and different STAGES of one launch. `iss-kairos` and
+  `iss-sg1.2` are staged flights sitting in that column — which makes them D4's fixtures, not D3's,
+  and `iss-sg1.2` (a TeleMega sustainer at 2,113 m beside two StratoLogger boosters at 465 m) is the
+  negative case for any automatic grouping.
+- **`RECON_GROUPS` in `lib/parsers/corpus.test.ts`** is the honest subset — 6 of the 15 declared
+  groups — and is where a staged-flight fixture's contract should sit beside its redundant-recording
+  cousins.
 
 `BACKLOG.md` is a defect ledger to file into and to screen for Sev-1s — not the plan. **There is no
 open Sev-1 as of this run.**
 
 ## The fixtures repo
 
-No commit there this run — the working tree is clean and the branch still sits on its previous run’s
-`4862db7`. Nothing changed a fixture’s contract: SEVEN fixtures changed what Debrief SAYS about them
-without changing what they are, and those contract updates live in `lib/parsers/corpus-overrides.json`
-in THIS repo, which is exactly what that file exists for — three AltOS `.eeprom` downloads and an
-RRC3 `.rff` that went from `kind: mapping` to a read flight with pinned apogee, and three Entacore
-raw files that went from `mapping` to a named refusal. **Remove those seven override entries once
-`debrief-fixtures` is re-cut**, or the corpus’s own `expected.json` and the override will drift.
+No commit there this run — the working tree is clean and the branch still sits on `55785b9`. Nothing
+changed a fixture's contract; D3 is a logbook capability and touched no parser, no analysis input
+shape and nothing under `lib/analyze`, `lib/flight` or `lib/parsers` except the test file.
+
+The seven `corpus-overrides.json` entries from the previous run are still there and still need
+removing **once `debrief-fixtures` is re-cut** — three AltOS `.eeprom` downloads and an RRC3 `.rff`
+that went from `kind: mapping` to a read flight, and three Entacore raw files that went from
+`mapping` to a named refusal.
 
 The split, printed by the suite rather than inferred: **`61 fixtures: 41 analysed, 0
-mapped-but-unanalysable, 9 parse-only, 11 rejected`**. Analysed rose from 37 (the three AltOS
-`.eeprom` downloads and the RRC3 `.rff`), rejected from 8 (the three Entacore raw files, now named
-rather than dropped into the mapper), and the mapped-but-unanalysable set is **empty** where it was
-seven. Both of the numbers the suite asserts — `analysed >= 41` and `steppedAround === 0` — are held
-there so a parser regression that put one back in the column mapper cannot pass as a still-green
-suite.
+mapped-but-unanalysable, 9 parse-only, 11 rejected`**, and 50 of them now carry a committed analysis
+digest.

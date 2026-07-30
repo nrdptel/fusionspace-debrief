@@ -5,6 +5,7 @@
 // private-mode or storage-blocked browsers just won't remember anything.
 
 import type { FlownAt } from './flight/flownAt';
+import { groupRecordings } from './flightGroups';
 
 export interface RecentMeta {
   id: string;
@@ -21,6 +22,19 @@ export interface RecentMeta {
   /** A free-text logbook note (motor, conditions, cert…). A noted flight is kept
    *  rather than pruned — it's a logbook entry, not just a recent. */
   note: string;
+  /** Which FLIGHT this recording belongs to, where the flyer has said that two files are one
+   *  flight flown on two altimeters.
+   *
+   *  A row is a FILE — that is what holds the text and the parser that read it — so a flight
+   *  recorded twice is two rows, and without this it is two flights in the list and two
+   *  flights to everything that counts them. Absent on nearly every row, which is the point:
+   *  a flight recorded once costs one missing optional member and no code path at all.
+   *
+   *  Equal to this row's own id means this recording is the one the flight is REPORTED by;
+   *  any other id names the recording that is. `lib/flightGroups.ts` is the only thing that
+   *  reads it, and it is what stops "which flight" and "which recording speaks for it" from
+   *  ever being two facts that can disagree. */
+  flightId?: string;
 }
 
 export interface RecentFlight extends RecentMeta {
@@ -157,7 +171,112 @@ export interface SaveResult {
   forgotten: string[];
 }
 
-export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'note'>): Promise<SaveResult> {
+/** What a save takes: everything but the two the store owns and the note, which is only ever
+ *  the flyer's and is carried forward rather than passed. */
+export type IncomingFlight = Omit<RecentFlight, 'id' | 'addedAt' | 'note'>;
+
+/**
+ * The members of a stored flight that are the FILE'S. A save re-reads them, so the incoming
+ * value wins — a parser that has learned something since gives a better apogee, and a flight
+ * saved months ago should get it.
+ */
+type FromTheFile = 'id' | 'addedAt' | 'name' | 'formatLabel' | 'apogeeM' | 'maxVelocityMs' | 'flownAt' | 'text' | 'bytes' | 'mapping';
+
+/**
+ * The members that are the FLYER'S — things they decided ABOUT the file rather than things the
+ * file says. A save is a replace in place and REOPENING a flight is a save, so every one of
+ * these has to survive it or coming back to a flight throws away what the flyer wrote on it
+ * the second time rather than the first, which is the worst way to lose a thing.
+ */
+const FLYER_OWNED = ['note', 'summaryText', 'caption', 'read', 'flightId'] as const;
+type FlyerOwned = (typeof FLYER_OWNED)[number];
+
+/**
+ * Every member of `RecentFlight` is one or the other, and this stops compiling when a new one
+ * is neither.
+ *
+ * The list-it-twice failure has now cost this file four members — the report caption, the
+ * chosen stretch, the file's own bytes, and the stretch AGAIN on the reopen path, where it
+ * survived one reload and vanished on the second because `saveRecent` carried three named
+ * members forward and `read` was not one of them. `serializeLogbook`'s round-trip is pinned by
+ * a `Required<RecentFlight>` fixture for the same reason; this is that guard for the other
+ * rebuild, and neither can be satisfied by remembering.
+ */
+type Unclassified = Exclude<keyof RecentFlight, FromTheFile | FlyerOwned>;
+const _everyMemberIsClassified: Unclassified extends never ? true : ['unclassified member of RecentFlight', Unclassified] = true;
+void _everyMemberIsClassified;
+
+/**
+ * What to store when this file is already in the logbook: the fresh read of the file, plus
+ * everything the flyer decided about it.
+ *
+ * Pure, and exported, so the rule is a unit test rather than a hope — `saveRecent` itself can
+ * only be exercised through a browser, which is exactly how the crop came to be lost with a
+ * green suite. `dups` is every stored row that is this same file (a save replaces in place and
+ * deletes any extras); the flyer's members come from the NEWEST of them, as a set — see below
+ * for why not "from whichever copy has it".
+ */
+export function replaceInPlace(rec: IncomingFlight, dups: RecentFlight[]): Omit<RecentFlight, 'id' | 'addedAt'> {
+  // The NEWEST stored copy of this file, and only that one. There is normally exactly one — a
+  // save deletes the extras — but a restored backup can bring an older row for the same file
+  // back alongside a newer one, and then reading each member from "whichever copy has it" mixes
+  // two moments into a state that never existed: a crop the flyer cancelled and a caption they
+  // deleted come back on the next reopen, carried by the copy that predates the decision. That
+  // is the exact inverse of the loss this function exists to prevent, so the flyer's members are
+  // taken as a SET from the last state they left the file in.
+  const latest = dups.length ? dups.reduce((a, b) => (b.addedAt > a.addedAt ? b : a)) : undefined;
+  const inherited = <K extends FlyerOwned>(key: K): RecentFlight[K] | undefined => {
+    const incoming = (rec as Partial<RecentFlight>)[key];
+    if (incoming !== undefined && incoming !== '') return incoming as RecentFlight[K];
+    return latest?.[key];
+  };
+  return {
+    ...rec,
+    // Always a string: a flight with no note has '' rather than a missing member, and the
+    // logbook's prune reads it to decide what is kept.
+    note: inherited('note') ?? '',
+    ...(inherited('summaryText') ? { summaryText: inherited('summaryText')! } : {}),
+    ...(inherited('caption') ? { caption: inherited('caption')! } : {}),
+    ...(inherited('read') ? { read: inherited('read')! } : {}),
+    ...(inherited('flightId') ? { flightId: inherited('flightId')! } : {}),
+  };
+}
+
+/**
+ * Which stored rows this save pushes out — every noted flight kept (a logbook entry, capped to
+ * bound storage) and the most recent un-noted ones, with the incoming flight filling one slot.
+ *
+ * **Prunes by FLIGHT, not by row.** A flight flown on two altimeters occupies two rows, and
+ * pruning rows took them one at a time: the flight silently changed which recording reported it
+ * and the "N flights were forgotten" note named a file the flyer had never thought of as a
+ * flight. Worse, a note can only be written on the row the logbook SHOWS — the one that reports
+ * the flight — so a noted cert flight's backup recording counted as un-noted and was deleted
+ * for good while the flight itself was kept. A note keeps the flight, which means all of it.
+ *
+ * Pure and exported so this is a unit test rather than a browser-only path; `others` is every
+ * stored row except the ones the save is replacing. Returns the rows to delete, in the order
+ * they leave.
+ */
+export function planPrune(others: RecentFlight[]): RecentFlight[] {
+  const byFlight = new Map<string, RecentFlight[]>();
+  for (const r of others) {
+    const key = r.flightId || r.id;
+    const at = byFlight.get(key);
+    if (at) at.push(r);
+    else byFlight.set(key, [r]);
+  }
+  // A flight is as recent as its most recent recording, and noted if ANY recording is noted.
+  const flights = [...byFlight.values()]
+    .map((recordings) => ({ recordings, addedAt: Math.max(...recordings.map((r) => r.addedAt)), noted: recordings.some((r) => r.note) }))
+    .sort((a, b) => b.addedAt - a.addedAt);
+  const drop = [
+    ...flights.filter((f) => !f.noted).slice(MAX - 1),
+    ...flights.filter((f) => f.noted).slice(NOTED_MAX),
+  ];
+  return drop.flatMap((f) => f.recordings);
+}
+
+export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
   let savedId: string | null = null;
   const forgotten: string[] = [];
   try {
@@ -170,19 +289,11 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
     store.transaction.onerror = (e) => e.preventDefault();
     store.transaction.onabort = (e) => e.preventDefault();
 
-    // Replace any earlier copy of the same file, but carry its note forward so a
-    // re-open doesn't wipe the logbook entry.
-    const inheritedNote = all.find((r) => isDup(r) && r.note)?.note ?? '';
-    // …and the same for the device summary it was paired with. Re-opening a flight saves it
-    // again, and this replace-in-place is what a save IS, so anything the flyer's earlier
-    // drop established has to survive it or reopening a paired flight would silently
-    // un-pair it — the second time, not the first, which is the worst way to lose a thing.
-    const inheritedSummary = rec.summaryText ?? all.find((r) => isDup(r) && r.summaryText)?.summaryText;
-    // …and the label and notes the flyer typed onto the report, for exactly the reason above.
-    // A save is a replace in place, and REOPENING a flight is a save — so without this, coming
-    // back to a flight wiped the two things on that screen the flyer had written themselves,
-    // the second time rather than the first.
-    const inheritedCaption = all.find((r) => isDup(r) && r.caption)?.caption;
+    // Replace any earlier copy of the same file, carrying everything the FLYER decided about
+    // it forward — the note, the summary it was paired with, the report caption, the stretch
+    // they chose, and which flight it is a recording of. The rule lives in `replaceInPlace`
+    // above rather than as a list here, because a list here is what lost the crop.
+    const dups = all.filter(isDup);
     // KEEP the id when this file is already in the logbook. A logbook id is an ADDRESS —
     // `/?open=<id>` is the report's, and `/compare?ids=a,b,c` names a comparison's flights —
     // and minting a fresh one on every save quietly broke both. Measured: two flights
@@ -194,28 +305,20 @@ export async function saveRecent(rec: Omit<RecentFlight, 'id' | 'addedAt' | 'not
     const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     for (const r of all) if (isDup(r) && r.id !== id) store.delete(r.id);
     store.put({
-      ...rec,
-      note: inheritedNote,
-      ...(inheritedSummary ? { summaryText: inheritedSummary } : {}),
-      ...(inheritedCaption ? { caption: inheritedCaption } : {}),
+      ...replaceInPlace(rec, dups),
       id,
       addedAt: Date.now(),
     });
     savedId = id;
 
-    // Prune: keep every noted flight (a logbook entry, capped to bound storage),
-    // and the most recent un-noted ones — the new flight fills one of those slots.
-    const others = all.filter((r) => !isDup(r)).sort((a, b) => b.addedAt - a.addedAt);
-    const noted = others.filter((r) => r.note);
-    const unnoted = others.filter((r) => !r.note);
-    for (const r of unnoted.slice(MAX - 1)) {
-      store.delete(r.id);
-      forgotten.push(r.name);
-    }
-    for (const r of noted.slice(NOTED_MAX)) {
-      store.delete(r.id);
-      forgotten.push(r.name);
-    }
+    // Deleted by recording; NAMED by flight. A two-altimeter flight leaving the window is one
+    // flight forgotten, and saying "2 flights were forgotten" while naming two files is the
+    // same conflation `planPrune` exists to end, one layer up. The flight is named by the
+    // recording that reports it, which is the name the logbook was showing.
+    const dropped = planPrune(all.filter((r) => !isDup(r)));
+    const droppedIds = new Set(dropped.map((r) => r.id));
+    for (const r of dropped) store.delete(r.id);
+    for (const g of groupRecordings(dropped)) if (droppedIds.has(g.primary.id)) forgotten.push(g.primary.name);
   } catch {
     /* storage unavailable — just don't remember */
   }
@@ -286,24 +389,90 @@ export async function saveCaption(id: string, caption: { label: string; notes: s
   }
 }
 
+/**
+ * Say which flight each of these rows is a recording of — or, with `flightId: null`, that each
+ * is a flight of its own again.
+ *
+ * One pass over the store for the whole set, because a grouping is a single statement about
+ * several rows: writing them one at a time would leave a half-joined flight on screen if the
+ * tab closed in between.
+ *
+ * Each row is read and written back INSIDE the one read-write transaction, from its `get`
+ * callback rather than across an `await`. Two reasons, and both have teeth: an IndexedDB
+ * transaction goes inactive the moment control returns to the event loop, so a read-await-write
+ * loop commits early and drops the rest of the set; and reading in a separate, already-committed
+ * transaction means writing the WHOLE record back from a stale snapshot, which silently reverts
+ * any note, caption or crop that landed in between — and every one of those writers is
+ * fire-and-forget from a click.
+ */
+export async function setFlightIds(changes: { id: string; flightId: string | null }[]): Promise<void> {
+  if (changes.length === 0) return;
+  try {
+    const db = await idb();
+    const store = tx(db, 'readwrite');
+    store.transaction.onerror = (e) => e.preventDefault();
+    for (const { id, flightId } of changes) {
+      const req = store.get(id) as IDBRequest<RecentFlight>;
+      req.onsuccess = () => {
+        const rec = req.result;
+        if (!rec) return;
+        const next = { ...rec };
+        if (flightId) next.flightId = flightId;
+        else delete next.flightId;
+        // Same transaction, issued from the read's own callback, so it stays active.
+        store.put(next);
+      };
+    }
+    // Resolve when the transaction has COMMITTED, not when the puts have been issued. Every
+    // other writer here is fire-and-forget from a click, but this one is followed by a reload
+    // in the one journey that matters — the flyer says which recording reports the flight and
+    // comes back to check — and an uncommitted transaction is discarded when the page goes
+    // away. Measured: the grouping was on screen, survived a refresh of the list, and was back
+    // to its previous state after a reload.
+    await new Promise<void>((resolve) => {
+      store.transaction.oncomplete = () => resolve();
+      store.transaction.onabort = (e) => {
+        e.preventDefault();
+        resolve();
+      };
+    });
+  } catch {
+    /* storage unavailable — the logbook simply doesn't remember the grouping */
+  }
+}
+
+/**
+ * A stored flight reduced to what the LIST needs — everything but the file itself.
+ *
+ * The THIRD place every member of a row has to be named, after `serializeLogbook`'s round-trip
+ * and `replaceInPlace`'s from-the-file / flyer-owned split. Forgetting a member here is the
+ * quietest of the three failures: the value is stored, survives a backup, and is simply
+ * invisible to every surface — nothing throws and no test fails, because this only ever runs
+ * against a browser's IndexedDB. Pure and exported so it doesn't.
+ */
+export function toMeta(rec: RecentFlight): RecentMeta {
+  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note, flownAt, flightId } = rec;
+  return {
+    id,
+    name,
+    formatLabel,
+    addedAt,
+    apogeeM,
+    // Older records predate these fields — treat them as "unknown"/empty.
+    maxVelocityMs: maxVelocityMs ?? null,
+    note: note ?? '',
+    // Only where the file stated it; entries saved before this was read have none.
+    ...(flownAt ? { flownAt } : {}),
+    // Only where the flyer has said this file is one recording of a flight that has several.
+    ...(flightId ? { flightId } : {}),
+  };
+}
+
 export async function listRecents(): Promise<RecentMeta[]> {
   try {
     const db = await idb();
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
-    return all
-      .sort((a, b) => b.addedAt - a.addedAt)
-      .map(({ id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note, flownAt }) => ({
-        id,
-        name,
-        formatLabel,
-        addedAt,
-        apogeeM,
-        // Older records predate these fields — treat them as "unknown"/empty.
-        maxVelocityMs: maxVelocityMs ?? null,
-        note: note ?? '',
-        // Only where the file stated it; entries saved before this was read have none.
-        ...(flownAt ? { flownAt } : {}),
-      }));
+    return all.sort((a, b) => b.addedAt - a.addedAt).map(toMeta);
   } catch {
     return [];
   }
@@ -436,6 +605,10 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // told their flight log is not a flight log — on the one path that exists to move a
     // logbook to another machine.
     ...(bytesOf(r.bytesB64) ? { bytes: bytesOf(r.bytesB64)! } : {}),
+    // …and which flight this file is a recording OF. A backup that drops it restores a
+    // two-altimeter flight as two flights, silently — the same class of loss as the caption
+    // and the chosen stretch, and the reason the fixture above is `Required<RecentFlight>`.
+    ...(typeof r.flightId === 'string' && r.flightId ? { flightId: r.flightId } : {}),
   };
 }
 

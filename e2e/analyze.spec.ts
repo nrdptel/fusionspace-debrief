@@ -1559,6 +1559,19 @@ test('a flyer can say which stretch of a record is their flight, and the analysi
   await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('[data-reading="Apogee"]')).toContainText(/2,9\d\d ft|3,0\d\d ft/);
 
+  // …and the reload AFTER that one, which is the reload that used to lose it. Reopening a
+  // flight is itself a save, and the save carried three named members forward with `read` not
+  // among them — so the crop survived being read back in and was wiped on the way out. One
+  // reload proved nothing; the flyer found out on the second visit, silently, with a launch-day
+  // record back to reporting a flight time that spans two flights.
+  await page.waitForTimeout(600);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/You chose the stretch Debrief read/), 'the crop survives a SECOND reopen').toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.locator('[data-reading="Apogee"]')).toContainText(/2,9\d\d ft|3,0\d\d ft/);
+
   // And reading the whole file again forgets it, rather than leaving a crop the flyer
   // cancelled to come back on the next reload.
   await page.getByRole('button', { name: 'Read the whole file' }).click();
@@ -1567,4 +1580,164 @@ test('a flyer can say which stretch of a record is their flight, and the analysi
   await page.reload();
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden();
+});
+
+test('two altimeters on one flight are one flight in the logbook, counted once', async ({ page }) => {
+  // A rocket flown with two altimeters — a Blue Raven and a Featherweight GPS recording the
+  // SAME flight — plus a flight from another day. The two recordings disagree slightly, the
+  // way two real instruments do, and that is the point: neither reading is thrown away and
+  // neither is averaged into the other.
+  const fx = (n: string) => path.join(__dirname, '../lib/parsers/__fixtures__/', n);
+
+  await page.goto('/');
+  // Read one at a time, which is what a flyer with two cards actually does: open the primary,
+  // read it, open the backup, read it — and only then notice they are the same launch.
+  for (const file of ['blueraven-app-lr.csv', 'featherweight-gps.csv', 'altusmetrum-telemetrum.csv']) {
+    await page.getByLabel('Choose a flight log file').setInputFiles(fx(file));
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+
+  // Direct children only: a flight that carries several recordings nests a list of them, and
+  // those are rows about a recording rather than rows about a flight.
+  const logbook = page.getByRole('list', { name: 'Your flights' });
+  const flightRows = logbook.locator('> li');
+  await expect(flightRows).toHaveCount(3, { timeout: 20_000 });
+
+  // Three files, three flights — and the two recordings of one launch each carry their own
+  // reading and their own row.
+  const primaryRow = flightRows.filter({ hasText: 'blueraven-app-lr.csv' });
+  await expect(primaryRow).toHaveCount(1);
+
+  // The flyer says the two are one flight.
+  await logbook.getByLabel(/Select blueraven-app-lr\.csv to compare/).check();
+  await logbook.getByLabel(/Select featherweight-gps\.csv to compare/).check();
+  const join = page.getByRole('button', { name: 'These 2 are one flight' });
+  await expect(join).toBeVisible();
+  await join.click();
+
+  // One flight where there were two, and the other day is untouched.
+  await expect(flightRows).toHaveCount(2, { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toBeVisible();
+
+  // Both recordings are still there, each with what IT read — no mean, no maximum.
+  const recordings = page.getByRole('list', { name: /^Recordings of / });
+  await expect(page.getByText('reports this flight')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'report by this one' })).toBeVisible();
+  await expect(recordings.getByRole('button', { name: 'featherweight-gps.csv' })).toBeVisible();
+
+  // …and the ★ is awarded over FLIGHTS now, so a launch that happened once cannot hold more
+  // than one of each crown.
+  await expect(logbook.getByText('highest,')).toHaveCount(1);
+  await expect(logbook.getByText('fastest,').or(logbook.getByText('nothing-here'))).toHaveCount(1);
+
+  // Which recording reports the flight is the flyer's call, not Debrief's. Read which one it
+  // started as rather than assuming — the join hands it to the first of the ticked rows in the
+  // order they are on screen, and that order is the flyer's sort, not a fact about the files.
+  const disclosureLabel = async () => (await page.getByRole('button', { name: /^Recorded 2 times/ }).textContent()) ?? '';
+  const reportedFirst = /featherweight-gps/.test(await disclosureLabel()) ? 'featherweight-gps.csv' : 'blueraven-app-lr.csv';
+  const reportedAfter = reportedFirst === 'featherweight-gps.csv' ? 'blueraven-app-lr.csv' : 'featherweight-gps.csv';
+  await page.getByRole('button', { name: 'report by this one' }).click();
+  await expect(page.getByRole('button', { name: new RegExp(`Recorded 2 times — reported by ${reportedAfter.replace('.', '\\.')}`) })).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // It survives a reload — a flyer's own statement about their own flight is not a view state,
+  // and it must not be undone by the reopen the reload itself performs.
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(2, { timeout: 20_000 });
+  await expect(
+    page.getByRole('button', { name: new RegExp(`Recorded 2 times — reported by ${reportedAfter.replace('.', '\\.')}`) }),
+  ).toBeVisible();
+
+  // The whole thing exists on a phone, and every control on it is a real touch target. A
+  // capability that renders on a wide screen and simply is not there on a narrow one is the
+  // standing tell this walk exists to catch — and the 44 px floor comes from a
+  // `pointer: coarse` rule, so it can only be measured at a phone's viewport.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const disclosure = page.getByRole('button', { name: /Recorded 2 times/ });
+  await expect(disclosure).toBeVisible();
+  await disclosure.click();
+  const separate = page.getByRole('button', { name: 'Separate these into 2 flights' });
+  for (const [what, locator] of [
+    ['the recordings disclosure', disclosure],
+    ['a recording’s own row', page.getByRole('list', { name: /^Recordings of / }).getByRole('button', { name: 'blueraven-app-lr.csv' })],
+    ['the way back out', separate],
+  ] as const) {
+    const box = await locator.first().boundingBox();
+    expect(box, `${what} has a box on a phone`).toBeTruthy();
+    expect(box!.height, `${what} clears the 44 px touch floor`).toBeGreaterThanOrEqual(44);
+  }
+
+  // The REPORT says which recording these readings are, and reaches the other one in a click.
+  // Every headline figure on that page is one instrument reading the flight; a cert write-up
+  // quoting an apogee has to be able to say which.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole('list', { name: /^Recordings of / }).getByRole('button', { name: reportedAfter }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  const strip = page.getByRole('region', { name: '2 recordings of this flight' });
+  await expect(strip).toBeVisible();
+  await expect(strip).toContainText('never averaged together');
+  await expect(strip.getByRole('button', { name: new RegExp(`${reportedAfter.replace('.', '\\.')} · reading`) })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  // The card marking where you are stays in the tab order. `disabled` would take the only
+  // "you are here" marker in the strip out of it, so a keyboard user could reach every
+  // recording except the one they are reading.
+  const hereCard = strip.getByRole('button', { name: new RegExp(`${reportedAfter.replace('.', '\\.')} · reading`) });
+  await expect(hereCard).toHaveAttribute('aria-disabled', 'true');
+  await hereCard.focus();
+  await expect(hereCard).toBeFocused();
+
+  // …and the OTHER recording is one click away, with its own reading.
+  await strip.getByRole('button', { name: new RegExp(reportedFirst.replace('.', '\\.')) }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole('region', { name: '2 recordings of this flight' }).getByRole('button', { name: new RegExp(`${reportedFirst.replace('.', '\\.')} · reading`) }),
+  ).toHaveAttribute('aria-current', 'true');
+
+  await page.goto('/');
+  await expect(page.getByRole('list', { name: 'Your flights' })).toBeVisible({ timeout: 20_000 });
+
+  // A note is the FLIGHT's, and survives handing the flight to the other recording. It is
+  // written on the row, and the row moves when the reporting recording changes — so without
+  // this the note a flyer typed disappears off the screen with nothing saying where it went,
+  // while the prune that keeps a noted flight is still reading it.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // On the GROUPED flight's row specifically — the note has to survive that row moving.
+  const groupedRow = flightRows.filter({ hasText: 'Recorded 2 times' });
+  await expect(groupedRow).toHaveCount(1);
+  await groupedRow.getByRole('button', { name: /note for/ }).click();
+  await groupedRow.getByRole('textbox', { name: /^Note for/ }).fill('L2 cert, M1297');
+  await groupedRow.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(groupedRow.getByText('L2 cert, M1297')).toBeVisible();
+  await page.getByRole('button', { name: /^Recorded 2 times/ }).click();
+  await page.getByRole('button', { name: 'report by this one' }).click();
+  await expect(page.getByRole('button', { name: new RegExp(`reported by ${reportedFirst.replace('.', '\\.')}`) })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(
+    flightRows.filter({ hasText: 'Recorded 2 times' }).getByText('L2 cert, M1297'),
+    'the note followed the flight',
+  ).toBeVisible();
+
+  // And there is a way back out.
+  await page.getByRole('button', { name: /^Recorded 2 times/ }).click();
+  await separate.click();
+  await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(3, { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toBeHidden();
+
+  // ✕ on a flight row takes the FLIGHT — every recording of it. Taking only the recording that
+  // reports it deleted one file for good and left the flight on screen under the surviving
+  // instrument's name: the flyer aimed at a flight, lost a file, and saw the row stay.
+  await logbook.getByLabel(/Select blueraven-app-lr\.csv to compare/).check();
+  await logbook.getByLabel(/Select featherweight-gps\.csv to compare/).check();
+  await page.getByRole('button', { name: 'These 2 are one flight' }).click();
+  await expect(flightRows).toHaveCount(2, { timeout: 10_000 });
+  await page.getByRole('button', { name: /Remove .* and its other recording from recent flights/ }).click();
+  await expect(flightRows).toHaveCount(1, { timeout: 10_000 });
+  await expect(logbook).toContainText('altusmetrum-telemetrum.csv');
+  await expect(logbook).not.toContainText('blueraven-app-lr.csv');
+  await expect(logbook).not.toContainText('featherweight-gps.csv');
 });

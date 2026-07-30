@@ -7,6 +7,7 @@ import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX } from '@/lib/recents';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
+import { groupRecordings, planGrouping, planJoin, planSeparation, type FlightGroup } from '@/lib/flightGroups';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 
@@ -50,6 +51,7 @@ export default function RecentFlights({
   onNote,
   onExport,
   onImport,
+  onGroup,
   forgotten = [],
   onDismissForgotten,
 }: {
@@ -62,6 +64,9 @@ export default function RecentFlights({
   onNote: (id: string, note: string) => void;
   onExport: () => void | Promise<number>;
   onImport: (file: File) => Promise<number>;
+  /** Say which flight some rows are recordings of — the flyer's own statement that two files
+   *  are one flight flown on two altimeters, or (with `flightId: null`) that they are not. */
+  onGroup: (changes: { id: string; flightId: string | null }[]) => void | Promise<void>;
   /** Flights the last drop pushed out to make room. Named rather than left to be noticed by
    *  counting — a launch day's folder is most of the un-noted window, so the third day used
    *  to quietly eat the first. */
@@ -77,6 +82,9 @@ export default function RecentFlights({
   const [importMsg, setImportMsg] = useState('');
   const [copyMsg, setCopyMsg] = useState('');
   const [exportMsg, setExportMsg] = useState('');
+  /** Which flights have their recordings showing. A flight recorded once has nothing to show,
+   *  so this is empty for nearly every logbook. */
+  const [opened, setOpened] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
   const clearRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -117,9 +125,15 @@ export default function RecentFlights({
     setEditingId(null);
   };
 
-  // Drop a selected id once its flight leaves the list, so the cap math (which
-  // counts the raw set) can't drift out of step with what's actually selectable.
-  const presentKey = recents.map((r) => r.id).join(',');
+  // Drop a selected id once its FLIGHT leaves the list, so the cap math (which counts the raw
+  // set) can't drift out of step with what's actually selectable. Keyed on the flights the list
+  // shows rather than on the rows the logbook holds: a tick outlives its row when the flyer
+  // nominates a different recording — the row moves to that recording's id and the old one
+  // becomes a hidden recording — and the header went on counting a tick nobody could see or
+  // untick.
+  const presentKey = groupRecordings(recents)
+    .map((g) => g.id)
+    .join(',');
   useEffect(() => {
     const ids = new Set(presentKey ? presentKey.split(',') : []);
     setSelected((prev) => {
@@ -171,11 +185,39 @@ export default function RecentFlights({
   const chosen = [...selected].filter((id) => present.has(id));
   const atCap = chosen.length >= MAX_COMPARE;
 
-  const ordered = sortRecents(filterRecents(recents, query), sort);
+  // The list shows FLIGHTS, not files. A flyer with a primary and a backup altimeter brings
+  // home two recordings of one flight, and once they have said so this is one row with its
+  // recordings underneath — counted once, sorted once, crowned once.
+  const flights = groupRecordings(recents);
+  const flightById = new Map(flights.map((g) => [g.id, g]));
+  /** Which flight each row belongs to, so a search that matches a SECONDARY recording still
+   *  finds the flight. Searching "1785" for the backup altimeter's file should not come back
+   *  empty because the flight is reported by 1784. */
+  const flightOfRow = new Map<string, string>();
+  for (const g of flights) for (const r of g.recordings) flightOfRow.set(r.id, g.id);
+
+  const matched = filterRecents(recents, query);
+  const matchedFlights = new Set(matched.map((r) => flightOfRow.get(r.id)!));
+  /** Flights the search found only through a recording that is not the one on the row. Their
+   *  recordings are shown open, because a result whose visible row contains nothing the flyer
+   *  typed reads as a broken search. */
+  const matchedInside = new Set(
+    matched.filter((r) => flightOfRow.get(r.id) !== r.id).map((r) => flightOfRow.get(r.id)!),
+  );
+  const ordered = sortRecents(
+    flights.filter((g) => matchedFlights.has(g.id)).map((g) => g.primary),
+    sort,
+  );
+  const groupOfRow = (r: RecentMeta): FlightGroup => flightById.get(r.id) ?? { id: r.id, primary: r, recordings: [r] };
   // Crowned against the whole logbook, not the filtered view: a personal best is a best
   // whether or not the search happens to be showing the flight it beat.
   const bests = personalBests(recents);
-  const searchable = recents.length >= SEARCH_FROM;
+  /** The ticked FLIGHTS. Only a flight row carries a tick, but a tick can outlive its row —
+   *  nominating a different recording moves the row to another id — so this is filtered to
+   *  what is actually on screen rather than to what is merely still in the logbook. */
+  const chosenFlights = chosen.filter((id) => flightById.has(id));
+  const canJoin = chosenFlights.length >= 2;
+  const searchable = flights.length >= SEARCH_FROM;
   const filtering = searchable && query.trim().length > 0;
 
   // Two flights CAN now share a file name — plenty of loggers write every export under one
@@ -183,8 +225,26 @@ export default function RecentFlights({
   // them. The row already paints what tells them apart; its three controls named the flight
   // by file name alone, which left a screen reader three pairs of identically-named buttons
   // that do different things. Only the repeated names pay for the longer label.
-  const rowNames = logbookRowNames(recents, (m) => fmtLength(m, sys), relativeTime);
+  // Named over the flights the list SHOWS, not over every row the logbook holds. Four
+  // identically-named AltimeterCloud files that are one flight paint one row; disambiguating
+  // against all four qualified that row with an apogee from a recording that is not on screen,
+  // and numbered it "1 of 2" against a second row nobody could see.
+  const rowNames = logbookRowNames(flights.map((g) => g.primary), (m) => fmtLength(m, sys), relativeTime);
   const rowName = (r: RecentMeta) => rowNames.get(r.id) ?? r.name;
+
+  /** A note belongs to the FLIGHT, and the flyer writes it on the row. Nominating a different
+   *  recording moves the row, so a note written before that would simply vanish from the screen
+   *  with nothing saying where it went — and the prune, which keeps a noted flight, would still
+   *  be reading it. So the row shows whichever recording carries one, preferring the one that
+   *  reports the flight, and ✎ edits THAT recording rather than always the primary. */
+  const noteOf = (g: FlightGroup): { id: string; note: string } => {
+    const holder = g.recordings.find((r) => r.note) ?? g.primary;
+    return { id: holder.id, note: holder.note };
+  };
+  /** A flight is un-noted only when none of its recordings carries a note — the same rule the
+   *  prune keeps a flight by. Counting rows charged a two-altimeter flight two slots of a
+   *  window the heading states as twelve FLIGHTS. */
+  const flightNotes = flights.map((g) => noteOf(g).note);
 
   // The logbook as a table, on the clipboard. Everything here could already be DOWNLOADED as a
   // backup, and for a while that was the whole answer — but a backup is a restore file, not a
@@ -197,13 +257,28 @@ export default function RecentFlights({
   // that is the selection the flyer just made, and copying a different set than the one they
   // are looking at is its own small betrayal.
   const copyLogbook = async () => {
-    const header = ['Flight', 'Logger', 'When', `Apogee (${sys === 'metric' ? 'm' : 'ft'})`, `Max speed (${sys === 'metric' ? 'm/s' : 'ft/s'})`, 'Note'];
+    // A flight recorded twice is one row here, like it is on screen. The Flight column already
+    // names the recording the figures are read from — that is what the row IS — so the extra
+    // columns say what a cert document cannot get from it: how many instruments recorded this
+    // flight, and which ones are not the one quoted. They only appear when a flight on screen
+    // actually has more than one recording; nobody else pays for them.
+    const anyGrouped = ordered.some((r) => groupOfRow(r).recordings.length > 1);
+    const header = [
+      'Flight',
+      'Logger',
+      'When',
+      `Apogee (${sys === 'metric' ? 'm' : 'ft'})`,
+      `Max speed (${sys === 'metric' ? 'm/s' : 'ft/s'})`,
+      ...(anyGrouped ? ['Recordings', 'Also recorded by'] : []),
+      'Note',
+    ];
     const rows = ordered.map((r) => [
       r.name,
       r.formatLabel,
       r.flownAt ? formatFlownAt(r.flownAt) : `opened ${relativeTime(r.addedAt)}`,
       r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—',
       r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—',
+      ...(anyGrouped ? [String(groupOfRow(r).recordings.length), groupOfRow(r).recordings.slice(1).map((x) => x.name).join('; ')] : []),
       r.note,
     ]);
     const ok = await copyTable(header, rows);
@@ -226,10 +301,10 @@ export default function RecentFlights({
   // How much of the un-noted window is spoken for. A noted flight is a logbook entry and is
   // kept, so it doesn't count against this — which is exactly the thing worth knowing before
   // the next launch day fills the rest.
-  const unnoted = recents.filter((r) => !r.note).length;
+  const unnoted = flightNotes.filter((n) => !n).length;
   // The ones a flyer deliberately kept. Counted so the Clear confirm can say they go too —
   // "kept for good" is a rule about the PRUNE, and an explicit Clear takes them anyway.
-  const noted = recents.length - unnoted;
+  const noted = flights.length - unnoted;
   const nearlyFull = unnoted >= UNNOTED_MAX - 2;
 
   return (
@@ -289,6 +364,30 @@ export default function RecentFlights({
               className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-indigo-500"
             >
               Compare {chosen.length} flights
+            </button>
+          )}
+          {/* Two files, one flight. The alternative a redundant-altimeter flyer has today is
+              two logbook entries for a flight they flew once — sorted apart, crowned apart,
+              and counted twice by anything that counts flights. Only offered where the ticked
+              rows are separate flights, so it never appears as a no-op. The order they are in
+              on screen decides which reports the flight, and the row says so and can change
+              it — Debrief does not pick a winner between two instruments. */}
+          {canJoin && (
+            <button
+              type="button"
+              onClick={async () => {
+                // The whole rule lives in `planJoin`, so it is a unit test rather than a
+                // click-path: every recording of every ticked flight moves, and the flight is
+                // reported by the one opened first rather than the one that read highest.
+                const plan = planJoin(chosenFlights.map((id) => flightById.get(id)!));
+                await onGroup(plan);
+                setSelected(new Set());
+                if (plan.length) setOpened((prev) => new Set([...prev, plan[0].flightId]));
+              }}
+              title="Two altimeters, one flight — keep them as one logbook entry, each recording still read on its own"
+              className="rounded-md border border-indigo-500 px-2.5 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+            >
+              These {chosenFlights.length} are one flight
             </button>
           )}
           <button
@@ -359,19 +458,19 @@ export default function RecentFlights({
         >
           <p>
             <strong className="font-medium">
-              Delete {recents.length === 1 ? 'the one flight' : `all ${recents.length} flights`} on this
+              Delete {flights.length === 1 ? 'the one flight' : `all ${flights.length} flights`} on this
               device?
             </strong>{' '}
             {noted > 0 && (
               <>
-                {noted === recents.length
-                  ? recents.length === 1
+                {noted === flights.length
+                  ? flights.length === 1
                     ? 'It has a note, and a note does not save it here.'
                     : 'All of them have notes, and a note does not save them here.'
                   : `${noted === 1 ? 'One of them has a note' : `${noted} of them have notes`}, and a note does not save ${noted === 1 ? 'it' : 'them'} here.`}{' '}
               </>
             )}
-            {recents.length === 1 ? 'Its' : 'Their'} file text, notes, report labels and any column
+            {flights.length === 1 ? 'Its' : 'Their'} file text, notes, report labels and any column
             mappings you made go too, and this cannot be undone.
           </p>
           {exportMsg && <p className="mt-1 font-medium">{exportMsg}</p>}
@@ -414,7 +513,7 @@ export default function RecentFlights({
               }}
               className="min-h-11 rounded-md bg-red-600 px-2.5 py-1 font-medium text-white transition hover:bg-red-500 sm:min-h-0"
             >
-              Delete {recents.length === 1 ? 'it' : `all ${recents.length}`}
+              Delete {flights.length === 1 ? 'it' : `all ${flights.length}`}
             </button>
           </div>
         </div>
@@ -435,13 +534,13 @@ export default function RecentFlights({
           />
           {filtering && (
             <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400" role="status">
-              {ordered.length} of {recents.length}
+              {ordered.length} of {flights.length}
             </span>
           )}
         </div>
       )}
 
-      {recents.length > 1 && (
+      {flights.length > 1 && (
         <div className="mt-3 flex items-center gap-2">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sort by</span>
           {SORTS.map((s) => (
@@ -468,11 +567,18 @@ export default function RecentFlights({
           const isSel = selected.has(r.id);
           const isApogeeBest = r.id === bests.apogeeId;
           const isSpeedBest = r.id === bests.speedId;
+          const group = groupOfRow(r);
+          const others = group.recordings.slice(1);
+          // Open when the flyer opened it, and open when the SEARCH found this flight only
+          // through one of the recordings underneath — a result whose visible row contains
+          // nothing they typed reads as a broken search.
+          const showing = opened.has(group.id) || matchedInside.has(group.id);
+          const note = noteOf(group);
           return (
             <li
               key={r.id}
               className={`group rounded-lg border bg-white transition hover:border-indigo-400 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60 ${
-                r.note
+                note.note
                   ? 'border-zinc-200 border-l-2 border-l-indigo-400 dark:border-zinc-800 dark:border-l-indigo-500/60'
                   : 'border-zinc-200 dark:border-zinc-800'
               }`}
@@ -548,27 +654,35 @@ export default function RecentFlights({
                 </button>
                 <button
                   type="button"
-                  onClick={() => startEdit(r.id, r.note)}
-                  aria-label={`${r.note ? 'Edit' : 'Add'} note for ${rowName(r)}`}
-                  title={r.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
+                  onClick={() => startEdit(note.id, note.note)}
+                  aria-label={`${note.note ? 'Edit' : 'Add'} note for ${rowName(r)}`}
+                  title={note.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 ${
-                    r.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                    note.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   }`}
                 >
                   ✎
                 </button>
+                {/* Removes the FLIGHT — every recording of it. Taking only the recording that
+                    reports the flight deleted one file for good and left the flight on screen
+                    under the surviving instrument's name, so the flyer aimed at a flight, lost a
+                    file, and saw the row stay. */}
                 <button
                   type="button"
-                  onClick={() => onRemove(r.id)}
-                  aria-label={`Remove ${rowName(r)} from recent flights`}
-                  title="Remove"
+                  onClick={() => group.recordings.forEach((rec) => onRemove(rec.id))}
+                  aria-label={
+                    others.length > 0
+                      ? `Remove ${rowName(r)} and its ${others.length === 1 ? 'other recording' : `${others.length} other recordings`} from recent flights`
+                      : `Remove ${rowName(r)} from recent flights`
+                  }
+                  title={others.length > 0 ? `Remove this flight — all ${group.recordings.length} recordings` : 'Remove'}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 >
                   ✕
                 </button>
               </div>
 
-              {editingId === r.id ? (
+              {editingId === note.id ? (
                 <div className="flex items-center gap-2 px-3 pb-2">
                   <input
                     type="text"
@@ -580,7 +694,7 @@ export default function RecentFlights({
                       if (e.key === 'Enter') saveEdit();
                       else if (e.key === 'Escape') setEditingId(null);
                     }}
-                    aria-label={`Note for ${r.name}`}
+                    aria-label={`Note for ${rowName(r)}`}
                     placeholder="Motor, conditions, cert… (kept as a logbook entry)"
                     className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                   />
@@ -600,15 +714,109 @@ export default function RecentFlights({
                   </button>
                 </div>
               ) : (
-                r.note && (
+                note.note && (
                   <button
                     type="button"
-                    onClick={() => startEdit(r.id, r.note)}
+                    onClick={() => startEdit(note.id, note.note)}
                     className="block w-full px-3 pb-2 text-left text-xs italic text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
                   >
-                    {r.note}
+                    {note.note}
                   </button>
                 )
+              )}
+
+              {/* The other recordings of this flight. Nothing at all on a flight recorded once,
+                  which is nearly every row — the whole feature is invisible until a flyer says
+                  two files are one flight.
+
+                  Each is still a recording in its own right: openable, with its own reading and
+                  its own caveats. Two altimeters that measured one flight are two independent
+                  measurements that can disagree, so the row shows what each one read rather
+                  than a number Debrief made up out of both. */}
+              {others.length > 0 && (
+                <div className="border-t border-zinc-200 px-3 py-1.5 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setOpened((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(group.id)) next.delete(group.id);
+                      else next.add(group.id);
+                      return next;
+                    })}
+                    aria-expanded={showing}
+                    aria-controls={`recordings-${group.id}`}
+                    className="flex min-h-11 w-full items-center gap-1.5 text-left text-xs font-medium text-zinc-500 transition hover:text-zinc-800 sm:min-h-0 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    <span aria-hidden="true" className={`transition-transform ${showing ? 'rotate-90' : ''}`}>
+                      ›
+                    </span>
+                    Recorded {group.recordings.length} times — reported by{' '}
+                    <span className="font-mono break-all">{r.name}</span>
+                  </button>
+                  {showing && (
+                    <ul
+                      id={`recordings-${group.id}`}
+                      aria-label={`Recordings of ${rowName(r)}`}
+                      className="mb-1 space-y-1"
+                    >
+                      {group.recordings.map((rec) => {
+                        const isPrimary = rec.id === group.id;
+                        return (
+                          <li key={rec.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pl-4 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => onOpen(rec.id)}
+                              className="min-h-11 min-w-0 flex-1 text-left font-mono break-all text-zinc-700 hover:text-indigo-600 sm:min-h-0 dark:text-zinc-300 dark:hover:text-indigo-400"
+                            >
+                              {rec.name}
+                            </button>
+                            <span className="shrink-0 font-mono text-zinc-500 dark:text-zinc-400" title="What this recording read">
+                              {rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—'}
+                              {' · '}
+                              {rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—'}
+                            </span>
+                            {isPrimary ? (
+                              <span className="shrink-0 rounded border border-indigo-400 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-500/60 dark:text-indigo-300">
+                                reports this flight
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await onGroup(planGrouping(group.recordings.map((x) => x.id), rec.id));
+                                  // The flight's id IS its reporting recording's, so nominating
+                                  // another moves it — and the panel the flyer is standing in
+                                  // would collapse under them on their own click.
+                                  setOpened((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(group.id);
+                                    next.add(rec.id);
+                                    return next;
+                                  });
+                                }}
+                                title="Report this flight by this recording — which altimeter's reading a cert document quotes is the flyer's call, not Debrief's"
+                                className="min-h-11 shrink-0 text-[11px] font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-500 sm:min-h-0 dark:text-indigo-400"
+                              >
+                                report by this one
+                              </button>
+                            )}
+                          </li>
+                        );
+                      })}
+                      {/* The way back out. Joining the wrong two files must not need the flyer
+                          to delete them and drop them again. */}
+                      <li className="pl-4 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => onGroup(planSeparation(group))}
+                          className="min-h-11 text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800 sm:min-h-0 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        >
+                          Separate these into {group.recordings.length} flights
+                        </button>
+                      </li>
+                    </ul>
+                  )}
+                </div>
               )}
             </li>
           );
@@ -623,7 +831,7 @@ export default function RecentFlights({
             onClick={() => setQuery('')}
             className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
           >
-            Show all {recents.length}
+            Show all {flights.length}
           </button>
           .
         </p>
@@ -636,8 +844,10 @@ export default function RecentFlights({
       )}
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
         Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks
-        your best; tick two or more to compare. Add a <span aria-hidden="true">✎</span> note (motor,
-        conditions, cert…) to keep a flight as a logbook entry that won&apos;t be pruned.{' '}
+        your best; tick two or more to compare them — or, if they are two altimeters&apos; recordings of
+        the <em>same</em> flight, to keep them as one flight. Each recording is still read on its own;
+        you choose which one the flight is reported by. Add a <span aria-hidden="true">✎</span> note
+        (motor, conditions, cert…) to keep a flight as a logbook entry that won&apos;t be pruned.{' '}
         <strong className="font-medium text-zinc-600 dark:text-zinc-300">Export</strong> backs the whole
         logbook up to a file you keep; <strong className="font-medium text-zinc-600 dark:text-zinc-300">Import</strong>{' '}
         restores it on another machine.
