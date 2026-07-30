@@ -7,6 +7,7 @@ import {
   removeRecent,
   clearRecents,
   updateNote,
+  setFlightIds,
   exportLogbook,
   importLogbook,
   type RecentMeta,
@@ -35,6 +36,10 @@ export interface Logbook {
   remove: (id: string) => Promise<void>;
   clear: () => Promise<void>;
   note: (id: string, note: string) => Promise<void>;
+  /** Say which flight some rows are recordings of — or that they are flights of their own
+   *  again. One call for the whole statement, so a tab closed halfway through cannot leave
+   *  half a flight joined. */
+  group: (changes: { id: string; flightId: string | null }[]) => Promise<void>;
   /** Download the whole logbook — flights and notes — as a file the flyer keeps. */
   exportAll: () => Promise<number>;
   /** Merge a backup back in; resolves with how many flights it restored. */
@@ -85,6 +90,14 @@ export function useLogbook(): Logbook {
     [refresh],
   );
 
+  const group = useCallback(
+    async (changes: { id: string; flightId: string | null }[]) => {
+      await setFlightIds(changes);
+      refresh();
+    },
+    [refresh],
+  );
+
   // Resolves with how many flights the file actually holds. `exportLogbook` swallows an
   // IndexedDB failure and still returns a well-formed envelope with an EMPTY flights array, so
   // a storage-blocked browser wrote a `debrief-logbook.json` to Downloads that contained
@@ -114,5 +127,5 @@ export function useLogbook(): Logbook {
     [refresh],
   );
 
-  return { recents, refresh, remove, clear, note, exportAll, importAll, forgotten, reportForgotten, clearForgotten };
+  return { recents, refresh, remove, clear, note, group, exportAll, importAll, forgotten, reportForgotten, clearForgotten };
 }

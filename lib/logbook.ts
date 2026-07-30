@@ -3,6 +3,7 @@
 // only "best of the flights you have on this device", never an all-time claim.
 
 import type { RecentMeta } from './recents';
+import { groupRecordings } from './flightGroups';
 import { formatFlownAt } from './flight/flownAt';
 
 export type LogbookSort = 'recent' | 'flown' | 'apogee' | 'speed';
@@ -73,11 +74,27 @@ function uniqueMaxId(recents: RecentMeta[], get: (r: RecentMeta) => number | nul
   return finite >= 2 && ties === 1 ? bestId : null;
 }
 
-/** Which remembered flight holds the best apogee and the best top speed. */
+/**
+ * Which remembered FLIGHT holds the best apogee and the best top speed.
+ *
+ * Over flights, not over files, and the difference is not cosmetic. A flyer who flies a
+ * primary and a backup altimeter brings home two recordings of one flight, and until they are
+ * one flight the crowns read them as two — which breaks the rule above in both directions at
+ * once. Two recordings that agree EXACTLY are a tie, and a tie crowns nothing, so a flyer's
+ * highest flight lost its star for having been recorded twice (the corpus has three such
+ * pairs: an AltOS `.eeprom` beside AltosUI's export of the same bytes, an RRC3 `.rff` beside
+ * its mDACS text export, a Blue Raven's two rates). Two that disagree slightly are two
+ * entries either side of a third flight that actually sits between them.
+ *
+ * A flight is reported by the recording the flyer nominated, so that is the value that
+ * competes — never the highest of its recordings, which would be a best-of dressed as a
+ * measurement.
+ */
 export function personalBests(recents: RecentMeta[]): { apogeeId: string | null; speedId: string | null } {
+  const flights = groupRecordings(recents).map((g) => g.primary);
   return {
-    apogeeId: uniqueMaxId(recents, (r) => r.apogeeM),
-    speedId: uniqueMaxId(recents, (r) => r.maxVelocityMs),
+    apogeeId: uniqueMaxId(flights, (r) => r.apogeeM),
+    speedId: uniqueMaxId(flights, (r) => r.maxVelocityMs),
   };
 }
 

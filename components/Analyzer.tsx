@@ -771,6 +771,7 @@ export default function Analyzer() {
           onNote={logbook.note}
           onExport={logbook.exportAll}
           onImport={logbook.importAll}
+          onGroup={logbook.group}
           forgotten={logbook.forgotten}
           onDismissForgotten={logbook.clearForgotten}
         />

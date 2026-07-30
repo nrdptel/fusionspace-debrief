@@ -229,7 +229,39 @@ exactly that.
 
 ## D3 — One flight can carry several recordings
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — the logbook half is shipped and pinned by `two altimeters on one flight
+are one flight in the logbook, counted once` (`e2e/analyze.spec.ts`, walking the real app,
+including the 44 px touch floor at a 390 px viewport) and by `personalBests > over flights, not
+over files` (`lib/logbook.test.ts`). Remaining: the report and the exports still name a FILE where
+they should name the recording, and the corpus does not yet assert byte-identical analysis.
+
+**What a flyer can do now that they could not before:** tick a primary and a backup log and say
+*these are one flight* — one logbook entry, one crown, each recording still openable with its own
+reading, the flight reported by whichever recording they choose, and a way back out.
+
+**What that fixed, measured rather than assumed.** Two recordings of one flight broke the
+personal-best crowns in both directions at once:
+
+- **Two that agree exactly deleted the crown outright.** `uniqueMaxId` returns null on a tie, so a
+  flyer's highest flight lost its ★ for having been recorded twice — and the corpus holds three
+  such pairs (an AltOS `.eeprom` beside AltosUI's export of the same bytes, an RRC3 `.rff` beside
+  its mDACS text export, two StratoLoggers that both read 465.1 m).
+- **Two that disagree crowned one flight twice.** The four AltimeterCloud recordings of
+  `ac-lilnuke` read 756.54–756.75 m and 156.9–167.8 m/s; ungrouped, the apogee ★ landed on `1796`
+  and the speed ★ on `1785` — two personal bests off one launch that happened once.
+
+A flight now competes on the reading of the recording the flyer NOMINATED, never the best of its
+recordings — that would be a best-of dressed as a measurement.
+
+**The Sev-1 this run found and fixed on the way.** `saveRecent`'s replace-in-place carried three
+named members forward and the stretch a flyer had cropped was not one of them. Reopening a flight
+IS a save, so a crop survived one reload — it was read from storage on the way in and wiped on the
+way out — and reverted to the whole file on the second visit, silently, with a launch-day record
+back to reporting a flight time that spans two flights. That is D1's *and it is remembered* clause
+failing on the second use rather than the first. Reproduced with a walk that reloads twice before
+it was touched. Closed structurally: `replaceInPlace` is pure, exported and unit-tested, and a
+compile-time check now fails when a member of `RecentFlight` is classified as neither
+the file's nor the flyer's. **This is the fourth member that file-by-file rebuild has lost.**
 
 **Outcome.** A flight flown on two altimeters is one flight in the logbook, not two.
 
@@ -250,7 +282,32 @@ already readable, so D2's failure and D1's failure both bite first. The comparis
 gives those flyers two correct, individually caveated reads — a real cost in steps, but not a wrong
 number.
 
-**Size.** 4–6 increments.
+**How the grouping is stated, and why it is one field.** `RecentMeta.flightId` is optional and
+absent on nearly every row. Absent means a flight of its own; equal to the row's own id means this
+recording REPORTS the flight; any other id names the recording that does. Keeping "which flight"
+and "which recording speaks for it" in one field means the two can never disagree, and a
+single-recording flight costs one missing optional member — no wrapper object, no second store,
+nothing to migrate. `lib/flightGroups.ts` is the only thing that reads it.
+
+**The grouping is the flyer's statement, never inferred.** That is D6's job and it is deliberately
+late, because a wrong automatic merge fabricates one flight out of two. Note for whoever takes D6:
+the corpus's `same_flight_group` column is NOT that signal — it conflates three different relations
+(independent instruments, the same recording exported into two containers, and different STAGES of
+one launch), so reading it as "recordings of one flight" would group a booster with a sustainer.
+`iss-sg1.2-20231118` is the negative case: a TeleMega sustainer at 2,113 m beside two StratoLogger
+boosters at 465 m.
+
+**What is left, in order.**
+1. **The report names the recording it is reading**, on screen and in every document it exports —
+   following the precedent already in the code (`descentSource === 'second-copy'` prints *"from
+   this file's second copy of the flight"*, which is the same sentence one level down).
+2. **The corpus asserts byte-identical analysis** for every single-recording flight, which the
+   *done when* names explicitly. It needs a per-file digest over metrics + events + series added to
+   the existing single memoised `corpusReads()` pass.
+3. **How far apart the recordings read**, on the flight's own row, from the spread `crossCheck`
+   already computes — and one click from a flight to its recordings overlaid.
+
+**Size.** 4–6 increments. One shipped.
 
 ---
 
@@ -328,6 +385,19 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-07-30 — a grouped flight is reported by ONE nominated recording, not by a blend.** The
+  alternatives were a mean, a maximum, or showing every recording's reading everywhere with no
+  headline. Rejected all three: the safety spine says several recordings of one flight are
+  independent measurements that can disagree, never a consensus dressed as certainty, and a max is
+  a best-of dressed as a measurement. It also matches what a flyer actually has to do — a cert
+  document quotes an apogee from a named altimeter. The nomination is the flyer's, changeable in
+  one click, and the recordings that are not reporting the flight keep their own readings on
+  screen rather than being hidden.
+- **2026-07-30 — the crop Sev-1 was fixed inside D3's first slice rather than as its own pass.**
+  Rejected: filing it and shipping the milestone slice alone. It is one function — the same
+  replace-in-place D3 had to add a member to — and adding `flightId` there without fixing the rule
+  would have lost the grouping on reopen in exactly the same way. Fixing the class was cheaper than
+  fixing the instance twice.
 - **2026-07-29 — ordered by what bites the flyer first, not by distance from the North Star.** The
   first draft of this file led with the multi-recording model (now D3) because it is the largest
   architectural debt and the North Star names it. Two independent adversarial reviews refuted that

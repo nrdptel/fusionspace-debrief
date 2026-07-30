@@ -43,6 +43,69 @@ describe('personalBests', () => {
     expect(personalBests(tied).apogeeId).toBeNull(); // tie for top apogee
     expect(personalBests(tied).speedId).toBe('a'); // speed still unique
   });
+
+  /**
+   * A best is a best of FLIGHTS. A flyer with a primary and a backup altimeter comes home with
+   * two recordings of one flight, and counting them as two flights breaks the crown in both
+   * directions at once — measured on the corpus, not imagined.
+   */
+  describe('over flights, not over files', () => {
+    it('does not let one flight recorded twice beat itself', () => {
+      // The four AltimeterCloud recordings of one 756 m flight: 756.675 / 756.544 / 756.659 /
+      // 756.745 m, top speeds 164.83 / 167.78 / 156.91 / 159.42 m/s. Ungrouped, the two crowns
+      // land on two DIFFERENT rows of the SAME flight — apogee on 1796, speed on 1785 — and a
+      // flyer reads two personal bests off one launch.
+      const four = [
+        rec('1784', 4, 756.675, 164.83),
+        rec('1785', 3, 756.544, 167.78),
+        rec('1786', 2, 756.659, 156.91),
+        rec('1796', 1, 756.745, 159.42),
+      ];
+      const other = rec('other', 5, 700, 120);
+      expect(personalBests([...four, other]), 'ungrouped: two crowns on one flight').toEqual({
+        apogeeId: '1796',
+        speedId: '1785',
+      });
+
+      const joined = four.map((r) => ({ ...r, flightId: '1784' }));
+      // One flight now, reported by 1784 — so it competes with 1784's readings and nothing else.
+      expect(personalBests([...joined, other])).toEqual({ apogeeId: '1784', speedId: '1784' });
+    });
+
+    it('gives a flight back its crown when it was only recorded twice', () => {
+      // Two recordings that agree EXACTLY are a tie, and a tie crowns nothing — so a flyer's
+      // highest flight lost its star for having been recorded twice. The corpus has three such
+      // pairs: an AltOS .eeprom beside AltosUI's export of the same bytes, an RRC3 .rff beside
+      // its mDACS text export, and a Blue Raven's two rates.
+      const raw = rec('eeprom', 2, 2995.674, 332.48);
+      const csv = rec('csv', 1, 2995.674, 332.48);
+      const lower = rec('lower', 3, 1200, 200);
+      expect(personalBests([raw, csv, lower]), 'ungrouped: the tie deletes the crown outright').toEqual({
+        apogeeId: null,
+        speedId: null,
+      });
+
+      const joined = [{ ...raw, flightId: 'eeprom' }, { ...csv, flightId: 'eeprom' }, lower];
+      expect(personalBests(joined)).toEqual({ apogeeId: 'eeprom', speedId: 'eeprom' });
+    });
+
+    it('competes on the reading the flyer nominated, never the best of the recordings', () => {
+      // Handing the flight to the recording that read highest would be a best-of dressed as a
+      // measurement. The flight reads what its chosen recording read, and that is what runs.
+      const low = rec('low', 2, 900, 100);
+      const high = rec('high', 1, 1100, 100);
+      const rival = rec('rival', 3, 1000, 90);
+      const reportedByLow = [{ ...low, flightId: 'low' }, { ...high, flightId: 'low' }, rival];
+      expect(personalBests(reportedByLow).apogeeId, 'the rival at 1000 m beats the flight’s own 900 m').toBe('rival');
+
+      const reportedByHigh = [{ ...low, flightId: 'high' }, { ...high, flightId: 'high' }, rival];
+      expect(personalBests(reportedByHigh).apogeeId).toBe('high');
+    });
+
+    it('leaves an ordinary logbook exactly where it was', () => {
+      expect(personalBests(flights)).toEqual({ apogeeId: 'b', speedId: 'c' });
+    });
+  });
 });
 
 describe('filterRecents', () => {

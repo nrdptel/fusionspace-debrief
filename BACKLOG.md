@@ -14,6 +14,22 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **DONE — reopening a cropped flight threw the crop away, so it survived one reload and not two.**
+  `saveRecent`'s replace-in-place carried the note, the paired device summary and the report caption
+  forward by name, and `read` — the stretch a flyer had said was THEIR flight — was not on that list.
+  Reopening a flight IS a save, so the crop was read from storage on the way in (which is why one
+  reload looked fine, and why the D1 walk that reloads once was green) and wiped on the way out: the
+  second visit silently read the whole record again, printing a flight time that spans two flights
+  off a launch-day file. That is D1's *and it is remembered* clause failing on the second use rather
+  than the first, which is the worst way to lose a thing. **Reproduced before it was touched** with a
+  walk that crops, reloads, reloads again — the second assertion failed. Closed structurally rather
+  than by adding a fourth name to the list: `replaceInPlace` is pure, exported and unit-tested (five
+  cases, including that a member is found on whichever stored copy has it), and a compile-time check
+  fails when a member of `RecentFlight` is classified as neither the file's nor the flyer's. The
+  e2e walk now reloads TWICE. **This is the fourth member that field-by-field rebuild has silently
+  lost** — the report caption, then the chosen stretch through the backup, then the file's own bytes,
+  now the chosen stretch again through the reopen.
+
 - **DONE — multi-flight segmentation mis-read any launch-day file whose flights differ by more than
   2x in apogee.** Every threshold in `nextFlightStart` is measured against the flight in hand now,
   never against the record's own highest flight, and three things a record does that are not a
@@ -47,6 +63,45 @@ wild, ideas too big for one pass. One line each, newest first.
   beyond 2x in both directions.
 
 ## Correctness / honesty
+
+- **`logbookRowNames` disambiguates a grouped flight's row against recordings the flyer cannot
+  see.** It is still called with the whole `recents` list (`components/RecentFlights.tsx:214`), so
+  where a flight is reported by one of four identically-named AltimeterCloud files, the accessible
+  name of its ✎ and ✕ controls can be qualified by an apogee that is on a hidden recording rather
+  than the one the row paints. Measured shape: four `mercury__altimetercloud` files, one distinct
+  name; grouped, the list shows one row and the namer is still resolving four. Fix: name over
+  `FlightGroup[]`, so the disambiguator sees what the screen shows.
+- **The logbook's prune counts rows, so it can take one recording of a grouped flight and leave the
+  rest.** `saveRecent` keeps the most recent `UNNOTED_MAX` un-noted ROWS
+  (`lib/recents.ts`); a two-recording flight occupies two of the twelve, and a launch day can push
+  one half out while the other stays — the flight silently changes which recording reports it (the
+  survivor is promoted) and the "N flights were forgotten" note names a file, not a flight. Fix:
+  prune by flight, and name the flight.
+- **A comparison built from ids still re-reads each flight whole, so a cropped flight joins a
+  comparison uncropped** — `lib/compareFromLogbook.ts:54` calls `analyzeAsync(result.flight)` with
+  no `{ read: window }` although `getRecent` has already returned `rec.read`; `importRecent`
+  (`lib/reopen.ts:23`) does not accept it either, and `readToWindow` sits in
+  `components/Analyzer.tsx:98`, on the wrong side of the lib/components line. Already filed further
+  down this file; re-filed here because D3 multiplies it by the number of recordings, and it should
+  be fixed before a grouped flight gains a one-click overlay of its own recordings.
+- **The `same_flight_group` column in the fixtures manifest is not a same-flight signal**, and
+  anything automatic must not read it as one. It conflates three relations: genuinely independent
+  instruments (`iss-irec2023`, `ac-lilnuke`), the SAME recording exported into two containers
+  (`iss-stargazer1`'s `.eeprom` + its AltosUI CSV, `trf-rrc3-xprs2015`'s `.rff` + its mDACS text),
+  and different STAGES of one launch (`iss-kairos`, `iss-sg1.2` — a TeleMega sustainer at 2,113 m
+  beside two StratoLogger boosters at 465 m and a 9.5 m fragment). Reading it as "recordings of one
+  flight" would group a booster with a sustainer, which is D4's job and a wrong composite.
+  `RECON_GROUPS` in `lib/parsers/corpus.test.ts` already carries the honest subset — 6 of the 15.
+- **Three genuinely-redundant instrument pairs in the corpus are not asserted by `RECON_GROUPS`**:
+  `iss-intrepid3tf2-20230305` (two StratoLogger CF units, apogee 4,957.0 vs 4,939.6 m — 0.35%; max
+  speed 847.6 vs 846.1 — 0.18%), `trf-f1-jan18` (Blue Raven LR 1,918.0 m + Featherweight GPS
+  1,909.4 m — 0.45%), and `iss-sg1.2`'s two StratoLoggers, which both read 465.1 m — a 0.00% spread
+  and the exact tie that used to cost a flyer their crown. Adding them widens the reconciliation
+  guard at no cost; the first pair is `knownIssue` today, so check what arming it implies first.
+- **`RECON_GROUPS` asserts `inputs.length >= 2`, not `=== g.files.length`**
+  (`lib/parsers/corpus.test.ts`), so a parser regression that stopped reading two of the four
+  `ac-lilnuke` recordings would still pass the four-altimeter group — the tightest corroboration in
+  the corpus quietly degrading to a pair.
 
 - **The MS5607 conversion ignored the `ms5611` flag AltOS writes beside its coefficients** —
   fixed. The two parts share a calibration block and a formula and differ in the scaling of the
