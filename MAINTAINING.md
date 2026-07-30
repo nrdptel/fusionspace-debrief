@@ -708,6 +708,13 @@ automatically (`.github/workflows/deploy-cloudflare.yml`, on push to `main`), an
 not gate on the test workflow.** The container is ephemeral and re-cloned each session, so commit and
 push anything worth keeping.
 
+**Branch naming: `feature/<short-topic>`.** Use whatever branch the harness pins when it pins one —
+that is a contract with the tooling, not a preference. When you choose the name yourself, as you must
+in a repo the harness did not pin, use the `feature/` prefix. Do NOT derive a prefix from the name of
+whatever tool is doing the work: a branch carrying a vendor's name cannot be written into a commit
+message, a PR body, or this manual without breaking the zero-trace invariant, which makes the branch
+awkward to refer to for its whole life.
+
 **Always ship through a pull request. Never push straight to `main`.** The deploy fires on any push to
 `main` whether or not a test ever ran, so a direct push deploys unverified — and the pre-push gate
 that was supposed to compensate is *structurally incomplete in most containers*, because the e2e suite
