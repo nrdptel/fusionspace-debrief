@@ -57,15 +57,21 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   it and the run dies mid-way. For a manual walk use `npm run serve:out` (the same
   `scripts/e2e-server.mjs` the suite starts), never another static server: one that falls back to
   `index.html` serves the analyze page for every route and every walk reads as a routing bug.
-- **This project runs in a per-project cloud environment**, and the environment — not the repo —
-  carries the secrets, the network policy and any cached setup. Two consequences that have already
-  bitten:
-  - **`FIXTURES_TOKEN` is set in CI but was NOT set in the environment** (measured 2026-07-30). So CI
-    gates on the real corpus while every interactive and scheduled run works *without* it, and the
-    suite skips itself rather than saying so. **Check it at session start**
-    (`[ -n "$FIXTURES_TOKEN" ]`) and, if it is missing, say so at the TOP of the report as an
-    owner-level fix — adding it to the environment's variables is one action and it arms the corpus
-    for every future run. Do not report a corpus sweep you did not actually run.
+- **This project runs in a per-project cloud environment, and the corpus arrives as a SECOND ATTACHED
+  REPOSITORY — not by fetching.** The intended session is created with **both** `nrdptel/debrief` and
+  the private `nrdptel/debrief-fixtures` selected as sources, so the fixtures checkout is already on
+  disk and needs no token. That is the primary path. `FIXTURES_TOKEN` is a GitHub **Actions** secret,
+  which is why CI can fetch; it is not in the environment, so `npm run fetch-fixtures` in a session
+  exits 0 and the corpus suite skips itself.
+  - **So establish which you have, at session start, and never assume either.** If a fixtures
+    checkout is on disk, symlink it into `lib/parsers/__corpus__/` (the commands are below). If it is
+    absent AND `FIXTURES_TOKEN` is unset, you have **no corpus**: say so at the TOP of the report,
+    because the fix is one the owner makes when creating the session — attach the fixtures repo as a
+    second source. Measured 2026-07-30: a session created with the two sibling APP repos and no
+    fixtures repo had neither, and the suite skipped itself silently.
+  - **Never report a corpus sweep you did not actually run.** Confirm the suite names its fixture
+    count. "0 findings" from a suite that examined nothing is the false all-clear this manual warns
+    about, and the environment is the route it arrives by.
   - **Whatever you install by hand is paid for again next session** unless it is in the environment's
     setup script. The pinned Playwright browser is the standing example: it is not in the image, so
     every run re-downloads it. If you install the same thing every run, that belongs in the setup
