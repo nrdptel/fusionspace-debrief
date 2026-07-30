@@ -150,8 +150,10 @@ because those tests were built from the same mental model as the code:
   restored every raw download as the mojibake its text always was. They travel as base64 now, and
   the round-trip is a unit test that falsifies in both directions. **This is the THIRD member that
   field-by-field rebuild has silently lost** — the report caption, then the chosen stretch, now the
-  file itself. Anything added to `RecentFlight` needs a line in `normalizeFlight` and a round-trip
-  assert in the same commit.
+  file itself. **Closed structurally rather than by discipline**: `lib/recents.test.ts` round-trips
+  a fixture typed `Required<RecentFlight>`, so adding a member to that interface stops the file
+  compiling until the fixture populates it and then fails the round-trip until `normalizeFlight`
+  carries it. Both halves verified by mutation.
 - **Sev-2 — the single-file drop stored the bytes of EVERY file.** `textIsTheFile` was applied on
   the batch path and not on the one a flyer actually uses, so the logbook held two copies of every
   CSV — the exact cost the rule exists to avoid.

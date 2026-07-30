@@ -209,3 +209,54 @@ describe('a backup carries the file itself, for the flights whose text is not th
     }
   });
 });
+
+/**
+ * The guard that stops a FOURTH member going missing.
+ *
+ * `normalizeFlight` rebuilds a restored record field by field — deliberately, because a
+ * hand-edited backup must not be able to inject a shape the app then trusts. The cost of that
+ * choice is that every member has to be listed twice, and three times now the second listing
+ * has been forgotten: the report caption a flyer typed, the stretch of the file they chose, and
+ * the file's own bytes. Each was found after shipping, and the second two by review rather than
+ * by the suite.
+ *
+ * So the fixture below is typed `Required<RecentFlight>`. Add a member to that interface —
+ * optional or not — and this file stops COMPILING until the fixture populates it, and then the
+ * round-trip fails until `normalizeFlight` carries it. Neither half can be satisfied by
+ * accident, and neither depends on anyone remembering.
+ */
+describe('a backup carries every member of a flight, not the ones anyone remembered', () => {
+  const everything: Required<RecentFlight> = {
+    id: 'every1',
+    name: 'Kairos-Booster-March-Telemega.eeprom',
+    formatLabel: 'Altus Metrum (raw .eeprom download)',
+    addedAt: 1_700_000_000_000,
+    apogeeM: 2995.7,
+    maxVelocityMs: 332.5,
+    flownAt: { stamp: '2024-03-23T18:54', zone: 'UTC' },
+    note: 'K1103X, 12 mph crosswind',
+    text: '{\n\t"log_format": 22\n}\n46 53 96 f6\n',
+    bytes: new Uint8Array([0x46, 0x53, 0x96, 0xf6, 0x01, 0x00, 0xdf, 0xff]),
+    summaryText: 'Rocket,Kairos\nApogee,9756 ft\n',
+    caption: { label: 'Kairos booster, March', notes: 'Sustainer did not light.' },
+    read: { fromS: 12.5, toS: 320.25 },
+    mapping: [{ index: 0, role: 'time', unit: 's' }],
+  };
+
+  it('round-trips every one of them through export and import', () => {
+    const back = parseLogbookFlights(serializeLogbook([everything], 1))[0];
+    expect(back, 'the flight came back at all').toBeTruthy();
+    // Member by member, so a failure names the one that went missing rather than printing two
+    // large objects side by side.
+    for (const key of Object.keys(everything) as (keyof RecentFlight)[]) {
+      if (key === 'bytes') {
+        expect([...(back.bytes as Uint8Array)], 'bytes').toEqual([...(everything.bytes as Uint8Array)]);
+        continue;
+      }
+      expect(back[key], `${key} did not survive the backup`).toEqual(everything[key]);
+    }
+    // …and nothing extra rode along, which would mean the file carries something the type
+    // does not describe.
+    expect(new Set(Object.keys(back))).toEqual(new Set(Object.keys(everything)));
+  });
+});
