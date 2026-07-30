@@ -526,9 +526,22 @@ tolerance, re-baselining a golden value the run itself moved, or skipping a corp
 regression dressed as a pass. If the corpus blocks a milestone, that is the corpus doing its job — fix
 the cause, or file the slice as blocked and say so.
 
-**Note there is no linter in this repo** — no `lint` script, no ESLint config, nothing installed. The
-gate is `npm test`, `npm run build` (which runs `tsc --noEmit` in `prebuild`) and `npm run test:e2e`.
-Do not report a lint result you did not run.
+**Note there is no linter in this repo** — no `lint` script, no ESLint config, and zero eslint
+packages in `package-lock.json` (verified, not assumed). The gate is `npm test`, `npm run build`
+(whose `prebuild` runs `tsc --noEmit`) and `npm run test:e2e`. Do not report a lint result you did not
+run. **`next build` prints `Linting and checking validity of types …` regardless** — that is Next's
+stock line, and with no ESLint installed or configured only the type check behind it is real. Do not
+read that line in a CI log as evidence a linter ran.
+
+**The corpus gates CI, and it is most of the suite.** `FIXTURES_TOKEN` is set and working: the
+`frontend` job logs `resolving nrdptel/debrief-fixtures@v1.1.0`, `downloading corpus-v1.1.0.zip
+(26.1 MB)`, `sha256 verified`, then runs `lib/parsers/corpus.test.ts` — **116 tests, ~28 s**. So CI
+runs **773 tests** where a container without the corpus runs **657 and skips 15 files' worth**. A
+green local run is therefore a much weaker signal than a green CI run, and the corpus half is where
+the real-file regressions live — including the same-flight reconciliation cases over genuinely
+redundant recordings (`iss-irec2023: EasyMega + TeleMega`, `ac-lilnuke: four AltimeterCloud
+recordings`). Link the corpus locally when you can; when you cannot, say which suite you actually
+ran.
 
 **The e2e suite may not be runnable in a given container, and that is not a red gate.** This repo pins
 `@playwright/test` ^1.61.1, which wants chromium revision **1228**; a container built for its sibling

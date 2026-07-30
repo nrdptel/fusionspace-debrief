@@ -36,6 +36,10 @@ independent adversarial reviews that measured the code. What follows is what sur
   Eggtimer, Entacore AIM, Featherweight FIP and GPS, MissileWorks RRC3, PerfectFlite, Altimeter
   Cloud …) plus a generic CSV/spreadsheet column-mapper with saved, reusable templates
   (`lib/mappingTemplates.ts`).
+- **Same-flight reconciliation is already TESTED against real redundant recordings** — the corpus
+  suite carries `same-flight reconciliation (redundant recordings agree)` cases over
+  `iss-irec2023: EasyMega + TeleMega` and `ac-lilnuke: four AltimeterCloud recordings`, and a case for
+  a file that holds one flight twice. Those run only in CI, where the corpus is fetched.
 - **Cross-checking is sophisticated, not a badge.** `lib/crossPeak.ts` judges agreement on *time* as
   well as value, precisely so a GPS whose altitude solution lags the flight cannot peak 34 s late
   under drogue and be reported as corroborating the barometer to 3%.
