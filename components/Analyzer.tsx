@@ -235,10 +235,7 @@ export default function Analyzer() {
     ) => {
       const set = beginLoad();
       try {
-        // A raw binary download decodes to text that is mostly replacement characters, and
-        // could in principle trim to nothing — but the file is plainly not empty, and the
-        // parsers read its bytes. Only a file with neither is empty.
-        if (text.trim().length === 0 && !bytes?.length) {
+        if (text.trim().length === 0) {
           set({ phase: 'error', message: 'That file is empty.' });
           return;
         }

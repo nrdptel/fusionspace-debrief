@@ -15,9 +15,11 @@
 // app can read.
 
 /** Extensions a parser recognises by name, plus the text and spreadsheet shapes the generic
- *  mapper reads. `lib/fileAccept.test.ts` holds this against the parsers and fails when a
+ *  mapper reads. `.eeprom` and `.rff` are here because the raw download off an Altus Metrum
+ *  or a MissileWorks RRC3 card is now a file Debrief reads — a picker that greys out a
+ *  format the app parses is the same bug `.pf2` was. `lib/fileAccept.test.ts` holds this against the parsers and fails when a
  *  parser starts keying on an extension this list doesn't offer. */
-export const FLIGHT_FILE_EXTENSIONS = ['.csv', '.txt', '.log', '.tsv', '.dat', '.pf2', '.xlsx'] as const;
+export const FLIGHT_FILE_EXTENSIONS = ['.csv', '.txt', '.log', '.tsv', '.dat', '.pf2', '.xlsx', '.eeprom', '.rff'] as const;
 
 const FLIGHT_FILE_MIME = [
   'text/csv',
