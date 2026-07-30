@@ -338,40 +338,42 @@ Three things it does NOT do, each filed in `BACKLOG.md`:
 ## D4 — Stitch per-stage logs into one composite flight
 
 **Status:** IN PROGRESS — the alignment and its refusal are shipped and pinned by
-`lib/stitch.test.ts` (12 cases) and by `iss-kairos: Kairos booster + sustainer: both stages
-caught the launch, so they line up on it` (`lib/parsers/corpus.test.ts`, over the corpus's real
-two-stage pair). **This slice is groundwork and says so**: it decides whether two per-stage logs
-CAN be put on one clock, and produces the offsets or a refusal — a flyer sees nothing yet,
-because a composite surface built before the alignment was measured is exactly the guess this
-milestone must not make.
+`lib/stitch.test.ts` (7 cases) and by `iss-kairos: Kairos booster + sustainer: both stages caught
+the launch, so they line up on it` (`lib/parsers/corpus.test.ts`, over the corpus's real two-stage
+pair). **This slice is groundwork and says so**: it decides whether two per-stage logs CAN be put
+on one clock and produces the offsets or a refusal. A flyer sees nothing yet, because a composite
+surface built before the alignment was measured is exactly the guess this milestone must not make.
 
-**What was measured, because the answer changed the design twice.** The corpus's one real staged
-pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on its own TeleMega.
+**What was measured, and what it refuted — read this before extending it.** The corpus's one real
+staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on its own TeleMega.
 
 - **The sustainer's log carries no clock at all** (`flownAt` is undefined; the booster's is a GPS
-  UTC stamp). So aligning on wall clocks — one of the two methods the note below proposed — is
-  not available on the only real pair there is.
-- **Both logs DO contain the launch.** The booster's opens 0.2 s before liftoff, the sustainer's
-  carries a 307.5 s pad wait before the same instant. Every stage of a rocket leaves the pad
-  together, so that is a shared event, and it is the method that shipped: `method: 'shared
-  liftoff'`.
-- **The discriminator is SPEED before liftoff, not altitude.** The obvious check — "does the
-  record start near the ground" — cannot work, because the analyzer takes each record's pad datum
-  from its own opening samples, so a log that begins at 1,000 m in the air reads zero there too.
-  A rocket on a pad is not MOVING, whatever its altimeter thinks its altitude is.
-- **And the window has to be measured backwards from liftoff.** Measured forward from the first
-  sample it fails on the corpus's own booster, whose pad wait is two tenths of a second — the
-  first draft called a rocket on a pad "already flying".
+  UTC stamp). So aligning on overlapping wall clocks — one of the two methods the note below
+  proposed — does not exist on the only real pair there is.
+- **Both logs DO contain the launch**: the booster's opens 0.2 s before liftoff, the sustainer's
+  carries a 307.5 s pad wait before the same instant. Every stage leaves the pad together, so that
+  is the shared event, and it is the method that shipped.
+- **Two ways of checking whether a record contains the launch were tried and BOTH failed.**
+  Altitude is useless — the analyzer takes each record's pad datum from its own opening samples,
+  so a log beginning at 1,000 m in the air reads zero there too. Motion before the liftoff is
+  worse than useless: measured over all 50 corpus flights, ordinary SINGLE-stage records show
+  pre-liftoff climb rates from 0 to 141 m/s, because plenty of loggers begin recording at boost
+  and the detector fires a little way into it. **There is no threshold that separates "a sustainer
+  lighting up at altitude" from "a StratoLogger that records only the flight."** Picking one would
+  only have meant telling the owner of a plain single-stage flight that their file was already
+  moving when the log opened. The first draft of `lib/stitch.ts` did exactly that on 14 of 50
+  corpus flights; the rule was deleted rather than tuned until the corpus looked tidy.
+- **So the alignment is CORROBORATED instead of gatekept.** Until the stages separate every board
+  is bolted into the same rocket, so every one of them records the same first-stage burn; lined up
+  on liftoff, those instants must be one. On the corpus's pair they fall **0.29 s** apart. A wrong
+  offset — a sustainer whose logger started at its own ignition — shows up here as a gap of
+  exactly the staging delay it is wrong by, which is seconds. The tolerance is 1 s, in the wide
+  gap between those two, and the spread rides out on the alignment as a number a flyer can check
+  rather than a claim they have to take.
 
-**The alignment is corroborated by an event it was not built from.** Until separation both boards
-are bolted into the same rocket, so both record the BOOSTER's burnout. Lined up on liftoff alone,
-the two instruments then agree about that burnout to **0.29 s** — evidence the offset is right,
-where a wrong one would show up as a gap of whatever it was wrong by. The corpus test asserts it.
-
-**There is deliberately no fallback.** A sustainer whose logger starts at its own ignition could
-be aligned by assuming a staging delay or by correlating the traces, and either produces a
-composite that reads exactly like a measured one. Where the shared moment is not in the data the
-answer is that Debrief cannot do it.
+**There is deliberately no fallback.** A stage that missed the launch could be placed by assuming
+a staging delay or by correlating the traces; both produce a composite that reads exactly like a
+measured one. Where the evidence is not there, the answer is that Debrief cannot do it.
 
 **Outcome.** A staged flight logged on separate devices reads as one flight.
 

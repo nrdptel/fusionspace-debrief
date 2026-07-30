@@ -8,30 +8,47 @@
 // **The whole problem is the offset between the two clocks, and the whole danger is guessing
 // it.** A composite built on a wrong offset does not look wrong: it looks like a flight, with
 // events in a plausible order and numbers a flyer would act on. That is the most damaging thing
-// this product can produce, so this module refuses far more readily than it aligns, and every
-// refusal says which check failed.
+// this product can produce, so nothing here aligns without producing evidence that it worked.
 //
 // It computes an alignment; it does not decide that two files belong together. That statement is
 // the flyer's, exactly as it is for the recordings of one flight (`lib/flightGroups.ts`).
+//
+// ## Why the alignment is checked the way it is
+//
+// The method is the launch: every stage of a rocket leaves the pad at the same instant, so each
+// record's own liftoff is the SAME moment. That much is physics. The question is how to know
+// whether a given record actually CONTAINS that moment, or begins later — a sustainer whose
+// logger starts at boost detect has a "liftoff" that is really its own ignition, and aligning on
+// it shifts the whole composite by the staging delay.
+//
+// **The obvious tests for that were tried against the corpus and both failed.** Altitude is
+// useless: the analyzer takes each record's pad datum from its own opening samples, so a log
+// beginning at 1,000 m in the air reads zero there too. Motion before the liftoff is worse than
+// useless — measured over all 50 corpus flights, ordinary SINGLE-stage records show pre-liftoff
+// climb rates from 0 to 141 m/s, because plenty of loggers begin recording at boost and the
+// detector fires a little way into it. There is no threshold that separates "a sustainer lighting
+// up at altitude" from "a StratoLogger that records only the flight"; picking one would only have
+// meant telling the owner of a plain single-stage flight their file was already moving.
+//
+// So the alignment is not gatekept on a heuristic about one record. It is CORROBORATED against
+// the other: until separation, every stage is bolted into the same rocket, so every board records
+// the same first-stage burn. Line the records up on liftoff and their burnouts must agree — and a
+// wrong offset shows up here as a disagreement of exactly the amount it is wrong by. On the
+// corpus's real two-stage pair, aligned on liftoff alone, the booster's and the sustainer's
+// boards put that burnout 0.29 s apart.
 
 import type { FlightAnalysis } from './analyze/types';
 
-/** How far BACK from a record's own liftoff we look for "was this thing sitting still". Two
- *  seconds is long enough to be sure and short enough to sit inside the shortest pad wait a real
- *  download has.
+/**
+ * How far apart two boards' readings of the SAME burn may fall before the alignment that
+ * produced them is not to be trusted.
  *
- *  Back from the liftoff, not forward from the start of the record, and that distinction is the
- *  whole check. The corpus's booster refuted the obvious version: its log opens 0.2 s before the
- *  launch, so a two-second window measured from the first sample is mostly BOOST, and a rule
- *  written that way called a rocket on a pad "already flying". */
-const REST_WINDOW_S = 2;
-
-/** Above this the opening of the record is not a rocket at rest. A board on a pad reads a few
- *  tenths of a metre per second of barometric noise; a sustainer whose log opens at ignition is
- *  already doing tens or hundreds. Measured on the corpus's own staged pair: the booster opens
- *  at 0.00 m/s and the sustainer — which did capture the pad wait — at -1.13 m/s, while that
- *  same sustainer is doing 27.4 m/s by the time its own liftoff is detected. */
-const REST_SPEED_MS = 5;
+ * One second. The corpus's own pair agrees to 0.29 s, which is the sort of spread two independent
+ * boost detectors have on one motor; a staging delay — the error this exists to catch — is
+ * seconds, because that is what a delay charge is for. There is a wide gap between the two and
+ * this sits in it.
+ */
+const BURNOUT_AGREEMENT_S = 1;
 
 export interface StageRecording {
   /** How the flyer knows this recording — a file name. */
@@ -40,103 +57,105 @@ export interface StageRecording {
 }
 
 export interface StageAlignment {
-  /** The only method there is so far, and it is named rather than implied: every stage of a
-   *  rocket leaves the pad at the same instant, so a record that CONTAINS the pad departure has
-   *  one event in common with every other record of that launch. */
+  /** Named rather than implied, because a flyer reading a composite is entitled to know what it
+   *  was built on. */
   method: 'shared liftoff';
   /** Per recording, in the order given: seconds to add to that recording's own clock to put it
    *  on the composite's, whose zero is the launch. */
   offsets: number[];
+  /** The evidence, in seconds: how far apart the recordings put the first-stage burnout once
+   *  aligned. Every stage is in the same rocket until separation, so they all recorded that same
+   *  burn — a figure a flyer can check, not a claim they have to take. Null where fewer than two
+   *  recordings marked a burnout, in which case the alignment ships UNCORROBORATED and says so. */
+  burnoutSpreadS: number | null;
 }
 
-export type StitchRefusal = {
+export interface StitchRefusal {
   /** Which recordings the check failed on, by name — a refusal that does not say which file is
    *  the problem leaves the flyer nothing to do about it. */
   recordings: string[];
   /** What was checked and what it found, in a sentence a flyer can act on. */
   why: string;
-};
+}
 
 export type StitchResult = { ok: true; alignment: StageAlignment } | { ok: false; refusal: StitchRefusal };
 
-/**
- * Was this record's own liftoff the rocket leaving the PAD, rather than a stage lighting its
- * motor somewhere up the trajectory?
- *
- * This is the load-bearing check, and it exists because the obvious one does not work. "Is the
- * altitude near zero at the start" is useless: the analyzer takes each record's pad datum from
- * its own opening samples, so a log that begins at 1,000 m in the air reads zero there too, and
- * a sustainer whose logger starts at boost detect looks exactly like one sitting on a pad.
- *
- * SPEED does work, measured in the moments before that liftoff. A rocket on a pad is not moving,
- * whatever its altimeter thinks its altitude is; a stage that is already flying when its log
- * opens is doing tens or hundreds of metres per second, and no plausible calibration makes those
- * two look alike. A record with NO samples before its own liftoff cannot answer the question at
- * all, and an unanswerable question is a refusal, not a pass.
- */
-export function openedAtRest(analysis: FlightAnalysis): boolean {
-  const { time, velocity } = analysis.series;
-  const liftoff = analysis.events.find((e) => e.type === 'liftoff');
-  if (time.length === 0 || !liftoff) return false;
-  const speeds: number[] = [];
-  for (let i = 0; i < time.length && time[i] < liftoff.time; i++) {
-    if (liftoff.time - time[i] > REST_WINDOW_S) continue;
-    if (Number.isFinite(velocity[i])) speeds.push(Math.abs(velocity[i]));
-  }
-  if (speeds.length === 0) return false;
-  // The median, not the mean or the maximum: a single spike in a barometric trace is ordinary,
-  // and it should not be able to say a rocket was flying.
-  speeds.sort((a, b) => a - b);
-  return speeds[Math.floor(speeds.length / 2)] <= REST_SPEED_MS;
+/** The time of an event on a recording's own clock, or null when it has none of that type. */
+function eventTime(a: FlightAnalysis, type: 'liftoff' | 'burnout'): number | null {
+  const e = a.events.find((x) => x.type === type);
+  return e && Number.isFinite(e.time) ? e.time : null;
 }
 
 /**
  * Put N per-stage recordings of one launch on one clock, or refuse and say why.
  *
- * The method is the launch itself. Every stage of a rocket leaves the pad at the same instant,
- * so each record's own liftoff is the SAME moment, and the offsets follow. It works only where
- * every record actually contains that moment — which is the check above, and the reason this
- * refuses rather than aligns whenever a record opens already flying.
+ * Aligns on the launch — the one instant every stage of a rocket shares — and then checks that
+ * alignment against an event it was NOT built from. Refuses where a record has no liftoff to
+ * align on, and where the corroborating burnouts disagree by more than two boost detectors on one
+ * motor plausibly can.
  *
- * There is deliberately no fallback. A sustainer whose logger starts at its own ignition could
- * be aligned by assuming a staging delay, or by correlating the traces, and either would produce
- * a composite that looks exactly like a measured one and is a guess. Where the shared event is
- * not in the data, the answer is that Debrief cannot do it — not a plausible number.
+ * There is deliberately no fallback for a refusal. A sustainer whose logger started at its own
+ * ignition could be placed by assuming a staging delay, or by correlating the traces, and either
+ * would produce a composite that looks exactly like a measured one. Where the evidence is not
+ * there, the answer is that Debrief cannot do it — not a plausible number.
  */
 export function alignStages(recordings: StageRecording[]): StitchResult {
   if (recordings.length < 2) {
-    return { ok: false, refusal: { recordings: recordings.map((r) => r.name), why: 'A composite needs at least two per-stage recordings.' } };
+    return {
+      ok: false,
+      refusal: { recordings: recordings.map((r) => r.name), why: 'A composite needs at least two per-stage recordings.' },
+    };
   }
 
-  const noLiftoff = recordings.filter((r) => !r.analysis.events.some((e) => e.type === 'liftoff'));
+  const noLiftoff = recordings.filter((r) => eventTime(r.analysis, 'liftoff') == null);
   if (noLiftoff.length > 0) {
     return {
       ok: false,
       refusal: {
         recordings: noLiftoff.map((r) => r.name),
         why:
-          noLiftoff.length === 1
-            ? 'Debrief found no liftoff in this recording, so it has no moment in common with the others to line up on.'
-            : 'Debrief found no liftoff in these recordings, so they have no moment in common with the others to line up on.',
+          `Debrief found no liftoff in ${noLiftoff.length === 1 ? 'this recording' : 'these recordings'}, so ` +
+          `${noLiftoff.length === 1 ? 'it has' : 'they have'} no moment in common with the others to line up on.`,
       },
     };
   }
 
-  const airborne = recordings.filter((r) => !openedAtRest(r.analysis));
-  if (airborne.length > 0) {
+  const liftoffs = recordings.map((r) => eventTime(r.analysis, 'liftoff') as number);
+  const offsets = liftoffs.map((t) => -t);
+
+  // The corroboration. Every stage is in the same airframe until separation, so every board that
+  // marked a burnout marked the SAME first-stage burn; on one clock those instants are one.
+  const burnouts = recordings
+    .map((r, i) => {
+      const t = eventTime(r.analysis, 'burnout');
+      return t == null ? null : { name: r.name, at: t + offsets[i] };
+    })
+    .filter((b): b is { name: string; at: number } => b != null);
+
+  if (burnouts.length < 2) {
+    // Not a failure — a flight whose boards did not all mark a burnout is ordinary. But the
+    // alignment then rests on the liftoff alone, and that has to be said rather than implied.
+    return { ok: true, alignment: { method: 'shared liftoff', offsets, burnoutSpreadS: null } };
+  }
+
+  const times = burnouts.map((b) => b.at);
+  const spread = Math.max(...times) - Math.min(...times);
+  if (spread > BURNOUT_AGREEMENT_S) {
+    const lo = burnouts.reduce((a, b) => (b.at < a.at ? b : a));
+    const hi = burnouts.reduce((a, b) => (b.at > a.at ? b : a));
     return {
       ok: false,
       refusal: {
-        recordings: airborne.map((r) => r.name),
+        recordings: [lo.name, hi.name],
         why:
-          `${airborne.length === 1 ? 'This recording was' : 'These recordings were'} already moving when the log opened, so ` +
-          `${airborne.length === 1 ? 'it does' : 'they do'} not contain the moment the rocket left the pad — the one moment every stage shares. ` +
-          'Lining them up would mean assuming a staging delay, and a composite built on an assumed delay reads exactly like a measured one.',
+          `Lined up on the launch, these recordings put the first-stage burnout ${spread.toFixed(1)} s apart — and until the stages separate ` +
+          'they were in the same rocket, recording the same burn, so it should be the same instant. ' +
+          'Either one of them did not record the moment the rocket left the pad — a logger that starts at boost detect has that problem, ' +
+          'and its first movement is a later stage lighting up rather than the launch — or these are not two stages of one flight. ' +
+          'Debrief will not shift them to fit, because a composite built on an assumed staging delay still reads like a measured one.',
       },
     };
   }
 
-  // Every record contains the launch, so its own liftoff IS the launch. Rebase each onto that.
-  const liftoffs = recordings.map((r) => r.analysis.events.find((e) => e.type === 'liftoff')!.time);
-  return { ok: true, alignment: { method: 'shared liftoff', offsets: liftoffs.map((t) => -t) } };
+  return { ok: true, alignment: { method: 'shared liftoff', offsets, burnoutSpreadS: spread } };
 }

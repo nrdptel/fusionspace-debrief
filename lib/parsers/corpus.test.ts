@@ -15,7 +15,7 @@ import { headlineRows } from '../report';
 import { groundTrack, padOrigin, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
-import { alignStages, openedAtRest } from '../stitch';
+import { alignStages } from '../stitch';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -790,11 +790,6 @@ describe('per-stage logs of one launch', () => {
         expect(s.analysis.metrics.apogeeAltitude, `${g.name}: stage ${i + 1} apogee`).toBeCloseTo(g.apogeesM[i], -1);
       });
 
-      // Both logs opened with the rocket sitting still, so both contain the pad departure.
-      for (const s of stages) {
-        expect(openedAtRest(s.analysis), `${s.name}: opened at rest`).toBe(true);
-      }
-
       const out = alignStages(stages);
       expect(out.ok, `${g.name}: ${out.ok ? '' : out.refusal.why}`).toBe(true);
       if (!out.ok) return;
@@ -809,18 +804,21 @@ describe('per-stage logs of one launch', () => {
       expect(apogeeT[1], `${g.name}: the sustainer peaks after the booster (${apogeeT[0].toFixed(1)}s vs ${apogeeT[1].toFixed(1)}s)`).toBeGreaterThan(
         apogeeT[0],
       );
-      // The alignment is corroborated by an event it was NOT built from. Until separation both
-      // boards are bolted into the same rocket, so both of them record the BOOSTER's burnout —
-      // `EventType` has no separation or second-ignition member, so that first burn is what each
-      // record calls "burnout". Two instruments, lined up on liftoff alone, then agreeing to a
-      // fraction of a second about a different moment is evidence the offset is right; a wrong
-      // offset would show up here as a gap of whatever it was wrong by.
-      const burnouts = stages.map((st, i) => onComposite(i, st.analysis.events.find((e) => e.type === 'burnout')!.time));
-      const gap = Math.abs(burnouts[0] - burnouts[1]);
-      expect(gap, `${g.name}: the two boards agree on the booster burnout to ${gap.toFixed(2)} s (${burnouts.map((t) => t.toFixed(2)).join(' vs ')})`).toBeLessThan(1);
-      // Both of them, on the composite clock, land within the booster's burn — a sanity floor
-      // that a plausible-looking but badly wrong offset would not clear.
-      for (const t of burnouts) expect(t, `${g.name}: burnout at ${t.toFixed(2)} s after launch`).toBeGreaterThan(1);
+      // The alignment is corroborated by an event it was NOT built from, and the module reports
+      // that as a number rather than a claim. Until separation both boards are bolted into the
+      // same rocket, so both record the BOOSTER's burn — `EventType` has no separation or
+      // second-ignition member, so that first burn is what each record calls "burnout". Two
+      // instruments, lined up on liftoff alone, then agreeing to a fraction of a second about a
+      // different moment is the evidence; a wrong offset shows up as a gap of what it is wrong by.
+      expect(out.alignment.burnoutSpreadS, `${g.name}: corroborated at all`).not.toBeNull();
+      expect(
+        out.alignment.burnoutSpreadS!,
+        `${g.name}: the two boards agree on the booster burnout to ${out.alignment.burnoutSpreadS!.toFixed(2)} s`,
+      ).toBeLessThan(1);
+      // …and that burn lands where a first-stage burn belongs, seconds after the launch — a
+      // floor a plausible-looking but badly wrong offset would not clear.
+      const burnoutT = stages.map((st, i) => onComposite(i, st.analysis.events.find((e) => e.type === 'burnout')!.time));
+      for (const t of burnoutT) expect(t, `${g.name}: burnout at ${t.toFixed(2)} s after launch`).toBeGreaterThan(1);
     });
   }
 });
