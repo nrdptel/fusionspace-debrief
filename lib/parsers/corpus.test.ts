@@ -370,11 +370,12 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     const rejected = reads.filter((r) => r.reach === 'rejected');
     const summary = `${reads.length} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
     // The stepped-around set is raw downloads off a card that the generic mapper reads no
-    // columns from. It was seven; the three AltOS .eeprom downloads are now read directly,
-    // which is what these two numbers are here to hold on to — a parser regression that
-    // dropped one back into the mapper would otherwise show up as a still-green suite.
-    expect(analysed, summary).toBeGreaterThanOrEqual(40);
-    expect(steppedAround.length, summary).toBeLessThanOrEqual(4);
+    // columns from. It was seven; the three AltOS .eeprom downloads and the RRC3 .rff are
+    // now read directly, which is what these two numbers are here to hold on to — a parser
+    // regression that dropped one back into the mapper would otherwise show up as a
+    // still-green suite.
+    expect(analysed, summary).toBeGreaterThanOrEqual(41);
+    expect(steppedAround.length, summary).toBeLessThanOrEqual(3);
   });
 });
 
@@ -1087,10 +1088,12 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
 
   it('publishes no landing rate, and no landing energy, for any of them', () => {
     const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);
-    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(37);
+    expect(reads.length, 'the sweep analysed the corpus').toBeGreaterThanOrEqual(41);
     const stopsInTheAir = reads.filter((r) => r.metrics!.descentSource == null && r.metrics!.wholeDescentRate != null);
     // Named so a fixture entering or leaving this state is a visible change, not a silent one.
-    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(7);
+    // Eight since the RRC3 raw download became readable: it is the same flight as the mDACS
+    // text export already in this set, and that record stops several hundred feet up.
+    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(8);
 
     for (const r of stopsInTheAir) {
       const m = r.metrics!;

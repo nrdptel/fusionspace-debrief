@@ -72,6 +72,16 @@
       "note": "Key-value Featherweight GPS summary — recognised and explained rather than mapped."
     },
     {
+      "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff",
+      "expect": {
+        "kind": "flight",
+        "parser": "missileworks-rff"
+      },
+      "requireChannels": ["pressure"],
+      "assert": [{ "metric": "apogee", "value": 13304, "unit": "ft", "tolPct": 4 }],
+      "note": "The RAW flight file mDACS saves off the altimeter — was kind:mapping, 'graceful fallback', with zero columns found because the file has none: it is a .NET-serialised List<Int16> holding the log as it came off the board. Same ground truth and tolerance as the text export of this flight beside it (the flight report in the thread, ~13,304 ft). The two are the same 3,541 barometer readings, asserted exactly in missileworksRff.test.ts; the apogee differs from the export's by the atmosphere model, since the raw file has no altitude column to read."
+    },
+    {
       "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Data.txt",
       "expect": {
         "kind": "flight",

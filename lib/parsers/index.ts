@@ -19,6 +19,7 @@ import { entacoreAimParser } from './entacoreAim';
 import { featherweightGpsParser, featherweightGpsGroundStationParser } from './featherweightGps';
 import { altimeterCloudParser } from './altimeterCloud';
 import { missileworksRrc3Parser } from './missileworksRrc3';
+import { missileworksRffParser } from './missileworksRff';
 import { deviceSummaryParser } from './deviceSummary';
 
 export type { FileInput, ParseInput, Parser } from './types';
@@ -35,6 +36,7 @@ export const PARSERS: Parser[] = [
   featherweightGpsParser,
   featherweightGpsGroundStationParser,
   missileworksRrc3Parser,
+  missileworksRffParser,
   altimeterCloudParser,
   // Not a flight at all — a device's key,value summary export. Registered so it is
   // recognised and explained rather than dropped into the column mapper.
