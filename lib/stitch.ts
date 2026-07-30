@@ -59,6 +59,29 @@
 // this must not present the composite as measured.** What would settle it is the flyer saying
 // which recording is the first stage — the same shape as D1's crop and D3's grouping, where the
 // flyer states what the data cannot — and that is the next increment, not this one.
+//
+// ## Two measurements a surface built on this needs, before it is built
+//
+// **1. These offsets are good to about a second, not a tenth.** The Kairos boards were bolted
+// into ONE airframe over the first-stage burn, so across that window they measured the same
+// motion — and lined up on their own liftoffs they still do not agree. The extra shift that
+// minimises the disagreement is **0.56 s** on altitude (RMS 11.0 m, against 133.6 m unshifted)
+// and **0.74 s** on velocity (13.5, against 52.6). Plainly: at t+3 s the two records read 333 m
+// and 487 m. So a composite may order events that are seconds apart and must not print a
+// composite time to a tenth as though it meant one. `lib/parsers/corpus.test.ts` holds this.
+//
+// **2. No mark on any of these records is a staging event, and none can be.** `EventType` has no
+// separation or second-ignition member, and the corpus cannot ground one. Counting sustained
+// axial thrust runs (>20 m/s², ≥0.15 s) over whole records: the Kairos booster has ONE
+// (0.17–5.19 s) and the Kairos sustainer has ONE (307.67–312.29 s) — its log opens after
+// separation, so it never saw the booster burn at all. The SG1.2 sustainer has three, of lengths
+// 1.67 / 2.23 / 0.47 s, which are fragments of one boost rather than two burns. Across every
+// device-accel record: one run on 21 files, **two runs on three files — all ordinary SINGLE-stage
+// flights** (`iss-endurance`, `meraki2`, `asteria-lyrid`) — and three on the one staged record. A
+// "two burns means staging" rule fires on three single-stage flights and still does not pick out
+// the staged one. On baro-derived traces it is hopeless: those show five and nine "runs" on the
+// SG1.2 files, and a StratoLogger shows a 174-second one. So until a record arrives that holds
+// two separable burns, a composite may say which recording a mark came from and nothing more.
 
 import type { FlightAnalysis, Provenance } from './analyze/types';
 

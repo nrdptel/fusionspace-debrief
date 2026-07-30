@@ -825,6 +825,117 @@ describe('per-stage logs of one launch', () => {
   }
 });
 
+/**
+ * What a composite timeline may and may not claim, measured on the corpus's own staged pair.
+ *
+ * Both tests exist because the next D4 slice is a surface, and a surface says things. These are
+ * the two facts it must be built around, and neither is guessable from the code.
+ */
+describe('what a composite may claim', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const KAIROS = [
+    'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv',
+    'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv',
+  ];
+
+  it('two boards in one airframe still disagree by most of a second once aligned', () => {
+    // Until separation these two TeleMegas were bolted into the same rocket, so over the
+    // first-stage burn they measured the SAME motion. Lined up on their own liftoffs they do
+    // not agree, and how far out they are is the error bar on every composite time.
+    const loaded = KAIROS.map(loadForCompare);
+    expect(loaded.map((x) => x != null)).toEqual([true, true]);
+    const out = alignStages(loaded.map((x, i) => ({ name: KAIROS[i].split('/').pop() as string, analysis: x!.analysis })));
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    const [b, s] = loaded.map((x) => x!.analysis);
+    const [ob, os] = out.alignment.offsets;
+
+    const at = (a: (typeof loaded)[number], off: number, tC: number): number | null => {
+      const t = a!.analysis.series.time;
+      const y = a!.analysis.series.altitude;
+      const want = tC - off;
+      if (want < t[0] || want > t[t.length - 1]) return null;
+      let lo = 0;
+      let hi = t.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (t[mid] <= want) lo = mid;
+        else hi = mid;
+      }
+      const span = t[hi] - t[lo];
+      return span > 0 ? y[lo] + ((y[hi] - y[lo]) * (want - t[lo])) / span : y[lo];
+    };
+    const end = (b.events.find((e) => e.type === 'burnout')!.time) + ob;
+
+    // The gap is large and it is not noise: over the shared burn the two records differ by
+    // more than a hundred metres, which is what a fraction of a second of boost buys.
+    let worst = 0;
+    for (let tC = 1; tC <= end; tC += 0.25) {
+      const vb = at(loaded[0], ob, tC);
+      const vs = at(loaded[1], os, tC);
+      if (vb == null || vs == null) continue;
+      worst = Math.max(worst, Math.abs(vb - vs));
+    }
+    expect(worst, `worst altitude disagreement over the shared burn: ${worst.toFixed(0)} m`).toBeGreaterThan(100);
+    void s;
+  });
+
+  it('no corpus record holds two burns, so no mark can be called a staging event', () => {
+    // `EventType` has no separation or second-ignition member, and this is why one cannot be
+    // grounded: count sustained axial thrust runs over whole records and the staged files do
+    // NOT stand out. If a record ever arrives that genuinely holds two separable burns, this
+    // test goes red — which is the signal that staging detection has become possible.
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    const runsOf = (a: (typeof spec.fixtures)[number] extends never ? never : NonNullable<ReturnType<typeof loadForCompare>>) => {
+      const { time, axialAccel } = a.analysis.series;
+      const out: number[] = [];
+      let start = -1;
+      for (let i = 0; i < time.length; i++) {
+        const v = axialAccel[i];
+        if (Number.isFinite(v) && v > 20) {
+          if (start < 0) start = i;
+        } else if (start >= 0) {
+          if (time[i - 1] - time[start] >= 0.15) out.push(time[i - 1] - time[start]);
+          start = -1;
+        }
+      }
+      if (start >= 0 && time[time.length - 1] - time[start] >= 0.15) out.push(time[time.length - 1] - time[start]);
+      return out;
+    };
+
+    let twoOrMore = 0;
+    let deviceRecords = 0;
+    for (const f of spec.fixtures) {
+      let loaded;
+      try {
+        loaded = loadForCompare(f.file);
+      } catch {
+        continue;
+      }
+      if (!loaded || loaded.analysis.series.accelerationSource !== 'device') continue;
+      deviceRecords++;
+      if (runsOf(loaded).length >= 2) twoOrMore++;
+    }
+    expect(deviceRecords, 'the corpus has device-accelerometer records to count at all').toBeGreaterThan(15);
+
+    // Each Kairos record holds exactly ONE burn — the sustainer's log opens after separation,
+    // so it never saw the booster's. That is the whole reason a composite cannot tell a
+    // staging story from the marks.
+    for (const file of KAIROS) {
+      const loaded = loadForCompare(file);
+      expect(loaded, `${file} parses`).toBeTruthy();
+      expect(runsOf(loaded!).length, `${file.split('/').pop()}: one burn in the record`).toBe(1);
+    }
+
+    // And multiple runs are not a staging signal: the records that have them are ordinary
+    // single-stage flights. Four of the corpus's device records show two or more.
+    expect(twoOrMore, `${twoOrMore} device records show two or more thrust runs`).toBeGreaterThan(1);
+  }, 180_000);
+});
+
 describe('same-flight reconciliation (redundant recordings agree)', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
