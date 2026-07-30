@@ -143,9 +143,10 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
     const n = Math.min(series.velocity.length, series.airDensity.length);
     const mach = new Float64Array(series.velocity.length);
     const q = new Float64Array(series.velocity.length);
-    // A velocity judged impossible had its Mach and max-Q headlines withheld; don't
-    // draw the overlay curves derived from it either (the velocity line still shows).
-    const velUsable = !series.velocityImplausible;
+    // A record whose peak speed was withheld had its Mach and max-Q headlines withheld
+    // with it; don't draw the overlay curves derived from that trace either (the velocity
+    // line still shows). Tests the ONE flag, so a new reason to withhold reaches here too.
+    const velUsable = !series.velocityUnusable;
     for (let i = 0; i < mach.length; i++) {
       const v = series.velocity[i];
       const sos = series.speedOfSoundProfile[i]; // local speed of sound at each height

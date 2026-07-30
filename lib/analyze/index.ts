@@ -1871,9 +1871,12 @@ function analyzeWhole(
   // exact case that bound exists to prevent, with the apogee ejection charge inside the
   // window it was meant to exclude. Identical to `maxVelIdx` whenever the speed stands.
   const velTurnoverIdx = velocityImplausible ? peakVelIdxBeforeJudgement : maxVelIdx;
-  // Let the explorer and the comparison overlay see the same judgement, so they can
-  // withhold the Mach and dynamic-pressure curves derived from an impossible velocity.
-  series.velocityImplausible = velocityImplausible;
+  // Let the explorer and the comparison overlay see the same judgement, so they can withhold
+  // the Mach and dynamic-pressure curves derived from a peak this analysis would not stand
+  // behind. **Both reasons, not just one** — a gap across the ascent withholds the headline
+  // exactly as an impossible magnitude does, and for a while this line propagated only the
+  // second, so the curves went out on a flight whose peak the report had already refused.
+  series.velocityUnusable = velocityImplausible || ascentGapBreaksPeak;
 
   // --- Burnout --------------------------------------------------------------
   // With accel: thrust end — acceleration first falls through zero after the

@@ -76,7 +76,7 @@ describe('buildPlotChannels', () => {
     // Same flight, but the analysis judged the velocity physically impossible: the
     // velocity trace still shows for diagnosis, but Debrief won't derive Mach or max-Q
     // curves from it — matching the withheld headlines.
-    const flagged = buildPlotChannels(flight, { ...series, velocityImplausible: true });
+    const flagged = buildPlotChannels(flight, { ...series, velocityUnusable: true });
     expect(flagged.some((c) => c.key === 'd-velocity')).toBe(true);
     expect(flagged.some((c) => c.key === 'd-mach')).toBe(false);
     expect(flagged.some((c) => c.key === 'd-q')).toBe(false);

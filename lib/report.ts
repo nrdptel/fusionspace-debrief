@@ -65,7 +65,7 @@ export interface RecoveryFigures {
  *  the ceiling the flight's own accelerometer allows — is withheld here as it is in the
  *  headline, so no export hands back the figure the analysis has already refused. */
 function eventSpeed(analysis: FlightAnalysis, index: number): number {
-  if (analysis.series.velocityImplausible) return NaN;
+  if (analysis.series.velocityUnusable) return NaN;
   return analysis.series.velocity[index] ?? NaN;
 }
 
@@ -712,7 +712,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   // 1.79e8 kPa on the loudest, but also a perfectly believable 1.7, 1.6 and 1.3 — and a
   // believable wrong number is the dangerous one. The velocity column itself stays, exactly as
   // its trace stays on screen, so a mis-scaled column can still be seen and diagnosed.
-  const velUsable = !analysis.series.velocityImplausible;
+  const velUsable = !analysis.series.velocityUnusable;
   const header = [
     'time (s)',
     `altitude (${L.length} AGL)`,

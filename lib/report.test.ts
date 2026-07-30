@@ -69,7 +69,7 @@ describe('report exports', () => {
     const vel = Float64Array.from({ length: n }, (_, i) => (i > 100 && i < 140 ? 9000 : 50));
     const wild: RawFlight = { ...flight, channels: [...flight.channels, { kind: 'velocity', label: 'v', unit: 'm/s', values: vel }] };
     const wildAnalysis = analyzeFlight(wild);
-    expect(wildAnalysis.series.velocityImplausible, 'the fixture really does get its speed withheld').toBe(true);
+    expect(wildAnalysis.series.velocityUnusable, 'the fixture really does get its speed withheld').toBe(true);
     expect(wildAnalysis.metrics.mach, 'the screen withholds Mach').toBeNull();
 
     const csv = analyzedDataCsv(wild, wildAnalysis, 'metric');
@@ -158,7 +158,7 @@ describe('report exports', () => {
     // The headline already withholds an unusable velocity; the event tables read the same
     // trace sample by sample, so they have to withhold it too — an export that prints the
     // refused figure beside burnout hands it back with the refusal hidden.
-    const bad = { ...analysis, series: { ...analysis.series, velocityImplausible: true } };
+    const bad = { ...analysis, series: { ...analysis.series, velocityUnusable: true } };
     const speeds = (s: string) => s.match(/[\d,]+(?:\.\d+)? (?:ft\/s|m\/s)/g) ?? [];
     // Just the events block of each export — the part that reads the trace per sample.
     const block = (s: string, from: RegExp, to: RegExp) => {
