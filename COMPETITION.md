@@ -1,0 +1,87 @@
+# Debrief — Competitive Ledger
+
+**The purpose of this file is to make "belong in that company" a tracked gap instead of a mood.**
+
+`MAINTAINING.md` sets the bar as "Debrief has to feel like it belongs in that company" and the
+done-check asks each run to benchmark one surface against a mature tool. Until this file existed, that
+benchmark went into a chat report nobody read and nothing accumulated. Now it lands here, one row at a
+time, and the rows are where `ROADMAP.md` milestones come from.
+
+## How to use it
+
+1. **Every run adds or resolves at least one row.** The done-check requires it. A run that benchmarks
+   a surface and files nothing here did not benchmark it.
+2. **A row is a claim until verified.** Rows marked `UNVERIFIED` are leads, not facts. Verify against
+   the tool's own documentation, a real device, or a real log before you build against one — and
+   change the marker when you do, with what you checked. Vendor tools change with firmware, and a
+   capability misremembered is an expensive thing to build against.
+3. **`Verdict` is a decision, and decisions are cheap to reverse but expensive to re-derive.** Use:
+   - `GAP` — they have it, we want it, it is not yet on the roadmap.
+   - `QUEUED` — on `ROADMAP.md`, with the milestone named.
+   - `HAVE` — we do this, at least as well. Say what proves it.
+   - `BETTER` — we do it better. Say what proves it, because this is the claim that matters and the
+     one most easily kidded about.
+   - `REJECT` — deliberately not doing it. **Say why**, in one line. A rejection without a reason gets
+     re-litigated every run.
+4. **A `GAP` that survives two runs should become a milestone or a `REJECT`.** Standing gaps with no
+   decision are how a competitive analysis turns into decoration.
+5. **Format support is the one place to be maximally aggressive.** North Star #1 is "ingest anything".
+   A `GAP` that is "we cannot read this vendor's file" is worth more than most feature rows, and the
+   corpus is how it gets proven. Read published formats and specifications; never copy licensed code.
+
+## The field
+
+Debrief's competition is mostly **the software that ships with the altimeter a flyer already owns** —
+which means the flyer already has it, it already reads their file, and it is free. Beating that
+requires being better at something specific, not merely existing.
+
+| Tool | What it is | Why it matters here |
+|---|---|---|
+| **Featherweight Interface Program** | Featherweight's desktop app for Blue Raven and Featherweight GPS | The benchmark for high-rate data and orientation. Blue Raven logs far more than altitude. |
+| **AltusMetrum AltosUI** | Open-source desktop app for TeleMega / TeleMetrum / EasyMini | The benchmark for depth and honesty; open format, well documented, and a corpus source. |
+| **Fluctus Control Center** | Vendor software for Fluctus flight computers | `UNVERIFIED` in detail — verify capability and format before building against this row. |
+| **Eggtimer / PerfectFlite / Jolly Logic** | Vendor apps and utilities for widely-owned altimeters | Breadth of ownership. Whatever a beginner's first altimeter is, Debrief should read it. |
+| **Excel / Google Sheets** | What flyers actually fall back to | The real incumbent. Anything Debrief cannot do, a flyer does in a spreadsheet — badly, but they do it. |
+| **OpenRocket / RockSim** | Design and simulation | Not competitors, but the other half of the flyer's workflow: predicted versus flown is the comparison they want. Loft is the sibling that closes it. |
+
+---
+
+## Ledger
+
+Newest first. `file:line` or a route where ours lives, so the comparison is reproducible.
+
+| # | Tool | Capability | Where ours is | Verdict | Note |
+|---|---|---|---|---|---|
+| 1 | All vendor apps | **Shaped like an application** — a window with panes, not one scrolling document | `app/page.tsx` plus `components/Analyzer.tsx`; the analysis is one long page | `QUEUED` | P2 — Surfaces as routes. The largest structural reason Debrief reads as a page rather than a tool. |
+| 2 | All vendor apps | **One consistent visual language**, because one team built one app | 50 components, **no shared primitive layer at all** — zero cross-component imports, 12+ card treatments, `text-xs` used 212× against `text-sm` 82× | `QUEUED` | P1 — One design system, adopted. Measured 2026-07-30. This is the most concrete instance of "assembled rather than designed" in either repo. |
+| 3 | Featherweight | **High-rate data** — Blue Raven records far more per second than a baro-only altimeter, and the tool presents it without choking | Ingestion handles large logs; `UNVERIFIED` whether the ceiling and the plotting hold at Blue Raven's real rate | `GAP` | Verify with a real high-rate log first; the measurement is the increment. Decimation must never silently change a reported peak. |
+| 4 | Featherweight | **3-axis orientation / attitude through the flight** — roll, angle off vertical, and what the rocket was actually doing | Nothing | `GAP` | High value and genuinely deep. Only honest where the log carries the channels; must degrade to "this board did not record it" rather than estimating. |
+| 5 | AltosUI | **Reads its vendor's format completely**, including raw `.eeprom` | Shipped — D2, pinned by the raw `.eeprom` case | `HAVE` | Verified against the board's own software's interpretation, which is the standard to hold for every new format. |
+| 6 | AltosUI | **The logger's own reported summary shown beside the derived one** | Reported summary is used as ground truth in the corpus | `GAP` | Present it to the flyer, not just the test suite: "your board says 4,214 ft; we read 4,208 ft" is the cross-check that builds trust, and it is North Star #1's posture applied to one board. |
+| 7 | All vendor apps | **Reads only its own vendor's files** | Many formats into one model, plus a column mapper for any CSV | `BETTER` | The core structural advantage. Nothing else in the field reads a rival's file, and a flyer with two brands of altimeter has no other option. Under-sold outside the app. |
+| 8 | All vendor apps | **Requires an install, often Windows-only** | Browser, offline, installable, no account, nothing uploaded | `BETTER` | Also a privacy claim a vendor cannot make: the file never leaves the device. `/privacy` says so; the landing surface does not. |
+| 9 | All | **Several recordings of one flight, reconciled and cross-checked** | Shipped — D3; stitching is D4, in progress | `BETTER` | Nothing else does this. It is the moat and it is barely legible from outside the app. |
+| 10 | Excel | **The flyer can compute whatever they want** | Fixed set of derived readings | `REJECT` as stated | A formula box would betray the provenance-first invariant — an unvalidated user expression cannot be labelled measured, derived or estimated. The right answer is depth (D7): more readings that are *checked*, each with its method. Say this rather than re-deciding it. |
+| 11 | Excel | **Plots exactly what the flyer wants, in their colours, exported anywhere** | `reportProfile.ts` and `plotView.ts` carry order and hidden figures; `COMPARE_PALETTE` is hardcoded and caps at 6 | `QUEUED` | D5. The reason flyers still open a spreadsheet after using a vendor tool. |
+| 12 | OpenRocket / RockSim / **Loft** | **Predicted versus flown, side by side** | Nothing | `GAP` | The most valuable capability neither side of the suite has. Debrief holds the flight, Loft holds the prediction, and the flyer wants the overlay. Needs a decision about coupling — `MAINTAINING.md` says keep the tools distinct, so this is an import of a prediction, never a shared runtime. Owner-level; flag it rather than assume it. |
+| 13 | Vendor apps | **Firmware-aware parsing** — the app knows which firmware wrote the file and reads it accordingly | D2 reads the file the card actually holds | `HAVE` | Hold this standard for each new format: read it the way the board's own software reads it, and prove it against the board's reported summary. |
+| 14 | All | **A flyer can find the tool at all** | `README.md` (27 KB, text-only), no changelog, no release visible in the UI | `QUEUED` | P5 — Ready for the public. Being better than the vendor app is worth nothing to someone who never finds it. |
+
+---
+
+## Standing conclusion — where Debrief actually wins
+
+Keep this honest and current; it is what the landing surface and the README should say, and right now
+they do not say it.
+
+1. **It reads every board, not just the one that made it** — including any CSV, through the column
+   mapper.
+2. **It puts several recordings of one flight side by side** and shows where they disagree instead of
+   averaging them away. Nothing else does this.
+3. **Nothing is uploaded, nothing is installed, nothing is paid for**, and it works at the range with
+   no signal.
+
+Where it loses today: no orientation or high-rate depth to match Featherweight's own tool, no
+predicted-versus-flown overlay, report export is thinner than a spreadsheet — and, the one a flyer
+sees first, **it is shaped like a long page rather than an application, with no consistent visual
+language across its fifty components.**

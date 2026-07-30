@@ -4,12 +4,31 @@
 roadmap; a memory."* It is right about that, and for a long time nothing else was the roadmap. What
 Debrief still cannot DO lives here.
 
-Read this at session start, alongside `HANDOFF.md`. Unless the owner names something else, the next
-unstarted milestone below is the run's goal. See *Each pass* in `MAINTAINING.md` for how defect work
-preempts it (Sev-1 only) and how much of a run it may take (one increment in four).
+Read this at session start, alongside `HANDOFF.md`, `DESIGN.md` and `COMPETITION.md`. See *Each pass*
+in `MAINTAINING.md` for how defect work preempts a milestone (Sev-1 only).
 
-One milestone at a time, in order. Do not skip ahead: each is a prerequisite for the next. A milestone
-is finished when a flyer can do the thing — not when the code exists.
+## Two tracks, and a run ships from both
+
+**The queue has two tracks, and they alternate.** This replaced a single capability-only queue on
+2026-07-30, for a measured reason: the D-track shipped three milestones and started a fourth, and the
+app still read as one long scrolling page assembled from **fifty components with no shared primitive
+layer at all** — zero cross-component imports, twelve card treatments, and `text-xs` used 212 times
+against `text-sm` 82, which puts most decision-grade numbers at caption size. Capability was never the
+bottleneck. **What a flyer can do** and **what the tool feels like to use** are different work, and a
+queue containing only the first can only ever ship the first.
+
+- **D-track — capability.** What a flyer can DO that they could not before. D1–D3 shipped, D4 is in
+  progress, D5 is next.
+- **P-track — product and craft.** What makes it a tool a stranger picks up, trusts, and keeps using:
+  shape, design system, first run, form factor, documentation, discoverability.
+
+**A run takes the next unstarted milestone from EACH track, and ships both.** Not one or the other.
+Start with whichever is smaller so something lands early, then take the other. If a run has time for
+only one, take the P-track milestone — the D-track has momentum and the P-track has none, and that
+imbalance is the thing being corrected.
+
+A milestone from either track is finished when **a flyer can do the thing, or see the difference** —
+not when the code exists. Within a track, do not skip ahead: each is a prerequisite for the next.
 
 **This file is the run's only state.** The prompt is deliberately stateless — it says "the next
 unstarted milestone", never a number — because the same prompt is run for a week or two unattended and
@@ -485,13 +504,132 @@ file, so CSV and JSON keep every key.
 
 ---
 
-## After D5 — extend this file yourself, in this order
+## P1 — One design system, adopted
+
+**Status:** NOT STARTED — the next P-track milestone.
+
+**Outcome.** The app reads as one considered product rather than fifty components built on different
+days.
+
+**Done when** `DESIGN.md`'s compliance block (§9) runs clean and is **pinned by a test**: a shared
+`components/ui.tsx` exists and most components import their containers, buttons and fields from it;
+zero `rounded-lg`; one card treatment rather than twelve; zero off-scale spacing values; and `text-sm`
+outnumbering `text-xs`, so a decision-grade number is no longer rendered at caption size. A flyer sees
+consistent spacing, one button hierarchy, and the same card everywhere.
+
+**Notes.** Debrief has **no shared primitive layer at all** — measured 2026-07-30, zero
+cross-component imports across 50 components. The sibling repo has a thin one (`components/ui.tsx`,
+8 exports, 5 of 23 components using it), so the vocabulary in `DESIGN.md` §5 is partly drafted there;
+build the same names here so the two apps converge rather than inventing a second dialect. Convert in
+slices — one surface per increment, each shipped green — never one sweeping diff. **Ship the lint rule
+or test with the first slice**, so the drift cannot return mid-conversion.
+
+The `text-xs` inversion is the highest-value single fix and it is not cosmetic: this app exists to
+present numbers a flyer sizes a canopy against, and most of them are currently at caption size.
+
+**Size.** 4–6 increments.
+
+---
+
+## P2 — Surfaces as routes
+
+**Status:** NOT STARTED
+
+**Outcome.** Debrief is shaped like an application, not a scrolling page.
+
+**Done when** the distinct jobs — drop/ingest, analyse one flight, compare flights, the logbook, build
+a report — are distinct static routes with one navigation spine that shows where the flyer is; the
+loaded flights survive moving between them; every route deep-links and reloads into the same state;
+and no route is more than two screens deep to its primary answer. Pinned by e2e over each route plus a
+static-export assertion.
+
+**Notes.** `/compare`, `/methods`, `/validation` and `/privacy` are already routes, so the spine
+partly exists — the analysis itself is the long page. `components/Analyzer.tsx` and
+`components/FlightReport.tsx` are where the jobs are stacked. Keep navigation and layout above the
+model; the parsers and analysis stay ignorant of pages and form factor. Multi-view is multi-route,
+never multi-server.
+
+**Depends on** P1 — converting surfaces onto shared primitives first means the split moves components
+rather than rewriting them.
+
+**Size.** 4–6 increments.
+
+---
+
+## P3 — A stranger's first five minutes
+
+**Status:** NOT STARTED
+
+**Outcome.** Someone who has never heard of Debrief gets to a flight they believe in, without being
+told how.
+
+**Done when** a first-time visitor can, without instruction: understand what the tool is within one
+screen; open a real sample flight in one click without supplying a file; drop their own log and be
+told plainly what was and was not understood about it — including which board it thinks wrote it; and
+find the methods and validation pages from where the question arises rather than from a footer.
+Pinned by an e2e walkthrough that starts at a cold load with empty storage and reaches an explained
+flight.
+
+**Notes.** `public/samples/` has one sample; the recognised-format list exists but a newcomer meets it
+too late. The measurement that matters is steps and dead ends, not looks: count the clicks from cold
+load to an explained flight, and count the states a first-timer can reach that explain nothing.
+
+**Size.** 3–4 increments.
+
+---
+
+## P4 — The range on a phone
+
+**Status:** NOT STARTED
+
+**Outcome.** A phone at the range is a first-class tool, not a rescaled desktop.
+
+**Done when** a flyer can, one-handed and offline on a 390 px viewport, complete the things a range
+day actually needs — drop a log straight off a card, read apogee and descent rate, check a deploy
+altitude, and show someone the result — with zero controls under 44 px and zero states reachable only
+by hover. Pinned by a mobile-viewport e2e that asserts both counts and walks each journey.
+
+**Notes.** The touch minimums are partly in `app/globals.css` already, which is the right instinct
+applied at the wrong layer — a global `min-height` is a floor, not a design. `DESIGN.md` §8 is the
+contract. Decompose by what a flyer needs to DO at the range, not by auditing the desktop layout
+narrow.
+
+**Size.** 4–6 increments.
+
+---
+
+## P5 — Ready for the public
+
+**Status:** NOT STARTED
+
+**Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
+
+**Done when** the README shows what the tool does with images rather than describing it in 27 KB of
+text; the landing surface states the three things Debrief does that no vendor tool does
+(`COMPETITION.md`'s standing conclusion) instead of leaving a flyer to discover them; the recognised
+formats are visible before a file is dropped, not after; there is a visible changelog and a versioned
+release the flyer can see in the UI; and there is a working way to report a bug or request a format
+from inside the app. Pinned by link-checking and a build-time assertion that the version shown matches
+the release.
+
+**Notes.** Debrief's advantages are structural and completely illegible from outside: it reads every
+board rather than one, it cross-checks redundant recordings, and nothing is uploaded. Keep the
+ecosystem consistency invariant — whatever ships here ships in both apps.
+
+**Size.** 3–5 increments.
+
+---
+
+## After D5 and P5 — extend this file yourself, in this order
 
 **Do not ask which of these to do, and do not fall back to the defect ledger because the list above is
-finished.** When D5 ships, take D6 from the order below and decompose it here to the same shape —
-outcome, *done when*, size, notes — then start it. That decomposition is one increment's work and it
-IS the work when the roadmap is dry. The order is a standing decision, changeable by the owner at any
-time; absent that, it holds.
+finished.** When a track's last milestone ships, take the next from that track's order below and
+decompose it here to the same shape — outcome, *done when*, size, notes — then start it. That
+decomposition is one increment's work and it IS the work when a track is dry. **A dry D-track is not a
+reason to skip the P-track or vice versa** — extend the dry one and keep alternating. The order is a
+standing decision, changeable by the owner at any time; absent that, it holds.
+
+### D-track, after D5
 
 **D6 — Infer which files belong to one flight.** D1 and D3 make the flyer say so; this proposes the
 grouping from launch day, overlapping wall clocks and profile shape, shows its reasoning and lets the
@@ -501,14 +639,32 @@ of two, and it must sit on a model that already handles the explicit case.
 **D7 — Deeper honest insight, the stated moat.** North Star 1's third bullet: more of what the data
 supports, each reading validated against the corpus, the logger's own reported summary and published
 sources, and each arriving with its method on the methods page. Decompose by readings a flyer asks for
-and that can be checked — not by whatever is computable.
+and that can be checked — not by whatever is computable. `COMPETITION.md` row 6 is the cheapest first
+slice: show the flyer the board's own reported summary beside ours, which the corpus already uses as
+ground truth and which nothing surfaces to a flyer.
 
-**D8 — Surfaces per device.** The North Star says the tool "takes shape as distinct, purpose-built
-surfaces over that one model, each optimized for the device it's used on". Decompose by what a flyer
-needs to DO at the range on a phone versus at a desk writing a cert document — capability first,
-layout second.
+**D8 — Orientation and high-rate data.** `COMPETITION.md` rows 3 and 4: the boards flyers increasingly
+own record far more than a baro trace, and the vendor tool shows it. Only honest where the log carries
+the channels — degrade to "this board did not record it", never estimate. Verify the ingestion ceiling
+against a real high-rate log first; that measurement is the first increment.
 
-Beyond D8, decompose from the North Star in `MAINTAINING.md` and record why you chose what you chose.
+**D9 — Predicted versus flown.** `COMPETITION.md` row 12: the most valuable capability neither half of
+the suite has. Debrief holds the flight, the sibling holds the prediction, and a flyer wants the
+overlay. It is an *import of a prediction*, never a shared runtime — the tools stay distinct. This one
+touches product direction, so state the assumption loudly and record it below.
+
+### P-track, after P5
+
+**P6 — Instrument what flyers actually hit.** Client-side, keyless, privacy-preserving: which formats
+arrive, which parses fail, where a journey is abandoned. Today every priority is inferred from a
+corpus and a cold walk rather than from use. Deliberately after P5, because it needs users.
+
+**P7 — The suite as one product.** Debrief and the sibling cross-refer, share a design system and a
+nav idiom, and a flyer who analyses in one and designs in the other never feels they changed tools.
+Some of this lands earlier in `DESIGN.md` §10; this is the milestone that finishes it.
+
+Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPETITION.md`'s standing
+`GAP` rows, and record why you chose what you chose.
 
 ---
 
@@ -518,6 +674,18 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-07-30 — the queue was split into two alternating tracks, and product/craft work was made
+  queue-legal rather than quota-capped.** The owner directed the shift: the products "still look and
+  feel like thrown together" projects rather than something the public can pick up, against the vendor
+  tools and the desktop sims. The decomposition is mine. Rejected raising the old one-in-four polish
+  quota: the quota was never the real constraint — `ROADMAP.md` was, and it contained no polish
+  milestone to spend a quota on, so raising the cap would have licensed more defect-clearing rather
+  than more product work. Rejected appending the P-track after D5, which is where the equivalent item
+  already sat as D8 and where it had been sitting untouched while three D-milestones shipped past it.
+  Alternation is mechanical, which is the property that makes a rule survive an unattended run; a
+  preference is not. Old D8 (surfaces per device) split into P2 (routes) and P4 (phone), because it
+  conflated a shape problem with a form-factor problem and the shape one is both cheaper and more
+  visible.
 - **2026-07-30 — the burn-agreement gate in `lib/stitch.ts` was removed rather than widened.** It
   had shipped. The alternatives were to widen the 1 s tolerance until the corpus's redundant-board
   groups passed, or to compare only burnouts of matching provenance. Rejected both: widening does
