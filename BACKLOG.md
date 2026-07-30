@@ -48,15 +48,23 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
-- **A stretch the flyer chose does not survive a reload.** The crop lives in the report's state
+- **A comparison built from logbook ids re-reads every flight whole**, so a flight a flyer cropped
+  joins a comparison uncropped and the comparison's figures disagree with the report's for the same
+  flight. `lib/compareFromLogbook.ts` re-analyses from the stored text and never asks for
+  `RecentFlight.read`. Threading it is small; deciding what a cropped flight IS on that surface is
+  not, and it belongs with D3's "one flight can carry several recordings" rather than in front of
+  it. **D3's starting point, with the logbook row below.**
+
+- **DONE — a stretch the flyer chose does not survive a reload.** Kept with the flight as
+  `RecentFlight.read`, in seconds on the file's own clock, resolved back to samples against the
+  parse this build makes. Forgotten when the flyer reads the whole file again. Original entry: The crop lives in the report's state
   only: `RecentFlight` (`lib/recents.ts:26`) stores the file's text, the hand-made column mapping
   and the caption, and nothing about which stretch of it was read — so a reload, a reopen from the
   logbook, and a comparison built by id all come back to Debrief's own segmentation. "Controls
   that forget" is on the standing tell list, and this is the largest one the crop leaves. It wants
   seconds on the file's own clock rather than sample indices (a re-parse can change the count, and
   a stored index would then point at a different sample), resolved back to indices on reopen —
-  `indexAtOrAfter` in `components/CropControl.tsx` is already that search. **This is what stands
-  between D1 and SHIPPED.**
+  `indexAtOrAfter` in `components/CropControl.tsx` is already that search.
 
 - **The logbook row still holds the whole file's apogee after a flight is opened out of it.**
   `saveRecent` writes `apogeeM` from the first analysis, and reading another flight in the same

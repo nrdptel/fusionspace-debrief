@@ -45,6 +45,17 @@ export interface RecentFlight extends RecentMeta {
    *
    *  Keyed by the logbook id, which is stable across a reopen. */
   caption?: { label: string; notes: string };
+  /** The stretch of this file the flyer chose to read, in SECONDS on the file's own clock.
+   *
+   *  Seconds rather than sample indices, deliberately: the file is stored as text and re-parsed
+   *  on every reopen, so an index is a promise about a parse rather than about the flight. A
+   *  parser fix that drops one duplicate timestamp would move a stored index onto a different
+   *  sample and the crop would quietly shift; the seconds still name the same moment of the
+   *  same flight. `indexAtOrAfter` in `components/CropControl.tsx` is the search back.
+   *
+   *  Absent on every flight read whole, which is almost all of them — so its presence IS the
+   *  question "did the flyer overrule the segmentation on this one?". */
+  read?: { fromS: number; toS: number };
   /** The column mapping a flyer made by hand, for a file Debrief doesn't auto-detect.
    *  Without it the logbook holds the text and not the answer: reopening the flight asks
    *  for the mapping again, and a comparison built by id drops it entirely. Absent on every
@@ -232,6 +243,27 @@ export async function updateNote(id: string, note: string): Promise<void> {
 
 /** Keep the label and notes a flyer typed onto a report. Mirrors `updateNote`: read, merge,
  *  put — so it can't clobber a field written by a concurrent save. */
+/**
+ * Keep (or forget) the stretch a flyer chose to read.
+ *
+ * Written the moment they choose it rather than on the way out, for the same reason the caption
+ * is: the way out of a flight report is a link, a Back, or closing the tab, and none of those is
+ * a save. Passing null forgets it, which is what "Read the whole file" means.
+ */
+export async function saveReadWindow(id: string, read: { fromS: number; toS: number } | null): Promise<void> {
+  try {
+    const db = await idb();
+    const rec = await reqToPromise(tx(db, 'readonly').get(id) as IDBRequest<RecentFlight>);
+    if (!rec) return;
+    const next = { ...rec };
+    if (read) next.read = read;
+    else delete next.read;
+    tx(db, 'readwrite').put(next);
+  } catch {
+    /* storage unavailable — the crop still applies to this view */
+  }
+}
+
 export async function saveCaption(id: string, caption: { label: string; notes: string }): Promise<void> {
   try {
     const db = await idb();
@@ -349,7 +381,26 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // not the altimeter's own stated figures, which is the comparison a flyer restored the
     // logbook to keep.
     ...(typeof r.summaryText === 'string' && r.summaryText ? { summaryText: r.summaryText } : {}),
+    // …and the stretch of the file the flyer said was their flight. Export writes the whole
+    // record, so a backup carries it; rebuilding field by field here is exactly what dropped
+    // the caption once, and this is the same class of thing — something the flyer decided.
+    ...(readWindowOf(r.read) ? { read: readWindowOf(r.read)! } : {}),
   };
+}
+
+/** A stored/imported read window, or null when it isn't one. Validated rather than coerced,
+ *  like every other restored member: a hand-edited backup must not be able to hand the
+ *  analyzer a crop that runs backwards or off the end of the file, and half a window is not a
+ *  window — a restore that applied `from` and dropped `to` would read a different flight and
+ *  say nothing. */
+function readWindowOf(v: unknown): { fromS: number; toS: number } | null {
+  if (!v || typeof v !== 'object') return null;
+  const w = v as Record<string, unknown>;
+  const from = w.fromS;
+  const to = w.toS;
+  if (typeof from !== 'number' || typeof to !== 'number') return null;
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !(to > from)) return null;
+  return { fromS: from, toS: to };
 }
 
 /** A stored/imported report caption, or null when it isn't one. Same rule as `flownAtOf` and

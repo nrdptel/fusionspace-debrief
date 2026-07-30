@@ -42,6 +42,7 @@ import EjectionDelay from './EjectionDelay';
 import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
+import { padOrigin } from '@/lib/gps';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
@@ -63,6 +64,7 @@ export default function FlightReport({
   caption,
   onCaption,
   fileTime,
+  fileFlight,
   onRead,
   reading,
   readError,
@@ -75,6 +77,9 @@ export default function FlightReport({
   /** The WHOLE file's time base, when `flight` is a stretch of it — what the crop control
    *  offers. Absent where the report is of the whole file, which is its own answer. */
   fileTime?: Float64Array;
+  /** The WHOLE file, when `flight` is a stretch of it — for the readings that are measured
+   *  from the pad and so cannot take their reference from the stretch. */
+  fileFlight?: RawFlight;
   /** Read a different stretch of the same file — one of the other flights in a launch-day
    *  download. Absent where the surface has no way to re-read (a shared link). */
   onRead?: (from: number, to: number) => void;
@@ -241,6 +246,15 @@ export default function FlightReport({
   // Every export's filename. It carries the stretch when the report is of one, because two
   // flights out of one download would otherwise leave the same file name in the flyer's
   // Downloads folder twice — the collision the logbook already had to fix once.
+  const fileLat = fileFlight ? getChannel(fileFlight, 'latitude') : undefined;
+  const fileLon = fileFlight ? getChannel(fileFlight, 'longitude') : undefined;
+  // The FILE's pad, for the recovery card, when this report is of a stretch. Null on a
+  // whole-file reading, where the fixes on screen open on the rail and are the pad already.
+  const filePad = useMemo(() => {
+    if (analysis.extent.source === 'file' || !fileLat || !fileLon) return null;
+    return padOrigin(fileLat.values, fileLon.values);
+  }, [analysis.extent.source, fileLat, fileLon]);
+
   const stem = useMemo(() => {
     const base = reportStem(flight.source);
     const e = analysis.extent;
@@ -1267,6 +1281,7 @@ export default function FlightReport({
           lon={gpsLon.values}
           sys={sys}
           stem={stem}
+          padOrigin={filePad}
           time={series.time}
           altitude={series.altitude}
           // The descent (for the measured wind) starts at the main deploy when one

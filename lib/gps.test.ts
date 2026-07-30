@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile, trackKml } from './gps';
+import { padOrigin, groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile, trackKml } from './gps';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -195,5 +195,48 @@ describe('trackKml — the flight in Google Earth', () => {
     const kml = trackKml('a & b', gappy, lon, alt, -1);
     expect(kml).toContain('<name>a &amp; b</name>');
     expect(kml.match(/,34\./g)?.length).toBe(2);
+  });
+});
+
+describe('the pad a recovery reading is measured from', () => {
+  it('is the file’s, not the stretch’s, when a flyer reads part of a record', () => {
+    // Every reading on the recovery card is measured FROM the pad — how far the rocket landed
+    // from it, which way to walk, how far it leaned off vertical. Taking that reference from
+    // the opening fixes of a CROP puts the pad in mid-air. Measured on a real corpus
+    // Featherweight GPS record, cropping to apogee-onward moved the walk-back from 3,866 ft on
+    // a bearing of 208° SW to 4,676 ft on 127° SE — 81° and 810 ft wrong, on the one surface a
+    // flyer physically acts on.
+    const n = 200;
+    const lat = new Float64Array(n);
+    const lon = new Float64Array(n);
+    // Straight up from the pad, then drifting north-east under canopy.
+    for (let i = 0; i < n; i++) {
+      const drift = Math.max(0, i - 100) / 100;
+      lat[i] = 34 + drift * 0.01;
+      lon[i] = -117 + drift * 0.01;
+    }
+    const pad = padOrigin(lat, lon)!;
+    expect(pad.lat0).toBeCloseTo(34, 6);
+
+    const wholeStats = recoveryStats(groundTrack(lat, lon)!, n - 1);
+    const cropLat = lat.slice(120);
+    const cropLon = lon.slice(120);
+    // Without the file's pad the crop's own first fixes become the reference…
+    const naive = recoveryStats(groundTrack(cropLat, cropLon)!, cropLat.length - 1);
+    expect(naive.landingDistance).toBeLessThan(wholeStats.landingDistance * 0.9);
+    // …and with it, the crop reads exactly what the whole file reads.
+    const fixed = recoveryStats(groundTrack(cropLat, cropLon, 16, pad)!, cropLat.length - 1);
+    expect(fixed.landingDistance).toBeCloseTo(wholeStats.landingDistance, 6);
+    expect(fixed.landingBearing).toBeCloseTo(wholeStats.landingBearing, 6);
+    expect(fixed.maxDrift).toBeCloseTo(wholeStats.maxDrift, 6);
+  });
+
+  it('falls back to the stretch when the file has no origin to give', () => {
+    const lat = Float64Array.from([34, 34.001, 34.002]);
+    const lon = Float64Array.from([-117, -117.001, -117.002]);
+    expect(padOrigin(Float64Array.from([NaN, NaN]), Float64Array.from([NaN, NaN]))).toBeNull();
+    // A non-finite origin is ignored rather than poisoning the projection.
+    const t = groundTrack(lat, lon, 1, { lat0: Number.NaN, lon0: Number.NaN })!;
+    expect(t.lat0).toBeCloseTo(34, 6);
   });
 });

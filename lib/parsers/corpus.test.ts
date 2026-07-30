@@ -5,13 +5,14 @@ import { importFlight } from './index';
 import { summaryFigures } from './deviceSummary';
 import { analyzeFlight } from '../analyze';
 import { buildFlight } from '../flight/build';
+import { sliceFlight } from '../flight/slice';
 import { compareReported, REPORTED_QUANTITY } from '../flight/reported';
 import { getChannel, type ChannelKind, type ReportedValue } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { landedInRecord, landingRate, metricTiles } from '../readings';
 import { headlineRows } from '../report';
-import { groundTrack, recoveryStats, trackGpx, trackKml } from '../gps';
+import { groundTrack, padOrigin, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 
@@ -704,6 +705,43 @@ const DOUBLE_RECORDINGS: { file: string; says: SegmentSays; why: string; segment
     why: 'a 19 ft misparsed fragment — 9.5 m of noise is not two flights',
   },
 ];
+
+describe('a stretch a flyer chose keeps the file’s pad under it', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // The recovery card is the one surface a flyer physically acts on — they walk the bearing it
+  // prints. Every reading on it is measured FROM the pad, so a crop that takes its reference
+  // from its own opening fixes puts the pad wherever the rocket was when the selection starts.
+  const FILE = 'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv';
+  it('reads the same walk-back off a crop as off the whole file', () => {
+    const path = CORPUS + FILE;
+    if (!existsSync(path)) return;
+    const res = importFlight({ name: FILE.split('/').pop() as string, text: decodeBytes(new Uint8Array(readFileSync(path))) });
+    expect(res.kind).toBe('flight');
+    if (res.kind !== 'flight') return;
+    const file = res.flight;
+    const lat = getChannel(file, 'latitude')!;
+    const lon = getChannel(file, 'longitude')!;
+    const pad = padOrigin(lat.values, lon.values)!;
+    const whole = recoveryStats(groundTrack(lat.values, lon.values)!, lat.values.length - 1);
+
+    const apogee = analyzeFlight(file).events.find((e) => e.type === 'apogee')!;
+    const crop = sliceFlight(file, apogee.index, file.time.length);
+    const cl = getChannel(crop, 'latitude')!.values;
+    const co = getChannel(crop, 'longitude')!.values;
+
+    // Without the file's pad this record reads 4,676 ft on 127° SE against 3,866 ft on 208° SW.
+    const naive = recoveryStats(groundTrack(cl, co)!, cl.length - 1);
+    expect(Math.abs(naive.landingBearing - whole.landingBearing)).toBeGreaterThan(50);
+
+    const fixed = recoveryStats(groundTrack(cl, co, 16, pad)!, cl.length - 1);
+    expect(fixed.landingDistance).toBeCloseTo(whole.landingDistance, 6);
+    expect(fixed.landingBearing).toBeCloseTo(whole.landingBearing, 6);
+    expect(fixed.maxDrift).toBeCloseTo(whole.maxDrift, 6);
+  });
+});
 
 describe('a record read as one flight that does not look like one says so', () => {
   if (!present) {

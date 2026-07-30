@@ -1545,4 +1545,26 @@ test('a flyer can say which stretch of a record is their flight, and the analysi
   await to.fill('1.1');
   await expect(read).toBeDisabled();
   await expect(page.getByText(/too few to read a flight from/)).toBeVisible();
+
+  // …and the choice survives leaving the page. A control that forgets is on the standing tell
+  // list, and this is a flyer's own answer about which flight is theirs — the thing on that
+  // screen the tool has least business overruling on a reload.
+  await from.fill(realFlightStartsAt.toFixed(1));
+  await to.fill(t.toFixed(1));
+  await read.click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(600); // the write is fire-and-forget, like the caption's
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('[data-reading="Apogee"]')).toContainText(/2,9\d\d ft|3,0\d\d ft/);
+
+  // And reading the whole file again forgets it, rather than leaving a crop the flyer
+  // cancelled to come back on the next reload.
+  await page.getByRole('button', { name: 'Read the whole file' }).click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden({ timeout: 15_000 });
+  await page.waitForTimeout(600);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden();
 });

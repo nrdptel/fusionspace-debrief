@@ -96,11 +96,18 @@ The review also caught that the calibration sweep had been run over 34 records w
 
 ## D1 — Every flight in one download, and the flyer says which is theirs
 
-**Status:** IN PROGRESS — current milestone. All three clauses of the *done when* are built and
-pinned; what remains before it can be marked SHIPPED is that **a chosen stretch does not survive a
-reload** (`BACKLOG.md`), which is the difference between a capability and a demonstration.
+**Status:** SHIPPED 2026-07-30 — pinned by `a launch day gives up every flight in it, and any of
+them can be read` and `a flyer can say which stretch of a record is their flight, and the analysis
+reads it` (both `e2e/analyze.spec.ts`, both walking the real app), `says so when it read a record
+as one flight that does not look like one` (`lib/analyze/analyze.test.ts`), and a whole-corpus
+invariant that the refusal fires on none of the 46 records that analyse.
 
-**Built so far, with the check that pins each:**
+**What a flyer can do that they could not before:** drop a launch-day download, see every flight
+in it, open any of them, and — on any record at all — say which stretch is theirs and have the
+analysis read that instead. The stretch is remembered, so coming back to the flight comes back to
+the flight.
+
+**Each clause of the *done when*, and the check that pins it:**
 
 - *see every flight it contains* — `FlightAnalysis.segments` lists them with each apogee on the
   file's own datum. `lists every flight in the download, not just the one it read`, and the corpus
@@ -117,6 +124,17 @@ reload** (`BACKLOG.md`), which is the difference between a capability and a demo
   separately from the segmentation, and where the two disagree the report says which. `says so
   when it read a record as one flight that does not look like one`, and a whole-corpus invariant
   that it says it about **none of the 46 records that analyse**.
+- *and it is remembered* — the stretch is kept with the flight in the logbook, in seconds on the
+  file's own clock rather than sample indices, so a re-parse cannot shift it. The e2e walk crops a
+  record, reloads the page, and finds the same stretch still read.
+
+**What this delivered against its *done when*, and what it did not.** All four clauses hold. Three
+things it does NOT do, each filed in `BACKLOG.md` rather than left implied: the logbook row still
+carries the FILE's apogee whichever flight is on screen; a comparison built from ids re-reads each
+flight whole, so a cropped flight joins a comparison uncropped; and two flights to the same height
+within 1% in one file are still called "the same flight written twice", which the altitude column
+alone cannot settle. **The first two are D3's starting point** — they are both the logbook being
+keyed on files where it now needs to be keyed on flights.
 
 **Outcome.** A launch-day download gives up every flight in it, and where the automatic read is
 uncertain the flyer can simply say which stretch is theirs.

@@ -57,6 +57,7 @@ export default function GroundTrack({
   lon,
   sys,
   stem,
+  padOrigin,
   time,
   altitude,
   descentFromIndex,
@@ -76,6 +77,9 @@ export default function GroundTrack({
   landed: boolean;
   /** Filesystem-safe stem of the source file, for the GPX filename. */
   stem: string;
+  /** The FILE's own pad, when this report is of a stretch of it. Absent for a whole-file
+   *  reading, where the opening fixes ARE the pad. */
+  padOrigin?: { lat0: number; lon0: number } | null;
   /** Flight time base (s), aligned with lat/lon — needed to read drift velocity. */
   time?: Float64Array;
   /** Altitude (m AGL), aligned with lat/lon — needed for the wind-by-altitude profile. */
@@ -106,7 +110,10 @@ export default function GroundTrack({
    *  a new position aloud per pointer sample. */
   const [deliberate, setDeliberate] = useState(false);
 
-  const track = useMemo(() => groundTrack(lat, lon), [lat, lon]);
+  // The pad, from the FILE's opening fixes when the report is showing a stretch of one. Every
+  // reading below is measured from it, so taking it from the crop's first fixes would put the
+  // pad wherever the rocket happened to be when the flyer's selection starts.
+  const track = useMemo(() => groundTrack(lat, lon, 16, padOrigin ?? undefined), [lat, lon, padOrigin]);
   const stats = useMemo(() => (track ? recoveryStats(track) : null), [track]);
   const wind = useMemo(
     () =>

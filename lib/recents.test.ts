@@ -135,3 +135,29 @@ describe('isSameStoredFlight', () => {
     expect(isSameStoredFlight(a, b)).toBe(true);
   });
 });
+
+describe('the stretch a flyer chose', () => {
+  it('is restored from a backup, and a broken one is refused rather than half-applied', () => {
+    // Same rule as the caption and the mapping: validated, not coerced. Half a window is not a
+    // window — a restore that applied `from` and dropped `to` would read a different flight
+    // and say "Restored N flights" while doing it.
+    const base = { id: 'a', name: 'f.csv', text: 't' };
+    const ok = parseLogbookFlights(JSON.stringify({ flights: [{ ...base, read: { fromS: 12.5, toS: 90 } }] }));
+    expect(ok[0].read).toEqual({ fromS: 12.5, toS: 90 });
+
+    for (const bad of [
+      { fromS: 12.5 },
+      { toS: 90 },
+      { fromS: '12.5', toS: 90 },
+      { fromS: 90, toS: 12.5 },
+      { fromS: 12.5, toS: 12.5 },
+      { fromS: Number.NaN, toS: 90 },
+      'nonsense',
+      null,
+    ]) {
+      const got = parseLogbookFlights(JSON.stringify({ flights: [{ ...base, read: bad }] }));
+      expect(got, `read: ${JSON.stringify(bad)}`).toHaveLength(1);
+      expect(got[0].read, `read: ${JSON.stringify(bad)}`).toBeUndefined();
+    }
+  });
+});

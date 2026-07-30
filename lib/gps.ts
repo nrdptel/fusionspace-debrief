@@ -24,13 +24,35 @@ function median(values: Float64Array, from: number, to: number): number {
   return arr[arr.length >> 1];
 }
 
-/** Project lat/lon onto east/north metres about a pad reference taken from the
- *  first `baseN` valid samples (the rocket sitting on the rail). */
-export function groundTrack(lat: Float64Array, lon: Float64Array, baseN = 16): GroundTrack | null {
+/**
+ * Project lat/lon onto east/north metres about a pad reference taken from the first `baseN`
+ * valid samples — the rocket sitting on the rail.
+ *
+ * `origin` overrides that, and it is not optional in spirit: every reading downstream of this
+ * is measured FROM the pad — how far the rocket landed from it, which way to walk, how far it
+ * leaned off vertical — so a reference taken from the opening fixes of a STRETCH is a pad in
+ * mid-air. Cropping a real corpus Featherweight GPS record to apogee-onward moved the walk-back
+ * from 3,866 ft on a bearing of 208° SW to 4,676 ft on 127° SE: 81° and 810 ft wrong, on the one
+ * surface a flyer physically acts on. The caller that knows the whole file passes its origin.
+ */
+export function padOrigin(lat: Float64Array, lon: Float64Array, baseN = 16): { lat0: number; lon0: number } | null {
   const n = Math.min(lat.length, lon.length);
   if (n === 0) return null;
   const lat0 = median(lat, 0, Math.min(n, baseN));
   const lon0 = median(lon, 0, Math.min(n, baseN));
+  return Number.isFinite(lat0) && Number.isFinite(lon0) ? { lat0, lon0 } : null;
+}
+
+export function groundTrack(
+  lat: Float64Array,
+  lon: Float64Array,
+  baseN = 16,
+  origin?: { lat0: number; lon0: number },
+): GroundTrack | null {
+  const n = Math.min(lat.length, lon.length);
+  if (n === 0) return null;
+  const lat0 = origin && Number.isFinite(origin.lat0) ? origin.lat0 : median(lat, 0, Math.min(n, baseN));
+  const lon0 = origin && Number.isFinite(origin.lon0) ? origin.lon0 : median(lon, 0, Math.min(n, baseN));
   if (!Number.isFinite(lat0) || !Number.isFinite(lon0)) return null;
   const mPerDegLon = M_PER_DEG_LAT * Math.cos((lat0 * Math.PI) / 180);
   const east = new Float64Array(n);
