@@ -12,10 +12,25 @@ the one-in-four quota in `MAINTAINING.md`.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-## SEV-1 — open, preempts the current milestone
+## SEV-1 — none open
 
-- **Multi-flight segmentation silently mis-reads any launch-day file whose flights differ by more than
-  2x in apogee, and prints the result as headline readings.** `nextFlightStart`
+- **DONE — multi-flight segmentation mis-read any launch-day file whose flights differ by more than
+  2x in apogee.** Every threshold in `nextFlightStart` is measured against the flight in hand now,
+  never against the record's own highest flight, and three things a record does that are not a
+  landing are named rather than guessed at: a dip that reaches the ground band sooner than free fall
+  from that height allows, a climb back above the height already reached (a dropout mid-ascent), and,
+  after touchdown, a drifting baseline or a single-sample spike. Pinned by
+  `finds the second flight however far apart the two apogees are` over six pairs from 8x to 100x in
+  both directions, plus four guard tests, each falsified by mutation. **Two things the original entry
+  did not know, both measured this run:** the `ground` band at `:317` carried the same defect and
+  patching `high` alone would have turned real corpus logs into false splits — 5% of the corpus
+  121 km flight is 3.8 km, so a rocket still that high counted as landed; and the same noise floor
+  had Debrief telling the owner of a 19 ft misparsed Blue Raven fragment (13 m of wobble over 34 s)
+  that their file held several flights and to go and split it in the vendor software. Corpus diff
+  before/after over every record that analyses — 46 of them, the generic-mapper ones included: 44
+  byte-identical, the SG1.2 fragment above, and an Eggtimer whose cut moves one sample (0.05 s).
+  Original entry:
+  `nextFlightStart`
   (`lib/analyze/index.ts:316`) uses `const high = peak * 0.5` where `peak` is the **file's** peak, not
   each flight's own, so a second flight is only detected if it reaches half the biggest flight in the
   file. Measured by transcribing the function verbatim into a standalone probe: `[1000, 2000]` is
@@ -32,6 +47,68 @@ wild, ideas too big for one pass. One line each, newest first.
   beyond 2x in both directions.
 
 ## Correctness / honesty
+
+- **Debrief numbers the flights in a download by position; the flyer's altimeter numbers them
+  its own way, and the two need not agree.** Benchmarked against how the vendor apps do this
+  same job: AltosUI, the Featherweight Interface Program and the Eggtimer Quantum all present
+  the flight list *on the device before the download*, so their numbering is the device's own
+  and is authoritative — it knows where the flights are because it recorded them. Debrief's list
+  is inferred from the trace after the fact, and calls the first flight in the file "flight 1"
+  whatever the device called it. A flyer holding an AltosUI window that says "flight 7" and a
+  Debrief strip that says "flight 1" has no way to tell whether they are looking at the same
+  thing. Two things would close it, both cheap and neither done: where a file's header or a
+  column carries the device's own flight number, use it and say so; and where it does not, say
+  "the first flight in this file" rather than a bare number that reads like a device's.
+
+- **The vendor apps can do something Debrief structurally cannot: pull ONE flight off the
+  device.** That is the whole reason a multi-flight file is unusual for them and ordinary here —
+  their users never handle one. Worth stating on the methods page as what Debrief is for, rather
+  than leaving the flight list reading as a poor imitation of a device browser.
+
+- **A comparison built from logbook ids re-reads every flight whole**, so a flight a flyer cropped
+  joins a comparison uncropped and the comparison's figures disagree with the report's for the same
+  flight. `lib/compareFromLogbook.ts` re-analyses from the stored text and never asks for
+  `RecentFlight.read`. Threading it is small; deciding what a cropped flight IS on that surface is
+  not, and it belongs with D3's "one flight can carry several recordings" rather than in front of
+  it. **D3's starting point, with the logbook row below.**
+
+- **DONE — a stretch the flyer chose does not survive a reload.** Kept with the flight as
+  `RecentFlight.read`, in seconds on the file's own clock, resolved back to samples against the
+  parse this build makes. Forgotten when the flyer reads the whole file again. Original entry: The crop lives in the report's state
+  only: `RecentFlight` (`lib/recents.ts:26`) stores the file's text, the hand-made column mapping
+  and the caption, and nothing about which stretch of it was read — so a reload, a reopen from the
+  logbook, and a comparison built by id all come back to Debrief's own segmentation. "Controls
+  that forget" is on the standing tell list, and this is the largest one the crop leaves. It wants
+  seconds on the file's own clock rather than sample indices (a re-parse can change the count, and
+  a stored index would then point at a different sample), resolved back to indices on reopen —
+  `indexAtOrAfter` in `components/CropControl.tsx` is already that search.
+
+- **The logbook row still holds the whole file's apogee after a flight is opened out of it.**
+  `saveRecent` writes `apogeeM` from the first analysis, and reading another flight in the same
+  file does not revisit it — so a launch day that lists as one row shows flight 1's apogee whatever
+  is on screen. Correct as far as it goes (the row is the FILE), but it will read as a
+  disagreement once the crop persists, and the two want deciding together.
+
+- **Two flights to the same height in one file are called "the same flight written twice", and there
+  is no evidence in the trace that separates them.** `recordedTwice` (`lib/analyze/index.ts`) compares
+  the two segments' peaks on one datum and calls agreement within 1% a doubled recording. A launch day
+  of five flights no longer trips it — a doubled recording holds exactly two segments — but a day of
+  exactly TWO flights to within 1% of each other still does: measured, `[80, 80]` comes back as
+  "the same flight written twice … There is no second flight to read." No number is wrong (the first
+  flight is read correctly either way) but the sentence is, and it tells the flyer not to look for
+  the second flight. What would settle it is outside the altitude column: a wall-clock gap between the
+  segments (`flownAt`, or a time channel that jumps), a device summary naming two flights, or the
+  flyer's own say-so — which is D1's manual crop. **File it against that milestone rather than
+  patching the peak comparison**, which has no more information to give.
+
+- **A download whose FIRST flight is under the segmentation floor is read as one flight, silently.**
+  The floor is 100 m, coming down to a quarter of the record's own best and never below 30 m
+  (`lib/analyze/index.ts`), so `[30, 95]` and `[60, 90]` now split — but `[20, 3000]` does not, and
+  what a flyer then sees is the second flight's apogee against the first flight's liftoff with no
+  caveat anywhere in the analysis. The methods page states the limit; the report does not. This is
+  the "a record the tool cannot segment confidently says so" half of D1's *done when*, and it wants a
+  positive signal — the record ends far from where the analysed flight landed, or the trace holds a
+  climb the walk refused — rather than another threshold.
 
 *The six below came out of a four-lens sweep late in the run, each one adversarially verified by a
 second agent told to refute it. Two more from the same sweep were fixed on the spot (the comparison
@@ -2401,9 +2478,15 @@ Where AltosUI, the vendor apps and Excel still do a job better than Debrief does
   altitude-vs-velocity plot as well as against time). Per-column sort is done since (above).
   Still missing next to a spreadsheet: cell/column selection — only whole-row text selection
   works, so copying one channel out means the CSV export.
-- **A per-device flight list.** The vendor apps read several flights off one device and
-  let you pick between them; Debrief's logbook is close but is keyed on files, not flights
-  from one download session.
+- **DONE (2026-07-30) — a per-device flight list.** The report lists every flight in a
+  multi-flight download and reads any of them on a click, and a flyer can crop any record by
+  hand. Read against what this entry actually asked for, though, the parity is on the REPORT
+  and not in the logbook: the logbook is still keyed on files, so a launch day is one row
+  carrying the FILE's apogee whichever flight is on screen, and a comparison built from ids
+  re-reads each flight whole. That half is D3's starting point — see the two entries at the
+  top of this section. Original entry:
+  The vendor apps read several flights off one device and let you pick between them; Debrief's
+  logbook is close but is keyed on files, not flights from one download session.
 - Found by driving a season into the logbook: it sorts but couldn't be *searched* — now it
   can (name, logger, note, launch day; all terms in any order), and the row shows the launch
   day the file stated rather than "3d ago". Three parsers read a date (AltOS and a

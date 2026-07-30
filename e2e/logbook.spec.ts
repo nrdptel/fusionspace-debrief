@@ -728,3 +728,44 @@ test('the label and notes a flyer types stay with the flight', async ({ page }) 
   await openPanel();
   await expect(page.locator('#report-label')).toHaveValue('');
 });
+
+
+// A flyer who opened flight 2 of a launch day and then went away comes back to flight 2. The
+// reload path is covered in analyze.spec.ts; this is the other way back in — out of the
+// logbook, which re-parses the file from its stored text and has to find the stretch again.
+test('the logbook comes back to the stretch the flyer chose, not to Debrief’s own read', async ({ page }) => {
+  const rows: string[] = ['Time (s),Altitude (m)'];
+  let t = 0;
+  const push = (a: number) => {
+    rows.push(`${t.toFixed(1)},${a.toFixed(1)}`);
+    t += 0.1;
+  };
+  for (const apogee of [300, 1200]) {
+    const climb = Math.round(Math.sqrt((2 * apogee) / 9.80665) / 0.1);
+    const fall = Math.round(apogee / 15 / 0.1);
+    for (let i = 0; i < 20; i++) push(0);
+    for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
+    for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
+    for (let i = 0; i < 20; i++) push(0);
+  }
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'two-flights.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page
+    .getByRole('region', { name: '2 flights in this file' })
+    .getByRole('button', { name: /Flight 2/ })
+    .click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(700); // the write is fire-and-forget, like the caption's
+
+  // Leave the flight entirely, then open it again from the logbook.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
+  await page.getByRole('button', { name: /two-flights\.csv/ }).first().click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('[data-reading="Apogee"]')).toContainText(/3,9\d\d ft|4,0\d\d ft/);
+});

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -1385,4 +1386,185 @@ test('a wait names the flight it is reading, and a failure is announced', async 
   // Scoped to the page's own content: Next ships a permanent `__next-route-announcer__` with
   // role="alert", so an unscoped query matches two things and says nothing useful about either.
   await expect(page.locator('main [role="alert"]')).toContainText(/empty/i);
+});
+
+// A launch day is not one flight, and until now Debrief read the first of them and told the
+// flyer to go back to their altimeter's software and export the rest separately. The download
+// they already have holds every flight; this is the flyer opening one of the others.
+test('a launch day gives up every flight in it, and any of them can be read', async ({ page }) => {
+  // Three flights in one continuously-running download: 300 m, 1,200 m, 250 m. The middle one
+  // is the tallest deliberately — the rule this replaces measured every flight against the
+  // file's best, so on this file it found nothing at all.
+  const rows: string[] = ['Time (s),Altitude (m)'];
+  let t = 0;
+  const push = (a: number) => {
+    rows.push(`${t.toFixed(1)},${a.toFixed(1)}`);
+    t += 0.1;
+  };
+  for (const apogee of [300, 1200, 250]) {
+    const climb = Math.round(Math.sqrt((2 * apogee) / 9.80665) / 0.1);
+    const fall = Math.round(apogee / 15 / 0.1);
+    for (let i = 0; i < 20; i++) push(0);
+    for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
+    for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
+    for (let i = 0; i < 20; i++) push(0);
+  }
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'launch-day.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // The file says how many flights it holds, and names them.
+  const picker = page.getByRole('region', { name: '3 flights in this file' });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('button', { name: /Flight 1/ })).toHaveAttribute('aria-current', 'true');
+  await expect(picker).toContainText('Reading flight 1');
+
+  // What is on screen is the FIRST flight, not a timeline spanning all three.
+  const apogee = page.locator('[data-reading="Apogee"]');
+  await expect(apogee).toContainText(/9\d\d ft|1,0\d\d ft/); // ~300 m
+  await expect(page.getByText(/holds more than one flight/)).toContainText('3 of them');
+
+  // Open the second flight. The report re-reads without going back to the drop zone.
+  await picker.getByRole('button', { name: /Flight 2/ }).click();
+  await expect(picker.getByRole('button', { name: /Flight 2/ })).toHaveAttribute('aria-current', 'true', {
+    timeout: 15_000,
+  });
+  await expect(apogee).toContainText(/3,9\d\d ft|4,0\d\d ft/); // ~1,200 m
+  // …and it says the stretch it read is the flyer's choice, not its own segmentation.
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible();
+
+  // The third flight is reachable from there too — the picker does not reset to the file.
+  await picker.getByRole('button', { name: /Flight 3/ }).click();
+  await expect(picker.getByRole('button', { name: /Flight 3/ })).toHaveAttribute('aria-current', 'true', {
+    timeout: 15_000,
+  });
+  await expect(apogee).toContainText(/7\d\d ft|8\d\d ft/); // ~250 m
+
+  // The samples behind the plot are the FLIGHT's, not the file's. This is the join that was
+  // off by the crop's offset: the recorded columns came from the whole file while Debrief's
+  // own series came from the stretch, so every recorded value was shifted by 298 samples.
+  await page.locator('summary').filter({ hasText: 'Show the samples' }).click();
+  const samples = page.locator('table').last();
+  const firstRow = await samples.locator('tbody tr').nth(1).innerText();
+  // Flight 3 starts at 129.5 s of the file, and the table keeps the file's clock.
+  expect(firstRow, `the sample table starts inside flight 3, not at the file's first sample`).toMatch(
+    /^1[23]\d(\.\d)?/,
+  );
+  const rowCount = await page.getByText(/[\d,]+ rows · exact values/).innerText();
+  const sampleRows = Number(rowCount.match(/([\d,]+) rows/)![1].replace(/,/g, ''));
+  expect(sampleRows, 'the table holds the flight, not the file').toBeLessThan(600);
+
+  // And back to the first, which is where the file started.
+  await picker.getByRole('button', { name: /Flight 1/ }).click();
+  await expect(picker.getByRole('button', { name: /Flight 1/ })).toHaveAttribute('aria-current', 'true', {
+    timeout: 15_000,
+  });
+  await expect(apogee).toContainText(/9\d\d ft|1,0\d\d ft/);
+
+  // Every row is a real touch target, on the surface a flyer uses at the range.
+  for (const n of [1, 2, 3]) {
+    const box = await picker.getByRole('button', { name: new RegExp(`Flight ${n}`) }).boundingBox();
+    expect(box, `flight ${n} has a box`).toBeTruthy();
+    expect(box!.height, `flight ${n} clears the 44 px touch floor`).toBeGreaterThanOrEqual(44);
+  }
+
+  // …and the strip itself passes the same audit every other surface is held to.
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  for (const v of violations) {
+    console.log(`\n[${v.impact}] flight picker :: ${v.id} — ${v.help}\n  ${(v.nodes[0]?.html || '').slice(0, 140)}`);
+  }
+  expect(violations.map((v) => v.id)).toEqual([]);
+});
+
+// Debrief's segmentation is a reading of the trace, and the flyer can overrule it. This is
+// the load-bearing half of that: a record the tool reads as one flight, cropped by hand to
+// the stretch the flyer says is theirs, with the analysis honouring the choice.
+test('a flyer can say which stretch of a record is their flight, and the analysis reads it', async ({ page }) => {
+  // One file, two things in it: a 40 m bench pop at the start (below the segmenter's floor,
+  // so it reads the file as one record beginning there), then the real 900 m flight.
+  const rows: string[] = ['Time (s),Altitude (m)'];
+  let t = 0;
+  const push = (a: number) => {
+    rows.push(`${t.toFixed(1)},${a.toFixed(1)}`);
+    t += 0.1;
+  };
+  for (const apogee of [40, 900]) {
+    const climb = Math.round(Math.sqrt((2 * apogee) / 9.80665) / 0.1);
+    const fall = Math.round(apogee / 15 / 0.1);
+    for (let i = 0; i < 20; i++) push(0);
+    for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
+    for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
+    for (let i = 0; i < 30; i++) push(0);
+  }
+  const realFlightStartsAt = 20 * 0.1 + Math.round(Math.sqrt((2 * 40) / 9.80665) / 0.1) * 0.1 + Math.round(40 / 15 / 0.1) * 0.1 + 30 * 0.1;
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'bench-then-flight.csv', mimeType: 'text/csv', buffer: Buffer.from(rows.join('\n')) });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // Read whole, the headline apogee tile carries a time-to-apogee that starts at the bench
+  // pop and ends at the real flight's peak — a clock spanning both.
+  const apogeeTile = page.locator('[data-reading="Apogee"]');
+  const before = (await apogeeTile.textContent()) ?? '';
+  expect(before).toMatch(/to apogee/);
+
+  // The crop row says what it would do before it is pressed.
+  const crop = page.getByText('This stretch is my flight');
+  await expect(crop).toBeVisible();
+  const from = page.getByLabel('From (s)');
+  const to = page.getByLabel('To (s)');
+  await from.fill(realFlightStartsAt.toFixed(1));
+  await to.fill(t.toFixed(1));
+  const read = page.getByRole('button', { name: 'Read this stretch' });
+  await expect(read).toBeEnabled();
+  await read.click();
+
+  // The analysis is of the stretch chosen, and it says so.
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 15_000 });
+  const apogee = page.locator('[data-reading="Apogee"]');
+  await expect(apogee).toContainText(/2,9\d\d ft|3,0\d\d ft/); // ~900 m
+  // …and the clock on it is the real flight's, not one that started at the bench pop.
+  await expect(apogeeTile).not.toHaveText(before);
+  await expect(apogeeTile).toContainText(/1[0-9]\.\d s to apogee/); // ~13.5 s for a 900 m climb
+
+  // There is a way back out — the state is not one-way.
+  const whole = page.getByRole('button', { name: 'Read the whole file' });
+  await expect(whole).toBeVisible();
+  await whole.click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden({ timeout: 15_000 });
+
+  // A stretch too short to read refuses out loud rather than failing when pressed.
+  await from.fill('1.0');
+  await to.fill('1.1');
+  await expect(read).toBeDisabled();
+  await expect(page.getByText(/too few to read a flight from/)).toBeVisible();
+
+  // …and the choice survives leaving the page. A control that forgets is on the standing tell
+  // list, and this is a flyer's own answer about which flight is theirs — the thing on that
+  // screen the tool has least business overruling on a reload.
+  await from.fill(realFlightStartsAt.toFixed(1));
+  await to.fill(t.toFixed(1));
+  await read.click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(600); // the write is fire-and-forget, like the caption's
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('[data-reading="Apogee"]')).toContainText(/2,9\d\d ft|3,0\d\d ft/);
+
+  // And reading the whole file again forgets it, rather than leaving a crop the flyer
+  // cancelled to come back on the next reload.
+  await page.getByRole('button', { name: 'Read the whole file' }).click();
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden({ timeout: 15_000 });
+  await page.waitForTimeout(600);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden();
 });

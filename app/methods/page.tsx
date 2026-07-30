@@ -102,10 +102,57 @@ export default function MethodsPage() {
             one file — and read as a single flight the record is nonsense: the highest point belongs
             to a later flight while liftoff belongs to the first, so time-to-apogee spans both. The
             test is something a rocket cannot do: return to the ground and climb again. Where that
-            happens, Debrief reads the first flight, says how much of the file it used, and leaves the
-            rest — split the file, or export the flights separately, to read the others. A dropout that
-            reads zero <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is
-            not a landing and never splits a file.
+            happens the report lists <strong>every flight in the file</strong> — where each one starts
+            and how high it went — reads the first, and lets you open any of the others without going
+            back to your altimeter&apos;s software. Each apogee in that list is measured against the{' '}
+            <em>file&apos;s</em> own pad baseline, so the rows are comparable with each other: a later
+            flight starts in the trough after the one before and has no quiet pad window of its own.
+          {' '}
+            Debrief&apos;s segmentation is a reading of the trace, and you can overrule it: pick
+            any flight from the list, or frame a stretch on the chart and say that is yours. The
+            analysis then reads exactly what you chose — measured against the{' '}
+            <em>file&apos;s</em> own pad baseline, not against wherever the selection starts,
+            because a stretch out of the middle of a flight has no pad in it. Every document says
+            which stretch it is of.
+          {' '}
+            Every part of that test is measured against <strong>the flight in hand</strong>, never
+            against the highest flight in the file. That distinction is the whole of it: asking
+            instead whether the trace had reached half the <em>file&apos;s</em> best worked only while
+            a download&apos;s flights were within 2x of each other, so a day holding a 300&nbsp;m
+            sport flight and a 3,000&nbsp;m certification flight tripped nothing and the two were read
+            as one, with a flight time spanning both. Four things a record does that are <em>not</em>{' '}
+            a landing are named rather than guessed at: a dip that reaches the ground band faster
+            than the rocket could have fallen from its own peak (the transonic push on a barometric
+            port does this); a climb back <em>above</em> the height the record had already reached, or
+            back to it within a couple of seconds, which is a dropout in the middle of one ascent
+            rather than a second launch; and, after touchdown, a baseline drifting through the weather
+            or a single-sample spike — neither climbs at a rate an airframe makes. &ldquo;Back on the
+            deck&rdquo; is measured from where the record&apos;s ground actually is, so a rocket that
+            came to rest on a rise still reads as landed.
+          {' '}
+            A climb under 100&nbsp;m is not treated as a flight at all, which is what keeps ground
+            noise from splitting a file: the largest non-flight excursion across the 46 corpus records
+            that analyse is 76&nbsp;m. On a record whose own best is small that floor comes down to a
+            quarter of it — never below 30&nbsp;m — so a club session of 60&nbsp;m and 95&nbsp;m
+            flights on one AltimeterThree is still several flights, while 13&nbsp;m of barometric
+            wobble on a fragment is not. The cost is stated rather than hidden: where the{' '}
+            <em>first</em> flight in a download is under that floor, the file is read as one, and the
+            readings then span it and whatever follows. A dropout that reads zero <em>before</em> the
+            rocket ever climbed (a GPS losing lock through the boost) is not a landing and never
+            splits a file.
+          {' '}
+            <strong>And where Debrief reads a record as one flight that does not look like one,
+            it says so.</strong> That is the other half of this: every refusal above is silent on
+            its own, and a record it declined to cut comes back as an ordinary report over all of
+            it — with a liftoff from one flight and an apogee from another under one set of
+            headline numbers. So the trace is counted separately: how many times it leaves the
+            ground and comes back, measured against the record&apos;s own pad noise with no floor
+            at all, and with climbs less than ten seconds apart treated as one (nobody launches
+            again in ten seconds, and the pressure transient a rocket leaves clearing the pad
+            reads as a 49&nbsp;m climb 3.8&nbsp;s before the real one on two corpus records).
+            Where that count disagrees with the segmentation, the report says which and invites
+            you to choose the stretch that is yours. Across the 46 corpus records that analyse it
+            says it about none of them.
           {' '}
             Debrief reads the <strong>first</strong> flight in the file, and the climb always comes
             from it, because it is the copy that starts on the pad. Reading a later copy

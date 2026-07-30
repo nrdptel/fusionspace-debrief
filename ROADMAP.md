@@ -67,33 +67,74 @@ land here, unlike in a repo that ships none — they land as small affordances o
 whatever order a defect sweep surfaced them, while both North Star ambitions' headline items sit
 still.
 
-### The Sev-1 that preempts all of this
+### The Sev-1 that preempted all of this — fixed 2026-07-30
 
-**`nextFlightStart` mis-reads any launch-day file whose flights differ by more than 2× in apogee, and
-prints the result with no caveat.** `lib/analyze/index.ts:316` reads
-`const high = peak * 0.5; // "really flew" — half the record's own best` — half the **file's** peak,
-not each flight's own. Measured by transcribing the function verbatim into a standalone probe:
-`[1000, 2000]` is detected; `[1000, 2010]` returns null; so do `[300, 3000]`, `[150, 900]` and
-`[1200, 400]`. The cliff is exactly 2.00×, in both directions.
+**`nextFlightStart` mis-read any launch-day file whose flights differ by more than 2× in apogee, and
+printed the result with no caveat.** The cliff was exactly 2.00×, in both directions, and past it a
+`[300, 3000]` day reported apogee 1,671 m, time-to-apogee 45.1 s, burn time 27.8 s and flight time
+156.5 s against a first flight that flew to 204 m in 7.0 s and was down in 20.6 s — with **one**
+warning on screen, about derived velocity, and nothing at all about the file holding two flights.
 
-When it misses, liftoff is pinned in the first flight and apogee comes from a later one, so
-`timeToApogee`, `burnTime` and `flightTime` span two flights and are printed as headline readings.
-`app/methods/page.tsx:100` tells the flyer the test is *"something a rocket cannot do: return to the
-ground and climb again"* — the half-the-peak condition is never stated, and it is exactly what fails.
-Shipped test coverage is 1.005×, 1.6× and `[300, 500, 250]` — the last sitting exactly *on* the 0.5
-boundary — so the whole failing region has none. It is not hypothetical: `BACKLOG.md:1222` already
-records an **18.3 s flight time for a 10,245 ft flight** on a real corpus file, where the fall alone
-is ≥ 25.2 s.
+Every threshold is measured against the flight in hand now, never against the record's own highest
+flight, and the fix turned out to be wider than the one line the entry named: the *ground* band
+carried the same defect (5% of the corpus 121 km flight is 3.8 km, so a rocket still that high
+counted as landed), and patching the climb threshold alone would have turned real corpus records into
+false splits. Pinned by `finds the second flight however far apart the two apogees are` in
+`lib/analyze/analyze.test.ts`, over six pairs from 8× to 100× in both directions, plus nine guard tests
+for the artefacts a per-flight band exposes: a transonic dip that recovers gradually, a mid-ascent
+dropout, post-landing drift, a post-landing spike, a spike between apogee and touchdown, a baseline
+that drifts while the flyer waits, a rocket at rest above the pad, a club session of sub-100 m
+flights, and 13 m of wobble on a misparsed fragment. Each was falsified by mutation. Corpus: over all
+46 records that analyse, 44 byte-identical and 2 moved, both deliberately.
 
-By this repo's own damage ranking that is tier 1 — *a wrong number on a surface a flyer would act on*
-— so it is a Sev-1 and it preempts the milestone. Fix it before starting D1, and pin it with tests
-that cover beyond 2×.
+**Three of those nine came from the pre-push review, not from the author**, and two were Sev-1s in the
+fix itself — a gradual transonic dip cut a 9,729 m Mach flight down to a 390 m "flight", and a
+baseline that drifted while the flyer waited between launches put the original Sev-1 straight back.
+The review also caught that the calibration sweep had been run over 34 records when 46 analyse.
 
 ---
 
 ## D1 — Every flight in one download, and the flyer says which is theirs
 
-**Status:** IN PROGRESS — current milestone
+**Status:** SHIPPED 2026-07-30 — pinned by `a launch day gives up every flight in it, and any of
+them can be read` and `a flyer can say which stretch of a record is their flight, and the analysis
+reads it` (both `e2e/analyze.spec.ts`, both walking the real app), `says so when it read a record
+as one flight that does not look like one` (`lib/analyze/analyze.test.ts`), and a whole-corpus
+invariant that the refusal fires on none of the 46 records that analyse.
+
+**What a flyer can do that they could not before:** drop a launch-day download, see every flight
+in it, open any of them, and — on any record at all — say which stretch is theirs and have the
+analysis read that instead. The stretch is remembered, so coming back to the flight comes back to
+the flight.
+
+**Each clause of the *done when*, and the check that pins it:**
+
+- *see every flight it contains* — `FlightAnalysis.segments` lists them with each apogee on the
+  file's own datum. `lists every flight in the download, not just the one it read`, and the corpus
+  suite pins the count on the Eggtimer anomaly.
+- *open any of them* — a strip above the readings, and the report re-reads without leaving the
+  page. `a launch day gives up every flight in it, and any of them can be read` (e2e, including
+  the 44 px touch floor and an axe audit).
+- *select a stretch and say "this is my flight"* — the chart is the selector, the two boxes are
+  the same choice typed. `a flyer can say which stretch of a record is their flight, and the
+  analysis reads it` (e2e), plus six unit tests over the crop's own traps — the file's datum, the
+  file's pad pressure, the way back out, the list surviving the crop, and a crop that spans a
+  boundary saying so.
+- *and when a record the tool cannot segment confidently says so* — the trace is counted
+  separately from the segmentation, and where the two disagree the report says which. `says so
+  when it read a record as one flight that does not look like one`, and a whole-corpus invariant
+  that it says it about **none of the 46 records that analyse**.
+- *and it is remembered* — the stretch is kept with the flight in the logbook, in seconds on the
+  file's own clock rather than sample indices, so a re-parse cannot shift it. The e2e walk crops a
+  record, reloads the page, and finds the same stretch still read.
+
+**What this delivered against its *done when*, and what it did not.** All four clauses hold. Three
+things it does NOT do, each filed in `BACKLOG.md` rather than left implied: the logbook row still
+carries the FILE's apogee whichever flight is on screen; a comparison built from ids re-reads each
+flight whole, so a cropped flight joins a comparison uncropped; and two flights to the same height
+within 1% in one file are still called "the same flight written twice", which the altitude column
+alone cannot settle. **The first two are D3's starting point** — they are both the logbook being
+keyed on files where it now needs to be keyed on flights.
 
 **Outcome.** A launch-day download gives up every flight in it, and where the automatic read is
 uncertain the flyer can simply say which stretch is theirs.

@@ -7,8 +7,17 @@
 
 import type { RawFlight, Channel } from '../flight/types';
 import { getChannel } from '../flight/types';
+import { sliceFlight } from '../flight/slice';
 import { G0 } from '../units';
-import type { FlightAnalysis, FlightEvent, FlightMetrics, FlightSeries } from './types';
+import type {
+  AnalyzeOptions,
+  FlightAnalysis,
+  FlightEvent,
+  FlightMetrics,
+  FlightSegment,
+  FlightSeries,
+  ReadWindow,
+} from './types';
 import {
   medianFilter,
   hampelFilter,
@@ -296,12 +305,323 @@ function padBaseline(altitude: Float64Array, dt: number): { baseEnd: number; off
 }
 
 /**
+ * The smallest climb this reads as a flight when it is deciding where one record ends and
+ * the next begins. Below it, a bump in the trace is ground noise rather than a flight.
+ *
+ * A metre value, because the thing it has to clear — the pressure transient a rocket leaves
+ * as it clears the pad, the spikes a logger writes after touchdown, the wobble on a record
+ * that never held a flight at all — is a property of the sensor, not of the day's biggest
+ * flight. Across the 46 corpus records that analyse (34 through a named parser, 12 through
+ * the column mapper), those artefacts run 39, 48, 49, 61 and 76 m, and 100 m sits 31% clear
+ * of the largest.
+ *
+ * But a flat 100 m would merge a whole class of real download. A Jolly Logic AltimeterThree
+ * runs continuously through a club session and writes every flight of it into one file, and
+ * a B or C motor lands squarely under 100 m — the corpus's own AltimeterThree sample is a
+ * Semroc Mini Aerobee at 203 m, and that is the LARGE end of what that device sees; the
+ * smallest flight in the whole corpus is a 52 m SRAD-computer record. So the floor comes
+ * down on a record whose own best is small, to a quarter of it, and never below 30 m: a 60 m
+ * and a 95 m flight in one file are two flights, while 13 m of barometric wobble on a
+ * misparsed fragment is not.
+ *
+ * This is a fraction of the record's peak, which is what the 2x cliff this function used to
+ * have was made of — but as a CEILING on an absolute floor, never as the test itself. The
+ * first flight has to clear 100 m to be found beside a big one, whatever the big one is;
+ * there is no ratio at which that flips.
+ *
+ * The cost, stated rather than hidden and repeated on the methods page: a download whose
+ * FIRST flight is under the floor is read as one flight.
+ */
+const FLIGHT_FLOOR_M = 100;
+const FLIGHT_FLOOR_MIN_M = 30;
+const flightFloor = (recordPeak: number) =>
+  Math.max(FLIGHT_FLOOR_MIN_M, Math.min(FLIGHT_FLOOR_M, 0.25 * recordPeak));
+
+/** A climb slower than this is weather, not a rocket — a barometer drifting through an
+ *  afternoon, or a flyer carrying the airframe back up a hill with the logger still running.
+ *
+ *  Half of the slowest climb that can clear the floor above: a coast to 100 m takes at most
+ *  √(2·100/g) = 4.5 s, so even that flight averages 22 m/s, while 2,000 m of barometric
+ *  drift over five minutes averages 6.7. The three real second flights in the corpus average
+ *  120, 139 and 176 m/s. */
+const MIN_CLIMB_MS = 10;
+
+/** "Back on the deck" has to mean near the ground. A fraction of the record's own peak does
+ *  not: on the corpus 121 km flight, 5% is 3.8 km, and a rocket still that high has not
+ *  landed. The band is a fraction of the flight's own height up to this cap — and it is
+ *  measured from where this record's ground actually IS, not from zero, so a rocket that
+ *  came to rest on higher ground or a barometer that drifted through the afternoon still
+ *  reads as landed. Fifty-five metres of offset is a rocket on a rise, or 6.5 hPa over a
+ *  launch day; against a fixed band it silently swallowed the whole second flight. */
+const DECK_CAP_M = 50;
+
+/** How quickly a record may be back at a height it had already reached before that stops
+ *  being a second flight and becomes a gap in the trace. See the walk below for the four
+ *  measurements this sits between. */
+const REJOIN_S = 2;
+
+/** And how long a record has to sit on the ground between two climbs before they are two
+ *  climbs rather than one with a dip in it. Nobody launches again ten seconds later. */
+const UNSEGMENTED_GAP_S = 10;
+
+/** The ground band for a flight that reached `peak`. */
+const deckFor = (peak: number) => Math.max(3, Math.min(peak * 0.05, DECK_CAP_M));
+
+/** How far ahead "the ground here" is allowed to look. Long enough to cover a rocket coming
+ *  to rest and the trace settling under it; short enough that what the record does twenty
+ *  minutes later cannot reach back and move it. */
+const GROUND_HORIZON_S = 60;
+
+/** And how far above the pad that ground may ever sit. Terrain and a launch day's barometric
+ *  drift move the ground by tens of metres, not hundreds — while a record that stops in the
+ *  air ends wherever the rocket was, and the corpus 121 km flight's last sample is 355 m up.
+ *  Without this bound that reads as a landing on very high ground, and a single 121 km flight
+ *  is announced as two. */
+const GROUND_RISE_CAP_M = 200;
+
+/**
+ * Where this record's ground is at each sample: the lowest the trace gets over the next
+ * minute, never below the pad.
+ *
+ * **Local, not global.** A rocket that comes to rest on a rise, or a barometer that drifts up
+ * through the afternoon, puts the deck tens of metres above zero, and a band measured from
+ * zero never registers a landing at all — 55 m of offset, a rocket on a rise or 6.5 hPa over
+ * a launch day, silently swallowed the second flight in a download. But taking that ground
+ * from the whole REST of the record is worse than either: one sample below it, anywhere
+ * later, retro-actively collapses the band under the resting level the first flight actually
+ * reached. Measured on a launch day whose airframe was carried back down off the rise after
+ * the last flight, that read a 1,235.7 s flight time against an honest 224.5 s — a headline
+ * number 5.5x wrong, with the multi-flight warning gone too. Below 1,000 m it took 16 m of
+ * offset, which is under 2 hPa: a couple of hours of ordinary weather.
+ *
+ * Clamped at the pad below, because a trace that reads BELOW where it started has not found
+ * lower ground — it has lost its reference. The corpus Eggtimer anomaly ends 445 m under its
+ * own pad, and a deck taken from there sits 400 m underground: the early deployment that has
+ * to be cut is at 0 m, nowhere near it, and the file would be read whole, publishing
+ * 8,969 ft of baro spike as the apogee of a 4,661 ft flight.
+ */
+function localGround(altitude: Float64Array, time: Float64Array): Float64Array {
+  const n = altitude.length;
+  const out = new Float64Array(n);
+  // Two sliding-window minima, then the lower of the two — the window is CENTRED on the
+  // sample, because at a touchdown the resting level is as much behind as ahead, and a
+  // forward-only window mid-descent reads the ground as wherever the rocket happens to be a
+  // minute later. Both are walked left to right, so each is an ordinary monotonic deque:
+  // samples enter at the right and expire at the left.
+  const back = new Float64Array(n); // the lowest over [t − horizon, t]
+  const dqb: number[] = [];
+  let left = 0;
+  for (let i = 0; i < n; i++) {
+    if (Number.isFinite(altitude[i])) {
+      while (dqb.length && altitude[dqb[dqb.length - 1]] >= altitude[i]) dqb.pop();
+      dqb.push(i);
+    }
+    while (left < i && time[left] < time[i] - GROUND_HORIZON_S) left++;
+    while (dqb.length && dqb[0] < left) dqb.shift();
+    back[i] = dqb.length ? altitude[dqb[0]] : Infinity;
+  }
+  const dqf: number[] = []; // the lowest over [t, t + horizon]
+  let right = -1;
+  for (let i = 0; i < n; i++) {
+    while (right + 1 < n && time[right + 1] <= time[i] + GROUND_HORIZON_S) {
+      right++;
+      if (!Number.isFinite(altitude[right])) continue;
+      while (dqf.length && altitude[dqf[dqf.length - 1]] >= altitude[right]) dqf.pop();
+      dqf.push(right);
+    }
+    while (dqf.length && dqf[0] < i) dqf.shift();
+    const fwd = dqf.length ? altitude[dqf[0]] : Infinity;
+    const lowest = Math.min(back[i], fwd);
+    out[i] = Number.isFinite(lowest) ? Math.min(GROUND_RISE_CAP_M, Math.max(0, lowest)) : 0;
+  }
+  return out;
+}
+
+/** A body released at `peak` reaches the ground at √(2gh) and no faster. Doubled for
+ *  barometric headroom, this bounds both directions: a step DOWN into the ground band
+ *  quicker than this is not a fall the rocket took, and a mean climb rate above it is not
+ *  an ascent an airframe flew. The corpus files that trip the first clear it by 9.6x, 32x
+ *  and 315x; the real climbs measured against the second sit at 30–36% of it, while the two
+ *  artefacts that clear the flight floor are 5x and 51x over. */
+const tooFast = (peak: number) => 2 * Math.sqrt(2 * G0 * Math.max(0, peak));
+
+/**
+ * Is there another flight in `altitude` from `from` on? Answered by shape, not by size
+ * relative to anything else in the file: it has to climb past the flight floor, and it has
+ * to climb at a rate an airframe makes — neither the crawl of a drifting barometer nor the
+ * single-sample leap of a spike.
+ *
+ * `peakIdx` is where that climb tops out, which is what the caller needs to find the trough
+ * between the two flights.
+ */
+function nextFlightIn(
+  altitude: Float64Array,
+  time: Float64Array,
+  from: number,
+  floor: number,
+): { peakIdx: number } | null {
+  // The highest thing in the rest of the record is not always the next flight — it can be a
+  // dropped pressure reading. One 3,500 m sample near the end of a [3000, 300] launch day
+  // used to take the whole detection with it: the candidate was the spike, the spike is not a
+  // climb, and the record came back as one flight with a flight time spanning both. So the
+  // candidates are taken in descending order until one is shaped like a flight.
+  let ceiling = Infinity;
+  for (let attempt = 0; attempt < MAX_PEAK_CANDIDATES; attempt++) {
+    const found = flightAtHighestBelow(altitude, time, from, floor, ceiling);
+    if (found.peakIdx < 0) return null;
+    if (found.ok) return { peakIdx: found.peakIdx };
+    ceiling = found.peak;
+  }
+  return null;
+}
+
+/** As many spikes as it is worth stepping over before calling the rest of a record flat. */
+const MAX_PEAK_CANDIDATES = 8;
+
+function flightAtHighestBelow(
+  altitude: Float64Array,
+  time: Float64Array,
+  from: number,
+  floor: number,
+  ceiling: number,
+): { ok: boolean; peak: number; peakIdx: number } {
+  const n = altitude.length;
+  let peak = -Infinity;
+  let peakIdx = -1;
+  for (let i = from; i < n; i++) {
+    if (Number.isFinite(altitude[i]) && altitude[i] < ceiling && altitude[i] > peak) { peak = altitude[i]; peakIdx = i; }
+  }
+  if (peakIdx < 0) return { ok: false, peak: -Infinity, peakIdx: -1 };
+
+  // How fast it rose, measured over the TOP HALF of the climb rather than from a fixed band
+  // near the ground. That is not a refinement, it is the only version that survives weather:
+  // a flyer waiting between flights is waiting through it, and a barometric baseline 60 m
+  // higher by the second launch never comes back under a fixed band at all. Measured from
+  // there, the climb of a 3,000 m flight after a ten-minute wait averaged 9.5 m/s — the ten
+  // minutes of standing about included — which read as no flight in the rest of the file and
+  // put the first Sev-1 straight back. Half the flight's own height is above any drift worth
+  // the name, and the rate over that half is a rocket's whatever the ground did.
+  let ground = Infinity;
+  for (let i = from; i <= peakIdx; i++) if (Number.isFinite(altitude[i]) && altitude[i] < ground) ground = altitude[i];
+  const no = { ok: false, peak, peakIdx };
+  if (!Number.isFinite(ground)) return no;
+  // Never below the pad, for the same reason the deck is not: a trace that reads under where
+  // it started has lost its reference, not found lower ground. The corpus Eggtimer anomaly
+  // ends 445 m under its own pad, and unclamped that credited every later wobble with 445 m
+  // of climb — a 10 m bump was announced as a third flight in the file.
+  ground = Math.max(0, ground);
+  const height = peak - ground;
+  if (!(height >= floor)) return no;
+  const half = ground + 0.5 * height;
+  let lo = from;
+  for (let k = peakIdx; k >= from; k--) {
+    if (Number.isFinite(altitude[k]) && altitude[k] <= half) { lo = k; break; }
+  }
+  const climb = time[peakIdx] - time[lo];
+  const rate = climb > 0 ? (peak - altitude[lo]) / climb : Infinity;
+  if (!(rate >= MIN_CLIMB_MS) || !(rate <= tooFast(height))) return no;
+  return { ok: true, peak, peakIdx };
+}
+
+
+/**
+ * What to say about a record the walk could NOT cut, but which does not look like one flight.
+ *
+ * The segmenter refuses a boundary it cannot justify, and every one of those refusals is
+ * silent: the reading comes back as an ordinary flight report over the whole record. That is
+ * the honest half of "every flight in one download" — where Debrief cannot tell, it has to
+ * say so rather than read through it, because the alternative is a liftoff from one flight
+ * and an apogee from another under one set of headline numbers.
+ *
+ * The signal is not another threshold on the same question. It is the count of times the
+ * trace leaves the ground and comes back to it — measured on the record's own ground band,
+ * with no flight floor at all. Where that count is more than one and the walk still found no
+ * cut, the two disagree, and the flyer is the one who can settle it.
+ */
+function unsegmentedNote(altitude: Float64Array, time: Float64Array, noise: number): string | null {
+  const n = altitude.length;
+  const ground = localGround(altitude, time);
+  let peak = 0;
+  for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) peak = altitude[i];
+  if (!(peak > 0)) return null;
+  // "Off the ground" against the record's OWN noise, never against its best flight — that is
+  // the mistake this whole function exists downstream of. A record whose pad wobbles by 3 m
+  // needs a 15 m bar; one whose pad is quiet needs 3.
+  const bar = Math.max(3, 5 * noise);
+  const minClimb = Math.max(15, 8 * noise);
+  const climbs: { peak: number; at: number; from: number; to: number }[] = [];
+  let up = false;
+  let runPeak = 0;
+  let runAt = 0;
+  let runFrom = 0;
+  for (let i = 0; i < n; i++) {
+    const h = altitude[i];
+    if (!Number.isFinite(h)) continue;
+    const above = h - ground[i] > bar;
+    if (above) {
+      if (!up) { up = true; runPeak = 0; runAt = i; runFrom = i; }
+      if (h - ground[i] > runPeak) { runPeak = h - ground[i]; runAt = i; }
+    } else if (up) {
+      up = false;
+      climbs.push({ peak: runPeak, at: runAt, from: runFrom, to: i });
+    }
+  }
+  if (up) climbs.push({ peak: runPeak, at: runAt, from: runFrom, to: n - 1 });
+  // Two climbs with a moment of ground between them are one climb with a dip in it. Nobody
+  // launches again ten seconds later, so anything closer than that is the trace, not the day:
+  // the pressure transient a rocket leaves clearing the pad reads as a separate 49 m climb
+  // 3.8 s before the real one on two corpus iREC records, and a single-sample dive on a
+  // corpus StratoLogger reads as one 0.05 s later.
+  const merged: typeof climbs = [];
+  for (const c of climbs) {
+    const last = merged[merged.length - 1];
+    if (last && time[c.from] - time[last.to] < UNSEGMENTED_GAP_S) {
+      if (c.peak > last.peak) { last.peak = c.peak; last.at = c.at; }
+      last.to = c.to;
+    } else merged.push({ ...c });
+  }
+  const real = merged.filter((c) => c.peak >= minClimb);
+  if (real.length < 2) return null;
+  const where = real.slice(1, 4).map((c) => formatSeconds(time[c.at] - time[0])).join(', ');
+  return (
+    `Debrief read this record as one flight, but the trace leaves the ground and returns to it ` +
+    `${real.length} times — the later climbs peak around ${where}. It could not justify cutting the record ` +
+    `there, so nothing has been split: if these are separate flights, choose the stretch that is yours ` +
+    `and the analysis will read that instead. If they are one flight, the readings below are of all of it.`
+  );
+}
+
+/**
  * Where a second flight begins in a record that holds more than one, or null for the
  * normal single-flight file. The test is a thing a rocket cannot do: come back to the
- * ground and then climb again. So look for the ground return that follows the first real
- * climb, and a later climb back to a substantial height — both measured as fractions of
- * the record's own peak, so it works the same on a 600 ft sport flight and a 27,000 ft
- * one, and sits far above any noise near the pad.
+ * ground and then climb again.
+ *
+ * **Every threshold here is measured against the flight in hand, never against the record's
+ * own highest flight.** That distinction is the whole of this function's history. The
+ * earlier version asked whether the trace had reached half the RECORD's peak, which reads
+ * correctly only while a file's flights are within 2x of each other: a launch day of a
+ * 300 m sport flight and a 3,000 m certification flight tripped nothing at all, and the two
+ * were read as one — liftoff pinned in the first, apogee taken from the second, and
+ * `timeToApogee`, `burnTime` and `flightTime` spanning both and printed as headline
+ * readings with no caveat. The cliff was exactly 2.00x, in both directions.
+ *
+ * So the walk carries the peak of the segment it is inside, and asks three physical
+ * questions at every return to that segment's own ground band:
+ *
+ *   - Did the record DESCEND into the band, or jump into it? A logger that restarts
+ *     mid-flight writes the next copy's pad straight after the last sample of the one
+ *     before, and the join is a fall no rocket could have taken. On the corpus Blue Raven
+ *     `jan18 LR` the trace is still at 823.2 ft and the sample 0.020 s later is −3.4 ft, a
+ *     step of 41,330 ft/s on a flight whose descent ran at 55. From that came a 122.90 s
+ *     flight time and a 55 ft/s descent rate published against the device's own stated
+ *     29.0 — a 3.6x error in the landing energy read off it.
+ *   - If it descended, did it take at least as long as a body dropped from that peak? A
+ *     barometric port reads the rocket below the pad through the transonic push; that dip
+ *     is not a landing, and on a 98 m segment it reaches the ground band 4.5 s sooner than
+ *     free fall from that height allows.
+ *   - Does the record come back ABOVE the height it had already reached? Then it never left
+ *     the sky. A trace that drops out to zero mid-ascent and resumes 1.2 km higher lost its
+ *     data; it did not land and launch again.
  *
  * A Blue Raven backup file in the corpus holds one flight recorded twice: it climbs to
  * 10,230 ft by 18 s, drops to 0, then climbs to 10,266 ft again. Read as one flight its
@@ -310,68 +630,97 @@ function padBaseline(altitude: Float64Array, dt: number): { baseEnd: number; off
  */
 function nextFlightStart(altitude: Float64Array, time: Float64Array): number | null {
   const n = altitude.length;
-  let peak = 0;
-  for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > peak) peak = altitude[i];
-  if (!(peak > 0)) return null;
-  const high = peak * 0.5; // "really flew" — half the record's own best
-  const ground = Math.max(3, peak * 0.05); // back on the deck
-  // A body released at the record's own peak reaches the ground at √(2gh) and no faster, so
-  // a step into the ground band quicker than that is not something this rocket did. Doubled
-  // for barometric headroom; the three corpus files that trip it clear the doubled bound by
-  // 9.6x, 32x and 315x, while a synthetic pair's genuine 25 m/s touchdown is 4x inside it.
-  const arrivedTooFast = 2 * Math.sqrt(2 * G0 * peak);
-  let flew = false; // has the record climbed high yet?
-  let landed = -1; // …and come back down
+  const groundFrom = localGround(altitude, time);
+  let recordPeak = 0;
+  for (let i = 0; i < n; i++) if (Number.isFinite(altitude[i]) && altitude[i] > recordPeak) recordPeak = altitude[i];
+  const floor = flightFloor(recordPeak);
+
+  let segPeak = 0; // the highest this segment has reached…
+  let segPeakIdx = 0; // …and when
+  let flew = false; // has it climbed far enough to be a flight at all?
   for (let i = 0; i < n; i++) {
     const h = altitude[i];
     if (!Number.isFinite(h)) continue;
-    if (landed < 0) {
-      // A dip to the ground before anything climbed (a GPS losing lock through the
-      // boost reads zero) is not a landing, so `flew` has to come first.
-      if (h >= high) flew = true;
-      else if (flew && h <= ground) landed = i;
-    } else if (h >= high) {
-      // Up again after coming down: another flight is in this file.
-      //
-      // First, did the record DESCEND into that ground band, or jump into it? A logger that
-      // restarts mid-flight writes the next copy's pad straight after the last sample of the
-      // one before, and the join is a fall no rocket could have taken. Cutting at the trough
-      // there hands the first copy the NEXT copy's pad samples, and the landing detector
-      // takes one: on the corpus Blue Raven `jan18 LR` the trace is still at 823.2 ft and the
-      // sample 0.020 s later is −3.4 ft, a step of 41,330 ft/s on a flight whose descent ran
-      // at 55. From that came a 122.90 s flight time and a 55 ft/s descent rate published
-      // against the device's own stated 29.0 — a 3.6x error in the landing energy read off it.
-      // The first copy ends AT the join, and what it then lacks (it stops 250.9 m up, 13.1%
-      // of its own apogee) is withheld and said, or supplied by the second copy where the
-      // file holds one flight twice.
-      let before = landed - 1;
-      while (before >= 0 && !Number.isFinite(altitude[before])) before--;
-      if (
-        before >= 0 &&
-        time[landed] > time[before] &&
-        (altitude[before] - altitude[landed]) / (time[landed] - time[before]) > arrivedTooFast
-      ) {
-        return landed >= 4 ? landed : null;
-      }
-      // Otherwise cut at the LOW POINT between the two — the first sample of the trough —
-      // rather than where the record crossed the ground band. The band is a fraction of the
-      // file's own highest flight, so on a lower one it sits well up the descent, and cutting
-      // there would end the first flight before it landed and start the next one already in
-      // the air, with its pad baseline taken from a rocket still coming down (20 m out on a
-      // synthetic pair, enough to hide a third flight entirely). The trough gives the first
-      // flight its touchdown and the next one the quiet stretch its baseline is measured from.
-      let low = Infinity;
-      for (let k = landed; k < i; k++) if (Number.isFinite(altitude[k]) && altitude[k] < low) low = altitude[k];
-      let cut = landed;
-      for (let k = landed; k < i; k++) {
-        if (Number.isFinite(altitude[k]) && altitude[k] <= low + 1) {
-          cut = k;
-          break;
-        }
-      }
-      // Too short a first segment to analyze is better read whole than truncated to nothing.
-      return cut >= 4 ? cut : null;
+    if (h > segPeak) { segPeak = h; segPeakIdx = i; }
+    // A dip to the ground before anything climbed (a GPS losing lock through the boost
+    // reads zero) is not a landing, so the climb has to come first.
+    // Measured from the pad, which is where the altitude channel is zeroed and where every
+    // first flight starts. Not from `groundFrom`: a record that dips below its own pad after
+    // landing would then credit that dip to the climb, and a 49 m pressure transient on a
+    // record whose trace reaches −60 m would arm the detector at 109 m.
+    if (!flew) { flew = segPeak >= floor; continue; }
+    // Taken where the record IS, not where it peaked: the deck is the ground under this
+    // sample, and a flight's peak can be a hundred seconds and several kilometres away.
+    const ground = groundFrom[i];
+    const fell = segPeak - ground; // how far this flight has to come down
+    const deck = ground + deckFor(fell);
+    if (h > deck) continue;
+
+    let before = i - 1;
+    while (before >= 0 && !Number.isFinite(altitude[before])) before--;
+    const step =
+      before >= 0 && time[i] > time[before] ? (altitude[before] - altitude[i]) / (time[i] - time[before]) : 0;
+    // Did the record STEP into the ground band rather than descend into it? That is what a
+    // logger restarting mid-flight writes, and it is also what a dropout and a transonic dip
+    // write — so a step alone decides nothing except where the cut goes. What tells the three
+    // apart is what the record does next.
+    const jumped = step > tooFast(fell);
+
+    // A record that is back at a height it had ALREADY reached never left the sky: the trace
+    // lost its way and the same climb carried on. Two shapes of that, and it takes both tests.
+    //
+    // A dropout — a GPS losing lock, a logger writing zeros — comes back ABOVE where it went
+    // quiet in one sample, because the rocket kept climbing while the trace did not: five
+    // seconds of zeros two seconds into a 6,000 m climb resumes at 1,854 m against a 538 m
+    // peak. That test is only asked of a record that STEPPED into the band, because a record
+    // that descended into it did not lose anything — and on a coarse log one sample of a real
+    // second flight's boost crosses from below the deck to above the first flight's apogee,
+    // which read a 1 Hz launch day as one flight.
+    if (jumped) {
+      let back = -1;
+      for (let k = i; k < n; k++) if (Number.isFinite(altitude[k]) && altitude[k] > deck) { back = k; break; }
+      // Skip the whole quiet stretch rather than the one sample: inside a five-second dropout
+      // every sample after the first has a flat step behind it, so a per-sample `continue`
+      // hands the same gap back to the walk as an ordinary descent two samples later.
+      if (back >= 0 && altitude[back] >= segPeak) { i = back; continue; }
     }
+    // A barometric port under the transonic push comes back BELOW the deck first, gradually,
+    // and is only caught by the clock: over four shapes of that artefact it is back above
+    // where it was within 0.45–0.80 s. A record that genuinely landed and launched again
+    // takes 18.4 and 20.2 s to climb back through it (the two corpus Blue Ravens), and the
+    // sharpest real case Debrief must still cut — an Eggtimer whose baro fires off a cliff
+    // after an early deployment — takes 4.2 s. Two seconds sits 2.5x clear of both sides.
+    let regained = Infinity;
+    for (let k = i; k < n; k++) {
+      if (!Number.isFinite(altitude[k])) continue;
+      if (altitude[k] >= segPeak) { regained = time[k] - time[i]; break; }
+    }
+    if (regained < REJOIN_S) continue;
+
+    const next = nextFlightIn(altitude, time, i, floor);
+    if (!next) return null; // it came down and stayed down: one flight, in full.
+
+    // A join is cut AT the join. Cutting at the trough there hands the first copy the NEXT
+    // copy's pad samples, and the landing detector takes one. The first copy ends at the
+    // join, and what it then lacks (on `jan18 LR` it stops 250.9 m up, 13.1% of its own
+    // apogee) is withheld and said, or supplied by the second copy where the file holds one
+    // flight twice.
+    if (jumped) return i >= 4 ? i : null;
+
+    // A real landing is cut at the LOW POINT between the two — the first sample of the
+    // trough — rather than where the record crossed the ground band, so the first flight
+    // gets its touchdown and the next one the quiet stretch its baseline is measured from.
+    let low = Infinity;
+    for (let k = i; k < next.peakIdx; k++) if (Number.isFinite(altitude[k]) && altitude[k] < low) low = altitude[k];
+    let cut = i;
+    for (let k = i; k < next.peakIdx; k++) {
+      if (Number.isFinite(altitude[k]) && altitude[k] <= low + 1) {
+        cut = k;
+        break;
+      }
+    }
+    // Too short a first segment to analyze is better read whole than truncated to nothing.
+    return cut >= 4 ? cut : null;
   }
   return null;
 }
@@ -468,7 +817,7 @@ function descentFromSecondCopy(
 
   let second: FlightAnalysis;
   try {
-    second = analyzeFlight(sliceFlight(flight, cut, flight.time.length), 1, datum);
+    second = analyzeFlight(sliceFlight(flight, cut, flight.time.length), { depth: 1, datum });
   } catch {
     return null; // too few samples, no channels — the first copy stands on its own
   }
@@ -496,15 +845,6 @@ function descentFromSecondCopy(
   };
 }
 
-/** The flight from `start` to `end` (exclusive): the time base and every channel, sliced
- *  together so the model stays consistent. */
-function sliceFlight(flight: RawFlight, start: number, end: number): RawFlight {
-  return {
-    ...flight,
-    time: flight.time.slice(start, end),
-    channels: flight.channels.map((c) => ({ ...c, values: c.values.slice(start, end) })),
-  };
-}
 
 /**
  * Did the record actually contain a descent, or does it stop somewhere above the ground?
@@ -535,16 +875,216 @@ function formatSeconds(s: number): string {
   return `${s < 10 ? s.toFixed(1) : Math.round(s)} s`;
 }
 
+/** As many flights as one download is ever going to hold. A record that keeps producing
+ *  boundaries past this is not a launch day; the list says it stopped counting rather than
+ *  running the walk over a corrupt trace forever. */
+const MAX_SEGMENTS = 24;
+
 /**
- * @param depth  recursion guard for the multi-segment branch below.
- * @param datum  a ground reference to use INSTEAD of this record's own pad window, in the
- *   altitude channel's raw units. Only the multi-segment branch passes it, and only to read
- *   the second copy of a doubled recording: that copy starts in the trough between the two
- *   and has no pad of its own, so measuring it against itself is what made an earlier
- *   attempt read 10,723 ft where the device said 10,266. It is one altitude column, so the
- *   file's datum is the second copy's datum too.
+ * Every flight in a record that holds more than one, in file order, with the one that was
+ * read marked. The first boundary is already known — the caller found it — and the rest come
+ * from running the same detector over what is left, which is exactly what it does on the
+ * whole record: a later flight starts on the ground in the trough after the one before, so
+ * it is an ordinary record from the detector's point of view. Measured on a three-flight
+ * synthetic, the segments read 299.9 / 499.8 / 249.9 m against a true 300 / 500 / 250.
+ *
+ * The apogees come off the spike-cleaned trace, because the ejection pop a barometer records
+ * would otherwise put a row in this list several hundred feet above what the report says
+ * about the same flight. The row for the flight that WAS read carries the analysis's own
+ * figure instead, so those two can never disagree at all.
  */
-export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): FlightAnalysis {
+function flightCuts(altitude: Float64Array, time: Float64Array, firstCut: number): number[] {
+  const cuts: number[] = [0, firstCut];
+  let at = firstCut;
+  while (cuts.length < MAX_SEGMENTS) {
+    const rel = nextFlightStart(altitude.subarray(at), time.subarray(at));
+    if (rel == null) break;
+    at += rel;
+    cuts.push(at);
+  }
+  return cuts;
+}
+
+function allFlights(
+  altitude: Float64Array,
+  time: Float64Array,
+  cuts: number[],
+  dt: number,
+  read: ReadWindow | null,
+  readApogee: number,
+): FlightSegment[] {
+  const n = altitude.length;
+  const clean = hampelFilter(altitude, windowFor(dt, 0.3));
+  return cuts.map((from, i) => {
+    const to = i + 1 < cuts.length ? cuts[i + 1] : n;
+    let peak = -Infinity;
+    for (let k = from; k < to; k++) if (Number.isFinite(clean[k]) && clean[k] > peak) peak = clean[k];
+    // The row the analysis is OF carries the analysis's own apogee, so the list and the
+    // headline reading cannot disagree. A crop that is not one of these flights matches no
+    // row, and the strip says so rather than marking one the readings do not belong to.
+    const isRead = !!read && read.from === from && read.to === to;
+    return {
+      index: i + 1,
+      from,
+      to,
+      startTime: time[from],
+      endTime: time[Math.max(from, to - 1)],
+      apogeeM: isRead && Number.isFinite(readApogee) ? readApogee : peak,
+      read: isRead,
+    };
+  });
+}
+
+/**
+ * Every flight in the FILE, worked out without analysing it — for a report that is showing a
+ * crop and still has to offer the way back to the others.
+ *
+ * Without this a flyer who opens flight 2 of a launch day loses the list that got them there:
+ * the crop is a slice, a slice holds one flight, and the strip vanishes. That is a state with
+ * no way out of it, which is worse than the thing it was trying to help with.
+ */
+function fileSegments(flight: RawFlight, read: ReadWindow, readApogee: number): FlightSegment[] | undefined {
+  const time = flight.time;
+  const n = time.length;
+  if (n < 4) return undefined;
+  const dt = medianDt(time);
+  const altCh = getChannel(flight, 'altitude');
+  const presCh = getChannel(flight, 'pressure');
+  let altitude: Float64Array;
+  if (altCh) altitude = altCh.values.slice();
+  else if (presCh) {
+    const baseShort = Math.max(3, Math.min(n, Math.round(0.3 / (dt || 0.1))));
+    altitude = altitudeFromPressure(presCh.values, median(presCh.values, 0, baseShort));
+  } else return undefined;
+  const { baseEnd, offset } = padBaseline(altitude, dt);
+  for (let i = 0; i < n; i++) altitude[i] -= offset;
+  const firstCut = nextFlightStart(altitude, time);
+  if (firstCut == null) return undefined;
+  const cuts = flightCuts(altitude, time, firstCut);
+  // The SAME question the uncropped reading asked, with the same answer to hand. Asked with
+  // `padDataLikely` hardcoded true instead, a two-flight file with no quiet pad window is two
+  // flights uncropped and "one flight written twice" on every crop — so the strip offers
+  // flight 2 and then destroys itself the moment it is opened.
+  const padDataLikely = baseEnd >= Math.max(5, Math.round(0.4 / (dt || 0.1)));
+  if (cuts.length === 2 && recordedTwice(altitude, firstCut, padDataLikely)) return undefined;
+  return allFlights(altitude, time, cuts, dt, read, readApogee);
+}
+
+/** "3 of them", or "at least 24 of them" where the walk stopped counting. */
+function segmentCount(segments: FlightSegment[]): string {
+  return `${segments.length >= MAX_SEGMENTS ? `at least ${MAX_SEGMENTS}` : segments.length} of them`;
+}
+
+/** Where the flights Debrief did not read start, so the sentence is checkable against the
+ *  trace rather than asking to be believed. */
+function othersAt(segments: FlightSegment[]): string {
+  const rest = segments.filter((s) => !s.read);
+  const listed = rest.slice(0, 6);
+  const parts = listed.map(
+    (s) => `flight ${s.index} at ${formatSeconds(s.startTime - segments[0].startTime)}${Number.isFinite(s.apogeeM) ? ` (${Math.round(s.apogeeM)} m)` : ''}`,
+  );
+  const more = rest.length - listed.length;
+  return `The rest of the file holds ${parts.join(', ')}${more > 0 ? ` and ${more} more` : ''}.`;
+}
+
+/**
+ * Read a flight.
+ *
+ * `opts.read` is the flyer's own answer to "which stretch of this file is my flight", and it
+ * is the only option a caller outside this module has any business setting: it overrules
+ * Debrief's segmentation, and it is measured against the FILE's own pad rather than against
+ * the crop's opening samples. That distinction is the whole of it — a crop starting 1.5 s
+ * after liftoff on a 300 m record reads 170.7 m, 43% low, if it takes its own baseline.
+ *
+ * The rest are internal. `depth` guards the multi-segment recursion below; `datum` and
+ * `padPressure` are the file's ground references, handed to a slice that has no pad of its
+ * own. That copy starts in the trough between two recordings, and measuring it against itself
+ * is what made an earlier attempt read 10,723 ft where the device said 10,266.
+ */
+export function analyzeFlight(flight: RawFlight, opts: AnalyzeOptions = {}): FlightAnalysis {
+  const { depth = 0, datum, padPressure: padPressureIn, padLikely } = opts;
+
+  // The flyer's crop, honoured before anything else is read. The file's own ground references
+  // are taken from the WHOLE record first and handed to the slice, because a stretch chosen
+  // from the middle of a flight has no pad in it to measure against.
+  if (opts.read && depth === 0) {
+    const { from, to } = opts.read;
+    const lo = Math.max(0, Math.min(from, flight.time.length - 1));
+    const hi = Math.max(lo + 4, Math.min(to, flight.time.length));
+    // A crop that is the whole file is not a crop — it is the way back out of one, and it has
+    // to land on the ordinary reading: the segmentation runs again, and nothing tells the
+    // flyer they chose a stretch when what they chose was all of it.
+    if (lo === 0 && hi === flight.time.length) return analyzeWhole(flight, 0, undefined, undefined);
+    const refs = groundReferences(flight);
+    const cropped = analyzeFlight(sliceFlight(flight, lo, hi), { depth: 1, ...refs });
+    // The file's own flights come along, so the strip that offered this crop is still there
+    // to offer the others. Marked against the crop: where it IS one of them the row says so,
+    // and where it is a stretch of the flyer's own no row is marked.
+    const segments = fileSegments(flight, { from: lo, to: hi }, cropped.metrics.apogeeAltitude);
+    // The crop is honoured whatever is in it — the flyer said this is their flight, and the
+    // readings are of exactly what they chose. But a stretch that still holds a landing and
+    // another launch produces a liftoff from one flight and an apogee from another, which is
+    // the original Sev-1 arrived at by a different road. Read as asked, and say so.
+    const spansMore = segments
+      ? segments.filter((seg) => seg.from < hi && seg.to > lo).length > 1
+      : false;
+    return {
+      ...cropped,
+      ...(segments ? { segments } : {}),
+      extent: {
+        from: lo,
+        to: hi,
+        startTime: flight.time[lo],
+        endTime: flight.time[hi - 1],
+        fileEndTime: flight.time[flight.time.length - 1],
+        source: 'chosen',
+      },
+      warnings: [
+        `You chose the stretch Debrief read: ${formatSeconds(flight.time[lo])} to ${formatSeconds(flight.time[hi - 1])} of a ${formatSeconds(flight.time[flight.time.length - 1])} file. Every reading here is of that stretch, measured against the file's own pad baseline rather than the start of your selection.`,
+        ...(spansMore
+          ? [
+              'The stretch you chose reaches across more than one of the flights in this file, so it was read as a single flight: liftoff comes from the first of them and apogee from whichever went highest, and the time between them spans both. Narrow the selection to one flight, or pick one from the list above.',
+            ]
+          : []),
+        ...cropped.warnings,
+      ],
+    };
+  }
+  return analyzeWhole(flight, depth, datum, padPressureIn, padLikely);
+}
+
+/**
+ * The ground this file was launched from, in the units each reference is used in. Taken from
+ * the whole record so a slice out of the middle can be measured against the pad rather than
+ * against wherever it happens to start.
+ */
+function groundReferences(flight: RawFlight): { datum?: number; padPressure?: number; padLikely: boolean } {
+  const dt = medianDt(flight.time);
+  const n = flight.time.length;
+  const minQuiet = Math.max(5, Math.round(0.4 / (dt || 0.1)));
+  const altCh = getChannel(flight, 'altitude');
+  const presCh = getChannel(flight, 'pressure');
+  const probe = altCh ? altCh.values.slice() : presCh ? altitudeFromPressure(presCh.values, median(presCh.values, 0, Math.max(3, Math.min(n, Math.round(0.3 / (dt || 0.1)))))) : null;
+  // Whether the FILE started on the pad, which is a property of the file and not of the
+  // stretch chosen out of it. A crop taken from the middle of a flight has no quiet window in
+  // it and would otherwise be told it does not start on the pad — true of the crop, useless
+  // to the flyer, and it hides the case where the FILE genuinely didn't.
+  const padLikely = probe ? padBaseline(probe, dt).baseEnd >= minQuiet : false;
+  if (altCh) return { datum: padBaseline(altCh.values.slice(), dt).offset, padLikely };
+  if (presCh) {
+    const baseShort = Math.max(3, Math.min(n, Math.round(0.3 / (dt || 0.1))));
+    return { padPressure: median(presCh.values, 0, baseShort), padLikely };
+  }
+  return { padLikely: false };
+}
+
+function analyzeWhole(
+  flight: RawFlight,
+  depth: number,
+  datum: number | undefined,
+  padPressureIn: number | undefined,
+  padLikely?: boolean,
+): FlightAnalysis {
   const warnings: string[] = [];
   const time = flight.time;
   const n = time.length;
@@ -564,7 +1104,9 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   if (altCh) {
     altitude = altCh.values.slice();
   } else if (presCh) {
-    const padPressure = median(presCh.values, 0, baseShort);
+    // A crop hands in the FILE's pad pressure: a stretch out of the middle of a flight has
+    // no pad of its own, and altitude derived from pressure takes its reference from that.
+    const padPressure = padPressureIn ?? median(presCh.values, 0, baseShort);
     altitude = altitudeFromPressure(presCh.values, padPressure);
     warnings.push('No altitude channel — altitude was derived from barometric pressure.');
   } else {
@@ -574,15 +1116,22 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // Pad baseline from the quiet pre-launch window (see `padBaseline`) — unless a caller
   // handed us the file's own datum, which only the doubled-recording branch does.
   const { baseEnd, offset: ownOffset } = padBaseline(altitude, dt);
-  const baseOffset = datum ?? ownOffset;
+  // A supplied pad PRESSURE has already put this altitude on the file's ground — subtracting
+  // a baseline taken from the slice's own opening samples would move it a second time, and
+  // on a crop that starts mid-climb that reads 205 m off a 300 m flight.
+  const baseOffset = datum ?? (padPressureIn != null && !altCh ? 0 : ownOffset);
   for (let i = 0; i < n; i++) altitude[i] -= baseOffset;
 
   // If there's no real quiet window, the file probably starts mid-flight, so the
   // baseline (and anything measured against it) can't be fully trusted.
   const baselineNoise = stdev(altitude, 0, baseEnd);
   const minQuiet = Math.max(5, Math.round(0.4 / (dt || 0.1)));
-  // A supplied datum came from a real pad window by construction — the caller checked.
-  const padDataLikely = datum != null || baseEnd >= minQuiet;
+  // A datum handed in by the doubled-recording branch came from a real pad window, because
+  // that branch measured it on a record that started on one. A CROP's datum did not: the file
+  // it came from may never have started on the pad at all, and taking the datum as proof of
+  // one drops both pad caveats and reads the ground pressure and temperature out of mid-air.
+  // So a crop says which it is, and only that answer is believed.
+  const padDataLikely = padLikely ?? (datum != null || baseEnd >= minQuiet);
   if (!padDataLikely) {
     warnings.push(
       'The log doesn’t appear to start on the pad, so the ground baseline is approximate — altitude AGL and any ground reading may be offset.',
@@ -603,13 +1152,19 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
   // copy genuinely lacks is said instead, below.
   const secondFlightAt = nextFlightStart(altitude, time);
   if (secondFlightAt != null && depth === 0) {
-    const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), 1);
+    const first = analyzeFlight(sliceFlight(flight, 0, secondFlightAt), { depth: 1 });
     const opening = formatSeconds(time[secondFlightAt] - time[0]);
+    const cuts = flightCuts(altitude, time, secondFlightAt);
     // Two different files trip this detector, and telling them apart changes what the flyer
     // should do about it. Both corpus Blue Ravens hold ONE flight written twice; telling
     // their owner to "read the others by splitting the file" would hand them the same flight
     // again, and telling them the file holds more than one flight is simply false.
-    const twice = recordedTwice(altitude, secondFlightAt, padDataLikely);
+    //
+    // A doubled recording holds exactly TWO segments, and both corpus files that are one do.
+    // Without that clause the peak comparison is enough to call a launch day of five flights
+    // to the same altitude "the same flight written twice — there is no second flight to
+    // read", which is the most confidently wrong sentence this function can produce.
+    const twice = cuts.length === 2 && recordedTwice(altitude, secondFlightAt, padDataLikely);
     // Per-recording assembly, within one file. The first copy is the one that starts on the
     // pad, so the climb is read from it and the apogee never moves. But a logger that
     // restarts mid-flight can cut that copy before the rocket lands — the corpus Blue Raven
@@ -622,12 +1177,26 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     // refused to read a landing.
     const spliced = twice ? descentFromSecondCopy(flight, first, secondFlightAt, baseOffset, !!altCh) : null;
     const base = spliced ? { ...first, metrics: { ...first.metrics, ...spliced.metrics } } : first;
+    // Every flight in the download, not just the one that was read. A doubled recording is
+    // one flight and gets no list — "flight 2 of 2" would be a second flight that isn't there.
+    const segments = twice
+      ? undefined
+      : allFlights(altitude, time, cuts, dt, { from: 0, to: secondFlightAt }, base.metrics.apogeeAltitude);
     return {
       ...base,
+      ...(segments ? { segments } : {}),
+      extent: {
+        from: 0,
+        to: secondFlightAt,
+        startTime: time[0],
+        endTime: time[secondFlightAt - 1],
+        fileEndTime: time[n - 1],
+        source: 'segmented',
+      },
       warnings: [
         twice
           ? `This file holds the same flight written twice — the record returns to the ground and climbs again to the same height (within ${(RECORDED_TWICE_AGREEMENT * 100).toFixed(0)}%, measured against this file's own pad baseline). Debrief read the first copy (the opening ${opening} of the file), which is the one that starts on the pad. There is no second flight to read.`
-          : `This file holds more than one flight — the record returns to the ground and climbs again. Debrief analyzed the first (the opening ${opening} of the file) and ignored the rest; read the others by splitting the file, or export them separately from your altimeter's software.`,
+          : `This file holds more than one flight — ${segmentCount(segments!)}. The record returns to the ground and climbs again. Debrief read the first, the opening ${opening} of the file. ${othersAt(segments!)}`,
         ...(spliced ? [spliced.warning] : []),
         // The first copy's own "record stops short" note is replaced by the splice: it says
         // no flight time or descent rate is read, which is no longer true of this flight.
@@ -639,6 +1208,13 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
       ],
     };
   }
+
+  // …and where there is no cut, say whether the record still looks like it holds more than
+  // one flight. The walk refuses a boundary it cannot justify — a climb under the floor, a
+  // dip it read through — and a refusal that produces no sentence is a reading of the whole
+  // record presented as a reading of one flight. `unsegmented` is what that refusal knows.
+  const unsure = depth === 0 ? unsegmentedNote(altitude, time, baselineNoise) : null;
+  if (unsure) warnings.push(unsure);
 
   // Keep the pre-filter altitude (baseline-subtracted, still carrying any
   // ejection spikes/noise) so the explorer can show it against the cleaned line.
@@ -2088,5 +2664,18 @@ export function analyzeFlight(flight: RawFlight, depth = 0, datum?: number): Fli
     );
   }
 
-  return { series, events, metrics, warnings };
+  return {
+    series,
+    events,
+    metrics,
+    warnings,
+    extent: {
+      from: 0,
+      to: n,
+      startTime: time[0],
+      endTime: time[n - 1],
+      fileEndTime: time[n - 1],
+      source: 'file',
+    },
+  };
 }

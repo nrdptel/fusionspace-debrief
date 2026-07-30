@@ -6,7 +6,7 @@
 
 import { analyzeFlight } from './index';
 import type { RawFlight } from '../flight/types';
-import type { FlightAnalysis } from './types';
+import type { AnalyzeOptions, FlightAnalysis } from './types';
 
 interface Pending {
   resolve: (a: FlightAnalysis) => void;
@@ -51,19 +51,22 @@ function ensureWorker(): Worker | null {
 /**
  * Analyze a flight, off the main thread when possible. The result is identical to
  * calling analyzeFlight() directly — this only changes *where* it runs.
+ *
+ * `opts` carries the flyer's crop, when they have chosen one. It is plain data, so it
+ * structured-clones to the worker like the flight does.
  */
-export async function analyzeAsync(flight: RawFlight): Promise<FlightAnalysis> {
+export async function analyzeAsync(flight: RawFlight, opts?: AnalyzeOptions): Promise<FlightAnalysis> {
   const w = ensureWorker();
-  if (!w) return analyzeFlight(flight);
+  if (!w) return analyzeFlight(flight, opts);
   try {
     return await new Promise<FlightAnalysis>((resolve, reject) => {
       const id = nextId++;
       pending.set(id, { resolve, reject });
-      w.postMessage({ id, flight });
+      w.postMessage({ id, flight, opts });
     });
   } catch {
     // Worker unavailable or errored mid-flight — analysis still has to happen, so
     // do it synchronously here. Correct, just not off-thread.
-    return analyzeFlight(flight);
+    return analyzeFlight(flight, opts);
   }
 }

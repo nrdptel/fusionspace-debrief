@@ -5,13 +5,14 @@ import { importFlight } from './index';
 import { summaryFigures } from './deviceSummary';
 import { analyzeFlight } from '../analyze';
 import { buildFlight } from '../flight/build';
+import { sliceFlight } from '../flight/slice';
 import { compareReported, REPORTED_QUANTITY } from '../flight/reported';
 import { getChannel, type ChannelKind, type ReportedValue } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
 import { landedInRecord, landingRate, metricTiles } from '../readings';
 import { headlineRows } from '../report';
-import { groundTrack, recoveryStats, trackGpx, trackKml } from '../gps';
+import { groundTrack, padOrigin, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 
@@ -665,34 +666,114 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
   }
 });
 
-// One file, one flight, written twice. Four corpus files trip the multi-flight detector, and
-// what Debrief should SAY about them differs: two hold the same flight recorded twice (so
-// "read the others by splitting the file" would hand the flyer the same flight again), and
-// two do not. The discriminator is the apogee measured against the file's own pad baseline —
-// on that datum the genuine pair agree to 0.21% and 0.00% while the Eggtimer's second
-// segment, a baro artefact documented in the corpus ground truth, is 92% away.
-const DOUBLE_RECORDINGS: { file: string; twice: boolean; why: string }[] = [
+// One file, one flight, written twice. Three corpus files hold a record the segmenter cuts
+// in two, and what Debrief should SAY about them differs: two hold the same flight recorded
+// twice (so "read the others by splitting the file" would hand the flyer the same flight
+// again), one does not. The discriminator is the apogee measured against the file's own pad
+// baseline — on that datum the genuine pair agree to 0.21% and 0.00% while the Eggtimer's
+// second segment, a baro artefact documented in the corpus ground truth, is 92% away.
+//
+// The fourth row is the control, and it is the one that moved: a 19 ft misparsed fragment
+// that must be told NEITHER thing. Its whole trace spans 13 m of barometric noise over 34 s,
+// and the detector used to read half of the record's own 9.5 m peak as "really flew" and the
+// wobble under 3 m as a landing — so a flyer holding a fragment their altimeter never filled
+// was told it held several flights and sent back to the vendor software to split it.
+type SegmentSays = 'written twice' | 'more than one flight' | 'neither';
+const DOUBLE_RECORDINGS: { file: string; says: SegmentSays; why: string; segments?: number }[] = [
   {
     file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
-    twice: true,
+    says: 'written twice',
     why: '10,245 ft then 10,267 ft on one datum — 0.21% apart; the device itself states 10,266 ft',
   },
   {
     file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
-    twice: true,
+    says: 'written twice',
     why: '6,296 ft twice — 0.00% apart',
   },
   {
     file: 'eggtimer/eggtimer__reddit-seb-earlydeploy-anomaly__Eggtimer_Data.csv',
-    twice: false,
+    says: 'more than one flight',
     why: '4,661 ft then 8,969 ft — 92% apart, and the file has no quiet pad window to share a datum from',
+    // TWO, and the count is the assert: this record ends 445 m BELOW its own pad, and a
+    // height measured from there credits a 10 m wobble in the tail with 455 m of climb. That
+    // put a third "flight" in the list, of a file that holds one flight and an artefact.
+    segments: 2,
   },
   {
     file: 'blueraven/blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-Low.txt',
-    twice: false,
-    why: 'a 19 ft fragment whose apogee is withheld entirely',
+    says: 'neither',
+    why: 'a 19 ft misparsed fragment — 9.5 m of noise is not two flights',
   },
 ];
+
+describe('a stretch a flyer chose keeps the file’s pad under it', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // The recovery card is the one surface a flyer physically acts on — they walk the bearing it
+  // prints. Every reading on it is measured FROM the pad, so a crop that takes its reference
+  // from its own opening fixes puts the pad wherever the rocket was when the selection starts.
+  const FILE = 'featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_04-12-2025_12_45_50.csv';
+  it('reads the same walk-back off a crop as off the whole file', () => {
+    const path = CORPUS + FILE;
+    if (!existsSync(path)) return;
+    const res = importFlight({ name: FILE.split('/').pop() as string, text: decodeBytes(new Uint8Array(readFileSync(path))) });
+    expect(res.kind).toBe('flight');
+    if (res.kind !== 'flight') return;
+    const file = res.flight;
+    const lat = getChannel(file, 'latitude')!;
+    const lon = getChannel(file, 'longitude')!;
+    const pad = padOrigin(lat.values, lon.values)!;
+    const whole = recoveryStats(groundTrack(lat.values, lon.values)!)!;
+
+    const apogee = analyzeFlight(file).events.find((e) => e.type === 'apogee')!;
+    const crop = sliceFlight(file, apogee.index, file.time.length);
+    const cl = getChannel(crop, 'latitude')!.values;
+    const co = getChannel(crop, 'longitude')!.values;
+
+    // Without the file's pad this record reads 4,676 ft on 127° SE against 3,866 ft on 208° SW.
+    const naive = recoveryStats(groundTrack(cl, co)!)!;
+    expect(Math.abs(naive.landingBearing - whole.landingBearing)).toBeGreaterThan(50);
+
+    const fixed = recoveryStats(groundTrack(cl, co, 16, pad)!)!;
+    expect(fixed.landingDistance).toBeCloseTo(whole.landingDistance, 6);
+    expect(fixed.landingBearing).toBeCloseTo(whole.landingBearing, 6);
+    expect(fixed.maxDrift).toBeCloseTo(whole.maxDrift, 6);
+  });
+});
+
+describe('a record read as one flight that does not look like one says so', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  // Where the segmenter refuses a boundary it cannot justify, the report says so rather than
+  // reading through it silently. The whole point of the sentence is that it appears on a
+  // record that IS several flights and could not be split — so on the corpus, where every
+  // multi-flight record either splits or is one flight written twice, it must never appear.
+  // A false alarm here tells the owner of a clean 8,317 m iREC flight their file holds two.
+  it('never says it about a real corpus record', () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    const said: string[] = [];
+    let analysed = 0;
+    for (const fx of spec.fixtures) {
+      // A fixture Debrief deliberately rejects throws here; that is its contract, asserted
+      // elsewhere, and it has no analysis to ask this question of.
+      let loaded: ReturnType<typeof loadForCompare>;
+      try {
+        loaded = loadForCompare(fx.file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      analysed++;
+      if (loaded.analysis.warnings.some((w) => /could not justify cutting/.test(w))) said.push(fx.file);
+    }
+    expect(analysed, 'the corpus was really there').toBeGreaterThan(20);
+    expect(said, `${analysed} records analysed`).toEqual([]);
+  }, 60_000);
+});
 
 describe('a file that holds the same flight twice says so', () => {
   if (!present) {
@@ -701,12 +782,19 @@ describe('a file that holds the same flight twice says so', () => {
   }
   for (const c of DOUBLE_RECORDINGS) {
     const short = c.file.split('/').pop() as string;
-    it(`${short} — ${c.twice ? 'one flight written twice' : 'not a double recording'} (${c.why})`, () => {
+    it(`${short} — ${c.says === 'neither' ? 'one flight, said plainly' : c.says} (${c.why})`, () => {
       const loaded = loadForCompare(c.file);
       expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
       const w = loaded!.analysis.warnings;
-      expect(w.some((x) => /holds the same flight written twice/.test(x)), `${short}: "written twice"`).toBe(c.twice);
-      expect(w.some((x) => /holds more than one flight/.test(x)), `${short}: "more than one flight"`).toBe(!c.twice);
+      expect(w.some((x) => /holds the same flight written twice/.test(x)), `${short}: "written twice"`).toBe(
+        c.says === 'written twice',
+      );
+      expect(w.some((x) => /holds more than one flight/.test(x)), `${short}: "more than one flight"`).toBe(
+        c.says === 'more than one flight',
+      );
+      if (c.segments != null) {
+        expect(loaded!.analysis.segments?.length, `${short}: flights listed`).toBe(c.segments);
+      }
     });
   }
 });

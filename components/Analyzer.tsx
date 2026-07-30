@@ -9,6 +9,8 @@ import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import { flightFromMapping } from '@/lib/mapped';
 import type { RawFlight } from '@/lib/flight/types';
 import { analyzeAsync } from '@/lib/analyze/runner';
+import { sliceFlight } from '@/lib/flight/slice';
+import { indexAtOrAfter, indexAtOrBefore, MIN_CROP_SAMPLES } from './CropControl';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
@@ -24,6 +26,7 @@ import CompareView from './CompareView';
 import {
   saveRecent,
   saveCaption,
+  saveReadWindow,
   listRecents,
   getRecent,
   removeRecent,
@@ -54,6 +57,12 @@ type State =
    *  what the label/notes a flyer types are kept against. Absent where storage was refused. */
   | {
       phase: 'report';
+      /** The whole file, whatever stretch of it is on screen — what the crop control offers
+       *  and what a re-read is taken from. */
+      file: RawFlight;
+      /** The stretch the report is OF: the file itself, or a slice of it. Every surface that
+       *  joins a recorded channel to the analysis's own series reads this one, so the two
+       *  cannot be off by the crop's offset. */
       flight: RawFlight;
       analysis: FlightAnalysis;
       analyzedAt: number;
@@ -61,6 +70,10 @@ type State =
       note?: string;
       savedId?: string;
       caption?: { label: string; notes: string };
+      /** True while another flight in the same file is being read. */
+      reading?: boolean;
+      /** Why the last stretch the flyer asked for could not be read. */
+      readError?: string;
     }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
@@ -78,6 +91,18 @@ export const emptyFolderMessage = (names: string[]) =>
   `Nothing in ${names.length === 1 ? `“${names[0]}”` : 'those folders'} looked like a flight log — Debrief reads CSV, text and spreadsheet exports, and looks one level or two inside a folder for them.`;
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
+
+/** A stored read window, resolved against this parse of the file. Returns undefined where the
+ *  window no longer fits — a file re-parsed shorter, a hand-edited backup — because reading a
+ *  stretch that is not the one the flyer chose is worse than reading the file. */
+function readToWindow(time: Float64Array, read: { fromS: number; toS: number }): { from: number; to: number } | undefined {
+  if (time.length < 4) return undefined;
+  const from = indexAtOrAfter(time, read.fromS);
+  const to = Math.min(time.length, indexAtOrBefore(time, read.toS) + 1);
+  if (!(to - from >= MIN_CROP_SAMPLES)) return undefined;
+  if (from === 0 && to === time.length) return undefined; // the whole file is not a crop
+  return { from, to };
+}
 
 
 /** What a batch drop couldn't read, said plainly. Names the files — a flyer who dropped a
@@ -196,7 +221,14 @@ export default function Analyzer() {
      *  `summaryText` the device summary it was dropped alongside — both present only when
      *  reopening one, so a custom file comes back as the flight the flyer made rather than as
      *  the mapper again, and a paired flight comes back with its cross-check. */
-    async (name: string, text: string, mapping?: StoredMapping[], summaryText?: string, caption?: { label: string; notes: string }) => {
+    async (
+      name: string,
+      text: string,
+      mapping?: StoredMapping[],
+      summaryText?: string,
+      caption?: { label: string; notes: string },
+      read?: { fromS: number; toS: number },
+    ) => {
       const set = beginLoad();
       try {
         if (text.trim().length === 0) {
@@ -205,8 +237,21 @@ export default function Analyzer() {
         }
         const result = importRecent({ name, text, ...(mapping ? { mapping } : {}), ...(summaryText ? { summaryText } : {}) });
         if (result.kind === 'flight') {
-          const analysis = await analyzeAsync(result.flight);
-          set({ phase: 'report', flight: result.flight, analysis, analyzedAt: Date.now(), text, ...(caption ? { caption } : {}) });
+          // The stretch the flyer chose, restored. Stored in SECONDS on the file's own clock
+          // and resolved to samples here, against the parse this build makes of the text —
+          // so a parser that has since learned to drop a duplicate row still lands on the
+          // same moment of the same flight rather than on a shifted index.
+          const window = read ? readToWindow(result.flight.time, read) : undefined;
+          const analysis = await analyzeAsync(result.flight, window ? { read: window } : undefined);
+          set({
+            phase: 'report',
+            file: result.flight,
+            flight: window ? sliceFlight(result.flight, analysis.extent.from, analysis.extent.to) : result.flight,
+            analysis,
+            analyzedAt: Date.now(),
+            text,
+            ...(caption ? { caption } : {}),
+          });
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
@@ -236,6 +281,62 @@ export default function Analyzer() {
       }
     },
     [logbook.refresh, logbook.reportForgotten, beginLoad],
+  );
+
+  /**
+   * Read a different stretch of the flight already on screen — one of the other flights in a
+   * launch-day download, or a crop the flyer chose.
+   *
+   * Deliberately NOT a reload: the file is already parsed, so this re-runs the analysis over
+   * the same `RawFlight`. The flight, its text and its logbook id all stay exactly as they
+   * are, which is what keeps the report's address, its label and its notes attached to the
+   * file rather than to whichever stretch of it is being read.
+   */
+  // The logbook id of whatever is on screen, for the fire-and-forget writes that must not
+  // re-create the callback every time the report's state changes.
+  const savedIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    savedIdRef.current = state.phase === 'report' ? state.savedId : undefined;
+  }, [state]);
+
+  const readStretch = useCallback(
+    async (from: number, to: number) => {
+      if (state.phase !== 'report') return;
+      const file = state.file;
+      const token = ++reqRef.current;
+      setState((prev) => (prev.phase === 'report' ? { ...prev, reading: true, readError: undefined } : prev));
+      try {
+        const analysis = await analyzeAsync(file, { read: { from, to } });
+        if (reqRef.current !== token) return;
+        // The report becomes a report OF the stretch: the same slice the analysis read, so
+        // the recorded channels, the GPS fixes and the sample table line up with its series
+        // instead of being the whole file's under the crop's clock.
+        const shown = sliceFlight(file, analysis.extent.from, analysis.extent.to);
+        // Kept with the flight, in seconds, so coming back to it comes back to the stretch
+        // the flyer chose rather than to Debrief's own segmentation. Forgotten when they read
+        // the whole file again, which is what that button means.
+        if (savedIdRef.current) {
+          void saveReadWindow(
+            savedIdRef.current,
+            analysis.extent.source === 'chosen'
+              ? { fromS: analysis.extent.startTime, toS: analysis.extent.endTime }
+              : null,
+          );
+        }
+        setState((prev) =>
+          prev.phase === 'report'
+            ? { ...prev, flight: shown, analysis, analyzedAt: Date.now(), reading: false, readError: undefined }
+            : prev,
+        );
+      } catch (err) {
+        // The stretch stays refused rather than half-applied: what is on screen is still the
+        // reading it was, and the row says why the new one could not be made.
+        if (reqRef.current !== token) return;
+        const why = err instanceof Error ? err.message : 'That stretch could not be read.';
+        setState((prev) => (prev.phase === 'report' ? { ...prev, reading: false, readError: why } : prev));
+      }
+    },
+    [state],
   );
 
   const onFile = useCallback(
@@ -334,6 +435,7 @@ export default function Analyzer() {
         rememberOpenId(r.savedId ?? null);
         set({
           phase: 'report',
+          file: r.flight,
           flight: r.flight,
           analysis: r.analysis,
           analyzedAt: Date.now(),
@@ -406,10 +508,14 @@ export default function Analyzer() {
             return;
           }
         }
-        set({ phase: 'report', flight, analysis, analyzedAt: Date.now(), text });
+        set({ phase: 'report', file: flight, flight, analysis, analyzedAt: Date.now(), text });
         if (!addToIds)
           void save.then((savedId) => {
             rememberOpenId(savedId);
+            // Folded into the report's state, like the auto-detected path does: without it a
+            // hand-mapped flight has no id on screen, and everything kept AGAINST that id —
+            // the label, the notes, the stretch the flyer chose — silently stops being kept.
+            if (savedId) set((prev) => (prev.phase === 'report' ? { ...prev, savedId } : prev));
             logbook.refresh();
           });
       } catch (err) {
@@ -505,7 +611,7 @@ export default function Analyzer() {
       }
       setState({ phase: 'loading', what: { name: rec.name, bytes: rec.text.length } });
       await tick();
-      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText, rec.caption);
+      await ingest(rec.name, rec.text, rec.mapping, rec.summaryText, rec.caption, rec.read);
     },
     [ingest],
   );
@@ -579,6 +685,11 @@ export default function Analyzer() {
           sys={sys}
           caption={state.caption}
           onCaption={state.savedId ? (c) => void saveCaption(state.savedId as string, c) : undefined}
+          fileTime={state.file.time}
+          fileFlight={state.file}
+          onRead={readStretch}
+          reading={state.reading}
+          readError={state.readError}
         />
       </div>
     );

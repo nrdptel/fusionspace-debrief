@@ -193,10 +193,88 @@ export interface FlightSeries {
   velocityImplausible?: boolean;
 }
 
+/**
+ * One flight inside a record that holds several — where it sits in the file, and how high it
+ * went. A launch day's download is the case this exists for: the vendor apps show that list
+ * at download time on the device and write one file per flight, so a flyer who exported the
+ * whole session has, until now, been told to go back and split it by hand.
+ *
+ * Every apogee here is measured on the **file's own pad datum**, so the rows are comparable
+ * with each other and with the reading on screen. A later flight has no quiet pad window of
+ * its own — it starts in the trough after the one before — and measuring it against that
+ * trough is what once read 10,723 ft off a Blue Raven the device itself put at 10,266.
+ *
+ * These are Debrief's own segmentation. Where a flyer overrules it, the crop they chose wins
+ * and this list says which flight, if any, it corresponds to.
+ */
+export interface FlightSegment {
+  /** 1-based, in file order — the number the flyer sees. */
+  index: number;
+  /** First sample of this flight, and one past its last, in the record's own indexing. */
+  from: number;
+  to: number;
+  /** Seconds on the FILE's clock, not re-zeroed per flight. */
+  startTime: number;
+  endTime: number;
+  /** m AGL on the file's pad datum. For the flight that was actually read this is the
+   *  analysis's own apogee, so the row and the headline reading can never disagree. */
+  apogeeM: number;
+  /** True for the one this analysis is of. */
+  read: boolean;
+}
+
+/** Which stretch of the record this analysis is of, and who chose it. Always present, so no
+ *  surface has to guess whether it is looking at a whole file. */
+export interface ReadExtent {
+  /** First sample read, and one past the last, in the FILE's own indexing. */
+  from: number;
+  to: number;
+  /** Seconds on the file's own clock. */
+  startTime: number;
+  endTime: number;
+  /** The file's last sample, so a surface can say "24 s of a 108 s file" without the file. */
+  fileEndTime: number;
+  /** `file` — the whole record. `segmented` — Debrief cut it and read one flight.
+   *  `chosen` — the flyer said which stretch is theirs, and that overrules the segmentation. */
+  source: 'file' | 'segmented' | 'chosen';
+}
+
+/** Read only this stretch of the record. Sample indices into the file, `to` exclusive. */
+export interface ReadWindow {
+  from: number;
+  to: number;
+}
+
+export interface AnalyzeOptions {
+  /** Recursion guard for the multi-segment branch. Internal to the analyzer. */
+  depth?: number;
+  /** A ground reference to use INSTEAD of this record's own pad window, in the altitude
+   *  channel's raw units — for a slice that has no pad of its own. Internal. */
+  datum?: number;
+  /** The pad PRESSURE, for a record with no altitude channel: altitude derived from pressure
+   *  takes its reference from that, and a datum in metres cannot correct it. Internal. */
+  padPressure?: number;
+  /** Whether the FILE started on the pad. A crop out of the middle of a flight has no quiet
+   *  window of its own, so the question has to be answered about the record it came from.
+   *  Internal. */
+  padLikely?: boolean;
+  /** The flyer's own answer to "which stretch is my flight". Honoured over Debrief's
+   *  segmentation, and measured against the FILE's pad rather than the crop's first samples —
+   *  a crop starting 1.5 s after liftoff otherwise re-zeroes altitude to mid-air and reads
+   *  43% low. */
+  read?: ReadWindow;
+}
+
 export interface FlightAnalysis {
   series: FlightSeries;
   events: FlightEvent[];
   metrics: FlightMetrics;
   /** Plain-language notes about anything imperfect in the data or the reading. */
   warnings: string[];
+  /** Present only when the record holds more than one flight: every flight in it, with the
+   *  one that was read marked. Absent — not an empty array — for the ordinary single-flight
+   *  file, so a surface can branch on presence. */
+  segments?: FlightSegment[];
+  /** Which stretch of the file this analysis is of. */
+  extent: ReadExtent;
 }

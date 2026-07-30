@@ -6,6 +6,7 @@
 
 import { analyzeFlight } from './index';
 import type { RawFlight } from '../flight/types';
+import type { AnalyzeOptions } from './types';
 
 // `self` is typed as a Window under the dom lib; narrow it to what we use here.
 const ctx = self as unknown as {
@@ -13,10 +14,10 @@ const ctx = self as unknown as {
   addEventListener: (type: 'message', listener: (e: MessageEvent) => void) => void;
 };
 
-ctx.addEventListener('message', (e: MessageEvent<{ id: number; flight: RawFlight }>) => {
-  const { id, flight } = e.data;
+ctx.addEventListener('message', (e: MessageEvent<{ id: number; flight: RawFlight; opts?: AnalyzeOptions }>) => {
+  const { id, flight, opts } = e.data;
   try {
-    const analysis = analyzeFlight(flight);
+    const analysis = analyzeFlight(flight, opts);
     ctx.postMessage({ id, analysis });
   } catch (err) {
     ctx.postMessage({ id, error: err instanceof Error ? err.message : 'Could not analyze this flight.' });

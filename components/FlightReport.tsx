@@ -23,6 +23,8 @@ import { useCurrentSection } from './useCurrentSection';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import FlightPicker from './FlightPicker';
+import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
@@ -40,6 +42,7 @@ import EjectionDelay from './EjectionDelay';
 import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
+import { padOrigin } from '@/lib/gps';
 
 const ACTION_BTN =
   'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
@@ -60,12 +63,30 @@ export default function FlightReport({
   sys,
   caption,
   onCaption,
+  fileTime,
+  fileFlight,
+  onRead,
+  reading,
+  readError,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
   analyzedAt: number;
   sourceText: string;
   sys: UnitChoice;
+  /** The WHOLE file's time base, when `flight` is a stretch of it — what the crop control
+   *  offers. Absent where the report is of the whole file, which is its own answer. */
+  fileTime?: Float64Array;
+  /** The WHOLE file, when `flight` is a stretch of it — for the readings that are measured
+   *  from the pad and so cannot take their reference from the stretch. */
+  fileFlight?: RawFlight;
+  /** Read a different stretch of the same file — one of the other flights in a launch-day
+   *  download. Absent where the surface has no way to re-read (a shared link). */
+  onRead?: (from: number, to: number) => void;
+  /** True while a re-read is in flight, so the picker can refuse a second click. */
+  reading?: boolean;
+  /** Why the last stretch asked for could not be read, when one could not. */
+  readError?: string;
   /** The label and notes kept with this flight in the logbook, when it has any. */
   caption?: { label: string; notes: string };
   /** Keep them. Absent where the flight has no logbook entry to keep them against — a
@@ -147,20 +168,27 @@ export default function FlightReport({
   // and belong to the flight in view, so a new flight clears them.
   const [reportLabel, setReportLabel] = useState('');
   const [reportNotes, setReportNotes] = useState('');
+  // The label belongs to the FILE, because that is what the logbook holds and what an address
+  // returns to. So it is shown over the reading the logbook made — the whole file, or the
+  // flight Debrief segmented out of it — and not over a stretch the flyer chose, where it
+  // would be a heading typed for one flight sitting above another one's numbers.
+  const ownsCaption = analysis.extent.source !== 'chosen';
   // Seeded from what the flight already carries rather than blanked: the report has an address
   // now, so leaving and coming back returns the flight — and these two, the only things on the
-  // screen a flyer typed, were the two that didn't come with it. Keyed on `flight.source`, so
-  // opening a different flight still starts clean.
+  // screen a flyer typed, were the two that didn't come with it. Keyed on `flight.source` and
+  // on the stretch being read, so opening another flight in the file starts clean.
   useEffect(() => {
-    setReportLabel(caption?.label ?? '');
-    setReportNotes(caption?.notes ?? '');
+    setReportLabel(ownsCaption ? (caption?.label ?? '') : '');
+    setReportNotes(ownsCaption ? (caption?.notes ?? '') : '');
     // `caption` belongs to the flight; re-running on its identity would fight the typing below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flight.source]);
+  }, [flight.source, analysis.extent.from, analysis.extent.to, ownsCaption]);
 
   // Written back as it is typed, debounced so a sentence isn't a transaction per keystroke.
   const captionRef = useRef(onCaption);
-  captionRef.current = onCaption;
+  // Not written back while a chosen stretch is on screen: the store is keyed on the flight the
+  // logbook holds, so saving from here would put a label typed over flight 2 onto the file.
+  captionRef.current = ownsCaption ? onCaption : undefined;
   useEffect(() => {
     if (!captionRef.current) return;
     const t = setTimeout(() => captionRef.current?.({ label: reportLabel, notes: reportNotes }), 400);
@@ -215,7 +243,25 @@ export default function FlightReport({
     };
   }, [massKg, setMainDeployM, delayS, events, metrics.coastTime]);
 
-  const stem = reportStem(flight.source);
+  // Every export's filename. It carries the stretch when the report is of one, because two
+  // flights out of one download would otherwise leave the same file name in the flyer's
+  // Downloads folder twice — the collision the logbook already had to fix once.
+  const fileLat = fileFlight ? getChannel(fileFlight, 'latitude') : undefined;
+  const fileLon = fileFlight ? getChannel(fileFlight, 'longitude') : undefined;
+  // The FILE's pad, for the recovery card, when this report is of a stretch. Null on a
+  // whole-file reading, where the fixes on screen open on the rail and are the pad already.
+  const filePad = useMemo(() => {
+    if (analysis.extent.source === 'file' || !fileLat || !fileLon) return null;
+    return padOrigin(fileLat.values, fileLon.values);
+  }, [analysis.extent.source, fileLat, fileLon]);
+
+  const stem = useMemo(() => {
+    const base = reportStem(flight.source);
+    const e = analysis.extent;
+    if (e.source === 'file') return base;
+    const which = analysis.segments?.find((seg) => seg.from === e.from && seg.to === e.to);
+    return which ? `${base}-flight-${which.index}` : `${base}-${Math.round(e.startTime)}s-${Math.round(e.endTime)}s`;
+  }, [flight.source, analysis.extent, analysis.segments]);
   // A GPS track, when the logger recorded one, drives the recovery (walkback) view.
   const gpsLat = getChannel(flight, 'latitude');
   const gpsLon = getChannel(flight, 'longitude');
@@ -683,6 +729,17 @@ export default function FlightReport({
           )}
         </div>
       )}
+      {/* Which flight in the download this is, when the file holds several. */}
+      {analysis.segments && analysis.segments.length > 1 && onRead && (
+        <FlightPicker
+          segments={analysis.segments}
+          extent={analysis.extent}
+          sys={sys}
+          onRead={onRead}
+          busy={reading}
+        />
+      )}
+
       {/* File / format line */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
@@ -853,9 +910,11 @@ export default function FlightReport({
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Appears at the top of the text, Markdown and JSON exports and the printed card.
-            {onCaption
-              ? ' Kept with this flight on this device, so it is still here when you come back to it.'
-              : ' Held for this view only — this browser wouldn’t let Debrief remember the flight, so save an export before you leave.'}
+            {!ownsCaption
+              ? ' Held for this stretch only — the label your logbook keeps belongs to the file, and this is a stretch of it you chose.'
+              : onCaption
+                ? ' Kept with this flight on this device, so it is still here when you come back to it.'
+                : ' Held for this view only — this browser wouldn’t let Debrief remember the flight, so save an export before you leave.'}
           </p>
         </div>
       </details>
@@ -988,6 +1047,19 @@ export default function FlightReport({
             );
           })}
         </div>
+      )}
+      {/* …and the flyer's own answer to which stretch is theirs, which overrules the
+          segmentation above it. The chart is the selector; the boxes are the same choice
+          typed, so the control is reachable without a pointer. */}
+      {onRead && (
+        <CropControl
+          time={fileTime ?? flight.time}
+          view={view}
+          extent={analysis.extent}
+          onRead={onRead}
+          busy={reading}
+          error={readError}
+        />
       )}
       <div className="space-y-6">
         <ChartBlock id="altitude-chart" title={`Altitude (${unitsOf(sys).length} AGL)`}>
@@ -1209,6 +1281,7 @@ export default function FlightReport({
           lon={gpsLon.values}
           sys={sys}
           stem={stem}
+          padOrigin={filePad}
           time={series.time}
           altitude={series.altitude}
           // The descent (for the measured wind) starts at the main deploy when one
