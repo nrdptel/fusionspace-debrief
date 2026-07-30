@@ -185,6 +185,15 @@ the file count and the exit codes; a headline test count is not a stable figure 
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
   Opening the PR is what runs it, and it takes about 5 minutes.
+- **A `curl` to `api.github.com` cannot see this repository.** It is private, and the proxy carries
+  no credentials, so an unauthenticated check-runs poll returns nothing and a watcher built on it
+  waits forever while reporting nothing wrong — silence that looks exactly like "still running".
+  Read CI through the GitHub MCP tools (`pull_request_read` with `get_check_runs`), not `curl`.
+- **A subagent WILL leave a mutation in a tracked file.** One of this run's reviewers left
+  `if (false as boolean)` in a shipped parser and another left a probe at the repo root, both while
+  the main session was mid-gate. Sweep `git status --porcelain --untracked-files=all` and read
+  `git diff` before every `git add`, and stage explicit paths rather than `-A` while agents are
+  running.
 
 ## Two things about this container that will otherwise cost you a session
 
