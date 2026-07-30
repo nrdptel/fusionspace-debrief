@@ -14,6 +14,35 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **DONE — a warning told flyers to subtract a number that was already right, and on the corpus's
+  own cert flight that instruction was 63% wrong.** Where a log's baseline was doubted and its
+  record ended away from zero, Debrief said: *"it comes to rest N m above where the record begins…
+  A rocket at rest is on the ground… every altitude here (apogee included) reads about N m too
+  high… subtract that."* On the Kairos sustainer that read **2,540 m**, against an apogee of
+  **4,045 m** — which matches the file's 13,268 ft cert figure **to 0.9 m**. A flyer following the
+  instruction would have filed **1,505 m, 63% low**. Worse, the same warnings list already carried
+  *"never reaches the ground… **the record doesn't settle which**, so no landing is marked"*: one
+  note said the record could not settle it, the next asserted it had. `landedInRecord` was **false**
+  and `flightTime` **null** — Debrief's own conclusion contradicted the warning's premise, because
+  `landingIdx` defaults to `n - 1` (`lib/analyze/index.ts:1939`) and only means *rest* when
+  `landingFound`. **Measured over the corpus:** the note fires on **12 of 50** analysable flights;
+  **8 can be checked** against a device summary or the manifest, and subtracting HELPS exactly one
+  — `intrepid3tf2 AL0`, +5.8% → −0.0%, the single case the original wording was reasoned from — and
+  HURTS the other seven (`iss-endurance` −0.4% → −3.7%, `xprs2015` ×2, `euroc-skyward-lynx` −0.1% →
+  −34.2%, `euroc-stacarl2` +1.2% → −34.3%, `irec_2023_easymega` −0.2% → −66.2%, Kairos 0.0% →
+  −62.8%). **No rule separates the one from the seven**: not the resting fraction (3.3% hurts, 5.5%
+  helps, 7.5% hurts), not `landingFound` (false on AL0 *and* on Kairos), not "did the never-reaches-
+  the-ground note fire" (it fires on both). The difference is whether the record came to rest or
+  merely stopped, and nothing in a record settles that. So the note now states the observation and
+  **both** readings of it, says the record does not settle which, and instructs nothing — pointing
+  instead at the flyer's own altimeter summary, which is what settled AL0. Pinned by five corpus
+  cases asserting each reads right now and would read worse if the height were taken off, by the
+  AL0 case asserting both readings are present, and by a sweep of every analysable fixture asserting
+  no firing carries an imperative. Seven mutations, seven caught — including reinstating the old
+  wording verbatim and making the analyzer actually apply the subtraction. Exactly **12** digest
+  lines moved, matching the 12 firings: the blast radius is the warning and nothing else.
+  **Found while measuring the corpus for D4's composite surface, which renders that very file.**
+
 - **DONE — `lib/stitch.ts` shipped a safeguard with zero power against the failure it named, and it
   rejected two of the corpus's six redundant-board groups.** The alignment lines per-stage logs up on
   their shared liftoff, and it corroborated that against the burnout the boards both recorded,
