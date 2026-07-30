@@ -159,7 +159,7 @@ export default function FlightReport({
    *  file inside the URL, so past a certain size there is no link to build; offering a
    *  button that is always enabled and fails on an ordinary flight (a 220 KB corpus log is
    *  already too big) makes that discoverable only by pressing it. */
-  const [sharePayload, setSharePayload] = useState<{ ok: true; url: string } | { ok: false } | null>(null);
+  const [sharePayload, setSharePayload] = useState<{ ok: true; url: string } | { ok: false; why: 'size' | 'not-text' } | null>(null);
   const [bundleMsg, setBundleMsg] = useState<string | null>(null);
 
   // An optional label (rocket, motor, flight number) and free-text notes the flyer
@@ -275,13 +275,22 @@ export default function FlightReport({
     let live = true;
     setSharePayload(null);
     setShareMsg(null);
+    // A raw download off a card cannot ride in a link at all. A share link carries the
+    // file's TEXT, and the text of a binary file is only what the decoder made of it —
+    // every byte it could not read replaced, with no way back. Encoding it would produce a
+    // link that opens to a refusal on the other end, which is a worse answer than saying so
+    // here. U+FFFD is the decoder's own mark that it lost something.
+    if (sourceText.includes('\uFFFD')) {
+      setSharePayload({ ok: false, why: 'not-text' });
+      return;
+    }
     (async () => {
       try {
         const payload = await encodeFlight(flight.source, sourceText);
         const url = shareUrl(window.location.origin, window.location.pathname, payload);
-        if (live) setSharePayload(url.length > MAX_SHARE_URL ? { ok: false } : { ok: true, url });
+        if (live) setSharePayload(url.length > MAX_SHARE_URL ? { ok: false, why: 'size' } : { ok: true, url });
       } catch {
-        if (live) setSharePayload({ ok: false });
+        if (live) setSharePayload({ ok: false, why: 'size' });
       }
     })();
     return () => {
@@ -299,7 +308,9 @@ export default function FlightReport({
     // before it is pressed, and pressing it explains what to do instead.
     if (!sharePayload.ok) {
       setShareMsg(
-        'This log is too big to fit inside a link — a share link carries the whole file in the URL. Save .html below is the same report as one file you can send, and Save bundle packs the report, the charts and the data together.',
+        sharePayload.why === 'not-text'
+          ? 'This is the raw download off the card, and a share link carries the file itself — which only works for a text export. Save .html below is the same report as one file you can send, and Save bundle packs the report, the charts and the data together.'
+          : 'This log is too big to fit inside a link — a share link carries the whole file in the URL. Save .html below is the same report as one file you can send, and Save bundle packs the report, the charts and the data together.',
       );
       return;
     }
@@ -775,11 +786,13 @@ export default function FlightReport({
                   ? 'Working out whether this flight fits in a link…'
                   : sharePayload.ok
                     ? 'Copy a link with the whole flight encoded in it — decoded in the browser, never uploaded'
-                    : 'This log is too big to fit inside a link. Save .html or Save bundle below sends the whole report instead.'
+                    : sharePayload.why === 'not-text'
+                      ? 'A share link carries the file itself, which only works for a text export. Save .html or Save bundle below sends the whole report instead.'
+                      : 'This log is too big to fit inside a link. Save .html or Save bundle below sends the whole report instead.'
               }
               className={ACTION_BTN}
             >
-              {sharePayload?.ok === false ? 'Too big to link' : 'Share link'}
+              {sharePayload?.ok === false ? (sharePayload.why === 'not-text' ? 'No link for a raw file' : 'Too big to link') : 'Share link'}
             </button>
             <button
               type="button"

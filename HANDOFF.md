@@ -129,7 +129,12 @@ Every one of those refusals has a test that doctors the real corpus file until i
 
 ### Gate, at the last commit
 
-`UNIT=0 TSC=0 BUILD=0 E2E=0` — **829 unit**, typecheck clean, build clean, **221 e2e**.
+`UNIT=0 TSC=0 BUILD=0 E2E=0` — **62 unit files green**, typecheck clean, build clean, **222 e2e**.
+
+One thing to know before you read a number off the default reporter: its unit *test* count
+drifts by one or two between runs (835/836/837 here) while every file passes and the JSON
+reporter is stable at 826. Some suites build their cases from the corpus at run time. Quote
+the file count and the exit codes; a headline test count is not a stable figure in this repo.
 
 ## Environment notes
 

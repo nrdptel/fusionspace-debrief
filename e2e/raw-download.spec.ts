@@ -139,6 +139,21 @@ test('an RRC3 raw .rff download opens, and survives a reload through the logbook
   expect(await page.locator('[data-reading="Apogee"]').first().innerText()).toBe(first);
 });
 
+test('the share button says a raw download cannot ride in a link, before it is pressed', async ({ page }) => {
+  await page.goto('/');
+  await chooser(page).setInputFiles({ name: 'XPRS_Scratch.rff', mimeType: 'application/octet-stream', buffer: rrc3Rff() });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 20_000 });
+
+  // A share link carries the FILE, and the file here is bytes. Encoding its text would make
+  // a link that opens to a refusal on the other end, so the button says so before it is
+  // pressed rather than after — and points at the exports that do carry this report.
+  const share = page.getByRole('button', { name: /No link for a raw file/ });
+  await expect(share).toBeVisible();
+  await share.click();
+  await expect(page.getByText(/only works for a text export/i)).toBeVisible();
+  await expect(page.getByText(/Save \.html/i).first()).toBeVisible();
+});
+
 test('a raw download Debrief cannot read is named, not called "not a flight log"', async ({ page }) => {
   // An Entacore AIM XTRA raw flight file: a Boost serialization archive. Debrief can say
   // what it is and cannot read it, and those are two different sentences.
