@@ -57,6 +57,19 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   it and the run dies mid-way. For a manual walk use `npm run serve:out` (the same
   `scripts/e2e-server.mjs` the suite starts), never another static server: one that falls back to
   `index.html` serves the analyze page for every route and every walk reads as a routing bug.
+- **This project runs in a per-project cloud environment**, and the environment — not the repo —
+  carries the secrets, the network policy and any cached setup. Two consequences that have already
+  bitten:
+  - **`FIXTURES_TOKEN` is set in CI but was NOT set in the environment** (measured 2026-07-30). So CI
+    gates on the real corpus while every interactive and scheduled run works *without* it, and the
+    suite skips itself rather than saying so. **Check it at session start**
+    (`[ -n "$FIXTURES_TOKEN" ]`) and, if it is missing, say so at the TOP of the report as an
+    owner-level fix — adding it to the environment's variables is one action and it arms the corpus
+    for every future run. Do not report a corpus sweep you did not actually run.
+  - **Whatever you install by hand is paid for again next session** unless it is in the environment's
+    setup script. The pinned Playwright browser is the standing example: it is not in the image, so
+    every run re-downloads it. If you install the same thing every run, that belongs in the setup
+    script, and saying so in the report is the fix.
 - **The corpus** is never committed here. `npm run fetch-fixtures` downloads the release asset pinned
   in `corpus.lock.json` and verifies its sha256 into `lib/parsers/__corpus__/`. **When the fetch
   fails or there is no token, a local checkout of the fixtures repo symlinked into place works just
