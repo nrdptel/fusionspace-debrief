@@ -80,10 +80,17 @@ flight, and the fix turned out to be wider than the one line the entry named: th
 carried the same defect (5% of the corpus 121 km flight is 3.8 km, so a rocket still that high
 counted as landed), and patching the climb threshold alone would have turned real corpus records into
 false splits. Pinned by `finds the second flight however far apart the two apogees are` in
-`lib/analyze/analyze.test.ts`, over six pairs from 8× to 100× in both directions, plus four guard
-tests for the artefacts the wider band exposes — a transonic dip, a mid-ascent dropout, post-landing
-drift, a post-landing spike. Each was falsified by mutation. Corpus: 33 of 34 records byte-identical,
-the 34th moving its cut by one sample.
+`lib/analyze/analyze.test.ts`, over six pairs from 8× to 100× in both directions, plus nine guard tests
+for the artefacts a per-flight band exposes: a transonic dip that recovers gradually, a mid-ascent
+dropout, post-landing drift, a post-landing spike, a spike between apogee and touchdown, a baseline
+that drifts while the flyer waits, a rocket at rest above the pad, a club session of sub-100 m
+flights, and 13 m of wobble on a misparsed fragment. Each was falsified by mutation. Corpus: over all
+46 records that analyse, 44 byte-identical and 2 moved, both deliberately.
+
+**Three of those nine came from the pre-push review, not from the author**, and two were Sev-1s in the
+fix itself — a gradual transonic dip cut a 9,729 m Mach flight down to a 390 m "flight", and a
+baseline that drifted while the flyer waited between launches put the original Sev-1 straight back.
+The review also caught that the calibration sweep had been run over 34 records when 46 analyse.
 
 ---
 

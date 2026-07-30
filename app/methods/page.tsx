@@ -110,19 +110,26 @@ export default function MethodsPage() {
             instead whether the trace had reached half the <em>file&apos;s</em> best worked only while
             a download&apos;s flights were within 2x of each other, so a day holding a 300&nbsp;m
             sport flight and a 3,000&nbsp;m certification flight tripped nothing and the two were read
-            as one, with a flight time spanning both. Three things a record does that are{' '}
-            <em>not</em> a landing are named rather than guessed at: a dip that reaches the ground
-            band sooner than a body dropped from that height could have fallen (the transonic push on
-            a barometric port does this); a climb back <em>above</em> the height the record had
-            already reached, which is a dropout in the middle of one ascent rather than a second
-            launch; and, after touchdown, a baseline drifting through the weather or a single-sample
-            spike — neither climbs at a rate an airframe makes. A climb under 100&nbsp;m is not
-            treated as a flight at all, which is what keeps ground noise from splitting a file: the
-            largest non-flight excursion across the corpus is 76&nbsp;m and the smallest real flight
-            in it is 209&nbsp;m. The cost of that floor is stated rather than hidden — a download
-            whose flights are <em>all</em> under 100&nbsp;m is read as one. A dropout that reads zero{' '}
-            <em>before</em> the rocket ever climbed (a GPS losing lock through the boost) is not a
-            landing and never splits a file.
+            as one, with a flight time spanning both. Four things a record does that are <em>not</em>{' '}
+            a landing are named rather than guessed at: a dip that reaches the ground band faster
+            than the rocket could have fallen from its own peak (the transonic push on a barometric
+            port does this); a climb back <em>above</em> the height the record had already reached, or
+            back to it within a couple of seconds, which is a dropout in the middle of one ascent
+            rather than a second launch; and, after touchdown, a baseline drifting through the weather
+            or a single-sample spike — neither climbs at a rate an airframe makes. &ldquo;Back on the
+            deck&rdquo; is measured from where the record&apos;s ground actually is, so a rocket that
+            came to rest on a rise still reads as landed.
+          {' '}
+            A climb under 100&nbsp;m is not treated as a flight at all, which is what keeps ground
+            noise from splitting a file: the largest non-flight excursion across the 46 corpus records
+            that analyse is 76&nbsp;m. On a record whose own best is small that floor comes down to a
+            quarter of it — never below 30&nbsp;m — so a club session of 60&nbsp;m and 95&nbsp;m
+            flights on one AltimeterThree is still several flights, while 13&nbsp;m of barometric
+            wobble on a fragment is not. The cost is stated rather than hidden: where the{' '}
+            <em>first</em> flight in a download is under that floor, the file is read as one, and the
+            readings then span it and whatever follows. A dropout that reads zero <em>before</em> the
+            rocket ever climbed (a GPS losing lock through the boost) is not a landing and never
+            splits a file.
           {' '}
             Debrief reads the <strong>first</strong> flight in the file, and the climb always comes
             from it, because it is the copy that starts on the pad. Reading a later copy

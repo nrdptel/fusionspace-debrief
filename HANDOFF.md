@@ -35,29 +35,56 @@ velocity. The cliff is exactly 2.00x in both directions, reproduced here before 
    one flight" and to go and split it in the vendor software, because half of its own 9.5 m peak is
    4.75 m and the wobble under 3 m read as a landing.
 
-Every threshold is per-segment now, and three physical questions replace the arithmetic one: did the
-record DESCEND into the band or step into it (a logger restart); if it descended, did it take at
-least free-fall time from that peak (a transonic dip does not); and does the record come back ABOVE
-the height it had already reached (a dropout mid-ascent, not a landing). A second flight must also be
-a flight — past a 100 m floor and climbing between 10 m/s and 2√(2gh), which is what refuses
-post-landing drift and post-landing spikes.
+Every threshold is per-flight now, and physical questions replace the arithmetic one: did the record
+DESCEND into the band or step into it (a logger restart); if it descended, was the mean rate one the
+rocket could have fallen at; does the record come back ABOVE the height it had already reached, or
+back to it within two seconds (a dropout or a transonic dip, not a landing). A second flight must
+also be a flight — past the floor and climbing between 10 m/s and 2√(2gh), measured over the top half
+of its own ascent.
 
-**The three constants are measured, not chosen**, and the measurement is worth keeping:
+**The constants are measured, not chosen**, and the measurement is worth keeping:
 
-- **flight floor 100 m** — the largest NON-flight excursion across the 34 corpus records that analyse
-  from an altitude channel is 76 m (a Blue Raven pad transient, once per copy); the others are 39,
-  48, 49, 61 m. The smallest real corpus flight is 209 m.
-- **ground band capped at 50 m** — covers a long recording's barometric drift without ever leaving
-  the ground behind.
+- **flight floor: 100 m, coming down to a quarter of the record's own best, never under 30 m** — the
+  largest NON-flight excursion across the 46 corpus records that analyse is 76 m (a Blue Raven pad
+  transient, once per copy); the others are 39, 48, 49, 61 m. The smallest real corpus flight is 52 m
+  (a generic-CSV SRAD computer), then 203 m (the Jolly Logic AltimeterThree sample). The adaptive
+  part is what keeps a club session of sub-100 m flights from being merged — an AltimeterThree logs
+  a whole afternoon into one file.
+- **ground band: a fraction of the flight's own height, capped at 50 m, measured from where the
+  record's ground actually is** — and clamped at the pad below, because the corpus Eggtimer anomaly
+  ends 445 m BELOW its own pad and a deck taken from there sits underground.
 - **minimum climb 10 m/s** — half the slowest climb that can clear the floor (a 100 m coast takes at
   most 4.5 s, so 22 m/s); 2,000 m of drift over five minutes is 6.7 m/s. The three real second
   flights in the corpus average 120, 139 and 176 m/s, at 30–36% of the upper bound, while the two
   artefacts that clear the floor are 5x and 51x over it.
+- **two seconds to rejoin** — a transonic dip is back above where it was in 0.45–0.80 s over four
+  shapes of the artefact; the two corpus Blue Ravens take 18.4 and 20.2 s, and the Eggtimer 4.2 s.
 
-Verified by diffing the old function (transcribed verbatim into a probe) against the new one over
-every corpus record: **33 of 34 identical, the 34th moving its cut by one sample (0.05 s)**. Six new
-pairs from 8x to 100x apart in both directions, each of which fails against the old rule; four guard
-tests; every new assert falsified by mutation.
+Verified by running the analyzer at `origin/main` and the analyzer in the working tree over **every
+corpus record that analyses — 46 of them**, diffing ten headline readings and the whole warning set
+per record: **44 identical, 2 moved, both deliberately** (the fragment above; and an Eggtimer whose
+cut moves one sample, 0.05 s). Six new pairs from 8x to 100x apart in both directions, each of which
+fails against the old rule; nine guard tests; every new assert falsified by mutation.
+
+**The pre-push review found three defects in the fix, two of them Sev-1**, and they are the reason
+this increment took as long as it did — all three are cases the author's own tests could not have
+caught, because the tests were built from the same mental model as the code:
+
+1. **A transonic dip that recovers GRADUALLY** was read as a logger restart and cut a 9,729 m Mach
+   flight down to a 390 m "flight". The guard that was supposed to stop it looked at one sample.
+2. **A baseline drifting while the flyer waits between launches** put the original Sev-1 straight
+   back: measured from a fixed band near the ground, a 3,000 m second flight after a ten-minute wait
+   averaged 9.5 m/s and was refused as "not a flight". The climb rate is measured over the top half
+   of the ascent now, which no drift reaches.
+3. **A single-sample spike between apogee and touchdown** moved the anchor of the free-fall clock and
+   the real landing was read straight through. The test is a mean descent RATE now, which a spike
+   cannot move.
+
+A fourth finding was a measurement error in the author's own prose: the calibration sweep had been run
+over the 34 records a named parser claims, when **46 analyse** — the other 12 go through the column
+mapper, and they include the StratoLogger whose 196 m one-sample boost transient is the sharpest case
+in the corpus. **Sweep the mapper's records too; `importFlight` returning `kind: 'mapping'` is not a
+file Debrief cannot read, it is a file the flyer maps by hand and then reads.**
 
 ## Environment notes
 

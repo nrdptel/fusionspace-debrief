@@ -193,10 +193,44 @@ export interface FlightSeries {
   velocityImplausible?: boolean;
 }
 
+/**
+ * One flight inside a record that holds several — where it sits in the file, and how high it
+ * went. A launch day's download is the case this exists for: the vendor apps show that list
+ * at download time on the device and write one file per flight, so a flyer who exported the
+ * whole session has, until now, been told to go back and split it by hand.
+ *
+ * Every apogee here is measured on the **file's own pad datum**, so the rows are comparable
+ * with each other and with the reading on screen. A later flight has no quiet pad window of
+ * its own — it starts in the trough after the one before — and measuring it against that
+ * trough is what once read 10,723 ft off a Blue Raven the device itself put at 10,266.
+ *
+ * These are Debrief's own segmentation. Where a flyer overrules it, the crop they chose wins
+ * and this list says which flight, if any, it corresponds to.
+ */
+export interface FlightSegment {
+  /** 1-based, in file order — the number the flyer sees. */
+  index: number;
+  /** First sample of this flight, and one past its last, in the record's own indexing. */
+  from: number;
+  to: number;
+  /** Seconds on the FILE's clock, not re-zeroed per flight. */
+  startTime: number;
+  endTime: number;
+  /** m AGL on the file's pad datum. For the flight that was actually read this is the
+   *  analysis's own apogee, so the row and the headline reading can never disagree. */
+  apogeeM: number;
+  /** True for the one this analysis is of. */
+  read: boolean;
+}
+
 export interface FlightAnalysis {
   series: FlightSeries;
   events: FlightEvent[];
   metrics: FlightMetrics;
   /** Plain-language notes about anything imperfect in the data or the reading. */
   warnings: string[];
+  /** Present only when the record holds more than one flight: every flight in it, with the
+   *  one that was read marked. Absent — not an empty array — for the ordinary single-flight
+   *  file, so a surface can branch on presence. */
+  segments?: FlightSegment[];
 }

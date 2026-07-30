@@ -531,22 +531,23 @@ describe('a file holding more than one flight', () => {
    *  to get there and a 300 m one 7.8 s — because a record that reaches its apogee faster
    *  than that is a spike, and the segmenter is entitled to say so. Then a 15 m/s descent
    *  and a quiet stretch on the ground. */
-  function launchDay(apogees: number[]): RawFlight {
+  function launchDay(apogees: number[], dt = 0.1): RawFlight {
     const time: number[] = [];
     const alt: number[] = [];
     let t = 0;
     const push = (a: number) => {
       time.push(t);
       alt.push(a);
-      t += 0.1;
+      t += dt;
     };
     for (const apogee of apogees) {
-      const climb = Math.max(6, Math.round(Math.sqrt((2 * apogee) / G0) / 0.1)); // samples
-      const fall = Math.max(12, Math.round(apogee / 15 / 0.1));
-      for (let i = 0; i < 20; i++) push(0);
+      const climb = Math.max(6, Math.round(Math.sqrt((2 * apogee) / G0) / dt)); // samples
+      const fall = Math.max(12, Math.round(apogee / 15 / dt));
+      const quiet = Math.max(2, Math.round(2 / dt));
+      for (let i = 0; i < quiet; i++) push(0);
       for (let i = 0; i <= climb; i++) push(apogee * Math.sin((Math.PI / 2) * (i / climb)));
       for (let i = 1; i <= fall; i++) push(Math.max(0, apogee * (1 - i / fall)));
-      for (let i = 0; i < 20; i++) push(0);
+      for (let i = 0; i < quiet; i++) push(0);
     }
     const { flight } = syntheticBaroFlight();
     return {
@@ -602,12 +603,79 @@ describe('a file holding more than one flight', () => {
   });
 
   it('does not read a third flight into a day that only has two', () => {
-    const a = analyzeFlight(launchDay([300, 3000]));
-    // One cut, and the segment that is read is bounded by it: everything after the first
-    // flight's touchdown belongs to the flight the flyer was not shown.
-    expect(a.warnings.filter((w) => /holds more than one flight/.test(w))).toHaveLength(1);
+    const day = launchDay([300, 3000]);
+    const a = analyzeFlight(day);
+    // Two flights, and every row is a real one. Counting the WARNING instead of the segments
+    // pins nothing: the sentence is emitted once whatever the walk found, so a phantom
+    // zero-metre flight between the two left that assert green.
+    expect(a.segments).toHaveLength(2);
+    expect(a.segments!.map((s) => Math.round(s.apogeeM))).toEqual([300, 3000]);
+    expect(a.segments![0].to).toBe(a.segments![1].from);
+    expect(a.segments![1].to).toBe(day.time.length);
+    expect(a.warnings.find((w) => /holds more than one flight/.test(w))).toMatch(/2 of them/);
+    // …and the segment that is read ends on the ground, not part-way down.
     const alt = a.series.altitude;
     expect(Math.abs(alt[alt.length - 1])).toBeLessThan(3);
+  });
+
+  it('reads through a multi-sample bulge late in the descent and still finds the landing', () => {
+    // A spike is one sample and a Hampel filter takes it; a barometric BULGE is thirty, and
+    // it becomes the segment's peak. The free-fall clock measured from there never expires,
+    // so the walk read through the real touchdown and swallowed the next flight whole.
+    for (const [bulge, decay] of [
+      [600, 20],
+      [900, 20],
+      [600, 15],
+    ]) {
+      const f = launchDay([300, 3000]);
+      const alt = f.channels[0].values;
+      let apIdx = 0;
+      for (let i = 0; i < 400; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+      let at = apIdx;
+      while (at < alt.length && alt[at] > 60) at++;
+      for (let k = 0; k * decay < bulge; k++) {
+        if (at + k < alt.length) alt[at + k] = Math.max(alt[at + k], bulge - k * decay);
+      }
+      const a = analyzeFlight(f);
+      const what = `${bulge} m bulge decaying ${decay} m/sample`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(700);
+    }
+  });
+
+  it('finds both flights on a coarse log, where one sample crosses the whole first flight', () => {
+    // A 1 Hz GPS altitude channel is ordinary. At that cadence one sample of the second
+    // flight's boost goes from below the ground band to above the FIRST flight's apogee, and
+    // a guard that reads "the record came back higher than it had been" as a dropout then
+    // declares a real launch day to be one flight. The guard is only asked of a record that
+    // STEPPED into the band; this one descended into it at 15 m/s.
+    for (const day of [
+      [150, 3000],
+      [300, 3000],
+      [3000, 300],
+    ]) {
+      const a = analyzeFlight(launchDay(day, 1));
+      const what = `[${day.join(', ')}] at 1 Hz`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(day[0] * 1.2);
+    }
+  });
+
+  it('is not silenced by one dropped reading somewhere else in the file', () => {
+    // The highest thing in the rest of a record is not always the next flight. One 3,500 m
+    // sample near the end of a [3000, 300] day made the candidate a spike, the spike is not
+    // a climb, and the whole detection was abandoned — apogee and flight time went with it.
+    for (const spike of [3500, 9000, 400]) {
+      const f = launchDay([3000, 300]);
+      const alt = f.channels[0].values;
+      alt[alt.length - 6] = spike;
+      const a = analyzeFlight(f);
+      const what = `${spike} m spike near the end`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.segments, what).toHaveLength(2);
+      expect(a.metrics.apogeeAltitude, what).toBeGreaterThan(2900);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(3100);
+    }
   });
 
   it('reads through a trace that drops below the pad and climbs back above where it was', () => {
@@ -622,6 +690,171 @@ describe('a file holding more than one flight', () => {
       const a = analyzeFlight(f);
       expect(a.warnings.some((w) => /holds more than one flight/.test(w)), `${seconds}s dropout`).toBe(false);
       expect(a.metrics.apogeeAltitude, `${seconds}s dropout`).toBeGreaterThan(5000);
+    }
+  });
+
+  it('reads a Mach flight whose barometer under-reads through the transonic push', () => {
+    // The artefact that nearly cost this fix more than it gained. A port that reads BELOW the
+    // pad mid-boost is a fall no rocket took, which is the same signature a logger restart
+    // leaves — and cutting there hands the flyer a 390 m "flight" off a 9,729 m record. It is
+    // the CLOCK that tells them apart: the flight carries on, so the trace is back above
+    // where it was within a second, while a record that really did land and launch again
+    // takes eighteen seconds and more to climb back through that height.
+    const dt = 0.05;
+    const aB = 120;
+    const tB = 3.5;
+    const vB = aB * tB;
+    const hB = 0.5 * aB * tB * tB;
+    const coast = vB / G0;
+    const apogee = hB + (vB * vB) / (2 * G0);
+    for (const [depth, smooth] of [
+      [600, true],
+      [600, false],
+      [1500, true],
+      [2000, true],
+    ] as [number, boolean][]) {
+      const time: number[] = [];
+      const alt: number[] = [];
+      for (let t = 0; t <= 2 + tB + coast + apogee / 20 + 5; t += dt) {
+        const ft = t - 2;
+        let a: number;
+        if (ft <= 0) a = 0;
+        else if (ft <= tB) a = 0.5 * aB * ft * ft;
+        else if (ft <= tB + coast) {
+          const c = ft - tB;
+          a = hB + vB * c - 0.5 * G0 * c * c;
+        } else a = Math.max(0, apogee - 20 * (ft - tB - coast));
+        // The under-read straddles the Mach-1 crossing, as the real artefact does.
+        if (ft > 2.55 && ft < 3.35) {
+          const u = (ft - 2.55) / 0.8;
+          a -= depth * (smooth ? Math.sin(Math.PI * u) : 1);
+        }
+        time.push(t);
+        alt.push(a);
+      }
+      const { flight } = syntheticBaroFlight();
+      const a = analyzeFlight({
+        ...flight,
+        time: Float64Array.from(time),
+        channels: [{ ...flight.channels[0], values: Float64Array.from(alt) }],
+      });
+      const what = `${depth} m ${smooth ? 'smooth' : 'square'} dip`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(false);
+      expect(a.metrics.apogeeAltitude, what).toBeGreaterThan(apogee * 0.9);
+    }
+  });
+
+  it('still finds the second flight when the baseline drifted while the flyer waited', () => {
+    // A launch day is not two flights back to back — it is two flights with the weather in
+    // between. Measuring the second climb from a fixed band near the ground averages it over
+    // the whole wait: a 3,000 m flight after ten minutes on a baseline 100 m higher came out
+    // at 9.5 m/s, read as nothing in the rest of the file, and put the Sev-1 straight back.
+    for (const [waitS, driftM] of [
+      [600, 100],
+      [1200, 100],
+      [2400, 60],
+      [2400, 200],
+    ]) {
+      const first = launchDay([300]);
+      const second = launchDay([3000]);
+      const time = Array.from(first.time);
+      const alt = Array.from(first.channels[0].values);
+      let t = time[time.length - 1];
+      const steps = Math.round(waitS / 0.1);
+      for (let i = 1; i <= steps; i++) {
+        t += 0.1;
+        time.push(t);
+        alt.push((driftM * i) / steps);
+      }
+      for (let i = 0; i < second.time.length; i++) {
+        t += 0.1;
+        time.push(t);
+        alt.push(driftM + second.channels[0].values[i]);
+      }
+      const a = analyzeFlight({
+        ...first,
+        time: Float64Array.from(time),
+        channels: [{ ...first.channels[0], values: Float64Array.from(alt) }],
+      });
+      const what = `${waitS} s wait, ${driftM} m of drift`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(400);
+    }
+  });
+
+  it('still finds the landing when a spike lands between the apogee and the touchdown', () => {
+    // The free-fall clock used to be anchored on the peak SAMPLE, and one 600 m reading four
+    // seconds before a 300 m flight's touchdown moved that anchor: the real landing then
+    // failed a clock that wanted eleven seconds, the record was read straight through it, and
+    // the day came back with the second flight's apogee against the first flight's liftoff.
+    // Asked as a mean descent RATE instead, the same trace lands where it landed.
+    for (const [spike, beforeS] of [
+      [600, 4],
+      [600, 6],
+      [1200, 3],
+    ]) {
+      const f = launchDay([300, 3000]);
+      const alt = f.channels[0].values;
+      let apIdx = 0;
+      for (let i = 0; i < 400; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+      let land = apIdx;
+      while (land < alt.length && alt[land] > 0.5) land++;
+      alt[land - Math.round(beforeS / 0.1)] = spike;
+      const a = analyzeFlight(f);
+      const what = `${spike} m spike ${beforeS} s before touchdown`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(400);
+    }
+  });
+
+  it('splits a club session of small flights, which a flat floor would merge', () => {
+    // A Jolly Logic AltimeterThree runs through a whole club session and writes every flight
+    // into one file, and a B or C motor lands under 100 m. A fixed floor there reads the
+    // afternoon as one flight; the floor comes down to a quarter of the record's own best.
+    for (const day of [
+      [60, 95],
+      [95, 60],
+      [120, 80],
+      [40, 60],
+      [30, 95],
+      [40, 90, 60],
+    ]) {
+      const a = analyzeFlight(launchDay(day));
+      const what = `[${day.join(', ')}]`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(day[0] * 1.15);
+    }
+  });
+
+  it('still finds the landing when the rocket comes to rest above the pad', () => {
+    // Terrain, or the day's barometric drift: the first rocket is down, but the trace reads
+    // 55 m. Against a band fixed to the pad the record never registers a landing at all and
+    // the second flight is silently lost — including for pairs the old rule handled.
+    for (const rest of [40, 55, 90, 140]) {
+      const first = launchDay([3000]);
+      const second = launchDay([4000]);
+      const time = Array.from(first.time);
+      const alt = Array.from(first.channels[0].values);
+      // …the offset appears at touchdown and stays for the rest of the record.
+      let apIdx = 0;
+      for (let i = 0; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+      let land = apIdx;
+      while (land < alt.length && alt[land] > 0.5) land++;
+      for (let i = land; i < alt.length; i++) alt[i] += rest;
+      let t = time[time.length - 1];
+      for (let i = 0; i < second.time.length; i++) {
+        t += 0.1;
+        time.push(t);
+        alt.push(rest + second.channels[0].values[i]);
+      }
+      const a = analyzeFlight({
+        ...first,
+        time: Float64Array.from(time),
+        channels: [{ ...first.channels[0], values: Float64Array.from(alt) }],
+      });
+      const what = `at rest ${rest} m above the pad`;
+      expect(a.warnings.some((w) => /holds more than one flight/.test(w)), what).toBe(true);
+      expect(a.metrics.apogeeAltitude, what).toBeLessThan(3300);
     }
   });
 
@@ -681,6 +914,68 @@ describe('a file holding more than one flight', () => {
     const a = analyzeFlight({ ...flight, time, channels: [{ ...flight.channels[0], values: alt }] });
     expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(false);
     expect(a.warnings.some((w) => /written twice/.test(w))).toBe(false);
+  });
+
+  it('lists every flight in the download, not just the one it read', () => {
+    const day = launchDay([300, 500, 250]);
+    const a = analyzeFlight(day);
+    const segments = a.segments;
+    expect(segments, 'a multi-flight record carries its segment list').toBeTruthy();
+    expect(segments).toHaveLength(3);
+    expect(segments!.map((s) => s.index)).toEqual([1, 2, 3]);
+    expect(segments!.map((s) => s.read)).toEqual([true, false, false]);
+    // Each apogee is the flight's own, on the file's datum — the reason for the list.
+    expect(segments![0].apogeeM).toBeGreaterThan(290);
+    expect(segments![0].apogeeM).toBeLessThan(310);
+    expect(segments![1].apogeeM).toBeGreaterThan(490);
+    expect(segments![1].apogeeM).toBeLessThan(510);
+    expect(segments![2].apogeeM).toBeGreaterThan(240);
+    expect(segments![2].apogeeM).toBeLessThan(260);
+    // The rows tile the record end to end, in order, with no gap and no overlap.
+    expect(segments![0].from).toBe(0);
+    for (let i = 1; i < segments!.length; i++) expect(segments![i].from).toBe(segments![i - 1].to);
+    expect(segments![segments!.length - 1].to).toBe(day.time.length);
+    // The times are the FILE's clock, so a flyer can find each one in the raw export.
+    expect(segments![1].startTime).toBeGreaterThan(segments![0].endTime - 0.2);
+    // …and the sentence names them rather than asking to be believed.
+    const w = a.warnings.find((x) => /holds more than one flight/.test(x))!;
+    expect(w).toMatch(/3 of them/);
+    expect(w).toMatch(/flight 2 at/);
+    expect(w).toMatch(/flight 3 at/);
+  });
+
+  it('gives the flight it read the analysis’s own apogee, so the list cannot disagree with the report', () => {
+    // A barometer's ejection pop is a spike, and a list built off the raw trace would put the
+    // row several hundred feet above the figure printed beside it for the same flight.
+    const f = launchDay([300, 500]);
+    const alt = f.channels[0].values;
+    alt[120] += 180; // one sample, inside the first flight
+    const a = analyzeFlight(f);
+    expect(a.segments![0].apogeeM).toBe(a.metrics.apogeeAltitude);
+    expect(a.segments![0].apogeeM).toBeLessThan(400); // the spike is not in it
+  });
+
+  it('does not call a launch day of flights to the same height “the same flight written twice”', () => {
+    // The peak comparison alone cannot tell five flights on the same motor from one recording
+    // written twice, and getting it wrong produces the most confidently wrong sentence here:
+    // "there is no second flight to read", about a file holding four more. A doubled recording
+    // holds exactly two segments; both corpus files that are one do.
+    const a = analyzeFlight(launchDay([400, 400, 400, 400, 400]));
+    expect(a.warnings.some((w) => /written twice/.test(w))).toBe(false);
+    expect(a.warnings.some((w) => /holds more than one flight/.test(w))).toBe(true);
+    expect(a.segments).toHaveLength(5);
+    expect(a.warnings.find((w) => /holds more than one flight/.test(w))).toMatch(/5 of them/);
+  });
+
+  it('gives a doubled recording no list, because there is no second flight in it', () => {
+    const a = analyzeFlight(twoFlights());
+    expect(a.warnings.some((w) => /written twice/.test(w))).toBe(true);
+    expect(a.segments).toBeUndefined();
+  });
+
+  it('leaves an ordinary single-flight record without a list at all', () => {
+    const a = analyzeFlight(syntheticBaroFlight().flight);
+    expect(a.segments).toBeUndefined();
   });
 
   it('does not split on a dropout that reads zero before the rocket ever climbed', () => {

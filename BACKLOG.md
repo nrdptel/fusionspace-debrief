@@ -27,7 +27,8 @@ wild, ideas too big for one pass. One line each, newest first.
   121 km flight is 3.8 km, so a rocket still that high counted as landed; and the same noise floor
   had Debrief telling the owner of a 19 ft misparsed Blue Raven fragment (13 m of wobble over 34 s)
   that their file held several flights and to go and split it in the vendor software. Corpus diff
-  before/after: 33 of 34 records byte-identical, the 34th moving its cut by one sample (0.05 s).
+  before/after over every record that analyses — 46 of them, the generic-mapper ones included: 44
+  byte-identical, the SG1.2 fragment above, and an Eggtimer whose cut moves one sample (0.05 s).
   Original entry:
   `nextFlightStart`
   (`lib/analyze/index.ts:316`) uses `const high = peak * 0.5` where `peak` is the **file's** peak, not
@@ -46,6 +47,27 @@ wild, ideas too big for one pass. One line each, newest first.
   beyond 2x in both directions.
 
 ## Correctness / honesty
+
+- **Two flights to the same height in one file are called "the same flight written twice", and there
+  is no evidence in the trace that separates them.** `recordedTwice` (`lib/analyze/index.ts`) compares
+  the two segments' peaks on one datum and calls agreement within 1% a doubled recording. A launch day
+  of five flights no longer trips it — a doubled recording holds exactly two segments — but a day of
+  exactly TWO flights to within 1% of each other still does: measured, `[80, 80]` comes back as
+  "the same flight written twice … There is no second flight to read." No number is wrong (the first
+  flight is read correctly either way) but the sentence is, and it tells the flyer not to look for
+  the second flight. What would settle it is outside the altitude column: a wall-clock gap between the
+  segments (`flownAt`, or a time channel that jumps), a device summary naming two flights, or the
+  flyer's own say-so — which is D1's manual crop. **File it against that milestone rather than
+  patching the peak comparison**, which has no more information to give.
+
+- **A download whose FIRST flight is under the segmentation floor is read as one flight, silently.**
+  The floor is 100 m, coming down to a quarter of the record's own best and never below 30 m
+  (`lib/analyze/index.ts`), so `[30, 95]` and `[60, 90]` now split — but `[20, 3000]` does not, and
+  what a flyer then sees is the second flight's apogee against the first flight's liftoff with no
+  caveat anywhere in the analysis. The methods page states the limit; the report does not. This is
+  the "a record the tool cannot segment confidently says so" half of D1's *done when*, and it wants a
+  positive signal — the record ends far from where the analysed flight landed, or the trace holds a
+  climb the walk refused — rather than another threshold.
 
 *The six below came out of a four-lens sweep late in the run, each one adversarially verified by a
 second agent told to refute it. Two more from the same sweep were fixed on the spot (the comparison
