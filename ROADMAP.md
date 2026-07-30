@@ -365,13 +365,13 @@ staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on it
   UTC stamp). So aligning on overlapping wall clocks — one of the two methods the note below
   proposed — does not exist on the only real pair there is.
 - **Both logs DO contain the launch**: the booster's opens 0.2 s before liftoff, the sustainer's
-  carries a 307.5 s pad wait before the same instant. Every stage leaves the pad together, so that
+  carries a 307.5 s pad wait before the same instant (liftoff at 307.67 s on its own clock). Every stage leaves the pad together, so that
   is the shared event, and it is the method that shipped.
 - **Two ways of checking whether a record contains the launch were tried and BOTH failed.**
   Altitude is useless — the analyzer takes each record's pad datum from its own opening samples,
   so a log beginning at 1,000 m in the air reads zero there too. Motion before the liftoff is
   worse than useless: measured over all 50 corpus flights, ordinary SINGLE-stage records show
-  pre-liftoff climb rates from 0 to 141 m/s, because plenty of loggers begin recording at boost
+  speeds before their own detected liftoff ranging from 0 to thousands of metres per second, because plenty of loggers begin recording at boost
   and the detector fires a little way into it. **There is no threshold that separates "a sustainer
   lighting up at altitude" from "a StratoLogger that records only the flight."** Picking one would
   only have meant telling the owner of a plain single-stage flight that their file was already
@@ -384,6 +384,21 @@ staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on it
   exactly the staging delay it is wrong by, which is seconds. The tolerance is 1 s, in the wide
   gap between those two, and the spread rides out on the alignment as a number a flyer can check
   rather than a claim they have to take.
+
+**And that check is much weaker than it first looks — the second review caught this and it is the
+most important thing on this page.** Lined up on liftoff, the gap between two boards' burnouts is
+|booster burn duration − sustainer burn duration|. **The staging delay never enters the
+arithmetic**, because a sustainer log that starts at its own ignition carries no trace of it.
+Measured: a booster burning 5.1 s beside a wrongly-aligned sustainer burning 4.5–5.6 s passes
+every time, and HPR motors of similar burn time are the ordinary case. It is also simply
+unavailable on half the corpus's staged flights — neither StratoLogger booster on `iss-sg1.2`
+marks a burnout at all, so that alignment ships with `burnSpreadS: null`.
+
+So `StageAlignment.verified` is **false on every result**, as a field rather than an omission, so
+that a surface built on this has to look at it. **A composite built from these offsets is the
+flyer's statement, not a measurement**, and the next increment is what makes that honest: let the
+flyer say which recording is the first stage — the same shape as D1's crop and D3's grouping,
+where the flyer states what the data cannot.
 
 **There is deliberately no fallback.** A stage that missed the launch could be placed by assuming
 a staging delay or by correlating the traces; both produce a composite that reads exactly like a

@@ -208,7 +208,7 @@ on its own TeleMega. Measuring it refuted the milestone's own note twice:
    obvious tests were tried and both failed. Altitude is useless — the analyzer takes each
    record's pad datum from its own opening samples, so a log beginning at 1,000 m in the air reads
    zero there too. Motion before the liftoff is worse: over all 50 corpus flights, ordinary
-   SINGLE-stage records show pre-liftoff climb rates from 0 to 141 m/s, because plenty of loggers
+   SINGLE-stage records show speeds before their own detected liftoff ranging from 0 to thousands of metres per second, because plenty of loggers
    begin at boost and the detector fires a little way in. **There is no threshold between "a
    sustainer lighting up at altitude" and "a StratoLogger that records only the flight."** The
    first draft flagged 14 of 50 corpus flights; the rule was deleted rather than tuned.

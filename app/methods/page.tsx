@@ -779,7 +779,7 @@ export default function MethodsPage() {
             <p className="mt-2">
               Two altimeters that measured one flight are two independent measurements that can
               disagree, and both halves of that matter: on the four-altimeter flight in the
-              validation corpus the apogees agree to 0.03% while the derived top speeds spread
+              validation corpus the apogees agree to 0.03% while the top speeds spread
               6.7%. An average would hide the agreement and the disagreement together. To see them
               side by side on one timeline, tick them and <em>Compare</em> — that surface exists
               for exactly this and reports the spread on every reading.

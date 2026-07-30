@@ -68,7 +68,8 @@ wild, ideas too big for one pass. One line each, newest first.
   it arrived with" is flaky.** Failed once in a full-suite run (`Comparing 3 flights` heading not
   found within 5 s at the step after the mapper submits), then passed twice individually and
   passed in a clean full-suite re-run — 223/223. The changed files that run could not reach it
-  (`lib/stitch.ts` has no importer outside its own test), so it is timing, not a regression: the
+  (`lib/stitch.ts` reaches no app code — its only importers are its own test and the corpus suite),
+  so it is timing, not a regression: the
   assertion after the mapper's redirect carries the default 5 s where the surrounding steps use
   15–20 s, and the redirect waits on a logbook save. Give that one assertion the same timeout as
   its neighbours.

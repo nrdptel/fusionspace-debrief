@@ -15,8 +15,7 @@ import { fmtLength, fmtSpeed, type UnitChoice } from '@/lib/display';
  * It shows what each recording read, side by side, and never a number made out of both. Two
  * altimeters that measured one flight are two independent measurements that can disagree:
  * agreement is worth seeing and so is disagreement, and averaging them would hide both. On the
- * corpus's four-altimeter flight the apogees agree to 0.03% while the derived top speeds spread
- * 6.7%, which is exactly the sort of thing this is here to put in front of a flyer.
+ * corpus's four-altimeter flight the apogees agree to 0.03% while the top speeds spread 6.7%, which is exactly the sort of thing this is here to put in front of a flyer.
  *
  * Absent entirely on a flight recorded once, which is nearly every flight.
  */

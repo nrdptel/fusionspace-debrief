@@ -71,7 +71,8 @@ describe('groupRecordings', () => {
 
   it('holds four recordings of one flight as one flight', () => {
     // The corpus case: four AltimeterCloud boards in one airframe. Their apogees agree to
-    // 0.20 m over 756 m and their derived top speeds spread 10.9 m/s, which is exactly why
+    // 0.20 m over 756 m and their top speeds spread 10.9 m/s — all four device-measured, so that
+    // spread is between four instruments, not between two ways of arriving at a speed — which is why
     // the flight is reported by ONE of them by name rather than by a number made of all four.
     const four = ['1784', '1785', '1786', '1796'].map((id, i) =>
       row(id, { flightId: '1784', apogeeM: [756.675, 756.544, 756.659, 756.745][i], maxVelocityMs: [164.83, 167.78, 156.91, 159.42][i] }),

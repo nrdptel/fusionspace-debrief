@@ -810,10 +810,10 @@ describe('per-stage logs of one launch', () => {
       // second-ignition member, so that first burn is what each record calls "burnout". Two
       // instruments, lined up on liftoff alone, then agreeing to a fraction of a second about a
       // different moment is the evidence; a wrong offset shows up as a gap of what it is wrong by.
-      expect(out.alignment.burnoutSpreadS, `${g.name}: corroborated at all`).not.toBeNull();
+      expect(out.alignment.burnSpreadS, `${g.name}: corroborated at all`).not.toBeNull();
       expect(
-        out.alignment.burnoutSpreadS!,
-        `${g.name}: the two boards agree on the booster burnout to ${out.alignment.burnoutSpreadS!.toFixed(2)} s`,
+        out.alignment.burnSpreadS!,
+        `${g.name}: the two boards agree on the booster burnout to ${out.alignment.burnSpreadS!.toFixed(2)} s`,
       ).toBeLessThan(1);
       // …and that burn lands where a first-stage burn belongs, seconds after the launch — a
       // floor a plausible-looking but badly wrong offset would not clear.
