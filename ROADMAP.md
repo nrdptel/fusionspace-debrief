@@ -317,11 +317,15 @@ source (`descentSource === 'second-copy'` prints *"from this file's second copy 
 If a future pass ever lets one report take readings from more than one recording, that is when
 per-tile labelling earns its place — and the seam is `Tile.sub`.
 
-Three things it does NOT do, each filed in `BACKLOG.md`:
+Three things it did not do. **One is closed since**, and the other two are filed in `BACKLOG.md`:
 
-- **The spread between recordings is not on the flight's row.** A flyer sees each recording's
-  reading side by side and can work the gap out; they cannot see "apogee within 0.03%" at a
-  glance, and `crossCheck` already computes exactly that figure for the comparison surface.
+- ~~The spread between recordings is not on the flight's row.~~ **DONE 2026-07-30** — the row now
+  reads *"Recorded 2 times — reported by X · apogee within 0.03% · top speed within 6.70%"*. Per
+  reading, never one figure for the flight: on the corpus's four-altimeter flight those two are
+  nearly 250 times apart, so a single number would be a false reassurance or a false alarm
+  depending which reading it took. Read off the stored figures rather than by re-analysing, so
+  opening the list cannot move a number. Pinned by `recordingSpread` (`lib/flightGroups.test.ts`)
+  and asserted in the e2e walk.
 - **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
   Compare works and is two more steps than it should be. Fix `compareFromLogbook` dropping the
   crop first — it is filed, and D3 multiplies it by the number of recordings.
