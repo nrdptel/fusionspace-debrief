@@ -1043,15 +1043,17 @@ const ENDS_AT_REST_ABOVE_THE_PAD: { file: string; pct: string }[] = [
 ];
 
 // A log that did not start on the pad carries every height with the same offset, and the
-// record's own resting end says how big it is. The PerfectFlite AL0 file is the one that can
-// be checked: Debrief reads a 4,957 m apogee where the device's summary states 4,686 — a
-// 271 m disagreement, on a record that comes to rest 270 m above where it began. Subtracting
-// that gives 4,687 m, 0.9 m from the device's own figure.
+// record's own last sample says how big it would be. The PerfectFlite AL0 file is the one that
+// can be checked: Debrief reads a 4,957 m apogee where the device's summary states 4,686 — a
+// 271 m disagreement, on a record that ends 270 m above where it began. Taking that off gives
+// 4,687 m, 0.9 m from the device's own figure.
 //
-// Debrief states the offset rather than applying it: a reading corrected until it agrees with
-// the cross-check that was meant to test it is agreement dressed up, and only one corpus file
-// carries a summary to check against at all.
-describe('a log that did not start on the pad says how far out its heights are', () => {
+// **That is one file, and the note used to tell every flyer to do the same thing.** It said
+// "it comes to rest … subtract that", and measured over the corpus the instruction is right
+// once and wrong seven times — see `WOULD_BE_WRONG_TO_SUBTRACT` below, which is the guard that
+// keeps it from being reinstated. So the note now states the observation, states BOTH readings
+// of it, and instructs nothing. This test holds it to all three.
+describe('a log that did not start on the pad says how far out its heights might be', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
     return;
@@ -1062,12 +1064,18 @@ describe('a log that did not start on the pad says how far out its heights are',
     expect(loaded, 'AL0 is in the corpus and parses').toBeTruthy();
     const a = loaded!.analysis;
 
-    const note = a.warnings.find((w) => /doesn't start on the pad, and it comes to rest/.test(w));
+    const note = a.warnings.find((w) => /doesn't start on the pad, and its last sample sits/.test(w));
     expect(note, 'the offset is stated').toBeTruthy();
     expect(note, 'with the metres and the direction').toMatch(/\d+ m above where the record begins/);
+    // Both readings, and neither asserted. The old wording asserted the first one.
+    expect(note, 'the at-rest reading').toMatch(/If the rocket was at rest there/);
+    expect(note, 'and the still-descending reading, which is the one that made it wrong').toMatch(
+      /stopped while the rocket was still coming down/,
+    );
+    expect(note, 'and says the record does not settle it').toMatch(/Nothing in the record settles which/);
 
-    // The size it states is the size the device's own summary implies, which is the whole
-    // reason this is a diagnosis and not a guess.
+    // The size it states is the size the device's own summary implies, which is why the
+    // observation is worth stating at all even though the conclusion is not Debrief's to draw.
     const rows = compareReported(loaded!.analysis.metrics ? (loadReported(AL0) ?? []) : [], a.metrics);
     const apoRow = rows.find((r) => r.reported.metric === 'apogeeAltitude' && r.hasComputed);
     expect(apoRow, 'the device states an apogee').toBeTruthy();
@@ -1081,6 +1089,79 @@ describe('a log that did not start on the pad says how far out its heights are',
       Math.abs(gap - rest),
       `apogee gap ${gap.toFixed(1)} m vs resting height ${rest.toFixed(1)} m`,
     ).toBeLessThan(2);
+  });
+});
+
+/**
+ * The seven corpus flights where taking the last sample's height off the apogee makes a right
+ * number wrong, with the ground truth that says so. AL0 above is the one where it helps.
+ *
+ * This exists because the note that used to say "subtract that" was reasoned from AL0 alone and
+ * was never run against the rest of the corpus. `pct` is the last sample as a fraction of apogee:
+ * note that 3.3% and 7.5% are in this list while AL0's 5.5% is not, so **no threshold on that
+ * quantity separates them** — which is why the fix was to stop instructing rather than to tune.
+ */
+const WOULD_BE_WRONG_TO_SUBTRACT: { file: string; truthM: number; pct: string }[] = [
+  { file: 'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv', truthM: 2854, pct: '3.3%' },
+  { file: 'eggtimer/eggtimer__euroc-skyward-lynx__log.csv', truthM: 3077, pct: '34.2%' },
+  { file: 'eggtimer/eggtimer__euroc-stacarl2-semicolon__sta-carl2-eggtimer.csv', truthM: 2780, pct: '35.0%' },
+  { file: 'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv', truthM: 4044, pct: '62.8%' },
+  { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv', truthM: 8317, pct: '66.1%' },
+];
+
+describe('the record’s last height is stated, never subtracted', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  for (const c of WOULD_BE_WRONG_TO_SUBTRACT) {
+    const short = c.file.split('/').pop() as string;
+    it(`${short}: reads right now, and would read wrong if the ${c.pct} were taken off`, () => {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${short} is in the corpus and parses`).toBeTruthy();
+      const a = loaded!.analysis;
+      const apo = a.metrics.apogeeAltitude;
+      const h = a.series.altitude;
+      const rest = h[h.length - 1];
+
+      // As Debrief reports it, against the corpus's ground truth for this flight.
+      const errNow = Math.abs((apo - c.truthM) / c.truthM) * 100;
+      expect(errNow, `${short}: apogee ${apo.toFixed(0)} m vs ${c.truthM} m — ${errNow.toFixed(1)}%`).toBeLessThan(4);
+
+      // And what the removed instruction would have made of it.
+      const errSub = Math.abs((apo - rest - c.truthM) / c.truthM) * 100;
+      expect(
+        errSub,
+        `${short}: taking ${rest.toFixed(0)} m off gives ${(apo - rest).toFixed(0)} m — ${errSub.toFixed(1)}% out`,
+      ).toBeGreaterThan(errNow);
+    });
+  }
+
+  it('no flight is told to take anything off its heights', { timeout: 120_000 }, () => {
+    // The whole class, not the five above: whatever a record's last sample says, the note must
+    // not carry an imperative. `subtract that` was the exact wording that shipped.
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    let seen = 0;
+    for (const f of spec.fixtures) {
+      // Several corpus files are deliberate rejections carrying guidance (a Blue Raven
+      // high-rate file, a device summary saved beside its log), and `loadForCompare` lets
+      // that throw through rather than swallowing it. A file that does not analyse has no
+      // warnings to check, which is the only reason to skip one here.
+      let loaded;
+      try {
+        loaded = loadForCompare(f.file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      for (const w of loaded.analysis.warnings) {
+        if (!/last sample sits/.test(w)) continue;
+        seen++;
+        expect(w, `${f.file}: states both readings`).toMatch(/If the rocket was at rest there/);
+        expect(w, `${f.file}: and does not instruct`).not.toMatch(/subtract that|so subtract|take that off to get/i);
+      }
+    }
+    expect(seen, 'the note fires on the corpus at all, or this guard is vacuous').toBeGreaterThan(8);
   });
 });
 

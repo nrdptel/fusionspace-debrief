@@ -2029,27 +2029,38 @@ function analyzeWhole(
     }
   }
 
-  // Where the ground baseline was already doubted AND the record comes to rest well away from
-  // zero, the two facts are one fact: the log did not start on the pad, so every height in it
-  // is offset by however far the resting end sits from where the record began. A rocket at
-  // rest is on the ground, and an observed ground is better evidence than a pad window the
-  // record never contained.
+  // Where the ground baseline was already doubted AND the record's last sample sits well away
+  // from zero, that end is worth stating: if the rocket was AT REST there, the log did not start
+  // on the pad and every height in it is offset by that much.
   //
-  // The corpus makes the size of this concrete. One PerfectFlite log reads a 4,957 m apogee
-  // where the device's own summary states 4,686 — a 271 m, 5.79% disagreement, on a file whose
-  // record comes to rest 270 m above where it started. Subtracting that resting height gives
-  // 4,687 m: 0.9 m from the device's figure, on the only file here that carries one.
+  // **The "if" is load-bearing, and this warning used to assert it.** It read "it comes to rest
+  // … A rocket at rest is on the ground … subtract that", which is an instruction. Measured over
+  // the corpus, that instruction is right once and wrong seven times:
   //
-  // Debrief states the offset rather than applying it. The device's summary is the check that
-  // this is right, and a reading corrected until it matches its own cross-check is agreement
-  // dressed up — so the flyer is told the number and what it means, and the two reads stay
-  // independent.
+  //   fires on 12 of 50 analysable flights. Eight can be checked against ground truth — the
+  //   file's own device summary or the corpus manifest — and subtracting the resting height
+  //   HELPS exactly one of them (`intrepid3tf2 AL0`: +5.8% error becomes −0.0%, which is where
+  //   the old wording came from) and HURTS the other seven: `iss-endurance` −0.4% → −3.7%,
+  //   `xprs2015` ×2, `euroc-skyward-lynx` −0.1% → −34.2%, `euroc-stacarl2` +1.2% → −34.3%,
+  //   `irec_2023_easymega` −0.2% → −66.2%, and the Kairos sustainer, whose apogee is right to
+  //   0.9 m against its 13,268 ft cert figure and which the instruction would have made 63% low.
+  //
+  // No rule separates the one from the seven. Not the resting fraction — 3.3% hurts, 5.5% helps,
+  // 7.5% hurts. Not `landingFound`: it is false on AL0 *and* on the Kairos sustainer. Not the
+  // "never reaches the ground" note below: it fires on both. The difference is whether the record
+  // came to rest or merely stopped, and **nothing in the record settles that** — which is exactly
+  // what the other note says in the same list, so asserting it here contradicted it there.
+  //
+  // So this states the observation and both readings of it, and gives no instruction. The flyer's
+  // own altimeter summary is what settles it — that is what settled AL0 — and saying so is worth
+  // more than a subtraction that is wrong seven times in eight.
   if (!padDataLikely && landingIdx > apogeeIdx && apogeeAlt > 0) {
     const rest = altClean[landingIdx];
     if (Number.isFinite(rest) && Math.abs(rest) > apogeeAlt * 0.01) {
+      const m = Math.abs(Math.round(rest));
       const dir = rest > 0 ? 'high' : 'low';
       warnings.push(
-        `This log doesn't start on the pad, and it comes to rest ${Math.abs(Math.round(rest))} m ${rest > 0 ? 'above' : 'below'} where the record begins — ${Math.abs((rest / apogeeAlt) * 100).toFixed(1)}% of the apogee. A rocket at rest is on the ground, so that resting height is where the ground actually is, and every altitude here (apogee included) reads about ${Math.abs(Math.round(rest))} m too ${dir}. Debrief reports what the record says rather than shifting it: subtract that to get heights above the ground it landed on.`,
+        `This log doesn't start on the pad, and its last sample sits ${m} m ${rest > 0 ? 'above' : 'below'} where the record begins — ${Math.abs((rest / apogeeAlt) * 100).toFixed(1)}% of the apogee. If the rocket was at rest there, that is where the ground is, and every altitude here (apogee included) reads about ${m} m too ${dir}. If the log instead stopped while the rocket was still coming down, they read correctly and nothing should be taken off them. Nothing in the record settles which, so Debrief neither shifts these heights nor tells you to — check the apogee against your altimeter's own summary before taking ${m} m off it.`,
       );
     }
   }
