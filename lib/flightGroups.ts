@@ -90,6 +90,16 @@ export function groupRecordings(recents: RecentMeta[]): FlightGroup[] {
 }
 
 /**
+ * The flight one logbook row belongs to, or null when the row is not in the list.
+ *
+ * The report holds the id of the recording it is showing and needs the flight around it — to
+ * say which of several instruments these readings came from, and to offer the others.
+ */
+export function groupOf(recents: RecentMeta[], id: string): FlightGroup | null {
+  return groupRecordings(recents).find((g) => g.recordings.some((r) => r.id === id)) ?? null;
+}
+
+/**
  * Join several flights into one, and say which recording reports it.
  *
  * Takes FLIGHTS rather than row ids, because that is what the flyer named: they ticked rows in

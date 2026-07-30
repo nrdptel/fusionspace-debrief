@@ -1669,6 +1669,29 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
     expect(box!.height, `${what} clears the 44 px touch floor`).toBeGreaterThanOrEqual(44);
   }
 
+  // The REPORT says which recording these readings are, and reaches the other one in a click.
+  // Every headline figure on that page is one instrument reading the flight; a cert write-up
+  // quoting an apogee has to be able to say which.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole('list', { name: /^Recordings of / }).getByRole('button', { name: reportedAfter }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  const strip = page.getByRole('region', { name: '2 recordings of this flight' });
+  await expect(strip).toBeVisible();
+  await expect(strip).toContainText('never averaged together');
+  await expect(strip.getByRole('button', { name: new RegExp(`${reportedAfter.replace('.', '\\.')} · reading`) })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  // …and the OTHER recording is one click away, with its own reading.
+  await strip.getByRole('button', { name: new RegExp(reportedFirst.replace('.', '\\.')) }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole('region', { name: '2 recordings of this flight' }).getByRole('button', { name: new RegExp(`${reportedFirst.replace('.', '\\.')} · reading`) }),
+  ).toHaveAttribute('aria-current', 'true');
+
+  await page.goto('/');
+  await expect(page.getByRole('list', { name: 'Your flights' })).toBeVisible({ timeout: 20_000 });
+
   // A note is the FLIGHT's, and survives handing the flight to the other recording. It is
   // written on the row, and the row moves when the reporting recording changes — so without
   // this the note a flyer typed disappears off the screen with nothing saying where it went,

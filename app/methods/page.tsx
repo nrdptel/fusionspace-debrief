@@ -762,6 +762,29 @@ export default function MethodsPage() {
             browser doesn&apos;t lose it. The file never leaves your device; it&apos;s yours to
             store wherever you like.
           </Method>
+          <Method id="one-flight-several-recordings" title="One flight, several recordings">
+            A rocket flown with a primary and a backup altimeter comes home with two files of{' '}
+            <em>one</em> flight. Tick both in the logbook and say <em>these are one flight</em>:
+            they become one entry, counted once — including by the ★ that marks your best, which
+            otherwise reads one launch as two, or crowns nothing at all when two instruments agree
+            to the digit.
+            <p className="mt-2">
+              Debrief never decides this for you, and it never blends the readings. Each recording
+              keeps its own reading and its own caveats, and you choose which one the flight is{' '}
+              <em>reported by</em> — the one whose figures a certification document would quote.
+              The report says which recording you are reading and reaches the others in a click,
+              and the text, Markdown, HTML and JSON exports carry that line too, so a write-up
+              quoting an apogee can state which instrument measured it.
+            </p>
+            <p className="mt-2">
+              Two altimeters that measured one flight are two independent measurements that can
+              disagree, and both halves of that matter: on the four-altimeter flight in the
+              validation corpus the apogees agree to 0.03% while the derived top speeds spread
+              6.7%. An average would hide the agreement and the disagreement together. To see them
+              side by side on one timeline, tick them and <em>Compare</em> — that surface exists
+              for exactly this and reports the spread on every reading.
+            </p>
+          </Method>
           <Method id="units" title="Units">
             Every number is stored in SI internally and converted once for display, so the unit you
             read a flight in never changes the analysis. The unit is chosen <em>per quantity</em>, not

@@ -19,6 +19,7 @@ import RecognizedFormats from './RecognizedFormats';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
+import { groupOf } from '@/lib/flightGroups';
 import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { useLogbook } from './useLogbook';
@@ -706,6 +707,8 @@ export default function Analyzer() {
           onRead={readStretch}
           reading={state.reading}
           readError={state.readError}
+          {...(state.savedId ? { recordings: groupOf(logbook.recents, state.savedId)?.recordings, recordingId: state.savedId } : {})}
+          onRecording={openRecent}
         />
       </div>
     );

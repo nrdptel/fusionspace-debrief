@@ -209,6 +209,12 @@ Live at **[debrief.fusionspace.co](https://debrief.fusionspace.co)**. Part of
   Compare exactly two and the table adds a **Difference** column — the pairwise spread on
   every metric, so two altimeters on one flight show how tightly they agree, and two
   launches of one rocket show what changed.
+- **One flight, several recordings.** A rocket flown with a primary and a backup altimeter
+  comes home with two files of *one* flight. Tick both in the logbook and say *these are one
+  flight*: one entry, counted once by the ★ that marks your best. Each recording keeps its own
+  reading — nothing is averaged — and you choose which one the flight is **reported by**, the
+  figures a certification document would quote. The report says which recording you are reading,
+  reaches the others in a click, and every export carries that line.
   The overlay saves as a PNG, a **vector SVG** (crisp at any size for a report), or its
   exact data as CSV, alongside the metrics table; the whole comparison also saves as a
   self-contained **HTML report** — the cross-check, the side-by-side metrics and the overlay

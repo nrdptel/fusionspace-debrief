@@ -137,6 +137,24 @@ export interface ReportMeta {
   /** The order the flyer put the comparison's rows in (see lib/reportProfile). Applies to
    *  the comparison only, where one builder feeds the screen and every export alike. */
   order?: string[];
+  /** Which RECORDING of the flight this document is, where the flyer has said the flight was
+   *  flown on more than one altimeter. Absent on every ordinary flight, and then no document
+   *  gains a line.
+   *
+   *  The file name in the header already names the recording; what it cannot say is that the
+   *  flight has others and which one it is reported by. A cert write-up quoting an apogee has
+   *  to be able to state which instrument read it, and a reader who finds two Debrief reports
+   *  of the same launch has to be able to tell they are not two launches. */
+  recording?: { index: number; of: number; reportedBy: string };
+}
+
+/** The one sentence every document says about being one recording of several. Built here so
+ *  the four surfaces that print it cannot drift into saying different things. */
+export function recordingLine(rec: NonNullable<ReportMeta['recording']>, source: string): string {
+  const which = `Recording ${rec.index} of ${rec.of} of this flight`;
+  return rec.reportedBy === source
+    ? `${which} — the one this flight is reported by`
+    : `${which} — reported by ${rec.reportedBy}`;
 }
 
 /** Trim a user string, returning undefined when it's empty — so an untouched field
@@ -378,6 +396,7 @@ export function summaryText(
   lines.push('Debrief — flight report');
   if (label) lines.push(label);
   lines.push(`${flight.source} · ${flight.formatLabel}`);
+  if (meta?.recording) lines.push(recordingLine(meta.recording, flight.source));
   // When it flew, where the file states it — the date a cert document or logbook wants,
   // and a different fact from when this report was produced.
   if (flight.flownAt) lines.push(`Flew ${formatFlownAt(flight.flownAt)}`);
@@ -466,6 +485,7 @@ export function summaryMarkdown(
   const flew = flight.flownAt ? ` · Flew ${cell(formatFlownAt(flight.flownAt))}` : '';
   const stamp = analyzedAt ? ` · Analyzed ${formatAnalyzedAt(analyzedAt)}` : '';
   out.push(`**${cell(flight.source)}** · ${cell(flight.formatLabel)}${flew}${stamp}`);
+  if (meta?.recording) out.push('', `*${cell(recordingLine(meta.recording, flight.source))}*`);
   out.push('');
   if (notes) {
     // A blockquote keeps the flyer's own words distinct from the read; each line
@@ -639,6 +659,7 @@ export function summaryHtml(
   const inner = `  <header>
     <h1>${esc(label || 'Debrief — flight report')}</h1>
     <div class="src">${esc(flight.source)} · ${esc(flight.formatLabel)}${stamp}</div>
+    ${meta?.recording ? `<div class="src">${esc(recordingLine(meta.recording, flight.source))}</div>` : ''}
     ${notesHtml}
   </header>
 
@@ -1236,6 +1257,12 @@ export function analysisJson(
     // and the written reports make. A consumer that wants to know whether rows were dropped, or
     // which channel the altitude is, could not tell from this document before.
     ...(howRead(flight, analysis).length ? { howThisFileWasRead: howRead(flight, analysis) } : {}),
+    // …and which RECORDING of the flight this is, as data for the same reason: two Debrief
+    // documents of one launch are not two launches, and a consumer should not have to read
+    // English to tell.
+    ...(meta?.recording
+      ? { recording: { index: meta.recording.index, of: meta.recording.of, reportedBy: meta.recording.reportedBy, isReportedBy: meta.recording.reportedBy === flight.source } }
+      : {}),
     // …and the same thing as data, because a consumer should not have to parse a sentence to
     // find out that this document is one flight out of a launch day.
     read: {

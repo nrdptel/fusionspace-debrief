@@ -23,7 +23,9 @@ import { useCurrentSection } from './useCurrentSection';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
+import type { RecentMeta } from '@/lib/recents';
 import FlightPicker from './FlightPicker';
+import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
@@ -68,6 +70,9 @@ export default function FlightReport({
   onRead,
   reading,
   readError,
+  recordings,
+  recordingId,
+  onRecording,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
@@ -92,6 +97,14 @@ export default function FlightReport({
   /** Keep them. Absent where the flight has no logbook entry to keep them against — a
    *  private window with storage refused — in which case the panel says so. */
   onCaption?: (caption: { label: string; notes: string }) => void;
+  /** Every recording of this flight, the one that reports it first — where the flyer has said
+   *  that two files are one flight flown on two altimeters. Absent, or of length one, on every
+   *  ordinary flight, and then nothing about this page changes. */
+  recordings?: RecentMeta[];
+  /** Which of them these readings are of. */
+  recordingId?: string;
+  /** Open another recording of this flight. */
+  onRecording?: (id: string) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -223,9 +236,19 @@ export default function FlightReport({
     });
   }, []);
 
+  // Which recording of the flight this document is, where the flyer has said the flight was
+  // flown on more than one altimeter — so a cert write-up quoting an apogee can state which
+  // instrument read it, and a reader holding two Debrief reports of one launch can tell they
+  // are not two launches. Absent on every ordinary flight, and then no document gains a line.
+  const recordingMeta = useMemo(() => {
+    if (!recordings || recordings.length < 2 || !recordingId) return undefined;
+    const index = recordings.findIndex((r) => r.id === recordingId);
+    if (index < 0) return undefined;
+    return { index: index + 1, of: recordings.length, reportedBy: recordings[0].name };
+  }, [recordings, recordingId]);
   const reportMeta = useMemo(
-    () => ({ label: reportLabel, notes: reportNotes, hidden }),
-    [reportLabel, reportNotes, hidden],
+    () => ({ label: reportLabel, notes: reportNotes, hidden, ...(recordingMeta ? { recording: recordingMeta } : {}) }),
+    [reportLabel, reportNotes, hidden, recordingMeta],
   );
   // The recovery figures a flyer entered — the descending mass (landing energy) and the
   // set main-deploy altitude (the fired-where-set check) — ride into the exported report
@@ -740,6 +763,13 @@ export default function FlightReport({
           )}
         </div>
       )}
+      {/* Which RECORDING of this flight these readings are, when the flyer has said the flight
+          was recorded more than once. Above the flight picker, because it is the wider
+          question: which instrument, then which flight of that instrument's download. */}
+      {recordings && recordings.length > 1 && recordingId && onRecording && (
+        <RecordingPicker recordings={recordings} currentId={recordingId} sys={sys} onOpen={onRecording} />
+      )}
+
       {/* Which flight in the download this is, when the file holds several. */}
       {analysis.segments && analysis.segments.length > 1 && onRead && (
         <FlightPicker

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasClippedAccel } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasClippedAccel, recordingLine } from './report';
 import { buildComparison, type CompareInput } from './compare';
 import { landingRateIsWholeDescent } from './readings';
 
@@ -776,5 +776,55 @@ describe('comparison report', () => {
   it('compareJson omits pairwise differences for a non-pair comparison', () => {
     const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
     expect(JSON.parse(compareJson(three, 'metric')).differences).toBeUndefined();
+  });
+});
+
+/**
+ * Which recording of a flight a document is. A flyer who flew two altimeters has two Debrief
+ * reports of ONE launch, and the file name in the header does not say that: a reader holding
+ * both cannot tell they are not two launches, and a cert write-up quoting an apogee cannot
+ * state which instrument read it.
+ */
+describe('a document says which recording of the flight it is', () => {
+  const flight = tinyFlight();
+  const analysis = analyzeFlight(flight);
+  const of2 = { recording: { index: 2, of: 2, reportedBy: 'primary.csv' } };
+  const isPrimary = { recording: { index: 1, of: 2, reportedBy: 'tiny.csv' } };
+
+  it('names the recording that reports the flight when this is not it', () => {
+    expect(recordingLine(of2.recording, 'tiny.csv')).toBe('Recording 2 of 2 of this flight — reported by primary.csv');
+  });
+
+  it('says so plainly when this IS the one the flight is reported by', () => {
+    // Not "reported by tiny.csv" on tiny.csv's own report, which reads like a pointer
+    // somewhere else and sends a cert writer looking for a second document.
+    expect(recordingLine(isPrimary.recording, 'tiny.csv')).toBe('Recording 1 of 2 of this flight — the one this flight is reported by');
+  });
+
+  it('reaches the text, Markdown and HTML reports', () => {
+    const line = recordingLine(of2.recording, 'tiny.csv');
+    expect(summaryText(flight, analysis, 'imperial', 0, of2)).toContain(line);
+    expect(summaryMarkdown(flight, analysis, 'imperial', 0, of2)).toContain(line);
+    expect(summaryHtml(flight, analysis, 'imperial', 0, of2)).toContain(line);
+  });
+
+  it('reaches the JSON export as data, not only as a sentence', () => {
+    const doc = JSON.parse(analysisJson(flight, analysis, 'imperial', 0, of2));
+    expect(doc.recording).toEqual({ index: 2, of: 2, reportedBy: 'primary.csv', isReportedBy: false });
+    const own = JSON.parse(analysisJson(flight, analysis, 'imperial', 0, isPrimary));
+    expect(own.recording.isReportedBy, 'a consumer can tell without comparing strings').toBe(true);
+  });
+
+  it('adds nothing at all to an ordinary flight’s documents', () => {
+    // The case that has to cost nothing: nobody has said this flight was recorded twice.
+    for (const doc of [
+      summaryText(flight, analysis, 'imperial', 0),
+      summaryMarkdown(flight, analysis, 'imperial', 0),
+      summaryHtml(flight, analysis, 'imperial', 0),
+    ]) {
+      expect(doc).not.toContain('Recording');
+      expect(doc).not.toContain('of this flight');
+    }
+    expect('recording' in JSON.parse(analysisJson(flight, analysis, 'imperial', 0))).toBe(false);
   });
 });

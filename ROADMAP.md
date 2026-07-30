@@ -229,11 +229,14 @@ exactly that.
 
 ## D3 — One flight can carry several recordings
 
-**Status:** IN PROGRESS — the logbook half is shipped and pinned by `two altimeters on one flight
-are one flight in the logbook, counted once` (`e2e/analyze.spec.ts`, walking the real app,
-including the 44 px touch floor at a 390 px viewport) and by `personalBests > over flights, not
-over files` (`lib/logbook.test.ts`). Remaining: the report and the exports still name a FILE where
-they should name the recording, and the corpus does not yet assert byte-identical analysis.
+**Status:** SHIPPED 2026-07-30 — pinned by `two altimeters on one flight are one flight in the
+logbook, counted once` (`e2e/analyze.spec.ts`, walking the real app end to end: joining, the
+crowns, the report's recording strip, the note, the way back out, and the 44 px touch floor at a
+390 px viewport), by `personalBests > over flights, not over files` (`lib/logbook.test.ts`), by
+`a document says which recording of the flight it is` (`lib/report.test.ts`, over the text,
+Markdown, HTML and JSON exports and their absence on an ordinary flight), and by
+`every flight analyses to exactly what it analysed to before` (`lib/parsers/corpus.test.ts`,
+50 committed digests over every metric, event and sample of every series).
 
 **What a flyer can do now that they could not before:** tick a primary and a backup log and say
 *these are one flight* — one logbook entry, one crown, each recording still openable with its own
@@ -264,6 +267,10 @@ compile-time check now fails when a member of `RecentFlight` is classified as ne
 the file's nor the flyer's. **This is the fourth member that file-by-file rebuild has lost.**
 
 **Outcome.** A flight flown on two altimeters is one flight in the logbook, not two.
+
+**What a flyer can DO after this milestone that they could not before:** keep a two-altimeter
+flight as ONE flight — one logbook entry, counted once, with each instrument's own reading still
+there and the one they nominate named on the report and in every document they hand in.
 
 **Done when** a flyer opens a primary and a backup log from one flight and gets **one logbook entry**
 counted **once** by the personal-best crowns, with each headline reading naming which recording it
@@ -297,17 +304,34 @@ one launch), so reading it as "recordings of one flight" would group a booster w
 `iss-sg1.2-20231118` is the negative case: a TeleMega sustainer at 2,113 m beside two StratoLogger
 boosters at 465 m.
 
-**What is left, in order.**
-1. **The report names the recording it is reading**, on screen and in every document it exports —
-   following the precedent already in the code (`descentSource === 'second-copy'` prints *"from
-   this file's second copy of the flight"*, which is the same sentence one level down).
-2. **The corpus asserts byte-identical analysis** for every single-recording flight, which the
-   *done when* names explicitly. It needs a per-file digest over metrics + events + series added to
-   the existing single memoised `corpusReads()` pass.
-3. **How far apart the recordings read**, on the flight's own row, from the spread `crossCheck`
-   already computes — and one click from a flight to its recordings overlaid.
+**What this delivered against its *done when*, and what it did not.** All four clauses hold:
+one logbook entry, counted once by the crowns, the readings naming which recording they came
+from, and the corpus asserting that no ordinary flight's analysis moved.
 
-**Size.** 4–6 increments. One shipped.
+On that third clause, read what shipped rather than the words: **the readings are named per
+PAGE, not per tile.** A report is of one recording, so every headline figure on it comes from
+the same instrument, and the page says which — prominently, above the readings, with the others
+one click away, and in every document it exports. Twenty tiles each repeating the same file name
+would be noise, and the one reading that genuinely comes from elsewhere already names its own
+source (`descentSource === 'second-copy'` prints *"from this file's second copy of the flight"*).
+If a future pass ever lets one report take readings from more than one recording, that is when
+per-tile labelling earns its place — and the seam is `Tile.sub`.
+
+Three things it does NOT do, each filed in `BACKLOG.md`:
+
+- **The spread between recordings is not on the flight's row.** A flyer sees each recording's
+  reading side by side and can work the gap out; they cannot see "apogee within 0.03%" at a
+  glance, and `crossCheck` already computes exactly that figure for the comparison surface.
+- **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
+  Compare works and is two more steps than it should be. Fix `compareFromLogbook` dropping the
+  crop first — it is filed, and D3 multiplies it by the number of recordings.
+- **The comparison still hedges.** *"If these are recordings of the same flight…"* is a hedge
+  because nothing knew; now something does. A comparison built from one flight's recordings can
+  say so outright.
+
+**Those three are D5's starting point**, and the first is the highest-leverage of them.
+
+**Size.** 4–6 increments; shipped in 3.
 
 ---
 

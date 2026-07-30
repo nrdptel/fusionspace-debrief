@@ -64,6 +64,24 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **The spread between a flight's recordings is not on its logbook row.** A grouped flight shows
+  each recording's apogee and top speed side by side, so a flyer can work the gap out by eye; the
+  figure itself — "apogee within 0.03%" — is already computed by `crossCheck` (`lib/compare.ts`)
+  for the comparison surface and is the number they actually want at a glance. Measured on the
+  corpus: `ac-lilnuke`'s four recordings agree to 0.03% on apogee and spread 6.7% on top speed, so
+  one "agreement" figure per flight would be a lie — it has to be per reading, or the worst of them
+  named.
+- **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
+  Compare works, which is two more steps than a surface that already knows they are one flight
+  should charge. Blocked behind the `compareFromLogbook` crop bug below, because a comparison
+  button on a grouped flight multiplies that defect by the number of recordings.
+- **The comparison still hedges about what it is comparing.** *"If these are recordings of the
+  same flight, the independent readings agree to within …"* (`components/CompareView.tsx`, and the
+  same sentence in `compareMarkdown` and `compareJson`'s `sameFlight: {verdict:'unknown'}`) was a
+  hedge because nothing knew. `RecentMeta.flightId` now knows. A comparison built from one flight's
+  recordings can state it, and one built across flights the files date days apart already refutes
+  it — those two answers should not both read as "unknown".
+
 - **`logbookRowNames` disambiguates a grouped flight's row against recordings the flyer cannot
   see.** It is still called with the whole `recents` list (`components/RecentFlights.tsx:214`), so
   where a flight is reported by one of four identically-named AltimeterCloud files, the accessible
