@@ -518,6 +518,45 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-07-30 — the burn-agreement gate in `lib/stitch.ts` was removed rather than widened.** It
+  had shipped. The alternatives were to widen the 1 s tolerance until the corpus's redundant-board
+  groups passed, or to compare only burnouts of matching provenance. Rejected both: widening does
+  not fix a check with **zero** power against the error it names (the staging delay is not a term
+  in the arithmetic), and a provenance-matched version would still have none. A guard that fires on
+  correct data and catches nothing is worse than no guard. The burn durations still ship as labelled
+  measurements; nothing gates on them. **Reverse this** only against a check that can actually fail
+  on a record that missed the launch — the six corpus groups in `recordings of one launch line up on
+  it, whatever their burnouts say` are the bar it must not break.
+
+- **2026-07-30 — a warning that was right once and wrong seven times was made conditional, not
+  deleted and not thresholded.** It told flyers to subtract a record's resting height from every
+  altitude. The alternatives were (a) delete it, (b) gate it on a landing actually being found,
+  (c) tune a threshold on the resting fraction. Rejected (b) and (c) on measurement: `landingFound`
+  is false on the one flight the instruction HELPS (`AL0`, confirmed by its device summary to 0.9 m)
+  as well as on the flight it hurts worst, and the resting fraction straddles — 3.3% hurts, 5.5%
+  helps, 7.5% hurts. Rejected (a) because the observation is real and, on AL0, checkable; only the
+  *conclusion* was Debrief's to withhold. So it states the observation, states both readings, says
+  the record does not settle which, and points at the flyer's own altimeter summary. **Reverse this
+  cheaply** if a rule is ever found that separates "came to rest" from "stopped in the air" — the
+  five corpus cases in `the record's last height is stated, never subtracted` are the bar it must
+  clear.
+
+- **2026-07-30 — `EventType` gains no staging member, and D4's composite will name recordings
+  rather than stages.** The alternative was to add `separation`/`ignition2` and detect a second
+  burn, which is what a composite "reading in order across staging" implies. Rejected on
+  measurement: no corpus record holds two separable burns (the Kairos sustainer's log opens after
+  separation and holds ONE; two-run records are all ordinary single-stage flights). Pinned by
+  `no corpus record holds two burns` — **which goes red the moment a record with two separable
+  burns is added, and that is the signal to revisit this.**
+
+- **2026-07-30 — D4's slice 2 shipped as measurements rather than as the surface.** The `/stitch`
+  surface was designed and adversarially reviewed in the same run, and the alternative was to build
+  it. Rejected because two of the design's load-bearing numbers did not survive being reproduced —
+  including a second burn it believed the corpus contained and which is not there. Building a
+  surface on a fact that is not there is the failure this milestone exists to avoid, and the two
+  measurements that replaced it are what make the surface safe to build next. The design is in
+  `HANDOFF.md`, flagged as a starting point rather than a spec.
+
 - **2026-07-30 — a grouped flight is reported by ONE nominated recording, not by a blend.** The
   alternatives were a mean, a maximum, or showing every recording's reading everywhere with no
   headline. Rejected all three: the safety spine says several recordings of one flight are
