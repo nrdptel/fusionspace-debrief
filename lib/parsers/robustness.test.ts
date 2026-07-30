@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { decodeBytes } from '../encoding';
 import { importFlight } from './index';
 import { ParseGuidanceError, type Parser } from './types';
 import type { RawFlight } from '../flight/types';
@@ -142,5 +145,41 @@ describe('import robustness', () => {
     expect(() => importFlight({ name: 'x.csv', text: 'time,altitude\n' + body }, [guided])).toThrow(
       'Upload the low-rate file instead.',
     );
+  });
+});
+
+// A raw download off a card is bytes, and bytes arrive damaged: a card pulled mid-write, a
+// transfer that stopped, a file copied off a failing SD. A text parser meets that as a short
+// row and moves on; a binary parser meets it as a length field claiming ninety megabytes, a
+// record header halfway through the file, or a size that outruns the buffer. None of those
+// may crash the tab or spin it — a refusal is a fine outcome, a hang is not.
+describe('a damaged raw download is refused, not survived by luck', () => {
+  const CORPUS = fileURLToPath(new URL('./__corpus__/', import.meta.url));
+  const FILES = [
+    'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-Telemega.eeprom',
+    'missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff',
+  ].filter((f) => existsSync(CORPUS + f));
+
+  it.skipIf(FILES.length === 0)('takes 120 truncated and corrupted files without crashing or hanging', () => {
+    // Deterministic, so a failure is reproducible rather than a story about one CI run.
+    let rng = 12345;
+    const rand = () => ((rng = (rng * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+
+    for (const f of FILES) {
+      const orig = new Uint8Array(readFileSync(CORPUS + f));
+      const name = f.split('/').pop() as string;
+      for (let trial = 0; trial < 60; trial++) {
+        const bytes = orig.slice(0, Math.max(1, Math.floor(rand() * orig.length)));
+        for (let k = 0; k < 12; k++) bytes[Math.floor(rand() * bytes.length)] = Math.floor(rand() * 256);
+        const started = Date.now();
+        try {
+          importFlight({ name, text: decodeBytes(bytes), bytes });
+        } catch {
+          // A ParseGuidanceError, or any refusal, is the right answer for a broken file.
+        }
+        const ms = Date.now() - started;
+        expect(ms, `${name} trial ${trial} (${bytes.length} bytes) took ${ms} ms`).toBeLessThan(8000);
+      }
+    }
   });
 });
