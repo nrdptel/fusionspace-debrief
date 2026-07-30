@@ -111,6 +111,25 @@ describe.skipIf(!existsSync(CORPUS + RFF))('MissileWorks RRC3 raw .rff download'
     expect(() => missileworksRffParser.parse({ name: 'x.rff', text: '', bytes: doctored })).toThrow(/does not believe/);
   });
 
+  it('does not read a word with the sign bit set back as a 3,277 mbar reading', () => {
+    // The words come out of a signed List<Int16>, so anything at or above 0x8000 is negative
+    // there. A tag written as a test on bit 14 lets 0x8000-0xBFFF through as a "reading" of
+    // 3,277-4,915 mbar - three times sea level, and a value that would drag the pad baseline
+    // and every height off it. The tag is a threshold for exactly this reason.
+    const doctored = bytes();
+    const log = findArray(doctored);
+    // Turn one mid-flight reading into 0x8123: sign bit set, bit 14 clear.
+    doctored[log + 600 * 2] = 0x23;
+    doctored[log + 600 * 2 + 1] = 0x81;
+    const r = importFlight({ name: 'x.rff', bytes: doctored });
+    expect(r.kind).toBe('flight');
+    if (r.kind !== 'flight') return;
+    const pressure = getChannel(r.flight, 'pressure')!;
+    // It is skipped like any other non-reading, so nothing above sea level appears at all.
+    const highest = Math.max(...pressure.values);
+    expect(highest / 100, 'highest reading, mbar').toBeLessThan(1200);
+  });
+
   it('does not claim a file that merely happens to be binary', () => {
     expect(missileworksRffParser.detect({ name: 'x.rff', text: '', bytes: new Uint8Array(200) })).toBe(0);
     expect(missileworksRffParser.detect({ name: 'x.csv', text: 'time,alt\n0,0\n', bytes: new TextEncoder().encode('time,alt\n0,0\n') })).toBe(0);

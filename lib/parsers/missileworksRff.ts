@@ -6,15 +6,13 @@
 // the altimeter's log exactly as it came off the board — no columns, no header row, which
 // is why the generic mapper reads nothing at all from this file.
 //
-// The log itself is a stream of 16-bit words:
+// The log itself is a stream of 16-bit words: barometer samples in tenths of a millibar,
+// with two auxiliary words written once a second, after a short preamble.
 //
-//   [start word] [aux pair] [second word]   then, repeating:   20 barometer samples, [aux pair]
-//
-// A barometer sample is tenths of a millibar, so it cannot reach 0x4000 (1,638 mbar —
-// half again the highest pressure ever recorded at sea level). The two auxiliary words
-// per second sit far above that. That is the whole tag: bit 14 says which kind of word
-// this is, and it is a fact about the pressure scale rather than a threshold picked to
-// fit one file. What the auxiliary pair MEANS is not decoded — mDACS shows a temperature
+// A barometer sample cannot reach 0x4000 — that is 1,638 mbar, half again the highest
+// pressure ever recorded at sea level — and the auxiliary words sit far above it. That is
+// the whole tag, and it is a fact about the pressure scale rather than a threshold picked
+// to fit one file. What the auxiliary pair MEANS is not decoded: mDACS shows a temperature
 // and a battery voltage that track it, but neither is a linear function of it, so the
 // calibration lives somewhere this file does not carry and inventing one would put a
 // made-up number on a report.
@@ -29,7 +27,13 @@ import type { RawFlight } from '../flight/types';
  *  stamped 0.00, 0.05, 0.10 …, which is the same statement from the other direction. */
 const HZ = 20;
 
-/** Bit 14 marks a word that is NOT a barometer sample — see the note at the top. */
+/**
+ * At or above this, a word is NOT a barometer sample — see the note at the top. 0x4000 in
+ * tenths of a millibar is 1,638 mbar, half again the highest pressure ever recorded at sea
+ * level, so nothing the barometer can log reaches it. Written as a threshold rather than as
+ * a bit test on purpose: a word with bit 15 set but bit 14 clear would slip through a bit
+ * test and be read back as a 3,277 mbar reading.
+ */
 const AUX = 0x4000;
 
 /**
@@ -144,7 +148,7 @@ export const missileworksRffParser: Parser = {
     // never above 5,570 m, so nothing before that is one.
     let start = -1;
     for (let i = 0; i < Math.min(MAX_PREAMBLE, words.length); i++) {
-      if ((words[i] & AUX) === 0 && words[i] >= PAD_FLOOR) {
+      if (words[i] < AUX && words[i] >= PAD_FLOOR) {
         start = i;
         break;
       }
@@ -161,7 +165,7 @@ export const missileworksRffParser: Parser = {
       const w = words[i];
       // An erased or unwritten word ends the log; a pressure of zero is not a reading.
       if (w === 0) break;
-      if ((w & AUX) !== 0) {
+      if (w >= AUX) {
         auxWords++;
         continue;
       }

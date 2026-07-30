@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
-import { altosEepromParser } from './altosEeprom';
+import { altosEepromParser, scaleBy2e21 } from './altosEeprom';
 import { ParseGuidanceError } from './types';
 import { parseTable } from '../csv';
 import { getChannel, type RawFlight } from '../flight/types';
@@ -71,6 +71,36 @@ function altosUi(p: Pair, column: string): Map<number, number> {
 }
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
+
+// Not corpus-gated: this is the arithmetic on its own, and it has to hold on every board.
+describe('the MS5607 scaling step, past where a double stops counting', () => {
+  /** The exact integer answer, in arbitrary precision. */
+  const exact = (d1: number, sens: number) => Number((BigInt(d1) * BigInt(sens)) / 2n ** 21n);
+  /** What the datasheet's expression compiles to in plain JavaScript numbers. */
+  const naive = (d1: number, sens: number) => Math.floor((d1 * sens) / 2 ** 21);
+
+  it('gets a case right that the plain product gets wrong', () => {
+    // Found by searching the ranges these two actually take on a flight: a raw pressure
+    // conversion of 4-12 million and a temperature-corrected sensitivity of 2.5-4.3 billion.
+    // Their product is 1.9e16, past 2^53, so the double cannot tell it from its neighbour.
+    const d1 = 4_802_175;
+    const sens = 3_920_039_170;
+    expect(naive(d1, sens), 'the case exists').not.toBe(exact(d1, sens));
+    expect(scaleBy2e21(d1, sens)).toBe(exact(d1, sens));
+  });
+
+  it('agrees with exact arithmetic across the whole range a flight covers', () => {
+    // Deterministic sweep rather than random, so a failure is reproducible.
+    let checked = 0;
+    for (let d1 = 4_000_000; d1 <= 12_000_000; d1 += 137_117) {
+      for (let sens = 2_500_000_000; sens <= 4_300_000_000; sens += 61_000_003) {
+        expect(scaleBy2e21(d1, sens), `d1=${d1} sens=${sens}`).toBe(exact(d1, sens));
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(1500);
+  });
+});
 
 describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
   for (const p of PAIRS.filter(have)) {
@@ -167,6 +197,72 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
     const doctored = text(p.eeprom).replace(/"sens": (\d+)/, (_m, v) => `"sens": ${Math.round(Number(v) * 1.5)}`);
     expect(doctored).not.toBe(text(p.eeprom));
     expect(() => altosEepromParser.parse({ name: 'x.eeprom', text: doctored, bytes: new Uint8Array() })).toThrow(/does not believe/);
+  });
+
+  it('does the barometer arithmetic exactly, past where a double stops counting', () => {
+    // The datasheet's compensation is integer arithmetic, and one product in it - the raw
+    // pressure conversion times the temperature-corrected sensitivity - lands near 1.7e16 on
+    // EVERY sample of both 32-byte downloads, above the 2^53 where a JavaScript number stops
+    // being able to hold consecutive integers. It floored to the right value anyway on all
+    // 6,820 of them, which is luck rather than a property. This holds the split-multiply that
+    // replaced it against the exact answer, computed with BigInt.
+    const p = PAIRS.filter(have).find((x) => x.what.startsWith('TeleMega'));
+    if (!p) return;
+    const flight = readEeprom(p);
+    const pressure = getChannel(flight, 'pressure')!;
+
+    // The same file's coefficients, read straight out of its header, and the same raw
+    // conversions - so this is the arithmetic being checked, not the record layout.
+    const head = text(p.eeprom);
+    const cal = JSON.parse(head.slice(0, head.search(/\n\}\r?\n/) + 2)).ms5607 as Record<string, number>;
+    const body = head.slice(head.search(/\n\}\r?\n/) + 2);
+    const bytes = Uint8Array.from(body.trim().split(/\s+/).map((h) => parseInt(h, 16)));
+
+    let checked = 0;
+    let sample = 0;
+    for (let at = 0; at + 32 <= bytes.length && sample < pressure.values.length; at += 32) {
+      if (bytes[at] === 0xff) continue;
+      if (String.fromCharCode(bytes[at]) !== 'A') continue;
+      const view = new DataView(bytes.buffer, bytes.byteOffset + at);
+      const d1 = BigInt(view.getInt32(4, true));
+      const d2 = BigInt(view.getInt32(8, true));
+      const dT = d2 - BigInt(cal.tref) * 256n;
+      let temp = 2000n + (dT * BigInt(cal.tempsens)) / 2n ** 23n;
+      let off = BigInt(cal.off) * 2n ** 17n + (BigInt(cal.tco) * dT) / 2n ** 6n;
+      let sens = BigInt(cal.sens) * 2n ** 16n + (BigInt(cal.tcs) * dT) / 2n ** 7n;
+      if (temp < 2000n) {
+        const d = temp - 2000n;
+        let off2 = (61n * d * d) / 16n;
+        let sens2 = 2n * d * d;
+        if (temp < -1500n) {
+          const e = temp + 1500n;
+          off2 += 15n * e * e;
+          sens2 += 8n * e * e;
+        }
+        temp -= (dT * dT) / 2n ** 31n;
+        off -= off2;
+        sens -= sens2;
+      }
+      const exact = ((d1 * sens) / 2n ** 21n - off) / 2n ** 15n;
+      expect(pressure.values[sample], `sample ${sample}: exact ${exact}`).toBe(Number(exact));
+      checked++;
+      sample++;
+    }
+    expect(checked, 'samples checked against exact integer arithmetic').toBeGreaterThan(5000);
+  });
+
+  it('opens a download that has been through an editor that rewrote its line endings', () => {
+    const p = PAIRS.filter(have)[0];
+    if (!p) return;
+    const crlf = text(p.eeprom).replace(/\n/g, '\r\n');
+    const r = importFlight({ name: 'windows.eeprom', text: crlf, bytes: new TextEncoder().encode(crlf) });
+    expect(r.kind, 'a CRLF .eeprom still reads as a flight').toBe('flight');
+    if (r.kind !== 'flight') return;
+    // …and reads the SAME flight, not a shifted one: the body is hex, so a stray byte at the
+    // front of it would move every record.
+    const straight = readEeprom(p);
+    expect(r.flight.time.length).toBe(straight.time.length);
+    expect(getChannel(r.flight, 'pressure')!.values[0]).toBe(getChannel(straight, 'pressure')!.values[0]);
   });
 
   it('keeps the raw download out of the column mapper it used to fall into', () => {

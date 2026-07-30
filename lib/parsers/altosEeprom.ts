@@ -85,11 +85,12 @@ interface LogRecord {
 function split(text: string): { header: EepromHeader; body: string } | null {
   if (text[0] !== '{') return null;
   // The header is pretty-printed with the closing brace alone in column one, which is the
-  // only place that can appear: every nested object inside it is indented.
-  const end = text.indexOf('\n}\n');
+  // only place that can appear: every nested object inside it is indented. Matched with the
+  // line ending either way, so a download that has been through a Windows editor still opens.
+  const end = text.search(/\n\}\r?\n/);
   if (end < 0) return null;
   try {
-    return { header: JSON.parse(text.slice(0, end + 2)) as EepromHeader, body: text.slice(end + 3) };
+    return { header: JSON.parse(text.slice(0, end + 2)) as EepromHeader, body: text.slice(end + 2) };
   } catch {
     return null;
   }
@@ -176,7 +177,26 @@ function ms5607(cal: Ms5607, d1: number, d2: number): { pa: number; c: number } 
     off -= off2;
     sens -= sens2;
   }
-  return { pa: Math.floor(Math.floor((d1 * sens) / 2 ** 21 - off) / 2 ** 15), c: temp / 100 };
+  return { pa: Math.floor((scaleBy2e21(d1, sens) - off) / 2 ** 15), c: temp / 100 };
+}
+
+/**
+ * `⌊d1 · sens / 2²¹⌋`, without ever forming `d1 · sens`.
+ *
+ * The datasheet's arithmetic is integer arithmetic, and this one product does not fit in a
+ * JavaScript number: on every sample of both 32-byte corpus downloads it lands near 1.7 ×
+ * 10¹⁶, above the 2⁵³ where doubles stop being able to count. The result happened to floor
+ * to the same integer as the exact value on all 6,820 of them — which is luck, not a
+ * property, and the kind of luck that runs out on someone else's board.
+ *
+ * Splitting `sens` at the divisor keeps both halves exact: `d1·q` is a whole number of
+ * 2²¹s, and `d1·r` cannot exceed 2⁴⁵. `⌊d1·sens/2²¹⌋ = d1·q + ⌊d1·r/2²¹⌋` because the first
+ * term is an integer.
+ */
+export function scaleBy2e21(d1: number, sens: number): number {
+  const q = Math.floor(sens / 2 ** 21);
+  const r = sens - q * 2 ** 21;
+  return d1 * q + Math.floor((d1 * r) / 2 ** 21);
 }
 
 /**
