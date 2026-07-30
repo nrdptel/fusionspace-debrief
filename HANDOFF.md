@@ -244,11 +244,32 @@ on its own TeleMega. Measuring it refuted the milestone's own note twice:
 
 ### The next increment
 
-**The composite surface: one timeline whose events read in order across staging.** The blocker is
-named: `EventType` (`lib/analyze/types.ts`) has no separation or second-ignition member, which is
-why both boards currently call the FIRST-stage burn "burnout" — useless for telling a staging
-story. Adding those members is the next thing, and it touches the analyzer, so it gets its own
-gate, its own corpus run and its own push.
+**The composite surface: one timeline whose events read in order across staging, each mark naming
+the recording it came from.** Two things were measured before designing it, and both are now corpus
+tests (`what a composite may claim`). **Read them before you design anything, because they cut two
+obvious features.**
+
+1. **Do NOT add `separation` or a second-ignition member to `EventType`. The corpus cannot ground
+   one.** Counting sustained axial thrust runs (>20 m/s², ≥0.15 s) over whole records: the Kairos
+   booster holds ONE burn and the Kairos sustainer holds ONE — the sustainer's log opens after
+   separation, so it never recorded the booster's burn. The SG1.2 sustainer holds three runs
+   (1.67 / 2.23 / 0.47 s), which are one boost with dropouts. Across every device-accel record:
+   one run on 21 files, **two runs on three files, all ordinary SINGLE-stage flights**, three on
+   the one staged record. Nothing separates them. On baro traces it is worse than useless — a
+   StratoLogger shows a 174-second "thrust run". The corpus test goes RED if a record with two
+   genuinely separable burns ever arrives, which is your signal that this has changed.
+2. **Composite times are good to about a second, not a tenth.** The two Kairos boards were in ONE
+   airframe over the first-stage burn and still disagree once aligned: best extra shift **0.56 s**
+   on altitude (RMS 11.0 m vs 133.6 unshifted), **0.74 s** on velocity. At t+3 s they read 333 m
+   and 487 m. So the surface may order two events seconds apart and must not print a composite time
+   to a tenth. It also rules out overlaying the two altitude traces as though they agreed.
+
+**A design for the surface exists and was adversarially reviewed** — a `/stitch?ids=…` page taking
+the flyer to a lane-per-recording event table, the stage statement as a LABEL rather than a gate
+(the alignment never reads it: stating `[1,2]` or `[2,1]` on Kairos gives identical offsets), and
+no merged reading of any kind. It was not started because the two measurements above landed first
+and a Sev-1 preempted the slice. Treat it as a starting point, not a spec, and re-derive anything
+load-bearing: **two of its numbers did not survive being reproduced.**
 
 Two traps waiting there:
 

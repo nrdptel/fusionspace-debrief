@@ -420,6 +420,30 @@ flyer's statement, not a measurement**, and the next increment is what makes tha
 flyer say which recording is the first stage — the same shape as D1's crop and D3's grouping,
 where the flyer states what the data cannot.
 
+**Two more measurements were taken before that surface is designed, and both bound what it may
+say.** Pinned by `what a composite may claim` (`lib/parsers/corpus.test.ts`).
+
+- **The offsets are good to about a second, not a tenth.** Over the first-stage burn the two
+  Kairos boards were bolted into ONE airframe, so they measured the same motion — and lined up on
+  their own liftoffs they still disagree. The extra shift that minimises it is **0.56 s** on
+  altitude (RMS 11.0 m, against 133.6 m unshifted) and **0.74 s** on velocity (13.5 against 52.6).
+  Plainly: at t+3 s the two records read **333 m and 487 m**. A composite may order events that
+  are seconds apart; it must not print a composite time to a tenth as though that meant anything.
+- **No mark on any of these records is a staging event, and none can be.** Counting sustained
+  axial thrust runs (>20 m/s², ≥0.15 s) over whole records, the staged files do not stand out.
+  The Kairos booster holds **one** burn (0.17–5.19 s) and the Kairos sustainer **one**
+  (307.67–312.29 s) — its log opens after separation, so it never saw the booster's burn at all.
+  The SG1.2 sustainer holds three runs of 1.67 / 2.23 / 0.47 s, which are fragments of one boost
+  rather than two burns. Across every device-accelerometer record: one run on 21 files, **two runs
+  on three files, every one of them an ordinary SINGLE-stage flight** (`iss-endurance`, `meraki2`,
+  `asteria-lyrid`), three on the one staged record. A "two burns means staging" rule fires on three
+  single-stage flights and still does not pick out the staged one. On baro-derived traces it is
+  hopeless — five and nine "runs" on the SG1.2 files, and a **174-second** one on a StratoLogger.
+  **So `EventType` cannot gain a grounded `separation` or second-ignition member from this corpus**,
+  and the composite must say which recording a mark came from and nothing more. The corpus test is
+  written so that a record holding two genuinely separable burns turns it RED — which is the signal
+  that staging detection has become possible.
+
 **There is deliberately no fallback.** A stage that missed the launch could be placed by assuming
 a staging delay or by correlating the traces; both produce a composite that reads exactly like a
 measured one. Where the evidence is not there, the answer is that Debrief cannot do it.
