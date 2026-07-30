@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
-import { altosEepromParser, scaleBy2e21 } from './altosEeprom';
+import { altosEepromParser, ms5607, scaleBy2e21, type Ms5607 } from './altosEeprom';
 import { ParseGuidanceError } from './types';
 import { parseTable } from '../csv';
 import { getChannel, type RawFlight } from '../flight/types';
@@ -45,6 +45,23 @@ const PAIRS: Pair[] = [
 ];
 
 const have = (p: Pair) => existsSync(CORPUS + p.eeprom) && existsSync(CORPUS + p.csv);
+
+/**
+ * The one pair a test needs, or a failure that says which is missing.
+ *
+ * `if (!p) return` is what this replaces, and it printed as a PASS: the two heaviest asserts
+ * in this file — the exact arithmetic against BigInt and the whole GPS track — would have
+ * reported green on a machine whose corpus had a file missing or renamed. The suite is
+ * skipped WHOLESALE when there is no corpus at all (`describe.skipIf`), which is the honest
+ * answer to "you have not fetched the fixtures"; a corpus that is present but incomplete is a
+ * different thing and has to be loud.
+ */
+function pair(startsWith: string): Pair {
+  const p = PAIRS.find((x) => x.what.startsWith(startsWith));
+  if (!p) throw new Error(`no ${startsWith} pair is declared in PAIRS`);
+  if (!have(p)) throw new Error(`the corpus is present but ${startsWith} is not: ${p.eeprom}`);
+  return p;
+}
 const text = (f: string) => decodeBytes(new Uint8Array(readFileSync(CORPUS + f)));
 
 function readEeprom(p: Pair): RawFlight {
@@ -71,6 +88,114 @@ function altosUi(p: Pair, column: string): Map<number, number> {
 }
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
+
+// Not corpus-gated: the arithmetic on its own, and it has to hold on every board.
+describe('the MS5607 cold-weather correction, which no corpus flight reaches', () => {
+  // A real board's coefficients — the EasyMega's, so the numbers are in the range this
+  // arithmetic actually sees rather than a range invented for a test.
+  const cal: Ms5607 = { off: 38754, sens: 44450, tco: 24691, tcs: 27141, tref: 32107, tempsens: 27482 };
+  const D1 = 5_956_020;
+  /** A second raw conversion roughly at `c` °C. Only rough on purpose: below 20 °C the
+   *  compensation itself pulls the temperature down, so asking for a temperature and getting
+   *  it back exactly would mean the correction was not running. What the tests below use is
+   *  the temperature this ACHIEVES, read back out. */
+  const d2Near = (c: number) => Math.round(cal.tref * 256 + ((c * 100 - 2000) * 2 ** 23) / cal.tempsens);
+
+  /** The exact raw conversion at which the compensated temperature first drops below 20 °C. */
+  function boundary(): number {
+    let warm = d2Near(30);
+    let cold = d2Near(0);
+    while (warm - cold > 1) {
+      const mid = Math.floor((warm + cold) / 2);
+      if (ms5607(cal, D1, mid).c >= 20) warm = mid;
+      else cold = mid;
+    }
+    return warm;
+  }
+
+  it('reaches the cold branch at all, which the corpus never does', () => {
+    expect(ms5607(cal, D1, d2Near(30)).c, 'the warm end').toBeGreaterThan(20);
+    expect(ms5607(cal, D1, d2Near(-40)).c, 'the cold end').toBeLessThan(-15);
+  });
+
+  it('crosses into the branch exactly where it says it does', () => {
+    const edge = boundary();
+    expect(ms5607(cal, D1, edge).c, 'the boundary really is 20 °C').toBeGreaterThanOrEqual(20);
+    expect(ms5607(cal, D1, edge - 1).c, 'and one raw count colder is past it').toBeLessThan(20);
+  });
+
+  /**
+   * A second transcription of the conversion, written from the reference implementation rather
+   * than from the shipped code — every division an ARITHMETIC SHIFT, which floors, and not a
+   * truncation toward zero. The two agree for a board warmer than its calibration reference,
+   * which is every reading in the corpus, and disagree by one count below it; the first draft
+   * of this reference used truncation and the disagreement is how that was caught.
+   *
+   * BE CLEAR ABOUT WHAT IT IS WORTH. Both readings are mine, so a misreading of the page passes
+   * here twice. What it catches is a slip in the shipped one — a wrong power of two, a dropped
+   * sign, a boundary off by one. An earlier attempt at this test checked only that the
+   * correction is continuous at the boundary, and caught NONE of those: every term vanishes at
+   * the boundary whatever its coefficient, so all three mutations sailed through. Measured, not
+   * assumed.
+   */
+  const reference = (c: Ms5607, d1: number, d2: number) => {
+    const shift = (v: number, n: number) => Math.floor(v / 2 ** n);
+    const dT = d2 - c.tref * 256;
+    let temp = 2000 + shift(dT * c.tempsens, 23);
+    let off = c.ms5611 ? c.off * 2 ** 16 + shift(c.tco * dT, 7) : c.off * 2 ** 17 + shift(c.tco * dT, 6);
+    let sens = c.ms5611 ? c.sens * 2 ** 15 + shift(c.tcs * dT, 8) : c.sens * 2 ** 16 + shift(c.tcs * dT, 7);
+    if (temp < 2000) {
+      const t2 = shift(dT * dT, 31);
+      const low = temp - 2000;
+      let offLow = shift(61 * low * low, 4);
+      let sensLow = 2 * low * low;
+      if (temp < -1500) {
+        const veryLow = temp + 1500;
+        offLow += 15 * veryLow * veryLow;
+        sensLow += 8 * veryLow * veryLow;
+      }
+      temp -= t2;
+      off -= offLow;
+      sens -= sensLow;
+    }
+    return { pa: shift(shift(d1 * sens, 21) - off, 15), c: temp / 100 };
+  };
+
+  it('matches that transcription across both boundaries, on an MS5607 and on an MS5611', () => {
+    // The 5611 half is here for the same reason as the cold half: AltOS switches two scalings
+    // on a flag in the same calibration block, no corpus board sets it, and a 5611 decoded as a
+    // 5607 reads about twice the pressure it should.
+    for (const part of [cal, { ...cal, ms5611: true }]) {
+      let checked = 0;
+      for (let c = 40; c >= -45; c -= 0.5) {
+        const d2 = d2Near(c);
+        const want = reference(part, D1, d2);
+        const got = ms5607(part, D1, d2);
+        expect(got.pa, `${part.ms5611 ? 'MS5611' : 'MS5607'} pressure at raw ${d2} (${got.c.toFixed(1)} °C)`).toBe(want.pa);
+        expect(got.c, `temperature at raw ${d2}`).toBe(want.c);
+        checked++;
+      }
+      expect(checked, 'readings swept across both boundaries').toBeGreaterThan(150);
+    }
+  });
+
+  it('reads an MS5611 board differently from an MS5607 one, as AltOS does', () => {
+    // Not a distinction without a difference: the same raw conversions off the two parts are
+    // a whole atmosphere apart, so ignoring the flag is a wrong number and not a rounding.
+    const asIs = ms5607(cal, D1, d2Near(25)).pa;
+    const as5611 = ms5607({ ...cal, ms5611: true }, D1, d2Near(25)).pa;
+    expect(Math.abs(asIs - as5611), `${asIs} Pa as a 5607 vs ${as5611} Pa as a 5611`).toBeGreaterThan(40_000);
+  });
+
+  it('grows monotonically the colder it gets, and is a real correction rather than rounding', () => {
+    const readings = [20, 10, 0, -15, -30, -40].map((c) => ms5607(cal, D1, d2Near(c)));
+    for (let i = 1; i < readings.length; i++) {
+      expect(readings[i].c, `step ${i} is not colder than the one before`).toBeLessThan(readings[i - 1].c);
+      expect(readings[i].pa, `pressure at step ${i} is not below the one before`).toBeLessThan(readings[i - 1].pa);
+    }
+    expect(Math.abs(readings[readings.length - 1].pa - readings[0].pa), 'the whole sweep moves the reading').toBeGreaterThan(100);
+  });
+});
 
 // Not corpus-gated: this is the arithmetic on its own, and it has to hold on every board.
 describe('the MS5607 scaling step, past where a double stops counting', () => {
@@ -136,6 +261,42 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
     });
   }
 
+  for (const p of PAIRS.filter(have)) {
+    it(`${p.what}: the acceleration and temperature match the AltosUI export too`, () => {
+      // The pressure was checked sample for sample from the start and these two were not, so
+      // a temperature off by a factor of ten or an acceleration biased by a g would have
+      // shipped green — the corpus only holds peak acceleration, to 6%, and nothing at all
+      // for temperature. Both come off completely different bytes from the pressure: the
+      // accelerometer from its own field and the board's two-point calibration, the
+      // temperature from the OTHER half of the MS5607 conversion pair.
+      const flight = readEeprom(p);
+      for (const [kind, column, digits] of [
+        ['accelAxial', 'acceleration', 2],
+        ['temperature', 'temperature', 1],
+      ] as const) {
+        const ch = getChannel(flight, kind);
+        // The TeleMetrum v1 log carries no temperature; everything else must be there.
+        if (!ch) {
+          expect(kind === 'temperature' && p.what.startsWith('TeleMetrum'), `${p.what}: ${kind} is missing`).toBe(true);
+          continue;
+        }
+        const truth = altosUi(p, column);
+        let worst = 0;
+        let compared = 0;
+        for (let i = 0; i < flight.time.length; i++) {
+          const want = truth.get(round2(flight.time[i]));
+          if (want === undefined) continue;
+          worst = Math.max(worst, Math.abs(want - ch.values[i]));
+          compared++;
+        }
+        expect(compared, `${p.what}: ${kind} samples with an AltosUI row`).toBe(flight.time.length);
+        // AltosUI prints acceleration to two decimals and temperature to one, so half of the
+        // last digit it printed is the whole allowance — this is agreement, not a tolerance.
+        expect(worst, `${p.what}: worst ${kind} disagreement over ${compared} samples`).toBeLessThanOrEqual(0.5 * 10 ** -digits + 1e-9);
+      }
+    });
+  }
+
   it('reads the flight’s length and its apogee the same as the AltosUI export', () => {
     for (const p of PAIRS.filter(have)) {
       const raw = analyzeFlight(readEeprom(p));
@@ -153,8 +314,7 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
   });
 
   it('carries the GPS track off the raw download, at the rate the receiver actually reported', () => {
-    const p = PAIRS.filter(have).find((x) => x.what.startsWith('TeleMega'));
-    if (!p) return;
+    const p = pair('TeleMega');
     const flight = readEeprom(p);
     const lat = getChannel(flight, 'latitude');
     const lon = getChannel(flight, 'longitude');
@@ -200,8 +360,7 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
   });
 
   it('refuses a log format it has never been shown, by number, instead of decoding it anyway', () => {
-    const p = PAIRS.filter(have)[0];
-    if (!p) return;
+    const p = pair('TeleMetrum');
     // The same file with one number changed. Misreading a record layout does not fail
     // loudly — it produces a plausible flight out of misaligned bytes — so an unknown
     // format has to be refused rather than attempted.
@@ -212,8 +371,7 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
   });
 
   it('refuses a 32-byte format whose pressure disagrees with the ground pressure the file states', () => {
-    const p = PAIRS.filter(have).find((x) => x.what.startsWith('EasyMega'));
-    if (!p) return;
+    const p = pair('EasyMega');
     // The cross-check that lets this parser read a log format the corpus does not contain:
     // decode with the wrong barometer coefficients and the result no longer agrees with a
     // figure the board wrote about itself, so nothing is handed back.
@@ -229,8 +387,7 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
     // being able to hold consecutive integers. It floored to the right value anyway on all
     // 6,820 of them, which is luck rather than a property. This holds the split-multiply that
     // replaced it against the exact answer, computed with BigInt.
-    const p = PAIRS.filter(have).find((x) => x.what.startsWith('TeleMega'));
-    if (!p) return;
+    const p = pair('TeleMega');
     const flight = readEeprom(p);
     const pressure = getChannel(flight, 'pressure')!;
 
@@ -275,8 +432,7 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
   });
 
   it('opens a download that has been through an editor that rewrote its line endings', () => {
-    const p = PAIRS.filter(have)[0];
-    if (!p) return;
+    const p = pair('TeleMetrum');
     const crlf = text(p.eeprom).replace(/\n/g, '\r\n');
     const r = importFlight({ name: 'windows.eeprom', text: crlf, bytes: new TextEncoder().encode(crlf) });
     expect(r.kind, 'a CRLF .eeprom still reads as a flight').toBe('flight');
@@ -307,6 +463,24 @@ describe.skipIf(!PAIRS.some(have))('Altus Metrum raw .eeprom download', () => {
       expect(moved.notes.join(' '), `${p.what}: and the report says why`).toMatch(/don’t agree with the resting reading/);
       // The barometer is untouched by any of that — this withholds one channel, not the flight.
       expect(getChannel(moved, 'pressure')!.values[0]).toBe(getChannel(straight, 'pressure')!.values[0]);
+    }
+  });
+
+  it('names the board’s own flight states, in the order it flew them', () => {
+    // These words are printed verbatim into a note the flyer reads, and they are an index into
+    // a list — so the whole list can be shifted by one and every other assert here still passes,
+    // while the report says a rocket went "coast → main → landed" through its drogue. Pinned
+    // against the two downloads that carry state records, on what the flight actually did.
+    const expected: Record<string, string> = {
+      'TeleMega v6': 'boost → fast → coast → drogue → main → landed',
+      'EasyMega v2': 'boost → coast → drogue → main → landed',
+    };
+    for (const p of PAIRS.filter(have)) {
+      const want = expected[p.what];
+      if (!want) continue;
+      const note = readEeprom(p).notes.find((n) => n.includes('flight states'));
+      expect(note, `${p.what}: the states note`).toBeTruthy();
+      expect(note, `${p.what}`).toContain(want);
     }
   });
 

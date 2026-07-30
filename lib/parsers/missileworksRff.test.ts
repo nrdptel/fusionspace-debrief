@@ -160,6 +160,25 @@ describe.skipIf(!existsSync(CORPUS + RFF))('MissileWorks RRC3 raw .rff download'
   });
 
   it('does not claim a file that merely happens to be binary', () => {
+    // Three separate reasons to say no, each reached in turn — the earlier version of this test
+    // handed over 200 zero bytes, which fails on the stream header and never reached the part
+    // that actually identifies the file.
+    const rff = bytes();
+    expect(missileworksRffParser.detect({ name: 'x.rff', text: '', bytes: rff }), 'the real thing').toBe(0.98);
+
+    // 1. A .NET stream that holds something else entirely: header intact, name absent.
+    const noName = rff.slice(0, 4096);
+    for (let i = 0; i + 5 <= noName.length; i++) {
+      if (String.fromCharCode(noName[i], noName[i + 1], noName[i + 2], noName[i + 3], noName[i + 4]) === 'mDACS') noName[i] = 0x41;
+    }
+    expect(missileworksRffParser.detect({ name: 'x.rff', text: '', bytes: noName }), 'no mDACS class name').toBe(0);
+
+    // 2. The name present but the stream header wrong — a file that merely quotes it.
+    const noHeader = rff.slice();
+    noHeader[9] = 0x09;
+    expect(missileworksRffParser.detect({ name: 'x.rff', text: '', bytes: noHeader }), 'wrong stream version').toBe(0);
+
+    // 3. Things that are not it at all.
     expect(missileworksRffParser.detect({ name: 'x.rff', text: '', bytes: new Uint8Array(200) })).toBe(0);
     expect(missileworksRffParser.detect({ name: 'x.csv', text: 'time,alt\n0,0\n', bytes: new TextEncoder().encode('time,alt\n0,0\n') })).toBe(0);
   });

@@ -66,13 +66,20 @@ const FORMAT_FULL = 1;
 const FORMAT_MEGA = new Set([10, 15, 16, 19, 21, 22]);
 
 /** MS5607 factory calibration, as the .eeprom header states it. */
-interface Ms5607 {
+export interface Ms5607 {
   off: number;
   sens: number;
   tco: number;
   tcs: number;
   tref: number;
   tempsens: number;
+  /** TRUE where the board carries an MS5611 rather than an MS5607. The two parts share a
+   *  calibration block and a formula and differ in the scaling of two terms — the 5611's
+   *  offset and sensitivity are one binary place smaller. AltOS writes the flag into the same
+   *  block and switches on it, so this does too. Neither corpus board sets it, which is
+   *  exactly why it has to be read from the file rather than assumed: a 5611 decoded as a
+   *  5607 gives a pressure roughly twice what it should be, and nothing here would see it. */
+  ms5611?: boolean;
 }
 
 interface EepromHeader {
@@ -169,14 +176,28 @@ const i32 = (b: Uint8Array, at: number) => (b[at] | (b[at + 1] << 8) | (b[at + 2
 /**
  * MS5607 pressure and temperature from the two raw conversions, using the coefficients the
  * board's own header carries. Straight out of the datasheet, including the second-order
- * temperature compensation below 20 °C — which matters, because a rocket above 10 km is
- * well below it. Pressure comes out in Pa, temperature in °C.
+ * temperature compensation below 20 °C — which matters, because a rocket above 10 km is well
+ * below it. Pressure comes out in Pa, temperature in °C.
+ *
+ * **The cold branch is not exercised by any corpus flight, and neither is the MS5611 one.**
+ * Both 32-byte downloads stay above 20 °C for their whole record and both carry an MS5607, so
+ * the sample-for-sample check against AltosUI enters neither. `altosEeprom.test.ts` drives both
+ * and holds them against a second transcription of the same datasheet block — which catches a
+ * slip in this one and NOT a misreading of the page, since both readings are mine. Get a
+ * fixture from a high flight, or from a board with a 5611, and replace that with a real
+ * comparison. Until then `groundPressureAgrees` is the backstop: a board decoded with the
+ * wrong scaling disagrees with its own stated ground pressure and is refused, not read.
  */
-function ms5607(cal: Ms5607, d1: number, d2: number): { pa: number; c: number } {
+export function ms5607(cal: Ms5607, d1: number, d2: number): { pa: number; c: number } {
   const dT = d2 - cal.tref * 256;
   let temp = 2000 + Math.floor((dT * cal.tempsens) / 2 ** 23);
-  let off = cal.off * 2 ** 17 + Math.floor((cal.tco * dT) / 2 ** 6);
-  let sens = cal.sens * 2 ** 16 + Math.floor((cal.tcs * dT) / 2 ** 7);
+  // Every division here FLOORS rather than truncating toward zero. The two agree for a board
+  // warmer than its calibration reference, which is every reading in the corpus, and disagree
+  // by one count below it — so this is settled by the reference implementation rather than by
+  // the fixtures: AltOS does all of it with arithmetic shifts on a signed long.
+  const half = cal.ms5611 === true;
+  let off = half ? cal.off * 2 ** 16 + Math.floor((cal.tco * dT) / 2 ** 7) : cal.off * 2 ** 17 + Math.floor((cal.tco * dT) / 2 ** 6);
+  let sens = half ? cal.sens * 2 ** 15 + Math.floor((cal.tcs * dT) / 2 ** 8) : cal.sens * 2 ** 16 + Math.floor((cal.tcs * dT) / 2 ** 7);
   if (temp < 2000) {
     const d = temp - 2000;
     let off2 = Math.floor((61 * d * d) / 16);
@@ -396,7 +417,9 @@ function megaCalibration(header: EepromHeader): Ms5607 | null {
     // a plain finite check and produce pressures in the billions.
     if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0 || v >= 0x7fffffff) return null;
   }
-  return c as Ms5607;
+  // …and the part number, which is a boolean beside the six coefficients rather than one of
+  // them. Absent or anything but `true` means an MS5607, which is what every corpus board is.
+  return { ...(c as Ms5607), ms5611: c.ms5611 === true };
 }
 
 /**

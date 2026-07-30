@@ -330,6 +330,23 @@ describe('a binary download off a card is named, not called "not a flight log"',
     expect(importFlight({ name: 'notes.txt', bytes: utf16 }).kind).toBe('mapping');
   });
 
+  it('needs BOTH halves of its rule — NUL-heavy bytes, and a decode that lost something', () => {
+    // Either half alone is not enough, and each is here because a real file trips exactly one.
+    // Without the NUL count, a text file carrying one bad byte reads as a binary download;
+    // without the lossy-decode count, a UTF-16 export does. Delete either clause and one of
+    // these two cases starts failing, which is what stops the rule quietly becoming half a rule.
+    const lossyNoNuls = new Uint8Array(4096);
+    for (let i = 0; i < lossyNoNuls.length; i++) lossyNoNuls[i] = 0x80 + (i % 0x40); // invalid UTF-8, no NULs
+    expect(new TextDecoder().decode(lossyNoNuls), 'the decode really is lossy').toContain('\uFFFD');
+    expect(lossyNoNuls.includes(0), 'and there really are no NULs').toBe(false);
+    expect(importFlight({ name: 'odd.txt', bytes: lossyNoNuls }).kind, 'lossy but not NUL-heavy').toBe('mapping');
+
+    const nulsNoLoss = new Uint8Array(4096);
+    for (let i = 0; i < nulsNoLoss.length; i += 2) nulsNoLoss[i] = 0x41; // UTF-16LE 'A's: half NULs, decodes clean
+    expect(new TextDecoder('utf-16le').decode(nulsNoLoss), 'the decode really is clean').not.toContain('\uFFFD');
+    expect(importFlight({ name: 'notes.txt', bytes: nulsNoLoss }).kind, 'NUL-heavy but not lossy').toBe('mapping');
+  });
+
   it('leaves a binary file alone when the mapper can still find columns in it', () => {
     const csv = 'time,altitude\n0,0\n1,10\n2,40\n3,90\n';
     const b = new Uint8Array(csv.length + 400);
