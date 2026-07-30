@@ -64,6 +64,15 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **The report's recording strip pops in after the report has rendered.** `savedId` arrives
+  asynchronously — `openRecent` fires `saveRecent` un-awaited and folds the id into state when it
+  resolves (`components/Analyzer.tsx`) — and the strip is keyed on it, so a two-altimeter flight's
+  report paints, then grows a 99–203 px band above the readings a beat later and everything below
+  it moves. Measured on the built export of `2396eb1`: absent immediately after the report heading
+  appears, present at both 390 px (358×203) and 1280 px (1232×99) within 2.5 s. Not wrong, just
+  late; the fix is to carry the id into the report state rather than after it. Worth knowing that
+  this also makes any test that checks the strip immediately after the heading a flake.
+
 - **The spread between a flight's recordings is not on its logbook row.** A grouped flight shows
   each recording's apogee and top speed side by side, so a flyer can work the gap out by eye; the
   figure itself — "apogee within 0.03%" — is already computed by `crossCheck` (`lib/compare.ts`)
