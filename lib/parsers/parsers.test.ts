@@ -284,3 +284,44 @@ describe('a parser is handed the file, not just its text', () => {
     expect(seen[1].text).toBe('time');
   });
 });
+
+// A raw download that no parser can read is told what it is — not told it isn't a flight.
+describe('a binary download off a card is named, not called "not a flight log"', () => {
+  /** A NUL-heavy blob that decodes to mojibake: what a flash dump actually looks like. */
+  function blob(n: number, seed: number[] = []): Uint8Array {
+    const b = new Uint8Array(n);
+    for (let i = 0; i < n; i++) b[i] = i % 7 === 0 ? 0 : 0x80 + (i % 0x40);
+    b.set(seed, 0);
+    return b;
+  }
+
+  it('names an Entacore AIM XTRA raw flight file by its container', () => {
+    const b = blob(4096);
+    b.set(new TextEncoder().encode('serialization::archive'), 4);
+    expect(() => importFlight({ name: 'skys_limit.xtra', bytes: b })).toThrow(/Entacore AIM XTRA raw flight file/);
+    // …and says which raw downloads it CAN read, so the flyer knows where the line is.
+    expect(() => importFlight({ name: 'skys_limit.xtra', bytes: b })).toThrow(/\.eeprom and a MissileWorks RRC3 \.rff/);
+  });
+
+  it('says something true about a binary download it cannot name at all', () => {
+    expect(() => importFlight({ name: 'FLIGHT01.DAT', bytes: blob(4096) })).toThrow(/binary download off a device/);
+  });
+
+  it('leaves a text export alone, including a NUL-heavy UTF-16 one', () => {
+    // UTF-16 is half NUL bytes. It is still text, it still decodes cleanly, and it still
+    // belongs in the column mapper — this is the case the NUL count alone would get wrong.
+    const utf16 = new Uint8Array(2 * 200);
+    const line = 'Notes about this flight, written by hand, no numbers at all.\n'.repeat(6);
+    for (let i = 0; i < Math.min(line.length, 200); i++) utf16[i * 2] = line.charCodeAt(i);
+    expect(importFlight({ name: 'notes.txt', bytes: utf16 }).kind).toBe('mapping');
+  });
+
+  it('leaves a binary file alone when the mapper can still find columns in it', () => {
+    const csv = 'time,altitude\n0,0\n1,10\n2,40\n3,90\n';
+    const b = new Uint8Array(csv.length + 400);
+    b.set(new TextEncoder().encode(csv), 0);
+    // …trailing NULs and high bytes, as a truncated download off a card would have.
+    for (let i = csv.length; i < b.length; i++) b[i] = i % 5 === 0 ? 0 : 0xc0;
+    expect(importFlight({ name: 'half.csv', bytes: b }).kind).toBe('mapping');
+  });
+});

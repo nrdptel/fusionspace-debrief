@@ -38,6 +38,30 @@
       "note": "Raw download, log format 22 (TeleMega v6), and the one whose tick counter rolls over mid-flight. Same ground truth and tolerances as the paired CSV export."
     },
     {
+      "file": "entacore-aim/entacore-aim__utsa-sac2024__skys_limit.xtra",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "an Entacore AIM XTRA raw flight file"
+      },
+      "note": "Still unread — the .xtra is a Boost serialization archive of a C++ object graph and the corpus has no per-sample ground truth for it, only a screenshot, so a decoder for it could not be checked. What changed is the answer: it was kind:mapping, and a file the mapper finds no columns in is reported to the flyer as 'no data rows in this file — is it a flight log export?', which is false. It IS a flight log. Now it is named."
+    },
+    {
+      "file": "entacore-aim/entacore-aim__utsa-sac2024__skys_limit_from_raw.xtra",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "an Entacore AIM XTRA raw flight file"
+      },
+      "note": "As above — the same flight, re-extracted from the raw flash by the AIM XTRA software."
+    },
+    {
+      "file": "entacore-aim/entacore-aim__utsa-sac2024__06192024_skys_limitsacflight.bin",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "raw flash snapshot off an altimeter"
+      },
+      "note": "A raw flash snapshot: a tagged variable-length record stream with no vendor tag table available and no per-sample ground truth to check a guess against. Named rather than decoded, for the same reason as the .xtra beside it."
+    },
+    {
       "file": "blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm_summary_01-18-2026_10_48_41_.csv",
       "expect": {
         "kind": "reject",

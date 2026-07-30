@@ -7,7 +7,7 @@ import { ParseGuidanceError, type FileInput, type ParseInput, type Parser } from
 import type { RawFlight } from '../flight/types';
 import { decodeBytes } from '../encoding';
 import { parseTable } from '../csv';
-import { analyzeTable, type AnalyzedTable } from '../flight/columns';
+import { analyzeTable, hasMappableColumns, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
 import { altusMetrumParser } from './altusmetrum';
 import { altosEepromParser } from './altosEeprom';
@@ -21,6 +21,7 @@ import { altimeterCloudParser } from './altimeterCloud';
 import { missileworksRrc3Parser } from './missileworksRrc3';
 import { missileworksRffParser } from './missileworksRff';
 import { deviceSummaryParser } from './deviceSummary';
+import { refuseRawDownload } from './rawDownload';
 
 export type { FileInput, ParseInput, Parser } from './types';
 export { ParseGuidanceError } from './types';
@@ -132,5 +133,9 @@ export function importFlight(raw: FileInput, parsers: Parser[] = PARSERS): Impor
 
   const { rows } = parseTable(input.text);
   const table = analyzeTable(rows);
+  // Last: a raw download off a card that no parser above could read. It has no columns in
+  // it, so the mapper would tell the flyer their flight log isn't a flight log. Say what
+  // it actually is instead.
+  refuseRawDownload(input, hasMappableColumns(table));
   return { kind: 'mapping', table, suggested: suggestMapping(table) };
 }

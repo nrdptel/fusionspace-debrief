@@ -128,11 +128,12 @@ export default function ColumnMapper({
         <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
           <p>
             Debrief reads a logger&apos;s <strong className="font-medium">text export</strong> — CSV, TSV or
-            plain text — or an <strong className="font-medium">Excel spreadsheet</strong>. A raw binary
-            download straight off the device (an AltOS <span className="font-mono">.eeprom</span>, an
-            Entacore <span className="font-mono">.bin</span> or <span className="font-mono">.xtra</span>, an
-            RRC3 <span className="font-mono">.rff</span>) isn&apos;t one, and neither is a screenshot or a
-            PDF of a flight summary.
+            plain text — an <strong className="font-medium">Excel spreadsheet</strong>, and two{' '}
+            <strong className="font-medium">raw downloads straight off the card</strong>: an Altus Metrum{' '}
+            <span className="font-mono">.eeprom</span> and a MissileWorks RRC3{' '}
+            <span className="font-mono">.rff</span>. An Entacore{' '}
+            <span className="font-mono">.bin</span> or <span className="font-mono">.xtra</span> is not read
+            yet, and neither is a screenshot or a PDF of a flight summary.
           </p>
           <p className="mt-2">
             Open the file in your altimeter&apos;s own software and export or save-as CSV, then drop that

@@ -369,13 +369,15 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     const parseOnly = reads.filter((r) => r.reach === 'parse-only');
     const rejected = reads.filter((r) => r.reach === 'rejected');
     const summary = `${reads.length} fixtures: ${analysed} analysed, ${steppedAround.length} mapped-but-unanalysable (${steppedAround.join(', ')}), ${parseOnly.length} parse-only, ${rejected.length} rejected`;
-    // The stepped-around set is raw downloads off a card that the generic mapper reads no
-    // columns from. It was seven; the three AltOS .eeprom downloads and the RRC3 .rff are
-    // now read directly, which is what these two numbers are here to hold on to — a parser
-    // regression that dropped one back into the mapper would otherwise show up as a
-    // still-green suite.
+    // The stepped-around set WAS seven raw downloads off a card that the generic mapper
+    // read no columns from — files that reached the end of the pipeline and proved nothing
+    // about the analysis. It is now empty: four are read (three AltOS .eeprom downloads and
+    // the RRC3 .rff) and three are refused by name (the Entacore raw files, which Debrief
+    // cannot read and now says so instead of reporting them as not flight logs). Both
+    // numbers are held here, because a parser regression that put one back in the mapper
+    // would otherwise show up as a still-green suite.
     expect(analysed, summary).toBeGreaterThanOrEqual(41);
-    expect(steppedAround.length, summary).toBeLessThanOrEqual(3);
+    expect(steppedAround.length, summary).toBe(0);
   });
 });
 
