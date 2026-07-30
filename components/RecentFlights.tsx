@@ -7,7 +7,7 @@ import type { UnitChoice } from '@/lib/display';
 import { MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX } from '@/lib/recents';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
-import { groupRecordings, planGrouping, planJoin, planSeparation, type FlightGroup } from '@/lib/flightGroups';
+import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 
@@ -752,6 +752,22 @@ export default function RecentFlights({
                     </span>
                     Recorded {group.recordings.length} times — reported by{' '}
                     <span className="font-mono break-all">{r.name}</span>
+                    {/* How closely they agree, which is what a flyer flew two altimeters FOR —
+                        and the figure they otherwise work out by hand from the two rows. Per
+                        reading, never one number for the flight: on the corpus's four-altimeter
+                        flight the apogees agree to 0.027% and the derived top speeds to 6.70%,
+                        so a single figure would be a false reassurance or a false alarm
+                        depending which reading it happened to take. Never a consensus — the
+                        flight is still reported by the one recording the flyer nominated. */}
+                    {recordingSpread(group).map((sp) => (
+                      <span
+                        key={sp.label}
+                        className="shrink-0 font-normal text-zinc-400 dark:text-zinc-500"
+                        title={`The full range across ${sp.count === group.recordings.length ? 'all' : sp.count} of this flight's ${group.recordings.length} recordings, as a share of their mean. Each instrument's own reading is below; nothing is averaged.`}
+                      >
+                        · {sp.label} within {sp.pct < 0.05 ? '0.05' : sp.pct.toFixed(sp.pct < 1 ? 2 : 1)}%
+                      </span>
+                    ))}
                   </button>
                   {showing && (
                     <ul

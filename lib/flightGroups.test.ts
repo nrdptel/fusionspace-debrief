@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupRecordings, isGrouped, planGrouping, planJoin, planSeparation } from './flightGroups';
+import { groupRecordings, isGrouped, planGrouping, planJoin, planSeparation, recordingSpread } from './flightGroups';
 import type { RecentMeta } from './recents';
 
 const row = (id: string, over: Partial<RecentMeta> = {}): RecentMeta => ({
@@ -194,5 +194,50 @@ describe('planJoin', () => {
     const plan = planJoin(groups);
     expect(plan.map((c) => c.id).sort()).toEqual(['P', 'Q', 'R', 'S']);
     expect(new Set(plan.map((c) => c.flightId))).toEqual(new Set(['R']));
+  });
+});
+
+describe('recordingSpread', () => {
+  const four = ['1784', '1785', '1786', '1796'].map((id, i) =>
+    row(id, { flightId: '1784', apogeeM: [756.675, 756.544, 756.659, 756.745][i], maxVelocityMs: [164.83, 167.78, 156.91, 159.42][i] }),
+  );
+
+  it('reports the corpus’s four-altimeter flight the way it actually reads', () => {
+    // The number this exists for, and the reason it is per reading: four boards in one airframe
+    // agree on the apogee to 0.027% and disagree about the top speed by 6.70% — 250 times wider
+    // because one is measured off a barometer and the other differentiated out of it.
+    const out = recordingSpread(groupRecordings(four)[0]);
+    expect(out.map((s) => s.label)).toEqual(['apogee', 'top speed']);
+    expect(out[0].pct).toBeCloseTo(0.027, 2);
+    expect(out[1].pct).toBeCloseTo(6.70, 2);
+    expect(out.every((s) => s.count === 4)).toBe(true);
+  });
+
+  it('is zero — not absent — when two recordings agree exactly', () => {
+    // The .eeprom-beside-its-own-CSV case. Perfect agreement is a real and reassuring answer.
+    const pair = [row('a', { flightId: 'a', apogeeM: 2995.674 }), row('b', { flightId: 'a', apogeeM: 2995.674 })];
+    expect(recordingSpread(groupRecordings(pair)[0])[0]).toEqual({ label: 'apogee', pct: 0, count: 2 });
+  });
+
+  it('leaves a withheld reading out and says how many it had', () => {
+    // A withheld top speed is not a top speed of nought, and averaging it in would invent a
+    // disagreement out of a missing number.
+    const mixed = [
+      row('a', { flightId: 'a', apogeeM: 1000, maxVelocityMs: 200 }),
+      row('b', { flightId: 'a', apogeeM: 1010, maxVelocityMs: null }),
+      row('c', { flightId: 'a', apogeeM: 1005, maxVelocityMs: 202 }),
+    ];
+    const out = recordingSpread(groupRecordings(mixed)[0]);
+    expect(out.find((s) => s.label === 'apogee')).toEqual({ label: 'apogee', pct: expect.closeTo(0.997, 2), count: 3 });
+    expect(out.find((s) => s.label === 'top speed')!.count, 'two of three, and it says so').toBe(2);
+  });
+
+  it('says nothing at all about a flight recorded once', () => {
+    expect(recordingSpread(groupRecordings([row('solo')])[0])).toEqual([]);
+  });
+
+  it('drops a reading only one recording has, rather than calling it 0% agreement', () => {
+    const one = [row('a', { flightId: 'a', apogeeM: 1000, maxVelocityMs: 200 }), row('b', { flightId: 'a', apogeeM: 1000, maxVelocityMs: null })];
+    expect(recordingSpread(groupRecordings(one)[0]).map((s) => s.label)).toEqual(['apogee']);
   });
 });

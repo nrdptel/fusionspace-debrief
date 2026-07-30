@@ -1620,6 +1620,10 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
   await expect(flightRows).toHaveCount(2, { timeout: 10_000 });
   await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toBeVisible();
 
+  // How closely they agree, on the row — the figure a flyer flew two altimeters FOR, and the one
+  // they otherwise work out by hand from two rows. Per reading, never one number for the flight.
+  await expect(page.getByRole('button', { name: /^Recorded 2 times/ })).toContainText(/apogee within [0-9.]+%/);
+
   // Both recordings are still there, each with what IT read — no mean, no maximum.
   const recordings = page.getByRole('list', { name: /^Recordings of / });
   await expect(page.getByText('reports this flight')).toBeVisible();

@@ -118,13 +118,14 @@ wild, ideas too big for one pass. One line each, newest first.
   late; the fix is to carry the id into the report state rather than after it. Worth knowing that
   this also makes any test that checks the strip immediately after the heading a flake.
 
-- **The spread between a flight's recordings is not on its logbook row.** A grouped flight shows
-  each recording's apogee and top speed side by side, so a flyer can work the gap out by eye; the
-  figure itself — "apogee within 0.03%" — is already computed by `crossCheck` (`lib/compare.ts`)
-  for the comparison surface and is the number they actually want at a glance. Measured on the
-  corpus: `ac-lilnuke`'s four recordings agree to 0.03% on apogee and spread 6.7% on top speed, so
-  one "agreement" figure per flight would be a lie — it has to be per reading, or the worst of them
-  named.
+- **DONE (2026-07-30) — the spread between a flight's recordings is on its logbook row**, per
+  reading: *"apogee within 0.03% · top speed within 6.70%"*. Measured on the corpus first, which
+  is what settled the shape: `ac-lilnuke`'s four recordings agree to 0.027% on apogee and spread
+  6.70% on top speed — nearly 250 times apart — so one "agreement" figure per flight would have
+  been a false reassurance or a false alarm depending which reading it happened to take. Computed
+  from the stored readings rather than by re-analysing, so opening the list cannot move a number.
+  What is still missing is the same figure for the readings BELOW apogee and top speed (descent
+  rates, max-Q), which the logbook does not store and which would need the full analyses.
 - **A grouped flight has no one-click overlay of its own recordings.** Ticking them and pressing
   Compare works, which is two more steps than a surface that already knows they are one flight
   should charge. Blocked behind the `compareFromLogbook` crop bug below, because a comparison

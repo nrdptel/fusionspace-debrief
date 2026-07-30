@@ -146,3 +146,43 @@ export function planGrouping(ids: string[], primaryId: string): { id: string; fl
 export function planSeparation(group: FlightGroup): { id: string; flightId: null }[] {
   return group.recordings.map((r) => ({ id: r.id, flightId: null }));
 }
+
+/** How far apart a flight's recordings read, per reading. */
+export interface RecordingSpread {
+  label: string;
+  /** The full range across the recordings, as a percentage of their mean. */
+  pct: number;
+  /** How many recordings contributed — never all of them when one withheld the reading, and the
+   *  count is shown so a spread over two of four does not read as a spread over four. */
+  count: number;
+}
+
+/**
+ * How closely a flight's recordings agree, from the readings the logbook already holds.
+ *
+ * The number a redundant-altimeter flyer actually wants at a glance, and the one they otherwise
+ * work out by hand: two altimeters agreeing to a fraction of a percent is the confidence they
+ * flew two for, and a wide gap is the flag worth chasing. It is NOT a consensus — nothing here
+ * blends the readings, and the flight is still reported by the one recording the flyer nominated.
+ *
+ * PER READING, never one figure for the flight. Measured on the corpus's four-altimeter flight,
+ * the apogees agree to 0.027% while the derived top speeds spread 6.70% — nearly 250 times wider — so a
+ * single "these agree to within X" would be either a false reassurance or a false alarm depending
+ * on which reading it happened to take.
+ *
+ * Read off the stored figures rather than re-analysing, so opening this list cannot move a
+ * number: these are the same values the rows themselves paint. A reading a recording withheld is
+ * left out and the count says so, rather than being counted as a zero — a withheld apogee is not
+ * an apogee of nought.
+ */
+export function recordingSpread(group: FlightGroup): RecordingSpread[] {
+  const of = (label: string, get: (r: RecentMeta) => number | null | undefined): RecordingSpread | null => {
+    const vals = group.recordings.map(get).filter((v): v is number => v != null && Number.isFinite(v));
+    if (vals.length < 2) return null;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return { label, pct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length };
+  };
+  return [of('apogee', (r) => r.apogeeM), of('top speed', (r) => r.maxVelocityMs)].filter((s): s is RecordingSpread => s != null);
+}
