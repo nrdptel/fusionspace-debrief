@@ -217,12 +217,16 @@ to answer a review.
 
 ### Gate, at the last commit
 
-`UNIT=0 TSC=0 BUILD=0 E2E=0` — **62 unit files green**, typecheck clean, build clean, **222 e2e**.
+`UNIT=0 TSC=0 BUILD=0 E2E=0` — **61 unit files green, 855 tests**, typecheck clean, build clean,
+**222 e2e**. Run against a pristine `git archive` of the commit rather than the working tree,
+with `node_modules` and the corpus symlinked in — which is the only way to gate honestly while
+review agents are still running, and one of them had already left a mutation in a shipped parser
+by then.
 
-One thing to know before you read a number off the default reporter: its unit *test* count
-drifts by one or two between runs (835/836/837 here) while every file passes and the JSON
-reporter is stable at 826. Some suites build their cases from the corpus at run time. Quote
-the file count and the exit codes; a headline test count is not a stable figure in this repo.
+One thing to know before you read a number off the default reporter: its unit *test* count drifts
+by one or two between runs (835/836/837 observed on one tree) while every file passes and the
+JSON reporter stays put. Some suites build their cases from the corpus at run time. Quote the file
+count and the exit codes; a headline test count is not a stable figure in this repo.
 
 ## Environment notes
 
@@ -331,9 +335,11 @@ open Sev-1 as of this run.**
 ## The fixtures repo
 
 No commit there this run — the working tree is clean and the branch still sits on its previous run’s
-`4862db7`. Nothing changed a fixture’s contract: four fixtures changed what Debrief SAYS about them
+`4862db7`. Nothing changed a fixture’s contract: SEVEN fixtures changed what Debrief SAYS about them
 without changing what they are, and those contract updates live in `lib/parsers/corpus-overrides.json`
-in THIS repo, which is exactly what that file exists for. **Remove those four override entries once
+in THIS repo, which is exactly what that file exists for — three AltOS `.eeprom` downloads and an
+RRC3 `.rff` that went from `kind: mapping` to a read flight with pinned apogee, and three Entacore
+raw files that went from `mapping` to a named refusal. **Remove those seven override entries once
 `debrief-fixtures` is re-cut**, or the corpus’s own `expected.json` and the override will drift.
 
 The split, printed by the suite rather than inferred: **`61 fixtures: 41 analysed, 0
