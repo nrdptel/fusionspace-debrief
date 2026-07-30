@@ -255,6 +255,23 @@ Do these in order, before scoping increment 1. None is optional; most run concur
 
 3. **Establish where work lands** — measured, not assumed. See *How this ships*.
 
+   **And list the OPEN pull requests before you scope anything.** An earlier run's verified work can
+   sit open for days: nobody is reviewing, the branch it came from is gone from your container, and
+   nothing else in this list would ever mention it. Measured 2026-07-30: two were open here and two on
+   the sibling repo, the oldest from 2026-07-28, and **one carried an unmerged Sev-1 against this
+   repo** — `velocityImplausible` renamed to `velocityUnusable` so that a withheld peak speed is
+   withheld on *every* surface. `main` still carries the old one-reason flag in 24 places and the new
+   name in none, so the events table, the data CSV a flyer pastes into a cert document, and the
+   compare chart can each still publish a figure the headline refused. Under SHIPPED-MEANS-REACHABLE
+   that fix is not shipped, however green it was.
+
+   For each open pull request, decide and say which: **merge it** if it is still correct against
+   today's `main` and its checks pass; **rebase and re-gate** it if it has gone stale; **close it with
+   a reason** if a later change superseded it — check whether the fix already landed by another route
+   before assuming it did not. Two open pull requests here address the same withheld-speed defect;
+   read both diffs before merging either, and do it with the corpus attached so the claim can actually
+   be reproduced.
+
 4. **Make the corpus real.** It is gitignored and usually absent at session start: fetch it, or
    symlink a local fixtures checkout (see *This repo, concretely*). Then run the corpus suite and
    **confirm it names its fixture count**. This is the single easiest way to spend a whole session
