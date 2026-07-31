@@ -76,11 +76,19 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
    `lib/design-system.test.ts`. If that frame ever earns a primitive it is `Frame`, not a `Card` tone.
    What is genuinely left is three treatments that will never fold in (drop zone, drop overlay,
    frame) plus `Card` itself.
-3. **`DESIGN.md` §5's five required states, and the two primitives still at zero.** `Disclosure`
-   was closed this run (0 → 3). `Section` and `Segmented` remain at **zero**, and `EmptyState` /
-   `ErrorState` have one adopter each while §5 says "a surface with no empty state is not finished".
-   Note the empty-state hunt has already been run once and all five candidates were refuted — see
-   below — so start from §5's list of surfaces rather than from a grep for `return null`.
+3. **`Section` on the three docs routes — scoped, measured, and filed in `BACKLOG.md` ready to
+   execute.** They skip a heading level (`text-3xl` straight to `text-base`, no `text-xl`), which is
+   the measurable half of "these pages read as a different author's". `Section` implements the fix
+   and has **zero** adopters. It is not a one-line swap: the entry names the three obstacles — the
+   parent's `space-y-6` colliding with `Section`'s own `mt-8`, the doubled `mt-4`/`mt-2` gap, and the
+   `text-sm`-vs-`text-base` prose question that must be decided in the same pass. **Roughly 30–45
+   minutes done properly, both themes checked.** It was measured rather than executed at the end of
+   this run precisely because rushing three published pages is how the drift started.
+
+4. **`Segmented` is the other primitive still at zero**, and `EmptyState` / `ErrorState` have one
+   adopter each while §5 says "a surface with no empty state is not finished". Note the empty-state
+   hunt has already been run once and all five candidates were refuted — see below — so start from
+   §5's list of surfaces rather than from a grep for `return null`.
 
 ## The §9 counts at the end of this run
 

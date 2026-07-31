@@ -340,6 +340,32 @@ wild, ideas too big for one pass. One line each, newest first.
   18.3 s flight time for a 10,245 ft flight recorded further down this file. Fix, and pin with cases
   beyond 2x in both directions.
 
+- **The three docs routes skip a heading level, and `Section` exists to fix it but does not fit yet.**
+  Measured 2026-07-31. `/methods`, `/validation` and `/privacy` go `text-3xl` (the `<h1>`) straight to
+  `text-base` (every `<h2>`), skipping `text-xl` entirely — and `DESIGN.md` §3 gives `text-xl` to
+  "section heading" and `text-base` to "subsection heading, and prose in docs". These `<h2>`s are
+  direct siblings of the `<h1>`, so they are section headings sitting a level small. That is the
+  measurable half of why `BACKLOG` has long said these pages read as a different author's.
+
+  **`Section` (`components/ui.tsx`) implements exactly the right thing and has ZERO adopters**, so this
+  looks like a one-line swap. It is not, and the three obstacles are why it was filed rather than
+  rushed at the end of a run:
+
+  1. **Spacing collides.** The sections sit inside `<div className="mt-8 space-y-6 …">`, and `Section`
+     carries its own `mt-8 first:mt-0`. `space-y-*` and a sibling `mt-*` both set margin-top on the
+     same elements; the parent wrapper has to lose `space-y-6` in the same change, not just the
+     children gain a component.
+  2. **`Section` wraps children in `mt-4`**, where these sections' first `<p>` carries `mt-2`. One of
+     the two has to go or the gap doubles.
+  3. **The prose size is a separate question that will get conflated with this one.** The wrapper is
+     `text-sm`, while §3 says `text-base` is "prose in docs". Changing the headings without deciding
+     the body is how a page ends up with a rhythm that is half one system and half another. Decide
+     both, in one pass, and say which.
+
+  Worth doing — it closes a zero-adopter primitive and fixes a real rhythm break on three published
+  pages — but it is a deliberate pass over three public documents with both themes checked, not a
+  sweep.
+
 ## Correctness / honesty
 
 - **`e2e/compare.spec.ts` → "a file a batch drop could not read can be mapped into the comparison
