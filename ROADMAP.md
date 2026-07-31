@@ -677,8 +677,17 @@ Two of those three do not survive contact with the corpus.
   channel, all 253 pairs measured: same-group pairs run a median **0.51%** apart, cross-group pairs a
   median 63%. That looks separable until the tail: the **tightest agreement in the entire corpus,
   0.28%, is between two files that are NOT the same flight** — tighter than the median true pair.
-  **Five** cross-group pairs fall within 2.29%, D3's widest genuinely-redundant spread. A threshold
-  admitting every true pair admits more false ones than true.
+  **Five** cross-group pairs fall within **2.12%**, the widest spread of a genuinely-redundant pair
+  measured here. A threshold admitting every true pair admits more false ones than true.
+
+  *(That threshold was first written as 2.29%, borrowed from D3. It is 2.12% when measured the way
+  this test measures it — off the altitude channel's own maximum rather than the logbook's stored
+  apogee — and the count of five is unchanged either way. The test uses its own measurement rather
+  than a number copied from another section.)*
+
+  The tightest of the five is the one to remember: the **Kairos sustainer at 4,044 m** and an
+  unrelated **XPRS 2015 scratch rocket at 4,055 m** — different airframes, different continents,
+  nine years apart, agreeing to **0.28%**.
 
 The reason is not noise, it is physics: a flyer flying the same airframe on the same motor twice in
 a day gets two flights that agree to a fraction of a percent, because they *should*. Apogee
@@ -696,8 +705,8 @@ never opens one by itself.
 **Done when** a flyer dropping a folder holding two recordings of one flight is offered that
 grouping with its evidence stated, accepts it in one press, and gets exactly what D3's manual
 grouping gives them — while the corpus asserts that **no proposal is ever made across the five
-cross-group pairs that agree within 2.29%**, that the staged `iss-kairos` and `iss-sg1.2` pairs are
-never proposed, and that nothing is grouped without an explicit acceptance.
+cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `iss-kairos` and
+`iss-sg1.2` pairs are never proposed, and that nothing is grouped without an explicit acceptance.
 
 **Notes.**
 
@@ -711,9 +720,14 @@ never proposed, and that nothing is grouped without an explicit acceptance.
   above confirm it: the column conflates independent instruments, one recording exported twice, and
   different STAGES of one launch. `iss-sg1.2-20231118` is the negative case — a TeleMega sustainer at
   2,113 m beside two StratoLogger boosters at 465 m, all one `same_flight_group`.
-- **The first increment is to commit the measurement above as a test**, so the separability numbers
-  are pinned and re-measured as the corpus grows rather than re-derived by the next session. It was
-  taken with a throwaway probe this run; the probe is gone and only these numbers survive.
+- ~~**The first increment is to commit the measurement above as a test.**~~ **DONE 2026-07-31 —
+  `lib/parsers/d6Grouping.test.ts`.** Five assertions, and every one written to fail in the USEFUL
+  direction: a red there is not a regression in the app, it is the corpus changing under D6 in a way
+  that changes what D6 can do, and each assertion's message says which. Deliberately **not** a
+  threshold — `expect(spread).toBeLessThan(2.12)` would pin a number meaningless outside today's
+  fixtures. What is pinned is the SHAPE of the two distributions, whether they overlap, which is what
+  decides whether any threshold can exist. It also names the five confusable pairs as D6's standing
+  negatives: whatever rule D6 ships must refuse all five. Falsified by four mutations.
 - **`flightId` already carries the result.** D3's field means a proposal has nowhere new to write to
   — accepting one sets exactly what the manual path sets, so this milestone adds a way to *offer*
   and nothing to the data model.
@@ -735,7 +749,7 @@ test agree exactly, which is itself the check that the two have not drifted:
 |---|---|---|---|
 | `rounded-lg` | 22 | **0** | 0 — **a guard now**, may never rise |
 | off-scale spacing | 25 *(really 33)* | **0** | 0 — **a guard now** |
-| hand-rolled card treatments | 7 *(really 19)* | **12** | floor is 3, not 1 |
+| hand-rolled card treatments | 7 *(really 19)* | **10** | **floor is 4**, not 1 |
 | inverted-type files | 23 | **16** | **floor is at least 4, not 0** |
 | off-scale type sizes | 20 | **1** | floor is 1 — the shared brand wordmark |
 | files importing the primitives | 11 | **25** | most of the 46 |
@@ -866,7 +880,13 @@ Card treatments went UP by one and that is the conversion working: the seventh i
 string, and the other six fall away as surfaces adopt it. **Two of the six will not fold into `Card`
 and want their own named primitive** — the page-level drop zone (`border-dashed … p-10`, an
 interactive target rather than a container) and the floating drop overlay (`border-2 border-dashed …
-shadow-lg`, which needs elevation) — so the honest floor is 3, not 1.
+shadow-lg`, which needs elevation) — so the honest floor is 3, not 1. **Make that 4:** a third was
+identified 2026-07-31 by trying to convert it and finding it would regress. Five sites share a
+bordered treatment with NO background — `FlightCard`'s canvas, `ColumnMapper`'s and `SampleTable`'s
+scrolling tables, `GroundTrack`'s `<dl>` and its `Stat` tile — and the missing background is the
+point of them. `SampleTable`'s sticky header is `dark:bg-zinc-900`, exactly `Card`'s default dark
+fill, so converting would flatten the header band into the card on the `zinc-950` body. That is a
+FRAME, and if it ever earns a primitive it is `Frame`, not a `Card` tone.
 
 **Notes.** Debrief had **no shared primitive layer at all** — zero cross-component imports across 44
 components. The names and implementations are the sibling repo's, so the two apps converge rather than

@@ -47,7 +47,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card } from './ui';
+import { Button, Card, Disclosure } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -967,11 +967,7 @@ export default function FlightReport({
       {/* Optional caption the flyer adds to make the export their own — a rocket/motor
           label and free-text notes that ride into every text/Markdown/JSON export and
           the printed card. Tucked in a disclosure so it never clutters the common read. */}
-      <details className="rounded-md border border-zinc-200 bg-zinc-50/60 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/30 print:hidden">
-        <summary className="cursor-pointer select-none text-xs font-medium text-zinc-600 dark:text-zinc-300">
-          Label this report{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}
-        </summary>
-        <div className="mt-3 space-y-3">
+      <Disclosure summary={<>Label this report{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}</>} className="print:hidden">
           <div>
             <label htmlFor="report-label" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
               Label
@@ -1008,8 +1004,8 @@ export default function FlightReport({
                 ? ' Kept with this flight on this device, so it is still here when you come back to it.'
                 : ' Held for this view only — this browser wouldn’t let Debrief remember the flight, so save an export before you leave.'}
           </p>
-        </div>
-      </details>
+        
+      </Disclosure>
 
       {shareMsg && (
         <p role="status" aria-live="polite" className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -1052,11 +1048,7 @@ export default function FlightReport({
       <GpsApogee metrics={metrics} sys={sys} />
 
       {warnings.length > 0 && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
-        >
+        <Card tone="warn" role="status" aria-live="polite" className="text-sm">
           <h3 id="worth-knowing" className="mb-1 text-sm font-medium text-amber-900 dark:text-amber-100">
             Worth knowing
           </h3>
@@ -1065,7 +1057,7 @@ export default function FlightReport({
               <li key={i}>{w}</li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       {notes.length > 0 && (

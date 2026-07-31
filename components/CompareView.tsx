@@ -24,7 +24,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
-import { Button, Card } from './ui';
+import { Button, Card, Disclosure } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -667,11 +667,7 @@ export default function CompareView({
 
       {/* Optional caption for a redundant-altimeter or staged-flight write-up; rides into
           the exported bundle's Markdown and JSON. Tucked away so it never clutters the read. */}
-      <details className="rounded-md border border-zinc-200 bg-zinc-50/60 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
-        <summary className="cursor-pointer select-none text-xs font-medium text-zinc-600 dark:text-zinc-300">
-          Label this comparison{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}
-        </summary>
-        <div className="mt-3 space-y-3">
+      <Disclosure summary={<>Label this comparison{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}</>}>
           <div>
             <label htmlFor="compare-label" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
               Label
@@ -704,8 +700,8 @@ export default function CompareView({
             the next log of the day, comes back to the write-up you were making. Clearing the
             logbook takes it with the flights.
           </p>
-        </div>
-      </details>
+        
+      </Disclosure>
 
       {/* Cross-check: how closely the readings agree, as independent measurements. */}
       {(() => {

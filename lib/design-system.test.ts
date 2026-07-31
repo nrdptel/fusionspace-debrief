@@ -87,6 +87,24 @@ const BUDGET = {
    *  rather than a container) and the floating drop overlay (`border-2 border-dashed … shadow-lg`,
    *  which needs elevation) — so the honest floor here is 3 and not 1. Recorded in `ROADMAP.md`.
    *
+   *  **Make that 4. A third non-card treatment was identified 2026-07-31 by trying to convert it and
+   *  finding it would regress.** Five sites share `rounded-xl border border-zinc-200` with NO
+   *  background: `FlightCard`'s canvas, `ColumnMapper`'s and `SampleTable`'s scrolling tables,
+   *  `GroundTrack`'s divided `<dl>`, and its `Stat` tile. They are a FRAME — a bordered clip around
+   *  content that owns its own surface — and the missing background is the point of them, not an
+   *  omission.
+   *
+   *  The proof is `SampleTable`. Its sticky `<thead>` is `dark:bg-zinc-900`, and `Card`'s default
+   *  tone is `dark:bg-zinc-900` — the same value. Today the frame is transparent, so on the page's
+   *  `dark:bg-zinc-950` body that header reads as a distinct lighter band; put it on a `Card` and the
+   *  band and the card become one flat colour and the header stops being a header. `ColumnMapper`'s
+   *  is `dark:bg-zinc-900/40` over the same fill and flattens the same way, and `FlightCard`'s site
+   *  is a `<canvas>` that paints its own background, so a fill behind it is meaningless.
+   *
+   *  Left as they are, deliberately. Converting them would have moved this count from 10 to 8 and
+   *  quietly darkened two tables — which is the kind of trade this ratchet exists to prevent, not to
+   *  encourage. If the frame ever earns a primitive it is `Frame`, not a `Card` tone.
+   *
    *  **This number went UP, from 7 to 18, and then down to 13. Read this before assuming a
    *  regression, and before ever raising it again.** The rule above says never raise one, and that
    *  rule is intact: no hand-rolled card was added. This grep anchors on `rounded-xl border`, so it
@@ -115,8 +133,15 @@ const BUDGET = {
    *  their own box to size what they draw, so `Card` takes a `ref` now; without it they would have
    *  kept a hand-rolled `<div>` wrapped around the primitive, which is not a conversion. Their dark
    *  fill moves `zinc-900/40` → `zinc-900`, the sanctioned value: a fourth surface level is exactly
-   *  what §2's "three levels, no more" forbids. */
-  cardTreatments: 12,
+   *  what §2's "three levels, no more" forbids.
+   *
+   *  12 → 10 is the three alert callouts — the analyzer's read failure, the mapper's what-Debrief-
+   *  reads note, the report's "Worth knowing" — onto `Card`'s `warn` and `danger` tones. Each keeps
+   *  the live-region role it had (`role="alert"`, `role="status" aria-live="polite"`), which passes
+   *  through untouched: a screen reader following "Reading…" is the whole reason the analyzer's one
+   *  announces itself, and a silent conversion would have removed the announcement rather than the
+   *  hand-roll. */
+  cardTreatments: 10,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -200,7 +225,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 25,
+  uiAdopters: 27,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -214,7 +239,7 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 21,
+  Card: 23,
   Button: 10,
   Chip: 3,
   Readout: 2,
@@ -224,7 +249,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   ErrorState: 1,
   Section: 0,
   Segmented: 0,
-  Disclosure: 0,
+  Disclosure: 3,
 };
 
 /** `DESIGN.md` §3's six sizes, and nothing else. `text-[11px]` is the sixth and is matched by the

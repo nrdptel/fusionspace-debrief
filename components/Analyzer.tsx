@@ -44,6 +44,7 @@ import { decodeBytes } from '@/lib/encoding';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
+import { Card } from './ui';
 
 type State =
   | { phase: 'idle' }
@@ -756,12 +757,9 @@ export default function Analyzer() {
         // `alert`, not a bare div: this is the only account of what went wrong with a file, and
         // it replaces a status line a screen reader had been following ("Reading …"), so
         // arriving silently means the wait simply stops with nothing said.
-        <div
-          role="alert"
-          className="rounded-xl border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300"
-        >
+        <Card tone="danger" role="alert" className="text-sm">
           {state.message}
-        </div>
+        </Card>
       )}
       {state.phase !== 'loading' && <RecognizedFormats />}
       {state.phase !== 'loading' && (
