@@ -84,12 +84,12 @@ export default function ParachuteCd({
           <h3 id="parachute-cd-heading" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
             Parachute Cd (measured)
           </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             How your main actually performed, from its terminal descent. Enter the descending mass and canopy diameter.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span>Canopy diameter</span>
             <span className="flex items-center gap-1">
               <input
@@ -101,7 +101,7 @@ export default function ParachuteCd({
                 onChange={(e) => onChute(e.target.value)}
                 aria-label={`Canopy diameter (${chuteUnit === 'in' ? 'inches' : 'centimetres'})`}
                 placeholder={chuteUnit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               />
               <span className="font-mono">{chuteUnit}</span>
             </span>
@@ -121,11 +121,11 @@ export default function ParachuteCd({
       </div>
 
       {descentRate == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           No steady main descent was read from this log, so there&apos;s no terminal velocity to read a Cd from.
         </p>
       ) : massKg == null || chuteM == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           {massKg == null ? 'Set the descending mass (in Landing energy) ' : 'Enter '}
           {massKg == null ? 'and ' : ''}the main canopy&apos;s diameter to read the drag coefficient it actually flew
           at. Check it against the C<sub>d</sub> your sizing assumed.

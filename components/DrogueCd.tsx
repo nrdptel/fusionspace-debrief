@@ -86,12 +86,12 @@ export default function DrogueCd({
           <h3 id="drogue-cd-heading" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
             Drogue Cd (measured)
           </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             How the drogue performed on the fast fall to the main. Enter the descending mass and drogue diameter.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span>Drogue diameter</span>
             <span className="flex items-center gap-1">
               <input
@@ -103,7 +103,7 @@ export default function DrogueCd({
                 onChange={(e) => onDiameter(e.target.value)}
                 aria-label={`Drogue diameter (${unit === 'in' ? 'inches' : 'centimetres'})`}
                 placeholder={unit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               />
               <span className="font-mono">{unit}</span>
             </span>
@@ -123,12 +123,12 @@ export default function DrogueCd({
       </div>
 
       {descentRate == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           No distinct drogue descent was read from this log (a single-deploy flight has none), so there&apos;s no drogue
           Cd to read.
         </p>
       ) : massKg == null || drogueM == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           {massKg == null ? 'Set the descending mass (in Landing energy) ' : 'Enter '}
           {massKg == null ? 'and ' : ''}the drogue&apos;s diameter to read the drag coefficient it flew at, in the
           thinner air aloft.

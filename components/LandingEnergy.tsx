@@ -93,11 +93,11 @@ export default function LandingEnergy({
           >
             Landing energy
           </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             How hard it came in — ½·m·v² from your measured landing descent rate. Enter the descending mass.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           <span>Descending mass</span>
           <span className="flex items-center gap-1">
             <input
@@ -109,7 +109,7 @@ export default function LandingEnergy({
               onChange={(e) => onMass(e.target.value)}
               aria-label={`Descending mass (${unit === 'oz' ? 'ounces' : 'grams'})`}
               placeholder={unit === 'oz' ? 'oz' : 'g'}
-              className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+              className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
             />
             <span className="font-mono">{unit}</span>
           </span>
@@ -135,7 +135,7 @@ export default function LandingEnergy({
       {/* The landing speed as a free-fall drop height — exact and mass-free, so it
           shows even before a mass is entered, giving the gut-feel "how hard". */}
       {drop != null && rate != null && (
-        <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
           {wholeDescent && 'Averaged over the whole descent — no deployment change is in this record. '}
           Touched down at <span className="font-medium">{fmtSpeed(rate, sys)}</span> — the speed of a free-fall drop from{' '}
           <span className="font-medium">{fmtLength(drop, sys)}</span>.
@@ -143,13 +143,13 @@ export default function LandingEnergy({
       )}
 
       {rate == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           {stoppedAbove
             ? 'This record stops before the ground, so the descent rate it carries is the rate of the descent that was recorded — not a touchdown speed. Landing energy and parachute Cd are left unread rather than computed from it.'
             : 'No landing descent rate was read from this log (it may end at or before apogee), so there’s no landing energy to compute.'}
         </p>
       ) : massKg == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Enter your rocket’s descending mass (without propellant) to read the energy it landed with. Kept on this
           device; compare it against your club or certification limit.
         </p>

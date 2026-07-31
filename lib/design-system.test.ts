@@ -122,8 +122,31 @@ const BUDGET = {
    *  attempt flattened away), and `space-y-5`/`gap-5`/`gap-y-5` to `4`, the "between related
    *  things" mapping the rest of the conversion already used. */
   offScaleSpacing: 0,
-  /** Component files where caption size OUTNUMBERS the body default. Target 0. */
-  invertedTypeFiles: 23,
+  /** Component files where caption size OUTNUMBERS the body default. Target 0.
+   *
+   *  23 → 16 is the seven derived-reading panels — `DragCoefficient`, `RailExit`, `ParachuteCd`,
+   *  `LandingEnergy`, `DrogueCd`, `EjectionDelay`, `DeployAltitude` — which shared one shape and one
+   *  mistake: every one of them rendered its input LABEL, its input, its description and all of its
+   *  state messages at `text-xs`, leaving only the heading at body size.
+   *
+   *  §3 draws the line and it is not a matter of taste: `text-sm` is "every label, value, control and
+   *  table cell", while `text-xs` is for the text AROUND a value — "its unit, its provenance, its
+   *  caveat — never the value". So the conversion was by role, not by sweep. Promoted: the labels,
+   *  the number inputs, the description that tells the flyer what to enter, and every state message —
+   *  the empty state, the blocked state, the result sentence, and the warning. Kept at caption size:
+   *  the three formula notes (`Cd = 2·m·g / ρ·v²·A` and friends) and the condition beside each
+   *  reading, which are exactly the "how it was computed" text §3 names.
+   *
+   *  **The one worth naming: `RailExit` was rendering a flight-safety caution at caption size** — a
+   *  rail-exit speed on the low side, "less airflow over its fins to hold it straight", which is the
+   *  panel's whole reason to exist on a marginal flight. That is a decision-grade sentence and it was
+   *  the smallest text on the surface.
+   *
+   *  Note the ratio is a proxy and can be satisfied by a tie, since the filter is a strict `>`. Four
+   *  of these seven would have flipped on labels and inputs alone, landing at exactly 4/4. That was
+   *  not taken as done — the state messages were converted because they are body text, and the seven
+   *  now sit at 1–2 captions against 6–8 body rather than on the boundary. */
+  invertedTypeFiles: 16,
   /** Sizes that are not on `DESIGN.md` §3's six-size scale at all.
    *
    *  §9's grep used to name only `text-lg`, because that is the one the sibling app had. This repo
