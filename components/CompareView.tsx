@@ -545,14 +545,13 @@ export default function CompareView({
             </p>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {mappable.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => onMapFile(name)}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-indigo-400 bg-white px-2.5 py-1 font-medium text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/60 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
-                >
+                // Was an indigo-outlined variant of `ACTION_BTN` — a fifth button weight, where
+                // `DESIGN.md` §5 allows three plus danger, and the last control in the app at the
+                // off-scale `px-2.5`. Not `primary`: the logbook's own Compare button is this
+                // surface's primary, and two primaries on one screen means neither is.
+                <Button key={name} size="sm" onClick={() => onMapFile(name)}>
                   Map <span className="font-mono">{stem(name)}</span> →
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -561,7 +560,7 @@ export default function CompareView({
         {(reportLabel.trim() || reportNotes.trim()) && (
           <div className="mt-3 space-y-1">
             {reportLabel.trim() && (
-              <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {reportLabel.trim()}
               </h3>
             )}

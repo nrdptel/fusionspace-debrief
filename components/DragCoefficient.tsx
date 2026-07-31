@@ -156,7 +156,7 @@ export default function DragCoefficient({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           {result != null ? round(result.cd, 2) : '—'}
         </span>
         {result != null && (

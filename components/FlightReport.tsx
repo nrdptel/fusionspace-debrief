@@ -748,7 +748,7 @@ export default function FlightReport({
       {(reportLabel.trim() || reportNotes.trim()) && (
         <div className="space-y-1">
           {reportLabel.trim() && (
-            <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
               {reportLabel.trim()}
             </h3>
           )}
@@ -850,6 +850,10 @@ export default function FlightReport({
             />
             <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">Save a file:</span>
+            {/* `shrink-0` on every button in this strip, and it is load-bearing rather than
+                leftover: the strip scrolls horizontally on a phone, and a button allowed to
+                compress clips its own label. It used to be baked into a `SAVE_BTN` constant that
+                carried this comment; the constant is gone and the reason is not. */}
             <Button size="sm" onClick={downloadSummary} title="Download the summary as a text file" className="shrink-0">
               Save .txt
             </Button>

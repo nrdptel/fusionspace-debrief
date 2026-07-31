@@ -148,8 +148,14 @@ test('an empty composite says what would fill it and offers the one control that
   await expect(page).toHaveURL(/\/compare/);
 });
 
-test('the composite surface is reachable without knowing it exists, and is thumb-sized', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+// `hasTouch` matters as much as the width, and setting only the width measures a desktop. The 44 px
+// floor — both `app/globals.css`'s rule and the `TOUCH_TARGET` token the primitives carry — is
+// `@media (pointer: coarse)`, which a Playwright context arms only when `hasTouch` is set. Without
+// it this block reports every control as under-sized and none of it means anything.
+test.describe('on a phone', () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test('the composite surface is reachable without knowing it exists, and is thumb-sized', async ({ page }) => {
   await page.goto('/');
   // In the header on every surface — "a feature reachable only by knowing it is there" is a named
   // tell, and the header is where the other two surfaces live.
@@ -174,6 +180,7 @@ test('the composite surface is reachable without knowing it exists, and is thumb
     return out;
   });
   expect(small, `controls under 44 px tall on /stitch:\n${small.join('\n')}`).toEqual([]);
+  });
 });
 
 test('the route is precached, so an offline visit does not serve the analyze page at its URL', async ({ page }) => {

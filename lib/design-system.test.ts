@@ -78,16 +78,23 @@ const BUDGET = {
   offScaleSpacing: 25,
   /** Component files where caption size OUTNUMBERS the body default. Target 0. */
   invertedTypeFiles: 23,
-  /** Sizes that are not on `DESIGN.md` §3's six-size scale at all. Target 0.
+  /** Sizes that are not on `DESIGN.md` §3's six-size scale at all.
    *
    *  §9's grep used to name only `text-lg`, because that is the one the sibling app had. This repo
    *  had twenty across three named sizes — `text-lg` (5), `text-2xl` (14, including five of seven
    *  page titles where §3 says `text-3xl`) and `text-4xl` (1) — plus one arbitrary `text-[10px]`.
    *  Counting only the named one reported 5 of 20 and called the rest compliant. §9 is generalised
-   *  to match, in both repos. */
-  offScaleType: 19,
+   *  to match, in both repos.
+   *
+   *  **The floor here is 1, not 0, and saying so is the point.** The one that remains is the brand
+   *  wordmark in `components/SiteHeader.tsx`. It is `text-2xl md:text-3xl` in the sibling app too,
+   *  and §10 makes the brand mark and wordmark shared and non-negotiable across the suite — so it
+   *  is the BRAND's size rather than a content size, and changing it here alone would fork the
+   *  suite's wordmark to satisfy a count. Every other off-scale size is a content size and is
+   *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
+  offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 10,
+  uiAdopters: 11,
 } as const;
 
 /** How many components import EACH primitive by name.

@@ -24,13 +24,14 @@ import { TOUCH_TARGET, TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
  *   beats anything in `@layer utilities` whatever its specificity — so a `focus-visible:outline-*`
  *   utility on a button here is not a second belt, it is inert. Measured 2026-07-31, after adding
  *   some and finding they changed nothing.
- * - **The 44 px touch floor, yes — `globals.css` is not enough on its own.** That block is
- *   `@media (pointer: coarse)`, which a real phone arms and a test harness does not: the e2e suite
- *   runs the `Desktop Chrome` device, so the media query never applies there and the only thing a
- *   touch audit can measure is the class. Removing the token from `Button` on the grounds that the
- *   stylesheet covers it took `e2e/touch.spec.ts`'s whole contract out of reach in the same move.
- *   The two mechanisms agree on 44 px on purpose; the stylesheet is the floor for elements nobody
- *   converted, and the token is the design.
+ * - **The 44 px touch floor, on the primitive as well as in the stylesheet.** Not because the
+ *   stylesheet misses it — an earlier version of this comment claimed `e2e/touch.spec.ts` could not
+ *   see the media query, and that was simply false: `touch.spec.ts:11` sets `hasTouch: true`, which
+ *   arms `pointer: coarse` exactly as a phone does. The honest reason is narrower. `globals.css`
+ *   covers bare `button`, `select`, `[role="button"]` and `input`; it does not cover `<label>`,
+ *   `<summary>` or a plain `<a>`, which `Button href=` renders and which several surfaces use as
+ *   controls. Carrying the token on the primitive puts the contract where a component author will
+ *   see it, and the two mechanisms agree by construction — both are `pointer: coarse`, both 44 px.
  *
  * `lib/design-system.test.ts` is the executable copy of `DESIGN.md` §9 and holds the counts to an
  * exact ratchet, so a conversion has to record itself and a new hand-rolled treatment fails.
@@ -181,7 +182,11 @@ export function Button({
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const classes = cx(
     'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition',
-    'disabled:cursor-not-allowed disabled:opacity-50',
+    // `disabled:hover:*` has to be here rather than at a call site: `hover:bg-*` comes from the
+    // variant, so without this a disabled button still lights up under the pointer as though it
+    // were pressable. `IconButton` already carried it; `Button` did not, and the one call site
+    // with a `disabled` prop had been spelling half of it out by hand.
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:disabled:hover:bg-zinc-900',
     BUTTON_VARIANTS[variant],
     BUTTON_SIZES[size],
     TOUCH_TARGET,

@@ -16,7 +16,7 @@ export default function ValidationPage() {
     <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6 md:py-10">
       <SiteHeader brandAsHeading={false} />
 
-      <h1 className="mt-10 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+      <h1 className="mt-10 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         How Debrief is validated
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">

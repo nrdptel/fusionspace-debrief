@@ -340,7 +340,7 @@ export default function CompareSurface() {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Compare flights
         </h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">

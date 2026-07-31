@@ -18,7 +18,7 @@ export default function MethodsPage() {
       <SiteHeader brandAsHeading={false} />
 
       <section className="mt-10">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Where the numbers come from
         </h1>
         <p className="mt-3 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
