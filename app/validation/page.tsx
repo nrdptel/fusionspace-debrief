@@ -238,9 +238,11 @@ export default function ValidationPage() {
               negative swings against the peak, so the more absurd the spike the smaller its own
               ratio — that flight swings to &minus;182&nbsp;m/s against a &ldquo;peak&rdquo; of
               2,401, which is 7.6% and inside any sane tolerance, where the same swing against its
-              real 679&nbsp;m/s is 27% and refused at once. Across all 38 corpus records that
-              analyse, exactly one peaks at its liftoff sample and every other published peak comes
-              at least 0.7&nbsp;s later.
+              real 679&nbsp;m/s is 27% and refused at once. Across all 50 corpus records that
+              analyse, exactly one peaks at its liftoff sample. That does <em>not</em> settle the
+              whole class: a second record peaks one sample later and still states Mach 1.19
+              against the Mach 0.93 a second altimeter measured on the same flight, and it is
+              recorded as an open defect rather than reached by loosening the check.
             </li>
             <li>
               A <strong>logged velocity is only called measured where the device could measure

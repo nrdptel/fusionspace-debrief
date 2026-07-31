@@ -1810,17 +1810,25 @@ function analyzeWhole(
   // honest reading is that neither recording resolves the speed, not that one of them
   // does. Withheld like any other unusable velocity rather than picked between.
   //
-  // **The window stops at the peak, and widening it to the whole ascent was tried and reverted on
-  // 2026-07-31 — do not retry it without new evidence.** The physics above reads like a statement
-  // about the whole climb, so judging the whole climb looks like the obvious correction. Measured,
-  // it catches nothing and costs a real reading: over all 38 corpus records that analyse under this
-  // path it flagged not one additional flight, while it withheld `perfectflite…endurance-20211030`
-  // — a sound StratoLogger read — and broke `withholds a barometric speed that contradicts the
-  // flight's own climb`. Two compensating mechanisms were needed to get even that far (excluding
-  // the apogee sample, where velocity passes through zero BY DEFINITION and one real flight has its
-  // whole-ascent minimum; and a 3-point median, without which `eggtimer…skyward-lynx` loses a sound
-  // Mach 1.27 peak to a single glitched row) — and both exist only to repair damage the widening
-  // itself does. A guard that fires on zero real files is worse than none.
+  // **The window stops at the peak. Widening it to the whole ascent was tried twice on 2026-07-31,
+  // and the second attempt is the one to read.** The physics above reads like a statement about the
+  // whole climb, so judging the whole climb looks like the obvious correction.
+  //
+  // The first measurement said it "catches nothing and costs a sound read". Both halves were wrong,
+  // and wrong the same way: the sweep behind them only took files `importFlight` returns as
+  // `kind: 'flight'`, so it silently skipped the eleven records that reach analysis through the
+  // COLUMN MAPPER and reported 38 where the digest covers **50**. Re-measured over all 50, the
+  // widening changes exactly ONE record — `perfectflite…endurance-20211030` — and that record is
+  // not sound: it publishes Mach 1.19 with a Mach-1 crossing 30.5 m off the pad, against the
+  // Mach 0.93 the TeleMetrum measured on the SAME flight.
+  //
+  // It is still not applied, for a different and narrower reason. Widening changes WHICH guard
+  // fires, and on the synthetic case for `velocityOutclimbsItself` the noise guard shadows it — so
+  // the flight is refused with the right outcome and the wrong REASON, and the energy argument
+  // loses its coverage. Whether it also shadows that guard on the two real corpus flights it exists
+  // for was not established, and retiring a guard that protects real files as a side effect of
+  // fixing another is not a trade to make unmeasured. `endurance` is filed as an OPEN Sev-1 in
+  // `BACKLOG.md` with its numbers rather than closed by a change whose blast radius is unknown.
   let velocityNoiseDominated = false;
   if (liftoffFound && maxVelIdx >= 0 && Number.isFinite(maxVelocity) && maxVelocity > 0) {
     let worst = 0;
@@ -1830,20 +1838,29 @@ function analyzeWhole(
     velocityNoiseDominated = -worst / maxVelocity > ASCENT_NOISE_FRACTION;
   }
 
-  // A rocket is AT REST when it leaves the pad, so the fastest moment of its ascent cannot be the
-  // instant liftoff was detected. Where `argMax` over the climb returns `liftoffRef` itself, the
-  // trace and the liftoff detection contradict each other: whatever moved fast enough to be read
-  // as a launch is the same artefact being reported as the flight's top speed.
+  // The fastest moment of a climb is never the sample liftoff was detected on. `liftoffRef` is
+  // where the record first shows the rocket moving — `altClean > 3 m` AND `velocity > 2 m/s` — and
+  // a peak sitting exactly there means the same jump satisfied the liftoff test and is being
+  // reported as the flight's top speed. The trace and the detection cannot both be right.
   //
-  // This is a self-contradiction rather than a threshold, which is why it needs no constant — and
-  // a constant is what it would otherwise have taken, because the ratio guard above cannot see
-  // this case ON PRINCIPLE. That guard divides by the peak, so the more absurd the spike the
-  // SMALLER its own noise ratio: the corpus flight this catches swings to −182 m/s on the way up
-  // against a "peak" of 2,401 m/s, which is 7.6% — comfortably inside a 20% tolerance — while the
-  // same −182 m/s against its real 679 m/s peak would be 27% and refused at once.
+  // **Say that precisely rather than as "the rocket is at rest at liftoff".** It is not:
+  // `liftoffRef` is already past a 2 m/s threshold by construction, and this comment claimed rest
+  // until a pre-push review measured `velocity[liftoffRef] = 385 m/s` on a real corpus record. What
+  // the condition detects is the coincidence, not a violation of rest.
   //
-  // Measured over all 38 analysable corpus records: exactly one has its peak at the liftoff
-  // sample, and every one of the other 30 that publish a peak puts it at least 0.700 s later.
+  // It needs no constant, which matters because the ratio guard above cannot see this case ON
+  // PRINCIPLE: that guard divides by the peak, so the more absurd the spike the SMALLER its own
+  // noise ratio. The record this catches swings to −182 m/s on the way up against a "peak" of
+  // 2,401 m/s — 7.6%, comfortably inside a 20% tolerance — where the same swing against its real
+  // 679 m/s peak would be 27% and refused at once.
+  //
+  // Measured over all **50** records that analyse — the set `corpus-digests.json` covers, including
+  // the eleven reaching analysis through the column mapper: exactly one has its peak AT the liftoff
+  // sample. **This does not clear the class.** The nearest published peak is 0.050 s away — one
+  // sample, on `perfectflite…endurance-20211030`, which publishes Mach 1.19 at 30.5 m — and that is
+  // an OPEN Sev-1 in `BACKLOG.md`, deliberately not reached by relaxing this to a window. An earlier
+  // draft claimed the nearest was 0.700 s; that was the minimum over the named-parser subset only,
+  // which is exactly the subset that excluded the counterexample.
   const velocityPeakAtLiftoff = liftoffFound && maxVelIdx >= 0 && maxVelIdx === liftoffRef;
 
   // A barometric peak speed the flight's own accelerometer cannot account for. On a log

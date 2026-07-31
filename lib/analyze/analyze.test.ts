@@ -305,8 +305,12 @@ describe('implausible velocity guard', () => {
     expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
   });
 
-  // A rocket is at rest when it leaves the pad, so the fastest moment of the climb cannot be the
-  // instant liftoff was detected. Found on `missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff`,
+  // The fastest moment of a climb is never the sample liftoff was detected on — `liftoffRef` is
+  // where the record FIRST shows the rocket moving, so a peak sitting exactly there means the same
+  // jump satisfied the liftoff test and is being reported as the top speed. (Not "the rocket is at
+  // rest there": it is already past a 2 m/s threshold by construction. The first version of this
+  // said rest, and a pre-push review measured 385 m/s at that index on a real corpus record.)
+  // Found on `missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff`,
   // which published 7,876 ft/s and Mach 7.06 off a barometric transient in the opening samples
   // against a stated ~2,450 ft/s (~Mach 2.2) — with max-Q 3,498 kPa beside it, a load case 10.9×
   // the flight's own. The ratio guard above cannot see this case on principle: it divides by the
@@ -335,7 +339,7 @@ describe('implausible velocity guard', () => {
     };
   }
 
-  it('withholds a peak that lands on the liftoff sample, where the rocket was at rest', () => {
+  it('withholds a peak that lands on the very sample liftoff was detected on', () => {
     const a = analyzeFlight(peakingAtLiftoff());
     expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
     expect(a.metrics.mach).toBeNull();

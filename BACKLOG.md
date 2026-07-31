@@ -14,7 +14,34 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-## SEV-1 — none open
+## SEV-1 — ONE OPEN
+
+- **OPEN Sev-1: `perfectflite__issuiuc-endurance-20211030__StratoLogger.csv` states Mach 1.19 and a
+  Mach-1 crossing 30.5 m off the pad.** Measured 2026-07-31, and NOT fixed this run — read the last
+  paragraph before attempting it.
+
+  It publishes **410.80 m/s (Mach 1.1875)** with `transonicTime = 0` and **max-Q 99.7 kPa**, from a
+  peak sitting **one sample (0.050 s) after liftoff** at **30.5 m AGL**. The implied mean
+  acceleration to get there is **398 g**. The **TeleMetrum on the same flight measured 315.08 m/s
+  (Mach 0.93)** — subsonic — and `app/validation/page.tsx` already cites that exact pair as a baro
+  trace that "stops being a reading of the speed at all". The log opens below the pad
+  (−31 → −27 → −14 → +9 → +30 ft), so it is the same opening-transient pathology as the XPRS record
+  fixed this run; `velocityPeakAtLiftoff` misses it by one index.
+
+  **Three fixes were tried and none is safe to ship on today's evidence:**
+  - *Relax the equality to a window.* The nearest published peak after this one is 0.700 s, so a
+    window would have to be ~14x the defect to catch it — a threshold with one data point.
+  - *An implied-acceleration bound (v²/2h).* This record is 398 g, but the corpus's genuine readings
+    run to **94 g** (`altusmetrum…intrepid1`, Mach 1.26) with two known-bad ones between at 151 g and
+    59 g. There is no gap to put a line in without inventing one.
+  - *Widen the ascent-noise window to the whole climb.* This DOES catch it, and over all 50 records
+    it changes nothing else — see the comment in `lib/analyze/index.ts`. It was still not applied,
+    because widening changes which guard fires: on the synthetic case for `velocityOutclimbsItself`
+    the noise guard shadows it, and whether it also shadows that guard on the two real corpus
+    flights it protects was not established. Retiring a guard that protects real files as a side
+    effect of fixing another is not a trade to make unmeasured. **This is the most promising route
+    and the measurement it needs is small: establish what still exercises `velocityOutclimbsItself`
+    over the corpus with the window widened.**
 
 - **FIXED 2026-07-31 (was Sev-1): a peak speed read off the opening barometric transient published
   Mach 7.06 and a max-Q 10.9× the flight's own.**
@@ -38,26 +65,31 @@ wild, ideas too big for one pass. One line each, newest first.
   be 0. `velocityOutclimbsItself` missed by 1.4×: 1.39% against a 1% floor, because a peak pinned at
   t≈0 puts the whole climb in its numerator.
 
-  Fixed by `velocityPeakAtLiftoff`, which needs no constant. Corpus: **37 of 38 records that analyse
-  under this path byte-identical, 1 moved, deliberately** — and the full suite's digest snapshot
-  moved exactly one line. Pinned by `withholds a peak that lands on the liftoff sample, where the
-  rocket was at rest` (`lib/analyze/analyze.test.ts`, falsified by mutation) and `withholds the
-  XPRS peak that was the opening barometric transient, and says why` (`lib/parsers/corpus.test.ts`).
-  Measured over all 38: exactly one peaks at its liftoff sample; every other published peak comes
-  at least **0.700 s** later.
+  Fixed by `velocityPeakAtLiftoff`, which needs no constant. Corpus: **49 of 50 records that analyse
+  byte-identical, 1 moved, deliberately** — the digest snapshot moved exactly one line. Pinned by
+  `withholds a peak that lands on the very sample liftoff was detected on`
+  (`lib/analyze/analyze.test.ts`, falsified by mutation) and `withholds the XPRS peak that was the
+  opening barometric transient, and says why` (`lib/parsers/corpus.test.ts`).
 
-- **DO NOT re-widen the ascent noise guard's window to the whole climb — tried 2026-07-31, reverted,
-  reasoning in the code.** It reads like an obvious correction (the guard's own comment argues about
-  "the way up", and the window stops at the peak). Measured: it flags **zero** additional corpus
-  flights, and it costs two real things — it withholds `perfectflite__issuiuc-endurance-20211030__
-  StratoLogger.csv`, a sound read, and breaks `withholds a barometric speed that contradicts the
-  flight's own climb`. Getting even that far needed two compensating mechanisms that exist only to
-  repair its own damage: excluding the apogee sample (where vertical velocity passes through zero by
-  definition, and where `perfectflite…intrepid3tf1` has its whole-ascent minimum — −38.1 against a
-  146.3 m/s peak, 26%), and a 3-point median (without which `eggtimer…skyward-lynx` loses a sound
-  Mach 1.27 peak to ONE glitched row at t = 5.65 s, where its altitude dips 4,274 → 3,996 → 4,096 ft
-  and its raw velocity column reads −5,560 ft/s between neighbours of +1,520 and +2,000). A guard
-  that fires on zero real files is worse than none.
+  **Three numbers in the first version of this entry were wrong, and the cause is worth more than
+  the correction.** It said "38 records that analyse" and "every other published peak comes at least
+  0.700 s later". The sweep behind both only took files `importFlight` returns as `kind: 'flight'`,
+  so it silently skipped the **eleven records that reach analysis through the column mapper** — and
+  the true figures are **50 records, 35 publishing a peak, nearest at 0.050 s**. The skipped subset
+  is exactly where the counterexample lives, so the sweep did not merely under-count: it removed the
+  evidence that the class was not closed. It also underwrote a claim on the PUBLIC validation page.
+  A hand-rolled sweep is a hint; the corpus suite is the measurement.
+
+- **Widening the ascent noise guard to the whole climb: the case FOR it, corrected.** An earlier
+  version of this entry said it "flags zero additional corpus flights" and withholds "a sound read".
+  Both came from the 38-file sweep above and both are false. Re-measured over all **50**: it changes
+  exactly one record, `perfectflite…endurance-20211030`, which is the open Sev-1 at the top of this
+  file and is not sound. Two details of it are principled rather than patches — excluding the apogee
+  sample (where vertical velocity passes through zero BY DEFINITION, and where `perfectflite…
+  intrepid3tf1` has its whole-ascent minimum, −38.1 against a 146.3 m/s peak) and a 3-point median
+  (without which `eggtimer…skyward-lynx` loses a sound Mach 1.27 peak to ONE glitched row at
+  t = 5.65 s: altitude 4,274 → 3,996 → 4,096 ft, raw velocity −5,560 ft/s between +1,520 and
+  +2,000). What blocks it is coverage, not correctness — see the open Sev-1.
 
 - **The corpus asserts a velocity on almost none of its fixtures, and that is where the surviving
   bugs are.** The Sev-1 above sat in a file whose `corpus-overrides.json` entry asserts **apogee
