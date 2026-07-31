@@ -1052,11 +1052,7 @@ export default function FlightReport({
       <GpsApogee metrics={metrics} sys={sys} />
 
       {warnings.length > 0 && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
-        >
+        <Card tone="warn" role="status" aria-live="polite" className="text-sm">
           <h3 id="worth-knowing" className="mb-1 text-sm font-medium text-amber-900 dark:text-amber-100">
             Worth knowing
           </h3>
@@ -1065,7 +1061,7 @@ export default function FlightReport({
               <li key={i}>{w}</li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       {notes.length > 0 && (

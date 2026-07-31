@@ -115,8 +115,15 @@ const BUDGET = {
    *  their own box to size what they draw, so `Card` takes a `ref` now; without it they would have
    *  kept a hand-rolled `<div>` wrapped around the primitive, which is not a conversion. Their dark
    *  fill moves `zinc-900/40` → `zinc-900`, the sanctioned value: a fourth surface level is exactly
-   *  what §2's "three levels, no more" forbids. */
-  cardTreatments: 12,
+   *  what §2's "three levels, no more" forbids.
+   *
+   *  12 → 10 is the three alert callouts — the analyzer's read failure, the mapper's what-Debrief-
+   *  reads note, the report's "Worth knowing" — onto `Card`'s `warn` and `danger` tones. Each keeps
+   *  the live-region role it had (`role="alert"`, `role="status" aria-live="polite"`), which passes
+   *  through untouched: a screen reader following "Reading…" is the whole reason the analyzer's one
+   *  announces itself, and a silent conversion would have removed the announcement rather than the
+   *  hand-roll. */
+  cardTreatments: 10,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -214,7 +221,7 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 21,
+  Card: 23,
   Button: 10,
   Chip: 3,
   Readout: 2,

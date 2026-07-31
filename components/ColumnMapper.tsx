@@ -7,6 +7,7 @@ import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/fligh
 import type { ColumnMapping } from '@/lib/flight/build';
 import { ROLE_GROUPS, ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
 import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
+import { Card } from './ui';
 
 interface Row {
   role: ColumnRole;
@@ -125,7 +126,7 @@ export default function ColumnMapper({
             it — so there are no channels to map and no flight to analyze.
           </p>
         </div>
-        <div className="rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+        <Card tone="warn" className="text-sm">
           <p>
             Debrief reads a logger&apos;s <strong className="font-medium">text export</strong> — CSV, TSV or
             plain text — an <strong className="font-medium">Excel spreadsheet</strong>, and two{' '}
@@ -139,7 +140,7 @@ export default function ColumnMapper({
             Open the file in your altimeter&apos;s own software and export or save-as CSV, then drop that
             here. Everything still stays on your device.
           </p>
-        </div>
+        </Card>
         {preview.length > 0 && (
           <details className="rounded-md border border-zinc-200 bg-zinc-50/60 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900/30">
             <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
