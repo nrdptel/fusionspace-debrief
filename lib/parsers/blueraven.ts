@@ -15,7 +15,7 @@
 // altitude, so we point the user at the low-rate one.
 
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
-import type { RawFlight, Channel } from '../flight/types';
+import { getChannel, type RawFlight, type Channel } from '../flight/types';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 import { flownAtFromColumns } from '../flight/flownAt';
@@ -105,8 +105,8 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
     flownAt && clock
       ? { ...flownAt, stamp: `${flownAt.stamp}T${clock[1].padStart(2, '0')}:${clock[2]}${clock[3] ? `:${clock[3]}` : ''}` }
       : flownAt;
-  // Prefer the barometric AGL altitude; the inertial altitude drifts (a real
-  // flight reads ~11% high on the inertial channel vs baro).
+  // Prefer the barometric AGL altitude; the inertial altitude drifts, and in both
+  // directions — see the measured per-flight spread beside the mapping below.
   const aglIdx = where((h) => h.includes('baro') && h.includes('agl'));
   const baroAltIdx = where((h) => h.includes('baro') && h.includes('alt'));
   const inertAltIdx = where((h) => h.includes('inertial') && h.includes('alt'));
@@ -126,12 +126,17 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   mappings.push({ index: altIdx, role: 'altitude', unit: 'ft' });
   // The device's own inertial altitude, when the barometric one is the analysis source.
   // It is a second, independent recording of the same quantity in the same file: it drifts
-  // over the flight (a real one reads ~11% high by apogee, which is why the analysis stays
-  // on the baro), but through the transonic push — where the shock over the static port
-  // drives the sensed pressure up and the baro trace reads the rocket *descending*, one
-  // corpus flight to 307 ft below its pad — the inertial solution is the one still
-  // climbing. Carried so it can be plotted against the baro line and read there, rather
-  // than discarded.
+  // over the flight, which is why the analysis stays on the baro — but through the transonic
+  // push, where the shock over the static port drives the sensed pressure up and the baro
+  // trace reads the rocket *descending*, one corpus flight to 307 ft below its pad, the
+  // inertial solution is the one still climbing. Carried so it can be plotted against the
+  // baro line and read there, rather than discarded.
+  //
+  // Measured at apogee across the corpus: +9.1% (jan10), +9.2% (lemiv L3), −2.2% (jan18),
+  // and meraki is past its field's ceiling long before its own peak. An earlier note here
+  // said "~11% high by apogee" as though that were the shape of it; it is one flight's
+  // figure, the drift runs both ways, and past a point it stops being a drift at all — see
+  // `truncateInertial`.
   if (inertAltIdx >= 0 && inertAltIdx !== altIdx) {
     mappings.push({ index: inertAltIdx, role: 'altitudeInertial', unit: 'ft' });
   }
@@ -145,7 +150,7 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
     ? 'Blue Raven app export: altitude and velocity here are the onboard inertial estimates, read as feet. The inertial solution can drift after deployment.'
     : 'Blue Raven app export (low-rate): altitude is from the barometric channel; values are read as feet.';
 
-  return buildFlight({
+  const flight = buildFlight({
     source: input.name,
     format: 'blueraven',
     formatLabel: 'Featherweight Blue Raven',
@@ -156,6 +161,83 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
     flownAt: flownAtWithClock ?? undefined,
     notes: [note],
   });
+  const cut = truncateInertial(flight);
+  if (cut) flight.notes.push(cut);
+  return flight;
+}
+
+/**
+ * Stop the inertial altitude where it stops being an altitude.
+ *
+ * The channel is a second, independent recording of the same height, and over the first
+ * seconds it is the trustworthy one — which is exactly why the analysis leans on it through
+ * the transonic push, where the shock over the static port drives the baro trace the wrong
+ * way. But it is an INTEGRATION, written into a field that cannot hold a large flight, and
+ * past a point it is no longer a recording of anything. Carried whole, it was plotted in the
+ * channel explorer and written into the data CSV as the device's own altitude — a cross-check
+ * that lies, on a surface whose whole job is cross-checking.
+ *
+ * Measured over the corpus Blue Ravens, on the copy Debrief analyses:
+ *
+ *   jan10        -2,781 ..  11,265 ft   baro peak   6,296—10,266 ft   drifts, stays credible
+ *   lemiv L3    -32,767 ..  32,755 ft   one 65,522 ft single-sample step
+ *   meraki       -32,768 ..  32,765 ft   the same step, against a 247,754 ft baro peak
+ *   jan18      -151,147 ..   6,157 ft   never wraps; integrates away while the baro reads 823 ft
+ *
+ * Two failures, so two bounds, and the channel ends at whichever comes first:
+ *
+ *   - A single-sample step of about 2^16 ft is a counter wrapping, not a rocket moving.
+ *     meraki's field simply cannot hold a 247,754 ft flight, and says so repeatedly.
+ *   - Two recordings of one flight's height that differ by more than the WHOLE FLIGHT are
+ *     not a second opinion; one of them has stopped reading. Scale-free, and it never fires
+ *     on jan10, which is the honest drift the note beside this channel describes.
+ *
+ * Neither threshold is tuned: one is the field's own span, the other is the flight's own
+ * height. What survives is all of the ascent on every file but meraki — whose channel is over
+ * its field's ceiling before apogee, which is the true answer for that flight rather than a
+ * convenient one.
+ */
+function truncateInertial(flight: RawFlight): string | null {
+  // **This may only ever touch a SECOND opinion, never the flight's own altitude.** When a file
+  // carries no barometric column the mapping above falls through to the inertial one, and the
+  // `inertAltIdx !== altIdx` guard there means no separate `altitudeInertial` channel is built —
+  // so this returns null and the analysis keeps every sample. Withholding the channel a flight
+  // is read from would delete the flight, which is a far worse failure than the one being fixed.
+  const inert = getChannel(flight, 'altitudeInertial');
+  const baro = getChannel(flight, 'altitude');
+  if (!inert || !baro || inert.values.length !== baro.values.length) return null;
+  const v = inert.values;
+  const n = v.length;
+  let peak = 0;
+  for (let i = 0; i < n; i++) {
+    const b = baro.values[i];
+    if (Number.isFinite(b) && b > peak) peak = b;
+  }
+  if (!(peak > 0)) return null;
+  // 2^16 feet in metres, with room to spare — the field's own span, not a fitted number.
+  const WRAP = 65536 * 0.3048 * 0.9;
+  let cut = -1;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(v[i])) continue;
+    if (i > 0 && Number.isFinite(v[i - 1]) && Math.abs(v[i] - v[i - 1]) > WRAP) {
+      cut = i;
+      break;
+    }
+    if (Number.isFinite(baro.values[i]) && Math.abs(v[i] - baro.values[i]) > peak) {
+      cut = i;
+      break;
+    }
+  }
+  if (cut < 0) return null;
+  const lastGood = cut > 0 ? v[cut - 1] : NaN;
+  for (let i = cut; i < n; i++) v[i] = NaN;
+  const ft = (m: number) => (Number.isFinite(m) ? Math.round(m * 3.280839895).toLocaleString('en-US') : '—');
+  return (
+    `The device's inertial altitude stops being readable ${flight.time[cut].toFixed(1)} s into this ` +
+    `record — it reads ${ft(lastGood)} ft where the barometer reads ${ft(baro.values[cut])} ft. It is ` +
+    `an integrated solution written into a field that wraps, so it is carried up to that point and ` +
+    `withheld after it rather than plotted as a height the rocket never had.`
+  );
 }
 
 export const blueRavenParser: Parser = {
