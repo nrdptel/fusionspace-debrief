@@ -620,13 +620,19 @@ copies of the secondary button are gone.
    `CompareView` 17/10 — and the first of those is the logbook, the one surface built for scanning
    flights against each other.
 
-   **Items 2 and 7 are the same work on this file, and that is the cheap way in.** Of
-   `RecentFlights`'s 26 caption-size uses, roughly half are hand-rolled `<button>` elements and one
-   input; the rest are genuine captions and help text, which §3 says SHOULD be `text-xs`. So the
-   file cannot be un-inverted by retyping captions — it is un-inverted by converting its controls
-   onto `<Button>`, whose default `md` size is `text-sm` exactly as §3's "every label, value,
-   control" requires. Converting the 23 buttons closes both items at once; retyping the captions
-   would close neither and would breach §3 in the other direction.
+   **A prediction written here on 2026-07-31 was wrong, and the correction is the useful part.**
+   It said converting `RecentFlights`'s buttons onto `<Button>` would un-invert the file, because
+   `Button`'s default `md` size is `text-sm`. Eleven of its 23 were converted the same day and the
+   file went **26/6 → 18/6 — still inverted**, because most of them are correctly `size="sm"`,
+   which is `text-xs` by §4's own "inside a control … `px-2 py-1` for `text-xs` chips". A dense
+   logbook toolbar of `md` controls would be the generous-whitespace failure §4 warns about.
+
+   **So items 2 and 7 are NOT the same work, and item 2's target of 0 may be unreachable on a
+   toolbar-dense surface without breaching §4.** Do not force it: the metric exists to stop a
+   decision-grade NUMBER rendering at caption size, and that specific breach is fixed here
+   (below). Before spending an increment driving this count to 0, decide whether the count or the
+   rule is what needs changing — this is the third §9 metric to turn out to measure something
+   other than what it was reached for, after the suite-wide type ratio and the two blind greps.
 
    **Already done on this file (2026-07-31):** the two decision-grade values — apogee and max
    velocity, the numbers the logbook exists to be scanned down — were `text-xs` in §2's TERTIARY
@@ -643,9 +649,15 @@ copies of the secondary button are gone.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
-6. **Two primaries on one surface**, in `ColumnMapper` and `RecentFlights`.
-7. **The remaining 52 hand-rolled `<button>` elements** outside `components/ui.tsx` (57 in the tree,
-   5 of them inside the primitives themselves), chiefly `RecentFlights` (23).
+6. **Two primaries on one surface** — `ColumnMapper` only now. ~~`RecentFlights`~~ **DONE
+   2026-07-31**: its second indigo fill was the note editor's Save, which is now secondary. The
+   logbook's one primary is "Compare N flights", the action the surface exists to perform. A
+   FIFTH button weight went with it — an indigo-outlined "These N are one flight", which §5 does
+   not have.
+7. **The remaining 41 hand-rolled `<button>` elements** outside `components/ui.tsx` (46 in the
+   tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
+   there is genuinely not `Button` — the row itself as a click target, the file-name text button,
+   the ✕ (an `IconButton` with a responsive size), the sort chips and the checkbox labels.
 8. **17 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
    This is the adoption debt the §9 count does not measure: §9 counts distinct TREATMENTS, which is
    7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.

@@ -10,6 +10,7 @@ import { sortRecents, filterRecents, personalBests, logbookRowNames, type Logboo
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
+import { Button } from './ui';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -358,13 +359,9 @@ export default function RecentFlights({
         </h2>
         <div className="flex items-center gap-3">
           {chosen.length >= 2 && (
-            <button
-              type="button"
-              onClick={() => onCompare(chosen)}
-              className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-indigo-500"
-            >
+            <Button variant="primary" size="sm" onClick={() => onCompare(chosen)}>
               Compare {chosen.length} flights
-            </button>
+            </Button>
           )}
           {/* Two files, one flight. The alternative a redundant-altimeter flyer has today is
               two logbook entries for a flight they flew once — sorted apart, crowned apart,
@@ -373,8 +370,8 @@ export default function RecentFlights({
               on screen decides which reports the flight, and the row says so and can change
               it — Debrief does not pick a winner between two instruments. */}
           {canJoin && (
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={async () => {
                 // The whole rule lives in `planJoin`, so it is a unit test rather than a
                 // click-path: every recording of every ticked flight moves, and the flight is
@@ -385,45 +382,44 @@ export default function RecentFlights({
                 if (plan.length) setOpened((prev) => new Set([...prev, plan[0].flightId]));
               }}
               title="Two altimeters, one flight — keep them as one logbook entry, each recording still read on its own"
-              className="rounded-md border border-indigo-500 px-2.5 py-1 text-xs font-medium text-indigo-700 transition hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
             >
               These {chosenFlights.length} are one flight
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={copyLogbook}
             title="Copy these flights to the clipboard — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             Copy table
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onExport}
             title="Download your logbook (flights + notes) as a backup file"
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             Export
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => fileRef.current?.click()}
             title="Restore flights from a logbook backup file"
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             Import
-          </button>
-          <button
+          </Button>
+          <Button
             ref={clearRef}
-            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setConfirming((v) => !v)}
             aria-expanded={confirming}
             aria-controls="logbook-clear-confirm"
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             Clear
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -475,19 +471,16 @@ export default function RecentFlights({
           </p>
           {exportMsg && <p className="mt-1 font-medium">{exportMsg}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
+            <Button
               ref={cancelRef}
-              type="button"
               onClick={() => {
                 setConfirming(false);
                 clearRef.current?.focus();
               }}
-              className="min-h-11 rounded-md border border-red-300 bg-white px-2.5 py-1 font-medium text-red-800 transition hover:bg-red-100 sm:min-h-0 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-950/60"
-            >
+                          >
               Keep them
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               onClick={async () => {
                 setExportMsg('Saving a backup…');
                 // What the file actually holds, not that a download fired. `exportLogbook`
@@ -501,20 +494,18 @@ export default function RecentFlights({
                     : 'That backup came back empty — this browser would not let Debrief read the logbook, so do not delete it yet.',
                 );
               }}
-              className="min-h-11 rounded-md border border-red-300 bg-white px-2.5 py-1 font-medium text-red-800 transition hover:bg-red-100 sm:min-h-0 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-950/60"
             >
               Save a backup first
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="danger"
               onClick={() => {
                 onClear();
                 setConfirming(false);
               }}
-              className="min-h-11 rounded-md bg-red-600 px-2.5 py-1 font-medium text-white transition hover:bg-red-500 sm:min-h-0"
             >
               Delete {flights.length === 1 ? 'it' : `all ${flights.length}`}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -710,20 +701,12 @@ export default function RecentFlights({
                     placeholder="Motor, conditions, cert… (kept as a logbook entry)"
                     className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                   />
-                  <button
-                    type="button"
-                    onClick={saveEdit}
-                    className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-indigo-500"
-                  >
+                  <Button size="sm" onClick={saveEdit}>
                     Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingId(null)}
-                    className="px-1.5 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                  >
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 note.note && (
