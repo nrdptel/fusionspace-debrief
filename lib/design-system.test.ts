@@ -107,8 +107,16 @@ const BUDGET = {
    *  18 → 13 is the seven `bg-zinc-50 px-4 py-3` panels moving onto `<Card tone="sunken">`, which
    *  is the tone that was added FOR them and had four adopters while seven more wrote it out by
    *  hand. They were five distinct strings for one thing: two differing only in where `print:hidden`
-   *  sat relative to the `dark:` variants, the rest by a `text-sm` or a text colour. */
-  cardTreatments: 13,
+   *  sat relative to the `dark:` variants, the rest by a `text-sm` or a text colour.
+   *
+   *  13 → 12 is the four CHART containers — the report's and the comparison's `ChartBlock`, the
+   *  channel explorer's chart host and the ground track's canvas host. One identical string at all
+   *  four, and the four files `HANDOFF.md` named as still hand-rolling a card. Two of them measure
+   *  their own box to size what they draw, so `Card` takes a `ref` now; without it they would have
+   *  kept a hand-rolled `<div>` wrapped around the primitive, which is not a conversion. Their dark
+   *  fill moves `zinc-900/40` → `zinc-900`, the sanctioned value: a fourth surface level is exactly
+   *  what §2's "three levels, no more" forbids. */
+  cardTreatments: 12,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -206,7 +214,7 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 19,
+  Card: 21,
   Button: 10,
   Chip: 3,
   Readout: 2,

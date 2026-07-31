@@ -9,7 +9,7 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
-import { Button } from './ui';
+import { Button, Card } from './ui';
 
 /** The plot is square and capped, so a wide column doesn't stretch a north-up map. */
 const MAX_SIZE = 420;
@@ -498,7 +498,7 @@ export default function GroundTrack({
         <span className="text-xs text-zinc-500 dark:text-zinc-400">north up · from GPS</span>
       </div>
 
-      <div ref={hostRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <Card ref={hostRef} className="mt-3">
         <div className="relative mx-auto" style={{ width: size || undefined, height: size || undefined }}>
           <canvas
             ref={canvasRef}
@@ -591,7 +591,7 @@ export default function GroundTrack({
             ))}
           </ul>
         )}
-      </div>
+      </Card>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label={landed ? 'Landed from pad' : 'Last fix from pad'} value={fmtLength(stats.landingDistance, sys)} />

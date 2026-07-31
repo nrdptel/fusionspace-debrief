@@ -28,7 +28,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button } from './ui';
+import { Button, Card } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -473,7 +473,7 @@ export default function ChannelExplorer({
         </Button>
       </div>
 
-      <div ref={chartRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <Card ref={chartRef} className="mt-3">
         <div className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
           Left axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{leftUnit || 'unitless'}</span>
           {hasRightAxis && (
@@ -503,7 +503,7 @@ export default function ChannelExplorer({
           }
           onView={onView}
         />
-      </div>
+      </Card>
 
       {/* Live stats for whatever's in view — drag across the chart to zoom into a
           phase, double-click to reset; the numbers track the visible window. */}
