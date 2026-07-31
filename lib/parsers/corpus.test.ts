@@ -1972,6 +1972,47 @@ describe('a GPS-derived speed does not confirm a supersonic flight', () => {
 });
 
 // The direction of the mixed-source caveat, which the comparison and every export state.
+// A rocket is at rest when it leaves the pad, so the fastest moment of its climb cannot be the
+// instant liftoff was detected. This file published a peak that was exactly that, and nothing
+// caught it: the corpus asserts its apogee and no velocity, which is precisely the readings-nobody-
+// pinned hole a golden value leaves behind.
+describe('the fastest moment of a climb is never the instant the rocket left the pad', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const FILE = 'missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff';
+
+  it('withholds the XPRS peak that was the opening barometric transient, and says why', () => {
+    const loaded = loadForCompare(FILE);
+    expect(loaded, 'the RRC3 raw download is in the corpus').toBeTruthy();
+    const m = loaded!.analysis.metrics;
+
+    // What it used to publish, against the ground truth in the manifest — ~2,450 ft/s, ~Mach 2.2:
+    // 2,400.63 m/s (7,876 ft/s, 3.2x), Mach 7.06, and max-Q 3,497,532 Pa — a structural load case
+    // 10.9x the same flight's own. The apogee was never in doubt and is asserted separately.
+    expect(m.maxVelocity, 'no peak speed off a liftoff transient').toBeNaN();
+    expect(m.mach, 'so no Mach, and no supersonic claim at Mach 7').toBeNull();
+    expect(m.maxDynamicPressure, 'and no max-Q, which squares the same speed').toBeNull();
+    expect(m.maxVelocityWithheld, 'the withholding names itself for the tile and the report').toBe(
+      'implausible',
+    );
+    expect(
+      loaded!.analysis.series.velocityUnusable,
+      'and the series carries it, so the explorer and the overlay withhold the derived curves too',
+    ).toBe(true);
+    expect(
+      loaded!.analysis.warnings.some((w) => /the instant the rocket left the pad/.test(w)),
+      'a withheld number says why it was withheld',
+    ).toBe(true);
+
+    // The rest of the read is untouched — this is a velocity judgement, not an apogee one.
+    expect(m.apogeeAltitude, 'apogee still reads, against a stated 13,304.6 ft').toBeGreaterThan(
+      4000,
+    );
+  });
+});
+
 // Where one recording of a flight measured the speed and another differentiated it out of
 // an altitude, the derived one reads HIGH — never soft. Four corpus pairs, and all four
 // agree; the caveat used to say the opposite, which tells a flyer to treat the inflated

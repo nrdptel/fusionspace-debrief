@@ -16,6 +16,56 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **FIXED 2026-07-31 (was Sev-1): a peak speed read off the opening barometric transient published
+  Mach 7.06 and a max-Q 10.9× the flight's own.**
+  `missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff` printed **7,876 ft/s (2,400.6 m/s)** and
+  **Mach 7.06** against the manifest's ground truth of **~2,450 ft/s (~Mach 2.2)** — 3.2× — with
+  **max-Q 3,498 kPa** beside it where the same flight's real boost load case is ~320 kPa. Not
+  withheld, no caveat: every warning on screen was about the ALTITUDE baseline, and none mentioned
+  the velocity. Excluding the first 2 s the same trace peaks at 2,226 ft/s, close to the stated
+  figure.
+
+  The cause is a self-contradiction, not a tolerance: `maxVelIdx === liftoffRef` — the trace said
+  the fastest instant of the whole climb was the moment liftoff was detected, when the rocket is at
+  rest. The log opens part-way in, and its altitude runs −451 → −389 → −286 → −29 → +96 m in 0.2 s;
+  that jump is fast enough to be read as the launch and is then reported as the top speed.
+
+  **Neither existing guard could catch it, and the reason is structural.** `velocityNoiseDominated`
+  divides the worst negative swing by the peak, so the more absurd the spike the SMALLER its own
+  ratio: this flight swings to −182 m/s against a "peak" of 2,401, which is 7.6% and inside the 20%
+  tolerance, where the same −182 against its real 679 m/s peak is 27% and refused at once. Its
+  window also ran `liftoffRef..maxVelIdx`, which here was **one sample**, so `worst` could only ever
+  be 0. `velocityOutclimbsItself` missed by 1.4×: 1.39% against a 1% floor, because a peak pinned at
+  t≈0 puts the whole climb in its numerator.
+
+  Fixed by `velocityPeakAtLiftoff`, which needs no constant. Corpus: **37 of 38 records that analyse
+  under this path byte-identical, 1 moved, deliberately** — and the full suite's digest snapshot
+  moved exactly one line. Pinned by `withholds a peak that lands on the liftoff sample, where the
+  rocket was at rest` (`lib/analyze/analyze.test.ts`, falsified by mutation) and `withholds the
+  XPRS peak that was the opening barometric transient, and says why` (`lib/parsers/corpus.test.ts`).
+  Measured over all 38: exactly one peaks at its liftoff sample; every other published peak comes
+  at least **0.700 s** later.
+
+- **DO NOT re-widen the ascent noise guard's window to the whole climb — tried 2026-07-31, reverted,
+  reasoning in the code.** It reads like an obvious correction (the guard's own comment argues about
+  "the way up", and the window stops at the peak). Measured: it flags **zero** additional corpus
+  flights, and it costs two real things — it withholds `perfectflite__issuiuc-endurance-20211030__
+  StratoLogger.csv`, a sound read, and breaks `withholds a barometric speed that contradicts the
+  flight's own climb`. Getting even that far needed two compensating mechanisms that exist only to
+  repair its own damage: excluding the apogee sample (where vertical velocity passes through zero by
+  definition, and where `perfectflite…intrepid3tf1` has its whole-ascent minimum — −38.1 against a
+  146.3 m/s peak, 26%), and a 3-point median (without which `eggtimer…skyward-lynx` loses a sound
+  Mach 1.27 peak to ONE glitched row at t = 5.65 s, where its altitude dips 4,274 → 3,996 → 4,096 ft
+  and its raw velocity column reads −5,560 ft/s between neighbours of +1,520 and +2,000). A guard
+  that fires on zero real files is worse than none.
+
+- **The corpus asserts a velocity on almost none of its fixtures, and that is where the surviving
+  bugs are.** The Sev-1 above sat in a file whose `corpus-overrides.json` entry asserts **apogee
+  only** — so the suite was green while the same file published Mach 7.06. Golden values pin the
+  numbers somebody thought to assert; the digest snapshot catches CHANGE but blesses whatever was
+  wrong when it was written. Worth a pass that adds a velocity/Mach assertion to every fixture whose
+  manifest row carries one, starting with the files whose ground truth names a speed.
+
 - **The one measured thing this run did NOT close, stated so it is not mistaken for done:
   `rounded-lg` is still 22 and was untouched all run.** `DESIGN.md` §2 says it is not in the
   system at all — containers are `xl`, controls are `md` — and "convert on sight". It is spread

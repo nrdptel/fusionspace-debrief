@@ -226,6 +226,23 @@ export default function ValidationPage() {
               never dips below zero at all, so an honest reading is never caught by this.
             </li>
             <li>
+              A <strong>peak that lands on the moment of liftoff</strong> is not a speed. A rocket
+              is at rest when it leaves the pad, so the fastest instant of its climb cannot be the
+              one liftoff was detected at — where a record says both, a jump in the opening samples
+              was fast enough to be read as the launch and is then reported as the top speed. One
+              corpus file is exactly that: a raw RRC3 download whose log opens part-way in, stating{' '}
+              <strong>7,876&nbsp;ft/s and Mach 7.06</strong> against the flight&apos;s own
+              ~2,450&nbsp;ft/s (~Mach 2.2), with a max-Q beside it 10.9× the same flight&apos;s real
+              load case. Its apogee, 13,749&nbsp;ft against a stated 13,304.6, was never the problem.
+              The ratio test that catches a tumbling airframe cannot catch this one: it measures the
+              negative swings against the peak, so the more absurd the spike the smaller its own
+              ratio — that flight swings to &minus;182&nbsp;m/s against a &ldquo;peak&rdquo; of
+              2,401, which is 7.6% and inside any sane tolerance, where the same swing against its
+              real 679&nbsp;m/s is 27% and refused at once. Across all 38 corpus records that
+              analyse, exactly one peaks at its liftoff sample and every other published peak comes
+              at least 0.7&nbsp;s later.
+            </li>
+            <li>
               A <strong>logged velocity is only called measured where the device could measure
               one</strong>. A pressure sensor cannot measure a speed, so a baro-only
               altimeter&apos;s velocity column is a barometric derivative however its firmware

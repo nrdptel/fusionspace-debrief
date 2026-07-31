@@ -1809,6 +1809,18 @@ function analyzeWhole(
   // traces swing to −492 and −246 ft/s on the way up and peak at 1,500 and 540 — so the
   // honest reading is that neither recording resolves the speed, not that one of them
   // does. Withheld like any other unusable velocity rather than picked between.
+  //
+  // **The window stops at the peak, and widening it to the whole ascent was tried and reverted on
+  // 2026-07-31 — do not retry it without new evidence.** The physics above reads like a statement
+  // about the whole climb, so judging the whole climb looks like the obvious correction. Measured,
+  // it catches nothing and costs a real reading: over all 38 corpus records that analyse under this
+  // path it flagged not one additional flight, while it withheld `perfectflite…endurance-20211030`
+  // — a sound StratoLogger read — and broke `withholds a barometric speed that contradicts the
+  // flight's own climb`. Two compensating mechanisms were needed to get even that far (excluding
+  // the apogee sample, where velocity passes through zero BY DEFINITION and one real flight has its
+  // whole-ascent minimum; and a 3-point median, without which `eggtimer…skyward-lynx` loses a sound
+  // Mach 1.27 peak to a single glitched row) — and both exist only to repair damage the widening
+  // itself does. A guard that fires on zero real files is worse than none.
   let velocityNoiseDominated = false;
   if (liftoffFound && maxVelIdx >= 0 && Number.isFinite(maxVelocity) && maxVelocity > 0) {
     let worst = 0;
@@ -1817,6 +1829,22 @@ function analyzeWhole(
     }
     velocityNoiseDominated = -worst / maxVelocity > ASCENT_NOISE_FRACTION;
   }
+
+  // A rocket is AT REST when it leaves the pad, so the fastest moment of its ascent cannot be the
+  // instant liftoff was detected. Where `argMax` over the climb returns `liftoffRef` itself, the
+  // trace and the liftoff detection contradict each other: whatever moved fast enough to be read
+  // as a launch is the same artefact being reported as the flight's top speed.
+  //
+  // This is a self-contradiction rather than a threshold, which is why it needs no constant — and
+  // a constant is what it would otherwise have taken, because the ratio guard above cannot see
+  // this case ON PRINCIPLE. That guard divides by the peak, so the more absurd the spike the
+  // SMALLER its own noise ratio: the corpus flight this catches swings to −182 m/s on the way up
+  // against a "peak" of 2,401 m/s, which is 7.6% — comfortably inside a 20% tolerance — while the
+  // same −182 m/s against its real 679 m/s peak would be 27% and refused at once.
+  //
+  // Measured over all 38 analysable corpus records: exactly one has its peak at the liftoff
+  // sample, and every one of the other 30 that publish a peak puts it at least 0.700 s later.
+  const velocityPeakAtLiftoff = liftoffFound && maxVelIdx >= 0 && maxVelIdx === liftoffRef;
 
   // A barometric peak speed the flight's own accelerometer cannot account for. On a log
   // carrying both channels the accelerometer bounds the speed from ABOVE: integrate the
@@ -1904,7 +1932,11 @@ function analyzeWhole(
   let velocityImplausible = false;
   if (
     Number.isFinite(maxVelocity) &&
-    (maxVelocity > IMPLAUSIBLE_VELOCITY || velocityNoiseDominated || velocityBeyondAccel || velocityOutclimbsItself)
+    (maxVelocity > IMPLAUSIBLE_VELOCITY ||
+      velocityNoiseDominated ||
+      velocityPeakAtLiftoff ||
+      velocityBeyondAccel ||
+      velocityOutclimbsItself)
   ) {
     velocityImplausible = true;
     maxVelocity = NaN;
@@ -2714,6 +2746,10 @@ function analyzeWhole(
   if (velocityNoiseDominated) {
     warnings.push(
       'The velocity on the way up swings well below zero — but a climbing, accelerating rocket has no negative vertical velocity, so this trace is carrying more noise than speed and its peak is that noise, not a reading. It is what a barometer records on an airframe that is tumbling or venting (a spent booster after separation, say), where the pressure at the port stops tracking altitude. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.',
+    );
+  } else if (velocityPeakAtLiftoff) {
+    warnings.push(
+      'The fastest moment of the climb reads as the instant the rocket left the pad, and a rocket is at rest when it does that — so the peak and the liftoff cannot both be right. What that means in practice is that a jump in the trace at the start of the record was fast enough to be read as the launch, and the same jump is the “top speed”. It is what a barometer writes when a log opens part-way into the flight or before the sensor has settled. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.',
     );
   } else if (velocityBeyondAccel) {
     const mach = (v: number) => (series.speedOfSound > 0 ? (v / series.speedOfSound).toFixed(2) : '—');
