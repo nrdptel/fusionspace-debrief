@@ -328,6 +328,7 @@ export default function CompareSurface() {
           onBack={back}
           backLabel="← Compare other flights"
           headingLevel="h1"
+          stitchIds={loadedIds.current.length === 2 ? loadedIds.current.join(',') : undefined}
           mappable={mappable.map((m) => m.name)}
           onMapFile={onMapFile}
         />

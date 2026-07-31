@@ -138,6 +138,23 @@ test('a flight the logbook no longer holds is a refusal, not a partial composite
   await expect(page.getByRole('link', { name: /side by side/i })).toBeVisible();
 });
 
+test('a comparison of two offers the way on to the composite', async ({ page }) => {
+  // The gap a closing cold walk found: a comparison assembled from a DROP carries no `?ids=` in
+  // the address, so a flyer who dropped a booster and a sustainer had no route to the composite
+  // except starting over from the header. The ids exist on the surface; this is the one click.
+  // Through the logbook, because that is where the flights become ADDRESSABLE: a comparison
+  // assembled straight from a drop mints synthetic ids, and the link is deliberately absent there
+  // rather than pointing at a composite that cannot be assembled.
+  const ids = await idsFor(page, [BOOSTER, SUSTAINER]);
+  await page.goto(`/compare/?ids=${ids}`);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 25_000 });
+  const onward = page.getByRole('link', { name: /Read them as one timeline/i });
+  await expect(onward).toBeVisible();
+  await onward.click();
+  await expect(page).toHaveURL(/\/stitch\/\?ids=[^,]+,[^,]+/);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+});
+
 test('an empty composite says what would fill it and offers the one control that does', async ({ page }) => {
   await page.goto('/stitch/');
   await expect(page.getByText(/Nothing to assemble yet/i)).toBeVisible();

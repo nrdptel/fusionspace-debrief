@@ -724,6 +724,7 @@ export default function Analyzer() {
           sys={sys}
           onBack={reset}
           permalink={state.ids && state.ids.length >= 2 ? `/compare?ids=${state.ids.join(',')}&u=${encodeUnits(sys)}` : undefined}
+          stitchIds={state.ids && state.ids.length === 2 ? state.ids.join(',') : undefined}
           mappable={state.mappable?.map((m) => m.name)}
           onMapFile={onMapDropped}
         />

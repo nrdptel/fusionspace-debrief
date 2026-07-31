@@ -59,6 +59,7 @@ export default function CompareView({
   onBack,
   backLabel = '← Back to a single flight',
   permalink,
+  stitchIds,
   mappable,
   headingLevel = 'h2',
   onMapFile,
@@ -74,6 +75,9 @@ export default function CompareView({
    *  from a drop exists only until the page does — but the dropped files went into the
    *  logbook on the way in, so the same set can be named by id and offered as a link. */
   permalink?: string;
+  /** The logbook ids of these flights, comma-joined, where they ARE logbook ids. Absent on a
+   *  comparison assembled straight from a drop, whose ids are synthetic — see the composite link. */
+  stitchIds?: string;
   /** Files dropped alongside these flights that need their columns mapped, by name. */
   mappable?: string[];
   /** Which level "Comparing N flights" sits at. It is the page's subject on /compare, where
@@ -504,15 +508,42 @@ export default function CompareView({
         >
           {backLabel}
         </button>
-        {permalink && (
-          <a
-            href={permalink}
-            title="Open this comparison at its own address — reloadable, bookmarkable, and it can sit in a second tab beside one flight's report. The flights are already in this browser's logbook; the link names them by id and carries no flight data."
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-          >
-            Give this comparison an address →
-          </a>
-        )}
+        <span className="flex flex-wrap items-center gap-3">
+          {/* The way on to the composite, offered from the surface that already has the set.
+              
+              Here rather than on either page because BOTH render this view, and a comparison built
+              from a drop never goes through the logbook path — so a flyer who dropped a booster and
+              a sustainer had no route to `/stitch` at all except starting again from the header. A
+              capability reachable only by knowing where to start over is a named tell, and a
+              closing cold walk of this run's own new surface is what found it.
+              
+              Two flights, not more: a composite is the stages of ONE launch, and offering it over
+              six unrelated flights from a launch day would be inviting the wrong statement.
+              
+              And only where the flights are ADDRESSABLE. A comparison assembled from a drop mints
+              synthetic ids (`Analyzer.tsx`: `${name}-${i}`) rather than logbook ones, so a link
+              built from them would 404 into the composite's own "no longer in this logbook"
+              refusal — offering a way on that cannot be taken is worse than not offering one.
+              `permalink` already carries exactly that guarantee, so this rides on it. */}
+          {flights.length === 2 && stitchIds && (
+            <a
+              href={`/stitch/?ids=${stitchIds}`}
+              title="Stages of one launch read as one timeline — every mark in order on the clock they share, each naming the recording it came from. Nothing is merged into a single reading."
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            >
+              Read them as one timeline →
+            </a>
+          )}
+          {permalink && (
+            <a
+              href={permalink}
+              title="Open this comparison at its own address — reloadable, bookmarkable, and it can sit in a second tab beside one flight's report. The flights are already in this browser's logbook; the link names them by id and carries no flight data."
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            >
+              Give this comparison an address →
+            </a>
+          )}
+        </span>
       </div>
 
       <div>
