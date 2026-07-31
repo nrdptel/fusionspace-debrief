@@ -506,26 +506,80 @@ file, so CSV and JSON keep every key.
 
 ## P1 — One design system, adopted
 
-**Status:** NOT STARTED — the next P-track milestone.
+**Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
+`DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
+conversion that earns it. Four surfaces converted so far (`MetricGrid`, `UnitsControl`,
+`ReadingChooser`, `ForgetDeviceData`).
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
 
 **Done when** `DESIGN.md`'s compliance block (§9) runs clean and is **pinned by a test**: a shared
 `components/ui.tsx` exists and most components import their containers, buttons and fields from it;
-zero `rounded-lg`; one card treatment rather than twelve; zero off-scale spacing values; and `text-sm`
-outnumbering `text-xs`, so a decision-grade number is no longer rendered at caption size. A flyer sees
-consistent spacing, one button hierarchy, and the same card everywhere.
+zero `rounded-lg`; one card treatment plus the named non-card primitives; zero off-scale spacing
+values; zero off-scale type sizes; and **zero component files where `text-xs` outnumbers `text-sm`**,
+so a decision-grade number is no longer rendered at caption size. A flyer sees consistent spacing, one
+button hierarchy, and the same card everywhere.
 
-**Notes.** Debrief has **no shared primitive layer at all** — measured 2026-07-30, zero
-cross-component imports across 50 components. The sibling repo has a thin one (`components/ui.tsx`,
-8 exports, 5 of 23 components using it), so the vocabulary in `DESIGN.md` §5 is partly drafted there;
-build the same names here so the two apps converge rather than inventing a second dialect. Convert in
-slices — one surface per increment, each shipped green — never one sweeping diff. **Ship the lint rule
-or test with the first slice**, so the drift cannot return mid-conversion.
+**The last clause used to read "`text-sm` outnumbering `text-xs`" and that metric is now known to be
+wrong** — see `DESIGN.md` §9. A primitive collapses many occurrences of a class into one, so adoption
+drives the suite-wide ratio the wrong way for the right reason: the sibling app measured 91/88 before
+converting nine buttons and 84/89 after, an inversion by the metric, with not one glyph on screen
+changing size. The count that means something is how many FILES are individually inverted, because a
+flyer reads one surface rather than the suite total.
 
-The `text-xs` inversion is the highest-value single fix and it is not cosmetic: this app exists to
-present numbers a flyer sizes a canopy against, and most of them are currently at caption size.
+**The ratchet, measured 2026-07-31 at the start of this milestone and where it stands now:**
+
+| count | §9 target | at P1 start | now |
+|---|---|---|---|
+| `rounded-lg` | 0 | 26 | 24 |
+| distinct card treatments | 1 + named non-card primitives | 6 | 7 |
+| off-scale spacing | 0 | 25 | 25 |
+| off-scale type sizes | 0 | 20 | 19 |
+| files where `text-xs` > `text-sm` | 0 | 26 | 23 |
+| components importing `./ui` | most of 44 | 0 | 4 |
+
+Card treatments went UP by one and that is the conversion working: the seventh is `<Card>`'s own
+string, and the other six fall away as surfaces adopt it. **Two of the six will not fold into `Card`
+and want their own named primitive** — the page-level drop zone (`border-dashed … p-10`, an
+interactive target rather than a container) and the floating drop overlay (`border-2 border-dashed …
+shadow-lg`, which needs elevation) — so the honest floor is 3, not 1.
+
+**Notes.** Debrief had **no shared primitive layer at all** — zero cross-component imports across 44
+components. The names and implementations are the sibling repo's, so the two apps converge rather than
+forking a second dialect; `Readout`, `Extrapolated`, `EmptyState`, `ErrorState` and `IconButton` are
+Debrief-side additions from `DESIGN.md` §5 that the sibling has not needed yet. Convert in slices —
+one surface per increment, each shipped green — never one sweeping diff.
+
+**What the opening audit found that the milestone must close, ranked** (measured 2026-07-31):
+
+1. ~~**`focus-visible` appeared 4 times across 44 components**, so 87 of 91 buttons had no visible
+   focus ring.~~ **Checked and REFUTED before acting on it.** `app/globals.css:27` carries a global
+   `:focus-visible { outline: 2px solid #6366f1 }`, and because it is UNLAYERED it beats anything in
+   `@layer utilities` — so every control already has the ring, and the `focus-visible:outline-*`
+   utilities briefly added to `Button` were inert. They were removed rather than kept as a second
+   belt. The same argument retires the 44 px token from `Button`: `globals.css`'s
+   `@media (pointer: coarse)` block already floors every `button`, `select`, `[role="button"]` and
+   `input`. `TOUCH_TARGET` stays for the elements that block does not reach — `<label>`, `<summary>`,
+   a plain `<a>`.
+2. **`font-mono` 81 times against `tabular-nums` 5** across `components/` and `app/`. Monospaced
+   readings with proportional digits do not line up column to column. `Readout` carries both;
+   converting a reading onto it cannot get this wrong.
+3. **`ACTION_BTN` was declared byte-identically in six files** (`FlightReport`, `FlightCard`,
+   `ChannelExplorer`, `UnitsControl`, `GroundTrack`, `CompareView`) over 25 call sites. This slice
+   removed `UnitsControl`'s, leaving five files and 24 call sites to collapse onto one `Button` —
+   the cheapest large deletion available, and the next slice.
+4. **Two primaries on one surface** in `ColumnMapper` and `RecentFlights`.
+5. **`dark:bg-zinc-900/40` is a fourth dark surface level**, used 30 times beside the sanctioned
+   `dark:bg-zinc-900` and `dark:bg-zinc-900/50`.
+6. **Six of seven `<h1>`s are off the six-size scale** — five `text-2xl` and one `text-4xl`, where
+   §3 says a page title is `text-3xl`. Exactly one route already gets it right (`app/not-found.tsx`).
+7. **0 of 13 data surfaces implement all five required states**; none has an offline state, in a PWA
+   whose headline promise is working at the range with no signal.
+8. **4 of 6 tables cannot be sorted or copied out of and 0 are keyboard-navigable.** `DataTable`
+   should be lifted from `SampleTable.tsx`, which already has the sticky header, `aria-sort` and the
+   clipboard copy, rather than written fresh — and `CompareView`'s independent second copy collapsed
+   onto it.
 
 **Size.** 4–6 increments.
 
@@ -673,6 +727,29 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-07-31 — `DESIGN.md` was re-synced FROM the sibling repo, and then changed in both.** The two
+  copies had diverged: the sibling's was 2.7 KB newer and carried three lessons this repo did not have
+  (`text-lg` as an off-scale seventh size, the suite-wide `text-xs`/`text-sm` ratio replaced by a count
+  of inverted FILES, and a broken adoption grep). The invariant says the copies are identical and a
+  change to one is a change to both in the same run; the sibling shipped its half and this repo's copy
+  was the stale one, so the sync direction was not a judgement call. Rejected: leaving them diverged
+  and building P1 against the stale copy, which would have pinned the wrong type metric into a test.
+  **Then two §9 greps were corrected in this copy**, because both were wrong here in ways they could
+  not be there: the adoption grep hard-codes a quote character and the two repos use opposite quoting,
+  and the off-scale-type grep names only `text-lg` where this repo has 19 off-scale sizes across three
+  classes. Rejected: writing the test to match the broken greps. **The same two edits are owed to the
+  sibling repo** — the harness for this run pins only `fusionspace-debrief` and `debrief-fixtures`, so
+  they cannot be pushed there from here; carrying them across is the next session's first job if a run
+  with both repos attached comes up before then.
+
+- **2026-07-31 — P1's *done when* dropped "`text-sm` outnumbering `text-xs`" for a count of inverted
+  FILES.** The alternative was to keep the suite-wide ratio, which is what the milestone was written
+  with. Rejected on the sibling's measurement: converting nine hand-rolled buttons onto a shared
+  `Button` moved that repo's totals from 91/88 to 84/89 — an inversion by the metric — while nothing on
+  screen changed size, because the `text-sm` moved INTO the primitive. A metric that goes backwards
+  when the milestone succeeds cannot be the milestone's own test. Reverse this only against a metric
+  that survives adoption.
 
 - **2026-07-30 — the queue was split into two alternating tracks, and product/craft work was made
   queue-legal rather than quota-capped.** The owner directed the shift: the products "still look and
