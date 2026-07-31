@@ -372,8 +372,15 @@ export default function RecentFlights({
           </span>
         </h2>
         <div className="flex items-center gap-3">
+          {/* Secondary, not primary — §5 allows one primary per SURFACE, and this component is not
+              one. It is embedded in both flight routes, and each of those already has its own
+              primary for the thing it exists to do: "Choose files" on the analyze route and
+              "Choose flight logs" on the comparison. Ticking two rows used to put a second indigo
+              fill on screen beside that one, and two primaries on a screen means neither is.
+              The logbook reading as a surface in its own right is what made this look right; a
+              flyer sees one page. */}
           {chosen.length >= 2 && (
-            <Button variant="primary" size="sm" onClick={() => onCompare(chosen)}>
+            <Button size="sm" onClick={() => onCompare(chosen)}>
               Compare {chosen.length} flights
             </Button>
           )}

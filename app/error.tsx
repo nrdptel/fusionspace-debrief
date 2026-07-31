@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Button } from '@/components/ui';
 
 // Route error boundary. Debrief does its work in the browser, so the likely
 // trigger is an unexpected failure while reading or analyzing a file. We show a
@@ -18,13 +19,9 @@ export default function Error({ reset }: { error: Error & { digest?: string }; r
         particular flight log keeps doing this, a bug report with the file would help.
       </p>
       <div className="mt-6 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => reset()}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
-        >
+        <Button variant="primary" onClick={() => reset()}>
           Try again
-        </button>
+        </Button>
         <Link
           href="/"
           className="text-sm text-zinc-600 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
