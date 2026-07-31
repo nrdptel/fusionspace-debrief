@@ -498,8 +498,11 @@ export default function MethodsPage() {
             dense, so the error runs the rate <em>low</em>. On one corpus GPS log the drogue leg came
             out at <strong>50.7&nbsp;m/s</strong> that way; the same file&apos;s own vertical-speed
             column averages <strong>63.9&nbsp;m/s</strong> over that leg and the altitude falls at{' '}
-            <strong>64.5&nbsp;m/s</strong>. A descent rate is what a flyer sizes a canopy against, so
-            being 21% low is not a rounding difference.
+            <strong>64.5&nbsp;m/s</strong>. Debrief now reads <strong>64.8&nbsp;m/s</strong> there. A
+            descent rate is what a flyer sizes a canopy against, so being 21% low is not a rounding
+            difference. The average is taken across each interval rather than at each sample, so it
+            covers the whole leg including the gap that closes it — on a log that slows to one sample
+            every two seconds, leaving that last gap out drops a quarter of the leg&apos;s duration.
             {' '}
             Each phase also has to be <em>in</em> the record to be read: a rate is reported
             only where the log shows that leg dropping more than a tenth of the height it started

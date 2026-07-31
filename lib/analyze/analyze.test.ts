@@ -1955,11 +1955,13 @@ describe('analyzeFlight (barometric)', () => {
 
     const rate = a.metrics.wholeDescentRate ?? a.metrics.drogueDescentRate;
     expect(rate).not.toBeNull();
-    // The time average is 30 m/s. Smoothing across the step between the two legs costs a little,
-    // so this is deliberately loose — but it is nowhere near the 11.9 m/s a per-sample average
-    // gives, which is the point. Falsified by reverting `timeMean` to `mean`: this reads 12.6.
+    // The leg's own chord is 30.0 m/s. Debrief reads 28.24 — the 0.6 s smoothing rounds the step
+    // between the two legs, which costs a little and is a separate, filed defect — so the bound is
+    // deliberately loose. What it has to exclude is the 12.04 m/s a per-SAMPLE average gives, and
+    // that is the point: falsified by reverting `timeMean` to `mean`, which reads exactly that and
+    // fails here for the reason named.
     expect(rate as number).toBeGreaterThan(24);
-    expect(rate as number).toBeLessThan(36);
+    expect(rate as number).toBeLessThan(33);
   });
 
   it('withholds a descent rate that beats a vacuum fall from apogee', () => {

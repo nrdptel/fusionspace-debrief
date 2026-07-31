@@ -79,25 +79,41 @@ wild, ideas too big for one pass. One line each, newest first.
   D4's composite surface must actively suppress that panel once a flyer states these are stages, or it
   ships a 30%-disagreement warning on a flight behaving exactly as designed.
 
-- **The 0.6 s smoothing behind the descent series bleeds across the leg boundaries, and it is worth
-  between 5% and 61% on nine corpus legs.** Separate from the index-weighting Sev-1 fixed 2026-07-31
-  and NOT closed by it. `descent` is `movingAverage(-baroVel, windowFor(dt, 0.6))`, so the window at
-  the start of the drogue leg pulls in the near-zero rate either side of apogee (biasing the leg
-  LOW) and the window at the start of the main leg pulls in the fast drogue rate (biasing it HIGH).
-  The signs in the corpus match that exactly: drogue legs read low, main legs read high. Measured
-  over the 29 reported legs, against each leg's own chord (Δh/Δt over the same two indices), after
-  the time-weighting fix: `eggtimer euler-explosion` drogue **−60.6%** (7.81 vs 19.83 m/s, uniform
-  0.050 s cadence, so weighting cannot be the cause), `blueraven meraki2-121km` drogue **−22.7%**
-  (knownIssue file), `issuiuc-endurance TeleMetrum` drogue **+17.4%**, `stargazer1 EasyMega` whole
-  **−11.8%**, `sg1.1-Booster TeleMetrum` main **+11.0%** and drogue **+8.3%**, `trf-lemiv-l3 Blue
-  Raven` main **+10.8%**, `fwgps trf-lemiv-l3` main **+6.0%**. Median across all 29 legs is 1.30%,
-  so this is a tail rather than a bias. **Pinned as an exact count** by `reports a rate that matches
-  its own leg, across the whole corpus` (`lib/parsers/corpus.test.ts`), which asserts nine — so
-  closing any of them fails the test and forces the number down in the same commit. Do NOT fix this
-  by using the chord directly: the eggtimer case is a motor explosion whose altitude trace is not
-  sound over the leg (a 15.3 s leg on a flight that reached ~170 m gives a chord implying 303 m of
-  descent), and the chord is the contaminated figure there, not the smoothed mean. The likely honest
-  fix is to shrink or one-side the window at a leg boundary rather than to drop the smoothing.
+- **Eight descent legs still disagree with their own chord by 5% or more, and the cause is only
+  half established.** Separate from the index-weighting Sev-1 fixed 2026-07-31 and not closed by it.
+  Measured over the **41 reported legs** the corpus test sweeps, after that fix: **median |error vs
+  own chord| 0.755%, mean 4.574%** — so this is a tail, not a bias. The eight:
+  `issuiuc-endurance TeleMetrum` drogue **+17.0%**, `blueraven meraki2-121km` drogue **−22.6%**,
+  `meraki2 Mega38-1 TeleMega` drogue **+11.7%**, `trf-lemiv-l3 Blue Raven` main **+11.1%**,
+  `sg1.1-Booster TeleMetrum` main **+10.9%** and drogue **+8.2%**, `stargazer1 EasyMega` whole
+  **−12.0%**, `eggtimer euler-explosion` drogue **−63.1%**.
+
+  **The likely mechanism is the 0.6 s smoothing bleeding across the leg boundaries** — `descent` is
+  `movingAverage(-baroVel, windowFor(dt, 0.6))`, so the window at the start of the main leg pulls in
+  the fast drogue rate and the window at the start of the drogue leg pulls in the near-zero rate
+  either side of apogee. **That prediction holds for main legs and does NOT hold for drogue legs**,
+  and saying otherwise would be reading the evidence backwards: both main legs read high as
+  predicted, but of the five drogue legs three read HIGH and two low. So the drogue cases have some
+  other cause, or more than one — two of them (`meraki2` ×2, a 121 km space-shot outside the
+  barometric model's valid range, and the `eggtimer` motor explosion) are files where the altitude
+  trace over the leg is itself suspect, which makes the chord the doubtful figure there rather than
+  the reading. Establish the cause per file before changing anything.
+
+  **Pinned as an exact count** by `reports a rate that matches its own leg, across the whole corpus`
+  (`lib/parsers/corpus.test.ts`), which asserts eight and prints the leg count, median and mean in
+  its failure message — so closing any of them fails the test and forces the number down in the same
+  commit. Do NOT fix it by using the chord directly: on the eggtimer file a 15.3 s leg on a flight
+  Debrief reads to 292 m gives a chord implying 303 m of descent, and that chord is contaminated.
+  The likely honest fix is to shrink or one-side the smoothing window at a leg boundary.
+
+- **The `iss-sg1.2` group's whole-descent cross-check got WORSE when the descent Sev-1 was fixed,
+  from 74.7% to 89.1%**, while `reddit-meraki2` drogue improved 32.6% → 8.8% and `trf-lemiv-l3` main
+  22.9% → 16.1%. Net win across the redundant-recording groups, and the fix is right on its own
+  evidence — the device's own vertical-speed column settles it — but one group moved the wrong way
+  and that should not go unrecorded. `iss-sg1.2` pairs a TeleMega sustainer at 2,113 m with two
+  StratoLogger boosters at 465 m and a 9.5 m fragment: it is the corpus's own negative case for
+  same-flight grouping, so a widening spread there may be the cross-check correctly reporting that
+  these are not recordings of one flight. Worth confirming before anyone reads it as a regression.
 
 - **The Featherweight GPS log carries the tracker's own `VERTV` vertical-speed column and Debrief
   ignores it, deriving a speed from the altitude instead.** `velocitySource` on

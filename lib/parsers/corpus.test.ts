@@ -2291,13 +2291,16 @@ describe('a descent rate is averaged over time, not over samples', () => {
     }
     const measured = sum / weight;
 
-    // Measured 2026-07-31: Debrief 65.62 m/s, the tracker's own column 63.89 m/s — 2.7% apart on
-    // two different methods over one leg. Averaged over SAMPLES instead, Debrief read 50.73 m/s,
-    // which is 21% below the device and outside any tolerance this assert could reasonably carry.
+    // Measured 2026-07-31: Debrief 64.81 m/s, the tracker's own column 63.89 m/s — 1.4% apart, by
+    // two different methods, over one leg. Averaged over SAMPLES instead, Debrief read 50.73 m/s,
+    // which is 21% below the device. The band is 4%: wide enough that the two methods' honest
+    // disagreement does not fail it, narrow enough that the defect could never have passed. It was
+    // 8% for one commit and that was too slack — it would also have passed the version of this fix
+    // that dropped each leg's closing interval, which reads 65.62 and is wrong for its own reason.
     expect(
       Math.abs(rate! - measured) / measured,
       `Debrief reads ${rate!.toFixed(2)} m/s where the tracker's own VERTV column averages ${measured.toFixed(2)} m/s over the same leg`,
-    ).toBeLessThan(0.08);
+    ).toBeLessThan(0.04);
   });
 
   it('reports a rate that matches its own leg, across the whole corpus', { timeout: 120_000 }, async () => {
@@ -2307,12 +2310,15 @@ describe('a descent rate is averaged over time, not over samples', () => {
     // discontinuity), or the estimator is wrong. This is an EXACT count, so a new disagreement
     // fails and so does fixing one, which forces the number into the commit that earns it.
     //
-    // The 9 that remain are a second, smaller cause with its own entry in `BACKLOG.md`: the 0.6 s
-    // moving average behind the descent series bleeds across the leg boundaries, pulling the
-    // near-zero rate at apogee into the drogue leg and the fast drogue rate into the main leg.
-    // They are between 5% and 61% and they are NOT the index-weighting defect this fixes.
+    // The 8 that remain have their own entry in `BACKLOG.md`, and the cause is only half
+    // established: the 0.6 s moving average behind the descent series bleeds across the leg
+    // boundaries, which predicts main legs high (2 of 2, correct) and drogue legs low (2 of 5,
+    // so NOT established). Two of the drogue cases are files whose altitude trace over the leg is
+    // itself suspect, which makes the chord the doubtful figure there. None of them is the
+    // index-weighting defect this test's sibling fixes.
     const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
     const off: string[] = [];
+    const pcts: number[] = [];
     let legs = 0;
     let since = 0;
     for (const f of spec.fixtures) {
@@ -2341,12 +2347,19 @@ describe('a descent rate is averaged over time, not over samples', () => {
         const chord = (series.altitude[a] - series.altitude[b]) / dt;
         legs++;
         const pct = ((reported - chord) / chord) * 100;
+        pcts.push(Math.abs(pct));
         if (Math.abs(pct) >= 5) {
           off.push(`${f.file.split('/').pop()} ${leg}: ${reported.toFixed(2)} vs chord ${chord.toFixed(2)} (${pct.toFixed(1)}%)`);
         }
       }
     }
     expect(legs, 'the sweep actually examined descent legs').toBeGreaterThan(20);
-    expect(off.length, `legs disagreeing with their own chord by >=5%:\n${off.sort().join('\n')}`).toBe(9);
+    const abs = pcts.slice().sort((a, b) => a - b);
+    const median = abs[Math.floor(abs.length / 2)];
+    expect(
+      off.length,
+      `${legs} legs, median |error vs own chord| ${median.toFixed(3)}%, mean ${(abs.reduce((x, y) => x + y, 0) / abs.length).toFixed(3)}%\n` +
+        `disagreeing by >=5%:\n${off.sort().join('\n')}`,
+    ).toBe(8);
   });
 });
