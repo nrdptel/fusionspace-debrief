@@ -113,11 +113,18 @@ wild, ideas too big for one pass. One line each, newest first.
   on /compare, and loading the flights used to leave no h1 at all", so this is the tail of a fix
   rather than a new fault — but it is still a route whose title is the product's name.
 
-- **Off-scale spacing has not moved: 25 values, and they are concentrated in the docs routes.**
-  `mt-10` ×6, `py-10` ×5, `pl-5` ×4, `pt-5` ×3, `mt-5` ×3, `p-10`, `py-5` ×2, against a scale of
-  `1 2 3 4 6 8 12`. That is why `/methods`, `/validation` and `/privacy` read as a different
-  author's pages from the app: the section rhythm is a different rhythm. Pinned as an exact ratchet
-  by `lib/design-system.test.ts`, so clearing them forces the number down in the same commit.
+- ~~**Off-scale spacing has not moved: 25 values, concentrated in the docs routes.**~~ **DONE
+  2026-07-31 — all 25 cleared, and the count is a GUARD at 0 now rather than a ratchet**, so it may
+  never rise again. Each was mapped to its nearest scale value in the direction that keeps the
+  rhythm: 5 → 4 between related things, 10 → 12 for a section break or page gutter, except the list
+  indent where rounding down would put the marker on the edge.
+
+  Two things this entry got wrong, both worth keeping. **The count was never 25** — the §9 grep that
+  produced it enumerated the values somebody had in front of them and never matched `gap-` or
+  `space-y-` at all, so it read 0 for a whole run while eight occurrences sat in the tree. And the
+  first fix for that grep was itself blind to a live `gap-y-5`. The lesson is in
+  `lib/design-system.test.ts`: **a compliance grep anchored on the values you already know about can
+  only find the drift you already know about.**
 
 - **`ChannelExplorer`'s preset row is half-converted and reads worse than either state.** The
   "+ Save this view" control is now a `Button` at the primitive's height while the built-in view

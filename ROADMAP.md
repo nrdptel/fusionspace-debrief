@@ -726,8 +726,31 @@ never proposed, and that nothing is grouped without an explicit acceptance.
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
-conversion that earns it. Eleven components import it; the type scale is clean; the five duplicated
-copies of the secondary button are gone.
+conversion that earns it.
+
+**Where the counts stand, measured 2026-07-31 at the end of the run** — the §9 shell block and the
+test agree exactly, which is itself the check that the two have not drifted:
+
+| count | was | now | target |
+|---|---|---|---|
+| `rounded-lg` | 22 | **0** | 0 — **a guard now**, may never rise |
+| off-scale spacing | 25 *(really 33)* | **0** | 0 — **a guard now** |
+| hand-rolled card treatments | 7 *(really 19)* | **12** | floor is 3, not 1 |
+| inverted-type files | 23 | **16** | **floor is at least 4, not 0** |
+| off-scale type sizes | 20 | **1** | floor is 1 — the shared brand wordmark |
+| files importing the primitives | 11 | **25** | most of the 46 |
+| `Card` adopters | 0 | **21** | — |
+
+**Three of those targets are not 0 and the file now says why in each case.** A budget whose target
+is unreachable trains the next session to ignore it, which is worse than not having it.
+
+**And a finding that belongs to P1 rather than to any one count:** the design documents and the
+compliance test were *shipping the utilities they forbid*. Tailwind v4 auto-detects its sources, so
+it read `DESIGN.md`, this file, `HANDOFF.md`, `BACKLOG.md` and `lib/design-system.test.ts` — every
+file whose job is to name a banned class — and emitted **25 dead rules** into the production
+stylesheet that no component used. Scoped in `app/globals.css`; 68,225 → 66,209 bytes. Found by the
+done-check's cold walk on the built export, not by reading source, which is the argument for walking
+the artifact rather than the tree.
 
 **What is left, in the order it is worth doing** — each measured, none guessed:
 
@@ -738,8 +761,19 @@ copies of the secondary button are gone.
    pattern now subtracts the scale instead of naming what is off it, and the five survivors —
    `mt-20 md:mt-28` ×2, `mt-16`, `space-y-5`, `gap-5` — were converted in the same commit.
    Falsified against `gap-5`, `space-y-7`, `mt-20` and `p-16`, every one of which the old form passed.
-2. **23 of 46 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
-   matters most and it has barely moved: the conversions so far took the buttons, not the bodies.
+2. **16 of 46 component files have `text-xs` outnumbering `text-sm` — down from 23, and the target
+   is NOT 0.** §5 makes `Chip` `text-xs` by definition, so a component built out of chips is
+   permanently "inverted" while fully compliant; `EventChips`, `RecognizedFormats`, `SiteFooter` and
+   `FusionSpaceBadge` are already correct and are the floor. **The 23 → 16 was the seven derived-
+   reading panels**, every one of which rendered its label, its input, its description and all of its
+   state messages at caption size — including, in `RailExit`, a flight-safety caution about too
+   little airflow over the fins. `ChannelExplorer` was taken 17/4 → 11/10 by fixing six genuine
+   violations and **deliberately left inverted**, because the other eleven are sanctioned. Read the
+   note in `lib/design-system.test.ts` before treating this number as a defect total: the numbers on
+   these surfaces were never at caption size — `TD_NUM` and both cross-check tables inherit `text-sm`.
+
+   *(Superseded, kept because the reasoning still holds:)* This was the count that mattered most and
+   had barely moved: the conversions so far took the buttons, not the bodies.
    Worst offenders, measured: `RecentFlights` 26/6, `FlightReport` 24/12, `ChannelExplorer` 17/4,
    `CompareView` 17/10 — and the first of those is the logbook, the one surface built for scanning
    flights against each other.
