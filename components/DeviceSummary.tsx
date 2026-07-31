@@ -45,7 +45,7 @@ export default function DeviceSummary({
       <p id="devsum-heading" className="mb-0.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         The logger&apos;s own summary
       </p>
-      <p className="mb-2.5 text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="mb-2.5 text-sm text-zinc-500 dark:text-zinc-400">
         The device wrote these figures into the file. Shown beside Debrief&apos;s independent read as a cross-check —
         agreement builds confidence, a gap is worth a look.
       </p>

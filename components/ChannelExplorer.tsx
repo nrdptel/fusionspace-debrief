@@ -340,7 +340,7 @@ export default function ChannelExplorer({
 
       {/* X axis selector */}
       <div className="mt-3">
-        <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        <label className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
           X axis
           <select aria-label="X axis channel" value={xKey} onChange={(e) => setXKey(e.target.value)} className={SELECT}>
             <option value="time">Time</option>
@@ -363,7 +363,7 @@ export default function ChannelExplorer({
 
       {/* Named views */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Views</span>
+        <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Views</span>
         {builtins.map((b) => (
           <button
             key={b.name}
@@ -415,7 +415,7 @@ export default function ChannelExplorer({
                 }
               }}
               placeholder="Boost check"
-              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
             <Button size="sm" onClick={commitPreset}>
               Save
@@ -474,7 +474,7 @@ export default function ChannelExplorer({
       </div>
 
       <div ref={chartRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
-        <div className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
           Left axis: <span className="font-medium text-zinc-700 dark:text-zinc-300">{leftUnit || 'unitless'}</span>
           {hasRightAxis && (
             <>
@@ -522,7 +522,7 @@ export default function ChannelExplorer({
       {/* The numbers behind the plot. Collapsed by default — the chart is the answer most
           of the time — but one click away, and it follows the chart's zoom. */}
       <details className="mt-4">
-        <summary className="cursor-pointer select-none text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+        <summary className="cursor-pointer select-none text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">
           Show the samples
         </summary>
         <SampleTable
@@ -656,7 +656,7 @@ function Stats({
                     )}
                   </>
                 ) : (
-                  <td colSpan={emptyCols} className="px-3 py-1.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={emptyCols} className="px-3 py-1.5 text-right text-sm text-zinc-500 dark:text-zinc-400">
                     no samples in range
                   </td>
                 )}

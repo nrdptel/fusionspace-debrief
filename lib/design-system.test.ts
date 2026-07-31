@@ -122,7 +122,36 @@ const BUDGET = {
    *  attempt flattened away), and `space-y-5`/`gap-5`/`gap-y-5` to `4`, the "between related
    *  things" mapping the rest of the conversion already used. */
   offScaleSpacing: 0,
-  /** Component files where caption size OUTNUMBERS the body default. Target 0.
+  /** Component files where caption size OUTNUMBERS the body default.
+   *
+   *  **The target is NOT 0, and this is measured rather than conceded.** The ratio is a proxy: it
+   *  counts every `text-xs` as drift, but `DESIGN.md` sanctions several — §5 makes `Chip` `text-xs`
+   *  by definition, §3 allows units, footnotes and dense table metadata. A component built OUT of
+   *  chips is therefore permanently "inverted" while being fully compliant, and driving it to 0
+   *  would mean breaking §5 to satisfy a count.
+   *
+   *  Four files are already at their correct state and are the floor: `EventChips` (3/0 — a group
+   *  label, the chips themselves, and a "kept on this device" footnote), `RecognizedFormats` (3/0 —
+   *  an uppercase micro-heading, format chips, a footnote), `SiteFooter` (1/0 — the footer IS a
+   *  footnote) and `FusionSpaceBadge` (1/0 — a hover annotation). `KofiButton` (1/0) is a compact
+   *  badge link and is arguable either way. **So the floor is at least 4, and this number is only
+   *  meaningful alongside a reading of what each remaining file's captions actually are.**
+   *
+   *  `ChannelExplorer` is the worked example. It went 17/4 to 11/10 — six genuine violations fixed
+   *  (the X-axis label, the "Views" group label, the view-name input, the axis legend that says which
+   *  unit is on which axis, the disclosure toggle, and the "no samples in range" empty cell) — and it
+   *  is STILL counted inverted at 11/10. The remaining eleven are channel and preset chips, the stats
+   *  table's column headers, and provenance footnotes: every one sanctioned. It was left there rather
+   *  than pushed over the line, because the six that moved were the ones that were wrong. Worth
+   *  knowing before reading this count as a defect total: the stats table's numbers were never at
+   *  caption size — `TD_NUM` carries no size and inherits the table's `text-sm`.
+   *
+   *  The two cross-check tables, `GpsApogee` and `DeviceSummary`, came out the same way. Their
+   *  figures were never at caption size either — both are `<table className="… text-sm">` — and what
+   *  remains after promoting the panel description is column headers, agreement chips and a footnote.
+   *  4/3 and 6/3, both counted inverted, both correct. The description moved because it is the same
+   *  structural element as the seven panels' description and sizing it differently on the grounds
+   *  that its sentence happens to be provenance rather than instruction is how the drift started.
    *
    *  23 → 16 is the seven derived-reading panels — `DragCoefficient`, `RailExit`, `ParachuteCd`,
    *  `LandingEnergy`, `DrogueCd`, `EjectionDelay`, `DeployAltitude` — which shared one shape and one
