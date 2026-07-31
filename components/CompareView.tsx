@@ -9,7 +9,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
-import { loadHidden, loadHiddenFigures, loadOrder, moveReading, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
+import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
 import { loadCompareChannel, saveCompareChannel, loadHiddenEvents, saveHiddenEvents } from '@/lib/plotView';
 import ReadingChooser from './ReadingChooser';
 import FigureChooser from './FigureChooser';
@@ -256,10 +256,12 @@ export default function CompareView({
   // comparison bundle. Read after mount, never during render — this is a static export and a
   // render-time localStorage read trips hydration.
   const [hiddenFigures, setHiddenFigures] = useState<string[]>([]);
+  const [figureOrder, setFigureOrder] = useState<string[]>([]);
   useEffect(() => {
     setHidden(loadHidden());
     setOrder(loadOrder());
     setHiddenFigures(loadHiddenFigures());
+    setFigureOrder(loadFigureOrder());
   }, []);
   const toggleFigure = useCallback((title: string) => {
     setHiddenFigures((prev) => {
@@ -369,7 +371,18 @@ export default function CompareView({
   // literal ['altitude','velocity','acceleration'] that both used to spell out, which ignored
   // the choice and silently withheld the Mach and dynamic-pressure overlays from every
   // document even though the surface draws them.
-  const documentFigures = metrics.filter((m) => !hiddenFigures.includes(m.label));
+  // In the flyer's order, then minus what they turned off. Ordered FIRST so the chooser's
+  // ▲/▼ act on the same sequence the document will carry — ordering the survivors instead
+  // would silently renumber the list every time a figure is hidden.
+  const orderedFigures = orderRows(metrics, (m) => m.label, figureOrder);
+  const documentFigures = orderedFigures.filter((m) => !hiddenFigures.includes(m.label));
+  const figureTitles = orderedFigures.map((m) => m.label);
+  const moveFigure = (title: string, delta: -1 | 1) =>
+    setFigureOrder((prev) => {
+      const next = moveReading(prev, figureTitles, title, delta);
+      saveFigureOrder(next);
+      return next;
+    });
   const active = metrics.find((m) => m.key === metric) ?? metrics[0];
   const metricSeries = useMemo(
     () => flights.map((f) => ({ label: stem(f.name), values: f[metric], stroke: f.color, width: 2 })),
@@ -1023,9 +1036,10 @@ export default function CompareView({
             the same control, as the flight report's. */}
         <div className="mb-3">
           <FigureChooser
-            titles={metrics.map((m) => m.label)}
+            titles={figureTitles}
             hidden={hiddenFigures}
             onToggle={toggleFigure}
+            onMove={moveFigure}
             what="the .html comparison and the bundle"
           />
         </div>

@@ -187,3 +187,39 @@ export function saveHiddenFigures(names: string[]): void {
     /* storage blocked (a private window) — the choice still applies to this view */
   }
 }
+
+/** The order the flyer put the FIGURES in, on this device.
+ *
+ *  Figures order cleanly where readings do not, and the difference is worth stating because
+ *  `orderRows`'s own comment refuses reading-order on the single-flight report. That refusal is
+ *  about the report's readings being TWO parallel lists — a grid of tiles beside an export table
+ *  carrying rows the tiles do not have — so "third from the top" has no exact meaning across
+ *  them. A figure list is one list on both surfaces: the same titles drive the on-screen order,
+ *  the .html, the bundle and the single-figure save. So the same stored-order machinery applies
+ *  here with none of that ambiguity, and it is the identical `orderRows` / `moveReading` pair
+ *  rather than a second implementation of them. */
+const FIGURE_ORDER_KEY = 'debrief.report.figureOrder';
+
+export function loadFigureOrder(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(FIGURE_ORDER_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === 'string').slice(0, MAX_HIDDEN);
+  } catch {
+    return [];
+  }
+}
+
+export function saveFigureOrder(names: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const unique = [...new Set(names.filter((n) => typeof n === 'string' && n))].slice(0, MAX_HIDDEN);
+    if (unique.length === 0) window.localStorage.removeItem(FIGURE_ORDER_KEY);
+    else window.localStorage.setItem(FIGURE_ORDER_KEY, JSON.stringify(unique));
+  } catch {
+    /* storage blocked (a private window) — the choice still applies to this view */
+  }
+}

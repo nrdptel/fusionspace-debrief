@@ -780,3 +780,46 @@ test('the figures a comparison carries are the flyer’s choice, and the report 
     'false',
   );
 });
+
+// D5's other half of "which figures appear AND in what order". The order has to follow into
+// the DOCUMENT — a chooser that reorders only the screen is a preference the export ignores,
+// which is the same defect as the comparison ignoring the hide list.
+test('the order a flyer puts the figures in follows into the document', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  const captions = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save .html' }).click(),
+    ]);
+    const html = (await readFile(await dl.path())).toString('utf8');
+    return [...html.matchAll(/<figcaption>([^<]+)<\/figcaption>/g)].map((m) => m[1]);
+  };
+
+  const before = await captions();
+  expect(before[0]).toBe('Altitude');
+  expect(before).toContain('Velocity');
+
+  // Move Velocity to the front. The control is the same ▲/▼ the readings chooser uses.
+  await page.getByRole('button', { name: 'Move the velocity figure earlier' }).click();
+
+  const after = await captions();
+  expect(after[0], 'the document leads with the figure the flyer put first').toBe('Velocity');
+  expect(after[1]).toBe('Altitude');
+  // Reordering is not hiding: the same set of figures is still there.
+  expect([...after].sort()).toEqual([...before].sort());
+
+  // …and it is remembered on this device and shared with the other document surface, like the
+  // hide list. Checked on the single-flight report rather than by reloading THIS page: a
+  // comparison assembled from a drop exists only until the page does, so a reload here would be
+  // testing that, not the stored order.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  const chips = page.locator('[aria-label$="figure"]');
+  await expect(chips.first()).toHaveAttribute('aria-label', 'Velocity figure');
+});

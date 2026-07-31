@@ -12,21 +12,26 @@
 // on screen, and turning them all off leaves a report of numbers, which is a legitimate answer
 // for a table-only write-up.
 
-import { Chip } from './ui';
+import { Chip, IconButton } from './ui';
 
 export default function FigureChooser({
   titles,
   hidden,
   onToggle,
+  onMove,
   what,
 }: {
-  /** Every figure this surface could carry, chosen or not. */
+  /** Every figure this surface could carry, chosen or not, ALREADY in the flyer's order — the
+   *  caller applies `orderRows` so the chooser and the document cannot disagree about it. */
   titles: string[];
   /** The ones turned off, by title — the same off-list `lib/reportProfile.ts` stores, so a
    *  figure a flight gains later appears rather than being excluded by a list written before
    *  it existed. */
   hidden: string[];
   onToggle: (title: string) => void;
+  /** Move one figure earlier or later in the document. Omitted where a surface has only one
+   *  figure to place. */
+  onMove?: (title: string, delta: -1 | 1) => void;
   /** Which artefacts the choice reaches, named so the control says what it does. */
   what: string;
 }) {
@@ -35,9 +40,10 @@ export default function FigureChooser({
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
       <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Figures in the report</span>
-      {titles.map((t) => {
+      {titles.map((t, i) => {
         const on = !hidden.includes(t);
         return (
+          <span key={`${t}-group`} className="inline-flex items-center">
           <button
             key={t}
             type="button"
@@ -58,6 +64,30 @@ export default function FigureChooser({
           >
             {t}
           </button>
+          {/* Order is the other half of "this document is mine" — a certification package
+              leads with the plot the certification asks for. Same control and same stored-order
+              helpers as the readings chooser, so the two do not drift. */}
+          {onMove && titles.length > 1 && (
+            <>
+              <IconButton
+                onClick={() => onMove(t, -1)}
+                disabled={i === 0}
+                aria-label={`Move the ${t.toLowerCase()} figure earlier`}
+                title="Move earlier"
+              >
+                ▲
+              </IconButton>
+              <IconButton
+                onClick={() => onMove(t, 1)}
+                disabled={i === titles.length - 1}
+                aria-label={`Move the ${t.toLowerCase()} figure later`}
+                title="Move later"
+              >
+                ▼
+              </IconButton>
+            </>
+          )}
+          </span>
         );
       })}
       {allOff ? (

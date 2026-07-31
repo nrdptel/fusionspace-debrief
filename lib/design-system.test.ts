@@ -123,7 +123,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Button: 9,
   Chip: 3,
   Readout: 2,
-  IconButton: 1,
+  IconButton: 2,
   Extrapolated: 1,
   EmptyState: 1,
   ErrorState: 1,

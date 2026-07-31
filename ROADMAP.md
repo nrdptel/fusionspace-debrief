@@ -521,10 +521,13 @@ much as the success path.
 
 ## D5 — The report a flyer can actually build
 
-**Status:** IN PROGRESS — the figure choice now reaches BOTH document surfaces, pinned by
-`the figures a comparison carries are the flyer’s choice, and the report agrees`
-(`e2e/compare.spec.ts`, walking the real app: the bundle's SVG entries, the .html's figure
-captions, and the same choice read back on the single-flight report).
+**Status:** IN PROGRESS — **the first clause of the *done when* is met on both document
+surfaces: which figures appear, AND in what order.** Pinned by
+`the figures a comparison carries are the flyer’s choice, and the report agrees` and
+`the order a flyer puts the figures in follows into the document` (both `e2e/compare.spec.ts`,
+both walking the real app: the bundle's SVG entries, the .html's figure captions and their
+sequence, and both choices read back on the single-flight report). What remains of the milestone
+is **colour** and **a paginated document** — see *What is left* below.
 
 **Outcome.** The plots, colours and formats are the flyer's choice, not the tool's.
 
@@ -562,11 +565,18 @@ of it was scoped. Read these before planning the rest.**
 
 **What is left**, in the order it is worth doing:
 
-1. **Figure ORDER.** `figureSvgs` pushes Altitude, Velocity, Acceleration in source order and only
-   filters at the end; nothing lets a flyer put velocity first. `orderRows`/`moveReading`
-   (`lib/reportProfile.ts:99,114`) already do exactly this job for the readings and are
-   surface-agnostic, so this is a stored key plus an `onMove` on the chooser — the one clause of
-   the *done when* with a ready-made, already-tested implementation to reuse.
+1. ~~**Figure ORDER.**~~ **DONE 2026-07-31.** `debrief.report.figureOrder`, plus `onMove` on the
+   shared chooser, reusing `orderRows`/`moveReading` rather than a second implementation of them.
+   Ordered FIRST and filtered second on both surfaces, so the ▲/▼ act on the sequence the
+   document will carry — ordering the survivors instead would silently renumber the list every
+   time a figure is hidden. Falsified two ways: ordering the screen but not the document fails
+   the .html caption sequence, and not persisting fails the cross-surface read-back.
+
+   **Worth recording, because `orderRows`'s own comment refuses reading-order on the report:**
+   that refusal is about the report's READINGS being two parallel lists — a grid of tiles beside
+   an export table carrying rows the tiles do not have — so "third from the top" has no exact
+   meaning across them. A figure list is ONE list on both surfaces, so the same machinery
+   applies with none of that ambiguity. Do not read the refusal as covering figures.
 2. **Series colours.** `COMPARE_PALETTE` (`lib/compare.ts:13`) is six literal hexes, and
    `MAX_COMPARE = COMPARE_PALETTE.length` — so colour and CARDINALITY are one constant, and
    `ChannelExplorer.tsx` caps its series on the same length. Split those before making colour a

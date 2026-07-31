@@ -53,6 +53,7 @@ export const DEVICE_DATA: readonly DeviceDatum[] = [
   { key: 'debrief.report.hidden', what: 'readings you chose not to show', kind: 'view' },
   { key: 'debrief.report.hiddenFigures', what: 'figures you chose not to show', kind: 'view' },
   { key: 'debrief.report.order', what: 'the order you put the readings in', kind: 'view' },
+  { key: 'debrief.report.figureOrder', what: 'the order you put the figures in', kind: 'view' },
 
   { key: 'debrief.mass.kg', what: 'your rocket’s descending mass', kind: 'rocket' },
   { key: 'debrief.dragmass.kg', what: 'the mass you gave for the drag estimate', kind: 'rocket' },

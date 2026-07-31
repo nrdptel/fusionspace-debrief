@@ -29,7 +29,7 @@ import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
-import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
+import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import FigureChooser from './FigureChooser';
 import GpsApogee from './GpsApogee';
@@ -223,7 +223,11 @@ export default function FlightReport({
 
   // …and which figures travel with it. Same decision, same shape, kept on this device.
   const [hiddenFigures, setHiddenFigures] = useState<string[]>([]);
-  useEffect(() => setHiddenFigures(loadHiddenFigures()), []);
+  const [figureOrder, setFigureOrder] = useState<string[]>([]);
+  useEffect(() => {
+    setHiddenFigures(loadHiddenFigures());
+    setFigureOrder(loadFigureOrder());
+  }, []);
   const toggleFigure = useCallback((title: string) => {
     setHiddenFigures((prev) => {
       const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
@@ -553,8 +557,10 @@ export default function FlightReport({
     // What the flyer asked for. Every figure the flight supports is drawn — the choice is
     // about the document, not about the analysis — and turning them all off leaves a report
     // of numbers, which is a legitimate answer for a table-only write-up.
-    return figs.filter((f) => !hiddenFigures.includes(f.title));
-  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures]);
+    // Ordered as the flyer arranged it, then minus what they turned off — the same two
+    // steps, in the same order, as the comparison's `documentFigures`.
+    return orderRows(figs, (f) => f.title, figureOrder).filter((f) => !hiddenFigures.includes(f.title));
+  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures, figureOrder]);
 
   /** Every figure this flight could carry, chosen or not — what the chooser lists. */
   const figureTitles = useMemo(() => {
@@ -563,8 +569,14 @@ export default function FlightReport({
     if (series.accelerationSource === 'device') {
       titles.push('Acceleration');
     }
-    return titles;
-  }, [series]);
+    return orderRows(titles, (t) => t, figureOrder);
+  }, [series, figureOrder]);
+  const moveFigure = (title: string, delta: -1 | 1) =>
+    setFigureOrder((prev) => {
+      const next = moveReading(prev, figureTitles, title, delta);
+      saveFigureOrder(next);
+      return next;
+    });
 
   function saveChartSvg() {
     // The first figure the flyer kept — not necessarily altitude, and possibly none at all.
@@ -1198,6 +1210,7 @@ export default function FlightReport({
         titles={figureTitles}
         hidden={hiddenFigures}
         onToggle={toggleFigure}
+        onMove={moveFigure}
         what="the .html report, the bundle and Save .svg"
       />
 
