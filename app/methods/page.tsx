@@ -670,6 +670,19 @@ export default function MethodsPage() {
             measures are read — a GPS summary&apos;s &ldquo;distance at apogee&rdquo; is downrange,
             not altitude, and mapping it would invent a disagreement out of a sound read.
           {' '}
+            That includes the <strong>deployment shocks</strong> a Featherweight summary states for
+            its apogee and main channels. Debrief measures the same quantity — the acceleration peak
+            at each of those events — on 19 of the 36 corpus flights that analyse, so on those the
+            two are a real cross-check. On the rest the row still appears and says the reading is not
+            comparable rather than going blank, because on a barometric recording the board&apos;s
+            figure is the only one there is: nothing in a pressure trace recovers what a charge did.
+            The shocks are judged against the wider agreement band, like the descent rates and for
+            the same reason — a shock is a millisecond transient, and the board reading its own
+            charge channel and Debrief reading the airframe&apos;s accelerometer over a window are
+            not sampling the same instant of it. The summary&apos;s <em>landing</em> figure is
+            deliberately left out: that is the ground impact, not a flight load, and Debrief has no
+            event to hold it against.
+          {' '}
             One difference there is worth naming, because it looks like a disagreement and isn&apos;t:
             an accelerometer at rest on the pad reads <strong>1&nbsp;g</strong>. Debrief reports that
             specific force — the g the airframe felt, which is the number a structures check wants —
