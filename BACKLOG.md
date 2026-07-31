@@ -93,6 +93,25 @@ wild, ideas too big for one pass. One line each, newest first.
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
+- **`e2e/logbook.spec.ts:677` "the label and notes a flyer types stay with the flight" flaked once**
+  in a full-suite run on 2026-07-31, immediately after the disclosure conversion — which made it look
+  exactly like a regression in that conversion, and it is not. **Checked before being called a flake,
+  because the conversion touched this precise control.**
+
+  The specific worry was real and worth recording: `Disclosure` renders `<details open={defaultOpen}>`
+  where the hand-rolled markup it replaced had **no `open` prop at all**, so the conversion introduced
+  a React-managed attribute onto an element the user toggles by hand. If React re-applied
+  `open={false}` on re-render, then typing into the label field — which sets state in `FlightReport`
+  and re-renders — would snap the panel shut mid-type, and this is the one test that types into it.
+  That is a perfect match for the symptom.
+
+  **Refuted empirically rather than by reasoning about React's diffing.** A throwaway spec opened the
+  panel, filled both fields, and asserted the `open` attribute survived each re-render: it does.
+  React does not touch the DOM attribute when the prop value is unchanged between renders. The test
+  then passed 5/5 in isolation, passed its whole file, and passed a full-suite re-run at 236.
+  Second flaky test now recorded in this file; if a third appears, the shared cause is worth hunting
+  rather than the individual tests.
+
 - **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
   every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
   with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with
