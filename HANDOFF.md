@@ -9,10 +9,13 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D5 IN PROGRESS** — the figure choice now reaches BOTH document surfaces. Order and colour are what remain; the milestone's own notes were wrong about image/paginated export and are corrected in `ROADMAP.md`. |
 | **P — product & craft** | **P1 IN PROGRESS** — the §9 ratchet can now fail on the drift that is actually there, which it could not before. Seven items remain, four of whose counts were stale and are corrected. |
 
-**There is ONE open pull request against this repo and it is not stale work — it is unshipped
-work.** PR #31 (opened 2026-07-28) claims four things; **part 1 landed by another route (#57) and
-parts 2, 3 and 4 are entirely absent from `main`.** Do not close it as superseded without reading
-*The open pull request* below.
+**PR #31 is CLOSED, and all four of its parts are accounted for.** It had been open since
+2026-07-28; part 1 had landed by another route (#57) and parts 2, 3 and 4 were entirely absent
+from `main`. All three are rebuilt on today's `main` in **PR #64**, with every figure re-measured
+in this container rather than carried across — including one correction to the original ("16 of 32
+corpus flights" is **19 of 36** for the apogee shock, 4 for the main). The closing comment on #31
+records the hunk-by-hunk check. **There are no open pull requests left on either repo besides
+#64.**
 
 ## What shipped this run
 
@@ -78,10 +81,10 @@ finite end. The two now agree case for case — checked at 29 against 29 on `t=[
   extracts it. That is how row 19 of `COMPETITION.md` was verified verbatim rather than from a
   summary. `pypdf` is installed but broken in this container (`cryptography` panics).
 
-## The open pull request — decide it, do not just close it
+## PR #31 — decided and closed, recorded here so it is not re-litigated
 
-**PR #31, `nrdptel/fusionspace-debrief`, opened 2026-07-28, base `e8cbdcc` (long superseded).**
-Verified against today's tree, hunk by hunk:
+**Opened 2026-07-28, base `e8cbdcc` (long superseded).** Verified against the tree hunk by hunk
+before deciding; all four parts are now in `main` or in #64:
 
 | part | state |
 |---|---|
