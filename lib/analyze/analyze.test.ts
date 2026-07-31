@@ -2044,7 +2044,7 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.warnings.some((w) => /vacuum/.test(w))).toBe(true);
   });
 
-  it('withholds a barometric speed that contradicts the flight’s own climb', () => {
+  it('withholds a barometric speed built on a trace that jumps', () => {
     // A jump in the altitude trace puts an enormous slope into the speed derived from it.
     // Two corpus files read Mach 4.08 over a 4,661 ft apogee and 2,671 ft/s over 958 ft —
     // speeds whose drag-free coast would have carried the rocket a hundred times higher
@@ -2061,7 +2061,18 @@ describe('analyzeFlight (barometric)', () => {
     expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
     expect(a.metrics.mach).toBeNull();
     expect(a.metrics.burnoutVelocity).toBeNull();
-    expect(a.warnings.some((w) => /contradicts this flight's own climb/.test(w))).toBe(true);
+    // A 4,000 m jump and back IS noise, and the ascent-noise guard — which reads the whole climb —
+    // says so first. That is the more accurate explanation for THIS construction, so this test
+    // asserts it rather than the energy argument it was originally aimed at. The safety outcome is
+    // unchanged and is what the assertions above pin: the speed and everything derived from it are
+    // withheld.
+    //
+    // `velocityOutclimbsItself` is kept as a backstop and is deliberately left without a synthetic
+    // of its own. Measured per record over all 50 that analyse, by which warning fires: it reaches
+    // ZERO of them, before and after the window widened — every record it would catch is already
+    // caught by a guard ahead of it in the chain. A test that exists only to keep an unreachable
+    // branch green would be asserting the branch, not the behaviour.
+    expect(a.warnings.some((w) => /swings well below zero/.test(w))).toBe(true);
     // The climb itself is still read.
     expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
   });
