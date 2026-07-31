@@ -2223,3 +2223,143 @@ describe('coast efficiency measures the climb from the burnout height the flight
     expect(checked, 'the sweep actually examined flights').toBeGreaterThan(20);
   });
 });
+
+/**
+ * A descent rate is an average over TIME, and the corpus is what proves the difference matters.
+ *
+ * `legRate` used to average the instantaneous descent over sample INDEX. On an evenly-sampled log
+ * that is the same number; on a log whose cadence changes during the descent it is not, and the
+ * error is not random. A Featherweight GPS drops from 10 Hz to 0.5 Hz once the flight is under way,
+ * so the crowded samples sit in the seconds after apogee where the rocket has barely started
+ * falling, and the average comes out LOW — on the reading a flyer sizes a canopy against.
+ *
+ * This file is the case with real ground truth, and it is the strongest kind available: the log
+ * carries the tracker's OWN vertical-speed column (`VERTV`, ft/s), which Debrief does not ingest —
+ * it derives its speed from the altitude — so the column is an independent measurement of exactly
+ * the quantity under test.
+ */
+describe('a descent rate is averaged over time, not over samples', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  const FILE = 'featherweight-gps/fwgps__trf-f1machbuster-jan10__GPSTrk05467_01-10-2026_14_55_35.csv';
+
+  it("agrees with the tracker's own vertical-speed column over the same leg", () => {
+    const loaded = loadForCompare(FILE);
+    expect(loaded, 'the Featherweight GPS log is in the corpus').toBeTruthy();
+    const { analysis } = loaded!;
+    const apogee = analysis.events.find((e) => e.type === 'apogee');
+    const main = analysis.events.find((e) => e.type === 'main');
+    expect(apogee && main, 'the flight has both a drogue and a main leg').toBeTruthy();
+    const rate = analysis.metrics.drogueDescentRate;
+    expect(rate, 'a drogue rate is reported').not.toBeNull();
+
+    // The file's own VERTV column, time-averaged over exactly the leg Debrief reports on. Read
+    // from the raw bytes rather than from the parsed flight, because this column is deliberately
+    // not part of the flight model — that is what makes it an independent check.
+    const text = decodeBytes(new Uint8Array(readFileSync(CORPUS + FILE)));
+    const lines = text.split(/\r?\n/);
+    const head = lines.findIndex((l) => /(^|,)VERTV(,|$)/.test(l));
+    expect(head, 'the log has a VERTV column').toBeGreaterThanOrEqual(0);
+    const cols = lines[head].split(',').map((c) => c.trim());
+    const [iT, iV] = [cols.indexOf('UNIXTIME'), cols.indexOf('VERTV')];
+    const rows: [number, number][] = [];
+    for (const line of lines.slice(head + 1)) {
+      const c = line.split(',');
+      if (c.length <= iV) continue;
+      const t = Number(c[iT]);
+      const v = Number(c[iV]);
+      if (Number.isFinite(t) && Number.isFinite(v)) rows.push([t, v]);
+    }
+    expect(rows.length, 'the VERTV column has rows').toBeGreaterThan(100);
+
+    // The analyzer's clock starts at the file's first sample, so the leg maps onto the raw rows by
+    // elapsed time rather than by index.
+    const t0 = rows[0][0];
+    const from = apogee!.time;
+    const to = main!.time;
+    let sum = 0;
+    let weight = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const t = rows[i][0] - t0;
+      if (t <= from || t > to) continue;
+      const dt = rows[i][0] - rows[i - 1][0];
+      if (!(dt > 0)) continue;
+      sum += Math.abs(rows[i][1]) * 0.3048 * dt; // ft/s → m/s
+      weight += dt;
+    }
+    const measured = sum / weight;
+
+    // Measured 2026-07-31: Debrief 64.81 m/s, the tracker's own column 63.89 m/s — 1.4% apart, by
+    // two different methods, over one leg. Averaged over SAMPLES instead, Debrief read 50.73 m/s,
+    // which is 21% below the device. The band is 4%: wide enough that the two methods' honest
+    // disagreement does not fail it, narrow enough that the defect could never have passed. It was
+    // 8% for one commit and that was too slack — it would also have passed the version of this fix
+    // that dropped each leg's closing interval, which reads 65.62 and is wrong for its own reason.
+    expect(
+      Math.abs(rate! - measured) / measured,
+      `Debrief reads ${rate!.toFixed(2)} m/s where the tracker's own VERTV column averages ${measured.toFixed(2)} m/s over the same leg`,
+    ).toBeLessThan(0.04);
+  });
+
+  it('reports a rate that matches its own leg, across the whole corpus', { timeout: 120_000 }, async () => {
+    // The general form of the same invariant: over a leg, the average descent rate IS the height
+    // lost divided by the time taken. Where Debrief's figure and that chord disagree materially,
+    // one of two things is true — the altitude trace over that leg is not sound (an anomaly, a
+    // discontinuity), or the estimator is wrong. This is an EXACT count, so a new disagreement
+    // fails and so does fixing one, which forces the number into the commit that earns it.
+    //
+    // The 8 that remain have their own entry in `BACKLOG.md`, and the cause is only half
+    // established: the 0.6 s moving average behind the descent series bleeds across the leg
+    // boundaries, which predicts main legs high (2 of 2, correct) and drogue legs low (2 of 5,
+    // so NOT established). Two of the drogue cases are files whose altitude trace over the leg is
+    // itself suspect, which makes the chord the doubtful figure there. None of them is the
+    // index-weighting defect this test's sibling fixes.
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    const off: string[] = [];
+    const pcts: number[] = [];
+    let legs = 0;
+    let since = 0;
+    for (const f of spec.fixtures) {
+      if (++since >= 5) {
+        since = 0;
+        await breathe();
+      }
+      let loaded;
+      try {
+        loaded = loadForCompare(f.file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const { series, metrics, events } = loaded.analysis;
+      const at = (t: string) => events.find((e) => e.type === t)?.index ?? null;
+      const cases: [string, number | null, number | null, number | null][] = [
+        ['drogue', at('apogee'), at('main'), metrics.drogueDescentRate],
+        ['main', at('main'), at('landing'), metrics.mainDescentRate],
+        ['whole', at('apogee'), at('landing'), metrics.wholeDescentRate],
+      ];
+      for (const [leg, a, b, reported] of cases) {
+        if (a == null || b == null || reported == null || !(b > a + 1)) continue;
+        const dt = series.time[b] - series.time[a];
+        if (!(dt > 0)) continue;
+        const chord = (series.altitude[a] - series.altitude[b]) / dt;
+        legs++;
+        const pct = ((reported - chord) / chord) * 100;
+        pcts.push(Math.abs(pct));
+        if (Math.abs(pct) >= 5) {
+          off.push(`${f.file.split('/').pop()} ${leg}: ${reported.toFixed(2)} vs chord ${chord.toFixed(2)} (${pct.toFixed(1)}%)`);
+        }
+      }
+    }
+    expect(legs, 'the sweep actually examined descent legs').toBeGreaterThan(20);
+    const abs = pcts.slice().sort((a, b) => a - b);
+    const median = abs[Math.floor(abs.length / 2)];
+    expect(
+      off.length,
+      `${legs} legs, median |error vs own chord| ${median.toFixed(3)}%, mean ${(abs.reduce((x, y) => x + y, 0) / abs.length).toFixed(3)}%\n` +
+        `disagreeing by >=5%:\n${off.sort().join('\n')}`,
+    ).toBe(8);
+  });
+});

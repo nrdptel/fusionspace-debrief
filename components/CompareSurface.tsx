@@ -328,6 +328,7 @@ export default function CompareSurface() {
           onBack={back}
           backLabel="← Compare other flights"
           headingLevel="h1"
+          stitchIds={loadedIds.current.length === 2 ? loadedIds.current.join(',') : undefined}
           mappable={mappable.map((m) => m.name)}
           onMapFile={onMapFile}
         />
@@ -340,7 +341,7 @@ export default function CompareSurface() {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Compare flights
         </h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -380,7 +381,7 @@ export default function CompareSurface() {
           second time as the event bubbled. The box stays as the visible affordance and the
           file picker. */}
       <div
-        className="rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center transition dark:border-zinc-700"
+        className="rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center transition dark:border-zinc-700"
       >
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {logbook.recents.length === 0

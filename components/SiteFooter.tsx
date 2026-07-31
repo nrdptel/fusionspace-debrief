@@ -69,7 +69,7 @@ export default function SiteFooter() {
           </span>
         </a>
       </div>
-      <p className="mt-5 max-w-2xl text-zinc-500 dark:text-zinc-400">
+      <p className="mt-4 max-w-2xl text-zinc-500 dark:text-zinc-400">
         Personal, non-commercial project — not affiliated with any altimeter or rocketry
         manufacturer. Built for the hobby rocketry community.
       </p>

@@ -16,6 +16,13 @@ import { buildComparison, MAX_COMPARE, type Comparison, type CompareInput } from
 
 export interface LogbookComparison {
   comparison: Comparison | null;
+  /** The analysed recordings the comparison was built from, in the order they read.
+   *
+   *  Exposed because the composite surface needs the ANALYSES and a `Comparison` no longer
+   *  carries them — and because the alternative was a second loader that re-reads the same ids
+   *  through the same three steps. Two loaders is how two surfaces end up disagreeing about what
+   *  a logbook id means; `lib/reopen.ts` exists for exactly that reason. */
+  inputs: CompareInput[];
   /** Names of the ids that couldn't join, with why — for the surface to say out loud. */
   skipped: { name: string; why: string }[];
   /** How many of the requested ids made it in. */
@@ -61,6 +68,7 @@ export async function compareFromLogbook(ids: string[]): Promise<LogbookComparis
 
   return {
     comparison: inputs.length >= 2 ? buildComparison(inputs) : null,
+    inputs,
     skipped,
     used: inputs.length,
   };

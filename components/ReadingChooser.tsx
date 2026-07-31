@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { ALWAYS_SHOWN } from '@/lib/reportProfile';
-
-const MOVE_BTN =
-  'flex h-11 w-8 items-center justify-center rounded text-[10px] text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-25 disabled:hover:bg-transparent sm:h-6 dark:hover:bg-zinc-800 dark:hover:text-zinc-200';
+import { TOUCH_TARGET } from '@/lib/ui-tokens';
+import { Card, Chip, IconButton } from './ui';
 
 /**
  * Which readings a report carries — the one control, used by every surface that lists
@@ -39,17 +38,13 @@ export default function ReadingChooser({
 
   return (
     <details className="print:hidden" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="inline-flex cursor-pointer select-none items-center rounded-md px-1 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+      <summary className="inline-flex cursor-pointer select-none items-center gap-2 rounded-md px-1 py-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
         Choose what&apos;s in this {noun}
-        {off > 0 && (
-          <span className="ml-1.5 rounded bg-indigo-500/10 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-300">
-            {off} off
-          </span>
-        )}
+        {off > 0 && <Chip tone="accent" mono={false} value={`${off} off`} />}
       </summary>
       {open && (
-        <div className="mt-2 rounded-lg border border-zinc-200 px-3 py-3 dark:border-zinc-800">
-          <p className="mb-2.5 text-xs text-zinc-500 dark:text-zinc-400">
+        <Card className="mt-2">
+          <p className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">
             {where} The choice is one choice — it applies to the flight report and the comparison
             alike, and is remembered on this device. The data exports (.csv, .json) always carry
             everything: a report is a document, a data file is a record.
@@ -61,7 +56,7 @@ export default function ReadingChooser({
               return (
                 <li key={label} className="flex items-center gap-1">
                   <label
-                    className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 text-xs sm:min-h-0 ${
+                    className={`flex min-w-0 flex-1 items-center gap-2 text-sm ${TOUCH_TARGET} ${
                       locked ? 'text-zinc-400 dark:text-zinc-500' : 'cursor-pointer text-zinc-700 dark:text-zinc-300'
                     }`}
                   >
@@ -80,33 +75,31 @@ export default function ReadingChooser({
                       package leads with what the certification asks for. */}
                   {onMove && (
                     <span className="flex shrink-0 items-center">
-                      <button
-                        type="button"
+                      <IconButton
                         onClick={() => onMove(label, -1)}
                         disabled={i === 0}
                         aria-label={`Move ${label} earlier`}
                         title="Move earlier"
-                        className={MOVE_BTN}
+                        className="text-xs"
                       >
                         ▲
-                      </button>
-                      <button
-                        type="button"
+                      </IconButton>
+                      <IconButton
                         onClick={() => onMove(label, 1)}
                         disabled={i === labels.length - 1}
                         aria-label={`Move ${label} later`}
                         title="Move later"
-                        className={MOVE_BTN}
+                        className="text-xs"
                       >
                         ▼
-                      </button>
+                      </IconButton>
                     </span>
                   )}
                 </li>
               );
             })}
           </ul>
-        </div>
+        </Card>
       )}
     </details>
   );

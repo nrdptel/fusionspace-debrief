@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deviceDataPresent, forgetDeviceData, type DeviceDatum } from '@/lib/deviceData';
+import { Button, Card } from './ui';
 
 /** "Forget everything Debrief saved on this device", on the page that promises it.
  *
@@ -49,14 +50,11 @@ export default function ForgetDeviceData() {
   return (
     <div className="mt-3">
       {done !== null && (
-        <p
-          role="status"
-          className="mb-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900/40"
-        >
+        <Card as="div" tone="sunken" role="status" className="mb-3 text-sm">
           {done === 0
             ? 'Nothing was stored — this device was already clear.'
             : `Forgotten — ${done === 1 ? '1 setting' : `${done} settings`} removed from this device. Your flights are untouched.`}
-        </p>
+        </Card>
       )}
 
       {/* The trigger is ALWAYS here, and pressing it re-reads storage. The count below it is a
@@ -66,9 +64,8 @@ export default function ForgetDeviceData() {
           "this device is clear" a claim the page could not take back: storage refilled behind it
           and there was no way to run it again but a reload. */}
       <>
-          <button
+          <Button
             ref={triggerRef}
-            type="button"
             onClick={() => {
               if (confirming) return disarm();
               const now = deviceDataPresent();
@@ -78,10 +75,9 @@ export default function ForgetDeviceData() {
             }}
             aria-expanded={confirming}
             aria-controls="forget-device-data-confirm"
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             Forget these settings
-          </button>
+          </Button>
           {!confirming && (
             <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
               {present.length === 0
@@ -96,13 +92,14 @@ export default function ForgetDeviceData() {
             // aria-modal) a dialog would. The same shape the logbook's Clear confirm settled on,
             // down to the Escape handler living on the panel — which only works because focus is
             // genuinely inside it.
-            <div
+            <Card
+              tone="danger"
               id="forget-device-data-confirm"
               role="alert"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') disarm();
               }}
-              className="mt-3 rounded-md border border-red-300/70 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-200"
+              className="mt-3 text-sm"
             >
               <p className="font-medium">
                 Forget {present.length === 1 ? 'the 1 setting' : `all ${present.length} settings`}{' '}
@@ -112,30 +109,27 @@ export default function ForgetDeviceData() {
                 {present.map((d) => d.what).join('; ')}. Your flights stay — the logbook&apos;s own
                 Clear is what removes those. This cannot be undone.
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {/* Safe first, in DOM order as well as on screen. */}
-                <button
-                  ref={cancelRef}
-                  type="button"
-                  onClick={disarm}
-                  className="min-h-11 rounded-md border border-red-300 bg-white px-2.5 py-1 font-medium text-red-800 transition hover:bg-red-100 sm:min-h-0 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-950/60"
-                >
+              <div className="mt-3 flex flex-wrap gap-2">
+                {/* Safe first, in DOM order as well as on screen — and the SAFE one is the neutral
+                    weight. `DESIGN.md` §5 reserves the danger weight for removal, so marking both
+                    of them red told a flyer nothing about which way out was which. */}
+                <Button ref={cancelRef} size="sm" onClick={disarm}>
                   Keep them
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={() => {
                     setDone(forgetDeviceData());
                     setConfirming(false);
                     refresh();
                     triggerRef.current?.focus();
                   }}
-                  className="min-h-11 rounded-md bg-red-600 px-2.5 py-1 font-medium text-white transition hover:bg-red-500 sm:min-h-0"
                 >
                   Yes, forget them
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           )}
       </>
     </div>

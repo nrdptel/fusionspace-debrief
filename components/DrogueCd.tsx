@@ -112,7 +112,7 @@ export default function DrogueCd({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           {cd != null ? cd.toFixed(2) : '—'}
         </span>
         {cd != null && descentRate != null && (

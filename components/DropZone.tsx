@@ -28,7 +28,7 @@ export default function DropZone({
           bubbled up to the window. This stays as the visible affordance and the picker. */}
       <div
         aria-label="Flight log drop zone"
-        className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-10 text-center transition dark:border-zinc-700 dark:bg-zinc-900/30"
+        className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-12 text-center transition dark:border-zinc-700 dark:bg-zinc-900/30"
       >
         <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
           Drop a flight log here
@@ -38,7 +38,7 @@ export default function DropZone({
           spreadsheet. Drop several at once, or a whole launch day&apos;s folder, to compare
           them — anywhere on the page.
         </p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

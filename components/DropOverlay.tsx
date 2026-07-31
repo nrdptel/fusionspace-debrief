@@ -20,7 +20,7 @@ export default function DropOverlay({ show, accept, reason }: { show: boolean; a
       aria-live="polite"
     >
       <div
-        className={`rounded-xl border-2 border-dashed px-6 py-5 text-center shadow-lg ${
+        className={`rounded-xl border-2 border-dashed px-6 py-4 text-center shadow-lg ${
           accept
             ? 'border-indigo-400 bg-white text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100'
             : 'border-amber-400 bg-white text-amber-800 dark:bg-zinc-900 dark:text-amber-200'

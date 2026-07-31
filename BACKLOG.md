@@ -16,6 +16,146 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
+  every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
+  with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with
+  Playwright's log showing `waiting for "…/compare?ids=a,b,c&u=ft" navigation to finish`. So the
+  address is already correct and the assertion is racing the navigation that follows the mapping,
+  not a wrong result. It passes alone every time and passed the immediately following full run
+  twice, so it is a wait, not a defect in the app. Fix it by awaiting the heading through the
+  navigation (`waitForURL` first, or assert on the surface's own state) rather than by adding a
+  retry — a flaky check in a suite nobody reads for a fortnight teaches the next session to wave
+  real failures through, which is the exact failure `MAINTAINING.md` names.
+
+- **A loaded comparison's only `<h1>` is the brand wordmark, at 24 px.** Measured 2026-07-31 on the
+  built export: on `/compare` before flights load the page title is "Compare flights" at 30 px, and
+  once a comparison is on screen the surface's own heading steps down and the brand becomes the
+  route's only `<h1>`. `DESIGN.md` §3 says a page title is `text-3xl`, once per route — in that
+  state the route has no title of its own. The same walk found an `<h3>` at 14 px there, which is
+  `text-sm`: a heading at body size. `e2e/touch.spec.ts:241` already notes the header "steps aside
+  on /compare, and loading the flights used to leave no h1 at all", so this is the tail of a fix
+  rather than a new fault — but it is still a route whose title is the product's name.
+
+- **Off-scale spacing has not moved: 25 values, and they are concentrated in the docs routes.**
+  `mt-10` ×6, `py-10` ×5, `pl-5` ×4, `pt-5` ×3, `mt-5` ×3, `p-10`, `py-5` ×2, against a scale of
+  `1 2 3 4 6 8 12`. That is why `/methods`, `/validation` and `/privacy` read as a different
+  author's pages from the app: the section rhythm is a different rhythm. Pinned as an exact ratchet
+  by `lib/design-system.test.ts`, so clearing them forces the number down in the same commit.
+
+- **`ChannelExplorer`'s preset row is half-converted and reads worse than either state.** The
+  "+ Save this view" control is now a `Button` at the primitive's height while the built-in view
+  chips beside it are still hand-rolled at `min-h-[1.75rem] px-2 py-0.5` — an arbitrary value that
+  is not on the spacing scale either. At around 500 px wide the row shows 44 px controls next to
+  28 px ones. Convert the chips in the same pass that takes the rest of that surface.
+
+- **Two surfaces still publish a figure derived from a peak speed the analysis refused, and they are
+  the same defect PR #57 shipped to close, one layer over.** Neither tests `series.velocityUnusable`.
+  `components/RailExit.tsx:59` gates only on `series.velocitySource === 'device'`, then integrates
+  `series.velocity` from liftoff and prints a rail-exit speed AND a Mach — a stability number with a
+  "marginal" warning attached to it. `lib/drag.ts:43` `canMeasureDrag` gates only on the altitude
+  source and the events, so `DragCoefficient.tsx` prints "over Mach x–y" off the same trace. Both are
+  reachable whenever a DEVICE velocity is judged unusable (`maxVelocity > IMPLAUSIBLE_VELOCITY`, or
+  noise-dominated), and on such a flight the page contradicts itself twice: the metric grid shows
+  "Max velocity —" and the explorer withholds its Mach channel, while these two publish. **Latent, not
+  live: no corpus fixture is device-velocity AND unusable today**, which is precisely how the previous
+  instance of this survived to reach production. Reproduce by scaling the velocity channel of
+  `altusmetrum__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-TeleMega.csv` by 20 —
+  `maxVelocityWithheld` becomes `'implausible'` while `railExitVelocity(...)` returns 437.8 m/s and
+  `dragCoefficient(...)` returns Mach 6.71–16.54. Two one-line gates plus a corpus invariant that
+  holds every speed-publishing surface to the one flag.
+
+- **`burnoutVelocity`, `coastEfficiency` and `dragLossAltitude` still gate on the OLD single reason.**
+  `lib/analyze/index.ts` computes them behind `!velocityImplausible` rather than behind the peak
+  having been withheld at all, so a record whose peak is withheld for `'gap'` publishes all three to
+  the burnout tile, the report row and `analysisJson`. Reachable: `ascentGapBreaksPeak` needs
+  `velocitySource === 'baro'`, and the accelerometer burnout branch needs only a signed axial channel
+  — a baro-altitude logger with one signed axial channel and an ascent dropout satisfies both. Latent
+  today: of the corpus fixtures with a withheld peak, the two `'gap'` ones are Featherweight GPS logs
+  that find no burnout. `analysisJson` also omits `maxVelocityWithheld` entirely, so a JSON consumer
+  sees `maxVelocity: null` beside a live `burnoutVelocity` with no reason given.
+
+- **Four controls are under the 44 px touch floor at a 390 px touch viewport, and all four are plain
+  `<a>` links.** Measured 2026-07-31 on the built export with `hasTouch`/`isMobile` set, which is what
+  arms `app/globals.css`'s `@media (pointer: coarse)` block — a narrow viewport alone does not, and
+  measuring without it reports 106 false positives. That block covers `button`, `select`,
+  `a[download]`, `[role="button"]` and `input`, and `nav a` gets padding, but a plain in-content link
+  gets neither: `Compare` **58×18**, `Read the methods →` **136×18**, `Privacy` **42×44** (two pixels
+  short on width), `ADA.gov →` **59×16**. The `?` links on the reading tiles are NOT among them —
+  they carry `.touch-area`, whose 44×44 `::after` gives them a real hit target without changing
+  layout, and any measurement that reads `getBoundingClientRect()` on the element will wrongly flag
+  them. This is P4's headline metric and the honest starting number is 4, not 0 and not 106.
+
+- **The logbook row keeps the WHOLE-FILE apogee between cropping a flight and next opening it.**
+  `lib/recents.ts:370` `saveReadWindow` merges only `read` into the stored row and never rewrites
+  `apogeeM`/`maxVelocityMs`; the only writer of those is `saveRecent` on open, and
+  `components/Analyzer.tsx:335` does not refresh the logbook after a crop. So the row carries a `read`
+  that says it is cropped beside a figure that is not, with no crop indicator — and the number changes
+  by itself on the second visit. It also makes the logbook's Apogee sort rank a cropped flight by a
+  stretch nobody is reading. `RecentMeta`'s own docstring ("a cropped recording's stored apogee is the
+  CROP's apogee") is false for that window. `recordingSpread` is unaffected — it bails on any `read`.
+
+- **`lib/stitch.test.ts:111-118` cannot fail on the claim it names.** The loop that proves the removed
+  burn-agreement gate "cannot see the staging delay" never varies its input with `delay` — every
+  iteration calls `alignStages` with the same literals, so the reported error and the unchanged spread
+  are arithmetic identities of the loop variable rather than measurements of the module. Change 5000
+  to any number and it stays green. This is the repo's own stated failure mode applied to the test
+  guarding the most tempting regression in D4. Constructing the sustainer's events FROM `delay` makes
+  it a real measurement at no cost.
+
+- **`/compare` will cross-check two STAGES as though they were two recordings of one flight.** Feeding
+  the corpus Kairos booster and sustainer through `buildComparison` + `crossCheck` yields an apogee
+  spread of 30.5% (2,973 m vs 4,045 m), time-to-apogee 19.6% and max acceleration 159.6%, printed
+  under *"If these are recordings of the same flight, the independent readings differ by …"* against a
+  10% wide threshold. `lib/parsers/corpus.test.ts` says in a comment that a cross-check must not be run
+  over these; nothing enforces it. It is hedged rather than asserted, so it is not a lie today — but
+  D4's composite surface must actively suppress that panel once a flyer states these are stages, or it
+  ships a 30%-disagreement warning on a flight behaving exactly as designed.
+
+- **Eight descent legs still disagree with their own chord by 5% or more, and the cause is only
+  half established.** Separate from the index-weighting Sev-1 fixed 2026-07-31 and not closed by it.
+  Measured over the **41 reported legs** the corpus test sweeps, after that fix: **median |error vs
+  own chord| 0.755%, mean 4.574%** — so this is a tail, not a bias. The eight:
+  `issuiuc-endurance TeleMetrum` drogue **+17.0%**, `blueraven meraki2-121km` drogue **−22.6%**,
+  `meraki2 Mega38-1 TeleMega` drogue **+11.7%**, `trf-lemiv-l3 Blue Raven` main **+11.1%**,
+  `sg1.1-Booster TeleMetrum` main **+10.9%** and drogue **+8.2%**, `stargazer1 EasyMega` whole
+  **−12.0%**, `eggtimer euler-explosion` drogue **−63.1%**.
+
+  **The likely mechanism is the 0.6 s smoothing bleeding across the leg boundaries** — `descent` is
+  `movingAverage(-baroVel, windowFor(dt, 0.6))`, so the window at the start of the main leg pulls in
+  the fast drogue rate and the window at the start of the drogue leg pulls in the near-zero rate
+  either side of apogee. **That prediction holds for main legs and does NOT hold for drogue legs**,
+  and saying otherwise would be reading the evidence backwards: both main legs read high as
+  predicted, but of the five drogue legs three read HIGH and two low. So the drogue cases have some
+  other cause, or more than one — two of them (`meraki2` ×2, a 121 km space-shot outside the
+  barometric model's valid range, and the `eggtimer` motor explosion) are files where the altitude
+  trace over the leg is itself suspect, which makes the chord the doubtful figure there rather than
+  the reading. Establish the cause per file before changing anything.
+
+  **Pinned as an exact count** by `reports a rate that matches its own leg, across the whole corpus`
+  (`lib/parsers/corpus.test.ts`), which asserts eight and prints the leg count, median and mean in
+  its failure message — so closing any of them fails the test and forces the number down in the same
+  commit. Do NOT fix it by using the chord directly: on the eggtimer file a 15.3 s leg on a flight
+  Debrief reads to 292 m gives a chord implying 303 m of descent, and that chord is contaminated.
+  The likely honest fix is to shrink or one-side the smoothing window at a leg boundary.
+
+- **The `iss-sg1.2` group's whole-descent cross-check got WORSE when the descent Sev-1 was fixed,
+  from 74.7% to 89.1%**, while `reddit-meraki2` drogue improved 32.6% → 8.8% and `trf-lemiv-l3` main
+  22.9% → 16.1%. Net win across the redundant-recording groups, and the fix is right on its own
+  evidence — the device's own vertical-speed column settles it — but one group moved the wrong way
+  and that should not go unrecorded. `iss-sg1.2` pairs a TeleMega sustainer at 2,113 m with two
+  StratoLogger boosters at 465 m and a 9.5 m fragment: it is the corpus's own negative case for
+  same-flight grouping, so a widening spread there may be the cross-check correctly reporting that
+  these are not recordings of one flight. Worth confirming before anyone reads it as a regression.
+
+- **The Featherweight GPS log carries the tracker's own `VERTV` vertical-speed column and Debrief
+  ignores it, deriving a speed from the altitude instead.** `velocitySource` on
+  `fwgps__trf-f1machbuster-jan10` is `baro`. The column is good enough to have served as the ground
+  truth that caught the descent-rate Sev-1 on 2026-07-31 — it agrees with the leg's altitude chord to
+  0.9% — so a *measured* vertical speed is sitting in the file beside a *derived* one. Ingesting it
+  would give that flight a measured descent rate and a second opinion on the derived peak, which is
+  exactly the cross-check posture the safety spine asks for. Not done here because it is a parser
+  change and the Sev-1 was an analysis change; they get separate gates.
+
 - **DONE — a warning told flyers to subtract a number that was already right, and on the corpus's
   own cert flight that instruction was 63% wrong.** Where a log's baseline was doubted and its
   record ended away from zero, Debrief said: *"it comes to rest N m above where the record begins…

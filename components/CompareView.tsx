@@ -22,9 +22,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
-
-const ACTION_BTN =
-  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+import { Button } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -61,6 +59,7 @@ export default function CompareView({
   onBack,
   backLabel = '← Back to a single flight',
   permalink,
+  stitchIds,
   mappable,
   headingLevel = 'h2',
   onMapFile,
@@ -76,6 +75,9 @@ export default function CompareView({
    *  from a drop exists only until the page does — but the dropped files went into the
    *  logbook on the way in, so the same set can be named by id and offered as a link. */
   permalink?: string;
+  /** The logbook ids of these flights, comma-joined, where they ARE logbook ids. Absent on a
+   *  comparison assembled straight from a drop, whose ids are synthetic — see the composite link. */
+  stitchIds?: string;
   /** Files dropped alongside these flights that need their columns mapped, by name. */
   mappable?: string[];
   /** Which level "Comparing N flights" sits at. It is the page's subject on /compare, where
@@ -506,15 +508,42 @@ export default function CompareView({
         >
           {backLabel}
         </button>
-        {permalink && (
-          <a
-            href={permalink}
-            title="Open this comparison at its own address — reloadable, bookmarkable, and it can sit in a second tab beside one flight's report. The flights are already in this browser's logbook; the link names them by id and carries no flight data."
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-          >
-            Give this comparison an address →
-          </a>
-        )}
+        <span className="flex flex-wrap items-center gap-3">
+          {/* The way on to the composite, offered from the surface that already has the set.
+              
+              Here rather than on either page because BOTH render this view, and a comparison built
+              from a drop never goes through the logbook path — so a flyer who dropped a booster and
+              a sustainer had no route to `/stitch` at all except starting again from the header. A
+              capability reachable only by knowing where to start over is a named tell, and a
+              closing cold walk of this run's own new surface is what found it.
+              
+              Two flights, not more: a composite is the stages of ONE launch, and offering it over
+              six unrelated flights from a launch day would be inviting the wrong statement.
+              
+              And only where the flights are ADDRESSABLE. A comparison assembled from a drop mints
+              synthetic ids (`Analyzer.tsx`: `${name}-${i}`) rather than logbook ones, so a link
+              built from them would 404 into the composite's own "no longer in this logbook"
+              refusal — offering a way on that cannot be taken is worse than not offering one.
+              `permalink` already carries exactly that guarantee, so this rides on it. */}
+          {flights.length === 2 && stitchIds && (
+            <a
+              href={`/stitch/?ids=${stitchIds}`}
+              title="Stages of one launch read as one timeline — every mark in order on the clock they share, each naming the recording it came from. Nothing is merged into a single reading."
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            >
+              Read them as one timeline →
+            </a>
+          )}
+          {permalink && (
+            <a
+              href={permalink}
+              title="Open this comparison at its own address — reloadable, bookmarkable, and it can sit in a second tab beside one flight's report. The flights are already in this browser's logbook; the link names them by id and carries no flight data."
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            >
+              Give this comparison an address →
+            </a>
+          )}
+        </span>
       </div>
 
       <div>
@@ -547,14 +576,13 @@ export default function CompareView({
             </p>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {mappable.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => onMapFile(name)}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-indigo-400 bg-white px-2.5 py-1 font-medium text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/60 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
-                >
+                // Was an indigo-outlined variant of `ACTION_BTN` — a fifth button weight, where
+                // `DESIGN.md` §5 allows three plus danger, and the last control in the app at the
+                // off-scale `px-2.5`. Not `primary`: the logbook's own Compare button is this
+                // surface's primary, and two primaries on one screen means neither is.
+                <Button key={name} size="sm" onClick={() => onMapFile(name)}>
                   Map <span className="font-mono">{stem(name)}</span> →
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -563,7 +591,7 @@ export default function CompareView({
         {(reportLabel.trim() || reportNotes.trim()) && (
           <div className="mt-3 space-y-1">
             {reportLabel.trim() && (
-              <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {reportLabel.trim()}
               </h3>
             )}
@@ -920,58 +948,52 @@ export default function CompareView({
 
         {/* Export the comparison — chart, the overlaid data, or the table. */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={savePng} title="Save the comparison chart as a PNG" className={ACTION_BTN}>
+          <Button size="sm" onClick={savePng} title="Save the comparison chart as a PNG">
             Save .png
-          </button>
-          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
-          <button
-            type="button"
+          </Button>
+          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} />
+          <Button
+            size="sm"
             onClick={saveChartSvg}
             title="Save the comparison chart as a scalable SVG (vector — crisp at any size)"
-            className={ACTION_BTN}
           >
             Save .svg
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveOverlayCsv}
             title="Save every overlaid channel — altitude, velocity, acceleration, Mach and dynamic pressure — for all flights, on the shared liftoff-aligned timeline, as one CSV"
-            className={ACTION_BTN}
           >
             Save chart data
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={copyMetrics}
             title="Copy the side-by-side table to the clipboard — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
-            className={ACTION_BTN}
           >
             Copy table
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveMetricsCsv}
             title="Save the side-by-side metrics table as CSV"
-            className={ACTION_BTN}
           >
             Save metrics
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveHtml}
             title="Save a self-contained HTML comparison report — the cross-check, the side-by-side metrics and the overlay charts inline, in one file you can open, print, email or archive anywhere (nothing uploaded)"
-            className={ACTION_BTN}
           >
             Save .html
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveBundle}
             title="Save one ZIP with the Markdown cross-check write-up, the metrics CSV and the altitude/velocity/acceleration overlay figures — the whole comparison, zipped in the browser"
-            className={ACTION_BTN}
           >
             Save bundle
-          </button>
+          </Button>
         </div>
         {copyMsg && (
           <p role="status" aria-live="polite" className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">

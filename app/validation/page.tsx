@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 
 export default function ValidationPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6 md:py-10">
+    <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6 md:py-12">
       <SiteHeader brandAsHeading={false} />
 
-      <h1 className="mt-10 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+      <h1 className="mt-12 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         How Debrief is validated
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
@@ -179,7 +179,7 @@ export default function ValidationPage() {
             Honesty is the point of a measurement instrument, so the limits are stated in the read
             itself, not buried here:
           </p>
-          <ul className="mt-2 list-disc space-y-1.5 pl-5">
+          <ul className="mt-2 list-disc space-y-1.5 pl-6">
             <li>
               A <strong>barometric altitude</strong> drifts with weather and the airframe&apos;s own
               airflow — good to a few metres, not centimetres — and above ~36,000&nbsp;ft (the top of
@@ -373,7 +373,7 @@ export default function ValidationPage() {
         </section>
       </div>
 
-      <p className="mt-10 border-t border-zinc-200 pt-5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+      <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         <Link href="/" className="underline hover:text-zinc-700 dark:hover:text-zinc-300">
           ← Back to Debrief
         </Link>

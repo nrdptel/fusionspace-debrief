@@ -119,7 +119,7 @@ export default function ColumnMapper({
     return (
       <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">There&apos;s no flight data in this file</h2>
+          <h2 className="text-xl font-semibold tracking-tight">There&apos;s no flight data in this file</h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Debrief read <span className="font-mono">{fileName}</span> but found no columns of numbers in
             it — so there are no channels to map and no flight to analyze.
@@ -164,7 +164,7 @@ export default function ColumnMapper({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Map the columns</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Map the columns</h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Debrief didn&apos;t recognize <span className="font-mono">{fileName}</span> as a known
           format, so tell it which column is which. It&apos;s pre-filled with a best guess — set the

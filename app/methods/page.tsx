@@ -14,11 +14,11 @@ export const metadata: Metadata = {
 
 export default function MethodsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-10">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-12">
       <SiteHeader brandAsHeading={false} />
 
-      <section className="mt-10">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+      <section className="mt-12">
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Where the numbers come from
         </h1>
         <p className="mt-3 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
@@ -488,8 +488,23 @@ export default function MethodsPage() {
           <Method id="deployments-descent-rates" title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             giving way to a slow main — and marks it as the main deployment. Descent rates are the
-            average vertical speed over each phase; a marginal transition is left unmarked rather than
-            guessed. Each phase also has to be <em>in</em> the record to be read: a rate is reported
+            average vertical speed over each phase, <strong>averaged over time rather than over
+            samples</strong>; a marginal transition is left unmarked rather than guessed.
+            {' '}
+            That distinction is not pedantry. Plenty of loggers change their sample rate during the
+            flight — a Featherweight GPS drops from 10&nbsp;Hz to 0.5&nbsp;Hz once it is under way —
+            and a per-sample average then weights the crowded seconds twenty times as heavily as the
+            sparse ones. Just after apogee the rocket has barely started falling and the samples are
+            dense, so the error runs the rate <em>low</em>. On one corpus GPS log the drogue leg came
+            out at <strong>50.7&nbsp;m/s</strong> that way; the same file&apos;s own vertical-speed
+            column averages <strong>63.9&nbsp;m/s</strong> over that leg and the altitude falls at{' '}
+            <strong>64.5&nbsp;m/s</strong>. Debrief now reads <strong>64.8&nbsp;m/s</strong> there. A
+            descent rate is what a flyer sizes a canopy against, so being 21% low is not a rounding
+            difference. The average is taken across each interval rather than at each sample, so it
+            covers the whole leg including the gap that closes it — on a log that slows to one sample
+            every two seconds, leaving that last gap out drops a quarter of the leg&apos;s duration.
+            {' '}
+            Each phase also has to be <em>in</em> the record to be read: a rate is reported
             only where the log shows that leg dropping more than a tenth of the height it started
             from, so a log that stops in mid-air moments after a deployment reports nothing for the
             leg it barely caught. One corpus recording loses power 1.3&nbsp;s after its main fires at
@@ -890,7 +905,7 @@ export default function MethodsPage() {
         </div>
       </section>
 
-      <p className="mt-10 border-t border-zinc-200 pt-5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+      <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         <Link href="/" className="underline hover:text-zinc-700 dark:hover:text-zinc-300">
           ← Back to Debrief
         </Link>

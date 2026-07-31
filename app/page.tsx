@@ -12,7 +12,7 @@ export default function Home() {
        columns, and every number in a loaded report — so it is owned here, above all three,
        rather than inside the analysis. The docs pages have no numbers and stay outside it. */
     <UnitsProvider>
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-12">
       {/* Chrome and prose stay at the focused reading width; only the analysis and
           compare views (below) use the extra room, where the charts live. */}
       <div className="mx-auto w-full max-w-5xl">

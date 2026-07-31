@@ -72,7 +72,7 @@ test('validation page is its own route with the accuracy account', async ({ page
 // simulator is the basis on which its numbers can be trusted. Any surface that shows
 // figures has to say so — it isn't a home-page footnote.
 test('every surface that shows numbers says what Debrief is not', async ({ page }) => {
-  for (const path of ['/', '/compare']) {
+  for (const path of ['/', '/compare', '/stitch']) {
     await page.goto(path);
     await expect(
       page.getByText(/measurement instrument, not a simulator/),
@@ -89,6 +89,9 @@ test('each surface describes itself', async ({ page }) => {
   await page.goto('/compare');
   await expect(page.getByText(/Line up a launch day, a season/)).toBeVisible();
   await expect(page.getByText(/Drop in a flight log from any altimeter/)).toHaveCount(0);
+  await page.goto('/stitch');
+  await expect(page.getByText(/Put the stages of one launch in order/)).toBeVisible();
+  await expect(page.getByText(/Line up a launch day, a season/)).toHaveCount(0);
 });
 
 // Both surfaces take a flight file, and they disagreed about which ones a flyer may pick: the

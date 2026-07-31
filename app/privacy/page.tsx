@@ -17,10 +17,10 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-8 md:px-6 md:py-10">
+    <main className="mx-auto w-full max-w-2xl px-4 py-8 md:px-6 md:py-12">
       <SiteHeader brandAsHeading={false} />
 
-      <h1 className="mt-10 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+      <h1 className="mt-12 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         Privacy
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
@@ -48,7 +48,7 @@ export default function PrivacyPage() {
             A few things are saved locally so the tool is pleasant to use, and they never leave your
             browser:
           </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
+          <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>
               <strong>Recent flights</strong> — kept in your browser&apos;s local database
               (IndexedDB) so you can reopen a file without choosing it again. This is the one the
@@ -77,7 +77,7 @@ export default function PrivacyPage() {
               <div key={k.kind}>
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{k.heading}</h3>
                 <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{k.lede}</p>
-                <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-6">
                   {deviceDataOfKind(k.kind).map((d) => (
                     <li key={d.key}>
                       {d.what} <code className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{d.key}</code>
@@ -142,7 +142,7 @@ export default function PrivacyPage() {
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
             What we don&apos;t do
           </h2>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
+          <ul className="mt-2 list-disc space-y-1 pl-6">
             <li>No tracking pixels, advertising, or third-party analytics.</li>
             <li>
               No cookies at all. The settings above are local storage, which is a different thing:
@@ -169,7 +169,7 @@ export default function PrivacyPage() {
         </section>
       </div>
 
-      <p className="mt-10 border-t border-zinc-200 pt-5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+      <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         <Link href="/" className="underline hover:text-zinc-700 dark:hover:text-zinc-300">
           ← Back to Debrief
         </Link>

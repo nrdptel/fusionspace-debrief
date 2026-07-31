@@ -84,7 +84,7 @@ export default function DeployAltitude({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           {fmtLength(mainAltitudeM, sys)}
         </span>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">

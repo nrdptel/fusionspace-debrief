@@ -7,9 +7,7 @@ import type { UnitChoice } from '@/lib/display';
 import { flightCardStats } from '@/lib/flightCard';
 import { recordingLine, type ReportMeta } from '@/lib/report';
 import { download } from '@/lib/download';
-
-const ACTION_BTN =
-  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+import { Button } from './ui';
 
 // The card is drawn on white at a fixed social-friendly size, regardless of the
 // app's theme, so it reads cleanly wherever it's pasted.
@@ -316,12 +314,12 @@ export default function FlightCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={copy} title="Copy the flight card image to the clipboard" className={ACTION_BTN}>
+          <Button size="sm" onClick={copy} title="Copy the flight card image to the clipboard">
             Copy card
-          </button>
-          <button type="button" onClick={save} title="Save the flight card as a PNG" className={ACTION_BTN}>
+          </Button>
+          <Button size="sm" onClick={save} title="Save the flight card as a PNG">
             Save card
-          </button>
+          </Button>
         </div>
       </div>
       <canvas

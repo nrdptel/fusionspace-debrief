@@ -45,12 +45,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-
-const ACTION_BTN =
-  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
-// Same button, but it never compresses inside the horizontally-scrolling "Save a file"
-// strip on a phone — a shrunk button would clip its label.
-const SAVE_BTN = `${ACTION_BTN} shrink-0`;
+import { Button } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -669,7 +664,6 @@ export default function FlightReport({
   // A per-flight key links the three charts' hover cursor and zoom range.
   const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
 
-
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
@@ -754,7 +748,7 @@ export default function FlightReport({
       {(reportLabel.trim() || reportNotes.trim()) && (
         <div className="space-y-1">
           {reportLabel.trim() && (
-            <h3 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
               {reportLabel.trim()}
             </h3>
           )}
@@ -809,19 +803,18 @@ export default function FlightReport({
               phone, where the file-format saves below scroll aside instead of stacking
               into four rows that push the numbers down. */}
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={copySummary} title="Copy a text summary to the clipboard" className={ACTION_BTN}>
+            <Button size="sm" onClick={copySummary} title="Copy a text summary to the clipboard">
               {copied ? 'Copied ✓' : 'Copy summary'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={copyReadings}
               title="Copy the readings as a table — lands in cells in a spreadsheet or document, and as tab-separated text everywhere else"
-              className={ACTION_BTN}
             >
               {copiedTable === 'yes' ? 'Copied ✓' : 'Copy table'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={shareLink}
               title={
                 sharePayload === null
@@ -832,18 +825,16 @@ export default function FlightReport({
                       ? 'A share link carries the file itself, which only works for a text export. Save .html or Save bundle below sends the whole report instead.'
                       : 'This log is too big to fit inside a link. Save .html or Save bundle below sends the whole report instead.'
               }
-              className={ACTION_BTN}
             >
               {sharePayload?.ok === false ? (sharePayload.why === 'not-text' ? 'No link for a raw file' : 'Too big to link') : 'Share link'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={printCard}
               title="Print a clean flight card (or save it as a PDF) — numbers, events and charts on one page"
-              className={ACTION_BTN}
             >
               Print
-            </button>
+            </Button>
             {/* The unit control moved to the header, where the page has always said it is and
                 where it can be reached before a flight is loaded. Two copies of one setting on
                 one screen is a control that looks like a choice about this panel. */}
@@ -859,43 +850,47 @@ export default function FlightReport({
             />
             <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">Save a file:</span>
-            <button type="button" onClick={downloadSummary} title="Download the summary as a text file" className={SAVE_BTN}>
+            {/* `shrink-0` on every button in this strip, and it is load-bearing rather than
+                leftover: the strip scrolls horizontally on a phone, and a button allowed to
+                compress clips its own label. It used to be baked into a `SAVE_BTN` constant that
+                carried this comment; the constant is gone and the reason is not. */}
+            <Button size="sm" onClick={downloadSummary} title="Download the summary as a text file" className="shrink-0">
               Save .txt
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={downloadMarkdown}
               title="Download a Markdown report — metrics and events as tables, ready for a write-up or a forum post"
-              className={SAVE_BTN}
+              className="shrink-0"
             >
               Save .md
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={downloadHtml}
               title="Download a self-contained HTML report — numbers, events, the logger cross-check and the charts inline, in one file you can open, print, email or archive anywhere (nothing uploaded)"
-              className={SAVE_BTN}
+              className="shrink-0"
             >
               Save .html
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={downloadData}
               title="Download the whole flight as CSV — Debrief's derived series (altitude, velocity, acceleration, Mach, dynamic pressure) plus every channel the logger recorded (battery, temperature, GPS, tilt …)"
-              className={SAVE_BTN}
+              className="shrink-0"
             >
               Save .csv
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={downloadJson}
               title="Download the full analysis — metrics, events and provenance — as structured JSON, in the chosen units, for a script or another tool"
-              className={SAVE_BTN}
+              className="shrink-0"
             >
               Save .json
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={saveChartSvg}
               disabled={figureTitles.every((t) => hiddenFigures.includes(t))}
               title={
@@ -903,22 +898,22 @@ export default function FlightReport({
                   ? 'No figures are in this report — turn one on under the charts'
                   : 'Save the first figure in this report as a vector SVG (events marked) — crisp at any size'
               }
-              className={`${SAVE_BTN} disabled:cursor-not-allowed disabled:opacity-40`}
+              className="shrink-0"
             >
               Save .svg
-            </button>
-            <button type="button" onClick={saveChartPng} title="Save the altitude chart as a PNG" className={SAVE_BTN}>
+            </Button>
+            <Button size="sm" onClick={saveChartPng} title="Save the altitude chart as a PNG" className="shrink-0">
               Save .png
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={downloadBundle}
               title="Save one ZIP with the Markdown summary, the data CSV and the altitude/velocity/acceleration figures — the whole report, zipped in the browser"
-              className={SAVE_BTN}
+              className="shrink-0"
             >
               Save bundle
-            </button>
-            <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={SAVE_BTN} />
+            </Button>
+            <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className="shrink-0" />
           </div>
           </div>
           <span className="sr-only" role="status" aria-live="polite">

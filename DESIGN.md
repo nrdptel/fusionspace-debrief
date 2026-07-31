@@ -110,6 +110,18 @@ Six sizes, each with one job. Geist Sans throughout; Geist Mono for numerals tha
 | `text-xs` | captions, units, footnotes, dense table metadata |
 | `text-[11px]` | axis ticks and diagram annotations only |
 
+**Six means six**, and the sizes that break it are the ones that read as "a bit bigger" rather than as
+a decision — `text-lg` between `text-base` and `text-xl`, `text-2xl` between `text-xl` and `text-3xl`.
+Measured 2026-07-31: Loft had reached **fourteen** `text-lg` (eleven panel headings and three prominent
+values), and Debrief **twenty** across `text-lg`, `text-2xl` and `text-4xl`, five of them page titles
+where this table says `text-3xl`. That is a heading rhythm that is not a rhythm. Both apps count and
+ratchet it toward zero; neither may let it grow.
+
+**An analyzer's big readout is `text-xl`, not a seventh size.** The number a metric tile exists to show
+wants weight, and `font-semibold` plus `font-mono` at `text-xl` gives it that against `text-base`
+siblings. Reaching for `text-2xl` because it looks better in isolation is how the scale acquired its
+seventh entry in the first place.
+
 **`text-sm` is the floor for anything a flyer reads to make a decision.** `text-xs` is for the text
 *around* such a value — its unit, its provenance, its caveat — never the value. Debrief's 212-to-82
 inversion is the bug this rule fixes: a whole app of decision-grade numbers rendered at caption size.
@@ -250,21 +262,59 @@ adjectives.
 grep -roh 'rounded-lg' components app | wc -l                      # target: 0
 
 # card treatments hand-rolled instead of <Card>
-grep -roh 'rounded-xl border[a-z0-9 /-]*' components | sort -u | wc -l   # target: 1
+grep -roh 'rounded-xl border[a-z0-9 /-]*' components | sort -u | wc -l   # target: 1 (+ any named
+                                                                        # non-card primitive, see below)
 
 # off-scale spacing
 grep -roh '\b[pmg][xytblr]\?-\(5\|7\|9\|10\|11\|14\)\b' components app | wc -l   # target: 0
 
-# decision-grade text at caption size — xs should be the minority
-grep -roh 'text-xs' components | wc -l
-grep -roh 'text-sm' components | wc -l                             # sm > xs
+# a size that is not on the scale at all — anything but the six in §3
+grep -rohE '\btext-(xs|sm|base|lg|xl|[0-9]xl)\b' components app \
+  | grep -vxE 'text-(xs|sm|base|xl|3xl)' | wc -l                   # target: 0
+
+# decision-grade text at caption size — count the INVERTED FILES, not the suite total
+for f in components/*.tsx; do xs=$(grep -oh 'text-xs' "$f" | wc -l); \
+  sm=$(grep -oh 'text-sm' "$f" | wc -l); [ "$xs" -gt "$sm" ] && echo "$f $xs/$sm"; done | wc -l
+                                                                   # target: 0 inverted files
 
 # primitives actually adopted
-grep -rl "from './ui'" components | wc -l                          # target: most components
+grep -rlE "from ['\"](\./ui|@/components/ui)['\"]" components | wc -l   # target: most components
 ```
 
+**The suite-wide ratio was removed on 2026-07-31, and the reason is worth keeping.** It hid what it
+was for and then actively misled. It hid: 88 `text-xs` against 91 `text-sm` passed `sm > xs` by three
+while **9 of 23 component files were individually inverted**, `GeometryInspector` at 9:2 and
+`MonteCarlo` at 9:4 — a global ratio passing by a hair while the surfaces a flyer reads numbers on sit
+at caption size is exactly the inversion §3 exists to prevent. Then it misled: converting nine
+hand-rolled buttons onto `Button` moved the totals to **84/89**, an inversion by the metric, while not
+one glyph on screen changed size — the `text-sm` had moved INTO the primitive. **Adoption drives the
+suite ratio the wrong way for the right reason**, which makes it useless during exactly the milestone
+that raises adoption. Count the inverted FILES.
+
+**The adoption grep used to carry a hard-coded quote character**, and it could only ever be right in
+one of the two repos: Loft's imports are double-quoted and Debrief's are single-quoted, so whichever
+form this shared file picked, the other app got a command that answered **0** whether adoption was 0%
+or 100%. It was written `from './ui'` while Loft was double-quoted (corrected 2026-07-31), then
+`from "./ui"` while Debrief was single-quoted, which is the same bug pointing the other way. It is
+quote-agnostic now, and any grep added here must be. A compliance command that cannot fail is worse
+than none, because a session runs it, sees the target, and moves on.
+
+**The off-scale-type grep was widened for the same reason.** It named `text-lg` because that is the
+one Loft had. Run against Debrief on 2026-07-31 it reported **5** where the true count was **19** —
+`text-2xl` used 13 times, including five of six page titles where §3 says `text-3xl`, and one
+`text-4xl` — and called the other 14 compliant. A grep that names one instance of a class of drift
+will always be read as covering the class. It matches every `text-` size and subtracts the six.
+
 **Pin what you fix.** A drift you correct without a check comes back. The suite-level target is that
-these counts are asserted by a test, not re-measured by hand each run.
+these counts are asserted by a test, not re-measured by hand each run — and in both apps they now
+are: `lib/design-system.test.ts` is the executable copy of this block, with each count an EXACT
+ratchet so that an improvement and a regression both fail until the number is updated in the same
+commit as the work. Neither file may drift from the other, and neither may drift from its sibling.
+
+**Where the card target is not 1, say so rather than quietly missing it.** A treatment that matches the
+grep but is genuinely not a card — a floating toast that needs elevation, an interactive drop zone —
+gets its own named primitive rather than a `shadow` prop on `Card`. Record the honest floor and what
+each remaining string is, on the milestone that owns the conversion.
 
 ---
 

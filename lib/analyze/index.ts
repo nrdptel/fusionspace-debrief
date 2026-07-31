@@ -116,6 +116,54 @@ function altitudeFromPressure(pressure: Float64Array, padPressure: number): Floa
   return out;
 }
 
+/** The mean of `values` over the stretch of TIME from sample `from` to sample `to` inclusive —
+ *  not the mean over the samples in it.
+ *
+ *  A rate averaged over sample index answers "what did a typical sample read", which is only the
+ *  same question as "what did this stretch of flight average" when the samples are evenly spaced.
+ *  Plenty of loggers are not: a Featherweight GPS drops from 10 Hz to 0.5 Hz once the flight is
+ *  under way, so the seconds either side of apogee — where the rocket has barely started falling —
+ *  carry twenty times the weight of the seconds where it is coming down fastest.
+ *
+ *  Measured on `fwgps__trf-f1machbuster-jan10`, whose cadence runs 0.1–2.0 s: over Debrief's own
+ *  drogue leg the index mean is 49.33 m/s and the time mean 63.89 m/s **of the file's own VERTV
+ *  column**, and the leg's altitude chord is 64.47 m/s. Debrief printed 50.73 m/s — a descent rate
+ *  21% low, on the reading a flyer sizes a canopy against. The device's own measurement and the
+ *  altitude agree with each other to 0.9%; nothing agrees with the index mean except the bug.
+ *
+ *  **Trapezoidal, and covering the CLOSING interval — both of those were got wrong first.** The
+ *  obvious version weights sample `i` by `time[i] − time[i−1]` over `i < to`, which silently drops
+ *  the gap that ends the leg: on `fwgps__trf-lemiv-l3`'s main leg the last sample spans 2.0 s of
+ *  an 8.0 s leg, so a quarter of the leg's duration carried no weight at all — in a function whose
+ *  whole contract is weighting by duration. It also lands on the wrong side of the very figure the
+ *  fix is checked against: on the file above it gives 65.62 m/s where the trapezoid gives 64.80,
+ *  against a device-measured 63.89.
+ *
+ *  So each interval is weighted by the mean of the two samples that bound it, which is exact for a
+ *  rate that varies linearly across the gap and telescopes to the leg's own chord when `values` is
+ *  the finite difference of the altitude. An interval whose step is missing, zero or backwards
+ *  contributes nothing; an interval where either end is non-finite falls back to the end that is
+ *  finite, so one bad sample costs its own two gaps rather than the whole leg. */
+function timeMean(values: Float64Array, time: Float64Array, from: number, to: number): number {
+  let sum = 0;
+  let weight = 0;
+  for (let i = from + 1; i <= to; i++) {
+    const dt = time[i] - time[i - 1];
+    if (!Number.isFinite(dt) || dt <= 0) continue;
+    const a = values[i - 1];
+    const b = values[i];
+    const okA = Number.isFinite(a);
+    const okB = Number.isFinite(b);
+    if (!okA && !okB) continue;
+    sum += (okA && okB ? (a + b) / 2 : okA ? a : b) * dt;
+    weight += dt;
+  }
+  // A stretch with no usable interval at all — a single sample, or a clock that does not advance —
+  // has no time to average over, and the index mean is the only answer left rather than a silently
+  // different one. Unreachable on every corpus file; kept because the alternative is NaN.
+  return weight > 0 ? sum / weight : mean(values, from, to);
+}
+
 function mean(values: Float64Array, from: number, to: number): number {
   let sum = 0;
   let n = 0;
@@ -2150,7 +2198,16 @@ function analyzeWhole(
     if (!(to > from + 1)) return null;
     const drop = altClean[from] - altClean[to];
     if (!(drop > Math.max(3, Math.abs(altClean[from]) * 0.1))) return null;
-    const rate = downward(mean(descent, from + 1, to));
+    // Weighted by TIME, not by sample count — see `timeMean`. On a log whose cadence changes
+    // during the descent the two answer different questions, and only one of them is the rate
+    // this leg averaged.
+    //
+    // `from`, not `from + 1`: the leg is the stretch of time between the two marks, and it starts
+    // at the first one. The index version had to skip the opening sample because it weighted
+    // samples; this weights the intervals BETWEEN them, so the opening sample contributes only
+    // through the short gap it actually bounds — which is the apogee, where the rate genuinely is
+    // near zero, and the leg's own chord counts it too.
+    const rate = downward(timeMean(descent, time, from, to));
     if (rate != null && rate > freeFallLimit) {
       descentAboveFreeFall = true;
       return null;
