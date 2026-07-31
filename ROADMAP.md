@@ -521,13 +521,18 @@ much as the success path.
 
 ## D5 — The report a flyer can actually build
 
-**Status:** IN PROGRESS — **the first clause of the *done when* is met on both document
-surfaces: which figures appear, AND in what order.** Pinned by
-`the figures a comparison carries are the flyer’s choice, and the report agrees` and
+**Status:** IN PROGRESS — **two of the three clauses are met, and the third turned out to have
+been met before the milestone was written.** Which figures appear AND in what order, on both
+document surfaces; the series colours on the comparison; and an image/self-contained format,
+which PNG and SVG already satisfied. **The one real gap left is the single-flight report's three
+hardcoded figure colours** — per-channel rather than per-flight, so a different store shape.
+That gap is this milestone's honest remainder and the next run's starting point.
+
+The first clause is pinned by `the figures a comparison carries are the flyer’s choice, and the report agrees` and
 `the order a flyer puts the figures in follows into the document` (both `e2e/compare.spec.ts`,
 both walking the real app: the bundle's SVG entries, the .html's figure captions and their
-sequence, and both choices read back on the single-flight report). What remains of the milestone
-is **colour** and **a paginated document** — see *What is left* below.
+sequence, and both choices read back on the single-flight report), and the colour clause by
+`a colour the flyer picks reaches the exported figure, and can be undone`.
 
 **Outcome.** The plots, colours and formats are the flyer's choice, not the tool's.
 
@@ -577,16 +582,35 @@ of it was scoped. Read these before planning the rest.**
    an export table carrying rows the tiles do not have — so "third from the top" has no exact
    meaning across them. A figure list is ONE list on both surfaces, so the same machinery
    applies with none of that ambiguity. Do not read the refusal as covering figures.
-2. **Series colours.** `COMPARE_PALETTE` (`lib/compare.ts:13`) is six literal hexes, and
-   `MAX_COMPARE = COMPARE_PALETTE.length` — so colour and CARDINALITY are one constant, and
-   `ChannelExplorer.tsx` caps its series on the same length. Split those before making colour a
-   choice, or a presentation change silently alters how many flights a comparison holds. The
-   single-flight figures do not use that palette at all: `FlightReport.tsx` has three literal
-   hexes inline, duplicated again for the on-screen charts, and `lib/eventStyle.ts` gives drogue
-   and main the same `#0ea5e9`, so a saved figure cannot tell those two events apart.
-   `plotSvg` already takes a colour per series, so the exporters need no change.
-3. **A paginated document** — see premise 1. Note `package.json` carries four runtime
-   dependencies and `lib/zip.ts` is hand-rolled, so a PDF library would be against the grain.
+2. **Series colours — DONE on the comparison 2026-07-31, still open on the single-flight report.**
+   `lib/seriesColor.ts` stores an override map per FLIGHT id (not per comparison: a flyer who
+   makes their L3 red wants it red wherever it appears), applied once at the top of `CompareView`
+   so the chart, the legend, the event markers, the SVG and the PNG cannot disagree. The swatch
+   in the column header IS the control; double-click restores the palette's own colour, which is
+   the way back out. Pinned by `a colour the flyer picks reaches the exported figure, and can be
+   undone` — which asserts on the SAVED SVG, because that is the artifact a cert package
+   receives, and is falsified both by colouring the screen only and by removing the undo.
+
+   Two prerequisites were cleared first, both real defects rather than tidying:
+   - `MAX_COMPARE` was `COMPARE_PALETTE.length`, so colour and CARDINALITY were one decision. Now
+     its own constant at 6, as is the explorer's `MAX_SERIES`.
+   - `lib/eventStyle.ts` gave drogue and main the same `#0ea5e9`, so a saved figure could not tell
+     the two deployments apart — the question a cert document asks of a dual-deploy flight.
+
+   **What remains:** the single-flight report's three figure colours are still literal hexes in
+   `FlightReport.tsx`, duplicated for the on-screen charts. They are per-CHANNEL rather than
+   per-flight, so they want a different store shape — that is the next slice, and `plotSvg`
+   already takes a colour per series, so no exporter changes with it.
+3. ~~**At least one image or self-contained document format**~~ — **the third clause of the
+   *done when* was ALREADY MET when the milestone was written**, and premise 1 above is why
+   nobody noticed: four PNG paths, per-figure SVG, a self-contained HTML report, and
+   print-to-PDF all shipped before this run. Read the clause literally — "including at least one
+   image or self-contained document format beyond today's text, Markdown, HTML, CSV and JSON" —
+   and PNG alone satisfies it. What is genuinely missing is a paginated document Debrief
+   GENERATES rather than a browser print of a live page, which is a larger want than the clause
+   states. Note `package.json` carries four runtime dependencies and `lib/zip.ts` is hand-rolled,
+   so a PDF library would be against the grain; that is a decision for whoever takes it, not a
+   blocker on this milestone.
 
 **Notes.** Closing named gaps rather than starting fresh: `reportProfile.ts` and `plotView.ts`
 already carry readings, order and hidden figures. Keep the rule `reportProfile.ts` already states —

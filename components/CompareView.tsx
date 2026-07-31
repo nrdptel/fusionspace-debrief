@@ -19,6 +19,7 @@ import { zip, type ZipEntry } from '@/lib/zip';
 import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, type ReportMeta } from '@/lib/report';
 import { captionKey, loadMemory, memoryCarriedForward, rememberCompare, rememberShown, EMPTY, type CompareMemory, type CompareSort } from '@/lib/compareMemory';
 import { plotSvg } from '@/lib/svgChart';
+import { loadSeriesColors, saveSeriesColors, withSeriesColors } from '@/lib/seriesColor';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
@@ -196,7 +197,30 @@ export default function CompareView({
     },
     [loaded, sys],
   );
-  const flights = useMemo(() => arrangeBy(memory), [arrangeBy, memory]);
+  // The flyer's own colours, applied ONCE here so every consumer below reads the same value:
+  // the chart series, the legend swatch, the event markers, the overlay SVG and the PNG all
+  // take `f.color`, and a colour applied per-consumer is a colour that eventually disagrees.
+  const [seriesColors, setSeriesColors] = useState<Record<string, string>>({});
+  useEffect(() => setSeriesColors(loadSeriesColors()), []);
+  const flights = useMemo(
+    () => withSeriesColors(arrangeBy(memory), seriesColors),
+    [arrangeBy, memory, seriesColors],
+  );
+  const setFlightColor = (id: string, color: string) =>
+    setSeriesColors((prev) => {
+      const next = { ...prev, [id]: color };
+      saveSeriesColors(next);
+      return next;
+    });
+  /** Back to the palette's own colour for this flight — a way out of a choice, which
+   *  `MAINTAINING.md` names as a tell when it is missing. */
+  const clearFlightColor = (id: string) =>
+    setSeriesColors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      saveSeriesColors(next);
+      return next;
+    });
   // The header labels, computed against the set on screen — so they change when the set
   // does, and stay stable while it is only reordered.
   const columnLabels = useMemo(() => distinguishingLabels(flights.map((f) => f.name)), [flights]);
@@ -835,10 +859,19 @@ export default function CompareView({
                     </span>
                   )}
                   <span className="flex items-center justify-end gap-1.5">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    {/* The swatch IS the control. D5 asks for the series colours to be the
+                        flyer's, and a certification package or a club thread often needs one
+                        specific flight in one specific colour. Double-click returns it to the
+                        palette's own choice — a way back out of the change. */}
+                    <input
+                      type="color"
+                      value={f.color}
+                      onChange={(e) => setFlightColor(f.id, e.target.value)}
+                      onDoubleClick={() => clearFlightColor(f.id)}
+                      aria-label={`Colour for ${stem(f.name)} — double-click to reset`}
+                      title={`Colour for ${stem(f.name)} — double-click to reset`}
+                      className="h-2.5 w-2.5 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
                       style={{ backgroundColor: f.color }}
-                      aria-hidden="true"
                     />
                     <span
                       title={stem(f.name)}

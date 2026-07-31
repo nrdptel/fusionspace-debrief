@@ -679,3 +679,18 @@ describe('a cross-checked descent leg that stops before the ground', () => {
     expect(a.find((x) => x.key === 'drogueDescentRate')!.partialLeg).toBe(false);
   });
 });
+
+describe('the palette and the cap are separate decisions', () => {
+  it('caps a comparison by MAX_COMPARE, not by how many colours there are', () => {
+    // These were one value. A seventh stroke would have raised the cap silently, and that is
+    // the trap in front of D5's colour work: once the palette is the flyer's, its length stops
+    // being a fact about the product. The palette is indexed modulo its own length, so a
+    // comparison of MAX_COMPARE flights is well-defined whatever the palette holds.
+    expect(MAX_COMPARE).toBe(6);
+    const inputs = Array.from({ length: MAX_COMPARE + 2 }, (_, i) => input(`f${i}`, 2, 100 + i));
+    const built = buildComparison(inputs);
+    expect(built.flights).toHaveLength(MAX_COMPARE);
+    // Every flight got a stroke, none of them undefined, even past the palette's length.
+    expect(built.flights.every((f) => /^#[0-9a-f]{6}$/i.test(f.color))).toBe(true);
+  });
+});

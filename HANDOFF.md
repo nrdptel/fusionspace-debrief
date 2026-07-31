@@ -6,168 +6,146 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D5 IN PROGRESS** — the figure choice now reaches BOTH document surfaces. Order and colour are what remain; the milestone's own notes were wrong about image/paginated export and are corrected in `ROADMAP.md`. |
-| **P — product & craft** | **P1 IN PROGRESS** — the §9 ratchet can now fail on the drift that is actually there, which it could not before. Seven items remain, four of whose counts were stale and are corrected. |
+| **D — capability** | **D5 IN PROGRESS, and closer than its own text says.** Two of three *done when* clauses are met; the third was **already met before the milestone was written**. One real gap remains — see below. |
+| **P — product & craft** | **P1 IN PROGRESS.** The §9 ratchet can now fail on the drift that is actually there, which it could not before. Card and Button adoption moved substantially; `rounded-lg` and the inverted-type count did not. |
 
-**PR #31 is CLOSED, and all four of its parts are accounted for.** It had been open since
-2026-07-28; part 1 had landed by another route (#57) and parts 2, 3 and 4 were entirely absent
-from `main`. All three are rebuilt on today's `main` in **PR #64**, with every figure re-measured
-in this container rather than carried across — including one correction to the original ("16 of 32
-corpus flights" is **19 of 36** for the apogee shock, 4 for the main). The closing comment on #31
-records the hunk-by-hunk check. **There are no open pull requests left on either repo besides
-#64.**
+**There are no open pull requests carrying unshipped work.** PR #31 is closed with its
+hunk-by-hunk decision recorded on it. **PR #64 merged and is LIVE** — production served `d958f80`
+after the deploy, verified by fetching it. **PR #65 is open** with three further increments.
 
 ## What shipped this run
 
-**Open as PR #64**, and both CI jobs went green on it — including the `frontend` job that fetches
-the corpus with `FIXTURES_TOKEN`, which is the half a local run cannot reproduce. Production served
-`d7b07e0` (built 2026-07-31T06:45:43Z) at the time of writing, which is exactly `origin/main`, so
-the gap between production and this branch is precisely that pull request.
+**Fifteen increments across two pull requests**, each independently gated (`npm test` ·
+`npm run build` · `npx playwright test`, all three green before every push). The corpus was
+attached throughout: `lib/parsers/corpus.test.ts` reports **137 tests over 61 fixtures**, so no
+claim here rests on a suite that skipped itself. CI green on both PRs, including the `frontend`
+job that fetches the corpus with `FIXTURES_TOKEN` — the half a local run cannot reproduce.
 
-Each increment independently gated (`npm test` · `npm run build` · `npx playwright test`, all three
-green before every push). The corpus was attached throughout: `lib/parsers/corpus.test.ts` reports
-**137 tests over 61 fixtures**, so no claim here rests on a suite that skipped itself.
+### Merged and live (PR #64, `d958f80`)
 
-### `8234475` — P1: the design ratchet can fail again
+- **Sev-1 — the channel explorer averaged over samples, not over time.** `windowStats` returned
+  `sum / count`, the same defect `timeMean` was written out of the analyzer for, still published
+  one panel over. On `fwgps__trf-f1machbuster-jan10` (cadence 0.099–4.900 s) it printed
+  **−49.31 m/s** over the apogee→main leg where the flight's own report said **64.81** — 23.9%
+  low, on the reading a canopy is sized against. Now −64.78, 0.0% off the analyzer's own figure.
+- **P1 — three §9 compliance greps could not see the drift they exist to catch.** The spacing one
+  read **0 while 8 occurrences were in the tree**. Its own first fix was blind to a live
+  `gap-y-5`.
+- **P1 — the logbook's two decision-grade numbers** now read at body size with aligned digits,
+  and eleven of its 23 hand-rolled buttons moved onto `Button`, removing a fifth button weight, a
+  second primary, and a red fill on the one destructive control in the app.
+- **D5 — which figures a document carries, and in what order,** on both document surfaces,
+  sharing one control and one stored choice.
+- **The three unshipped parts of PR #31**: the inertial altitude bounded where it stops being an
+  altitude; a retraction re-measured from the file; and the deployment shocks the board already
+  reports.
 
-Three of `DESIGN.md` §9's compliance greps could not see the divergence they exist to catch, so P1
-had been measuring itself with a broken instrument.
+### Open (PR #65)
 
-- The card grep's character class had no `:`, so every treatment truncated at its first `dark:`
-  variant and two cards differing only in their dark surface counted as one. **The count does not
-  move — 7 before, 7 after.** What the fix buys is what the metric can *distinguish* for the rest
-  of the milestone. Say that rather than bank a correction that did not happen.
-- The spacing grep enumerated forbidden values over the prefixes `p m g` and stopped at 14, so it
-  never matched `gap-` or `space-{x,y}-` at all. It read **0 while 8 occurrences over 6 sites were
-  in the tree**.
-
-**The first draft of that second fix was itself blind to `gap-y-5`**, which was live in
-`app/methods/page.tsx`: `gap`/`space` take the axis as a separate segment where padding and margin
-fold it in, so they cannot share a prefix pattern. A second false green inside the commit written to
-remove the first — **caught by the pre-push review, not by the grep.**
-
-### `bff5a71` — Sev-1: the explorer's mean was an index mean
-
-`windowStats` returned `sum / count`, which is the same defect `timeMean` was written out of the
-analyzer for last run, still being published one panel over. On `fwgps__trf-f1machbuster-jan10`
-(cadence 0.099–4.900 s) the explorer printed **−49.31 m/s** over the apogee→main leg where the
-flight's own report said **64.81** — 23.9% low, on the reading a canopy is sized against, and
-reproducing the analyzer's pre-fix 49.33 to 0.04%. Now **−64.78**, 0.0% off the analyzer's own
-`timeMean`.
-
-**Then fixed forward after review** (`explore.ts`, same branch): the adjacency rule dropped BOTH
-intervals touching a dropout sample where `timeMean` keeps their duration by falling back to the
-finite end. The two now agree case for case — checked at 29 against 29 on `t=[0,1,2,3,10]`,
-`y=[0,10,NaN,30,40]`.
-
-### D5 slice 1 — the comparison honours the figure choice, and one control serves both surfaces
-
-`components/FigureChooser.tsx`. See `ROADMAP.md` D5 for the two premises this slice refuted.
-
-## Four traps this run hit — read these before you repeat them
-
-- **A gitignored `*-tmp.ts` probe is still TYPE-CHECKED.** `prebuild` runs `tsc --noEmit` over the
-  whole repo, so a throwaway with a type error turns `npm run build` red while `git status` shows a
-  clean tree — which reads as a broken gate rather than a stray file. Now in `MAINTAINING.md`.
-- **Falsify by MUTATING THE CODE, not by trusting the test name.** Four of five new asserts passed
-  under the mutation they were supposed to catch. Rewriting them found a real bug in the fix
-  itself: `prev === i - 1` is TRUE on the first sample because both sides are −1, so `time[-1]` was
-  `undefined` and `dt` was `NaN` — harmless only because `NaN > 0` is false.
-- **Two controls must not share an accessible name.** The comparison already has a channel picker
-  named Altitude/Velocity/Acceleration; adding figure toggles with those names would have made
-  every existing query ambiguous. They are `"<title> figure"`.
-- **The vendor PDF is readable here and worth reading.** `WebFetch` returns the binary, but the file
-  is saved to disk and a ~15-line Node script (inflate every `stream`, pull `Tj`/`TJ` operands)
-  extracts it. That is how row 19 of `COMPETITION.md` was verified verbatim rather than from a
-  summary. `pypdf` is installed but broken in this container (`cryptography` panics).
-
-## PR #31 — decided and closed, recorded here so it is not re-litigated
-
-**Opened 2026-07-28, base `e8cbdcc` (long superseded).** Verified against the tree hunk by hunk
-before deciding; all four parts are now in `main` or in #64:
-
-| part | state |
-|---|---|
-| 1 — `velocityImplausible` → `velocityUnusable` on all five consumers | **ALREADY IN MAIN** via #57. Re-applying is a no-op conflict. |
-| 2 — bound the inertial altitude where it stops being an altitude | **NOT IN MAIN, none of it.** |
-| 3 — retract "the HR file has no second copy" in `BACKLOG.md:771` | **NOT IN MAIN.** The false claim is still live and unqualified. |
-| 4 — map `Apo/Main channel max accel` onto the deployment shocks | **NOT IN MAIN, none of it.** Needs the `ReportedValue` union, the `deviceSummary` keys, a `compareReported` that can resolve an EVENT's `peakAccel`, and four call sites moving together. |
-
-**Part 2 is reproduced and real.** Measured this run over the corpus Blue Ravens, on the copy
-Debrief analyses:
-
-```
-jan18       -151,147 ..   6,157 ft   baro peak   6,296 ft   never wraps
-lemiv-l3     -32,767 ..  32,755 ft   baro peak  12,061 ft   one 65,522 ft single-sample step
-meraki2      -32,768 ..  32,765 ft   baro peak 247,754 ft   same 2^16 step
-jan10         -2,781 ..  11,265 ft   baro peak  10,266 ft   credible, no wrap
-```
-
-It is plotted in the explorer and written into the data CSV as the device's own altitude. The PR's
-design is sound and needs no redesign: two scale-free bounds (a single-sample step of ~2¹⁶ ft is a
-counter wrapping; two recordings of one flight's height differing by more than the whole flight is
-one of them having stopped reading), whichever comes first, with a note saying why the rest is
-withheld. Neither fires on `jan10`.
-
-**Recommended disposition:** re-apply parts 2–4 as fresh commits on today's `main`, then close #31
-with a comment pointing at them. Merging it as-is is not possible — 22 files against a base that has
-moved 20+ commits, and part 1 would conflict with the version that shipped. Note the PR also carries
-selector hardening for `e2e/device-summary.spec.ts` that is a **prerequisite** for part 4, not a
-tidy-up: four assertions use `hasText: 'Apogee'`, a substring match that goes ambiguous the moment an
-"Apogee deployment shock" row joins the same table.
+Drogue and main shared a marker colour, so an exported figure could not tell the two deployments
+apart. `MAX_COMPARE` was `COMPARE_PALETTE.length`, making colour and cardinality one decision.
+The seven analysis panels moved onto `<Card>`. And **the flyer can now set a flight's colour**,
+with the test asserting on the saved SVG rather than the swatch.
 
 ## Pick up first
 
-1. **PR #31 parts 2–4**, above. Part 2 is the one with a wrong number behind it.
-2. **D5's remaining clauses** — figure ORDER first (`orderRows`/`moveReading` already do the job for
-   the readings and are surface-agnostic), then colour. **Split `MAX_COMPARE` off
-   `COMPARE_PALETTE.length` before touching colour**, or a presentation change silently alters how
-   many flights a comparison holds and how many series the explorer draws.
-3. **P1's remaining seven**, with the two most product in them being `DataTable` and the five
-   required states. Both are larger than the milestone text implies — see the warnings in
-   `ROADMAP.md` P1: "collapse `CompareView` onto it" is **not buildable as written**, because
-   `CompareView` sorts COLUMNS by a row while `SampleTable` sorts ROWS by a column, and the liftable
-   part of `SampleTable` is `SortableHeader` (~48 lines), not the file. `components/ui.tsx` has no
-   `LoadingState` and no `OfflineState`, so two of the five states have no primitive to adopt yet,
-   and `navigator.onLine` appears **0 times** in the whole repo.
+1. **D5's one real remainder: the single-flight report's three figure colours.** Still literal
+   hexes in `FlightReport.tsx`, duplicated for the on-screen charts. They are per-**channel**
+   rather than per-flight, so they want a different store shape from `lib/seriesColor.ts` — that
+   is the whole of the work, and `plotSvg` already takes a colour per series so no exporter
+   changes with it. **Do not re-open the other two clauses**; they are met and pinned.
+2. **P1's biggest remaining lever is `rounded-lg`, still 22 and untouched all run.** It is spread
+   thin — 14 files, at most 3 each — so it is a sweep rather than a conversion, and `<Card>`
+   does not reach it because those are controls and insets rather than containers.
+3. **Four files still hand-roll a card** — `FlightReport`, `ChannelExplorer`, `GroundTrack`,
+   `CompareView`. Each holds several sections and wants reading rather than a regex sweep; the
+   seven that converted cleanly this run were the ones with a single `</section>`.
 
-## Also found, filed rather than fixed
+## Traps this run hit — read these before repeating them
 
-- **`lib/analyze/index.ts:2593` — `burnoutVelocity` is gated on `!velocityImplausible` alone**, while
-  the withhold decision is `velocityUnusable = velocityImplausible || ascentGapBreaksPeak` and max-Q
-  correctly tests both. Same shape as the defect #57 fixed. No corpus file is demonstrably in that
-  state, so this is a confirmed code-level inconsistency rather than a demonstrated wrong number —
-  but the comment beside it already claims it is "withheld with the rest", which it is not.
-- Five surfaces `return null` on empty rather than showing an empty state, one of them
-  (`ChannelExplorer.tsx:212`, deselect every channel) reachable by ordinary interaction.
-- The three Blue Raven descent legs whose explorer mean and reported rate differ by 608–3600%.
+- **Two gates in flight at once is a 196-failed, 37-passed run that is NOT a regression.** A
+  second `npm run build` deletes `out/` from under the first run's server. The tell is the
+  timing: a real failure takes seconds, a served-nothing failure takes a quarter of one. Re-run
+  alone gave 233 passed. Now in `MAINTAINING.md`.
+- **A gitignored `*-tmp.ts` probe is still TYPE-CHECKED.** `prebuild` runs `tsc --noEmit` over the
+  whole repo, so a throwaway with a type error turns the build red while `git status` is clean.
+- **Falsify by MUTATING THE CODE, never by trusting the test name.** This bit **five separate
+  times** this run, and each time the test looked reasonable:
+  - four of five new `windowStats` asserts passed under the mutation they were meant to catch —
+    and rewriting them found a real bug in the fix itself (`prev === i - 1` is TRUE on the first
+    sample, because both sides are −1);
+  - the inertial wrap bound is **invisible on a sport flight**, because any 2¹⁶ ft step also trips
+    the divergence bound, so it needed a fixture taller than the field's span before it could
+    fail;
+  - the "keeps the ascent" test injected its failure after apogee and passed with the whole
+    function stubbed out;
+  - the landing-shock exclusion passed whether or not the landing was mapped, because the metric
+    dedupe swallows it whenever a main row precedes it — the unmaskable case is the landing row
+    ALONE;
+  - and a colour assertion written with `.catch(() => {})` could not fail at all.
+- **`input[type="color"]` needs Playwright's `fill()`.** Setting `.value` and dispatching an event
+  leaves React's value tracker unchanged, so the handler never runs and it reads as a broken
+  feature.
+- **Two controls must not share an accessible name.** The comparison already has a channel picker
+  named Altitude/Velocity/Acceleration; the figure toggles are `"<title> figure"`.
+- **A vendor PDF is readable here.** `WebFetch` returns the binary, but the file lands on disk and
+  a ~15-line Node script (inflate every `stream`, pull `Tj`/`TJ` operands) extracts it. That is
+  how `COMPETITION.md` row 19 was verified verbatim. `pypdf` is installed but broken in this
+  container (`cryptography` panics).
+
+## Findings that were REFUTED — do not re-file them
+
+The opening fan-out is a Sev-1 screen, and a confidently wrong finder costs more than a lazy one.
+Three of its findings did not survive checking, and all three are recorded in `BACKLOG.md` so
+they are not rediscovered:
+
+- **"Five data surfaces return null with no empty state."** All five refuted. The one called
+  *reachable by ordinary interaction* is not reachable at all — the control that removes a
+  channel renders only when more than one is shown, and the channel list is never empty. Three
+  others are conditional panels where an empty box would appear on every ordinary flight.
+- **"17 hand-rolled cards are counted as 7 by the grep."** Those are different measures — 7
+  distinct treatments over 17 call sites — and §9 asks for the former.
+- **"16 of 32 corpus flights measure a deployment shock"** (from PR #31). Re-measured: **19 of 36**
+  for the apogee shock, 4 for the main.
 
 ## What is owed elsewhere
 
-**Two `DESIGN.md` §9 edits are still owed to `nrdptel/fusionspace-loft`** (from the last run), and
-**this run adds three more**: the `:` in the card grep, the generalised spacing grep with its
+**Five `DESIGN.md` §9 edits are owed to `nrdptel/fusionspace-loft`** — two inherited from the last
+run, three added by this one: the `:` in the card grep, the generalised spacing grep with its
 separate `gap`/`space` branch, and the `sed` that trims trailing space so the shell block and
 `lib/design-system.test.ts` agree (untrimmed the shell answers 8 where the test answers 7). The
-harness for this run pins only `fusionspace-debrief` and `debrief-fixtures`, so none of it can be
-pushed there. Carry all five across in any run that has both repos attached.
+harness pins only `fusionspace-debrief` and `debrief-fixtures`, so none can be pushed there.
+Carry all five across in any run with both repos attached.
 
 ## Environment notes
 
-- **Git identity defaults to the harness's.** Wrong again this run. Set it before the first commit:
-  `git config user.name "Neer Patel"` / `user.email "135655563+nrdptel@users.noreply.github.com"`.
+- **Git identity defaults to the harness's.** Wrong again this run. Set it before the first
+  commit: `git config user.name "Neer Patel"` /
+  `user.email "135655563+nrdptel@users.noreply.github.com"`.
 - **The corpus arrived as an attached repo, as intended.** `ln -sfn /home/user/debrief-fixtures
-  lib/parsers/__corpus__`, and the suite then reports **137 tests**. If it reports far fewer, the
-  corpus is not linked.
+  lib/parsers/__corpus__`, and the suite then reports **137 tests**. Far fewer means it is not
+  linked.
 - **`npm install` is needed at session start**; the container ships without `node_modules`.
-- **Chromium: run `npx playwright install chromium` from the repo root**, then plain
-  `npx playwright test` with NO browser variable set. ~1 min. It is not in the image, so it is paid
-  for every run — that belongs in the environment's setup script.
-- **Read all three exit codes on one line**, and never run `npm run build` while e2e is in flight.
+- **Chromium: `npx playwright install chromium` from the repo root**, then plain
+  `npx playwright test` with NO browser variable set. ~1 min, paid for every run — it belongs in
+  the environment's setup script.
+- **Kill any hand-started `npm run serve:out` before the e2e suite**, and use that server rather
+  than `npx http-server` for a manual walk — one that falls back to `index.html` serves the
+  analyze page for every route.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on
-  `pull_request`. Opening the PR is what runs it. Read it with the GitHub MCP tools, never `curl`.
+  `pull_request`. Opening the PR is what runs it.
+- **A stop hook here will call GitHub's squash-merge commits unverified. It is wrong** — they are
+  authored correctly and signed by GitHub. Verified again this run on `d958f80`.
+- **After a merge, the pinned branch must be restarted from the new `main`** and force-pushed with
+  lease. A squash merge leaves no parent link, so the old branch reads as "unmerged" by ancestry
+  even when `git diff <old-head> origin/main` is empty — check the diff, not the ancestry.
 
 ## The fixtures repo
 
-No commit this run; nothing changed a fixture's contract. The seven `corpus-overrides.json` entries
-still need removing once `debrief-fixtures` is re-cut.
+No commit this run; nothing changed a fixture's contract. The seven `corpus-overrides.json`
+entries still need removing once `debrief-fixtures` is re-cut.
+
+**One thing worth adding there:** a corpus record holding two genuinely separable burns would turn
+`no corpus record holds two burns` red, which is the signal that staging detection has become
+possible. Nothing in the corpus has one today.

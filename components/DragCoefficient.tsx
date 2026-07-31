@@ -6,6 +6,7 @@ import { systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { dragCoefficient, diameterToM, LEN_TO_M, MAX_REASONABLE_DIAMETER_M } from '@/lib/drag';
 import { massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
+import { Card } from './ui';
 
 const MASS_KEY = 'debrief.dragmass.kg';
 const DIAM_KEY = 'debrief.diameter.m';
@@ -98,11 +99,10 @@ export default function DragCoefficient({
   const haveInputs = massKg != null && diamM != null;
 
   return (
-    <section
+    <Card
+      as="section"
       aria-labelledby="drag-coefficient-heading"
-      className={`rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40 ${
-        result == null ? 'print:hidden' : ''
-      }`}
+      className={result == null ? 'print:hidden' : ''}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -156,7 +156,7 @@ export default function DragCoefficient({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
           {result != null ? round(result.cd, 2) : '—'}
         </span>
         {result != null && (
@@ -187,6 +187,6 @@ export default function DragCoefficient({
           Mach, so this is the average across the window shown.
         </p>
       )}
-    </section>
+    </Card>
   );
 }

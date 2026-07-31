@@ -16,6 +16,14 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **The one measured thing this run did NOT close, stated so it is not mistaken for done:
+  `rounded-lg` is still 22 and was untouched all run.** `DESIGN.md` §2 says it is not in the
+  system at all — containers are `xl`, controls are `md` — and "convert on sight". It is spread
+  thin (14 files, at most 3 each), so unlike the card and button conversions it is a sweep rather
+  than a conversion onto a primitive: `<Card>` does not reach it, because these are controls,
+  insets and scroll containers rather than containers. Whoever takes it should expect no
+  adoption-count movement from it, only the radius count.
+
 - **FIXED 2026-07-31 (was Sev-1): the channel explorer's "mean" was an index mean, so a flyer
   zooming to the drogue leg read a descent rate 23.9% low.** `lib/explore.ts` `windowStats`
   returned `sum / count` — the exact defect `timeMean` had just been written out of the analyzer

@@ -6,6 +6,7 @@ import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { descentStoppedAloft, landingRate, landingRateIsWholeDescent } from '@/lib/readings';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
+import { Card } from './ui';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
 function massUnit(sys: UnitChoice): 'g' | 'oz' {
@@ -77,13 +78,12 @@ export default function LandingEnergy({
   const drop = dropHeightM(rate);
 
   return (
-    <section
+    <Card
+      as="section"
       aria-labelledby="landing-energy-heading"
       // Nothing to print until a mass is entered — don't put an empty input on a
       // printed card. Once it computes, it prints with the rest.
-      className={`rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40 ${
-        ftlbf == null ? 'print:hidden' : ''
-      }`}
+      className={ftlbf == null ? 'print:hidden' : ''}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -117,7 +117,7 @@ export default function LandingEnergy({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
           {ftlbf != null && joules != null
             ? systemOf(sys) === 'metric'
               ? `${round(joules, 0)} J`
@@ -154,6 +154,6 @@ export default function LandingEnergy({
           device; compare it against your club or certification limit.
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }
