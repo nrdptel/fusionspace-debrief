@@ -521,12 +521,35 @@ much as the success path.
 
 ## D5 — The report a flyer can actually build
 
-**Status:** IN PROGRESS — **two of the three clauses are met, and the third turned out to have
-been met before the milestone was written.** Which figures appear AND in what order, on both
-document surfaces; the series colours on the comparison; and an image/self-contained format,
-which PNG and SVG already satisfied. **The one real gap left is the single-flight report's three
-hardcoded figure colours** — per-channel rather than per-flight, so a different store shape.
-That gap is this milestone's honest remainder and the next run's starting point.
+**Status:** SHIPPED 2026-07-31 — every clause of the *done when* is met and each is pinned by a
+check that walks the real app and asserts on the SAVED FILE rather than the screen:
+`the figures a comparison carries are the flyer’s choice, and the report agrees` and
+`the order a flyer puts the figures in follows into the document` (`e2e/compare.spec.ts`),
+`a colour the flyer picks reaches the exported figure, and can be undone` (`e2e/compare.spec.ts`),
+and `a figure colour the flyer picks reaches the saved figure, and can be undone`
+(`e2e/analyze.spec.ts`). Every one is falsified two ways — colouring or ordering the screen but
+not the document fails it, and removing the way back out fails it.
+
+**What a flyer can DO that they could not before:** choose which plots a document carries and in
+what order, and set the colour of any trace — on the single flight and on a comparison — with
+every choice remembered on the device and reaching the .html, the bundle and the saved figure,
+not just the screen.
+
+**What it delivered against its *done when*, and what it did not.** All three clauses hold, and
+the third is worth stating plainly: **"at least one image or self-contained document format" was
+already satisfied when the milestone was written** — four PNG paths, per-figure SVG and a
+self-contained HTML report all shipped before this run. `ROADMAP.md`'s own note claiming none
+existed was the stale thing, not the code, and an increment was nearly spent rebuilding it.
+
+Two things it does NOT do, filed rather than implied:
+- **No paginated document Debrief generates itself.** `printCard()` forces light mode and calls
+  `window.print()`, relying on ~30 `print:hidden` utilities. That is a browser print of a live
+  page, not a document a certification package receives. It is a larger want than the clause
+  states; `package.json` carries four runtime dependencies and `lib/zip.ts` is hand-rolled, so a
+  PDF library would be against the grain of this repo.
+- **No column model.** The .txt, .md, .html and clipboard tables all render `headlineRows` as
+  label/value pairs, so "which columns" has no answer to give. Whether that is a gap at all is a
+  product question, not an oversight.
 
 The first clause is pinned by `the figures a comparison carries are the flyer’s choice, and the report agrees` and
 `the order a flyer puts the figures in follows into the document` (both `e2e/compare.spec.ts`,

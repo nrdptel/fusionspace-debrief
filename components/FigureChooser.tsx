@@ -19,6 +19,9 @@ export default function FigureChooser({
   hidden,
   onToggle,
   onMove,
+  colorOf,
+  onColor,
+  onClearColor,
   what,
 }: {
   /** Every figure this surface could carry, chosen or not, ALREADY in the flyer's order — the
@@ -32,6 +35,12 @@ export default function FigureChooser({
   /** Move one figure earlier or later in the document. Omitted where a surface has only one
    *  figure to place. */
   onMove?: (title: string, delta: -1 | 1) => void;
+  /** The colour this figure is drawn in, where the surface offers a choice of it. All three
+   *  arrive together or none does — a swatch that shows a colour without changing it, or
+   *  changes it with no way back, is worse than no swatch. */
+  colorOf?: (title: string) => string;
+  onColor?: (title: string, color: string) => void;
+  onClearColor?: (title: string) => void;
   /** Which artefacts the choice reaches, named so the control says what it does. */
   what: string;
 }) {
@@ -43,7 +52,19 @@ export default function FigureChooser({
       {titles.map((t, i) => {
         const on = !hidden.includes(t);
         return (
-          <span key={`${t}-group`} className="inline-flex items-center">
+          <span key={`${t}-group`} className="inline-flex items-center gap-1">
+            {colorOf && onColor && onClearColor && (
+              <input
+                type="color"
+                value={colorOf(t)}
+                onChange={(e) => onColor(t, e.target.value)}
+                onDoubleClick={() => onClearColor(t)}
+                aria-label={`Colour for the ${t.toLowerCase()} figure — double-click to reset`}
+                title={`Colour for the ${t.toLowerCase()} figure — double-click to reset`}
+                className="h-3 w-3 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                style={{ backgroundColor: colorOf(t) }}
+              />
+            )}
           <button
             key={t}
             type="button"

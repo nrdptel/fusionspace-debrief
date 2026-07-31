@@ -32,6 +32,7 @@ import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import FigureChooser from './FigureChooser';
+import { figureColor, loadFigureColors, saveFigureColors } from '@/lib/seriesColor';
 import GpsApogee from './GpsApogee';
 import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
@@ -224,10 +225,29 @@ export default function FlightReport({
   // …and which figures travel with it. Same decision, same shape, kept on this device.
   const [hiddenFigures, setHiddenFigures] = useState<string[]>([]);
   const [figureOrder, setFigureOrder] = useState<string[]>([]);
+  // The figure colours are the flyer's too — per CHANNEL here rather than per flight, because
+  // "my altitude trace in green" is a statement about the trace and should hold across every
+  // flight they open. One map feeds the exported SVG and the on-screen chart, which were six
+  // separate literals and could drift apart one edit at a time.
+  const [figureColors, setFigureColors] = useState<Record<string, string>>({});
   useEffect(() => {
     setHiddenFigures(loadHiddenFigures());
     setFigureOrder(loadFigureOrder());
+    setFigureColors(loadFigureColors());
   }, []);
+  const setFigureColor = (title: string, color: string) =>
+    setFigureColors((prev) => {
+      const next = { ...prev, [title]: color };
+      saveFigureColors(next);
+      return next;
+    });
+  const clearFigureColor = (title: string) =>
+    setFigureColors((prev) => {
+      const next = { ...prev };
+      delete next[title];
+      saveFigureColors(next);
+      return next;
+    });
   const toggleFigure = useCallback((title: string) => {
     setHiddenFigures((prev) => {
       const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
@@ -507,7 +527,7 @@ export default function FlightReport({
         svg: plotSvg({
           x: series.time,
           series: [
-            { label: `Altitude (${unitsOf(sys).length} AGL)`, color: '#6366f1', axis: 'left', values: Array.from(series.altitude, (m) => lengthIn(m, sys)) },
+            { label: `Altitude (${unitsOf(sys).length} AGL)`, color: figureColor('Altitude', figureColors), axis: 'left', values: Array.from(series.altitude, (m) => lengthIn(m, sys)) },
           ],
           xLabel: 'Time (s)',
           leftLabel: `${unitsOf(sys).length} AGL`,
@@ -523,7 +543,7 @@ export default function FlightReport({
         name: `${stem}-velocity.svg`,
         svg: plotSvg({
           x: series.time,
-          series: [{ label: `Velocity (${unitsOf(sys).speed})`, color: '#10b981', axis: 'left', values: Array.from(series.velocity, (v) => speedIn(v, sys)) }],
+          series: [{ label: `Velocity (${unitsOf(sys).speed})`, color: figureColor('Velocity', figureColors), axis: 'left', values: Array.from(series.velocity, (v) => speedIn(v, sys)) }],
           xLabel: 'Time (s)',
           leftLabel: unitsOf(sys).speed,
           markers: markerDefs,
@@ -541,7 +561,7 @@ export default function FlightReport({
           series: [
             {
               label: `${series.accelerationResultant ? 'Total ' : ''}Acceleration (${unitsOf(sys).accel})`,
-              color: '#f59e0b',
+              color: figureColor('Acceleration', figureColors),
               axis: 'left',
               values: Array.from(series.acceleration, (a) => accelIn(a, sys)),
             },
@@ -560,7 +580,7 @@ export default function FlightReport({
     // Ordered as the flyer arranged it, then minus what they turned off — the same two
     // steps, in the same order, as the comparison's `documentFigures`.
     return orderRows(figs, (f) => f.title, figureOrder).filter((f) => !hiddenFigures.includes(f.title));
-  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures, figureOrder]);
+  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures, figureOrder, figureColors]);
 
   /** Every figure this flight could carry, chosen or not — what the chooser lists. */
   const figureTitles = useMemo(() => {
@@ -664,9 +684,18 @@ export default function FlightReport({
     return Number.isFinite(m) && Math.abs(m) >= 0.8 ? `${fmtSpeed(v, sys)} · ${fmtMach(m)}` : fmtSpeed(v, sys);
   };
 
-  const altSeries = useMemo(() => [{ label: 'altitude', values: series.altitude, stroke: '#6366f1', width: 2 }], [series.altitude]);
-  const velSeries = useMemo(() => [{ label: 'velocity', values: series.velocity, stroke: '#10b981' }], [series.velocity]);
-  const accSeries = useMemo(() => [{ label: 'acceleration', values: series.acceleration, stroke: '#f59e0b' }], [series.acceleration]);
+  const altSeries = useMemo(
+    () => [{ label: 'altitude', values: series.altitude, stroke: figureColor('Altitude', figureColors), width: 2 }],
+    [series.altitude, figureColors],
+  );
+  const velSeries = useMemo(
+    () => [{ label: 'velocity', values: series.velocity, stroke: figureColor('Velocity', figureColors) }],
+    [series.velocity, figureColors],
+  );
+  const accSeries = useMemo(
+    () => [{ label: 'acceleration', values: series.acceleration, stroke: figureColor('Acceleration', figureColors) }],
+    [series.acceleration, figureColors],
+  );
   const altFmt = useCallback((v: number) => round(lengthIn(v, sys), 0), [sys]);
   const velFmt = useCallback((v: number) => round(speedIn(v, sys), 0), [sys]);
   const accFmt = useCallback((v: number) => round(accelIn(v, sys), placesFor(unitsOf(sys).accel)), [sys]);
@@ -1211,6 +1240,9 @@ export default function FlightReport({
         hidden={hiddenFigures}
         onToggle={toggleFigure}
         onMove={moveFigure}
+        colorOf={(t) => figureColor(t, figureColors)}
+        onColor={setFigureColor}
+        onClearColor={clearFigureColor}
         what="the .html report, the bundle and Save .svg"
       />
 

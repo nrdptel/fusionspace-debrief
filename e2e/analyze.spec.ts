@@ -1750,3 +1750,42 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
   await expect(logbook).not.toContainText('blueraven-app-lr.csv');
   await expect(logbook).not.toContainText('featherweight-gps.csv');
 });
+
+// D5's colour clause on the single-flight report. Its figures are coloured per CHANNEL rather
+// than per flight — "my altitude trace in green" is a statement about the trace — and the six
+// literals this replaced were the same hex written once for the export and again for the screen,
+// so the saved file and the page could drift apart one edit at a time.
+test('a figure colour the flyer picks reaches the saved figure, and can be undone', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  const svg = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      // The report's own Save .svg — the channel explorer further down the page has one too.
+      page.getByRole('button', { name: 'Save .svg' }).first().click(),
+    ]);
+    return (await readFile(await dl.path())).toString('utf8');
+  };
+
+  const before = await svg();
+  expect(before, 'the default altitude stroke').toContain('#6366f1');
+
+  // `fill` drives the native value setter, and React's change path with it. Setting `.value`
+  // by hand leaves the value tracker unchanged and the handler never runs.
+  const swatch = page.locator('input[type="color"]').first();
+  await swatch.fill('#00ff00');
+
+  const after = await svg();
+  expect(after, 'the flyer’s colour is in the saved figure').toContain('#00ff00');
+  // NOT "and #6366f1 is gone": indigo is also liftoff's marker colour in `lib/eventStyle.ts`,
+  // so it is legitimately still in the file. Asserting its absence would fail for a reason that
+  // has nothing to do with this feature — which is exactly what it did when first written.
+
+  // Double-click restores the default — the way back out.
+  await swatch.dblclick();
+  const undone = await svg();
+  expect(undone, 'the flyer’s colour is gone').not.toContain('#00ff00');
+  expect(undone, 'and the default trace is back').toContain('#6366f1');
+});

@@ -17,10 +17,39 @@ const MAX = 200;
 /** `#rrggbb`, lowercased. Anything else is not a colour this app wrote. */
 const HEX = /^#[0-9a-f]{6}$/;
 
-export function loadSeriesColors(): Record<string, string> {
+/** The single-flight report's figures are coloured per CHANNEL, not per flight — "my altitude
+ *  trace in green" is a statement about the trace, and it should hold across every flight the
+ *  flyer opens. Different key, same store shape and the same validation, because the thing that
+ *  must not be duplicated here is the `#rrggbb` check: this value is interpolated into an SVG
+ *  `stroke` and a `style` attribute on both surfaces. */
+const FIGURE_KEY = 'debrief.report.figureColors';
+
+/** Where the report's three figure colours were six literals — the same hex written once for the
+ *  exported SVG and again for the on-screen chart, so the file and the screen could drift apart
+ *  one edit at a time. One map, read by both. */
+export const DEFAULT_FIGURE_COLORS: Record<string, string> = {
+  Altitude: '#6366f1',
+  Velocity: '#10b981',
+  Acceleration: '#f59e0b',
+};
+
+/** The colour a report figure is drawn in — the flyer's, or the default. */
+export function figureColor(title: string, chosen: Record<string, string>): string {
+  return chosen[title] ?? DEFAULT_FIGURE_COLORS[title] ?? '#6366f1';
+}
+
+export function loadFigureColors(): Record<string, string> {
+  return readMap(FIGURE_KEY);
+}
+
+export function saveFigureColors(colors: Record<string, string>): void {
+  writeMap(FIGURE_KEY, colors);
+}
+
+function readMap(key: string): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
@@ -38,7 +67,15 @@ export function loadSeriesColors(): Record<string, string> {
   }
 }
 
+export function loadSeriesColors(): Record<string, string> {
+  return readMap(KEY);
+}
+
 export function saveSeriesColors(colors: Record<string, string>): void {
+  writeMap(KEY, colors);
+}
+
+function writeMap(key: string, colors: Record<string, string>): void {
   if (typeof window === 'undefined') return;
   try {
     const clean: Record<string, string> = {};
@@ -46,8 +83,8 @@ export function saveSeriesColors(colors: Record<string, string>): void {
       if (typeof v === 'string' && HEX.test(v.toLowerCase())) clean[id] = v.toLowerCase();
       if (Object.keys(clean).length >= MAX) break;
     }
-    if (Object.keys(clean).length === 0) window.localStorage.removeItem(KEY);
-    else window.localStorage.setItem(KEY, JSON.stringify(clean));
+    if (Object.keys(clean).length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(clean));
   } catch {
     /* storage blocked (a private window) — the choice still applies to this view */
   }
