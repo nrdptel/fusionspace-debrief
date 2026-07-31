@@ -543,8 +543,26 @@ file, so CSV and JSON keep every key.
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
-conversion that earns it. Four surfaces converted so far (`MetricGrid`, `UnitsControl`,
-`ReadingChooser`, `ForgetDeviceData`).
+conversion that earns it. Eleven components import it; the type scale is clean; the five duplicated
+copies of the secondary button are gone.
+
+**What is left, in the order it is worth doing** — each measured, none guessed:
+
+1. **25 off-scale spacing values**, untouched so far: `mt-10` ×6, `py-10` ×5, `pl-5` ×4, `pt-5` ×3,
+   `mt-5` ×3, `p-10`, `py-5` ×2 — mostly the docs routes, which is part of why they read as a
+   different author from the app.
+2. **23 of 45 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
+   matters most and it has barely moved: the conversions so far took the buttons, not the bodies.
+3. **`dark:bg-zinc-900/40`, a fourth dark surface, 30 times** beside the sanctioned
+   `dark:bg-zinc-900` and `dark:bg-zinc-900/50`. §2 allows three.
+4. **`DataTable`.** 6 tables, 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
+   `SampleTable.tsx`, which already has the sticky header, `aria-sort` and the clipboard copy, and
+   collapse `CompareView`'s independent second copy onto it.
+5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
+   state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
+   `ErrorState` exist and have one adopter each.
+6. **Two primaries on one surface**, in `ColumnMapper` and `RecentFlights`.
+7. **The remaining 56 hand-rolled `<button>` elements**, chiefly `RecentFlights` (23).
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
@@ -567,12 +585,18 @@ flyer reads one surface rather than the suite total.
 
 | count | §9 target | at P1 start | now |
 |---|---|---|---|
-| `rounded-lg` | 0 | 26 | 24 |
+| `rounded-lg` | 0 | 26 | 22 |
 | distinct card treatments | 1 + named non-card primitives | 6 | 7 |
 | off-scale spacing | 0 | 25 | 25 |
-| off-scale type sizes | 0 | 20 | 19 |
+| off-scale type sizes | 0 (honest floor 1) | 20 | **1** |
 | files where `text-xs` > `text-sm` | 0 | 26 | 23 |
-| components importing `./ui` | most of 44 | 0 | 4 |
+| components importing `./ui` | most of 45 | 0 | **11** |
+| components importing `Button` | most | 0 | **9** |
+| hand-rolled `<button>` elements | few | 90 | **56** |
+
+**Off-scale type's floor is 1, and it is not a shortfall.** The one that remains is the brand
+wordmark, `text-2xl md:text-3xl` in the sibling app too, which §10 makes shared and non-negotiable.
+It is the brand's size, not a content size; reaching 0 would be a §3 change in both repos.
 
 Card treatments went UP by one and that is the conversion working: the seventh is `<Card>`'s own
 string, and the other six fall away as surfaces adopt it. **Two of the six will not fold into `Card`

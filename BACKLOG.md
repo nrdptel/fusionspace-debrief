@@ -16,6 +16,27 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **A loaded comparison's only `<h1>` is the brand wordmark, at 24 px.** Measured 2026-07-31 on the
+  built export: on `/compare` before flights load the page title is "Compare flights" at 30 px, and
+  once a comparison is on screen the surface's own heading steps down and the brand becomes the
+  route's only `<h1>`. `DESIGN.md` §3 says a page title is `text-3xl`, once per route — in that
+  state the route has no title of its own. The same walk found an `<h3>` at 14 px there, which is
+  `text-sm`: a heading at body size. `e2e/touch.spec.ts:241` already notes the header "steps aside
+  on /compare, and loading the flights used to leave no h1 at all", so this is the tail of a fix
+  rather than a new fault — but it is still a route whose title is the product's name.
+
+- **Off-scale spacing has not moved: 25 values, and they are concentrated in the docs routes.**
+  `mt-10` ×6, `py-10` ×5, `pl-5` ×4, `pt-5` ×3, `mt-5` ×3, `p-10`, `py-5` ×2, against a scale of
+  `1 2 3 4 6 8 12`. That is why `/methods`, `/validation` and `/privacy` read as a different
+  author's pages from the app: the section rhythm is a different rhythm. Pinned as an exact ratchet
+  by `lib/design-system.test.ts`, so clearing them forces the number down in the same commit.
+
+- **`ChannelExplorer`'s preset row is half-converted and reads worse than either state.** The
+  "+ Save this view" control is now a `Button` at the primitive's height while the built-in view
+  chips beside it are still hand-rolled at `min-h-[1.75rem] px-2 py-0.5` — an arbitrary value that
+  is not on the spacing scale either. At around 500 px wide the row shows 44 px controls next to
+  28 px ones. Convert the chips in the same pass that takes the rest of that surface.
+
 - **Two surfaces still publish a figure derived from a peak speed the analysis refused, and they are
   the same defect PR #57 shipped to close, one layer over.** Neither tests `series.velocityUnusable`.
   `components/RailExit.tsx:59` gates only on `series.velocitySource === 'device'`, then integrates
