@@ -185,12 +185,22 @@ export interface FlightSeries {
   /** Air density at each sample (kg/m³), from a ground-anchored standard
    *  atmosphere — the ρ behind the dynamic-pressure channel. */
   airDensity: Float64Array;
-  /** True when the velocity peak was physically impossible (a mis-scaled or
-   *  misidentified column, or corrupt data), so the headline max velocity, Mach and
-   *  max-Q were withheld. The velocity trace is still exposed for diagnosis, but the
-   *  Mach and dynamic-pressure DERIVED from it are not — plotting them would present a
-   *  curve the analysis has already judged impossible. */
-  velocityImplausible?: boolean;
+  /** True when this record's peak speed was withheld — **for any reason**, so this is the
+   *  one thing a consumer should test.
+   *
+   *  It is deliberately not named for a cause. It used to be `velocityImplausible`, meaning
+   *  only "physically impossible", and when a SECOND reason to withhold arrived — an ascent
+   *  with a gap across it, `FlightMetrics.maxVelocityWithheld === 'gap'` — every consumer went
+   *  on testing the first one. On the corpus's `fwgps__trf-f1machbuster-jan10` GPS log, whose
+   *  4.90 s dropout swallows the whole powered ascent, the headline correctly withheld the peak
+   *  while the Mach and dynamic-pressure curves derived from that same trace were still drawn
+   *  and exported, topping out at 6,263 ft/s. Two names for one decision is what did that, so
+   *  there is one name now and it says what it is for.
+   *
+   *  The velocity trace itself is still exposed, so a mis-scaled column can be seen and
+   *  diagnosed; what is withheld is everything DERIVED from a peak the analysis would not
+   *  stand behind. *Why* it was withheld belongs on `FlightMetrics.maxVelocityWithheld`. */
+  velocityUnusable?: boolean;
 }
 
 /**

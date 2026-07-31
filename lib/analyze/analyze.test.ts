@@ -274,7 +274,7 @@ describe('implausible velocity guard', () => {
     expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
     // The judgement rides on the series so the explorer/overlay withhold the derived
     // Mach and dynamic-pressure curves too.
-    expect(a.series.velocityImplausible).toBe(true);
+    expect(a.series.velocityUnusable).toBe(true);
   });
 
   it('withholds the velocity when the trace swings negative on the way up', () => {
@@ -299,7 +299,7 @@ describe('implausible velocity guard', () => {
     // Says what it is, not that the column is misidentified — a different fault.
     expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(false);
     // The judgement rides on the series, so the explorer withholds the derived curves.
-    expect(a.series.velocityImplausible).toBe(true);
+    expect(a.series.velocityUnusable).toBe(true);
     // Apogee, timings and the descent still read off the altitude.
     expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
     expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
@@ -386,7 +386,7 @@ describe('implausible velocity guard', () => {
     expect(a.metrics.mach).toBeNull();
     expect(a.metrics.maxDynamicPressure).toBeNull();
     expect(a.metrics.burnoutVelocity).toBeNull();
-    expect(a.series.velocityImplausible).toBe(true);
+    expect(a.series.velocityUnusable).toBe(true);
     // Names the contradiction and the bracket the record does support — not the wrong
     // fault (a misidentified column) and not a bare refusal.
     const w = a.warnings.find((x) => /own accelerometer allows/.test(x));

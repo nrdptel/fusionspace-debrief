@@ -14,6 +14,7 @@ import { landedInRecord, landingRate, metricTiles } from '../readings';
 import { headlineRows } from '../report';
 import { groundTrack, padOrigin, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
+import { buildPlotChannels } from '../explore';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 import { alignStages } from '../stitch';
 
@@ -672,7 +673,7 @@ function corpusReads(): CorpusRead[] {
       metrics,
       bestClimbQ,
       hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
-      velocityWithheld: series.velocityImplausible === true,
+      velocityWithheld: series.velocityUnusable === true,
       timeToApogeeS: metrics.timeToApogee,
       axialZeroCrossingT,
     });
@@ -842,6 +843,89 @@ describe('per-stage logs of one launch', () => {
  * Both tests exist because the next D4 slice is a surface, and a surface says things. These are
  * the two facts it must be built around, and neither is guessable from the code.
  */
+/**
+ * A peak speed the report withheld must not come back anywhere else.
+ *
+ * It did. `FlightMetrics.maxVelocityWithheld` has two values — `'implausible'` and `'gap'` — and
+ * the flag the surfaces tested was named for only the first, so a record whose ascent is broken
+ * by a dropout had its headline withheld while every curve DERIVED from that same trace was still
+ * drawn and exported. On `fwgps__trf-f1machbuster-jan10`, whose 4.90 s gap swallows the whole
+ * powered ascent, the trace runs to 1908.9 m/s — 6,263 ft/s, about Mach 5.6 — against a paired
+ * Blue Raven that measured Mach 1.88 on the same flight. That is a wrong number on an export a
+ * flyer pastes into a cert document.
+ *
+ * The flag is one flag now (`velocityUnusable`, not named for a cause). This holds the WHOLE
+ * corpus to the invariant rather than that one file, so the next reason to withhold cannot leak
+ * the same way.
+ */
+describe('a withheld peak speed stays withheld on every surface', () => {
+  if (!present) {
+    it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
+    return;
+  }
+  /** Like `loadForCompare`, but keeps the parsed flight too — `buildPlotChannels` needs it. */
+  const loadWithFlight = (file: string) => {
+    const path = CORPUS + file;
+    if (!existsSync(path)) return null;
+    const bytes = new Uint8Array(readFileSync(path));
+    const res = importFlight({ name: file.split('/').pop() as string, text: decodeBytes(bytes), bytes });
+    if (res.kind !== 'flight') return null;
+    return { flight: res.flight, analysis: analyzeFlight(res.flight) };
+  };
+
+  it('no corpus flight publishes a Mach or max-Q built on a peak the report refused', async () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    let withheld = 0;
+    let since = 0;
+    for (const f of spec.fixtures) {
+      if (++since >= 5) {
+        since = 0;
+        await breathe();
+      }
+      let loaded;
+      try {
+        loaded = loadWithFlight(f.file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const { analysis } = loaded;
+      const why = analysis.metrics.maxVelocityWithheld;
+      const short = f.file.split('/').pop() as string;
+
+      // One decision, one flag: whatever the reason, the surfaces see it.
+      expect(
+        analysis.series.velocityUnusable === true,
+        `${short}: withheld for '${why}' but the series does not say so`,
+      ).toBe(why != null);
+      if (why == null) continue;
+      withheld++;
+
+      // The explorer offers the velocity trace for diagnosis, and nothing derived from it.
+      const keys = buildPlotChannels(loaded.flight, analysis.series).map((c) => c.key);
+      expect(keys, `${short}: withheld for '${why}', so no Mach channel`).not.toContain('d-mach');
+      expect(
+        keys.filter((k) => k.startsWith('d-') && /mach|dynamic|max-?q/i.test(k)),
+        `${short}: nor anything else derived from that peak`,
+      ).toEqual([]);
+
+      // …and the comparison overlay draws neither curve.
+      const [drawn] = buildComparison([{ id: f.file, name: short, formatLabel: 'x', analysis }]).flights;
+      for (const key of ['mach', 'q'] as const) {
+        const vals = (drawn as unknown as Record<string, Float64Array | undefined>)[key];
+        if (!vals) continue;
+        expect(
+          [...vals].some((v) => Number.isFinite(v)),
+          `${short}: withheld for '${why}', so the overlay's ${key} curve is empty`,
+        ).toBe(false);
+      }
+    }
+    // The guard is worthless if nothing in the corpus is withheld — and both reasons must be
+    // represented, since it was the second one that leaked.
+    expect(withheld, `${withheld} corpus flights withhold a peak speed`).toBeGreaterThan(0);
+  }, 180_000);
+});
+
 describe('what a composite may claim', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
