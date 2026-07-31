@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { G0 } from '../units';
 import { importFlight } from './index';
 import { summaryFigures } from './deviceSummary';
 import { ParseGuidanceError } from './types';
@@ -168,5 +169,75 @@ describe('summaryFigures', () => {
 
   it('is null for anything that isn’t a summary', () => {
     expect(summaryFigures('Time (s),Altitude (ft)\n0,0\n0.1,5\n')).toBeNull();
+  });
+});
+
+// The deployment shocks a Blue Raven states. Debrief measures the same quantity — `peakAccel`
+// on the apogee and main events — so this is a genuine cross-check rather than a figure only
+// one side has. On a baro-only recording of the same flight the device's is the only one there
+// is: no barometric trace recovers a charge's own channel.
+describe('deployment shocks the summary already carries', () => {
+  // Shaped like a real Featherweight summary. The `3rd channel` row is here on purpose and is
+  // NOT dropped by the key list — `readSummary` never sees it, because a label starting with a
+  // digit reads as a data row to the heuristic that stops a flight file being mistaken for a
+  // summary. Worth knowing before anyone tries to map a 3rd or 4th channel: the key would
+  // never be reached. The surrounding rows keep the pair/row ratio above the 0.9 that same
+  // heuristic requires, exactly as a real summary's fifty-odd rows do.
+  const summary = [
+    'Rocket Name,BlRv_SN0829',
+    'Firmware,fd31408 02/03/2024 11:34:33',
+    'Max Altitude,4034.98 feet',
+    'Max velocity,700.36 feet/sec',
+    'Pad altitude ASL,230.55 feet',
+    'Tilt angle at burnout,2.6 deg',
+    'Max motor burn acceleration,24.1 Gs',
+    'Apo channel max accel,51.7 Gs',
+    'Main channel max accel,67.8 Gs',
+    '3rd channel max accel,17.9 Gs',
+    'Max landing accel,280.0 Gs',
+  ].join('\n');
+
+  it('reads both channels the device fired, in canonical SI', () => {
+    const figs = summaryFigures(summary)!.reported;
+    const apo = figs.find((f) => f.metric === 'apogeeShock');
+    const main = figs.find((f) => f.metric === 'mainShock');
+    expect(apo, 'the apogee charge').toBeTruthy();
+    expect(main, 'the main charge').toBeTruthy();
+    expect(apo!.value / G0).toBeCloseTo(51.7, 3);
+    expect(main!.value / G0).toBeCloseTo(67.8, 3);
+    expect(apo!.label).toBe('Apogee deployment shock');
+  });
+
+  it('leaves out the ground impact and the channels Debrief has no event for', () => {
+    const figs = summaryFigures(summary)!.reported;
+    // `Max landing accel` is the ground impact, not a flight load, and there is no event to
+    // compare it against. The 3rd/4th channels are the same argument: a board may fire four,
+    // and Debrief models two deployments. Asserted on the LANDING row alone, because at 280 g
+    // it would otherwise be the largest figure in the table and read as a flight load.
+    expect(figs.filter((f) => Math.abs(f.value / G0 - 280) < 0.5), 'the 280 g ground impact').toEqual([]);
+    expect(figs.filter((f) => Math.abs(f.value / G0 - 17.9) < 0.5), 'the 3rd channel').toEqual([]);
+    // …while the two that ARE mapped came through, so this is not passing by reading nothing.
+    expect(figs.filter((f) => f.metric === 'apogeeShock' || f.metric === 'mainShock')).toHaveLength(2);
+  });
+
+  it('still leaves the ground impact out when it is the only shock in the file', () => {
+    // **The case above cannot fail on its own, and this is why.** `summaryFigures` dedupes by
+    // metric, so a landing row mapped to `mainShock` is swallowed whenever a `Main channel`
+    // row precedes it — the assertion then passes whether or not the landing is mapped. The
+    // unmaskable case is the landing row ALONE, with nothing ahead of it to claim the metric.
+    const landingOnly = [
+      'Rocket Name,BlRv_SN0829',
+      'Firmware,fd31408 02/03/2024 11:34:33',
+      'Max Altitude,4034.98 feet',
+      'Max velocity,700.36 feet/sec',
+      'Pad altitude ASL,230.55 feet',
+      'Tilt angle at burnout,2.6 deg',
+      'Max landing accel,280.0 Gs',
+    ].join('\n');
+    const figs = summaryFigures(landingOnly)!.reported;
+    expect(figs.some((f) => f.metric === 'apogeeShock' || f.metric === 'mainShock')).toBe(false);
+    expect(figs.filter((f) => Math.abs(f.value / G0 - 280) < 0.5), 'a 280 g ground impact is not a flight load').toEqual([]);
+    // The rest of the summary still read, so this is not passing on an unparsed file.
+    expect(figs.some((f) => f.metric === 'apogeeAltitude')).toBe(true);
   });
 });

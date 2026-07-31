@@ -92,6 +92,18 @@ const SUMMARY_KEYS: Record<
   // fired, so Debrief has no main leg to read and the device's figure is all the flight has.
   'drogue descent rate': { metric: 'drogueDescentRate', label: 'Drogue descent', quantity: 'speed', magnitude: true },
   'main chute descent rate': { metric: 'mainDescentRate', label: 'Main descent', quantity: 'speed', magnitude: true },
+  // The deployment shocks. Debrief measures the same quantity — `peakAccel` on the apogee and
+  // main events — so these are a genuine cross-check rather than a figure only one side has.
+  // On a Blue Raven the board reads the charge's own channel, which no barometric trace can
+  // recover, so on a baro-only recording of the same flight the device's figure is the ONLY
+  // one there is.
+  //
+  // `max landing accel` is deliberately NOT here, and the omission is a decision rather than
+  // an oversight: it is the ground impact, not a flight load, and Debrief has no event to
+  // compare it against. `3rd`/`4th channel max accel` are absent for the same reason — a board
+  // may fire four channels, and Debrief models two deployments.
+  'apo channel max accel': { metric: 'apogeeShock', label: 'Apogee deployment shock', quantity: 'accel', magnitude: true },
+  'main channel max accel': { metric: 'mainShock', label: 'Main deployment shock', quantity: 'accel', magnitude: true },
 };
 
 /** How a stated figure read: its SI value, or which way it failed. The caller needs the

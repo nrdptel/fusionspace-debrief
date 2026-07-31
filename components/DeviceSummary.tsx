@@ -3,7 +3,7 @@
 // measurements — close agreement builds confidence; a gap is a flag worth a look,
 // never averaged away or hidden. Debrief states both and judges neither.
 
-import type { FlightMetrics } from '@/lib/analyze/types';
+import type { FlightEvent, FlightMetrics } from '@/lib/analyze/types';
 import type { ReportedValue } from '@/lib/flight/types';
 import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
@@ -17,13 +17,17 @@ function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): stri
 export default function DeviceSummary({
   reported,
   metrics,
+  events,
   sys,
 }: {
   reported: ReportedValue[];
   metrics: FlightMetrics;
+  /** The deployment shocks live on the apogee and main EVENTS rather than on `FlightMetrics`,
+   *  so the cross-check needs them to resolve a device-stated shock. */
+  events?: FlightEvent[];
   sys: UnitChoice;
 }) {
-  const rows = compareReported(reported, metrics).map(
+  const rows = compareReported(reported, metrics, events).map(
     ({ reported: r, computed, hasComputed: has, deltaPct, status, gravityConvention }) => ({
       r,
       computed,
