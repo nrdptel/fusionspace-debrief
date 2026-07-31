@@ -1895,6 +1895,73 @@ describe('analyzeFlight (barometric)', () => {
     expect(a.metrics.wholeDescentRate).toBeLessThan(20);
   });
 
+  it('averages a descent over TIME, not over samples, when the cadence changes mid-leg', () => {
+    // A logger that slows down during the descent is ordinary — a Featherweight GPS drops from
+    // 10 Hz to 0.5 Hz once the flight is under way — and a per-SAMPLE average then answers "what
+    // did a typical row read" instead of "how fast did this leg come down". The rows are crowded
+    // exactly where the rocket has barely started falling, so the answer comes out LOW.
+    //
+    // Built so the two answers are far apart and both are known in advance: 20 s of descent at
+    // 10 m/s logged at 20 Hz (400 samples), then 20 s at 50 m/s logged at 1 Hz (20 samples).
+    // Over time the leg averages (10 + 50) / 2 = 30 m/s. Over samples it averages
+    // (400·10 + 20·50) / 420 = 11.9 m/s — a canopy sized against that would be sized against a
+    // rocket coming down at a third of its real speed.
+    const apogee = 1200; // 20·10 + 20·50
+    const time: number[] = [];
+    const alt: number[] = [];
+    let t = 0;
+    let h = 0;
+    // 2 s on the pad and a boost, so the analyzer has a real flight to find the apogee of.
+    for (; t < 2; t += 0.05) {
+      time.push(t);
+      alt.push(0);
+    }
+    const climbT = 12;
+    for (let i = 0; i <= climbT / 0.05; i++) {
+      const ct = i * 0.05;
+      time.push(2 + ct);
+      // A smooth concave climb to apogee, so there is one unambiguous peak.
+      alt.push(apogee * Math.sin((Math.PI / 2) * (ct / climbT)));
+    }
+    t = 2 + climbT;
+    h = apogee;
+    for (let i = 1; i <= 400; i++) {
+      t += 0.05;
+      h -= 10 * 0.05; // slow leg, densely logged
+      time.push(t);
+      alt.push(h);
+    }
+    for (let i = 1; i <= 20; i++) {
+      t += 1;
+      h -= 50 * 1; // fast leg, sparsely logged
+      time.push(t);
+      alt.push(Math.max(0, h));
+    }
+    for (let i = 1; i <= 8; i++) {
+      t += 1;
+      time.push(t);
+      alt.push(0); // at rest, so a landing is found
+    }
+
+    const a = analyzeFlight({
+      source: 'synthetic',
+      format: 'test',
+      formatLabel: 'Test',
+      time: Float64Array.from(time),
+      channels: [{ kind: 'altitude', label: 'alt', unit: 'm', values: Float64Array.from(alt) }],
+      meta: {},
+      notes: [],
+    });
+
+    const rate = a.metrics.wholeDescentRate ?? a.metrics.drogueDescentRate;
+    expect(rate).not.toBeNull();
+    // The time average is 30 m/s. Smoothing across the step between the two legs costs a little,
+    // so this is deliberately loose — but it is nowhere near the 11.9 m/s a per-sample average
+    // gives, which is the point. Falsified by reverting `timeMean` to `mean`: this reads 12.6.
+    expect(rate as number).toBeGreaterThan(24);
+    expect(rate as number).toBeLessThan(36);
+  });
+
   it('withholds a descent rate that beats a vacuum fall from apogee', () => {
     // A discontinuity in the altitude record — a segment boundary, a pressure glitch,
     // a logger that resumes on another baseline — puts an enormous excursion into the

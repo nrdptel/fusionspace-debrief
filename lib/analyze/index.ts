@@ -116,6 +116,40 @@ function altitudeFromPressure(pressure: Float64Array, padPressure: number): Floa
   return out;
 }
 
+/** The mean of `values` over `[from, to)` weighted by how long each sample LASTED, not by how
+ *  many samples there were.
+ *
+ *  A rate averaged over sample index answers "what did a typical sample read", which is only the
+ *  same question as "what did this stretch of flight average" when the samples are evenly spaced.
+ *  Plenty of loggers are not: a Featherweight GPS drops from 10 Hz to 0.5 Hz once the flight is
+ *  under way, so the seconds either side of apogee — where the rocket has barely started falling —
+ *  carry twenty times the weight of the seconds where it is coming down fastest.
+ *
+ *  Measured on `fwgps__trf-f1machbuster-jan10`, whose cadence runs 0.1–2.0 s: over Debrief's own
+ *  drogue leg the index mean is 49.33 m/s and the time mean 63.89 m/s **of the file's own VERTV
+ *  column**, and the leg's altitude chord is 64.47 m/s. Debrief printed 50.73 m/s — a descent rate
+ *  21% low, on the reading a flyer sizes a canopy against. The device's own measurement and the
+ *  altitude agree with each other to 0.9% and with the time mean; nothing agrees with the index
+ *  mean except the bug.
+ *
+ *  Weight `i` by `time[i] − time[i−1]`: the interval the sample closes. A non-finite or non-positive
+ *  step contributes nothing rather than collapsing the average. */
+function timeMean(values: Float64Array, time: Float64Array, from: number, to: number): number {
+  let sum = 0;
+  let weight = 0;
+  for (let i = from; i < to; i++) {
+    const dt = i > 0 ? time[i] - time[i - 1] : 0;
+    if (Number.isFinite(values[i]) && Number.isFinite(dt) && dt > 0) {
+      sum += values[i] * dt;
+      weight += dt;
+    }
+  }
+  // A stretch with no usable step at all — a single sample, or a clock that does not advance —
+  // has no time to average over, and the index mean is the only answer left rather than a
+  // silently different one.
+  return weight > 0 ? sum / weight : mean(values, from, to);
+}
+
 function mean(values: Float64Array, from: number, to: number): number {
   let sum = 0;
   let n = 0;
@@ -2150,7 +2184,10 @@ function analyzeWhole(
     if (!(to > from + 1)) return null;
     const drop = altClean[from] - altClean[to];
     if (!(drop > Math.max(3, Math.abs(altClean[from]) * 0.1))) return null;
-    const rate = downward(mean(descent, from + 1, to));
+    // Weighted by TIME, not by sample count — see `timeMean`. On a log whose cadence changes
+    // during the descent the two answer different questions, and only one of them is the rate
+    // this leg averaged.
+    const rate = downward(timeMean(descent, time, from + 1, to));
     if (rate != null && rate > freeFallLimit) {
       descentAboveFreeFall = true;
       return null;

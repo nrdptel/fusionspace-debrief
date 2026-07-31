@@ -16,6 +16,35 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **The 0.6 s smoothing behind the descent series bleeds across the leg boundaries, and it is worth
+  between 5% and 61% on nine corpus legs.** Separate from the index-weighting Sev-1 fixed 2026-07-31
+  and NOT closed by it. `descent` is `movingAverage(-baroVel, windowFor(dt, 0.6))`, so the window at
+  the start of the drogue leg pulls in the near-zero rate either side of apogee (biasing the leg
+  LOW) and the window at the start of the main leg pulls in the fast drogue rate (biasing it HIGH).
+  The signs in the corpus match that exactly: drogue legs read low, main legs read high. Measured
+  over the 29 reported legs, against each leg's own chord (Δh/Δt over the same two indices), after
+  the time-weighting fix: `eggtimer euler-explosion` drogue **−60.6%** (7.81 vs 19.83 m/s, uniform
+  0.050 s cadence, so weighting cannot be the cause), `blueraven meraki2-121km` drogue **−22.7%**
+  (knownIssue file), `issuiuc-endurance TeleMetrum` drogue **+17.4%**, `stargazer1 EasyMega` whole
+  **−11.8%**, `sg1.1-Booster TeleMetrum` main **+11.0%** and drogue **+8.3%**, `trf-lemiv-l3 Blue
+  Raven` main **+10.8%**, `fwgps trf-lemiv-l3` main **+6.0%**. Median across all 29 legs is 1.30%,
+  so this is a tail rather than a bias. **Pinned as an exact count** by `reports a rate that matches
+  its own leg, across the whole corpus` (`lib/parsers/corpus.test.ts`), which asserts nine — so
+  closing any of them fails the test and forces the number down in the same commit. Do NOT fix this
+  by using the chord directly: the eggtimer case is a motor explosion whose altitude trace is not
+  sound over the leg (a 15.3 s leg on a flight that reached ~170 m gives a chord implying 303 m of
+  descent), and the chord is the contaminated figure there, not the smoothed mean. The likely honest
+  fix is to shrink or one-side the window at a leg boundary rather than to drop the smoothing.
+
+- **The Featherweight GPS log carries the tracker's own `VERTV` vertical-speed column and Debrief
+  ignores it, deriving a speed from the altitude instead.** `velocitySource` on
+  `fwgps__trf-f1machbuster-jan10` is `baro`. The column is good enough to have served as the ground
+  truth that caught the descent-rate Sev-1 on 2026-07-31 — it agrees with the leg's altitude chord to
+  0.9% — so a *measured* vertical speed is sitting in the file beside a *derived* one. Ingesting it
+  would give that flight a measured descent rate and a second opinion on the derived peak, which is
+  exactly the cross-check posture the safety spine asks for. Not done here because it is a parser
+  change and the Sev-1 was an analysis change; they get separate gates.
+
 - **DONE — a warning told flyers to subtract a number that was already right, and on the corpus's
   own cert flight that instruction was 63% wrong.** Where a log's baseline was doubted and its
   record ended away from zero, Debrief said: *"it comes to rest N m above where the record begins…
