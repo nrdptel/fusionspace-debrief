@@ -138,8 +138,9 @@ describe('windowStats', () => {
   // once the cadence changes, and this panel was still printing the index mean months after
   // the analyzer stopped. See `windowStats`'s own comment for the corpus measurement.
   describe('the mean is weighted by time, not by sample', () => {
-    // Two seconds at 20, then one 8-second interval ending at 0. The samples average 10;
-    // the ten seconds of flight average 4.
+    // Two seconds at 20, then one 8-second interval falling to 0. The four SAMPLES average
+    // 15; the ten seconds of flight average 12, because the long interval is most of the
+    // window and spends it below 20.
     const t = Float64Array.from([0, 1, 2, 10]);
     const v = Float64Array.from([20, 20, 20, 0]);
 
@@ -175,6 +176,21 @@ describe('windowStats', () => {
       const s = windowStats(t, v, 0, 0, t)!;
       expect(s.count).toBe(1);
       expect(s.mean).toBe(20);
+    });
+
+    it('costs a dropped sample its own two gaps, not the whole leg', () => {
+      // The analyzer's `timeMean` weights an interval with ONE finite end at that end rather
+      // than discarding it, so a sensor dropout does not delete its own duration from the
+      // denominator. This must agree with it case for case: an earlier draft skipped any
+      // interval touching a NaN, which removed both of the dropout's intervals and read
+      // 31.25 where `timeMean` reads 29 — an ordinary dropout, not a contrived one.
+      const td = Float64Array.from([0, 1, 2, 3, 10]);
+      const vd = Float64Array.from([0, 10, NaN, 30, 40]);
+      const s = windowStats(td, vd, -Infinity, Infinity, td)!;
+      // 5·1 + 10·1 + 30·1 + 35·7 = 290 over 10 s.
+      expect(s.mean).toBeCloseTo(29, 10);
+      // The dropped sample is still absent from the sample statistics.
+      expect(s.count).toBe(4);
     });
 
     it('skips an interval whose clock runs backwards rather than weighting it negatively', () => {

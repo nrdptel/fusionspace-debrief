@@ -105,7 +105,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 11,
+  uiAdopters: 12,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -121,7 +121,7 @@ const BUDGET = {
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 5,
   Button: 9,
-  Chip: 2,
+  Chip: 3,
   Readout: 2,
   IconButton: 1,
   Extrapolated: 1,

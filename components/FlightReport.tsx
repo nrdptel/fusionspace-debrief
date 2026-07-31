@@ -31,6 +31,7 @@ import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
 import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
+import FigureChooser from './FigureChooser';
 import GpsApogee from './GpsApogee';
 import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
@@ -1193,35 +1194,12 @@ export default function FlightReport({
           often wants the altitude trace alone; a drag study wants all three. Every figure
           the flight supports is still drawn on screen: this is about what travels into the
           .html, the bundle and the single-figure save, not about the analysis. */}
-      {figureTitles.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Figures in the report</span>
-          {figureTitles.map((t) => {
-            const on = !hiddenFigures.includes(t);
-            return (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggleFigure(t)}
-                title={`${on ? 'Leave out' : 'Include'} the ${t.toLowerCase()} plot — applies to the .html report, the bundle and Save .svg`}
-                className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
-                  on
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
-                    : 'border-zinc-300 bg-white text-zinc-500 line-through hover:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
-                }`}
-              >
-                {t}
-              </button>
-            );
-          })}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {figureTitles.every((t) => hiddenFigures.includes(t))
-              ? 'None — the report carries its numbers and no plots.'
-              : 'Applies to the .html report, the bundle and Save .svg.'}
-          </span>
-        </div>
-      )}
+      <FigureChooser
+        titles={figureTitles}
+        hidden={hiddenFigures}
+        onToggle={toggleFigure}
+        what="the .html report, the bundle and Save .svg"
+      />
 
       {/* Event legend */}
       <div>

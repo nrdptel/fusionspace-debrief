@@ -103,9 +103,11 @@ export interface WindowStats {
  * **−49.31 m/s where the flight itself reports −64.81** — 23.9% low, on the reading a canopy is
  * sized against, and reproducing the analyzer's own pre-fix figure of 49.33 to 0.04%.
  *
- * Trapezoidal, weighting the INTERVAL rather than the sample, exactly as the analyzer does — the
- * naive form drops the gap that closes the window. Only intervals between samples that are
- * **adjacent in the record** are weighted, which is what makes this correct when x is not time:
+ * Trapezoidal, weighting the INTERVAL rather than the sample, and matching `timeMean` case for
+ * case — including the dropout rule, where an interval with one finite end is weighted at that
+ * end rather than discarded. The naive form drops the gap that closes the window. Only intervals
+ * between samples that are **adjacent in the record** are weighted, which is what makes this
+ * correct when x is not time:
  * a velocity-against-altitude plot can select a scattered set of samples, and bridging a weight
  * across the unselected stretch between two of them would invent a duration that is not in the
  * selection. Where no interval qualifies — a single sample, a scattered selection, or no `time`
@@ -134,24 +136,37 @@ export function windowStats(
     const xv = x[i];
     if (!(xv >= lo && xv <= hi)) continue;
     const yv = y[i];
-    if (!Number.isFinite(yv)) continue;
-    count++;
-    sum += yv;
-    if (yv < min) min = yv;
-    if (yv > max) max = yv;
-    if (firstI < 0) firstI = i;
-    lastI = i;
+    const finite = Number.isFinite(yv);
+    if (finite) {
+      count++;
+      sum += yv;
+      if (yv < min) min = yv;
+      if (yv > max) max = yv;
+      if (firstI < 0) firstI = i;
+      lastI = i;
+    }
     // `prev >= 0` is not redundant with `prev === i - 1`: on the first selected sample both
     // are -1, so the adjacency test passes, `time[-1]` is undefined and `dt` comes out NaN.
     // That happens to be harmless only because `NaN > 0` is false — correctness by accident,
     // and it broke the moment the duration guard was loosened during falsification.
     if (time && prev >= 0 && prev === i - 1 && i < time.length) {
       const dt = time[i] - time[prev];
-      if (dt > 0) {
-        wSum += ((y[prev] + yv) / 2) * dt;
+      const a = y[prev];
+      const fa = Number.isFinite(a);
+      if (dt > 0 && (fa || finite)) {
+        // One dropped sample costs its own two gaps, not the whole leg: an interval with a
+        // single finite end is weighted at that end's value rather than discarded. This is
+        // `timeMean`'s rule in `lib/analyze/index.ts`, and matching it is the point — an
+        // earlier draft here skipped any interval touching a NaN, which silently removed
+        // BOTH of a dropout's intervals from the denominator and made the two "identical"
+        // implementations disagree by 31.25 against 29 on an ordinary sensor dropout.
+        wSum += (fa && finite ? (a + yv) / 2 : fa ? a : yv) * dt;
         wWeight += dt;
       }
     }
+    // Advances on any sample IN RANGE, finite or not, so a dropout does not break adjacency
+    // on both sides. A sample outside the window never gets here, which is what keeps a
+    // scattered selection from bridging a duration nobody selected.
     prev = i;
   }
   if (count === 0) return null;

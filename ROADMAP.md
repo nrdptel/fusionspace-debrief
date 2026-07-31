@@ -521,7 +521,10 @@ much as the success path.
 
 ## D5 — The report a flyer can actually build
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — the figure choice now reaches BOTH document surfaces, pinned by
+`the figures a comparison carries are the flyer’s choice, and the report agrees`
+(`e2e/compare.spec.ts`, walking the real app: the bundle's SVG entries, the .html's figure
+captions, and the same choice read back on the single-flight report).
 
 **Outcome.** The plots, colours and formats are the flyer's choice, not the tool's.
 
@@ -529,11 +532,57 @@ much as the success path.
 export a report a certification package or forum post can use directly — including at least one image
 or self-contained document format beyond today's text, Markdown, HTML, CSV and JSON.
 
-**Notes.** Closing named gaps rather than starting fresh: `reportProfile.ts` and `plotView.ts` already
-carry readings, order and hidden figures; `COMPARE_PALETTE` (`lib/compare.ts:13`) is hardcoded and
-caps a comparison at 6; there is no image or paginated export. Keep the rule `reportProfile.ts`
-already states — trimming a *report* is a presentation choice, trimming a *data export* is a broken
-file, so CSV and JSON keep every key.
+**Two of this milestone's own premises were wrong, and were corrected by measurement before any
+of it was scoped. Read these before planning the rest.**
+
+1. **"There is no image or paginated export" is false.** Four PNG paths ship
+   (`FlightReport.tsx:442` altitude chart, `FlightCard.tsx:283` the shareable card,
+   `ChannelExplorer.tsx:258`, `CompareView.tsx:431`), plus per-figure SVG via `lib/svgChart.ts`,
+   plus print-to-PDF: `window.print()` at `FlightReport.tsx:423` behind a real `@media print`
+   block in `app/globals.css:117` and 30 `print:hidden` utilities. An increment spent "adding an
+   image export" would have rebuilt shipped work. The genuine gap is a **paginated document**
+   Debrief generates itself rather than a browser print of a live page — and it is the most
+   expensive clause, so it goes last, not first.
+2. **The comparison ignored the flyer's figure choice entirely.** The report filtered its figures
+   through `hiddenFigures`; the comparison exported the literal
+   `['altitude','velocity','acceleration']` in both `saveHtml` and `saveBundle`. So a flyer who
+   turned Acceleration off on the report still got an acceleration plot in the comparison bundle,
+   and could never get the Mach or dynamic-pressure overlays into a document at all, though the
+   surface draws both. **Closed** — both exports now read one `documentFigures` list, so they
+   cannot disagree, and `components/FigureChooser.tsx` is one control shared by both surfaces
+   rather than two that resemble each other.
+
+   Two defects fell out of it. The comparison offered every overlay whether or not any flight
+   carried it, so on a set whose peak speed was withheld the Mach and dynamic-pressure options
+   were live and drew a blank chart — the "control that is always enabled and fails only when
+   pressed" tell. The filter now tests what the data holds, which covers any metric added later.
+   And the figure toggles are named `"<title> figure"` rather than `"<title>"`, because the
+   comparison already has a channel picker with those exact names and two controls sharing an
+   accessible name is ambiguous to a screen reader before it is ambiguous to a test.
+
+**What is left**, in the order it is worth doing:
+
+1. **Figure ORDER.** `figureSvgs` pushes Altitude, Velocity, Acceleration in source order and only
+   filters at the end; nothing lets a flyer put velocity first. `orderRows`/`moveReading`
+   (`lib/reportProfile.ts:99,114`) already do exactly this job for the readings and are
+   surface-agnostic, so this is a stored key plus an `onMove` on the chooser — the one clause of
+   the *done when* with a ready-made, already-tested implementation to reuse.
+2. **Series colours.** `COMPARE_PALETTE` (`lib/compare.ts:13`) is six literal hexes, and
+   `MAX_COMPARE = COMPARE_PALETTE.length` — so colour and CARDINALITY are one constant, and
+   `ChannelExplorer.tsx` caps its series on the same length. Split those before making colour a
+   choice, or a presentation change silently alters how many flights a comparison holds. The
+   single-flight figures do not use that palette at all: `FlightReport.tsx` has three literal
+   hexes inline, duplicated again for the on-screen charts, and `lib/eventStyle.ts` gives drogue
+   and main the same `#0ea5e9`, so a saved figure cannot tell those two events apart.
+   `plotSvg` already takes a colour per series, so the exporters need no change.
+3. **A paginated document** — see premise 1. Note `package.json` carries four runtime
+   dependencies and `lib/zip.ts` is hand-rolled, so a PDF library would be against the grain.
+
+**Notes.** Closing named gaps rather than starting fresh: `reportProfile.ts` and `plotView.ts`
+already carry readings, order and hidden figures. Keep the rule `reportProfile.ts` already states —
+trimming a *report* is a presentation choice, trimming a *data export* is a broken file, so CSV and
+JSON keep every key. Verified still true after this slice: `analyzedDataCsv` takes no profile, and
+`compareJson` builds its differences with no hidden/order argument.
 
 **Size.** 4–6 increments.
 
