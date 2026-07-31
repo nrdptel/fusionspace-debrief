@@ -16,6 +16,69 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **Two surfaces still publish a figure derived from a peak speed the analysis refused, and they are
+  the same defect PR #57 shipped to close, one layer over.** Neither tests `series.velocityUnusable`.
+  `components/RailExit.tsx:59` gates only on `series.velocitySource === 'device'`, then integrates
+  `series.velocity` from liftoff and prints a rail-exit speed AND a Mach — a stability number with a
+  "marginal" warning attached to it. `lib/drag.ts:43` `canMeasureDrag` gates only on the altitude
+  source and the events, so `DragCoefficient.tsx` prints "over Mach x–y" off the same trace. Both are
+  reachable whenever a DEVICE velocity is judged unusable (`maxVelocity > IMPLAUSIBLE_VELOCITY`, or
+  noise-dominated), and on such a flight the page contradicts itself twice: the metric grid shows
+  "Max velocity —" and the explorer withholds its Mach channel, while these two publish. **Latent, not
+  live: no corpus fixture is device-velocity AND unusable today**, which is precisely how the previous
+  instance of this survived to reach production. Reproduce by scaling the velocity channel of
+  `altusmetrum__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-TeleMega.csv` by 20 —
+  `maxVelocityWithheld` becomes `'implausible'` while `railExitVelocity(...)` returns 437.8 m/s and
+  `dragCoefficient(...)` returns Mach 6.71–16.54. Two one-line gates plus a corpus invariant that
+  holds every speed-publishing surface to the one flag.
+
+- **`burnoutVelocity`, `coastEfficiency` and `dragLossAltitude` still gate on the OLD single reason.**
+  `lib/analyze/index.ts` computes them behind `!velocityImplausible` rather than behind the peak
+  having been withheld at all, so a record whose peak is withheld for `'gap'` publishes all three to
+  the burnout tile, the report row and `analysisJson`. Reachable: `ascentGapBreaksPeak` needs
+  `velocitySource === 'baro'`, and the accelerometer burnout branch needs only a signed axial channel
+  — a baro-altitude logger with one signed axial channel and an ascent dropout satisfies both. Latent
+  today: of the corpus fixtures with a withheld peak, the two `'gap'` ones are Featherweight GPS logs
+  that find no burnout. `analysisJson` also omits `maxVelocityWithheld` entirely, so a JSON consumer
+  sees `maxVelocity: null` beside a live `burnoutVelocity` with no reason given.
+
+- **Four controls are under the 44 px touch floor at a 390 px touch viewport, and all four are plain
+  `<a>` links.** Measured 2026-07-31 on the built export with `hasTouch`/`isMobile` set, which is what
+  arms `app/globals.css`'s `@media (pointer: coarse)` block — a narrow viewport alone does not, and
+  measuring without it reports 106 false positives. That block covers `button`, `select`,
+  `a[download]`, `[role="button"]` and `input`, and `nav a` gets padding, but a plain in-content link
+  gets neither: `Compare` **58×18**, `Read the methods →` **136×18**, `Privacy` **42×44** (two pixels
+  short on width), `ADA.gov →` **59×16**. The `?` links on the reading tiles are NOT among them —
+  they carry `.touch-area`, whose 44×44 `::after` gives them a real hit target without changing
+  layout, and any measurement that reads `getBoundingClientRect()` on the element will wrongly flag
+  them. This is P4's headline metric and the honest starting number is 4, not 0 and not 106.
+
+- **The logbook row keeps the WHOLE-FILE apogee between cropping a flight and next opening it.**
+  `lib/recents.ts:370` `saveReadWindow` merges only `read` into the stored row and never rewrites
+  `apogeeM`/`maxVelocityMs`; the only writer of those is `saveRecent` on open, and
+  `components/Analyzer.tsx:335` does not refresh the logbook after a crop. So the row carries a `read`
+  that says it is cropped beside a figure that is not, with no crop indicator — and the number changes
+  by itself on the second visit. It also makes the logbook's Apogee sort rank a cropped flight by a
+  stretch nobody is reading. `RecentMeta`'s own docstring ("a cropped recording's stored apogee is the
+  CROP's apogee") is false for that window. `recordingSpread` is unaffected — it bails on any `read`.
+
+- **`lib/stitch.test.ts:111-118` cannot fail on the claim it names.** The loop that proves the removed
+  burn-agreement gate "cannot see the staging delay" never varies its input with `delay` — every
+  iteration calls `alignStages` with the same literals, so the reported error and the unchanged spread
+  are arithmetic identities of the loop variable rather than measurements of the module. Change 5000
+  to any number and it stays green. This is the repo's own stated failure mode applied to the test
+  guarding the most tempting regression in D4. Constructing the sustainer's events FROM `delay` makes
+  it a real measurement at no cost.
+
+- **`/compare` will cross-check two STAGES as though they were two recordings of one flight.** Feeding
+  the corpus Kairos booster and sustainer through `buildComparison` + `crossCheck` yields an apogee
+  spread of 30.5% (2,973 m vs 4,045 m), time-to-apogee 19.6% and max acceleration 159.6%, printed
+  under *"If these are recordings of the same flight, the independent readings differ by …"* against a
+  10% wide threshold. `lib/parsers/corpus.test.ts` says in a comment that a cross-check must not be run
+  over these; nothing enforces it. It is hedged rather than asserted, so it is not a lie today — but
+  D4's composite surface must actively suppress that panel once a flyer states these are stages, or it
+  ships a 30%-disagreement warning on a flight behaving exactly as designed.
+
 - **The 0.6 s smoothing behind the descent series bleeds across the leg boundaries, and it is worth
   between 5% and 61% on nine corpus legs.** Separate from the index-weighting Sev-1 fixed 2026-07-31
   and NOT closed by it. `descent` is `movingAverage(-baroVel, windowFor(dt, 0.6))`, so the window at
