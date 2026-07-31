@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { delayCheck, MAX_REASONABLE_DELAY_S, APOGEE_SLOP_S } from '@/lib/ejection';
 import { fmtTime } from '@/lib/display';
+import { Card } from './ui';
 
 /**
  * Ejection-delay check — for a motor-ejection flight, the ideal motor delay is
@@ -35,13 +36,12 @@ export default function EjectionDelay({
   const check = useMemo(() => (delayS != null ? delayCheck(delayS, coastTimeS) : null), [delayS, coastTimeS]);
 
   return (
-    <section
+    <Card
+      as="section"
       aria-labelledby="ejection-delay-heading"
       // Nothing to print until a delay is entered; the ideal delay alone is in the
       // metrics already. Once it computes the offset, it prints with the report.
-      className={`rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40 ${
-        check == null ? 'print:hidden' : ''
-      }`}
+      className={check == null ? 'print:hidden' : ''}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -73,7 +73,7 @@ export default function EjectionDelay({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
           {fmtTime(coastTimeS)}
         </span>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">ideal delay (coast to apogee)</span>
@@ -103,6 +103,6 @@ export default function EjectionDelay({
           see how far before or after apogee its charge fired. Kept on this device.
         </p>
       )}
-    </section>
+    </Card>
   );
 }

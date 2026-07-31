@@ -105,7 +105,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 13,
+  uiAdopters: 20,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -119,7 +119,7 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 5,
+  Card: 12,
   Button: 10,
   Chip: 3,
   Readout: 2,

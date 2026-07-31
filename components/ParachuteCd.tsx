@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { parachuteCd, chuteDiameterToM, CHUTE_LEN_TO_M, MAX_REASONABLE_CHUTE_M } from '@/lib/parachute';
+import { Card } from './ui';
 
 const CHUTE_KEY = 'debrief.chute.m';
 
@@ -73,11 +74,10 @@ export default function ParachuteCd({
   );
 
   return (
-    <section
+    <Card
+      as="section"
       aria-labelledby="parachute-cd-heading"
-      className={`rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40 ${
-        cd == null ? 'print:hidden' : ''
-      }`}
+      className={cd == null ? 'print:hidden' : ''}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -110,7 +110,7 @@ export default function ParachuteCd({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
           {cd != null ? cd.toFixed(2) : '—'}
         </span>
         {cd != null && descentRate != null && (
@@ -136,6 +136,6 @@ export default function ParachuteCd({
           canopy area. Assumes the main reached a steady rate.
         </p>
       )}
-    </section>
+    </Card>
   );
 }

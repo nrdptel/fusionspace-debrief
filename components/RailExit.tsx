@@ -5,6 +5,7 @@ import type { FlightSeries } from '@/lib/analyze/types';
 import { fmtMach, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { railExitVelocity, RAIL_LENGTHS_M, DEFAULT_RAIL_M, MARGINAL_RAIL_VELOCITY } from '@/lib/rail';
+import { Card } from './ui';
 
 const PREF_KEY = 'debrief.rail';
 
@@ -65,10 +66,7 @@ export default function RailExit({
   const marginal = v != null && v < MARGINAL_RAIL_VELOCITY;
 
   return (
-    <section
-      aria-labelledby="rail-exit-heading"
-      className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40"
-    >
+    <Card as="section" aria-labelledby="rail-exit-heading">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 id="rail-exit-heading" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
@@ -96,7 +94,7 @@ export default function RailExit({
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
           {v != null ? fmtSpeed(v, sys) : '—'}
         </span>
         {mach != null && Math.abs(mach) >= 0.8 && (
@@ -122,6 +120,6 @@ export default function RailExit({
           straight — many fliers look for more margin than this. It’s your call, not a rule.
         </p>
       )}
-    </section>
+    </Card>
   );
 }
