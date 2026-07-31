@@ -58,6 +58,19 @@ wild, ideas too big for one pass. One line each, newest first.
   and no `OfflineState`, and `navigator.onLine` appears **0 times** in the repo — so two of the
   five required states have no primitive to adopt yet, which P1 item 5 does not budget for.
 
+- **`truncateInertial`'s divergence bound uses the RAW barometric peak, which two known effects
+  inflate.** Both make the bound more permissive — they can leave a bad sample in, never cut a
+  good one out — so the direction is safe, but it is slack that could be recovered. (a) The raw
+  trace spikes after the deployment charge: on `lemiv L3` the highest raw sample reads 12,060 ft
+  several seconds after velocity went negative, against a true peak nearer 11,700 — about 2.5%.
+  (b) It runs in the PARSER, before the analyzer splits a launch-day download, so on a file
+  holding two flights `peak` is the taller of the two; `jan18` is exactly such a file and is
+  silent only because both its flights reach nearly the same height. A download whose SECOND
+  flight is much taller than its first is where this would bite. Tightening it needs a cleaned or
+  per-flight peak, which the parser cannot reach without knowing about the analysis — so this is
+  a real limit of where the bound lives, not an oversight. The wrap bound is unaffected, being a
+  property of the field rather than of the flight.
+
 - **`DESIGN.md` §4 does not say which half-steps are on the spacing scale, and the code uses four of
   them 148 times.** §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
   but §4's OWN table then sanctions `px-3 py-1.5` and `px-2 py-1` for controls — so `-1.5` is

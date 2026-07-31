@@ -16,10 +16,14 @@ parts 2, 3 and 4 are entirely absent from `main`.** Do not close it as supersede
 
 ## What shipped this run
 
-Working branch, each increment independently gated (`npm test` · `npm run build` ·
-`npx playwright test`, all three green before every push). The corpus was attached throughout:
-`lib/parsers/corpus.test.ts` reports **137 tests over 61 fixtures**, so no claim here rests on a
-suite that skipped itself.
+**Open as PR #64**, and both CI jobs went green on it — including the `frontend` job that fetches
+the corpus with `FIXTURES_TOKEN`, which is the half a local run cannot reproduce. Production served
+`d7b07e0` (built 2026-07-31T06:45:43Z) at the time of writing, which is exactly `origin/main`, so
+the gap between production and this branch is precisely that pull request.
+
+Each increment independently gated (`npm test` · `npm run build` · `npx playwright test`, all three
+green before every push). The corpus was attached throughout: `lib/parsers/corpus.test.ts` reports
+**137 tests over 61 fixtures**, so no claim here rests on a suite that skipped itself.
 
 ### `8234475` — P1: the design ratchet can fail again
 

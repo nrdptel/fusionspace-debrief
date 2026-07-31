@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
 import { summaryFigures } from './deviceSummary';
@@ -1611,6 +1611,79 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
     return;
   }
+
+  // The bound on the Blue Raven's inertial altitude, held against the real files rather than
+  // against a synthetic fixture. The unit tests prove each bound fires on the failure it names;
+  // this proves that AFTER it fires nothing garbage is left, on every corpus Blue Raven at once —
+  // which is the property a flyer actually depends on when they plot that channel against the
+  // barometer.
+  // Re-parses four large CSVs rather than riding the shared `corpusReads()` pass, because it
+  // needs the raw CHANNELS and that pass keeps only metrics. ~5 s alone and more under
+  // contention, so it carries its own timeout like the other whole-corpus sweeps here — it
+  // passed standalone and timed out at the default 5 s in a full run, which reads as a flake
+  // and is not one.
+  it('leaves no unreadable inertial altitude on any Blue Raven', { timeout: 120_000 }, () => {
+    const dir = CORPUS + 'blueraven/';
+    if (!existsSync(dir)) return;
+    const files = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.csv'));
+    expect(files.length, 'the Blue Raven corpus was really there').toBeGreaterThan(3);
+
+    const seen: string[] = [];
+    const bad: string[] = [];
+    for (const f of files) {
+      const bytes = new Uint8Array(readFileSync(dir + f));
+      let res;
+      try {
+        res = importFlight({ name: f, text: decodeBytes(bytes), bytes });
+      } catch {
+        continue; // the high-rate files are refused by design
+      }
+      if (res.kind !== 'flight') continue;
+      const inert = getChannel(res.flight, 'altitudeInertial');
+      const baro = getChannel(res.flight, 'altitude');
+      if (!inert || !baro) continue;
+
+      const v = inert.values;
+      let peak = 0;
+      for (const b of baro.values) if (Number.isFinite(b) && b > peak) peak = b;
+      const kept = Array.from(v).filter((x) => Number.isFinite(x)).length;
+      seen.push(`${f.split('__').pop()}: ${kept}/${v.length}`);
+
+      // Whatever SURVIVED must satisfy both bounds — no 2^16 ft step between two surviving
+      // neighbours, and nothing further from the barometer than the flight was high. Collected
+      // and asserted ONCE: a per-sample `expect` over 36,700 samples times the test out at five
+      // seconds, and a sweep that dies is not a result.
+      const WRAP = 65536 * 0.3048 * 0.9;
+      let wraps = 0;
+      let diverged = 0;
+      let worst = 0;
+      for (let i = 0; i < v.length; i++) {
+        if (!Number.isFinite(v[i])) continue;
+        if (i > 0 && Number.isFinite(v[i - 1]) && Math.abs(v[i] - v[i - 1]) > WRAP) wraps++;
+        if (Number.isFinite(baro.values[i])) {
+          const d = Math.abs(v[i] - baro.values[i]);
+          if (d > peak) diverged++;
+          if (d > worst) worst = d;
+        }
+      }
+      bad.push(...(wraps ? [`${f}: ${wraps} surviving 2^16 ft counter wrap(s)`] : []));
+      bad.push(
+        ...(diverged
+          ? [`${f}: ${diverged} surviving sample(s) further from the barometer (worst ${worst.toFixed(0)} m) than the flight was high (${peak.toFixed(0)} m)`]
+          : []),
+      );
+
+      // Once withheld it stays withheld — the channel ends, it does not resume.
+      const arr = Array.from(v);
+      const firstCut = arr.findIndex((x) => !Number.isFinite(x));
+      if (firstCut >= 0 && !arr.slice(firstCut).every((x) => !Number.isFinite(x))) {
+        bad.push(`${f}: the inertial channel resumes after being withheld`);
+      }
+    }
+    expect(bad, `unreadable inertial altitude survived the bound:\n${bad.join('\n')}`).toEqual([]);
+    // Named so a fixture entering or leaving this state is a visible change, not a silent one.
+    expect(seen.length, `Blue Ravens carrying an inertial channel: ${seen.join(' | ')}`).toBe(4);
+  });
 
   it('publishes no landing rate, and no landing energy, for any of them', () => {
     const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics != null);

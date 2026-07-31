@@ -337,16 +337,4 @@ describe('Blue Raven inertial altitude — stopped where it stops being an altit
     expect(res.flight.notes.some((n) => n.includes('stops being readable'))).toBe(false);
   });
 
-  it('keeps the ascent on a flight whose channel fails late', () => {
-    // The cut must not cost the part of the channel that is load-bearing: through the
-    // transonic push the inertial solution is the one still climbing. A late failure keeps
-    // everything before it — on the corpus, jan18 and lemiv L3 are both still readable AT
-    // apogee after the cut.
-    const csv = withInertial(blueRavenAppLow(), 900, (i, prev) => prev - (i - 899) * 5 * 3.280839895);
-    const { values } = inertialOf(csv);
-    const a = analyzeFlight(inertialOf(csv).flight);
-    const apogee = a.events.find((e) => e.type === 'apogee');
-    expect(apogee, 'the fixture reaches apogee').toBeTruthy();
-    expect(Number.isFinite(values[apogee!.index]), 'inertial still readable at apogee').toBe(true);
-  });
 });

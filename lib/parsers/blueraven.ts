@@ -196,6 +196,23 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
  * height. What survives is all of the ascent on every file but meraki — whose channel is over
  * its field's ceiling before apogee, which is the true answer for that flight rather than a
  * convenient one.
+ *
+ * **`peak` is the RAW barometric maximum, and it is deliberately the generous choice.** Two
+ * known things inflate it, and both make the divergence bound MORE permissive — they can only
+ * ever leave a bad sample in, never cut a good one out, which is the safe direction for a bound
+ * whose failure mode is deleting a real cross-check:
+ *
+ *   - The raw trace spikes after the deployment charge. `lib/analyze/index.ts` records the same
+ *     effect on `lemiv L3`, where the plain highest sample reads 12,060 ft several seconds after
+ *     velocity went negative while the true peak is nearer 11,700 — about 2.5% of slack here.
+ *   - This runs in the PARSER, before the analyzer splits a launch-day download into flights, so
+ *     on a file holding two flights `peak` is the taller of the two. `jan18` is such a file and
+ *     is silent only because both its flights reach nearly the same height.
+ *
+ * Using a cleaned or per-flight peak would tighten it, and neither is reachable from here
+ * without the parser knowing about the analysis — which the architecture forbids. Where it
+ * matters is a download whose SECOND flight is much taller than its first; the wrap bound is
+ * unaffected either way, being a property of the field rather than of the flight.
  */
 function truncateInertial(flight: RawFlight): string | null {
   // **This may only ever touch a SECOND opinion, never the flight's own altitude.** When a file

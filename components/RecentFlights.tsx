@@ -625,7 +625,16 @@ export default function RecentFlights({
                   <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                     {r.formatLabel}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-zinc-500 sm:ml-auto dark:text-zinc-400" title="Max velocity">
+                  {/* The two numbers this surface exists to be scanned down. `DESIGN.md` §3:
+                      `text-sm` is the floor for anything a flyer reads to make a decision, and any
+                      number compared against another number is `font-mono tabular-nums` so the
+                      digits line up column to column. These were `text-xs` in the TERTIARY colour
+                      (§2's disabled/placeholder/timestamp role) with proportional digits, on the
+                      one surface built for comparing flights against each other. */}
+                  <span
+                    className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:ml-auto dark:text-zinc-300"
+                    title="Max velocity"
+                  >
                     {isSpeedBest && (
                       <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
                         ★<span className="sr-only">fastest, </span>
@@ -633,7 +642,10 @@ export default function RecentFlights({
                     )}
                     {r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—'}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-zinc-500 dark:text-zinc-400" title="Apogee">
+                  <span
+                    className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-300"
+                    title="Apogee"
+                  >
                     {isApogeeBest && (
                       <span className="mr-0.5 text-amber-500" title="Highest of your remembered flights">
                         ★<span className="sr-only">highest, </span>

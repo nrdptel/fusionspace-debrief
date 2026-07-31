@@ -54,7 +54,14 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   `npx playwright test` with **no** browser variable set is what runs green.
 - **`npm run test:e2e` serves `out/`,** so a stale build tests stale code. Build first, always — and
   kill any hand-started server on port 3000 before the suite, because `reuseExistingServer` adopts
-  it and the run dies mid-way. For a manual walk use `npm run serve:out` (the same
+  it and the run dies mid-way.
+  - **ONE gate at a time, and that includes two you backgrounded.** A second `npm run build`
+    deletes `out/` from under the first run's server, and the suite then fails from that point on
+    in ~250 ms per test. Measured 2026-07-31: **196 failed, 37 passed**, which reads exactly like a
+    catastrophic regression; re-run alone it was **233 passed**. The tell is the timing — a real
+    failure takes seconds, a served-nothing failure takes a quarter of one — and the first tests to
+    run are the ones that pass. If a whole suite collapses partway with uniform sub-second
+    failures, check what else you have in flight before you read a line of the diff. For a manual walk use `npm run serve:out` (the same
   `scripts/e2e-server.mjs` the suite starts), never another static server: one that falls back to
   `index.html` serves the analyze page for every route and every walk reads as a routing bug.
 - **This project runs in a per-project cloud environment, and the corpus arrives as a SECOND ATTACHED

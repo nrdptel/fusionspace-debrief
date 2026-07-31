@@ -606,9 +606,24 @@ copies of the secondary button are gone.
    Falsified against `gap-5`, `space-y-7`, `mt-20` and `p-16`, every one of which the old form passed.
 2. **23 of 46 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
    matters most and it has barely moved: the conversions so far took the buttons, not the bodies.
-   Worst offenders, measured: `RecentFlights` 27/3, `FlightReport` 24/12, `ChannelExplorer` 17/4,
+   Worst offenders, measured: `RecentFlights` 26/6, `FlightReport` 24/12, `ChannelExplorer` 17/4,
    `CompareView` 17/10 — and the first of those is the logbook, the one surface built for scanning
    flights against each other.
+
+   **Items 2 and 7 are the same work on this file, and that is the cheap way in.** Of
+   `RecentFlights`'s 26 caption-size uses, roughly half are hand-rolled `<button>` elements and one
+   input; the rest are genuine captions and help text, which §3 says SHOULD be `text-xs`. So the
+   file cannot be un-inverted by retyping captions — it is un-inverted by converting its controls
+   onto `<Button>`, whose default `md` size is `text-sm` exactly as §3's "every label, value,
+   control" requires. Converting the 23 buttons closes both items at once; retyping the captions
+   would close neither and would breach §3 in the other direction.
+
+   **Already done on this file (2026-07-31):** the two decision-grade values — apogee and max
+   velocity, the numbers the logbook exists to be scanned down — were `text-xs` in §2's TERTIARY
+   colour with proportional digits. They are now `text-sm tabular-nums` in the primary text colour,
+   which is §3's floor for a number a flyer reads to make a decision and its requirement that
+   compared numerals line up column to column. That moved the file 27/3 → 26/6; it does not clear
+   the inversion, and it was not meant to.
 3. **Three unsanctioned dark surfaces, 32 uses**, where §2 allows one beside the two sanctioned:
    `dark:bg-zinc-900/40` ×27, `/30` ×4, `/60` ×1, against `dark:bg-zinc-900` ×41 and `/50` ×4.
    The earlier entry said "`/40`, 30 times" and named only one of the three.
