@@ -58,11 +58,16 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
    manifest rather than by a flyer dropping a folder. So either add such a fixture to
    `debrief-fixtures` (see the bottom of this file) or build the proposal against a synthetic
    arrival, and keep the five confusable pairs that test names as the standing negatives.
-2. **P1's remaining card treatments are 12, and the floor is 3.** What is left splits into three
-   kinds: alert callouts (amber/red, in `Analyzer`, `ColumnMapper`, `FlightReport`) that want
-   `Card tone="warn"`/`"danger"`; bordered table frames (`FlightCard`, `ColumnMapper`, `SampleTable`,
-   `GroundTrack`) that want `pad={false}` and a decision about whether they carry a background; and
-   the two that will never fold in (the page-level drop zone and the drop overlay).
+2. **P1's remaining card treatments are 10, and the floor is 4.** The alert callouts converted this
+   run. **Do NOT convert the bordered table frames** — an earlier version of this list said they
+   "want `pad={false}`" and that was wrong, found by trying it. `FlightCard`'s canvas,
+   `ColumnMapper`'s and `SampleTable`'s tables, `GroundTrack`'s `<dl>` and its `Stat` tile share a
+   bordered treatment with **no background, and the missing background is the point**: `SampleTable`'s
+   sticky header is `dark:bg-zinc-900`, which is exactly `Card`'s default dark fill, so the header
+   band that currently reads against the `zinc-950` body would flatten into the card. Reasoning in
+   `lib/design-system.test.ts`. If that frame ever earns a primitive it is `Frame`, not a `Card` tone.
+   What is genuinely left is three treatments that will never fold in (drop zone, drop overlay,
+   frame) plus `Card` itself.
 3. **`DESIGN.md` §5's five required states.** `EmptyState` has one adopter and `ErrorState` one;
    §5 says outright "a surface with no empty state is not finished". `Section`, `Segmented` and
    `Disclosure` still have **zero** adopters.

@@ -749,7 +749,7 @@ test agree exactly, which is itself the check that the two have not drifted:
 |---|---|---|---|
 | `rounded-lg` | 22 | **0** | 0 — **a guard now**, may never rise |
 | off-scale spacing | 25 *(really 33)* | **0** | 0 — **a guard now** |
-| hand-rolled card treatments | 7 *(really 19)* | **12** | floor is 3, not 1 |
+| hand-rolled card treatments | 7 *(really 19)* | **10** | **floor is 4**, not 1 |
 | inverted-type files | 23 | **16** | **floor is at least 4, not 0** |
 | off-scale type sizes | 20 | **1** | floor is 1 — the shared brand wordmark |
 | files importing the primitives | 11 | **25** | most of the 46 |
@@ -880,7 +880,13 @@ Card treatments went UP by one and that is the conversion working: the seventh i
 string, and the other six fall away as surfaces adopt it. **Two of the six will not fold into `Card`
 and want their own named primitive** — the page-level drop zone (`border-dashed … p-10`, an
 interactive target rather than a container) and the floating drop overlay (`border-2 border-dashed …
-shadow-lg`, which needs elevation) — so the honest floor is 3, not 1.
+shadow-lg`, which needs elevation) — so the honest floor is 3, not 1. **Make that 4:** a third was
+identified 2026-07-31 by trying to convert it and finding it would regress. Five sites share a
+bordered treatment with NO background — `FlightCard`'s canvas, `ColumnMapper`'s and `SampleTable`'s
+scrolling tables, `GroundTrack`'s `<dl>` and its `Stat` tile — and the missing background is the
+point of them. `SampleTable`'s sticky header is `dark:bg-zinc-900`, exactly `Card`'s default dark
+fill, so converting would flatten the header band into the card on the `zinc-950` body. That is a
+FRAME, and if it ever earns a primitive it is `Frame`, not a `Card` tone.
 
 **Notes.** Debrief had **no shared primitive layer at all** — zero cross-component imports across 44
 components. The names and implementations are the sibling repo's, so the two apps converge rather than
