@@ -90,6 +90,36 @@ corrects it in the code, in `BACKLOG.md` and on the PUBLIC validation page:
 
 None of it changed behaviour. What it changed is that the repo now says something true about why.
 
+### 4. The second Sev-1, and the measurement that unblocked it
+
+`perfectflite…endurance-20211030` published **Mach 1.19 and a Mach-1 crossing 30.5 m off the pad**
+against the **Mach 0.93 its own flight's TeleMetrum measured** — peak one sample after liftoff, an
+implied 398 g. Fixed by the ascent-noise guard judging the WHOLE climb, which had been reverted
+earlier in the run on the bad sweep above.
+
+**What unblocked it is the pattern worth keeping:** the objection was that widening might shadow
+`velocityOutclimbsItself` on real files. Measured per record over all 50, by which warning fires —
+**that guard reaches ZERO corpus records, before and after.** An objection about coverage was
+answered by measuring coverage, and it took ten minutes. Apogee-exclusion and the 3-point median are
+part of the rule (each decides a real record), not patches.
+
+### 5. P1 — one primary per surface, six buttons onto the primitive, `Segmented` adopted
+
+- **`RecentFlights`'s Compare is secondary now.** §5 allows one primary per SURFACE, and that
+  component is embedded in two routes that each already have one. Verified on the built export:
+  with two flights ticked there is now exactly ONE indigo-filled control on the page.
+- **Six hand-rolled buttons onto `<Button>`.** All were `px-4 py-2` against §4's `px-3 py-1.5`; one
+  was `py-2.5`; one carried `hover:bg-indigo-700`, off the accent ramp. `bg-indigo-600` outside
+  `ui.tsx` is down to **1** — a `<label>` that cannot be a `Button` because it is neither a button
+  nor a link.
+- **The inverted-file count went 16 → 18 on that conversion and back to 16, fixed at the cause.**
+  That is §9's own documented adoption effect and no glyph changed size — but what it exposed was
+  real: `CropControl` rendered its heading, both input labels and its refusal line at caption size,
+  and that line carries the sample count a flyer is about to read.
+- **`Segmented` 0 → 2 adopters**, and the third candidate was REFUSED with the reason written in
+  place: the report's "Zoom to" has a real none-active state, and `Segmented` marks exactly one
+  option pressed. "Three surfaces hand-roll one control" was a count; only two were the same control.
+
 ## Pick up first
 
 1. **P1's remaining slices, in the order the design audit ranked them** — all measured this run:
