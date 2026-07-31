@@ -1,5 +1,27 @@
 @import 'tailwindcss';
 
+/* Scan the CODE for class names, not the prose that describes it.
+ *
+ * Tailwind v4 detects sources automatically, which means it also reads the design documents and
+ * `lib/design-system.test.ts` — every file whose job is to NAME the utilities this system forbids.
+ * The result was that writing a ban shipped the banned utility. Measured 2026-07-31: the production
+ * stylesheet carried the middle radius, two off-scale heading sizes and six off-scale spacing
+ * values, twenty-five dead rules in all, while not one component used a single one of them. The
+ * compliance apparatus was injecting the drift it exists to remove.
+ *
+ * This comment deliberately does NOT spell those class names out. `lib/design-system.test.ts`
+ * scans `app` for `.css` as well as `.tsx` — on purpose, since a banned utility written in the
+ * stylesheet is the same drift as one written in a component — so naming them here turns the
+ * check red, which is exactly how this comment was first written and exactly what it is about.
+ *
+ * `lib` stays scanned and has to: `lib/ui-tokens.ts` exports real class strings (the 44 px touch
+ * target among them) that both server and client components interpolate. `lib/report.ts` also holds
+ * `class=` attributes, but those belong to the self-contained exported HTML document and its own
+ * style block — they are not Tailwind's and never were. */
+@source not "../**/*.md";
+@source not "../**/*.test.ts";
+@source not "../**/*.test.tsx";
+
 /* Tri-state theme to match the rest of Fusion Space: an explicit `.dark` or
    `.light` class on <html> wins; with neither set we follow the system. */
 @custom-variant dark {
