@@ -106,7 +106,10 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   trust the error over the old advice: run `npx playwright install chromium` when the image's
   build doesn't match, rather than forcing the mismatched one.
 - **Throwaway probes** are named `*-tmp.*` and gitignored. Check the glob covers the exact name you
-  chose, and delete them before you finish.
+  chose, and delete them before you finish. **Gitignored is not unchecked:** `prebuild` runs
+  `tsc --noEmit` over the whole repo, so a probe with a type error turns `npm run build` RED while
+  `git status` shows a clean tree — which reads as a broken gate rather than a stray file. Delete
+  the probe and re-run before diagnosing anything else. Measured 2026-07-31.
 
 ## Who you are
 

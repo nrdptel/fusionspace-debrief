@@ -16,6 +16,25 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **FIXED 2026-07-31 (was Sev-1): the channel explorer's "mean" was an index mean, so a flyer
+  zooming to the drogue leg read a descent rate 23.9% low.** `lib/explore.ts` `windowStats`
+  returned `sum / count` — the exact defect `timeMean` had just been written out of the analyzer
+  for. On `fwgps__trf-f1machbuster-jan10` (cadence 0.099–4.900 s) the explorer printed **−49.31 m/s**
+  over the apogee→main leg while the flight's own report said **64.81**, reproducing the analyzer's
+  pre-fix 49.33 to 0.04%. Now time-weighted: **−64.78**, 0.0% off the analyzer's own `timeMean`.
+  The window mean reaches no export, so the blast radius was that one panel.
+
+- **The explorer's velocity mean and the flight's reported descent rate are DIFFERENT ESTIMATORS,
+  and three corpus flights disagree wildly — unexplained.** Sweeping all 36 analysable flights /
+  16 descent legs, the median gap between the two fell 6.4% → 3.3% with the time-weighting fix,
+  but three Blue Raven legs are unaffected and enormous: `meraki2` drogue **3600%**,
+  `lemiv-l3` drogue **608%**, `lemiv-l3` main **3499%**. One leg got worse
+  (`eggtimer euroc-aris` drogue, 5.0% → 12.6%). This is why **no corpus-wide agreement invariant
+  was asserted**: the reported rate is altitude-derived over the analyzer's own leg bounds and the
+  explorer mean is over the velocity channel, so they are not the same quantity and a tolerance
+  would be invented rather than measured. The three Blue Raven outliers are worth a look on their
+  own — they are the same files whose inertial channel wraps at 2¹⁶ (below).
+
 - **`DESIGN.md` §4 does not say which half-steps are on the spacing scale, and the code uses four of
   them 148 times.** §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
   but §4's OWN table then sanctions `px-3 py-1.5` and `px-2 py-1` for controls — so `-1.5` is

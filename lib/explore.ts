@@ -91,8 +91,33 @@ export interface WindowStats {
 
 /** Summary stats for one y-series over the samples whose x falls in [lo, hi].
  * Used to measure whatever range is currently in view (zoom = selection). NaN y
- * values are ignored; returns null when no sample is in range. */
-export function windowStats(x: Float64Array, y: Float64Array, lo: number, hi: number): WindowStats | null {
+ * values are ignored; returns null when no sample is in range.
+ *
+ * **`mean` is weighted by TIME, not by sample, and that is the whole point of the `time`
+ * argument.** A mean over sample index answers "what did a typical sample read", which is the
+ * same question as "what did this stretch of flight average" only when the samples are evenly
+ * spaced — and plenty of loggers are not. This is the identical defect `timeMean` was written
+ * out of the analyzer for (see its doc comment in `lib/analyze/index.ts`), still being printed
+ * one panel over: measured on `fwgps__trf-f1machbuster-jan10`, whose cadence runs 0.099–4.900 s,
+ * a flyer who zooms to the drogue leg to read a descent rate off the velocity channel got
+ * **−49.31 m/s where the flight itself reports −64.81** — 23.9% low, on the reading a canopy is
+ * sized against, and reproducing the analyzer's own pre-fix figure of 49.33 to 0.04%.
+ *
+ * Trapezoidal, weighting the INTERVAL rather than the sample, exactly as the analyzer does — the
+ * naive form drops the gap that closes the window. Only intervals between samples that are
+ * **adjacent in the record** are weighted, which is what makes this correct when x is not time:
+ * a velocity-against-altitude plot can select a scattered set of samples, and bridging a weight
+ * across the unselected stretch between two of them would invent a duration that is not in the
+ * selection. Where no interval qualifies — a single sample, a scattered selection, or no `time`
+ * at all — it falls back to the sample mean, which is then the honest answer to the only
+ * question the data can support. */
+export function windowStats(
+  x: Float64Array,
+  y: Float64Array,
+  lo: number,
+  hi: number,
+  time?: Float64Array,
+): WindowStats | null {
   const n = Math.min(x.length, y.length);
   let count = 0;
   let sum = 0;
@@ -100,6 +125,11 @@ export function windowStats(x: Float64Array, y: Float64Array, lo: number, hi: nu
   let max = -Infinity;
   let firstI = -1;
   let lastI = -1;
+  // The time-weighted accumulator, and the last selected sample with a finite y so an
+  // interval can be closed against it.
+  let wSum = 0;
+  let wWeight = 0;
+  let prev = -1;
   for (let i = 0; i < n; i++) {
     const xv = x[i];
     if (!(xv >= lo && xv <= hi)) continue;
@@ -111,11 +141,30 @@ export function windowStats(x: Float64Array, y: Float64Array, lo: number, hi: nu
     if (yv > max) max = yv;
     if (firstI < 0) firstI = i;
     lastI = i;
+    // `prev >= 0` is not redundant with `prev === i - 1`: on the first selected sample both
+    // are -1, so the adjacency test passes, `time[-1]` is undefined and `dt` comes out NaN.
+    // That happens to be harmless only because `NaN > 0` is false — correctness by accident,
+    // and it broke the moment the duration guard was loosened during falsification.
+    if (time && prev >= 0 && prev === i - 1 && i < time.length) {
+      const dt = time[i] - time[prev];
+      if (dt > 0) {
+        wSum += ((y[prev] + yv) / 2) * dt;
+        wWeight += dt;
+      }
+    }
+    prev = i;
   }
   if (count === 0) return null;
   const delta = y[lastI] - y[firstI];
   const dx = x[lastI] - x[firstI];
-  return { count, min, max, mean: sum / count, delta, rate: dx !== 0 ? delta / dx : NaN };
+  return {
+    count,
+    min,
+    max,
+    mean: wWeight > 0 ? wSum / wWeight : sum / count,
+    delta,
+    rate: dx !== 0 ? delta / dx : NaN,
+  };
 }
 
 /** Every channel worth plotting: Debrief's three derived series first (the cleaned

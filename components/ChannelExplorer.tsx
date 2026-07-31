@@ -509,6 +509,7 @@ export default function ChannelExplorer({
         channels={selected}
         seriesData={seriesData}
         xVals={xVals}
+        time={time}
         sys={sys}
         view={view}
         xName={xName}
@@ -555,6 +556,7 @@ function Stats({
   channels,
   seriesData,
   xVals,
+  time,
   sys,
   view,
   xName,
@@ -564,6 +566,10 @@ function Stats({
   channels: PlotChannel[];
   seriesData: Float64Array[];
   xVals: Float64Array;
+  /** The flight's own clock, whatever is on the x axis — `mean` is weighted by it, because the
+   *  mean of a stretch of flight is not the mean of the samples in it when the cadence changes.
+   *  See `windowStats`. */
+  time: Float64Array;
   sys: UnitChoice;
   view: [number, number] | null;
   xName: string;
@@ -573,8 +579,8 @@ function Stats({
 }) {
   const [lo, hi] = view ?? [-Infinity, Infinity];
   const rows = useMemo(
-    () => channels.map((c, i) => ({ c, i, s: windowStats(xVals, seriesData[i], lo, hi) })),
-    [channels, seriesData, xVals, lo, hi],
+    () => channels.map((c, i) => ({ c, i, s: windowStats(xVals, seriesData[i], lo, hi, time) })),
+    [channels, seriesData, xVals, lo, hi, time],
   );
   const [fullLo, fullHi] = useMemo(() => {
     let a = Infinity;
