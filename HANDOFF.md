@@ -9,10 +9,11 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D5 SHIPPED. D6 decomposed and STARTED — its first increment is in.** The decomposition changed the milestone: two of the three signals D6's own entry named do not exist in the corpus, and `lib/parsers/d6Grouping.test.ts` now pins that. Read D6's section in `ROADMAP.md` before scoping any of it. |
 | **P — product & craft** | **P1 IN PROGRESS, and moved a long way this run.** `rounded-lg` is at 0 and guarded. Card treatments 19 (true figure) → **10**, against a floor of 4. `Card` 0 → 23 adopters, `Disclosure` 0 → 3. The four files the last handoff named as hand-rolling a card no longer do. |
 
-**PR #64, #65 and #66 are all merged and LIVE.** Production was verified serving `91b3878` by
-fetching `/version.json` with a cache-buster — the plain fetch lags by about ten minutes and will
-tell you the deploy failed when it did not. **There are no open pull requests carrying unshipped
-work.**
+**PR #64, #65, #66, #67 and #68 are all merged and LIVE.** Production was verified serving
+`e44adbe` — the last of them — by fetching `/version.json` with a cache-buster. **Use the buster:**
+the plain fetch lags by about ten minutes after a green deploy and will tell you it failed when it
+did not. **There are no open pull requests carrying unshipped work**, and the pinned branch was
+restarted from `main` after each merge.
 
 ## What shipped this run
 
@@ -51,13 +52,16 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
   production stylesheet. Found by the done-check's cold walk on the built export, not by reading
   source — which is the argument for walking the artifact.
 
-### Shipped in PR #67
+### Shipped in PR #67 and #68
 
 - **D6's first increment** — `lib/parsers/d6Grouping.test.ts`, five assertions, four mutations.
 - **The three alert callouts** onto `Card`'s `warn`/`danger` tones, live-region roles intact and
   falsified.
 - **A conversion RULED OUT** — the bordered frames must not become `Card`s; see below.
 - **`Disclosure` went from 0 adopters to 3.**
+- **The docs-route heading fix, measured and scoped rather than executed** — see pick-up item 3, and
+  the `BACKLOG.md` entry it points at. Filed deliberately: it is a pass over three published pages
+  and the run's remaining time did not allow doing it with both themes checked.
 
 ## Pick up first
 
