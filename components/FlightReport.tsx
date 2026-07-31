@@ -29,8 +29,9 @@ import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
-import { loadHidden, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
+import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
+import FigureChooser from './FigureChooser';
 import GpsApogee from './GpsApogee';
 import ChannelExplorer from './ChannelExplorer';
 import LogDetails from './LogDetails';
@@ -222,7 +223,11 @@ export default function FlightReport({
 
   // …and which figures travel with it. Same decision, same shape, kept on this device.
   const [hiddenFigures, setHiddenFigures] = useState<string[]>([]);
-  useEffect(() => setHiddenFigures(loadHiddenFigures()), []);
+  const [figureOrder, setFigureOrder] = useState<string[]>([]);
+  useEffect(() => {
+    setHiddenFigures(loadHiddenFigures());
+    setFigureOrder(loadFigureOrder());
+  }, []);
   const toggleFigure = useCallback((title: string) => {
     setHiddenFigures((prev) => {
       const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
@@ -552,8 +557,10 @@ export default function FlightReport({
     // What the flyer asked for. Every figure the flight supports is drawn — the choice is
     // about the document, not about the analysis — and turning them all off leaves a report
     // of numbers, which is a legitimate answer for a table-only write-up.
-    return figs.filter((f) => !hiddenFigures.includes(f.title));
-  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures]);
+    // Ordered as the flyer arranged it, then minus what they turned off — the same two
+    // steps, in the same order, as the comparison's `documentFigures`.
+    return orderRows(figs, (f) => f.title, figureOrder).filter((f) => !hiddenFigures.includes(f.title));
+  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures, figureOrder]);
 
   /** Every figure this flight could carry, chosen or not — what the chooser lists. */
   const figureTitles = useMemo(() => {
@@ -562,8 +569,14 @@ export default function FlightReport({
     if (series.accelerationSource === 'device') {
       titles.push('Acceleration');
     }
-    return titles;
-  }, [series]);
+    return orderRows(titles, (t) => t, figureOrder);
+  }, [series, figureOrder]);
+  const moveFigure = (title: string, delta: -1 | 1) =>
+    setFigureOrder((prev) => {
+      const next = moveReading(prev, figureTitles, title, delta);
+      saveFigureOrder(next);
+      return next;
+    });
 
   function saveChartSvg() {
     // The first figure the flyer kept — not necessarily altitude, and possibly none at all.
@@ -1004,7 +1017,7 @@ export default function FlightReport({
       <LogDetails flight={flight} />
 
       {flight.reported && flight.reported.length > 0 && (
-        <DeviceSummary reported={flight.reported} metrics={metrics} sys={sys} />
+        <DeviceSummary reported={flight.reported} metrics={metrics} events={events} sys={sys} />
       )}
 
       <GpsApogee metrics={metrics} sys={sys} />
@@ -1193,35 +1206,13 @@ export default function FlightReport({
           often wants the altitude trace alone; a drag study wants all three. Every figure
           the flight supports is still drawn on screen: this is about what travels into the
           .html, the bundle and the single-figure save, not about the analysis. */}
-      {figureTitles.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Figures in the report</span>
-          {figureTitles.map((t) => {
-            const on = !hiddenFigures.includes(t);
-            return (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggleFigure(t)}
-                title={`${on ? 'Leave out' : 'Include'} the ${t.toLowerCase()} plot — applies to the .html report, the bundle and Save .svg`}
-                className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
-                  on
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
-                    : 'border-zinc-300 bg-white text-zinc-500 line-through hover:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
-                }`}
-              >
-                {t}
-              </button>
-            );
-          })}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {figureTitles.every((t) => hiddenFigures.includes(t))
-              ? 'None — the report carries its numbers and no plots.'
-              : 'Applies to the .html report, the bundle and Save .svg.'}
-          </span>
-        </div>
-      )}
+      <FigureChooser
+        titles={figureTitles}
+        hidden={hiddenFigures}
+        onToggle={toggleFigure}
+        onMove={moveFigure}
+        what="the .html report, the bundle and Save .svg"
+      />
 
       {/* Event legend */}
       <div>

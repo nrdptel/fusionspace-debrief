@@ -717,3 +717,109 @@ test('a drop past the cap names the files it never read', async ({ page }) => {
     'the file the note named is really not there',
   ).toHaveCount(0);
 });
+
+// D5: the figures a DOCUMENT carries are the flyer's choice, on the comparison as well as on
+// the single-flight report. The two surfaces read the same stored off-list, so "what I care
+// about" is answered once — but the comparison used to ignore it entirely and export a
+// hardcoded altitude/velocity/acceleration, which meant a flyer who turned Acceleration off on
+// the report still got an acceleration plot in the comparison bundle, and could never get the
+// Mach or dynamic-pressure overlays into a document at all even though the surface draws them.
+test('the figures a comparison carries are the flyer’s choice, and the report agrees', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  const bundleNames = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save bundle' }).click(),
+    ]);
+    return zipEntryNames(await readFile(await dl.path()));
+  };
+
+  // Everything the comparison can draw travels by default — including the two overlays the
+  // hardcoded list silently withheld from every document.
+  const before = await bundleNames();
+  expect(before).toContain('compare-altitude.svg');
+  expect(before).toContain('compare-velocity.svg');
+  expect(before).toContain('compare-mach.svg');
+
+  // Turn one off. The overlay stays selectable on screen — that is the analysis — and leaves
+  // the document, which is the report.
+  const velocityFigure = page.getByRole('button', { name: 'Velocity figure', exact: true });
+  await expect(velocityFigure).toHaveAttribute('aria-pressed', 'true');
+  await velocityFigure.click();
+  await expect(velocityFigure).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Velocity', exact: true })).toBeVisible();
+
+  const after = await bundleNames();
+  expect(after).toContain('compare-altitude.svg');
+  expect(after).not.toContain('compare-velocity.svg');
+
+  // …and the self-contained HTML agrees with the bundle, rather than each export deciding
+  // for itself which figures the flyer asked for.
+  const [htmlDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  const html = (await readFile(await htmlDl.path())).toString('utf8');
+  expect(html).toContain('<figcaption>Altitude</figcaption>');
+  expect(html).not.toContain('<figcaption>Velocity</figcaption>');
+
+  // The choice is one store, so it is the same choice the single-flight report was already
+  // honouring — this is what makes it "answered once" rather than twice.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Velocity figure', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+});
+
+// D5's other half of "which figures appear AND in what order". The order has to follow into
+// the DOCUMENT — a chooser that reorders only the screen is a preference the export ignores,
+// which is the same defect as the comparison ignoring the hide list.
+test('the order a flyer puts the figures in follows into the document', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  const captions = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save .html' }).click(),
+    ]);
+    const html = (await readFile(await dl.path())).toString('utf8');
+    return [...html.matchAll(/<figcaption>([^<]+)<\/figcaption>/g)].map((m) => m[1]);
+  };
+
+  const before = await captions();
+  expect(before[0]).toBe('Altitude');
+  expect(before).toContain('Velocity');
+
+  // Move Velocity to the front. The control is the same ▲/▼ the readings chooser uses.
+  await page.getByRole('button', { name: 'Move the velocity figure earlier' }).click();
+
+  const after = await captions();
+  expect(after[0], 'the document leads with the figure the flyer put first').toBe('Velocity');
+  expect(after[1]).toBe('Altitude');
+  // Reordering is not hiding: the same set of figures is still there.
+  expect([...after].sort()).toEqual([...before].sort());
+
+  // …and it is remembered on this device and shared with the other document surface, like the
+  // hide list. Checked on the single-flight report rather than by reloading THIS page: a
+  // comparison assembled from a drop exists only until the page does, so a reload here would be
+  // testing that, not the stored order.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  const chips = page.locator('[aria-label$="figure"]');
+  await expect(chips.first()).toHaveAttribute('aria-label', 'Velocity figure');
+});

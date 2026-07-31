@@ -9,9 +9,10 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
-import { loadHidden, loadOrder, moveReading, saveHidden, saveOrder, toggleHidden } from '@/lib/reportProfile';
+import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
 import { loadCompareChannel, saveCompareChannel, loadHiddenEvents, saveHiddenEvents } from '@/lib/plotView';
 import ReadingChooser from './ReadingChooser';
+import FigureChooser from './FigureChooser';
 import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
@@ -249,9 +250,25 @@ export default function CompareView({
   // "what I care about" is answered once rather than per surface.
   const [hidden, setHidden] = useState<string[]>([]);
   const [order, setOrder] = useState<string[]>([]);
+  // And which FIGURES, from the same store, for the same reason. The readings have been
+  // shared between the two surfaces since they were built; the figures were not, so a flyer
+  // who turned Acceleration off on the report still got an acceleration plot in the
+  // comparison bundle. Read after mount, never during render — this is a static export and a
+  // render-time localStorage read trips hydration.
+  const [hiddenFigures, setHiddenFigures] = useState<string[]>([]);
+  const [figureOrder, setFigureOrder] = useState<string[]>([]);
   useEffect(() => {
     setHidden(loadHidden());
     setOrder(loadOrder());
+    setHiddenFigures(loadHiddenFigures());
+    setFigureOrder(loadFigureOrder());
+  }, []);
+  const toggleFigure = useCallback((title: string) => {
+    setHiddenFigures((prev) => {
+      const next = toggleHidden(prev, title);
+      saveHiddenFigures(next);
+      return next;
+    });
   }, []);
   const toggleReading = useCallback((label: string) => {
     setHidden((prev) => {
@@ -336,10 +353,36 @@ export default function CompareView({
     { key: 'mach', label: 'Mach', unit: '', get: (f) => f.mach, toDisplay: (v) => v },
     { key: 'dynamicPressure', label: 'Dynamic pressure', unit: pressureUnit(sys), get: (f) => f.dynamicPressure, toDisplay: (v) => pressureIn(v, sys) },
   ];
-  // Acceleration overlays only when at least one flight measured it; a baro-derived
-  // acceleration is left out at build time, so an all-barometric comparison drops the
-  // option entirely rather than offer an empty chart.
-  const metrics = allMetrics.filter((m) => m.key !== 'acceleration' || flights.some((f) => f.acceleration.some((v) => Number.isFinite(v))));
+  // A metric is offered only when at least one flight actually carries it, so a chart that
+  // could only ever be empty is not on the menu at all.
+  //
+  // This used to name `acceleration` alone — a baro-derived acceleration is left out at build
+  // time, so an all-barometric comparison had to drop that option rather than offer an empty
+  // chart. The same is true of Mach and dynamic pressure and was not handled: `buildComparison`
+  // fills both with NaN for any recording whose peak speed the analysis withheld
+  // (`lib/compare.ts`, `velUsable`), so a comparison of flights that all withheld it still
+  // offered both, and selecting either drew a blank. That is the "control that is always
+  // enabled and fails only when pressed" tell. Testing what the data holds covers every metric,
+  // including any added later.
+  const metrics = allMetrics.filter((m) => flights.some((f) => m.get(f).some((v) => Number.isFinite(v))));
+  // The figures the DOCUMENTS carry: every overlay this comparison can actually draw, minus
+  // the ones the flyer turned off. Both exports read this one list, so the .html and the
+  // bundle can never disagree about which plots the flyer asked for — and it is no longer the
+  // literal ['altitude','velocity','acceleration'] that both used to spell out, which ignored
+  // the choice and silently withheld the Mach and dynamic-pressure overlays from every
+  // document even though the surface draws them.
+  // In the flyer's order, then minus what they turned off. Ordered FIRST so the chooser's
+  // ▲/▼ act on the same sequence the document will carry — ordering the survivors instead
+  // would silently renumber the list every time a figure is hidden.
+  const orderedFigures = orderRows(metrics, (m) => m.label, figureOrder);
+  const documentFigures = orderedFigures.filter((m) => !hiddenFigures.includes(m.label));
+  const figureTitles = orderedFigures.map((m) => m.label);
+  const moveFigure = (title: string, delta: -1 | 1) =>
+    setFigureOrder((prev) => {
+      const next = moveReading(prev, figureTitles, title, delta);
+      saveFigureOrder(next);
+      return next;
+    });
   const active = metrics.find((m) => m.key === metric) ?? metrics[0];
   const metricSeries = useMemo(
     () => flights.map((f) => ({ label: stem(f.name), values: f[metric], stroke: f.color, width: 2 })),
@@ -464,10 +507,7 @@ export default function CompareView({
   // portable file. The overlay figures are those actually offered (acceleration only when a
   // flight measured it).
   const saveHtml = () => {
-    const figs = (['altitude', 'velocity', 'acceleration'] as MetricKey[])
-      .map((k) => metrics.find((m) => m.key === k))
-      .filter((m): m is MetricDef => !!m)
-      .map((m) => ({ title: m.label, svg: overlaySvg(m) }));
+    const figs = documentFigures.map((m) => ({ title: m.label, svg: overlaySvg(m) }));
     download(new Blob([compareHtml(arranged, sys, note, reportMeta, figs)], { type: 'text/html' }), 'compare-debrief.html');
   };
 
@@ -480,15 +520,12 @@ export default function CompareView({
   const saveBundle = async () => {
     setBundleMsg('Building bundle…');
     try {
-      // Only figures for metrics actually offered (acceleration drops out of an
-      // all-barometric comparison), so the bundle never holds an empty acceleration plot.
-      const figureKeys = (['altitude', 'velocity', 'acceleration'] as MetricKey[]).filter((k) => metrics.some((m) => m.key === k));
       const entries: ZipEntry[] = [
         { name: 'compare-summary.md', data: compareMarkdown(arranged, sys, note, reportMeta) },
         { name: 'compare-metrics.csv', data: metricsCsv() },
         { name: 'compare-data.csv', data: overlayCsv() },
         { name: 'compare.json', data: compareJson(arranged, sys, note, reportMeta) },
-        ...figureKeys.map((k) => ({ name: `compare-${k}.svg`, data: overlaySvg(metrics.find((m) => m.key === k)!) })),
+        ...documentFigures.map((m) => ({ name: `compare-${m.key}.svg`, data: overlaySvg(m) })),
       ];
       download(await zip(entries), 'compare-debrief.zip');
       setBundleMsg('Bundle saved — cross-check, metrics and figures, all zipped locally.');
@@ -990,10 +1027,21 @@ export default function CompareView({
           <Button
             size="sm"
             onClick={saveBundle}
-            title="Save one ZIP with the Markdown cross-check write-up, the metrics CSV and the altitude/velocity/acceleration overlay figures — the whole comparison, zipped in the browser"
+            title="Save one ZIP with the Markdown cross-check write-up, the metrics CSVs and the overlay figures you chose — the whole comparison, zipped in the browser"
           >
             Save bundle
           </Button>
+        </div>
+        {/* Which overlays travel into the .html and the bundle — the same stored choice, and now
+            the same control, as the flight report's. */}
+        <div className="mb-3">
+          <FigureChooser
+            titles={figureTitles}
+            hidden={hiddenFigures}
+            onToggle={toggleFigure}
+            onMove={moveFigure}
+            what="the .html comparison and the bundle"
+          />
         </div>
         {copyMsg && (
           <p role="status" aria-live="polite" className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">

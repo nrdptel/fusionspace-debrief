@@ -703,7 +703,7 @@ test('the figures a report carries are the flyer’s choice, and it holds across
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
 
-  const velocity = page.getByRole('button', { name: 'Velocity', exact: true });
+  const velocity = page.getByRole('button', { name: 'Velocity figure', exact: true });
   await expect(velocity).toHaveAttribute('aria-pressed', 'true');
 
   // Everything on by default: the bundle carries all three.
@@ -742,7 +742,7 @@ test('the figures a report carries are the flyer’s choice, and it holds across
   // The reload comes back to the flight: a report has an address now (`?open=<id>`), so this
   // no longer has to re-load the sample by hand to have something to look at.
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Velocity', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Velocity figure', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
 
 // A raw sample table you cannot sort is a spreadsheet with the useful half removed. On a

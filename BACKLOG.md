@@ -16,6 +16,75 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **FIXED 2026-07-31 (was Sev-1): the channel explorer's "mean" was an index mean, so a flyer
+  zooming to the drogue leg read a descent rate 23.9% low.** `lib/explore.ts` `windowStats`
+  returned `sum / count` — the exact defect `timeMean` had just been written out of the analyzer
+  for. On `fwgps__trf-f1machbuster-jan10` (cadence 0.099–4.900 s) the explorer printed **−49.31 m/s**
+  over the apogee→main leg while the flight's own report said **64.81**, reproducing the analyzer's
+  pre-fix 49.33 to 0.04%. Now time-weighted: **−64.78**, 0.0% off the analyzer's own `timeMean`.
+  The window mean reaches no export, so the blast radius was that one panel.
+
+- **The explorer's velocity mean and the flight's reported descent rate are DIFFERENT ESTIMATORS,
+  and three corpus flights disagree wildly — unexplained.** Sweeping all 36 analysable flights /
+  16 descent legs, the median gap between the two fell 6.4% → 3.3% with the time-weighting fix,
+  but three Blue Raven legs are unaffected and enormous: `meraki2` drogue **3600%**,
+  `lemiv-l3` drogue **608%**, `lemiv-l3` main **3499%**. One leg got worse
+  (`eggtimer euroc-aris` drogue, 5.0% → 12.6%). This is why **no corpus-wide agreement invariant
+  was asserted**: the reported rate is altitude-derived over the analyzer's own leg bounds and the
+  explorer mean is over the velocity channel, so they are not the same quantity and a tolerance
+  would be invented rather than measured. The three Blue Raven outliers are worth a look on their
+  own — they are the same files whose inertial channel wraps at 2¹⁶ (below).
+
+- **REFUTED 2026-07-31 — "five data surfaces `return null` with no empty state" is wrong on all
+  five, and P1 item 5 must not be scoped against it.** An audit this run counted five violations of
+  `DESIGN.md` §5's *"a surface with no empty state is not finished"*. Checked in both directions,
+  as `MAINTAINING.md` requires, and none survives:
+  - `ChannelExplorer.tsx:212` (`selected.length === 0`) was called the worst because it is
+    "reachable by ordinary interaction". **It is not reachable at all.** The ✕ that removes a
+    channel is rendered only `{selected.length > 1 && …}`, so the last channel cannot be
+    deselected; and `buildPlotChannels` returns the altitude channel unconditionally, so the list
+    is never empty for a flight that analysed. Dead defensive code, not a blank screen.
+  - `GroundTrack.tsx:466` — the parent already gates it: `{gpsLat && gpsLon && <GroundTrack …>}`
+    (`FlightReport.tsx:1305`). An `EmptyState` there would be unreachable too.
+  - `GpsApogee.tsx:15`, `FlightTimeline.tsx:31`, `EventChips.tsx:43` — conditional PANELS, not
+    surfaces. Their null return IS the "this flight has no GPS apogee / too few phases / no
+    events" case, which is most flights. An empty box on each would put three explanatory
+    rectangles on every ordinary flight, which is worse than silence and is the "generous
+    whitespace reads as a marketing page" failure §4 warns about.
+
+  The real gap §5 names is still open, and it is narrower than the count suggested: what a flyer
+  cannot learn is that their BOARD did not record GPS, and the place for that is "How this file
+  was read", not five empty containers. Note also `components/ui.tsx` exports no `LoadingState`
+  and no `OfflineState`, and `navigator.onLine` appears **0 times** in the repo — so two of the
+  five required states have no primitive to adopt yet, which P1 item 5 does not budget for.
+
+- **`truncateInertial`'s divergence bound uses the RAW barometric peak, which two known effects
+  inflate.** Both make the bound more permissive — they can leave a bad sample in, never cut a
+  good one out — so the direction is safe, but it is slack that could be recovered. (a) The raw
+  trace spikes after the deployment charge: on `lemiv L3` the highest raw sample reads 12,060 ft
+  several seconds after velocity went negative, against a true peak nearer 11,700 — about 2.5%.
+  (b) It runs in the PARSER, before the analyzer splits a launch-day download, so on a file
+  holding two flights `peak` is the taller of the two; `jan18` is exactly such a file and is
+  silent only because both its flights reach nearly the same height. A download whose SECOND
+  flight is much taller than its first is where this would bite. Tightening it needs a cleaned or
+  per-flight peak, which the parser cannot reach without knowing about the analysis — so this is
+  a real limit of where the bound lives, not an oversight. The wrap bound is unaffected, being a
+  property of the field rather than of the flight.
+
+- **`DESIGN.md` §4 does not say which half-steps are on the spacing scale, and the code uses four of
+  them 148 times.** §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
+  but §4's OWN table then sanctions `px-3 py-1.5` and `px-2 py-1` for controls — so `-1.5` is
+  simultaneously forbidden by the sentence and required by the table. Measured 2026-07-31 over
+  `components/` and `app/`: `-1.5` ×78, `-0.5` ×48, `-2.5` ×21, `-3.5` ×1. The widened §9 spacing
+  grep deliberately excludes half-steps for this reason and says so, rather than reporting 148
+  breaches of a rule the file
+  contradicts itself on. Settling it means one sentence in §4 naming the sanctioned half-steps —
+  a change to `DESIGN.md` in BOTH repos, which is why it is filed rather than taken.
+- **`components/RecentFlights.tsx:630,638` marks the fastest and highest remembered flights with a
+  `text-amber-500` ★.** `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
+  extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
+  magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
+  figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
 - **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
   every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
   with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with
@@ -515,10 +584,11 @@ refuted. They are written down rather than fixed because each needs its own gate
   their own file's column headers (`mappings.v1`), and their rocket's parameters (`mass.kg`,
   `dragmass.kg`, `diameter.m`, `chute.m`, `drogue.m`, `rail`, `maindeploy.m`, `delay.s`), plus
   `plotView`, `plotPresets`, `compareChannel`, `hiddenEvents`, `report.hidden`,
-  `report.hiddenFigures`, `report.order`, `theme`, `units`. Line 65-66 then says clearing browser
-  data "or using the 'clear' control on the recents list" removes all of it — but
-  `components/useLogbook.ts:62` clears IndexedDB and `compare.captions` only, so **17 keys
-  survive**. A flyer lending a laptop presses Clear and the device still holds their rocket's
+  `report.hiddenFigures`, `report.order`, `report.figureOrder`, `theme`, `units`. Line 65-66 then
+  says clearing browser data "or using the 'clear' control on the recents list" removes all of it —
+  but `components/useLogbook.ts:62` clears IndexedDB and `compare.captions` only, so **18 keys
+  survive** (17 when this was written; `report.figureOrder` was added 2026-07-31 and survives Clear
+  exactly like the rest). A flyer lending a laptop presses Clear and the device still holds their rocket's
   descending mass, body and canopy diameters, rail length, main-deploy altitude and motor delay.
   PRIVACY IS SACRED is the invariant this sits under, and the page is the artifact that states it.
 
@@ -768,8 +838,21 @@ refuted. They are written down rather than fixed because each needs its own gate
     - **The LR file's second copy is the real hazard.** Its `Flight_Time` keeps counting monotonically
       across the join (−1.96 → 247.8 s, no backward step) while the wall clock jumps back **124.880 s**
       at row 6244. The device Liftoff flag rises TWICE, at t=0.000 and t=124.880. So past LR t≈122.9 the
-      same physical instant is +124.880 s on the LR clock. The HR file has no second copy. Any merge
-      must be against the FIRST copy only — which the analyzer already isolates (`nextFlightStart`).
+      same physical instant is +124.880 s on the LR clock. Any merge must be against the FIRST copy
+      only — which the analyzer already isolates (`nextFlightStart`).
+    - **RETRACTION — "the HR file has no second copy" was WRONG, and wrong in the way that matters.**
+      That claim stood here and in PR #29, inferred from `Flight_Time` being monotonic. It **is**
+      monotonic: re-measured 2026-07-31, **0 backward steps across all 93,164 rows**, and 93,164
+      distinct stamps. That is precisely why the inference was invalid — neither the flight clock nor
+      the wall clock marks the seam. Measured directly instead: **45,768 of 93,164 rows (49.1%) repeat
+      an earlier row's sensor columns byte-for-byte**, at fixed lags of **30,654 samples (61.308 s)**,
+      **14,139 (28.278 s)** and **44,793 (89.586 s)** — the device re-emits whole blocks of the flight.
+      The seam that IS visible is the attitude solution: the quaternion returns to exact identity
+      `1,0,0,0` at **t = 26.256, 59.286 and 87.564 s**, and at the file's start (−2.022).
+      **The consequence is a wrong number, not a missing one.** Aligned naively on the shared zero, a
+      merge would print an apogee shock labelled MEASURED for an event the device's own summary states
+      at 115.8 Gs. Any HR merge must isolate the first copy the same way the LR merge does. Every
+      figure in this bullet was reproduced from the file this run, not carried over.
     - **LR and HR agree on liftoff to 66 ms**, and that gap is detector latency, not a timebase
       disagreement: the 500 Hz accelerometer sees ignition immediately (threshold-insensitive — 1.2 g
       through 10 g all give t = −0.068 to −0.064 s) while LR cannot resolve better than its 0.02 s

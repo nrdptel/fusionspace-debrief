@@ -229,7 +229,7 @@ test('a log dropped with its device summary reads as one flight plus a cross-che
   // The device's figures sit beside Debrief's own read, with the agreement stated.
   const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Logger' }) });
   await expect(table).toBeVisible();
-  const apogee = table.getByRole('row').filter({ hasText: 'Apogee' });
+  const apogee = table.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Apogee', exact: true }) });
   await expect(apogee).toContainText('4,035 ft'); // what the device wrote
   await expect(apogee).toContainText('4,036 ft'); // what Debrief read
   await expect(apogee).toContainText(/agree/);
@@ -268,7 +268,7 @@ test('a drop of all three Blue Raven files says what was left out AND what was r
 
   // And the figures it contributed are really there.
   const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Logger' }) });
-  await expect(table.getByRole('row').filter({ hasText: 'Apogee' })).toContainText('4,035 ft');
+  await expect(table.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Apogee', exact: true }) })).toContainText('4,035 ft');
 });
 
 // Ranking by a metric answers "which went highest". A launch day also has orders no metric

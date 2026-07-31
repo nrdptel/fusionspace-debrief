@@ -78,7 +78,14 @@ const BUDGET = {
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
    *  break or page gutter — except a list indent, where rounding DOWN puts the marker on the edge,
-   *  so `pl-5 → pl-6`. */
+   *  so `pl-5 → pl-6`.
+   *
+   *  **This read 0 for a run while 8 occurrences were sitting in the tree**, because the pattern
+   *  enumerated the values somebody had in front of them and never matched `gap-` or `space-y-` at
+   *  all. The six sites were converted on the same commit that widened it — `mt-16` to `mt-12`, the
+   *  two `mt-20 md:mt-28` page breaks to `mt-8 md:mt-12` (which keeps the responsive step the first
+   *  attempt flattened away), and `space-y-5`/`gap-5`/`gap-y-5` to `4`, the "between related
+   *  things" mapping the rest of the conversion already used. */
   offScaleSpacing: 0,
   /** Component files where caption size OUTNUMBERS the body default. Target 0. */
   invertedTypeFiles: 23,
@@ -98,7 +105,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 11,
+  uiAdopters: 13,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -113,10 +120,10 @@ const BUDGET = {
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 5,
-  Button: 9,
-  Chip: 2,
+  Button: 10,
+  Chip: 3,
   Readout: 2,
-  IconButton: 1,
+  IconButton: 2,
   Extrapolated: 1,
   EmptyState: 1,
   ErrorState: 1,
@@ -151,9 +158,25 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
   it(`hand-rolls exactly ${BUDGET.cardTreatments} distinct card treatments, on the way to one`, () => {
     // The measurement that made P1 a milestone. Each distinct string is one card somebody wrote out
     // by hand rather than importing, and every one of them was a just-this-once.
+    //
+    // The class carries `:` deliberately. Without it every treatment truncated at its first `dark:`
+    // variant, so a sanctioned `dark:bg-zinc-900` and the unsanctioned fourth surface
+    // `dark:bg-zinc-900/40` landed in one bucket, and a newly hand-rolled card differing from an
+    // existing one only after the colon could not fail this.
+    //
+    // **The count does not move: 7 before, 7 after.** Say that plainly rather than banking a
+    // correction that did not happen — today's seven strings happen to differ before their first
+    // `dark:` as well. What changed is what the metric is CAPABLE of telling apart, which is the
+    // whole point of a ratchet that has to survive the rest of the milestone.
+    //
+    // This counts distinct TREATMENTS, which is what §9 asks for and is not the same as how many
+    // call sites hand-roll a card: 18 occurrences in `components/`, of which one is `<Card>`'s own
+    // string, so **17 are hand-rolled**. That 17 is the number measuring adoption debt, and it
+    // lives in `ROADMAP.md`'s P1 list rather than here, because adding a metric to `DESIGN.md` §9
+    // is a change owed to the sibling repo in the same run and this run cannot push there.
     const treatments = new Set<string>();
     for (const f of components) {
-      for (const m of f.text.match(/rounded-xl border[a-z0-9 /-]*/g) ?? []) treatments.add(m.trim());
+      for (const m of f.text.match(/rounded-xl border[a-z0-9:/ -]*/g) ?? []) treatments.add(m.trim());
     }
     expect(
       treatments.size,
@@ -164,7 +187,24 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
   it(`uses exactly ${BUDGET.offScaleSpacing} off-scale spacing values, on the way to none`, () => {
     // The scale is 1 2 3 4 6 8 12. An `mt-5` between two things that are `mt-4` apart everywhere
     // else is invisible on its own page and is exactly how a layout stops lining up across surfaces.
-    const { total, byFile } = countMatches(ui, /\b[pmg][xytblr]?-(?:5|7|9|10|11|14)\b/g);
+    //
+    // Matched by SUBTRACTING the scale rather than by naming the values off it. The previous form
+    // enumerated `5|7|9|10|11|14` over the prefixes `p m g`, which missed two whole prefixes —
+    // `gap-` and `space-{x,y}-` are the same scale on a different property — and stopped at 14. It
+    // reported 0 while `mt-20 md:mt-28` (twice), `mt-16`, `space-y-5` and `gap-5` were all still
+    // there. An enumeration of what is forbidden goes stale; an enumeration of what is allowed
+    // cannot.
+    //
+    // Half-steps are out of scope on purpose: §4's own table sanctions `px-3 py-1.5`, so forbidding
+    // every `-1.5` would contradict the section this asserts. The unsanctioned ones are counted in
+    // `BACKLOG.md` instead of being quietly swept in here.
+    // `gap` and `space` take their axis as a SEPARATE segment (`gap-y-5`), where padding and
+    // margin fold it into one (`py-5`) — so they cannot share a prefix pattern. Writing them
+    // as one was this fix's own first draft, and it was blind to `gap-y-5` in
+    // `app/methods/page.tsx` while claiming to have closed exactly that class of hole.
+    const offScale =
+      /\b(?:(?:p|m)[xytblr]?|(?:gap|space)(?:-[xy])?)-(?!(?:0|1|2|3|4|6|8|12)\b)[0-9]+\b/g;
+    const { total, byFile } = countMatches(ui, offScale);
     expect(total, `off-scale spacing, by file:\n${byFile.join('\n')}`).toBe(BUDGET.offScaleSpacing);
   });
 

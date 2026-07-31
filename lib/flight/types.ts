@@ -50,7 +50,20 @@ export interface Channel {
  *  so it can be shown beside Debrief's independent read as a cross-check, never
  *  blended into it. `metric` names the analysis field it lines up against. */
 export interface ReportedValue {
-  metric: 'apogeeAltitude' | 'maxVelocity' | 'maxAcceleration' | 'burnoutVelocity' | 'mainDescentRate' | 'drogueDescentRate';
+  metric:
+    | 'apogeeAltitude'
+    | 'maxVelocity'
+    | 'maxAcceleration'
+    | 'burnoutVelocity'
+    | 'mainDescentRate'
+    | 'drogueDescentRate'
+    /** The deployment shocks. Unlike every other member these do NOT name a field on
+     *  `FlightMetrics` — Debrief measures the same quantity as `peakAccel` on the apogee and
+     *  main EVENTS, so `compareReported` resolves them from the event list. A device that
+     *  states them is often the only source there is: on a Blue Raven the board reports the
+     *  charge's own channel, which no barometric trace can recover. */
+    | 'apogeeShock'
+    | 'mainShock';
   /** Human label as Debrief presents it, e.g. "Apogee". */
   label: string;
   /** The value in canonical SI (m, m/s, m/s²), converted from the file's unit. */

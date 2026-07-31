@@ -12,7 +12,7 @@ import Link from 'next/link';
  */
 export default function MethodsPointer() {
   return (
-    <section className="mx-auto mt-16 w-full max-w-5xl border-t border-zinc-200 pt-8 dark:border-zinc-800 print:hidden">
+    <section className="mx-auto mt-12 w-full max-w-5xl border-t border-zinc-200 pt-8 dark:border-zinc-800 print:hidden">
       <h2 className="text-xl font-semibold tracking-tight">Where the numbers come from</h2>
       <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
         Debrief is a measurement instrument, not a simulator: every number is a reading of your own

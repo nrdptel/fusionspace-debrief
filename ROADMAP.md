@@ -521,7 +521,13 @@ much as the success path.
 
 ## D5 — The report a flyer can actually build
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **the first clause of the *done when* is met on both document
+surfaces: which figures appear, AND in what order.** Pinned by
+`the figures a comparison carries are the flyer’s choice, and the report agrees` and
+`the order a flyer puts the figures in follows into the document` (both `e2e/compare.spec.ts`,
+both walking the real app: the bundle's SVG entries, the .html's figure captions and their
+sequence, and both choices read back on the single-flight report). What remains of the milestone
+is **colour** and **a paginated document** — see *What is left* below.
 
 **Outcome.** The plots, colours and formats are the flyer's choice, not the tool's.
 
@@ -529,11 +535,64 @@ much as the success path.
 export a report a certification package or forum post can use directly — including at least one image
 or self-contained document format beyond today's text, Markdown, HTML, CSV and JSON.
 
-**Notes.** Closing named gaps rather than starting fresh: `reportProfile.ts` and `plotView.ts` already
-carry readings, order and hidden figures; `COMPARE_PALETTE` (`lib/compare.ts:13`) is hardcoded and
-caps a comparison at 6; there is no image or paginated export. Keep the rule `reportProfile.ts`
-already states — trimming a *report* is a presentation choice, trimming a *data export* is a broken
-file, so CSV and JSON keep every key.
+**Two of this milestone's own premises were wrong, and were corrected by measurement before any
+of it was scoped. Read these before planning the rest.**
+
+1. **"There is no image or paginated export" is false.** Four PNG paths ship
+   (`FlightReport.tsx:442` altitude chart, `FlightCard.tsx:283` the shareable card,
+   `ChannelExplorer.tsx:258`, `CompareView.tsx:431`), plus per-figure SVG via `lib/svgChart.ts`,
+   plus print-to-PDF: `window.print()` at `FlightReport.tsx:423` behind a real `@media print`
+   block in `app/globals.css:117` and 30 `print:hidden` utilities. An increment spent "adding an
+   image export" would have rebuilt shipped work. The genuine gap is a **paginated document**
+   Debrief generates itself rather than a browser print of a live page — and it is the most
+   expensive clause, so it goes last, not first.
+2. **The comparison ignored the flyer's figure choice entirely.** The report filtered its figures
+   through `hiddenFigures`; the comparison exported the literal
+   `['altitude','velocity','acceleration']` in both `saveHtml` and `saveBundle`. So a flyer who
+   turned Acceleration off on the report still got an acceleration plot in the comparison bundle,
+   and could never get the Mach or dynamic-pressure overlays into a document at all, though the
+   surface draws both. **Closed** — both exports now read one `documentFigures` list, so they
+   cannot disagree, and `components/FigureChooser.tsx` is one control shared by both surfaces
+   rather than two that resemble each other.
+
+   Two defects fell out of it. The comparison offered every overlay whether or not any flight
+   carried it, so on a set whose peak speed was withheld the Mach and dynamic-pressure options
+   were live and drew a blank chart — the "control that is always enabled and fails only when
+   pressed" tell. The filter now tests what the data holds, which covers any metric added later.
+   And the figure toggles are named `"<title> figure"` rather than `"<title>"`, because the
+   comparison already has a channel picker with those exact names and two controls sharing an
+   accessible name is ambiguous to a screen reader before it is ambiguous to a test.
+
+**What is left**, in the order it is worth doing:
+
+1. ~~**Figure ORDER.**~~ **DONE 2026-07-31.** `debrief.report.figureOrder`, plus `onMove` on the
+   shared chooser, reusing `orderRows`/`moveReading` rather than a second implementation of them.
+   Ordered FIRST and filtered second on both surfaces, so the ▲/▼ act on the sequence the
+   document will carry — ordering the survivors instead would silently renumber the list every
+   time a figure is hidden. Falsified two ways: ordering the screen but not the document fails
+   the .html caption sequence, and not persisting fails the cross-surface read-back.
+
+   **Worth recording, because `orderRows`'s own comment refuses reading-order on the report:**
+   that refusal is about the report's READINGS being two parallel lists — a grid of tiles beside
+   an export table carrying rows the tiles do not have — so "third from the top" has no exact
+   meaning across them. A figure list is ONE list on both surfaces, so the same machinery
+   applies with none of that ambiguity. Do not read the refusal as covering figures.
+2. **Series colours.** `COMPARE_PALETTE` (`lib/compare.ts:13`) is six literal hexes, and
+   `MAX_COMPARE = COMPARE_PALETTE.length` — so colour and CARDINALITY are one constant, and
+   `ChannelExplorer.tsx` caps its series on the same length. Split those before making colour a
+   choice, or a presentation change silently alters how many flights a comparison holds. The
+   single-flight figures do not use that palette at all: `FlightReport.tsx` has three literal
+   hexes inline, duplicated again for the on-screen charts, and `lib/eventStyle.ts` gives drogue
+   and main the same `#0ea5e9`, so a saved figure cannot tell those two events apart.
+   `plotSvg` already takes a colour per series, so the exporters need no change.
+3. **A paginated document** — see premise 1. Note `package.json` carries four runtime
+   dependencies and `lib/zip.ts` is hand-rolled, so a PDF library would be against the grain.
+
+**Notes.** Closing named gaps rather than starting fresh: `reportProfile.ts` and `plotView.ts`
+already carry readings, order and hidden figures. Keep the rule `reportProfile.ts` already states —
+trimming a *report* is a presentation choice, trimming a *data export* is a broken file, so CSV and
+JSON keep every key. Verified still true after this slice: `analyzedDataCsv` takes no profile, and
+`compareJson` builds its differences with no hidden/order argument.
 
 **Size.** 4–6 increments.
 
@@ -548,21 +607,62 @@ copies of the secondary button are gone.
 
 **What is left, in the order it is worth doing** — each measured, none guessed:
 
-1. **25 off-scale spacing values**, untouched so far: `mt-10` ×6, `py-10` ×5, `pl-5` ×4, `pt-5` ×3,
-   `mt-5` ×3, `p-10`, `py-5` ×2 — mostly the docs routes, which is part of why they read as a
-   different author from the app.
-2. **23 of 45 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
+1. ~~**25 off-scale spacing values**~~ **DONE 2026-07-31 — and the count was lying.** The 25 named
+   here were converted, after which the §9 grep read **0 while 7 occurrences over 5 sites were still
+   in the tree**: it enumerated the values somebody had in front of them (`5|7|9|10|11|14`) over the
+   prefixes `p m g`, so it never matched `gap-` or `space-{x,y}-` at all and stopped below 16. The
+   pattern now subtracts the scale instead of naming what is off it, and the five survivors —
+   `mt-20 md:mt-28` ×2, `mt-16`, `space-y-5`, `gap-5` — were converted in the same commit.
+   Falsified against `gap-5`, `space-y-7`, `mt-20` and `p-16`, every one of which the old form passed.
+2. **23 of 46 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
    matters most and it has barely moved: the conversions so far took the buttons, not the bodies.
-3. **`dark:bg-zinc-900/40`, a fourth dark surface, 30 times** beside the sanctioned
-   `dark:bg-zinc-900` and `dark:bg-zinc-900/50`. §2 allows three.
-4. **`DataTable`.** 6 tables, 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
+   Worst offenders, measured: `RecentFlights` 26/6, `FlightReport` 24/12, `ChannelExplorer` 17/4,
+   `CompareView` 17/10 — and the first of those is the logbook, the one surface built for scanning
+   flights against each other.
+
+   **A prediction written here on 2026-07-31 was wrong, and the correction is the useful part.**
+   It said converting `RecentFlights`'s buttons onto `<Button>` would un-invert the file, because
+   `Button`'s default `md` size is `text-sm`. Eleven of its 23 were converted the same day and the
+   file went **26/6 → 18/6 — still inverted**, because most of them are correctly `size="sm"`,
+   which is `text-xs` by §4's own "inside a control … `px-2 py-1` for `text-xs` chips". A dense
+   logbook toolbar of `md` controls would be the generous-whitespace failure §4 warns about.
+
+   **So items 2 and 7 are NOT the same work, and item 2's target of 0 may be unreachable on a
+   toolbar-dense surface without breaching §4.** Do not force it: the metric exists to stop a
+   decision-grade NUMBER rendering at caption size, and that specific breach is fixed here
+   (below). Before spending an increment driving this count to 0, decide whether the count or the
+   rule is what needs changing — this is the third §9 metric to turn out to measure something
+   other than what it was reached for, after the suite-wide type ratio and the two blind greps.
+
+   **Already done on this file (2026-07-31):** the two decision-grade values — apogee and max
+   velocity, the numbers the logbook exists to be scanned down — were `text-xs` in §2's TERTIARY
+   colour with proportional digits. They are now `text-sm tabular-nums` in the primary text colour,
+   which is §3's floor for a number a flyer reads to make a decision and its requirement that
+   compared numerals line up column to column. That moved the file 27/3 → 26/6; it does not clear
+   the inversion, and it was not meant to.
+3. **Three unsanctioned dark surfaces, 32 uses**, where §2 allows one beside the two sanctioned:
+   `dark:bg-zinc-900/40` ×27, `/30` ×4, `/60` ×1, against `dark:bg-zinc-900` ×41 and `/50` ×4.
+   The earlier entry said "`/40`, 30 times" and named only one of the three.
+4. **`DataTable`.** 7 tables (not 6), 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
    `SampleTable.tsx`, which already has the sticky header, `aria-sort` and the clipboard copy, and
    collapse `CompareView`'s independent second copy onto it.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
-6. **Two primaries on one surface**, in `ColumnMapper` and `RecentFlights`.
-7. **The remaining 56 hand-rolled `<button>` elements**, chiefly `RecentFlights` (23).
+6. **Two primaries on one surface** — `ColumnMapper` only now. ~~`RecentFlights`~~ **DONE
+   2026-07-31**: its second indigo fill was the note editor's Save, which is now secondary. The
+   logbook's one primary is "Compare N flights", the action the surface exists to perform. A
+   FIFTH button weight went with it — an indigo-outlined "These N are one flight", which §5 does
+   not have.
+7. **The remaining 41 hand-rolled `<button>` elements** outside `components/ui.tsx` (46 in the
+   tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
+   there is genuinely not `Button` — the row itself as a click target, the file-name text button,
+   the ✕ (an `IconButton` with a responsive size), the sort chips and the checkbox labels.
+8. **17 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+   This is the adoption debt the §9 count does not measure: §9 counts distinct TREATMENTS, which is
+   7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.
+   Kept here rather than added to `DESIGN.md` §9, because a new metric in that file is a change owed
+   to the sibling repo in the same run and this run cannot push there.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
@@ -587,12 +687,18 @@ flyer reads one surface rather than the suite total.
 |---|---|---|---|
 | `rounded-lg` | 0 | 26 | 22 |
 | distinct card treatments | 1 + named non-card primitives | 6 | 7 |
-| off-scale spacing | 0 | 25 | 25 |
+| card call sites hand-rolling one | 0 | — | 17 |
+| off-scale spacing | 0 | 25 | **0** (grep widened — see item 1) |
 | off-scale type sizes | 0 (honest floor 1) | 20 | **1** |
-| files where `text-xs` > `text-sm` | 0 | 26 | 23 |
-| components importing `./ui` | most of 45 | 0 | **11** |
-| components importing `Button` | most | 0 | **9** |
-| hand-rolled `<button>` elements | few | 90 | **56** |
+| files where `text-xs` > `text-sm` | 0 — **but read item 2 first** | 26 | 23 |
+| components importing `./ui` | most of 47 | 0 | **13** |
+| components importing `Button` | most | 0 | **10** |
+| hand-rolled `<button>` elements | few | 90 | **41** outside `ui.tsx` (46 in tree) |
+
+Measured at the end of the 2026-07-31 run, with §9's own commands. Two of these moved for reasons
+worth keeping: `off-scale spacing` reached a *real* 0 only after the grep was widened twice — it
+had been reporting 0 against 8 live occurrences — and `hand-rolled <button>` fell 52 → 41 in one
+surface, `RecentFlights`, which also lost a fifth button weight and its second primary.
 
 **Off-scale type's floor is 1, and it is not a shortfall.** The one that remains is the brand
 wordmark, `text-2xl md:text-3xl` in the sibling app too, which §10 makes shared and non-negotiable.

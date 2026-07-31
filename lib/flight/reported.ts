@@ -9,7 +9,7 @@
 // row is never mistaken for a reading. Unknown formats simply yield nothing.
 
 import type { ReportedValue } from './types';
-import type { FlightMetrics } from '../analyze/types';
+import type { FlightEvent, FlightMetrics } from '../analyze/types';
 import { parseNumber } from '../csv';
 import { G0 } from '../units';
 
@@ -69,6 +69,8 @@ export const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'spee
   mainDescentRate: 'speed',
   drogueDescentRate: 'speed',
   maxAcceleration: 'accel',
+  apogeeShock: 'accel',
+  mainShock: 'accel',
 };
 
 /** Within this fraction the device's figure and Debrief's read agree tightly — the
@@ -85,6 +87,13 @@ const CONSISTENT_FRACTION = 0.2;
 const WIDE_TOLERANCE: Partial<Record<ReportedValue['metric'], number>> = {
   mainDescentRate: CONSISTENT_FRACTION,
   drogueDescentRate: CONSISTENT_FRACTION,
+  // A deployment shock is a millisecond-scale transient, and the two instruments are not
+  // sampling the same instant of it: the board reads its own charge channel while Debrief
+  // reads the airframe's accelerometer over a window around the event. Two honest reads of
+  // one bang differ by more than two reads of an apogee do, so the wider band applies —
+  // which is the same argument the descent rates already make.
+  apogeeShock: CONSISTENT_FRACTION,
+  mainShock: CONSISTENT_FRACTION,
 };
 
 /** How a device figure and Debrief's independent read line up: a tight `agree`, a
@@ -138,11 +147,29 @@ function isGravityConvention(metric: ReportedValue['metric'], computed: number, 
 
 /** Pair each device-reported figure with Debrief's own read of the same metric —
  *  the shared basis for the on-screen cross-check and the exported report. */
-export function compareReported(reported: ReportedValue[], metrics: FlightMetrics): ReportedComparison[] {
+/** Debrief's own read of one reported metric.
+ *
+ *  Most name a field on `FlightMetrics` directly. The two deployment shocks do not: Debrief
+ *  measures that quantity as `peakAccel` on the apogee and main EVENTS, so they are resolved
+ *  from the event list. Without this a device that states its shocks would show a permanently
+ *  blank Debrief column, which reads as "not measured" on the flights that did measure it. */
+function computedFor(metric: ReportedValue['metric'], metrics: FlightMetrics, events?: FlightEvent[]): number {
+  if (metric === 'apogeeShock' || metric === 'mainShock') {
+    const type = metric === 'apogeeShock' ? 'apogee' : 'main';
+    return events?.find((e) => e.type === type)?.peakAccel ?? NaN;
+  }
+  return (metrics[metric] as number | null | undefined) ?? NaN;
+}
+
+export function compareReported(
+  reported: ReportedValue[],
+  metrics: FlightMetrics,
+  events?: FlightEvent[],
+): ReportedComparison[] {
   return reported.map((r) => {
     // Some analysis fields (burnout velocity, main descent) are null when the flight
     // didn't have them; treat that as "nothing to compare" (NaN), not a zero.
-    const computed = metrics[r.metric] ?? NaN;
+    const computed = computedFor(r.metric, metrics, events);
     const hasComputed = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
     const deltaPct = hasComputed ? Math.abs((computed - r.value) / r.value) * 100 : null;
     const agree = deltaPct != null && deltaPct <= AGREE_FRACTION * 100;

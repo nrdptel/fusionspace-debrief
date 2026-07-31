@@ -35,7 +35,7 @@ export default function MethodsPage() {
           .
         </p>
 
-        <div className="mt-6 grid gap-x-8 gap-y-5 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
+        <div className="mt-6 grid gap-x-8 gap-y-4 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="gps-recording" title="The GPS recording, where the file has one">
             Some loggers write the receiver&apos;s own altitude beside the barometer&apos;s — a
             different sensor, indifferent to the weather and to the shock over a static port. Debrief
@@ -318,7 +318,18 @@ export default function MethodsPage() {
             that same flight it reads 1,710&nbsp;ft at the instant the barometer reads 493&nbsp;ft
             below the pad, and only one of those can be a height. The analysis stays on the barometric
             channel, which is the one that doesn&apos;t drift over a whole flight; the two are shown
-            side by side rather than merged.
+            side by side rather than merged.{' '}
+            <strong>That second recording is carried only for as long as it is still a recording.</strong>{' '}
+            It is an integration, written into a field that cannot hold a large flight, so it ends at
+            whichever comes first of a single-sample step of about 2<sup>16</sup>&nbsp;ft — a counter
+            wrapping, not a rocket moving — or the two recordings differing by more than the whole
+            flight was high, which means one of them has stopped reading. Past that point it is
+            withheld rather than plotted, and the flight says when and what both instruments read
+            there. Neither bound is a tuned number: one is the field&apos;s own span and the other is
+            the flight&apos;s own height. Across the corpus one Blue Raven keeps every sample, two
+            keep their whole ascent and are still readable at apogee, and one — a 121&nbsp;km flight
+            in a field that tops out near 32,767&nbsp;ft — is over its ceiling before apogee, which is
+            the honest answer for that flight rather than a convenient one.
           </Method>
           <Method id="acceleration" title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
@@ -658,6 +669,19 @@ export default function MethodsPage() {
             left out rather than guessed at. Only figures that line up against something Debrief
             measures are read — a GPS summary&apos;s &ldquo;distance at apogee&rdquo; is downrange,
             not altitude, and mapping it would invent a disagreement out of a sound read.
+          {' '}
+            That includes the <strong>deployment shocks</strong> a Featherweight summary states for
+            its apogee and main channels. Debrief measures the same quantity — the acceleration peak
+            at each of those events — on 19 of the 36 corpus flights that analyse, so on those the
+            two are a real cross-check. On the rest the row still appears and says the reading is not
+            comparable rather than going blank, because on a barometric recording the board&apos;s
+            figure is the only one there is: nothing in a pressure trace recovers what a charge did.
+            The shocks are judged against the wider agreement band, like the descent rates and for
+            the same reason — a shock is a millisecond transient, and the board reading its own
+            charge channel and Debrief reading the airframe&apos;s accelerometer over a window are
+            not sampling the same instant of it. The summary&apos;s <em>landing</em> figure is
+            deliberately left out: that is the ground impact, not a flight load, and Debrief has no
+            event to hold it against.
           {' '}
             One difference there is worth naming, because it looks like a disagreement and isn&apos;t:
             an accelerometer at rest on the pad reads <strong>1&nbsp;g</strong>. Debrief reports that
