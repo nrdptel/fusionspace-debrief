@@ -162,7 +162,7 @@ export default function ColumnMapper({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Map the columns</h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">

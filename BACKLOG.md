@@ -16,6 +16,20 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **`DESIGN.md` §4 does not say which half-steps are on the spacing scale, and the code uses four of
+  them 148 times.** §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
+  but §4's OWN table then sanctions `px-3 py-1.5` and `px-2 py-1` for controls — so `-1.5` is
+  simultaneously forbidden by the sentence and required by the table. Measured 2026-07-31 over
+  `components/` and `app/`: `-1.5` ×78, `-0.5` ×48, `-2.5` ×21, `-3.5` ×1. The widened §9 spacing
+  grep deliberately excludes half-steps for this reason and says so, rather than reporting 148
+  breaches of a rule the file
+  contradicts itself on. Settling it means one sentence in §4 naming the sanctioned half-steps —
+  a change to `DESIGN.md` in BOTH repos, which is why it is filed rather than taken.
+- **`components/RecentFlights.tsx:630,638` marks the fastest and highest remembered flights with a
+  `text-amber-500` ★.** `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
+  extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
+  magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
+  figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
 - **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
   every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
   with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with

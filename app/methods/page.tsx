@@ -35,7 +35,7 @@ export default function MethodsPage() {
           .
         </p>
 
-        <div className="mt-6 grid gap-x-8 gap-y-5 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
+        <div className="mt-6 grid gap-x-8 gap-y-4 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="gps-recording" title="The GPS recording, where the file has one">
             Some loggers write the receiver&apos;s own altitude beside the barometer&apos;s — a
             different sensor, indifferent to the weather and to the shock over a static port. Debrief

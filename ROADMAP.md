@@ -548,21 +548,35 @@ copies of the secondary button are gone.
 
 **What is left, in the order it is worth doing** — each measured, none guessed:
 
-1. **25 off-scale spacing values**, untouched so far: `mt-10` ×6, `py-10` ×5, `pl-5` ×4, `pt-5` ×3,
-   `mt-5` ×3, `p-10`, `py-5` ×2 — mostly the docs routes, which is part of why they read as a
-   different author from the app.
-2. **23 of 45 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
+1. ~~**25 off-scale spacing values**~~ **DONE 2026-07-31 — and the count was lying.** The 25 named
+   here were converted, after which the §9 grep read **0 while 7 occurrences over 5 sites were still
+   in the tree**: it enumerated the values somebody had in front of them (`5|7|9|10|11|14`) over the
+   prefixes `p m g`, so it never matched `gap-` or `space-{x,y}-` at all and stopped below 16. The
+   pattern now subtracts the scale instead of naming what is off it, and the five survivors —
+   `mt-20 md:mt-28` ×2, `mt-16`, `space-y-5`, `gap-5` — were converted in the same commit.
+   Falsified against `gap-5`, `space-y-7`, `mt-20` and `p-16`, every one of which the old form passed.
+2. **23 of 46 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
    matters most and it has barely moved: the conversions so far took the buttons, not the bodies.
-3. **`dark:bg-zinc-900/40`, a fourth dark surface, 30 times** beside the sanctioned
-   `dark:bg-zinc-900` and `dark:bg-zinc-900/50`. §2 allows three.
-4. **`DataTable`.** 6 tables, 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
+   Worst offenders, measured: `RecentFlights` 27/3, `FlightReport` 24/12, `ChannelExplorer` 17/4,
+   `CompareView` 17/10 — and the first of those is the logbook, the one surface built for scanning
+   flights against each other.
+3. **Three unsanctioned dark surfaces, 32 uses**, where §2 allows one beside the two sanctioned:
+   `dark:bg-zinc-900/40` ×27, `/30` ×4, `/60` ×1, against `dark:bg-zinc-900` ×41 and `/50` ×4.
+   The earlier entry said "`/40`, 30 times" and named only one of the three.
+4. **`DataTable`.** 7 tables (not 6), 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
    `SampleTable.tsx`, which already has the sticky header, `aria-sort` and the clipboard copy, and
    collapse `CompareView`'s independent second copy onto it.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
 6. **Two primaries on one surface**, in `ColumnMapper` and `RecentFlights`.
-7. **The remaining 56 hand-rolled `<button>` elements**, chiefly `RecentFlights` (23).
+7. **The remaining 52 hand-rolled `<button>` elements** outside `components/ui.tsx` (57 in the tree,
+   5 of them inside the primitives themselves), chiefly `RecentFlights` (23).
+8. **17 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+   This is the adoption debt the §9 count does not measure: §9 counts distinct TREATMENTS, which is
+   7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.
+   Kept here rather than added to `DESIGN.md` §9, because a new metric in that file is a change owed
+   to the sibling repo in the same run and this run cannot push there.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
@@ -587,12 +601,13 @@ flyer reads one surface rather than the suite total.
 |---|---|---|---|
 | `rounded-lg` | 0 | 26 | 22 |
 | distinct card treatments | 1 + named non-card primitives | 6 | 7 |
-| off-scale spacing | 0 | 25 | 25 |
+| card call sites hand-rolling one | 0 | — | 17 |
+| off-scale spacing | 0 | 25 | **0** (grep widened — see item 1) |
 | off-scale type sizes | 0 (honest floor 1) | 20 | **1** |
 | files where `text-xs` > `text-sm` | 0 | 26 | 23 |
-| components importing `./ui` | most of 45 | 0 | **11** |
+| components importing `./ui` | most of 46 | 0 | **11** |
 | components importing `Button` | most | 0 | **9** |
-| hand-rolled `<button>` elements | few | 90 | **56** |
+| hand-rolled `<button>` elements | few | 90 | **52** outside `ui.tsx` |
 
 **Off-scale type's floor is 1, and it is not a shortfall.** The one that remains is the brand
 wordmark, `text-2xl md:text-3xl` in the sibling app too, which §10 makes shared and non-negotiable.
