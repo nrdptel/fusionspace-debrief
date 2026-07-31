@@ -8,10 +8,25 @@ import { formatFlownDay, type FlownAt } from './flight/flownAt';
 import { landedInRecord } from './readings';
 import type { EventType, FlightAnalysis, FlightMetrics } from './analyze/types';
 
-// Distinct, colour-blind-friendly-ish strokes; one per flight, in order. Caps the
-// number of flights a comparison shows (more than this gets visually unreadable).
+// Distinct, colour-blind-friendly-ish strokes; one per flight, in order.
 export const COMPARE_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#0ea5e9', '#a855f7'];
-export const MAX_COMPARE = COMPARE_PALETTE.length;
+
+/**
+ * How many flights a comparison shows. Its own constant, NOT `COMPARE_PALETTE.length`.
+ *
+ * They were one value, and that made colour and CARDINALITY the same decision: a seventh
+ * stroke would have silently raised the cap, and a shorter palette would have silently lowered
+ * it — including for `lib/compareFromLogbook.ts`, which slices ids by it, `components/
+ * CompareSurface.tsx`, which caps a drop by it, and the channel explorer, which took its own
+ * channel limit from the same length. Changing how a chart looks must not change how many
+ * flights a flyer can put on it, which is the trap waiting for D5's colour work: the moment
+ * the palette becomes the flyer's, its length stops being a fact about the product.
+ *
+ * Six because more than six overlaid traces stop being readable — a limit about the eye, which
+ * is why it does not move when the colours do. The palette is indexed modulo its own length, so
+ * the two need not match.
+ */
+export const MAX_COMPARE = 6;
 
 const GRID_POINTS = 800;
 

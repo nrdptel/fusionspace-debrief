@@ -33,7 +33,9 @@ import { Button } from './ui';
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
 const GROUPS: PlotChannel['group'][] = ['Debrief', 'Recorded'];
-const MAX_SERIES = COMPARE_PALETTE.length;
+// The explorer's own limit, for the same reason `MAX_COMPARE` is: how many traces stay
+// readable is a fact about the eye, not about how many strokes the palette happens to hold.
+const MAX_SERIES = 6;
 
 function num(v: number): string {
   if (!Number.isFinite(v)) return '—';
