@@ -21,7 +21,7 @@ const CACHE = 'debrief-runtime-v1';
 //    back to the cached "/" — so the app came up, but showing the home page at the
 //    /methods/ URL, which is a small lie at exactly the moment someone at the field with no
 //    signal wants to look up what a number means.
-const ROUTES = ['/', '/compare/', '/methods/', '/validation/', '/privacy/'];
+const ROUTES = ['/', '/compare/', '/stitch/', '/methods/', '/validation/', '/privacy/'];
 
 //  - each route's RSC payload (`/methods/index.txt`), which is what the App Router asks for
 //    when the flyer taps an in-app link rather than reloading. Without it that fetch fails

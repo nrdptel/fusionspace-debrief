@@ -1,5 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+
+import { TOUCH_TARGET, TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
+
 /**
  * The shared primitive layer — `DESIGN.md` §5.
  *
@@ -15,17 +19,18 @@
  * Debrief's surfaces need something the sibling's do not — say which, in the primitive's own
  * comment, so the divergence is a decision rather than a drift.
  *
- * **Two things these primitives deliberately do NOT carry, because `app/globals.css` already
- * does them for every control and doing them twice is how the two copies drift apart:**
- * - the focus ring. `globals.css`'s `:focus-visible` rule is UNLAYERED, and an unlayered rule beats
- *   anything in `@layer utilities` whatever its specificity — so a `focus-visible:outline-*`
+ * **One thing these primitives deliberately do NOT carry, and one they must.**
+ * - **No focus ring.** `globals.css`'s `:focus-visible` rule is UNLAYERED, and an unlayered rule
+ *   beats anything in `@layer utilities` whatever its specificity — so a `focus-visible:outline-*`
  *   utility on a button here is not a second belt, it is inert. Measured 2026-07-31, after adding
  *   some and finding they changed nothing.
- * - the 44 px touch floor on `<button>`. `globals.css`'s `@media (pointer: coarse)` block already
- *   sets `min-height` and `min-width` on `button`, `select`, `[role="button"]` and `input`. The
- *   sibling's `Button` DOES carry the token, and that is not a divergence to fix in either
- *   direction: the sibling has no coarse-pointer block. `TOUCH_TARGET` is still the right thing on
- *   the elements that block does not reach — `<label>`, `<summary>`, a non-download `<a>`.
+ * - **The 44 px touch floor, yes — `globals.css` is not enough on its own.** That block is
+ *   `@media (pointer: coarse)`, which a real phone arms and a test harness does not: the e2e suite
+ *   runs the `Desktop Chrome` device, so the media query never applies there and the only thing a
+ *   touch audit can measure is the class. Removing the token from `Button` on the grounds that the
+ *   stylesheet covers it took `e2e/touch.spec.ts`'s whole contract out of reach in the same move.
+ *   The two mechanisms agree on 44 px on purpose; the stylesheet is the floor for elements nobody
+ *   converted, and the token is the design.
  *
  * `lib/design-system.test.ts` is the executable copy of `DESIGN.md` §9 and holds the counts to an
  * exact ratchet, so a conversion has to record itself and a new hand-rolled treatment fails.
@@ -65,10 +70,11 @@ export type CardTone = keyof typeof CARD_TONES;
  *  the e2e suite reaches by `getByRole('region', …)`, and silently turning a `<section>` into a
  *  `<div>` would take them out of the accessibility tree. `id`, `role`, `aria-label` and the rest
  *  pass straight through, so adopting the primitive costs a call site nothing it already had —
- *  **with one exception, and it is a trap: `title` here is the card's HEADING, not the native
- *  tooltip attribute.** A call site that had `title="…"` meaning a tooltip gets an `<h3>` instead
- *  and loses the tooltip silently. The name is the sibling's and is kept for that reason; when a
- *  card genuinely needs a tooltip, put it on the element inside. */
+ *  **with one exception: `title` here is the card's HEADING, not the native tooltip attribute.**
+ *  The name is the sibling's and is kept for that reason, but the native one is `Omit`ted from the
+ *  passthrough rather than left to collide: intersected, the two types produce `ReactNode & string`,
+ *  which quietly rejects a heading element and would have let a call site's tooltip vanish without
+ *  a word. When a card needs a tooltip, put it on the element inside. */
 export function Card({
   as: Tag = 'div',
   tone = 'default',
@@ -87,7 +93,7 @@ export function Card({
   title?: React.ReactNode;
   /** Controls that belong to the title row rather than to the body. */
   actions?: React.ReactNode;
-} & React.HTMLAttributes<HTMLElement>) {
+} & Omit<React.HTMLAttributes<HTMLElement>, 'title'>) {
   return (
     <Tag className={cx('rounded-xl border', CARD_TONES[tone], pad && 'p-4', className)} {...rest}>
       {(title || actions) && (
@@ -156,26 +162,42 @@ export function Button({
   size = 'md',
   className,
   type = 'button',
+  href,
   children,
   ...rest
 }: {
   variant?: ButtonVariant;
   size?: keyof typeof BUTTON_SIZES;
+  /** Render an `<a>` instead, with the same treatment. A control that navigates is still a button
+   *  to a flyer, but it is a LINK to a browser and to a screen reader — and wrapping this in a
+   *  `<Link>` instead nests an `<a>` around a `<button>`, which is invalid, gives the row two
+   *  focus stops, and leaves the anchor short of the touch floor because only the inner element
+   *  carries it. */
+  href?: string;
   /** Declared explicitly because `ButtonHTMLAttributes` does not carry it. React 19 passes `ref`
    *  to a function component as an ordinary prop, so no forwarding wrapper is needed — but the
    *  type has to say so, and the surfaces that return focus to a control hand it a ref. */
   ref?: React.Ref<HTMLButtonElement>;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const classes = cx(
+    'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+    BUTTON_VARIANTS[variant],
+    BUTTON_SIZES[size],
+    TOUCH_TARGET,
+    className,
+  );
+  if (href != null) {
+    return (
+      <Link href={href} className={classes} {...(rest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}>
+        {children}
+      </Link>
+    );
+  }
   return (
     <button
       type={type}
-      className={cx(
-        'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        BUTTON_VARIANTS[variant],
-        BUTTON_SIZES[size],
-        className,
-      )}
+      className={classes}
       {...rest}
     >
       {children}
@@ -208,6 +230,7 @@ export function IconButton({
         'disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent',
         BUTTON_VARIANTS[variant],
         'px-2 py-1',
+        TOUCH_TARGET_SQUARE,
         className,
       )}
       {...rest}
@@ -253,6 +276,7 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             className={cx(
               'inline-flex items-center justify-center rounded-md font-medium transition',
+              TOUCH_TARGET,
               pad,
               active
                 ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100'

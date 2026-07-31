@@ -87,7 +87,7 @@ const BUDGET = {
    *  to match, in both repos. */
   offScaleType: 19,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 4,
+  uiAdopters: 5,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -101,17 +101,17 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 4,
-  Button: 2,
+  Card: 5,
+  Button: 3,
+  Chip: 2,
+  Readout: 2,
   IconButton: 1,
-  Chip: 1,
-  Readout: 1,
   Extrapolated: 1,
+  EmptyState: 1,
+  ErrorState: 1,
   Section: 0,
   Segmented: 0,
   Disclosure: 0,
-  EmptyState: 0,
-  ErrorState: 0,
 };
 
 /** `DESIGN.md` §3's six sizes, and nothing else. `text-[11px]` is the sixth and is matched by the

@@ -12,6 +12,7 @@ import FusionSpaceBadge from './FusionSpaceBadge';
 const SURFACES = [
   { href: '/', key: 'analyze', label: 'Analyze', hint: 'Read one flight log' },
   { href: '/compare', key: 'compare', label: 'Compare', hint: 'Line up several side by side' },
+  { href: '/stitch', key: 'stitch', label: 'Assemble', hint: 'Stages of one launch, in order' },
 ] as const;
 
 /** What this surface is for, in its own words — two pages doing different jobs shouldn't
@@ -21,6 +22,8 @@ const TAGLINE: Record<string, string> = {
     'Drop in a flight log from any altimeter and read the flight — parsed in your browser, never uploaded.',
   compare:
     'Line up a launch day, a season, or several altimeters that flew the same rocket — read side by side in your browser, never uploaded.',
+  stitch:
+    'Put the stages of one launch in order on the clock they share — every mark naming the recording it came from, nothing merged into a single reading.',
 };
 const TAGLINE_DEFAULT =
   'Read the flight logs you have already flown — parsed in your browser, never uploaded.';

@@ -370,13 +370,48 @@ Three things it did not do. **One is closed since**, and the other two are filed
 
 ## D4 — Stitch per-stage logs into one composite flight
 
-**Status:** IN PROGRESS — the alignment is shipped and pinned by `lib/stitch.test.ts` (10 cases),
-by `iss-kairos: Kairos booster + sustainer: both stages caught the launch, so they line up on it`
-over the corpus's real two-stage pair, and by six `recordings of one launch line up on it, whatever
-their burnouts say` cases over the redundant-board groups (`lib/parsers/corpus.test.ts`).
-**This slice is groundwork and says so**: it decides whether two per-stage logs CAN be put on one
-clock and produces the offsets or a refusal. A flyer sees nothing yet, because a composite surface
-built before the alignment was measured is exactly the guess this milestone must not make.
+**Status:** SHIPPED 2026-07-31 — pinned by `e2e/stitch.spec.ts` (8 cases, walking the real app: two
+per-stage logs assembled into one ordered timeline with every mark naming its recording, the stage
+statement, whole-second composite times, both refusal paths, the empty state, reachability from the
+header, the service-worker precache and the static export), by `lib/composite.test.ts` (10 cases over
+the corpus's real staged pair to the tenth), and by the alignment core's existing
+`lib/stitch.test.ts` (10) plus its three corpus invariants.
+
+**What a flyer can DO that they could not before:** open `/stitch` with two per-stage logs and read
+one timeline — every recording's marks in order on the clock they share, each naming the recording it
+came from — instead of two files that each hold part of a launch and neither of which has the order.
+
+**Each clause of the *done when*, and the check that pins it:**
+
+- *assemble two per-stage logs into one timeline* — `/stitch/?ids=a,b`, reusing `/compare`'s own id
+  contract and loader, so a composite reloads, bookmarks and pastes into a club thread. Pinned by
+  `two per-stage logs read as one timeline, each mark naming its recording`.
+- *whose events read in order across staging* — pinned in the same case: the stage that flew higher
+  and longer has the later apogee and the table puts it there.
+- *see which recording each segment came from* — every row names it, asserted structurally rather
+  than by prose: the table's four columns are `Time · Mark · Recording · Its own altitude`, and a
+  blended reading would have to add a fifth or replace the third.
+- *and get a refusal that says why when the two cannot be aligned* — two refusal paths, both walked:
+  a recording with no liftoff (named, with the reason `lib/stitch.ts` already wrote), and a set with
+  a stage the logbook no longer holds. That second one is deliberately UNLIKE `/compare`, which is
+  right to drop a dead id and carry on: a composite missing a stage has a hole in it.
+- *rather than a plausible composite built on a guess* — `verified` is false on every composite,
+  carried from `StageAlignment` rather than dropped, and the surface says so above the readings.
+
+**What it deliberately does not do**, each refused by measurement rather than preference: no merged
+reading of any kind; no staging mark (no corpus record holds two separable burns); no composite time
+printed to a tenth (two boards in ONE airframe still want a further 0.56–0.74 s to agree, and read
+333 m and 487 m at t+3 s); and no cross-check panel, because `/compare` will report a 30.5% apogee
+"disagreement" between a booster and a sustainer behaving exactly as designed — filed in `BACKLOG.md`.
+
+**The stage statement is a LABEL, not a gate.** Every stage leaves the pad together, so the alignment
+never reads it: stating either recording gives identical offsets, and an e2e case asserts exactly
+that. All it may do is order marks the alignment cannot separate — which is why marks within a second
+of each other are shown as tied rather than sequenced.
+
+**Where the previous slice left it**, for the record: the alignment core shipped first and on purpose,
+because a composite surface built before the alignment was measured is exactly the guess this
+milestone must not make.
 
 **What was measured, and what it refuted — read this before extending it.** The corpus's one real
 staged pair is `iss-kairos-20240323`: a Kairos booster and sustainer, each on its own TeleMega.

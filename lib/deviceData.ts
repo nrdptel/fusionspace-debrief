@@ -44,6 +44,11 @@ export const DEVICE_DATA: readonly DeviceDatum[] = [
 
   { key: 'debrief.plotView', what: 'which channels the chart was plotting, and against what', kind: 'view' },
   { key: 'debrief.compareChannel', what: 'which channel a comparison opens on', kind: 'view' },
+  {
+    key: 'debrief.firstStage',
+    what: 'which recording you said flew as the first stage, per set of recordings you assembled',
+    kind: 'view',
+  },
   { key: 'debrief.hiddenEvents', what: 'event markers you turned off', kind: 'view' },
   { key: 'debrief.report.hidden', what: 'readings you chose not to show', kind: 'view' },
   { key: 'debrief.report.hiddenFigures', what: 'figures you chose not to show', kind: 'view' },
