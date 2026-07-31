@@ -14,7 +14,89 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-## SEV-1 — none open
+## SEV-1 — ONE OPEN
+
+- **OPEN Sev-1: `perfectflite__issuiuc-endurance-20211030__StratoLogger.csv` states Mach 1.19 and a
+  Mach-1 crossing 30.5 m off the pad.** Measured 2026-07-31, and NOT fixed this run — read the last
+  paragraph before attempting it.
+
+  It publishes **410.80 m/s (Mach 1.1875)** with `transonicTime = 0` and **max-Q 99.7 kPa**, from a
+  peak sitting **one sample (0.050 s) after liftoff** at **30.5 m AGL**. The implied mean
+  acceleration to get there is **398 g**. The **TeleMetrum on the same flight measured 315.08 m/s
+  (Mach 0.93)** — subsonic — and `app/validation/page.tsx` already cites that exact pair as a baro
+  trace that "stops being a reading of the speed at all". The log opens below the pad
+  (−31 → −27 → −14 → +9 → +30 ft), so it is the same opening-transient pathology as the XPRS record
+  fixed this run; `velocityPeakAtLiftoff` misses it by one index.
+
+  **Three fixes were tried and none is safe to ship on today's evidence:**
+  - *Relax the equality to a window.* The nearest published peak after this one is 0.700 s, so a
+    window would have to be ~14x the defect to catch it — a threshold with one data point.
+  - *An implied-acceleration bound (v²/2h).* This record is 398 g, but the corpus's genuine readings
+    run to **94 g** (`altusmetrum…intrepid1`, Mach 1.26) with two known-bad ones between at 151 g and
+    59 g. There is no gap to put a line in without inventing one.
+  - *Widen the ascent-noise window to the whole climb.* This DOES catch it, and over all 50 records
+    it changes nothing else — see the comment in `lib/analyze/index.ts`. It was still not applied,
+    because widening changes which guard fires: on the synthetic case for `velocityOutclimbsItself`
+    the noise guard shadows it, and whether it also shadows that guard on the two real corpus
+    flights it protects was not established. Retiring a guard that protects real files as a side
+    effect of fixing another is not a trade to make unmeasured. **This is the most promising route
+    and the measurement it needs is small: establish what still exercises `velocityOutclimbsItself`
+    over the corpus with the window widened.**
+
+- **FIXED 2026-07-31 (was Sev-1): a peak speed read off the opening barometric transient published
+  Mach 7.06 and a max-Q 10.9× the flight's own.**
+  `missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff` printed **7,876 ft/s (2,400.6 m/s)** and
+  **Mach 7.06** against the manifest's ground truth of **~2,450 ft/s (~Mach 2.2)** — 3.2× — with
+  **max-Q 3,498 kPa** beside it where the same flight's real boost load case is ~320 kPa. Not
+  withheld, no caveat: every warning on screen was about the ALTITUDE baseline, and none mentioned
+  the velocity. Excluding the first 2 s the same trace peaks at 2,226 ft/s, close to the stated
+  figure.
+
+  The cause is a self-contradiction, not a tolerance: `maxVelIdx === liftoffRef` — the trace said
+  the fastest instant of the whole climb was the moment liftoff was detected, when the rocket is at
+  rest. The log opens part-way in, and its altitude runs −451 → −389 → −286 → −29 → +96 m in 0.2 s;
+  that jump is fast enough to be read as the launch and is then reported as the top speed.
+
+  **Neither existing guard could catch it, and the reason is structural.** `velocityNoiseDominated`
+  divides the worst negative swing by the peak, so the more absurd the spike the SMALLER its own
+  ratio: this flight swings to −182 m/s against a "peak" of 2,401, which is 7.6% and inside the 20%
+  tolerance, where the same −182 against its real 679 m/s peak is 27% and refused at once. Its
+  window also ran `liftoffRef..maxVelIdx`, which here was **one sample**, so `worst` could only ever
+  be 0. `velocityOutclimbsItself` missed by 1.4×: 1.39% against a 1% floor, because a peak pinned at
+  t≈0 puts the whole climb in its numerator.
+
+  Fixed by `velocityPeakAtLiftoff`, which needs no constant. Corpus: **49 of 50 records that analyse
+  byte-identical, 1 moved, deliberately** — the digest snapshot moved exactly one line. Pinned by
+  `withholds a peak that lands on the very sample liftoff was detected on`
+  (`lib/analyze/analyze.test.ts`, falsified by mutation) and `withholds the XPRS peak that was the
+  opening barometric transient, and says why` (`lib/parsers/corpus.test.ts`).
+
+  **Three numbers in the first version of this entry were wrong, and the cause is worth more than
+  the correction.** It said "38 records that analyse" and "every other published peak comes at least
+  0.700 s later". The sweep behind both only took files `importFlight` returns as `kind: 'flight'`,
+  so it silently skipped the **eleven records that reach analysis through the column mapper** — and
+  the true figures are **50 records, 35 publishing a peak, nearest at 0.050 s**. The skipped subset
+  is exactly where the counterexample lives, so the sweep did not merely under-count: it removed the
+  evidence that the class was not closed. It also underwrote a claim on the PUBLIC validation page.
+  A hand-rolled sweep is a hint; the corpus suite is the measurement.
+
+- **Widening the ascent noise guard to the whole climb: the case FOR it, corrected.** An earlier
+  version of this entry said it "flags zero additional corpus flights" and withholds "a sound read".
+  Both came from the 38-file sweep above and both are false. Re-measured over all **50**: it changes
+  exactly one record, `perfectflite…endurance-20211030`, which is the open Sev-1 at the top of this
+  file and is not sound. Two details of it are principled rather than patches — excluding the apogee
+  sample (where vertical velocity passes through zero BY DEFINITION, and where `perfectflite…
+  intrepid3tf1` has its whole-ascent minimum, −38.1 against a 146.3 m/s peak) and a 3-point median
+  (without which `eggtimer…skyward-lynx` loses a sound Mach 1.27 peak to ONE glitched row at
+  t = 5.65 s: altitude 4,274 → 3,996 → 4,096 ft, raw velocity −5,560 ft/s between +1,520 and
+  +2,000). What blocks it is coverage, not correctness — see the open Sev-1.
+
+- **The corpus asserts a velocity on almost none of its fixtures, and that is where the surviving
+  bugs are.** The Sev-1 above sat in a file whose `corpus-overrides.json` entry asserts **apogee
+  only** — so the suite was green while the same file published Mach 7.06. Golden values pin the
+  numbers somebody thought to assert; the digest snapshot catches CHANGE but blesses whatever was
+  wrong when it was written. Worth a pass that adds a velocity/Mach assertion to every fixture whose
+  manifest row carries one, starting with the files whose ground truth names a speed.
 
 - **The one measured thing this run did NOT close, stated so it is not mistaken for done:
   `rounded-lg` is still 22 and was untouched all run.** `DESIGN.md` §2 says it is not in the
@@ -359,8 +441,38 @@ wild, ideas too big for one pass. One line each, newest first.
   18.3 s flight time for a 10,245 ft flight recorded further down this file. Fix, and pin with cases
   beyond 2x in both directions.
 
-- **The three docs routes skip a heading level, and `Section` exists to fix it but does not fit yet.**
-  Measured 2026-07-31. `/methods`, `/validation` and `/privacy` go `text-3xl` (the `<h1>`) straight to
+- **DONE 2026-07-31 for TWO of the three routes — and the third was never the same shape.**
+  `/privacy` (6 sections) and `/validation` (8) are now built from `<Section>`: measured on the built
+  export, both go `text-3xl` (30 px) → `text-xl` (20 px) → `text-base` prose (16 px), with 32 px
+  (`mt-8`) between sections, in both themes. All three obstacles below were real and each was taken
+  as written: the wrapper lost `space-y-6`, every first child lost its `mt-2`, and the prose
+  question was decided rather than dodged — `text-sm` → `text-base`, because §3's own table gives
+  `text-base` to "prose in docs". The device-data reference list keeps `text-sm` explicitly, since
+  it is a dense enumeration of storage keys rather than prose.
+
+  **`/methods` is NOT that shape and converting it would have been wrong.** It has ONE `<h2>`, in a
+  `Method` helper rendered 47 times inside a `sm:grid-cols-2` glossary; those headings are
+  definition terms carrying `id` anchors, not section headings, and `Section`'s `mt-8` block
+  structure would destroy the two-column layout. So the primitive was not forced onto it.
+
+  **A first draft of this entry claimed those `<h2>`s "render at 14 px — below the 16 px prose
+  around them". That was wrong and is corrected here rather than quietly deleted:** the glossary
+  grid is `text-sm`, so its prose is 14 px too and the headings were the SAME size as their own
+  body, not below it — a heading with no size cue at all, which is a different defect from the one
+  claimed. It was written from the shape of the other two routes rather than from a measurement of
+  this one, which is exactly what `MAINTAINING.md` forbids. Caught by the pre-push review.
+  Fixed in the same commit: the term is now `text-base font-medium` — §3's subsection heading, one
+  step above its `text-sm` definition body — and the page lede joins the other two routes at
+  `text-base`. The 47-entry grid stays `text-sm`, the same call as privacy's device-data block:
+  a dense reference list is not prose.
+
+  **What adoption found that shipping the primitive had not:** `Section`'s `title` was typed
+  `React.ReactNode` intersected with `HTMLAttributes`, which resolves to `ReactNode & string` — so
+  it rejected every heading carrying markup. Fourteen sections failed `tsc` at once. `Card` already
+  carries the `Omit<…, 'title'>` that prevents this, with a comment explaining it; `Section` was
+  missed because it had no adopters to execute its contract.
+
+  Original entry: `/methods`, `/validation` and `/privacy` go `text-3xl` (the `<h1>`) straight to
   `text-base` (every `<h2>`), skipping `text-xl` entirely — and `DESIGN.md` §3 gives `text-xl` to
   "section heading" and `text-base` to "subsection heading, and prose in docs". These `<h2>`s are
   direct siblings of the `<h1>`, so they are section headings sitting a level small. That is the

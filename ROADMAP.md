@@ -647,9 +647,56 @@ JSON keep every key. Verified still true after this slice: `analyzedDataCsv` tak
 
 ## D6 — Propose which files belong to one flight, and be refusable
 
-**Status:** NOT STARTED — decomposed 2026-07-31 from the one-line entry below, and the decomposition
-changed the milestone. **The signal its own text named is not there**, and that is measured rather
-than suspected. Read the measurement before scoping anything.
+**Status:** IN PROGRESS — decomposed 2026-07-31, then **amended 2026-07-31 by a second measurement
+that found a signal the decomposition had concluded did not exist.** A flyer can now be OFFERED a
+grouping, with the evidence, and accept or refuse it in one press. Pinned by
+`lib/proposeGroups.test.ts` (11 assertions, four falsified by mutation, including the corpus
+measurement) and three journeys in `e2e/analyze.spec.ts` walking the real app.
+
+### The amendment, measured 2026-07-31 — read this before the decomposition below
+
+The decomposition concluded that no CONTENT signal separates one flight's files from another's, and
+that only *arrival* survives. That is true of the three signals it tested and **false in general**:
+it never looked at the file NAME.
+
+**Featherweight's download tool writes the launch second into every file name it produces.** Over
+the manifest's 61 files, 12 carry `MM-DD-YYYY_HH_MM_SS`, and a ±120 s rule over them yields
+**16 true pairs and 0 false pairs** — the separable distribution D6 concluded did not exist. The
+widest spread inside a true group is 5 s; the nearest pair that must be refused is 956 s away, so
+the tolerance sits 24× above the widest true pair and 8× below the nearest false one.
+
+It is the LAUNCH instant, not the download time, and that was verified rather than assumed:
+`BlRv_SN1537_HR_04-12-2025_12_45_49.csv` opens at `12:45:47.382` with `Flight_Time -2.040`, so
+T0 = 12:45:49.4 — the second in its own name. That is why it can be shown to a flyer as evidence.
+
+**Two bounds, both load-bearing.** All 12 stamped files are Featherweight-ecosystem, so this is a
+vendor-specific key that NARROWS a proposal rather than replacing arrival — and it is exactly why
+the staged pairs the notes below name as standing negatives are refused for a *reason* rather than
+by a special case: none of their files is stamped. And a file name is not a measurement, so this
+deliberately never becomes `FlownAt`: it is evidence for a grouping the flyer confirms, and nothing
+else reads it.
+
+**Also corrected:** the decomposition's figures ("44 manifest files", "21 groups") predate the
+current corpus, which holds **61 files in 29 groups**. Its conclusions about apogee and wall-clock
+agreement were re-checked and stand.
+
+### What shipped 2026-07-31
+
+- `lib/proposeGroups.ts` — `launchStampFromName` and `proposeGroups`. A proposal needs BOTH
+  co-arrival and stamp agreement; neither alone is sufficient, and the module says why in full.
+- `components/GroupProposalBanner.tsx` — the offer, with its evidence in words and two presses:
+  *Yes, one flight* / *No, separate flights*. Accepting runs the same `planGrouping` the manual
+  press runs, so there is one code path and nothing new in the data model.
+- **It renders where the drop LANDS the flyer**, which is not where it started. It was written
+  inside `RecentFlights`, and a walk of the built export showed that is the one place a flyer is
+  not looking after dropping two files: both surfaces switch to the comparison, and the analyze
+  route returns early on `phase === 'compare'` without rendering the logbook at all. An offer
+  nobody sees at the moment it applies is the "feature reachable only by knowing it is there" tell.
+
+**What is left:** the primary is a suggestion and the banner does not yet let the flyer change it
+before accepting (the row control still does, after). Featherweight also publishes an in-file join
+key — a sync counter shared by the HR and LR files — which would separate *one recording exported
+twice* from *two instruments*, the relation `same_flight_group` conflates.
 
 **Outcome.** A flyer who drops a launch day's folder is *offered* the grouping D3 makes them state
 by hand — with the evidence shown, the flight still ungrouped until they accept, and a proposal that
@@ -821,6 +868,12 @@ the artifact rather than the tree.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
+
+   *(2026-07-31: `navigator.onLine` is read NOWHERE in `components` or `app` — measured, 0 hits — so
+   the offline state is undelivered suite-wide rather than missing on some surfaces. That is either
+   20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
+   change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
+
 6. **Two primaries on one surface** — `ColumnMapper` only now. ~~`RecentFlights`~~ **DONE
    2026-07-31**: its second indigo fill was the note editor's Save, which is now secondary. The
    logbook's one primary is "Compare N flights", the action the surface exists to perform. A
@@ -835,6 +888,20 @@ the artifact rather than the tree.
    7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.
    Kept here rather than added to `DESIGN.md` §9, because a new metric in that file is a change owed
    to the sibling repo in the same run and this run cannot push there.
+
+9. **`Section` had ZERO adopters and now has 2 — the two docs routes.** `/privacy` and `/validation`
+   are built from it; `/methods` was measured and deliberately NOT converted, because its 47 `<h2>`s
+   are glossary terms in a two-column grid rather than section headings. The heading skip those
+   pages carried (`text-3xl` straight to `text-base`) is closed: 30 → 20 → 16 px on the built
+   export, both themes, with §4's `mt-8` between sections.
+
+   **The per-primitive ratchet could not have seen this, and that is the finding worth keeping.**
+   It counted `components` only, while §5 defines `Section` BY its route — "this is what a route is
+   built from" — so every `Section` there will ever be was outside what the check could read. It
+   counts `app` too now. Measured the same day: all nine route files imported zero primitives, so
+   widening the denominator moved no other number. This is the fourth §9 metric to measure
+   something other than what it was reached for, after the two blind greps and the suite-wide type
+   ratio.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.

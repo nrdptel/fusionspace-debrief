@@ -44,11 +44,16 @@ export interface Logbook {
   exportAll: () => Promise<number>;
   /** Merge a backup back in; resolves with how many flights it restored. */
   importAll: (file: File) => Promise<number>;
+  /** Logbook ids the last drop produced — what a grouping may be offered over. */
+  arrived: string[];
+  reportArrived: (ids: string[]) => void;
+  clearArrived: () => void;
 }
 
 export function useLogbook(): Logbook {
   const [recents, setRecents] = useState<RecentMeta[]>([]);
   const [forgotten, setForgotten] = useState<string[]>([]);
+  const [arrived, setArrived] = useState<string[]>([]);
 
   const refresh = useCallback(() => {
     listRecents().then(setRecents);
@@ -127,5 +132,29 @@ export function useLogbook(): Logbook {
     [refresh],
   );
 
-  return { recents, refresh, remove, clear, note, group, exportAll, importAll, forgotten, reportForgotten, clearForgotten };
+  /** Which logbook rows the drop that just happened produced. A grouping is only ever OFFERED
+   *  over these — a proposal is about the files a flyer just dropped, not about their whole
+   *  logbook, and scoping it this way is also what stops it reappearing forever after they say
+   *  no. Transient by design, exactly like `forgotten` beside it. */
+  const reportArrived = useCallback((ids: string[]) => {
+    setArrived(ids.filter(Boolean));
+  }, []);
+  const clearArrived = useCallback(() => setArrived([]), []);
+
+  return {
+    recents,
+    refresh,
+    remove,
+    clear,
+    note,
+    group,
+    exportAll,
+    importAll,
+    forgotten,
+    reportForgotten,
+    clearForgotten,
+    arrived,
+    reportArrived,
+    clearArrived,
+  };
 }

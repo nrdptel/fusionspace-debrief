@@ -305,6 +305,55 @@ describe('implausible velocity guard', () => {
     expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
   });
 
+  // The fastest moment of a climb is never the sample liftoff was detected on — `liftoffRef` is
+  // where the record FIRST shows the rocket moving, so a peak sitting exactly there means the same
+  // jump satisfied the liftoff test and is being reported as the top speed. (Not "the rocket is at
+  // rest there": it is already past a 2 m/s threshold by construction. The first version of this
+  // said rest, and a pre-push review measured 385 m/s at that index on a real corpus record.)
+  // Found on `missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff`,
+  // which published 7,876 ft/s and Mach 7.06 off a barometric transient in the opening samples
+  // against a stated ~2,450 ft/s (~Mach 2.2) — with max-Q 3,498 kPa beside it, a load case 10.9×
+  // the flight's own. The ratio guard above cannot see this case on principle: it divides by the
+  // peak, so the more absurd the spike the smaller its own noise ratio (that flight swings to
+  // −182 m/s against a "peak" of 2,401, which is 7.6% and inside any sane tolerance).
+  function peakingAtLiftoff(): RawFlight {
+    const { flight } = syntheticBaroFlight();
+    const alt = flight.channels[0].values;
+    let apIdx = 0;
+    for (let i = 1; i < alt.length; i++) if (alt[i] > alt[apIdx]) apIdx = i;
+    const liftoff = Math.round(2 / 0.05); // the synthetic flight sits on the pad for 2 s
+    const vel = new Float64Array(flight.time.length);
+    // Decreasing across the whole climb, so the maximum is the FIRST ascent sample whatever
+    // index the analysis settles on for liftoff — which is the shape of the real file, where the
+    // opening transient is the largest thing in the record. Stays positive throughout, so the
+    // negative-swing guard has nothing to find and this test can only pass on its own reason.
+    for (let i = liftoff; i <= apIdx; i++)
+      vel[i] = 400 - 390 * ((i - liftoff) / Math.max(1, apIdx - liftoff));
+    return {
+      ...flight,
+      channels: [
+        ...flight.channels,
+        { kind: 'velocity', label: 'v', unit: 'm/s', values: vel },
+        { kind: 'altitudeInertial', label: 'Inertial_Altitude', unit: 'm', values: alt.slice() },
+      ],
+    };
+  }
+
+  it('withholds a peak that lands on the very sample liftoff was detected on', () => {
+    const a = analyzeFlight(peakingAtLiftoff());
+    expect(Number.isFinite(a.metrics.maxVelocity)).toBe(false);
+    expect(a.metrics.mach).toBeNull();
+    expect(a.metrics.maxDynamicPressure).toBeNull();
+    expect(a.series.velocityUnusable).toBe(true);
+    // Says THIS, rather than borrowing one of the neighbouring guards' explanations.
+    expect(a.warnings.some((w) => /the instant the rocket left the pad/.test(w))).toBe(true);
+    expect(a.warnings.some((w) => /implausibly fast/.test(w))).toBe(false);
+    expect(a.warnings.some((w) => /swings well below zero/.test(w))).toBe(false);
+    // Apogee, timings and the descent are read off the altitude and are untouched.
+    expect(a.metrics.apogeeAltitude).toBeGreaterThan(0);
+    expect(a.metrics.wholeDescentRate).toBeGreaterThan(0);
+  });
+
   it('leaves a clean ascent alone (no negative dip to find)', () => {
     const a = analyzeFlight(syntheticBaroFlight().flight);
     expect(a.metrics.maxVelocity).toBeGreaterThan(0);

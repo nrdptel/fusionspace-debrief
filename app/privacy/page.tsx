@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import { Section } from '@/components/ui';
 import { SITE_URL, REPO_URL } from '@/lib/links';
 import { DEVICE_DATA, DEVICE_DATA_KINDS, deviceDataOfKind } from '@/lib/deviceData';
 import ForgetDeviceData from '@/components/ForgetDeviceData';
@@ -23,28 +24,22 @@ export default function PrivacyPage() {
       <h1 className="mt-12 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         Privacy
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+      <p className="mt-3 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
         Debrief is a personal, non-commercial project. It collects as little as possible — in
         fact, nothing — so this page is short.
       </p>
 
-      <div className="mt-8 space-y-6 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            What we collect
-          </h2>
-          <p className="mt-2">
+      <div className="mt-8 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
+        <Section title="What we collect">
+          <p>
             Nothing. There is no account, no sign-up, no email, and no analytics. Your flight file
             is read and analyzed <strong>entirely in your browser</strong> and is never uploaded —
             there is no server to upload it to. Debrief is a static site.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            What lives on your device
-          </h2>
-          <p className="mt-2">
+        <Section title="What lives on your device">
+          <p>
             A few things are saved locally so the tool is pleasant to use, and they never leave your
             browser:
           </p>
@@ -72,10 +67,12 @@ export default function PrivacyPage() {
               while nineteen keys existed, including the flyer's own typed text and their rocket's
               dimensions, and it said the logbook's Clear removed all of it while Clear took the
               flights and one key. A privacy page a person cannot check is not one. */}
-          <div className="mt-4 space-y-4">
+          {/* A dense reference list rather than prose, so it stays at the `text-sm` body default
+              while the prose around it takes §3's `text-base` for docs. */}
+          <div className="mt-4 space-y-4 text-sm">
             {DEVICE_DATA_KINDS.map((k) => (
               <div key={k.kind}>
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{k.heading}</h3>
+                <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{k.heading}</h3>
                 <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{k.lede}</p>
                 <ul className="mt-1.5 list-disc space-y-0.5 pl-6">
                   {deviceDataOfKind(k.kind).map((d) => (
@@ -99,13 +96,12 @@ export default function PrivacyPage() {
             Clearing your browser data for this site removes everything on this page, the flights
             and the offline copy together.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Share links</h2>
-          <p className="mt-2">
+        <Section title="Share links">
+          <p>
             When you create a share link, the flight is compressed and packed into the part of the
-            URL <em>after the</em> <code className="font-mono text-xs">#</code> (the fragment).
+            URL <em>after the</em> <code className="font-mono text-sm">#</code> (the fragment).
             Browsers never send the fragment to a server, so the flight still isn&apos;t uploaded —
             the link works because whoever opens it decodes it in their own browser. Treat a share
             link like the file itself: only send it to people you&apos;d give the flight to.
@@ -117,11 +113,10 @@ export default function PrivacyPage() {
             of where you have been rather than Debrief&apos;s storage — nothing above reaches it,
             and clearing history is what does.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Hosting</h2>
-          <p className="mt-2">
+        <Section title="Hosting">
+          <p>
             The site is served as static files by{' '}
             <a
               href="https://www.cloudflare.com/application-services/products/pages/"
@@ -136,13 +131,10 @@ export default function PrivacyPage() {
             applies to fetching the page — it never includes your flight data, which stays in your
             browser.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            What we don&apos;t do
-          </h2>
-          <ul className="mt-2 list-disc space-y-1 pl-6">
+        <Section title={<>What we don&apos;t do</>}>
+          <ul className="list-disc space-y-1 pl-6">
             <li>No tracking pixels, advertising, or third-party analytics.</li>
             <li>
               No cookies at all. The settings above are local storage, which is a different thing:
@@ -150,11 +142,10 @@ export default function PrivacyPage() {
             </li>
             <li>No selling, renting, or sharing of anything — there is nothing to share.</li>
           </ul>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Contact</h2>
-          <p className="mt-2">
+        <Section title="Contact">
+          <p>
             Questions? Open a{' '}
             <a
               href={GITHUB_ISSUES}
@@ -166,7 +157,7 @@ export default function PrivacyPage() {
             </a>
             .
           </p>
-        </section>
+        </Section>
       </div>
 
       <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">

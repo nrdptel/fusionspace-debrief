@@ -1789,3 +1789,81 @@ test('a figure colour the flyer picks reaches the saved figure, and can be undon
   expect(undone, 'the flyer’s colour is gone').not.toContain('#00ff00');
   expect(undone, 'and the default trace is back').toContain('#6366f1');
 });
+
+// D6 — the grouping D3 makes a flyer find by hand is OFFERED, with the evidence, and refusable.
+//
+// The signal is the launch second Featherweight's downloader writes into the file name, measured
+// over the corpus in `lib/proposeGroups.test.ts`: 12 stamped files, 16 true pairs, 0 false ones.
+// Here the same two fixtures are dropped under the names that vendor's tool would have given them,
+// which is what a flyer's own folder actually contains. Detection is by CONTENT, so renaming
+// changes nothing about how they read.
+const stamped = async (file: string, name: string) => ({
+  name,
+  mimeType: 'text/csv',
+  buffer: await readFile(path.join(__dirname, '../lib/parsers/__fixtures__/', file)),
+});
+
+test('two files that name the same launch are offered as one flight, and the flyer decides', async ({ page }) => {
+  await page.goto('/');
+  // One drop, two files — a flyer emptying the card after a flight.
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    await stamped('altusmetrum-telemetrum.csv', 'BlRv_SN1537 HR_04-12-2025_12_45_49.csv'),
+    await stamped('featherweight-raven-fip.csv', 'BlRv_SN1537 LR_04-12-2025_12_45_49.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 20_000 });
+
+  // The offer is where the drop LANDS the flyer. This route returns early on the comparison
+  // without rendering the logbook at all, so an offer that lived only in the logbook would be
+  // invisible at the exact moment it applies.
+  const banner = page.locator('[role="status"]').filter({ hasText: 'look like one flight' });
+  await expect(banner).toBeVisible({ timeout: 20_000 });
+  // The evidence is the feature: a fact the flyer can check against the two file names in front
+  // of them, not "these look similar".
+  await expect(banner).toContainText('12:45:49');
+  await expect(banner).toContainText(/arrived together/);
+
+  // Offered, not applied — nothing is grouped while the offer stands.
+  await page.getByRole('button', { name: '← Back to a single flight' }).click();
+  const logbook = page.getByRole('list', { name: 'Your flights' });
+  await expect(logbook.locator('> li')).toHaveCount(2, { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toHaveCount(0);
+
+  // The flyer accepts, and gets exactly what stating it by hand gives them.
+  await page.locator('[role="status"]').filter({ hasText: 'look like one flight' })
+    .getByRole('button', { name: 'Yes, one flight' }).click();
+  await expect(logbook.locator('> li')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toBeVisible();
+  await expect(page.locator('[role="status"]').filter({ hasText: 'look like one flight' })).toHaveCount(0);
+});
+
+test('an offered grouping can be refused, and nothing is merged', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    await stamped('altusmetrum-telemetrum.csv', 'BlRv_SN1537 HR_04-12-2025_12_45_49.csv'),
+    await stamped('featherweight-raven-fip.csv', 'BlRv_SN1537 LR_04-12-2025_12_45_49.csv'),
+  ]);
+  const banner = page.locator('[role="status"]').filter({ hasText: 'look like one flight' });
+  await expect(banner).toBeVisible({ timeout: 20_000 });
+  await banner.getByRole('button', { name: 'No, separate flights' }).click();
+
+  // Gone, and nothing grouped — the way out of an offer is one press and it leaves no trace.
+  await expect(banner).toHaveCount(0);
+  await page.getByRole('button', { name: '← Back to a single flight' }).click();
+  await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(2, { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toHaveCount(0);
+});
+
+test('files that name different launches are not offered as one flight', async ({ page }) => {
+  await page.goto('/');
+  // Sixteen minutes apart — which is where the corpus's own ground-station file sits from its
+  // siblings. It IS the same flight and it must stay a miss rather than be reached by widening
+  // the window, because a window that big swallows unrelated flights from the same launch day.
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    await stamped('altusmetrum-telemetrum.csv', 'BlRv_SN1537 HR_04-12-2025_12_45_49.csv'),
+    await stamped('featherweight-raven-fip.csv', 'GPS_GS03748_04-12-2025_13_01_45.csv'),
+  ]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('[role="status"]').filter({ hasText: 'look like one flight' })).toHaveCount(0);
+  await page.getByRole('button', { name: '← Back to a single flight' }).click();
+  await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(2, { timeout: 10_000 });
+});

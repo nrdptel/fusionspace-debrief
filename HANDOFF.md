@@ -6,173 +6,262 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D5 SHIPPED. D6 decomposed and STARTED — its first increment is in.** The decomposition changed the milestone: two of the three signals D6's own entry named do not exist in the corpus, and `lib/parsers/d6Grouping.test.ts` now pins that. Read D6's section in `ROADMAP.md` before scoping any of it. |
-| **P — product & craft** | **P1 IN PROGRESS, and moved a long way this run.** `rounded-lg` is at 0 and guarded. Card treatments 19 (true figure) → **10**, against a floor of 4. `Card` 0 → 23 adopters, `Disclosure` 0 → 3. The four files the last handoff named as hand-rolling a card no longer do. |
+| **D — capability** | **D6 SHIPPED its headline capability.** A flyer who drops two files off one flight is now OFFERED the grouping, with the evidence in words, and accepts or refuses in one press. The signal is the launch second the vendor writes into the file NAME — 16 true pairs, 0 false, over the corpus — which **amends D6's own premise**: its decomposition had concluded no content signal could carry this, having tested three and not the file name. |
+| **P — product & craft** | **P1 IN PROGRESS.** `Section` went from **0 adopters to 2** — `/privacy` and `/validation` are built from it, and the heading level those pages skipped is closed. `/methods` was measured and deliberately NOT converted; its own (different) rhythm break was fixed instead. |
 
-**PR #64, #65, #66, #67 and #68 are all merged and LIVE.** Production was verified serving
-`e44adbe` — the last of them — by fetching `/version.json` with a cache-buster. **Use the buster:**
-the plain fetch lags by about ten minutes after a green deploy and will tell you it failed when it
-did not. **There are no open pull requests carrying unshipped work**, and the pinned branch was
-restarted from `main` after each merge.
+**A Sev-1 was found and fixed this run — and a SECOND instance of the same class is still OPEN.**
+A peak speed of Mach 7.06 was published off a barometric transient and is now withheld; a second
+record states Mach 1.19 at 30.5 m AGL and is filed, not fixed. It is the first entry in
+`BACKLOG.md` and it is the first thing to pick up.
+
+**Work is on the pinned working branch and NOT in production.** Production was serving `ae9b811`
+when last checked with a cache-buster — which is `origin/main`, i.e. none of this run's commits.
+**Opening one pull request and merging it on green is all that is needed.** Under the
+SHIPPED-MEANS-REACHABLE invariant everything below counts as pending, not shipped.
 
 ## What shipped this run
 
-Every increment independently gated (`npm test` · `npm run build` · `npx playwright test`, all three
-green before every push). The corpus was attached throughout — `lib/parsers/corpus.test.ts` reports
+Every increment independently gated: `npm test` · `npm run build` · `npx playwright test`, all three
+green before every push. The corpus was attached throughout — `lib/parsers/corpus.test.ts` reports
 **138 tests over 61 fixtures** — so no claim here rests on a suite that skipped itself.
 
-**Steady-state gate: 979 unit tests over 68 files, build clean, 236 e2e.**
+**Steady-state gate at the end of the run: 992 unit tests over 69 files, build clean, 239 e2e.**
 
-### Merged and live
+### 1. The docs routes are built from `Section` (P-track, P1)
 
-- **Sev-1 — the channel explorer averaged over samples, not over time.** `windowStats` returned
-  `sum / count`, the same defect `timeMean` was written out of the analyzer for. On
-  `fwgps__trf-f1machbuster-jan10` (cadence 0.099–4.900 s) it printed **−49.31 m/s** where the
-  flight's own report said **64.81** — 23.9% low, on the reading a canopy is sized against. Now
-  −64.78.
-- **Three §9 compliance greps could not see the drift they exist to catch.**
-- **D5 shipped** — which figures a document carries, in what order, in what colour, on both document
-  surfaces, through one control and one stored choice.
-- **The three unshipped parts of PR #31**, rebuilt on today's `main` and re-measured.
+`DESIGN.md` §5 calls `Section` "what a route is built from" and it had **zero** adopters. Measured on
+the built export, both themes: `/privacy` and `/validation` now go **30 px → 20 px → 16 px** with
+**32 px (`mt-8`)** between sections. They used to go 30 px straight to 16 px, skipping `text-xl`.
 
-### Shipped in PR #66
+- Docs prose went `text-sm` → `text-base`, which is §3's own table ("prose in docs"). Dense
+  reference lists — the device-data key list, `/methods`'s 47-entry glossary — keep `text-sm`
+  explicitly, because a reference list is not prose.
+- `/methods` has ONE `<h2>`, in a helper rendered 47 times inside a two-column grid. Those are
+  glossary terms with `id` anchors, not section headings; `Section` would have destroyed the layout.
+  Its real break was that the term had **no size class at all** and rendered at its body's 14 px. It
+  is `text-base font-medium` now, and its lede joined the other two at `text-base`, so the three
+  docs pages no longer change body size as a flyer walks between them.
+- **`Section`'s `title` was broken and nobody could have known.** Declared `React.ReactNode` and
+  intersected with `HTMLAttributes`, which resolves to `ReactNode & string` — so it accepted a plain
+  string and rejected every heading carrying markup. Fourteen sections failed `tsc` at once. `Card`
+  already carries the `Omit<…, 'title'>` that prevents this, with a comment explaining it. **A
+  primitive with zero adopters is a contract nobody has executed** — that is the argument for
+  adopting one rather than merely shipping it.
 
-- **`rounded-lg` 22 → 0, and it is a guard now.** Classified one at a time by what the element IS:
-  **15 containers to `xl`, 7 controls to `md`**.
-- **The card grep was blind, and the conversion proved it** — see the trap below. Treatments went
-  7 → 18 → 12.
-- **The seven `bg-zinc-50` panels** onto `<Card tone="sunken">`, the tone added for exactly them.
-- **The four chart containers** onto `<Card>`; `Card` takes a `ref` now.
-- **Seven derived-reading panels stopped whispering.** Labels, inputs, descriptions and every state
-  message were at caption size, leaving the heading as the only body text on the panel.
-- **D6 decomposed**, and the decomposition is mostly a measurement — below. Its first increment
-  followed: `lib/parsers/d6Grouping.test.ts`, five assertions, four mutations.
-- **The design docs were shipping the utilities they forbid.** Tailwind v4 auto-detects sources, so
-  it read every file whose job is to NAME a banned class and emitted **25 dead rules** into the
-  production stylesheet. Found by the done-check's cold walk on the built export, not by reading
-  source — which is the argument for walking the artifact.
+### 2. Sev-1 — a peak speed read off the opening barometric transient (preempted the D-track)
 
-### Shipped in PR #67 and #68
+`missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff` published **7,876 ft/s** and **Mach 7.06**
+against the manifest's ground truth of **~2,450 ft/s (~Mach 2.2)** — 3.2× — with **max-Q 3,498 kPa**
+beside it where the flight's real boost load case is ~320 kPa, a 10.9× structural figure. Not
+withheld, no caveat: every warning on screen was about the altitude baseline and none mentioned the
+velocity.
 
-- **D6's first increment** — `lib/parsers/d6Grouping.test.ts`, five assertions, four mutations.
-- **The three alert callouts** onto `Card`'s `warn`/`danger` tones, live-region roles intact and
-  falsified.
-- **A conversion RULED OUT** — the bordered frames must not become `Card`s; see below.
-- **`Disclosure` went from 0 adopters to 3.**
-- **The docs-route heading fix, measured and scoped rather than executed** — see pick-up item 3, and
-  the `BACKLOG.md` entry it points at. Filed deliberately: it is a pass over three published pages
-  and the run's remaining time did not allow doing it with both themes checked.
+Cause: `maxVelIdx === liftoffRef`. The trace said the fastest instant of the whole climb was the
+moment liftoff was detected — the sample where the record FIRST shows it moving. The log opens
+part-way in and its altitude
+runs −451 → −389 → −286 → −29 → +96 m in 0.2 s; that jump is fast enough to be read as the launch
+and is then reported as the top speed.
+
+**Both existing guards missed it for structural reasons worth remembering.**
+`velocityNoiseDominated` divides the worst negative swing by the peak, so **the more absurd the
+spike the smaller its own ratio** — this flight swings to −182 m/s against a "peak" of 2,401, which
+is 7.6% and inside the 20% tolerance, where the same swing against its real 679 m/s peak is 27% and
+refused at once. Its window also ran `liftoffRef..maxVelIdx`, here **one sample**, so `worst` could
+only ever be 0. `velocityOutclimbsItself` missed by 1.4× — 1.39% against a 1% floor — because a peak
+pinned at t≈0 puts the whole climb in its numerator.
+
+Fixed by `velocityPeakAtLiftoff`. **Corpus: 49 of 50 records byte-identical, 1 moved deliberately**;
+the digest snapshot moved exactly one line. Pinned by a synthetic test and a corpus test, both
+falsified by mutation.
+
+### 3. The correction to increment 2 — read this one even if you skip the rest
+
+**The Sev-1 commit stated its evidence three times, and the evidence was wrong.** A third commit
+corrects it in the code, in `BACKLOG.md` and on the PUBLIC validation page:
+
+- "38 corpus records that analyse" is **50**. The sweep behind it only took files `importFlight`
+  returns as `kind: 'flight'`, so it skipped the **eleven records that reach analysis through the
+  column mapper**.
+- "every other published peak comes at least 0.700 s later" is **0.050 s**. 0.700 s was the minimum
+  over the named-parser subset — precisely the subset that excluded the counterexample. The sweep
+  did not merely under-count; it removed the evidence that the class was not closed.
+- "A rocket is AT REST when it leaves the pad" is not what `liftoffRef` means: it is the first
+  sample with `altClean > 3 m` AND `velocity > 2 m/s`, and on one real record `velocity[liftoffRef]`
+  is **385 m/s**.
+
+None of it changed behaviour. What it changed is that the repo now says something true about why.
 
 ## Pick up first
 
-1. **D6's first increment is DONE — `lib/parsers/d6Grouping.test.ts`.** The next one is the arrival
-   signal: nothing in the corpus can demonstrate it, because every group in it is assembled by the
-   manifest rather than by a flyer dropping a folder. So either add such a fixture to
-   `debrief-fixtures` (see the bottom of this file) or build the proposal against a synthetic
-   arrival, and keep the five confusable pairs that test names as the standing negatives.
-2. **P1's remaining card treatments are 10, and the floor is 4.** The alert callouts converted this
-   run. **Do NOT convert the bordered table frames** — an earlier version of this list said they
-   "want `pad={false}`" and that was wrong, found by trying it. `FlightCard`'s canvas,
-   `ColumnMapper`'s and `SampleTable`'s tables, `GroundTrack`'s `<dl>` and its `Stat` tile share a
-   bordered treatment with **no background, and the missing background is the point**: `SampleTable`'s
-   sticky header is `dark:bg-zinc-900`, which is exactly `Card`'s default dark fill, so the header
-   band that currently reads against the `zinc-950` body would flatten into the card. Reasoning in
-   `lib/design-system.test.ts`. If that frame ever earns a primitive it is `Frame`, not a `Card` tone.
-   What is genuinely left is three treatments that will never fold in (drop zone, drop overlay,
-   frame) plus `Card` itself.
-3. **`Section` on the three docs routes — scoped, measured, and filed in `BACKLOG.md` ready to
-   execute.** They skip a heading level (`text-3xl` straight to `text-base`, no `text-xl`), which is
-   the measurable half of "these pages read as a different author's". `Section` implements the fix
-   and has **zero** adopters. It is not a one-line swap: the entry names the three obstacles — the
-   parent's `space-y-6` colliding with `Section`'s own `mt-8`, the doubled `mt-4`/`mt-2` gap, and the
-   `text-sm`-vs-`text-base` prose question that must be decided in the same pass. **Roughly 30–45
-   minutes done properly, both themes checked.** It was measured rather than executed at the end of
-   this run precisely because rushing three published pages is how the drift started.
+1. **The OPEN Sev-1 at the top of `BACKLOG.md`** — `perfectflite…endurance-20211030` states
+   Mach 1.19 and a Mach-1 crossing 30.5 m off the pad, against the Mach 0.93 a second altimeter
+   measured on the same flight. Three routes were tried and the entry says why each was refused.
+   **The most promising is the third and the measurement it needs is small:** widening the
+   ascent-noise window to the whole climb catches it and, over all 50 records, changes nothing
+   else — what blocked it is that widening shadows `velocityOutclimbsItself` on its synthetic
+   case, and nobody established whether it also shadows that guard on the two REAL corpus flights
+   it protects. Establish that, and the fix is a five-line change that is already written and
+   measured in the code comment.
 
-4. **`Segmented` is the other primitive still at zero**, and `EmptyState` / `ErrorState` have one
-   adopter each while §5 says "a surface with no empty state is not finished". Note the empty-state
-   hunt has already been run once and all five candidates were refuted — see below — so start from
-   §5's list of surfaces rather than from a grep for `return null`.
+2. **D6 shipped a working offer; two things are left.** The banner suggests a primary and does not
+   yet let the flyer change it before accepting (the row control still does, afterwards). And
+   Featherweight publishes an in-file join key — a sync counter shared by the HR and LR files —
+   which would separate *one recording exported twice* from *two instruments*, the relation
+   `same_flight_group` conflates. `lib/parsers/blueraven.ts` already quotes the manual on it.
 
-## The §9 counts at the end of this run
+3. **D6's other groundwork, still true and still unused.** This is measured, not guessed — do not
+   re-trace it.
+   - **The only arrival fact that survives a drop today is `addedAt`.** `lib/ingest.ts:165` hands
+     `saveRecent` name / formatLabel / apogeeM / maxVelocityMs / flownAt / text / bytes and nothing
+     about the drop: no batch id, no folder name, no drop index.
+   - **Folder identity EXISTS at drop time and is thrown away.** `components/useWindowFileDrop.ts`
+     has `folders`, `loose` and `found` as three distinct lists and flattens them into
+     `onFiles([...loose, ...found])`. The folder NAME escapes only through `onEmptyFolder`. One
+     extra argument on the `onFiles` contract is the cheapest capture point in the codebase.
+   - **`lib/dropEntries.ts` returns a flat `File[]`** and never records which directory entry each
+     file came from; `webkitRelativePath` is read nowhere in the repo. So per-flight SUBfolders —
+     the layout D6 would most like to key on — are today indistinguishable from one flat folder.
+   - **Adding a field to `RecentFlight` is compile-gated but only partly.** `lib/recents.ts:212`
+     forces it into `FromTheFile` or `FLYER_OWNED`, but three further rebuilds must also name it and
+     fail SILENTLY: `toMeta`, `serializeLogbook`, `normalizeFlight`. The file's own comment says
+     this is the quietest failure it has.
+   - **The accept path already exists whole.** D3's manual grouping is: tick ≥2 rows → "These N are
+     one flight" (`components/RecentFlights.tsx`) → `planJoin` (`lib/flightGroups.ts`) → `useLogbook.group`
+     → `setFlightIds` (`lib/recents.ts`), writing `flightId` on each joined row. **Accepting a
+     proposal writes exactly what the manual press writes**, so D6 adds a way to OFFER and nothing
+     to the data model.
+   - **The UI has a template too:** the `forgotten` banner in `RecentFlights` is a dismissible,
+     props-driven post-drop panel above the list, mounted on both surfaces. A second banner of that
+     shape is the whole of the proposal increment; refusal is the existing dismiss.
+   - **`RecentFlights` is mounted TWICE** (`Analyzer` and `CompareSurface`), so a proposal appears on
+     `/` and `/compare` for free — and a refusal on one must not be re-offered by the other. That
+     makes the refusal state a `useLogbook`/persistence decision, not local component state. Decide
+     it in increment 1 rather than discovering it in increment 3.
+   - **Two standing negatives the roadmap does not name.** `lib/parsers/d6Grouping.test.ts`'s
+     `STAGED_GROUPS` names THREE staged groups (`iss-kairos`, `iss-sg1.2`, `reddit-meraki2-121km`)
+     where `ROADMAP.md`'s *done when* names two — build the checklist from the test, not the prose.
+     And `importLogbook` writes every restored row in one transaction, so a restored backup gives the
+     whole logbook a near-identical `addedAt`; a co-arrival rule would offer to merge all of it.
+   - **The five confusable pairs are computed inside an `it()` and never exported.** They exist only
+     in an assertion message. `ROADMAP.md` requires D6's rule to refuse them, so extracting them into
+     an exported helper is a prerequisite, not a tidy-up.
+   - **Unit-testable without a browser:** `lib/flightGroups.test.ts`'s `row(id, over)` helper builds a
+     `RecentMeta` with a fixed `addedAt`, which is exactly a synthetic arrival. Build the proposal as
+     a pure function over `RecentMeta[]` and let ingest only record the arrival —
+     `lib/ingest.test.ts` says outright that `ingestFiles` needs a real browser and is only
+     exercised in e2e.
 
-The shell block in `DESIGN.md` §9 and `lib/design-system.test.ts` agree exactly, which is itself the
-check that the two copies have not drifted:
+4. **P1's next slices, in the order the audit ranked them** (all measured this run, none guessed):
+   - **Two primaries on one surface, on BOTH flight routes.** `CompareSurface` renders an
+     indigo-filled `<label>` beside `RecentFlights`'s `Button variant="primary"`; `DropZone`'s
+     "Choose files" does the same on `/`. §5 says at most one per surface.
+   - **A fifth button weight**: a borderless indigo-TEXT `<button>` at seven call sites, including
+     "← Analyze another flight", the main way back out of a report. `ghost` is neutral, so this is
+     not it.
+   - **`Segmented` still has 0 adopters while three surfaces hand-roll one** — `CompareView`'s
+     `seg()`, `RecentFlights`'s "Sort by", `FlightReport`'s "Zoom to". Three looks for one control.
+   - **`tabular-nums` is missing on both cross-check tables** (`GpsApogee`, `DeviceSummary`) — the
+     side-by-side comparison §6 exists for, with digits that do not line up.
+   - **A sixth radius nobody counts:** bare `rounded` (0.25rem) at 11 sites. `roundedLg` is guarded
+     at 0 and no grep sees this one, so the drift just moved one step.
 
-| count | start of run | end | target |
-|---|---|---|---|
-| `rounded-lg` | 22 | **0** | 0 — a guard now, may never rise |
-| off-scale spacing | 0 *(really 8 — the grep was blind)* | **0** | 0 — a guard now |
-| hand-rolled card treatments | 7 *(really 19)* | **10** | **floor 4**, not 1 |
-| inverted-type files | 23 | **16** | **floor at least 4**, not 0 |
-| off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 20 | **27** | most of the 46 |
-| `Card` adopters | 12 | **23** | — |
-| `Disclosure` adopters | 0 | **3** | — |
-
-**Three of those targets are not 0**, and each says why where it is defined. A budget whose target is
-unreachable trains the next session to ignore it.
+5. **The corpus asserts a velocity on almost none of its fixtures.** The Sev-1 sat in a file whose
+   override asserts apogee ONLY, so the suite was green while it published Mach 7.06. Golden values
+   pin what somebody thought to assert; the digest snapshot catches change but blesses whatever was
+   wrong when written. A pass adding a velocity/Mach assertion to every fixture whose manifest row
+   carries one is high-value and is filed in `BACKLOG.md`.
 
 ## Traps this run hit — read these before repeating them
 
-- **A compliance grep anchored on the COMPLIANT value can only see drift that is already half-fixed.**
-  This bit twice now, in the same file. Last run the spacing grep read 0 while 8 occurrences sat in
-  the tree. This run the card grep read 7 while the true figure was **19** — it anchors on
-  `rounded-xl border`, so eleven hand-rolls sitting one radius step away at `rounded-lg` were
-  invisible to the check written to catch them. Converting the radius made the count go UP, 7 → 18,
-  which reads exactly like a regression and is the opposite: measured radius-agnostically on the
-  pre-conversion tree it was 19, so the conversion's net effect was **−1**. **Before believing one of
-  these numbers, ask what the pattern cannot see.**
-- **A metric can be satisfied by a tie, and that is not the same as being right.** The inverted-type
-  filter is a strict `>`. Four of the seven panels would have flipped on labels and inputs alone,
-  landing at exactly 4/4 and counting as fixed. The state messages were converted because they are
-  body text, not because the count needed them.
-- **Some of these budgets have a floor above 0 and the file now says which.** `invertedTypeFiles` can
-  never reach 0: §5 makes `Chip` `text-xs` by definition, so a component built out of chips is
-  permanently "inverted" while fully compliant. `EventChips`, `RecognizedFormats`, `SiteFooter` and
-  `FusionSpaceBadge` are already correct. `ChannelExplorer` was taken 17/4 → 11/10 by fixing six
-  genuine violations and **left there**, because the remaining eleven are all sanctioned.
-- **Falsify by MUTATING THE CODE.** Dropping the ground track's `ref` fails three e2e tests — the
-  read-at-a-point, the landing marked once, and the map fitting its own card. That was checked rather
-  than assumed, because a 0×0 canvas is invisible to a test that only asserts the element exists.
-- **A gitignored probe is still TYPE-CHECKED.** `prebuild` runs `tsc --noEmit` over the whole repo, so
-  a throwaway with a type error turns the build red while `git status` is clean.
-- **Two gates in flight at once is a 196-failed, 37-passed run that is NOT a regression.** A second
-  `npm run build` deletes `out/` from under the first run's server. The tell is the timing.
-- **The corpus manifest's `local_path` is the corpus author's own absolute path** — `/Users/…`, not
-  anything on this disk. Build the path from `file_name`: the vendor directory is the part before the
-  first `__`.
+- **A regex transform over JSX ate one margin too many, and only the pre-push review caught it.**
+  Stripping "the first child's `mt-2`" also stripped a `<ul className="mt-2 …">` that was a SECOND
+  child on two pages, so a paragraph butted its list at 0 px. The gate was green through all of it —
+  no test looks at a margin. **Take the second opinion on the diff seriously; it is the only thing
+  that reads what the tests do not.**
+- **`git checkout <file>` to undo a MUTATION also undoes the work.** Reverting a deliberate probe
+  edit that way threw away a whole file's conversion, which then had to be redone. Copy the file
+  aside first and restore from the copy.
+- **A `*-tmp` probe is gitignored but still TYPE-CHECKED.** `prebuild` runs `tsc --noEmit` over the
+  whole repo, so a throwaway with a loose cast turns `npm run build` red while `git status` is
+  clean. Delete probes before gating, not after.
+- **A sweep script that only handles `res.kind === 'flight'` silently skips the mapping-path
+  fixtures.** Mine reported "38 analysed" and a clean one-flight delta; the real corpus suite then
+  found a SECOND flight had moved, because its file reaches analysis through the column mapper.
+  **The corpus suite is the measurement; a hand-rolled sweep is a hint.**
+- **A hand-rolled corpus sweep skipped a third of the corpus and nobody noticed for two commits.**
+  It only took `res.kind === 'flight'`, so the eleven column-mapper records were invisible — and
+  they are where the counterexample lived. The number it produced (38) was then repeated in a
+  commit message, a backlog entry and a published page. **The corpus suite is the measurement; a
+  hand-rolled sweep is a hint.** If a sweep and the corpus suite disagree about how many records
+  analyse, the sweep is wrong.
+- **The pre-push review is what caught it**, forty minutes after the commit went out. Both times
+  this run, the thing the gate could not see was found by handing the diff to a fresh reader. Budget
+  for it finishing rather than pushing while it runs.
+- **A claim that reopening a flight moves its `addedAt` is REFUTED.** `lib/reopen.ts` never calls
+  `saveRecent`; only `lib/ingest.ts` and `lib/mapped.ts` do, so only re-DROPPING the same file
+  refreshes the stamp. Checked because D6 rests on `addedAt`.
 
-## What D6's decomposition found, in one paragraph
+## The §9 counts at the end of this run
 
-Because it is the kind of thing a later run will otherwise re-derive: **the wall clock is not there.**
-11 of 44 corpus files yield a `flownAt` at all, and of the 21 manifest groups exactly one holds two
-dated files — the staged booster/sustainer pair, which is precisely the relation that must never be
-merged. One logger reports 2013 for a 2023 flight and passes the sanity window because it is a real
-date. And **apogee agreement alone is worse than useless**: over all 253 pairs, the tightest agreement
-in the corpus (0.28%) is between two files that are NOT one flight, tighter than the median true pair
-(0.51%). The cause is physics — the same airframe on the same motor twice in a day agrees to a
-fraction of a percent because it should. What survives is how the files ARRIVED.
+`DESIGN.md` §9's shell block and `lib/design-system.test.ts` agree exactly, which is itself the
+check that the two copies have not drifted.
 
-## Findings that were REFUTED — do not re-file them
+| count | start of run | end | target |
+|---|---|---|---|
+| `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
+| off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
+| hand-rolled card treatments | 10 | **10** | floor 4, not 1 |
+| inverted-type files | 16 | **16** | floor at least 4, not 0 |
+| off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
+| files importing the primitives | 27 | **28** | most of the 46 |
+| `Card` adopters | 23 | **23** | — |
+| `Button` adopters | 10 | **11** | — |
+| `Section` adopters | 0 | **2** | — |
+| `Segmented` adopters | 0 | **0** | — |
 
-- **"Five data surfaces return null with no empty state."** All five refuted. The one called
-  *reachable by ordinary interaction* is not reachable: the control that removes a channel renders
-  only when more than one is shown, and the channel list is never empty.
-- **"17 hand-rolled cards are counted as 7 by the grep."** Those are different measures — distinct
-  treatments over call sites — and §9 asks for the former. (Note this is a different matter from the
-  blindness above, which was real.)
-- **"16 of 32 corpus flights measure a deployment shock."** Re-measured: **19 of 36** for the apogee
-  shock, 4 for the main.
+Re-run from `DESIGN.md` §9's own shell block at the end of the run: `rounded-lg` 0, card treatments
+10, off-scale spacing 0, off-scale type 1, inverted files 16, components importing `./ui` 28. No
+count moved the wrong way.
+
+**The per-primitive count reads `app` as well as `components` now, and that was a real hole.** §5
+defines `Section` BY its route — "what a route is built from" — so every `Section` there will ever
+be sat outside what the check could read; it would have gone on reporting 0 after the work landed
+and the next session would have done it again. All nine route files imported zero primitives
+beforehand, so widening the denominator moved no other number. **This is the fourth §9 metric to
+measure something other than what it was reached for**, after the two blind greps and the
+suite-wide type ratio.
+
+`uiAdopters` deliberately stays on `components`: it IS §9's shared grep character for character, and
+widening it would fork a file the sibling repo carries identically. `invertedTypeFiles` stays too,
+for a measured reason recorded beside it — a docs route at `text-base` with one `text-xs` back link
+reads as "inverted" while being exactly what §3 asks for.
 
 ## What is owed elsewhere
 
-**Five `DESIGN.md` §9 edits are owed to `nrdptel/fusionspace-loft`** — two inherited, three added by
-the run before this one: the `:` in the card grep, the generalised spacing grep with its separate
-`gap`/`space` branch, and the `sed` that trims trailing space. The harness pins only
-`fusionspace-debrief` and `debrief-fixtures`, so none can be pushed there. **A sixth is now owed:**
-the card grep's blindness to `rounded-lg` applies to the sibling verbatim, and its own count is
-probably wrong in the same direction and by a similar margin.
+**`nrdptel/fusionspace-loft` is owed six `DESIGN.md` §9 edits** — five inherited, and the card
+grep's blindness to `rounded-lg`, which applies to the sibling verbatim and whose own count is
+probably wrong in the same direction. The harness pins only `fusionspace-debrief` and
+`debrief-fixtures`, so none can be pushed there.
+
+**A seventh question is now open and is deliberately NOT decided in one repo:** should §9's
+`uiAdopters` grep read `components app` rather than `components`? This repo's per-primitive count
+already does, for the reason above, but §9's own command is shared and changing it here alone would
+fork it. Decide it in a run that can push both.
+
+## The fixtures repo
+
+No commit this run; nothing changed a fixture's contract. The seven `corpus-overrides.json` entries
+still need removing once `debrief-fixtures` is re-cut.
+
+**Three things worth adding there**, each with a reason attached:
+
+- a corpus record holding two genuinely separable burns, which would turn `no corpus record holds
+  two burns` red — the signal that staging detection has become possible;
+- **a launch day where one flyer's two files were dropped together**, which is the signal D6 rests
+  on and which the corpus cannot demonstrate at all: every group in it is assembled by the manifest,
+  not by arrival;
+- **a velocity/Mach ground-truth column asserted on every fixture whose manifest row carries one.**
+  The Sev-1 above lived in the gap where the corpus asserts an apogee and nothing else.
 
 ## Environment notes
 
@@ -181,29 +270,19 @@ probably wrong in the same direction and by a similar margin.
 - **The corpus arrives as an attached repo.** `ln -sfn /home/user/debrief-fixtures
   lib/parsers/__corpus__`, and the suite then reports **138 tests**. Far fewer means it is not linked.
 - **`npm install` is needed at session start**; the container ships without `node_modules`.
-- **Chromium: `npx playwright install chromium` from the repo root**, then plain `npx playwright test`
-  with NO browser variable set.
-- **Kill any hand-started `npm run serve:out` before the e2e suite**, and use that server rather than
-  `npx http-server` for a manual walk.
+- **Chromium: `npx playwright install chromium` from the repo root** (~114 MB, about a minute,
+  succeeds through the proxy), then plain `npx playwright test` with NO browser variable set. This
+  is paid again every session — it belongs in the environment's setup script.
+- **Kill any hand-started `npm run serve:out` before the e2e suite.** For a manual walk,
+  `node scripts/e2e-server.mjs <port>` takes a port argument, so a probe can serve on its own port
+  without colliding with the suite.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on `pull_request`.
-  Opening the PR is what runs it, and the `frontend` job's corpus half is the part a local run cannot
-  reproduce.
-- **A stop hook here will call GitHub's squash-merge commits unverified. It is wrong** — they are
-  authored correctly and signed by GitHub.
+  Opening the PR is what runs it, and the `frontend` job's corpus half is the part a local run
+  cannot reproduce.
 - **After a merge, the pinned branch must be restarted from the new `main`** and force-pushed with
   lease. A squash merge leaves no parent link, so the old branch reads as "unmerged" by ancestry even
   when `git diff <old-head> origin/main` is empty — check the diff, not the ancestry.
-
-## The fixtures repo
-
-No commit this run; nothing changed a fixture's contract. The seven `corpus-overrides.json` entries
-still need removing once `debrief-fixtures` is re-cut.
-
-**Two things worth adding there**, both now with a reason attached:
-
-- a corpus record holding two genuinely separable burns, which would turn `no corpus record holds two
-  burns` red — the signal that staging detection has become possible;
-- **a launch day where one flyer's two files were dropped together**, which is the signal D6 now rests
-  on and which the corpus cannot demonstrate at all: every group in it is assembled by the manifest,
-  not by arrival.
+- **Check the deployed build with a cache-buster:**
+  `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. The plain fetch lags about ten
+  minutes after a green deploy and will tell you it failed when it did not.
