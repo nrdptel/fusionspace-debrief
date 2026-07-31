@@ -6,12 +6,13 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D6 is the milestone. Its first increment (the measurement, `lib/parsers/d6Grouping.test.ts`) was already in.** The next one is the ARRIVAL signal, and the groundwork for it is measured and written down below — read it before scoping, it saves an hour of tracing. |
+| **D — capability** | **D6 SHIPPED its headline capability.** A flyer who drops two files off one flight is now OFFERED the grouping, with the evidence in words, and accepts or refuses in one press. The signal is the launch second the vendor writes into the file NAME — 16 true pairs, 0 false, over the corpus — which **amends D6's own premise**: its decomposition had concluded no content signal could carry this, having tested three and not the file name. |
 | **P — product & craft** | **P1 IN PROGRESS.** `Section` went from **0 adopters to 2** — `/privacy` and `/validation` are built from it, and the heading level those pages skipped is closed. `/methods` was measured and deliberately NOT converted; its own (different) rhythm break was fixed instead. |
 
-**A Sev-1 was found and fixed this run** — a peak speed of **Mach 7.06** published off a barometric
-transient. Details below. It preempted the D-track increment, which is why only the P-track
-milestone moved.
+**A Sev-1 was found and fixed this run — and a SECOND instance of the same class is still OPEN.**
+A peak speed of Mach 7.06 was published off a barometric transient and is now withheld; a second
+record states Mach 1.19 at 30.5 m AGL and is filed, not fixed. It is the first entry in
+`BACKLOG.md` and it is the first thing to pick up.
 
 **Work is on the pinned working branch and NOT in production.** Production was serving `ae9b811`
 when last checked with a cache-buster — which is `origin/main`, i.e. none of this run's commits.
@@ -24,7 +25,7 @@ Every increment independently gated: `npm test` · `npm run build` · `npx playw
 green before every push. The corpus was attached throughout — `lib/parsers/corpus.test.ts` reports
 **138 tests over 61 fixtures** — so no claim here rests on a suite that skipped itself.
 
-**Steady-state gate at the end of the run: 981 unit tests over 68 files, build clean, 236 e2e.**
+**Steady-state gate at the end of the run: 992 unit tests over 69 files, build clean, 239 e2e.**
 
 ### 1. The docs routes are built from `Section` (P-track, P1)
 
@@ -56,7 +57,8 @@ withheld, no caveat: every warning on screen was about the altitude baseline and
 velocity.
 
 Cause: `maxVelIdx === liftoffRef`. The trace said the fastest instant of the whole climb was the
-moment liftoff was detected, when a rocket is at rest. The log opens part-way in and its altitude
+moment liftoff was detected — the sample where the record FIRST shows it moving. The log opens
+part-way in and its altitude
 runs −451 → −389 → −286 → −29 → +96 m in 0.2 s; that jump is fast enough to be read as the launch
 and is then reported as the top speed.
 
@@ -68,13 +70,47 @@ refused at once. Its window also ran `liftoffRef..maxVelIdx`, here **one sample*
 only ever be 0. `velocityOutclimbsItself` missed by 1.4× — 1.39% against a 1% floor — because a peak
 pinned at t≈0 puts the whole climb in its numerator.
 
-Fixed by `velocityPeakAtLiftoff`, a self-contradiction rather than a threshold, so it needs no
-constant. **Corpus: 37 of 38 records byte-identical, 1 moved deliberately**; the digest snapshot
-moved exactly one line. Pinned by a synthetic test and a corpus test, both falsified by mutation.
+Fixed by `velocityPeakAtLiftoff`. **Corpus: 49 of 50 records byte-identical, 1 moved deliberately**;
+the digest snapshot moved exactly one line. Pinned by a synthetic test and a corpus test, both
+falsified by mutation.
+
+### 3. The correction to increment 2 — read this one even if you skip the rest
+
+**The Sev-1 commit stated its evidence three times, and the evidence was wrong.** A third commit
+corrects it in the code, in `BACKLOG.md` and on the PUBLIC validation page:
+
+- "38 corpus records that analyse" is **50**. The sweep behind it only took files `importFlight`
+  returns as `kind: 'flight'`, so it skipped the **eleven records that reach analysis through the
+  column mapper**.
+- "every other published peak comes at least 0.700 s later" is **0.050 s**. 0.700 s was the minimum
+  over the named-parser subset — precisely the subset that excluded the counterexample. The sweep
+  did not merely under-count; it removed the evidence that the class was not closed.
+- "A rocket is AT REST when it leaves the pad" is not what `liftoffRef` means: it is the first
+  sample with `altClean > 3 m` AND `velocity > 2 m/s`, and on one real record `velocity[liftoffRef]`
+  is **385 m/s**.
+
+None of it changed behaviour. What it changed is that the repo now says something true about why.
 
 ## Pick up first
 
-1. **D6's next increment: RECORD THE ARRIVAL.** This is measured, not guessed — do not re-trace it.
+1. **The OPEN Sev-1 at the top of `BACKLOG.md`** — `perfectflite…endurance-20211030` states
+   Mach 1.19 and a Mach-1 crossing 30.5 m off the pad, against the Mach 0.93 a second altimeter
+   measured on the same flight. Three routes were tried and the entry says why each was refused.
+   **The most promising is the third and the measurement it needs is small:** widening the
+   ascent-noise window to the whole climb catches it and, over all 50 records, changes nothing
+   else — what blocked it is that widening shadows `velocityOutclimbsItself` on its synthetic
+   case, and nobody established whether it also shadows that guard on the two REAL corpus flights
+   it protects. Establish that, and the fix is a five-line change that is already written and
+   measured in the code comment.
+
+2. **D6 shipped a working offer; two things are left.** The banner suggests a primary and does not
+   yet let the flyer change it before accepting (the row control still does, afterwards). And
+   Featherweight publishes an in-file join key — a sync counter shared by the HR and LR files —
+   which would separate *one recording exported twice* from *two instruments*, the relation
+   `same_flight_group` conflates. `lib/parsers/blueraven.ts` already quotes the manual on it.
+
+3. **D6's other groundwork, still true and still unused.** This is measured, not guessed — do not
+   re-trace it.
    - **The only arrival fact that survives a drop today is `addedAt`.** `lib/ingest.ts:165` hands
      `saveRecent` name / formatLabel / apogeeM / maxVelocityMs / flownAt / text / bytes and nothing
      about the drop: no batch id, no folder name, no drop index.
@@ -115,7 +151,7 @@ moved exactly one line. Pinned by a synthetic test and a corpus test, both falsi
      `lib/ingest.test.ts` says outright that `ingestFiles` needs a real browser and is only
      exercised in e2e.
 
-2. **P1's next slices, in the order the audit ranked them** (all measured this run, none guessed):
+4. **P1's next slices, in the order the audit ranked them** (all measured this run, none guessed):
    - **Two primaries on one surface, on BOTH flight routes.** `CompareSurface` renders an
      indigo-filled `<label>` beside `RecentFlights`'s `Button variant="primary"`; `DropZone`'s
      "Choose files" does the same on `/`. §5 says at most one per surface.
@@ -129,7 +165,7 @@ moved exactly one line. Pinned by a synthetic test and a corpus test, both falsi
    - **A sixth radius nobody counts:** bare `rounded` (0.25rem) at 11 sites. `roundedLg` is guarded
      at 0 and no grep sees this one, so the drift just moved one step.
 
-3. **The corpus asserts a velocity on almost none of its fixtures.** The Sev-1 sat in a file whose
+5. **The corpus asserts a velocity on almost none of its fixtures.** The Sev-1 sat in a file whose
    override asserts apogee ONLY, so the suite was green while it published Mach 7.06. Golden values
    pin what somebody thought to assert; the digest snapshot catches change but blesses whatever was
    wrong when written. A pass adding a velocity/Mach assertion to every fixture whose manifest row
@@ -152,11 +188,15 @@ moved exactly one line. Pinned by a synthetic test and a corpus test, both falsi
   fixtures.** Mine reported "38 analysed" and a clean one-flight delta; the real corpus suite then
   found a SECOND flight had moved, because its file reaches analysis through the column mapper.
   **The corpus suite is the measurement; a hand-rolled sweep is a hint.**
-- **The obvious generalisation of a guard was measured and was net-negative.** See the `BACKLOG.md`
-  entry and the comment in `lib/analyze/index.ts`: widening the ascent-noise window to the whole
-  climb flags ZERO additional corpus flights while withholding a sound read and breaking a test, and
-  needs two compensating mechanisms that exist only to repair its own damage. Reverted. Do not retry
-  it without new evidence.
+- **A hand-rolled corpus sweep skipped a third of the corpus and nobody noticed for two commits.**
+  It only took `res.kind === 'flight'`, so the eleven column-mapper records were invisible — and
+  they are where the counterexample lived. The number it produced (38) was then repeated in a
+  commit message, a backlog entry and a published page. **The corpus suite is the measurement; a
+  hand-rolled sweep is a hint.** If a sweep and the corpus suite disagree about how many records
+  analyse, the sweep is wrong.
+- **The pre-push review is what caught it**, forty minutes after the commit went out. Both times
+  this run, the thing the gate could not see was found by handing the diff to a fresh reader. Budget
+  for it finishing rather than pushing while it runs.
 - **A claim that reopening a flight moves its `addedAt` is REFUTED.** `lib/reopen.ts` never calls
   `saveRecent`; only `lib/ingest.ts` and `lib/mapped.ts` do, so only re-DROPPING the same file
   refreshes the stamp. Checked because D6 rests on `addedAt`.
@@ -173,10 +213,15 @@ check that the two copies have not drifted.
 | hand-rolled card treatments | 10 | **10** | floor 4, not 1 |
 | inverted-type files | 16 | **16** | floor at least 4, not 0 |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 27 | **27** | most of the 46 |
+| files importing the primitives | 27 | **28** | most of the 46 |
 | `Card` adopters | 23 | **23** | — |
+| `Button` adopters | 10 | **11** | — |
 | `Section` adopters | 0 | **2** | — |
 | `Segmented` adopters | 0 | **0** | — |
+
+Re-run from `DESIGN.md` §9's own shell block at the end of the run: `rounded-lg` 0, card treatments
+10, off-scale spacing 0, off-scale type 1, inverted files 16, components importing `./ui` 28. No
+count moved the wrong way.
 
 **The per-primitive count reads `app` as well as `components` now, and that was a real hole.** §5
 defines `Section` BY its route — "what a route is built from" — so every `Section` there will ever
