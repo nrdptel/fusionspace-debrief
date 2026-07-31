@@ -17,8 +17,8 @@ against `text-sm` 82, which puts most decision-grade numbers at caption size. Ca
 bottleneck. **What a flyer can do** and **what the tool feels like to use** are different work, and a
 queue containing only the first can only ever ship the first.
 
-- **D-track — capability.** What a flyer can DO that they could not before. D1–D3 shipped, D4 is in
-  progress, D5 is next.
+- **D-track — capability.** What a flyer can DO that they could not before. D1–D5 shipped; D6 is next
+  and is decomposed below.
 - **P-track — product and craft.** What makes it a tool a stranger picks up, trusts, and keeps using:
   shape, design system, first run, form factor, documentation, discoverability.
 
@@ -521,12 +521,35 @@ much as the success path.
 
 ## D5 — The report a flyer can actually build
 
-**Status:** IN PROGRESS — **two of the three clauses are met, and the third turned out to have
-been met before the milestone was written.** Which figures appear AND in what order, on both
-document surfaces; the series colours on the comparison; and an image/self-contained format,
-which PNG and SVG already satisfied. **The one real gap left is the single-flight report's three
-hardcoded figure colours** — per-channel rather than per-flight, so a different store shape.
-That gap is this milestone's honest remainder and the next run's starting point.
+**Status:** SHIPPED 2026-07-31 — every clause of the *done when* is met and each is pinned by a
+check that walks the real app and asserts on the SAVED FILE rather than the screen:
+`the figures a comparison carries are the flyer’s choice, and the report agrees` and
+`the order a flyer puts the figures in follows into the document` (`e2e/compare.spec.ts`),
+`a colour the flyer picks reaches the exported figure, and can be undone` (`e2e/compare.spec.ts`),
+and `a figure colour the flyer picks reaches the saved figure, and can be undone`
+(`e2e/analyze.spec.ts`). Every one is falsified two ways — colouring or ordering the screen but
+not the document fails it, and removing the way back out fails it.
+
+**What a flyer can DO that they could not before:** choose which plots a document carries and in
+what order, and set the colour of any trace — on the single flight and on a comparison — with
+every choice remembered on the device and reaching the .html, the bundle and the saved figure,
+not just the screen.
+
+**What it delivered against its *done when*, and what it did not.** All three clauses hold, and
+the third is worth stating plainly: **"at least one image or self-contained document format" was
+already satisfied when the milestone was written** — four PNG paths, per-figure SVG and a
+self-contained HTML report all shipped before this run. `ROADMAP.md`'s own note claiming none
+existed was the stale thing, not the code, and an increment was nearly spent rebuilding it.
+
+Two things it does NOT do, filed rather than implied:
+- **No paginated document Debrief generates itself.** `printCard()` forces light mode and calls
+  `window.print()`, relying on ~30 `print:hidden` utilities. That is a browser print of a live
+  page, not a document a certification package receives. It is a larger want than the clause
+  states; `package.json` carries four runtime dependencies and `lib/zip.ts` is hand-rolled, so a
+  PDF library would be against the grain of this repo.
+- **No column model.** The .txt, .md, .html and clipboard tables all render `headlineRows` as
+  label/value pairs, so "which columns" has no answer to give. Whether that is a gap at all is a
+  product question, not an oversight.
 
 The first clause is pinned by `the figures a comparison carries are the flyer’s choice, and the report agrees` and
 `the order a flyer puts the figures in follows into the document` (both `e2e/compare.spec.ts`,
@@ -622,12 +645,112 @@ JSON keep every key. Verified still true after this slice: `analyzedDataCsv` tak
 
 ---
 
+## D6 — Propose which files belong to one flight, and be refusable
+
+**Status:** NOT STARTED — decomposed 2026-07-31 from the one-line entry below, and the decomposition
+changed the milestone. **The signal its own text named is not there**, and that is measured rather
+than suspected. Read the measurement before scoping anything.
+
+**Outcome.** A flyer who drops a launch day's folder is *offered* the grouping D3 makes them state
+by hand — with the evidence shown, the flight still ungrouped until they accept, and a proposal that
+declines to guess far more often than it guesses.
+
+**What a flyer can DO after this milestone that they could not before:** drop two altimeters' files
+and be shown *"these look like one flight — here is why"*, accepting with one press instead of
+finding the pair by hand, and seeing nothing at all where the files do not support the claim.
+
+### The measurement that reshaped this, taken 2026-07-31 over all 44 manifest files
+
+D6's one-line entry proposed grouping on "launch day, overlapping wall clocks and profile shape".
+Two of those three do not survive contact with the corpus.
+
+- **Wall clocks are mostly absent. 11 of 44 files yield a `flownAt` at all** (all 11 timed; 8 UTC,
+  3 the logger's own clock). Of the **21** manifest groups, exactly **one** has two files that both
+  carry a stamp — and it is `iss-kairos-20240323`, the **staged** booster/sustainer pair, which is
+  precisely the relation that must NOT be merged. Both read `2024-03-23T18:54:37`, identically. So
+  the only timestamp agreement the corpus can demonstrate is a *false* merge waiting to happen.
+- **A clock can be a decade wrong and still look valid.** `iss-sg1.1-20231001` reports
+  `2013-04-27T20:16:12` for a flight flown 2023-10-01. It passes `flownAtFromParts`'s 1990–2100
+  sanity window because it is a real date — just not this flight's. Any rule keyed on the stamp
+  files that flight ten years from its siblings.
+- **Apogee agreement alone is worse than useless.** Over the 23 files that yield a readable altitude
+  channel, all 253 pairs measured: same-group pairs run a median **0.51%** apart, cross-group pairs a
+  median 63%. That looks separable until the tail: the **tightest agreement in the entire corpus,
+  0.28%, is between two files that are NOT the same flight** — tighter than the median true pair.
+  **Five** cross-group pairs fall within 2.29%, D3's widest genuinely-redundant spread. A threshold
+  admitting every true pair admits more false ones than true.
+
+The reason is not noise, it is physics: a flyer flying the same airframe on the same motor twice in
+a day gets two flights that agree to a fraction of a percent, because they *should*. Apogee
+agreement measures "these are similar flights", and D6 needs "these are one flight".
+
+### What that leaves, and it is enough
+
+The signal D6's entry did not name is the one that actually carries it: **how the files arrived.**
+Two logs off one flight reach Debrief together — the same folder, the same drop, minutes apart in
+`addedAt` — and D1 already ingests a launch day's folder as a unit. That is a fact about the flyer's
+own action rather than an inference about the flight, and it is the only one available on every row
+regardless of what the logger wrote. Corroboration then *narrows* a proposal that arrival opened; it
+never opens one by itself.
+
+**Done when** a flyer dropping a folder holding two recordings of one flight is offered that
+grouping with its evidence stated, accepts it in one press, and gets exactly what D3's manual
+grouping gives them — while the corpus asserts that **no proposal is ever made across the five
+cross-group pairs that agree within 2.29%**, that the staged `iss-kairos` and `iss-sg1.2` pairs are
+never proposed, and that nothing is grouped without an explicit acceptance.
+
+**Notes.**
+
+- **Never merge silently, and never merge on acceptance-by-default.** A wrong automatic merge
+  fabricates one flight out of two and every downstream reading inherits it. The proposal is a
+  suggestion next to the files, not a state the logbook is already in.
+- **The evidence is the feature.** Whatever the rule keys on, the flyer is shown it in words — *"both
+  arrived in the folder you dropped, and their apogees agree to 0.4%"* — because a grouping a flyer
+  cannot audit is one they cannot correct. This is the provenance spine applied to an inference.
+- **`same_flight_group` is not the ground truth to train against.** D3 recorded this and the numbers
+  above confirm it: the column conflates independent instruments, one recording exported twice, and
+  different STAGES of one launch. `iss-sg1.2-20231118` is the negative case — a TeleMega sustainer at
+  2,113 m beside two StratoLogger boosters at 465 m, all one `same_flight_group`.
+- **The first increment is to commit the measurement above as a test**, so the separability numbers
+  are pinned and re-measured as the corpus grows rather than re-derived by the next session. It was
+  taken with a throwaway probe this run; the probe is gone and only these numbers survive.
+- **`flightId` already carries the result.** D3's field means a proposal has nowhere new to write to
+  — accepting one sets exactly what the manual path sets, so this milestone adds a way to *offer*
+  and nothing to the data model.
+
+**Size.** 4–6 increments, and the first is the measurement rather than any grouping code.
+
+---
+
 ## P1 — One design system, adopted
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
-conversion that earns it. Eleven components import it; the type scale is clean; the five duplicated
-copies of the secondary button are gone.
+conversion that earns it.
+
+**Where the counts stand, measured 2026-07-31 at the end of the run** — the §9 shell block and the
+test agree exactly, which is itself the check that the two have not drifted:
+
+| count | was | now | target |
+|---|---|---|---|
+| `rounded-lg` | 22 | **0** | 0 — **a guard now**, may never rise |
+| off-scale spacing | 25 *(really 33)* | **0** | 0 — **a guard now** |
+| hand-rolled card treatments | 7 *(really 19)* | **12** | floor is 3, not 1 |
+| inverted-type files | 23 | **16** | **floor is at least 4, not 0** |
+| off-scale type sizes | 20 | **1** | floor is 1 — the shared brand wordmark |
+| files importing the primitives | 11 | **25** | most of the 46 |
+| `Card` adopters | 0 | **21** | — |
+
+**Three of those targets are not 0 and the file now says why in each case.** A budget whose target
+is unreachable trains the next session to ignore it, which is worse than not having it.
+
+**And a finding that belongs to P1 rather than to any one count:** the design documents and the
+compliance test were *shipping the utilities they forbid*. Tailwind v4 auto-detects its sources, so
+it read `DESIGN.md`, this file, `HANDOFF.md`, `BACKLOG.md` and `lib/design-system.test.ts` — every
+file whose job is to name a banned class — and emitted **25 dead rules** into the production
+stylesheet that no component used. Scoped in `app/globals.css`; 68,225 → 66,209 bytes. Found by the
+done-check's cold walk on the built export, not by reading source, which is the argument for walking
+the artifact rather than the tree.
 
 **What is left, in the order it is worth doing** — each measured, none guessed:
 
@@ -638,8 +761,19 @@ copies of the secondary button are gone.
    pattern now subtracts the scale instead of naming what is off it, and the five survivors —
    `mt-20 md:mt-28` ×2, `mt-16`, `space-y-5`, `gap-5` — were converted in the same commit.
    Falsified against `gap-5`, `space-y-7`, `mt-20` and `p-16`, every one of which the old form passed.
-2. **23 of 46 component files still have `text-xs` outnumbering `text-sm`.** This is the count that
-   matters most and it has barely moved: the conversions so far took the buttons, not the bodies.
+2. **16 of 46 component files have `text-xs` outnumbering `text-sm` — down from 23, and the target
+   is NOT 0.** §5 makes `Chip` `text-xs` by definition, so a component built out of chips is
+   permanently "inverted" while fully compliant; `EventChips`, `RecognizedFormats`, `SiteFooter` and
+   `FusionSpaceBadge` are already correct and are the floor. **The 23 → 16 was the seven derived-
+   reading panels**, every one of which rendered its label, its input, its description and all of its
+   state messages at caption size — including, in `RailExit`, a flight-safety caution about too
+   little airflow over the fins. `ChannelExplorer` was taken 17/4 → 11/10 by fixing six genuine
+   violations and **deliberately left inverted**, because the other eleven are sanctioned. Read the
+   note in `lib/design-system.test.ts` before treating this number as a defect total: the numbers on
+   these surfaces were never at caption size — `TD_NUM` and both cross-check tables inherit `text-sm`.
+
+   *(Superseded, kept because the reasoning still holds:)* This was the count that mattered most and
+   had barely moved: the conversions so far took the buttons, not the bodies.
    Worst offenders, measured: `RecentFlights` 26/6, `FlightReport` 24/12, `ChannelExplorer` 17/4,
    `CompareView` 17/10 — and the first of those is the logbook, the one surface built for scanning
    flights against each other.
@@ -874,10 +1008,14 @@ standing decision, changeable by the owner at any time; absent that, it holds.
 
 ### D-track, after D5
 
-**D6 — Infer which files belong to one flight.** D1 and D3 make the flyer say so; this proposes the
-grouping from launch day, overlapping wall clocks and profile shape, shows its reasoning and lets the
-flyer correct it. It is deliberately late: a wrong automatic merge silently fabricates one flight out
-of two, and it must sit on a model that already handles the explicit case.
+**D6 — ~~Infer~~ Propose which files belong to one flight. DECOMPOSED 2026-07-31 — it has its own
+section above; take it from there, not from this line.** The decomposition changed it, so the
+original wording is kept here only to show what was wrong with it: it proposed grouping on "launch
+day, overlapping wall clocks and profile shape", and two of those three are not available. 11 of 44
+corpus files carry a clock at all, the only group with two of them is the staged pair that must not
+be merged, and the tightest apogee agreement in the corpus is between two files that are not the
+same flight. The signal that survives is how the files ARRIVED. Numbers and reasoning in the D6
+section.
 
 **D7 — Deeper honest insight, the stated moat.** North Star 1's third bullet: more of what the data
 supports, each reading validated against the corpus, the logger's own reported summary and published

@@ -24,7 +24,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
-import { Button } from './ui';
+import { Button, Card } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -718,7 +718,7 @@ export default function CompareView({
         // and each day attributed to the file that states it so a wrong clock is findable.
         const otherDays = statedDaySplit(flights);
         return (
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+          <Card tone="sunken" className="text-sm">
             <p className="font-medium text-zinc-700 dark:text-zinc-300">
               {otherDays ? 'Flight to flight' : 'Cross-check'}
             </p>
@@ -796,7 +796,7 @@ export default function CompareView({
                 </>
               )}
             </p>
-          </div>
+          </Card>
         );
       })()}
 
@@ -1117,11 +1117,11 @@ export default function CompareView({
 
 function ChartBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+    <Card>
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">{title}</h3>
       </div>
       {children}
-    </div>
+    </Card>
   );
 }

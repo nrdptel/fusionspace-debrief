@@ -72,17 +72,17 @@ export default function RailExit({
           <h3 id="rail-exit-heading" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
             Rail-exit velocity
           </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             How fast it was going as it left the rail — measured from your flight, not predicted.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           <span>Rail length</span>
           <select
             aria-label="Launch rail length"
             value={railM}
             onChange={(e) => onPick(Number(e.target.value))}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
           >
             {RAIL_LENGTHS_M.map((m) => (
               <option key={m} value={m}>
@@ -103,19 +103,19 @@ export default function RailExit({
       </div>
 
       {!measurable && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Rail clearance happens in the first metre or two, where a velocity derived from barometric altitude is too
           soft to read reliably — this needs a logged (accelerometer) velocity, which this flight doesn’t have.
         </p>
       )}
       {measurable && v == null && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           The log doesn’t cover {railLabel(railM)} of travel with a readable velocity, so there’s nothing to measure
           here.
         </p>
       )}
       {marginal && (
-        <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+        <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">
           That’s on the low side. A rocket that leaves the rail slowly has less airflow over its fins to hold it
           straight — many fliers look for more margin than this. It’s your call, not a rule.
         </p>

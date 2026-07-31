@@ -9,7 +9,7 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
-import { Button } from './ui';
+import { Button, Card } from './ui';
 
 /** The plot is square and capped, so a wide column doesn't stretch a north-up map. */
 const MAX_SIZE = 420;
@@ -498,7 +498,7 @@ export default function GroundTrack({
         <span className="text-xs text-zinc-500 dark:text-zinc-400">north up · from GPS</span>
       </div>
 
-      <div ref={hostRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <Card ref={hostRef} className="mt-3">
         <div className="relative mx-auto" style={{ width: size || undefined, height: size || undefined }}>
           <canvas
             ref={canvasRef}
@@ -591,7 +591,7 @@ export default function GroundTrack({
             ))}
           </ul>
         )}
-      </div>
+      </Card>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label={landed ? 'Landed from pad' : 'Last fix from pad'} value={fmtLength(stats.landingDistance, sys)} />
@@ -690,7 +690,7 @@ export default function GroundTrack({
             <h4 className="text-xs font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Wind aloft (by altitude)</h4>
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">measured from the descent drift</span>
           </div>
-          <dl className="mt-2 divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          <dl className="mt-2 divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
             {profile.map((l) => (
               <div key={l.altLoM} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
                 <dt className="font-mono text-zinc-500 dark:text-zinc-400">
@@ -715,7 +715,7 @@ export default function GroundTrack({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+    <div className="rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
       <dt className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</dt>
       <dd className="mt-0.5 font-mono text-base font-semibold text-zinc-900 dark:text-zinc-100">{value}</dd>
     </div>

@@ -112,13 +112,13 @@ export default function DragCoefficient({
           >
             Drag coefficient (measured)
           </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             The drag your airframe actually had, read from the coast deceleration. Enter the coast mass and body
             diameter.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span>Coast mass</span>
             <span className="flex items-center gap-1">
               <input
@@ -130,12 +130,12 @@ export default function DragCoefficient({
                 onChange={(e) => onMass(e.target.value)}
                 aria-label={`Coast mass (${massUnit === 'oz' ? 'ounces' : 'grams'})`}
                 placeholder={massUnit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               />
               <span className="font-mono">{massUnit}</span>
             </span>
           </label>
-          <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span>Diameter</span>
             <span className="flex items-center gap-1">
               <input
@@ -147,7 +147,7 @@ export default function DragCoefficient({
                 onChange={(e) => onDiam(e.target.value)}
                 aria-label={`Body diameter (${lenUnit === 'in' ? 'inches' : 'millimetres'})`}
                 placeholder={lenUnit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               />
               <span className="font-mono">{lenUnit}</span>
             </span>
@@ -171,13 +171,13 @@ export default function DragCoefficient({
       </div>
 
       {!haveInputs ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Enter the rocket’s mass during coast (at burnout, propellant spent) and its body diameter to read the drag
           coefficient this flight flew at. Kept on this device; compare it against the C<sub>d</sub> your simulation
           assumed.
         </p>
       ) : result == null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Couldn’t read a clean coast on this flight — the coast may be too short or too slow for drag to register
           above the noise.
         </p>

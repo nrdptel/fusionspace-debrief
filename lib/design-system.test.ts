@@ -66,14 +66,57 @@ function countMatches(
 /** The counts as they stand. Each is a ratchet toward the target named beside it; lower it in the
  *  same commit as the conversion that earns it, and never raise one. */
 const BUDGET = {
-  /** `rounded-lg` is not in the system at all — containers are `xl`, controls are `md`. Target 0. */
-  roundedLg: 22,
+  /** `rounded-lg` is not in the system at all — containers are `xl`, controls are `md`. **At the
+   *  target, so this is a guard rather than a ratchet** — it may never go up again.
+   *
+   *  All 22 were classified one at a time by what the element IS rather than swept to a single
+   *  value, because a sweep picks whichever radius the majority happened to want and re-blurs the
+   *  distinction the scale exists to make. Containers took `xl` — the mapper's preview table, the
+   *  flight picker's list, the ground track's map frame, the report's three figure frames; controls
+   *  took `md` — the two error-page links, the mapper's buttons, the `<label>` acting as a button
+   *  on the comparison, the drop zone's own control.
+   *
+   *  The split fell **15 container / 7 control**, and that is the useful measurement: this value was
+   *  landing mostly on real containers, one radius step short of the one the system gives them. It
+   *  was not a control radius leaking upward — it was containers quietly shipping at two different
+   *  radii, which is exactly the difference a reader notices and cannot name. */
+  roundedLg: 0,
   /** Distinct card treatments. One of these is `<Card>`'s own string, which is the target state; the
    *  rest are hand-rolls still to convert. Two of them will not fold into `Card` and want their own
    *  named primitive — the page-level drop zone (`border-dashed … p-10`, an interactive target
    *  rather than a container) and the floating drop overlay (`border-2 border-dashed … shadow-lg`,
-   *  which needs elevation) — so the honest floor here is 3 and not 1. Recorded in `ROADMAP.md`. */
-  cardTreatments: 7,
+   *  which needs elevation) — so the honest floor here is 3 and not 1. Recorded in `ROADMAP.md`.
+   *
+   *  **This number went UP, from 7 to 18, and then down to 13. Read this before assuming a
+   *  regression, and before ever raising it again.** The rule above says never raise one, and that
+   *  rule is intact: no hand-rolled card was added. This grep anchors on `rounded-xl border`, so it
+   *  could only ever see a hand-roll that had already picked the RIGHT radius — and eleven of them
+   *  were sitting one step away at `rounded-lg`, invisible to the check written to catch them. The
+   *  `rounded-lg` conversion in this same commit did not create those eleven; it revealed them.
+   *
+   *  The proof is a measurement, not an argument. Run radius-agnostically over the tree as it stood
+   *  BEFORE the conversion — normalising `lg` and `xl` to one token — and the count is **19**. After
+   *  the conversion it is 18, because two treatments that differed only by radius collapsed into
+   *  one. The conversion's net effect on hand-rolled cards was −1.
+   *
+   *  This is the card grep's version of the `offScaleSpacing` bug two entries down, and the same
+   *  lesson: a compliance grep anchored on the compliant value can only see drift that is already
+   *  half-fixed. **The anchor is safe now and was not before** — `roundedLg` above is a guard at 0,
+   *  so a hand-roll can no longer hide at the middle radius.
+   *
+   *  18 → 13 is the seven `bg-zinc-50 px-4 py-3` panels moving onto `<Card tone="sunken">`, which
+   *  is the tone that was added FOR them and had four adopters while seven more wrote it out by
+   *  hand. They were five distinct strings for one thing: two differing only in where `print:hidden`
+   *  sat relative to the `dark:` variants, the rest by a `text-sm` or a text colour.
+   *
+   *  13 → 12 is the four CHART containers — the report's and the comparison's `ChartBlock`, the
+   *  channel explorer's chart host and the ground track's canvas host. One identical string at all
+   *  four, and the four files `HANDOFF.md` named as still hand-rolling a card. Two of them measure
+   *  their own box to size what they draw, so `Card` takes a `ref` now; without it they would have
+   *  kept a hand-rolled `<div>` wrapped around the primitive, which is not a conversion. Their dark
+   *  fill moves `zinc-900/40` → `zinc-900`, the sanctioned value: a fourth surface level is exactly
+   *  what §2's "three levels, no more" forbids. */
+  cardTreatments: 12,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -87,8 +130,60 @@ const BUDGET = {
    *  attempt flattened away), and `space-y-5`/`gap-5`/`gap-y-5` to `4`, the "between related
    *  things" mapping the rest of the conversion already used. */
   offScaleSpacing: 0,
-  /** Component files where caption size OUTNUMBERS the body default. Target 0. */
-  invertedTypeFiles: 23,
+  /** Component files where caption size OUTNUMBERS the body default.
+   *
+   *  **The target is NOT 0, and this is measured rather than conceded.** The ratio is a proxy: it
+   *  counts every `text-xs` as drift, but `DESIGN.md` sanctions several — §5 makes `Chip` `text-xs`
+   *  by definition, §3 allows units, footnotes and dense table metadata. A component built OUT of
+   *  chips is therefore permanently "inverted" while being fully compliant, and driving it to 0
+   *  would mean breaking §5 to satisfy a count.
+   *
+   *  Four files are already at their correct state and are the floor: `EventChips` (3/0 — a group
+   *  label, the chips themselves, and a "kept on this device" footnote), `RecognizedFormats` (3/0 —
+   *  an uppercase micro-heading, format chips, a footnote), `SiteFooter` (1/0 — the footer IS a
+   *  footnote) and `FusionSpaceBadge` (1/0 — a hover annotation). `KofiButton` (1/0) is a compact
+   *  badge link and is arguable either way. **So the floor is at least 4, and this number is only
+   *  meaningful alongside a reading of what each remaining file's captions actually are.**
+   *
+   *  `ChannelExplorer` is the worked example. It went 17/4 to 11/10 — six genuine violations fixed
+   *  (the X-axis label, the "Views" group label, the view-name input, the axis legend that says which
+   *  unit is on which axis, the disclosure toggle, and the "no samples in range" empty cell) — and it
+   *  is STILL counted inverted at 11/10. The remaining eleven are channel and preset chips, the stats
+   *  table's column headers, and provenance footnotes: every one sanctioned. It was left there rather
+   *  than pushed over the line, because the six that moved were the ones that were wrong. Worth
+   *  knowing before reading this count as a defect total: the stats table's numbers were never at
+   *  caption size — `TD_NUM` carries no size and inherits the table's `text-sm`.
+   *
+   *  The two cross-check tables, `GpsApogee` and `DeviceSummary`, came out the same way. Their
+   *  figures were never at caption size either — both are `<table className="… text-sm">` — and what
+   *  remains after promoting the panel description is column headers, agreement chips and a footnote.
+   *  4/3 and 6/3, both counted inverted, both correct. The description moved because it is the same
+   *  structural element as the seven panels' description and sizing it differently on the grounds
+   *  that its sentence happens to be provenance rather than instruction is how the drift started.
+   *
+   *  23 → 16 is the seven derived-reading panels — `DragCoefficient`, `RailExit`, `ParachuteCd`,
+   *  `LandingEnergy`, `DrogueCd`, `EjectionDelay`, `DeployAltitude` — which shared one shape and one
+   *  mistake: every one of them rendered its input LABEL, its input, its description and all of its
+   *  state messages at `text-xs`, leaving only the heading at body size.
+   *
+   *  §3 draws the line and it is not a matter of taste: `text-sm` is "every label, value, control and
+   *  table cell", while `text-xs` is for the text AROUND a value — "its unit, its provenance, its
+   *  caveat — never the value". So the conversion was by role, not by sweep. Promoted: the labels,
+   *  the number inputs, the description that tells the flyer what to enter, and every state message —
+   *  the empty state, the blocked state, the result sentence, and the warning. Kept at caption size:
+   *  the three formula notes (`Cd = 2·m·g / ρ·v²·A` and friends) and the condition beside each
+   *  reading, which are exactly the "how it was computed" text §3 names.
+   *
+   *  **The one worth naming: `RailExit` was rendering a flight-safety caution at caption size** — a
+   *  rail-exit speed on the low side, "less airflow over its fins to hold it straight", which is the
+   *  panel's whole reason to exist on a marginal flight. That is a decision-grade sentence and it was
+   *  the smallest text on the surface.
+   *
+   *  Note the ratio is a proxy and can be satisfied by a tie, since the filter is a strict `>`. Four
+   *  of these seven would have flipped on labels and inputs alone, landing at exactly 4/4. That was
+   *  not taken as done — the state messages were converted because they are body text, and the seven
+   *  now sit at 1–2 captions against 6–8 body rather than on the boundary. */
+  invertedTypeFiles: 16,
   /** Sizes that are not on `DESIGN.md` §3's six-size scale at all.
    *
    *  §9's grep used to name only `text-lg`, because that is the one the sibling app had. This repo
@@ -105,7 +200,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 20,
+  uiAdopters: 25,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -119,7 +214,7 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 12,
+  Card: 21,
   Button: 10,
   Chip: 3,
   Readout: 2,

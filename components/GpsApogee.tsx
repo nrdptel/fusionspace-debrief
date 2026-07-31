@@ -8,6 +8,7 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, type UnitChoice } from '@/lib/display';
 import { peakAgreement, peakTimeTolerance } from '@/lib/crossPeak';
+import { Card } from './ui';
 
 export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sys: UnitChoice }) {
   const gps = metrics.gpsApogeeAltitude;
@@ -27,14 +28,11 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
       : null;
 
   return (
-    <section
-      aria-labelledby="gpsapo-heading"
-      className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40"
-    >
+    <Card as="section" tone="sunken" aria-labelledby="gpsapo-heading">
       <p id="gpsapo-heading" className="mb-0.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         The GPS recording
       </p>
-      <p className="mb-2.5 text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="mb-2.5 text-sm text-zinc-500 dark:text-zinc-400">
         This file carries the receiver&apos;s own altitude as well as the barometer&apos;s — two
         independent recordings of one flight, which fail in different ways. Shown side by side as a
         cross-check, never averaged: the analysis stays on the barometric channel.
@@ -111,6 +109,6 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
           </>
         )}
       </p>
-    </section>
+    </Card>
   );
 }

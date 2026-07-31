@@ -758,7 +758,7 @@ export default function Analyzer() {
         // arriving silently means the wait simply stops with nothing said.
         <div
           role="alert"
-          className="rounded-lg border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300"
+          className="rounded-xl border border-red-300/70 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300"
         >
           {state.message}
         </div>

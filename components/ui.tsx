@@ -84,10 +84,22 @@ export function Card({
   actions,
   className,
   children,
+  ref,
   ...rest
 }: {
   as?: 'div' | 'section' | 'aside' | 'details';
   tone?: CardTone;
+  /** Forwarded to the element. React 19 passes `ref` as an ordinary prop, so this needs no
+   *  `forwardRef` — but it does need declaring, because `HTMLAttributes` does not carry it and
+   *  two call sites (the channel explorer's chart host, the ground track's canvas host) measure
+   *  their own box to size what they draw inside it. Without this they would have had to keep a
+   *  hand-rolled `<div>` around the primitive, which is the hand-roll this milestone removes.
+   *
+   *  Typed to the DIV rather than to `HTMLElement`, which is exact rather than lax: both call sites
+   *  hold a `useRef<HTMLDivElement>`, and widening it to `HTMLElement` would need a cast at the
+   *  render below without buying anything — `as` only ever changes which element renders, and a
+   *  caller wanting a `<details>` ref can widen this the day one exists. */
+  ref?: React.Ref<HTMLDivElement>;
   /** `p-4` — the card padding from `DESIGN.md` §4. Off only where the card's own content owns its
    *  edges: a table that bleeds to the border, a chart that fills it. */
   pad?: boolean;
@@ -95,8 +107,17 @@ export function Card({
   /** Controls that belong to the title row rather than to the body. */
   actions?: React.ReactNode;
 } & Omit<React.HTMLAttributes<HTMLElement>, 'title'>) {
+  // `Tag` is a union of four intrinsics, and JSX takes the INTERSECTION of their prop types — so a
+  // `ref` typed for any one arm is rejected as incompatible with the other three. Narrowing to one
+  // arm for the JSX call is the whole of the workaround; `rest` is already `HTMLAttributes<HTMLElement>`,
+  // which every arm accepts, and the runtime element is whatever `as` asked for.
+  const El = Tag as 'div';
   return (
-    <Tag className={cx('rounded-xl border', CARD_TONES[tone], pad && 'p-4', className)} {...rest}>
+    <El
+      ref={ref}
+      className={cx('rounded-xl border', CARD_TONES[tone], pad && 'p-4', className)}
+      {...rest}
+    >
       {(title || actions) && (
         <div className="mb-3 flex items-start justify-between gap-3">
           {title && <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">{title}</h3>}
@@ -104,7 +125,7 @@ export function Card({
         </div>
       )}
       {children}
-    </Tag>
+    </El>
   );
 }
 

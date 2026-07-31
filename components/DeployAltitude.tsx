@@ -58,11 +58,11 @@ export default function DeployAltitude({
           <h3 id="deploy-altitude-heading" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
             Main deploy altitude
           </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             Where the main actually fired, read from the flight. Enter the altitude you set on the altimeter to check it.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           <span>Set altitude</span>
           <span className="flex items-center gap-1">
             <input
@@ -74,7 +74,7 @@ export default function DeployAltitude({
               onChange={(e) => onSet(e.target.value)}
               aria-label={`Set main deploy altitude (${unit})`}
               placeholder={unit}
-              className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+              className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
             />
             <span className="font-mono">{unit}</span>
           </span>
@@ -91,7 +91,7 @@ export default function DeployAltitude({
       </div>
 
       {check != null ? (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           {check.when === 'on' ? (
             <>
               That&apos;s within {slopDisp} {unit} of the {setField} {unit} you set — fired right on the mark.
@@ -109,7 +109,7 @@ export default function DeployAltitude({
           )}
         </p>
       ) : (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Enter the main-deploy altitude you set on the altimeter to check the firing against it. Kept on this device.
         </p>
       )}
