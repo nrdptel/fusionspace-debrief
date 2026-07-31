@@ -74,8 +74,12 @@ const BUDGET = {
    *  rather than a container) and the floating drop overlay (`border-2 border-dashed … shadow-lg`,
    *  which needs elevation) — so the honest floor here is 3 and not 1. Recorded in `ROADMAP.md`. */
   cardTreatments: 7,
-  /** Spacing values off the `1 2 3 4 6 8 12` scale. Target 0. */
-  offScaleSpacing: 25,
+  /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
+   *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
+   *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
+   *  break or page gutter — except a list indent, where rounding DOWN puts the marker on the edge,
+   *  so `pl-5 → pl-6`. */
+  offScaleSpacing: 0,
   /** Component files where caption size OUTNUMBERS the body default. Target 0. */
   invertedTypeFiles: 23,
   /** Sizes that are not on `DESIGN.md` §3's six-size scale at all.

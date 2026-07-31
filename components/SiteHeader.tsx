@@ -76,7 +76,7 @@ export default function SiteHeader({
         </div>
       </div>
 
-      <nav aria-label="Surfaces" className="mt-5 flex flex-wrap gap-1.5">
+      <nav aria-label="Surfaces" className="mt-4 flex flex-wrap gap-1.5">
         {SURFACES.map((s) => {
           const active = s.key === current;
           return (

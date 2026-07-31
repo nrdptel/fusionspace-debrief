@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function ComparePage() {
   return (
     <UnitsProvider>
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-12">
       {/* Chrome at the reading width; the comparison itself uses the full width, where the
           overlaid charts and the side-by-side table live. */}
       <div className="mx-auto w-full max-w-5xl">

@@ -381,7 +381,7 @@ export default function CompareSurface() {
           second time as the event bubbled. The box stays as the visible affordance and the
           file picker. */}
       <div
-        className="rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center transition dark:border-zinc-700"
+        className="rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center transition dark:border-zinc-700"
       >
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {logbook.recents.length === 0

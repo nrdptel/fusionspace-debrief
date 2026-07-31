@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 
 export default function MethodsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-10">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-12">
       <SiteHeader brandAsHeading={false} />
 
-      <section className="mt-10">
+      <section className="mt-12">
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Where the numbers come from
         </h1>
@@ -905,7 +905,7 @@ export default function MethodsPage() {
         </div>
       </section>
 
-      <p className="mt-10 border-t border-zinc-200 pt-5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+      <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         <Link href="/" className="underline hover:text-zinc-700 dark:hover:text-zinc-300">
           ← Back to Debrief
         </Link>

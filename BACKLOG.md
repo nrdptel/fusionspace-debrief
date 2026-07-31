@@ -16,6 +16,17 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
+  every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
+  with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with
+  Playwright's log showing `waiting for "…/compare?ids=a,b,c&u=ft" navigation to finish`. So the
+  address is already correct and the assertion is racing the navigation that follows the mapping,
+  not a wrong result. It passes alone every time and passed the immediately following full run
+  twice, so it is a wait, not a defect in the app. Fix it by awaiting the heading through the
+  navigation (`waitForURL` first, or assert on the surface's own state) rather than by adding a
+  retry — a flaky check in a suite nobody reads for a fortnight teaches the next session to wave
+  real failures through, which is the exact failure `MAINTAINING.md` names.
+
 - **A loaded comparison's only `<h1>` is the brand wordmark, at 24 px.** Measured 2026-07-31 on the
   built export: on `/compare` before flights load the page title is "Compare flights" at 30 px, and
   once a comparison is on screen the surface's own heading steps down and the brand becomes the

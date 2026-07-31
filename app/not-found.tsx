@@ -4,7 +4,7 @@ import SiteFooter from '@/components/SiteFooter';
 
 export default function NotFound() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-10">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6 md:py-12">
       <SiteHeader />
       <section className="mt-20 flex flex-col items-start md:mt-28">
         <p className="font-mono text-sm text-indigo-600 dark:text-indigo-400">404</p>
