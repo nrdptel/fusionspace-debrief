@@ -495,6 +495,17 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **`e2e/logbook.spec.ts` → "the label and notes a flyer types stay with the flight" flaked once,
+  2026-07-31.** Failed in one full-suite run (238/239) immediately after the logbook's sort control
+  moved onto `<Segmented>`, then passed alone and passed a clean full-suite re-run at 239/239. The
+  changed code is reachable from that test — it types into a note editor on a surface whose toolbar
+  just changed — so this is worth a second look before it is dismissed, but two green runs say
+  timing rather than regression. This is the second flake recorded in this file with the same
+  shape (see the compare-spec entry below); both are assertions that follow a state write. If a
+  third appears, the pattern to fix is the default 5 s timeout on an assertion whose neighbours
+  carry 15–20 s, not the individual test.
+
+
 - **`e2e/compare.spec.ts` → "a file a batch drop could not read can be mapped into the comparison
   it arrived with" is flaky.** Failed once in a full-suite run (`Comparing 3 flights` heading not
   found within 5 s at the step after the mapper submits), then passed twice individually and

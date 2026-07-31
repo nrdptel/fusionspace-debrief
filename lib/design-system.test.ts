@@ -268,7 +268,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   EmptyState: 1,
   ErrorState: 1,
   Section: 2,
-  Segmented: 0,
+  Segmented: 2,
   Disclosure: 3,
 };
 

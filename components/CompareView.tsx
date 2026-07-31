@@ -24,7 +24,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
-import { Button, Card, Disclosure } from './ui';
+import { Button, Card, Disclosure, Segmented } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -39,14 +39,6 @@ function round1(v: number): string {
 
 function round2(v: number): string {
   return Number.isFinite(v) ? (Math.round(v * 100) / 100).toString() : '—';
-}
-
-function seg(active: boolean): string {
-  return `rounded-md border px-2.5 py-1 text-xs font-medium transition ${
-    active
-      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
-      : 'border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-  }`;
 }
 
 /** Trim a file extension for a tidier chart/legend label. */
@@ -999,17 +991,13 @@ export default function CompareView({
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Channel</span>
-          {metrics.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => chooseMetric(m.key)}
-              aria-pressed={m.key === metric}
-              className={seg(m.key === metric)}
-            >
-              {m.label}
-            </button>
-          ))}
+          <Segmented
+            value={metric}
+            onChange={chooseMetric}
+            options={metrics.map((m) => ({ value: m.key, label: m.label }))}
+            ariaLabel="Channel"
+            size="sm"
+          />
         </div>
 
         {/* Export the comparison — chart, the overlaid data, or the table. */}
