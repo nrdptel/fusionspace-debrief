@@ -87,7 +87,7 @@ const BUDGET = {
    *  to match, in both repos. */
   offScaleType: 19,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 5,
+  uiAdopters: 10,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -102,7 +102,7 @@ const BUDGET = {
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 5,
-  Button: 3,
+  Button: 9,
   Chip: 2,
   Readout: 2,
   IconButton: 1,

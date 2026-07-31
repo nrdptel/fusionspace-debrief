@@ -9,9 +9,7 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
-
-const ACTION_BTN =
-  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+import { Button } from './ui';
 
 /** The plot is square and capped, so a wide column doesn't stretch a north-up map. */
 const MAX_SIZE = 420;
@@ -615,8 +613,8 @@ export default function GroundTrack({
           or handheld — the precise walkback, on top of the rough bearing. */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="font-mono text-sm text-zinc-700 dark:text-zinc-300">{coords}</span>
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={() => {
             navigator.clipboard?.writeText(coords).then(
               () => {
@@ -627,12 +625,11 @@ export default function GroundTrack({
             );
           }}
           title={landed ? 'Copy the landing coordinates' : 'Copy the last-fix coordinates'}
-          className={ACTION_BTN}
         >
           {copied ? 'Copied ✓' : 'Copy coords'}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          size="sm"
           onClick={() =>
             download(
               new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed)], { type: 'application/gpx+xml' }),
@@ -640,16 +637,15 @@ export default function GroundTrack({
             )
           }
           title={`Download the track and ${landed ? 'landing point' : 'last fix'} as a GPX file (opens in any GPS app)`}
-          className={ACTION_BTN}
         >
           Save GPX
-        </button>
+        </Button>
         {/* GPX carries where it went on the ground; KML carries where it went, full stop.
             With the altitude beside each fix, Google Earth draws the trajectory in the air
             over the actual field — the view AltosUI has offered for years, and the one worth
             handing to someone helping walk a rocket down. */}
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={() =>
             download(
               new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed)], {
@@ -659,10 +655,9 @@ export default function GroundTrack({
             )
           }
           title="Download the flight as KML — the 3D path over the ground, for Google Earth"
-          className={ACTION_BTN}
         >
           Save KML
-        </button>
+        </Button>
       </div>
 
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

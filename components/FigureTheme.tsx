@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from './ui';
 
 // A light/dark choice for an exported vector (SVG) figure. A report, cert document
 // or forum post almost always wants a light figure whatever theme the app is in, so
@@ -12,6 +13,9 @@ export function useFigureDark(): [boolean, () => void] {
   return [dark, () => setDark((d) => !d)];
 }
 
+/** `className` is optional now, and no longer the button's whole appearance. All three call sites
+ *  passed the same hand-rolled string — which is how one control ends up with three copies of
+ *  itself — so it is a `Button`, and a caller passes only what is genuinely about ITS layout. */
 export function FigureThemeButton({
   dark,
   onToggle,
@@ -19,17 +23,17 @@ export function FigureThemeButton({
 }: {
   dark: boolean;
   onToggle: () => void;
-  className: string;
+  className?: string;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      size="sm"
       onClick={onToggle}
       aria-label={`Exported figure background: ${dark ? 'dark' : 'light'}. Switch to ${dark ? 'light' : 'dark'}.`}
       title="Background for the exported vector (SVG) figure — light for most reports, dark for a slide deck"
       className={className}
     >
       Figure: {dark ? 'dark' : 'light'}
-    </button>
+    </Button>
   );
 }

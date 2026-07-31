@@ -28,11 +28,10 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
+import { Button } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
-const ACTION_BTN =
-  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
 const GROUPS: PlotChannel['group'][] = ['Debrief', 'Recorded'];
 const MAX_SERIES = COMPARE_PALETTE.length;
 
@@ -416,20 +415,19 @@ export default function ChannelExplorer({
               placeholder="Boost check"
               className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
-            <button type="button" onClick={commitPreset} className={ACTION_BTN}>
+            <Button size="sm" onClick={commitPreset}>
               Save
-            </button>
+            </Button>
           </span>
         ) : (
           presets.length < MAX_PRESETS && (
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={() => setNaming(true)}
               title="Keep this set of channels and axis under a name, for every flight"
-              className={ACTION_BTN}
             >
               + Save this view
-            </button>
+            </Button>
           )
         )}
         {presets.length > 0 ? (
@@ -453,26 +451,24 @@ export default function ChannelExplorer({
 
       {/* Export what's plotted */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={savePng} title="Save the current plot as a PNG" className={ACTION_BTN}>
+        <Button size="sm" onClick={savePng} title="Save the current plot as a PNG">
           Save .png
-        </button>
-        <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
-        <button
-          type="button"
+        </Button>
+        <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} />
+        <Button
+          size="sm"
           onClick={saveSvg}
           title="Save the plot as a vector SVG — crisp at any size for a report or slide"
-          className={ACTION_BTN}
         >
           Save .svg
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          size="sm"
           onClick={saveCsv}
           title="Save the plotted data — your chosen axes, in the displayed units — as CSV"
-          className={ACTION_BTN}
         >
           Save .csv
-        </button>
+        </Button>
       </div>
 
       <div ref={chartRef} className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/40">

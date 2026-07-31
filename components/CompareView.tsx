@@ -22,9 +22,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
-
-const ACTION_BTN =
-  'inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800';
+import { Button } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -920,58 +918,52 @@ export default function CompareView({
 
         {/* Export the comparison — chart, the overlaid data, or the table. */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={savePng} title="Save the comparison chart as a PNG" className={ACTION_BTN}>
+          <Button size="sm" onClick={savePng} title="Save the comparison chart as a PNG">
             Save .png
-          </button>
-          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} className={ACTION_BTN} />
-          <button
-            type="button"
+          </Button>
+          <FigureThemeButton dark={figureDark} onToggle={toggleFigureDark} />
+          <Button
+            size="sm"
             onClick={saveChartSvg}
             title="Save the comparison chart as a scalable SVG (vector — crisp at any size)"
-            className={ACTION_BTN}
           >
             Save .svg
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveOverlayCsv}
             title="Save every overlaid channel — altitude, velocity, acceleration, Mach and dynamic pressure — for all flights, on the shared liftoff-aligned timeline, as one CSV"
-            className={ACTION_BTN}
           >
             Save chart data
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={copyMetrics}
             title="Copy the side-by-side table to the clipboard — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
-            className={ACTION_BTN}
           >
             Copy table
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveMetricsCsv}
             title="Save the side-by-side metrics table as CSV"
-            className={ACTION_BTN}
           >
             Save metrics
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveHtml}
             title="Save a self-contained HTML comparison report — the cross-check, the side-by-side metrics and the overlay charts inline, in one file you can open, print, email or archive anywhere (nothing uploaded)"
-            className={ACTION_BTN}
           >
             Save .html
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
             onClick={saveBundle}
             title="Save one ZIP with the Markdown cross-check write-up, the metrics CSV and the altitude/velocity/acceleration overlay figures — the whole comparison, zipped in the browser"
-            className={ACTION_BTN}
           >
             Save bundle
-          </button>
+          </Button>
         </div>
         {copyMsg && (
           <p role="status" aria-live="polite" className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
