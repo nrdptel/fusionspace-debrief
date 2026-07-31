@@ -11,7 +11,7 @@ import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSprea
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
-import { Button } from './ui';
+import { Button, Segmented } from './ui';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -372,8 +372,15 @@ export default function RecentFlights({
           </span>
         </h2>
         <div className="flex items-center gap-3">
+          {/* Secondary, not primary — §5 allows one primary per SURFACE, and this component is not
+              one. It is embedded in both flight routes, and each of those already has its own
+              primary for the thing it exists to do: "Choose files" on the analyze route and
+              "Choose flight logs" on the comparison. Ticking two rows used to put a second indigo
+              fill on screen beside that one, and two primaries on a screen means neither is.
+              The logbook reading as a surface in its own right is what made this look right; a
+              flyer sees one page. */}
           {chosen.length >= 2 && (
-            <Button variant="primary" size="sm" onClick={() => onCompare(chosen)}>
+            <Button size="sm" onClick={() => onCompare(chosen)}>
               Compare {chosen.length} flights
             </Button>
           )}
@@ -548,21 +555,13 @@ export default function RecentFlights({
       {flights.length > 1 && (
         <div className="mt-3 flex items-center gap-2">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sort by</span>
-          {SORTS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setSort(s.key)}
-              aria-pressed={s.key === sort}
-              className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
-                s.key === sort
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
-                  : 'border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+          <Segmented
+            value={sort}
+            onChange={setSort}
+            options={SORTS.map((s) => ({ value: s.key, label: s.label }))}
+            ariaLabel="Sort by"
+            size="sm"
+          />
         </div>
       )}
 

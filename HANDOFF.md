@@ -9,15 +9,14 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D6 SHIPPED its headline capability.** A flyer who drops two files off one flight is now OFFERED the grouping, with the evidence in words, and accepts or refuses in one press. The signal is the launch second the vendor writes into the file NAME — 16 true pairs, 0 false, over the corpus — which **amends D6's own premise**: its decomposition had concluded no content signal could carry this, having tested three and not the file name. |
 | **P — product & craft** | **P1 IN PROGRESS.** `Section` went from **0 adopters to 2** — `/privacy` and `/validation` are built from it, and the heading level those pages skipped is closed. `/methods` was measured and deliberately NOT converted; its own (different) rhythm break was fixed instead. |
 
-**A Sev-1 was found and fixed this run — and a SECOND instance of the same class is still OPEN.**
-A peak speed of Mach 7.06 was published off a barometric transient and is now withheld; a second
-record states Mach 1.19 at 30.5 m AGL and is filed, not fixed. It is the first entry in
-`BACKLOG.md` and it is the first thing to pick up.
+**Two Sev-1s were found and both are fixed.** A peak of Mach 7.06 published off a barometric
+transient, and a second record of the same class stating Mach 1.19 at 30.5 m AGL against the
+Mach 0.93 its own flight's TeleMetrum measured. `BACKLOG.md`'s Sev-1 section is back to none open.
 
-**Work is on the pinned working branch and NOT in production.** Production was serving `ae9b811`
-when last checked with a cache-buster — which is `origin/main`, i.e. none of this run's commits.
-**Opening one pull request and merging it on green is all that is needed.** Under the
-SHIPPED-MEANS-REACHABLE invariant everything below counts as pending, not shipped.
+**PR #70 is MERGED and LIVE.** Production was verified serving `bfe9986` with a cache-buster, so
+the docs-route slice, the first Sev-1 fix, its correction and D6's offer are all reachable by a
+flyer. **PR #71 carries the rest** — the second Sev-1 and the button-hierarchy slice — and is open
+on the pinned branch; merging it on green is all that is needed.
 
 ## What shipped this run
 
@@ -91,17 +90,44 @@ corrects it in the code, in `BACKLOG.md` and on the PUBLIC validation page:
 
 None of it changed behaviour. What it changed is that the repo now says something true about why.
 
+### 4. The second Sev-1, and the measurement that unblocked it
+
+`perfectflite…endurance-20211030` published **Mach 1.19 and a Mach-1 crossing 30.5 m off the pad**
+against the **Mach 0.93 its own flight's TeleMetrum measured** — peak one sample after liftoff, an
+implied 398 g. Fixed by the ascent-noise guard judging the WHOLE climb, which had been reverted
+earlier in the run on the bad sweep above.
+
+**What unblocked it is the pattern worth keeping:** the objection was that widening might shadow
+`velocityOutclimbsItself` on real files. Measured per record over all 50, by which warning fires —
+**that guard reaches ZERO corpus records, before and after.** An objection about coverage was
+answered by measuring coverage, and it took ten minutes. Apogee-exclusion and the 3-point median are
+part of the rule (each decides a real record), not patches.
+
+### 5. P1 — one primary per surface, six buttons onto the primitive, `Segmented` adopted
+
+- **`RecentFlights`'s Compare is secondary now.** §5 allows one primary per SURFACE, and that
+  component is embedded in two routes that each already have one. Verified on the built export:
+  with two flights ticked there is now exactly ONE indigo-filled control on the page.
+- **Six hand-rolled buttons onto `<Button>`.** All were `px-4 py-2` against §4's `px-3 py-1.5`; one
+  was `py-2.5`; one carried `hover:bg-indigo-700`, off the accent ramp. `bg-indigo-600` outside
+  `ui.tsx` is down to **1** — a `<label>` that cannot be a `Button` because it is neither a button
+  nor a link.
+- **The inverted-file count went 16 → 18 on that conversion and back to 16, fixed at the cause.**
+  That is §9's own documented adoption effect and no glyph changed size — but what it exposed was
+  real: `CropControl` rendered its heading, both input labels and its refusal line at caption size,
+  and that line carries the sample count a flyer is about to read.
+- **`Segmented` 0 → 2 adopters**, and the third candidate was REFUSED with the reason written in
+  place: the report's "Zoom to" has a real none-active state, and `Segmented` marks exactly one
+  option pressed. "Three surfaces hand-roll one control" was a count; only two were the same control.
+
 ## Pick up first
 
-1. **The OPEN Sev-1 at the top of `BACKLOG.md`** — `perfectflite…endurance-20211030` states
-   Mach 1.19 and a Mach-1 crossing 30.5 m off the pad, against the Mach 0.93 a second altimeter
-   measured on the same flight. Three routes were tried and the entry says why each was refused.
-   **The most promising is the third and the measurement it needs is small:** widening the
-   ascent-noise window to the whole climb catches it and, over all 50 records, changes nothing
-   else — what blocked it is that widening shadows `velocityOutclimbsItself` on its synthetic
-   case, and nobody established whether it also shadows that guard on the two REAL corpus flights
-   it protects. Establish that, and the fix is a five-line change that is already written and
-   measured in the code comment.
+1. **P1's remaining slices, in the order the design audit ranked them** — all measured this run:
+   **`Segmented` still has 0 adopters while three surfaces hand-roll one** (`CompareView`'s
+   `seg()`, `RecentFlights`'s "Sort by", `FlightReport`'s "Zoom to" — three looks for one control);
+   **`tabular-nums` is missing on both cross-check tables** (`GpsApogee`, `DeviceSummary` — the
+   side-by-side comparison §6 exists for, with digits that do not line up); and **a sixth radius
+   nobody counts**, bare `rounded` (0.25rem) at 11 sites, which no §9 grep sees.
 
 2. **D6 shipped a working offer; two things are left.** The banner suggests a primary and does not
    yet let the flyer change it before accepting (the row control still does, afterwards). And

@@ -2021,17 +2021,20 @@ describe('the fastest moment of a climb is never the instant the rocket left the
 // fixes and was inflating the published spread. The endurance pair below replaced it in the
 // enumeration and is the honest +30%: a barometric peak against an inertial one, no gaps,
 // two recordings whose apogees agree to 45 ft.
+//
+// **And now the endurance pair is gone too, for the same reason and not because it disagreed.**
+// Its StratoLogger peak read Mach 1.19 against the TeleMetrum's measured Mach 0.93 — the +30% this
+// describes — from a peak 0.050 s after liftoff at 30.5 m AGL, off a log that opens below the pad.
+// The ascent-noise guard withholds it now, so there is no derived peak left to compare. That is
+// the second pair this enumeration has lost to a peak becoming unreportable, which is worth
+// noticing: the flights that most clearly show "derived reads high" are the ones most likely to be
+// refused outright, so this list shrinks as the guards get better and that is not a regression.
 describe('a speed differentiated out of an altitude reads high, not soft', () => {
   if (!present) {
     it.skip('corpus not fetched — run `npm run fetch-fixtures` (needs FIXTURES_TOKEN)', () => {});
     return;
   }
   const PAIRS: { name: string; measured: string; derived: string }[] = [
-    {
-      name: 'iss-endurance: the AltusMetrum inertial vs the PerfectFlite baro',
-      measured: 'altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv',
-      derived: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv',
-    },
     {
       name: 'trf-lemiv-l3: Blue Raven vs the tracker GPS',
       measured: 'blueraven/blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
@@ -2072,12 +2075,17 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
     return;
   }
   // file → the ascent peak in kPa, and what the whole-record rule used to report.
+  //
+  // `perfectflite…endurance-20211030` was here at 99.7 kPa and is gone: its whole velocity is
+  // withheld now, so it has no max-Q at all. The 99.7 kPa was itself built on a peak of Mach 1.19
+  // read 30.5 m off the pad, against the Mach 0.93 the same flight's TeleMetrum measured — so this
+  // list was asserting that a figure derived from an unusable speed was the RIGHT figure derived
+  // from an unusable speed. Withholding it is the stronger result.
   const WAS_A_TRANSIENT: { file: string; kPa: number; wasKPa: number }[] = [
     { file: 'blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv', kPa: 404.1, wasKPa: 47321.8 },
     { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 83.8, wasKPa: 266.3 },
     { file: 'eggtimer/eggtimer__euroc-skyward-lynx__log.csv', kPa: 103.4, wasKPa: 230.0 },
     { file: 'missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv', kPa: 60.3, wasKPa: 401.4 },
-    { file: 'perfectflite/perfectflite__issuiuc-endurance-20211030__StratoLogger.csv', kPa: 99.7, wasKPa: 218.6 },
   ];
   for (const c of WAS_A_TRANSIENT) {
     const short = c.file.split('/').pop() as string;

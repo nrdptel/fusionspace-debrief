@@ -14,34 +14,30 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-## SEV-1 — ONE OPEN
+## SEV-1 — none open
 
-- **OPEN Sev-1: `perfectflite__issuiuc-endurance-20211030__StratoLogger.csv` states Mach 1.19 and a
-  Mach-1 crossing 30.5 m off the pad.** Measured 2026-07-31, and NOT fixed this run — read the last
-  paragraph before attempting it.
+- **FIXED 2026-07-31 (was Sev-1, and was OPEN for three commits of this same run):
+  `perfectflite__issuiuc-endurance-20211030__StratoLogger.csv` stated Mach 1.19 and a Mach-1
+  crossing 30.5 m off the pad.** It published **410.80 m/s (Mach 1.1875)** with `transonicTime = 0`
+  and **max-Q 99.7 kPa**, from a peak **one sample (0.050 s) after liftoff** at **30.5 m AGL** — an
+  implied mean acceleration of **398 g**. The **TeleMetrum on the same flight measured 315.08 m/s
+  (Mach 0.93)**, subsonic, and `app/validation/page.tsx` already cited that exact pair as a baro
+  trace that "stops being a reading of the speed at all". Same opening-transient pathology as the
+  XPRS record (−31 → −27 → −14 → +9 → +30 ft), and `velocityPeakAtLiftoff` missed it by one index.
 
-  It publishes **410.80 m/s (Mach 1.1875)** with `transonicTime = 0` and **max-Q 99.7 kPa**, from a
-  peak sitting **one sample (0.050 s) after liftoff** at **30.5 m AGL**. The implied mean
-  acceleration to get there is **398 g**. The **TeleMetrum on the same flight measured 315.08 m/s
-  (Mach 0.93)** — subsonic — and `app/validation/page.tsx` already cites that exact pair as a baro
-  trace that "stops being a reading of the speed at all". The log opens below the pad
-  (−31 → −27 → −14 → +9 → +30 ft), so it is the same opening-transient pathology as the XPRS record
-  fixed this run; `velocityPeakAtLiftoff` misses it by one index.
+  **Fixed by widening the ascent-noise guard to the whole climb** — the change that had been
+  reverted earlier in the same run on a measurement that turned out to be an artefact of a sweep
+  skipping the eleven column-mapper records. What unblocked it was one small measurement, taken per
+  record over all 50 by which warning fires: **`velocityOutclimbsItself` reaches ZERO corpus records,
+  before and after.** The objection to widening was that it might shadow that guard on real files;
+  it has no real-file coverage to shadow, because every record it would catch is already caught by a
+  guard ahead of it in the chain. It stays as a backstop.
 
-  **Three fixes were tried and none is safe to ship on today's evidence:**
-  - *Relax the equality to a window.* The nearest published peak after this one is 0.700 s, so a
-    window would have to be ~14x the defect to catch it — a threshold with one data point.
-  - *An implied-acceleration bound (v²/2h).* This record is 398 g, but the corpus's genuine readings
-    run to **94 g** (`altusmetrum…intrepid1`, Mach 1.26) with two known-bad ones between at 151 g and
-    59 g. There is no gap to put a line in without inventing one.
-  - *Widen the ascent-noise window to the whole climb.* This DOES catch it, and over all 50 records
-    it changes nothing else — see the comment in `lib/analyze/index.ts`. It was still not applied,
-    because widening changes which guard fires: on the synthetic case for `velocityOutclimbsItself`
-    the noise guard shadows it, and whether it also shadows that guard on the two real corpus
-    flights it protects was not established. Retiring a guard that protects real files as a side
-    effect of fixing another is not a trade to make unmeasured. **This is the most promising route
-    and the measurement it needs is small: establish what still exercises `velocityOutclimbsItself`
-    over the corpus with the window widened.**
+  Corpus: **49 of 50 byte-identical, 1 moved deliberately**; the digest moved exactly one line. Two
+  corpus assertions were updated rather than loosened, and both were asserting something weaker than
+  they looked: the derived-reads-high enumeration loses this pair because there is no derived peak
+  left to compare (the second pair it has lost that way), and the max-Q list loses it because a
+  figure derived from an unusable speed is not a max-Q. Neither tolerance moved.
 
 - **FIXED 2026-07-31 (was Sev-1): a peak speed read off the opening barometric transient published
   Mach 7.06 and a max-Q 10.9× the flight's own.**
@@ -498,6 +494,17 @@ wild, ideas too big for one pass. One line each, newest first.
   sweep.
 
 ## Correctness / honesty
+
+- **`e2e/logbook.spec.ts` → "the label and notes a flyer types stay with the flight" flaked once,
+  2026-07-31.** Failed in one full-suite run (238/239) immediately after the logbook's sort control
+  moved onto `<Segmented>`, then passed alone and passed a clean full-suite re-run at 239/239. The
+  changed code is reachable from that test — it types into a note editor on a surface whose toolbar
+  just changed — so this is worth a second look before it is dismissed, but two green runs say
+  timing rather than regression. This is the second flake recorded in this file with the same
+  shape (see the compare-spec entry below); both are assertions that follow a state write. If a
+  third appears, the pattern to fix is the default 5 s timeout on an assertion whose neighbours
+  carry 15–20 s, not the individual test.
+
 
 - **`e2e/compare.spec.ts` → "a file a batch drop could not read can be mapped into the comparison
   it arrived with" is flaky.** Failed once in a full-suite run (`Comparing 3 flights` heading not

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import { Button } from '@/components/ui';
 
 export default function NotFound() {
   return (
@@ -12,12 +13,9 @@ export default function NotFound() {
         <p className="mt-3 max-w-xl text-zinc-600 dark:text-zinc-400">
           That page isn&apos;t here. Head back and drop in a flight log instead.
         </p>
-        <Link
-          href="/"
-          className="mt-6 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
-        >
+        <Button href="/" variant="primary" className="mt-6">
           <span aria-hidden="true">←</span> Back to Debrief
-        </Link>
+        </Button>
       </section>
       <SiteFooter />
     </main>

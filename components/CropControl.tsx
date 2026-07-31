@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from 'react';
 import type { ReadExtent } from '@/lib/analyze/types';
 import { Card } from './ui';
+import { Button } from './ui';
 
 /** The first sample at or after `t`, and the last at or before it — a plain binary search,
  *  because a flight's time base is ascending by construction. */
@@ -97,14 +98,14 @@ export default function CropControl({
   return (
     <Card tone="sunken" className="flex flex-col gap-2 print:hidden">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-        <p className="basis-full text-xs font-medium text-zinc-700 dark:text-zinc-300">
+        <p className="basis-full text-sm font-medium text-zinc-700 dark:text-zinc-300">
           This stretch is my flight
           <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
             — frame it on the chart above, or type the seconds. The analysis reads what you choose.
           </span>
         </p>
         <div className="flex items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
             <span id={`${id}-from-label`}>From (s)</span>
             <input
               type="number"
@@ -118,7 +119,7 @@ export default function CropControl({
               className="h-11 w-28 rounded-md border border-zinc-300 bg-white px-2 font-mono text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
             <span id={`${id}-to-label`}>To (s)</span>
             <input
               type="number"
@@ -133,29 +134,23 @@ export default function CropControl({
             />
           </label>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
           disabled={!!problem || !!busy}
           onClick={() => lo != null && hi != null && onRead(lo, hi)}
-          className="h-11 rounded-md border border-indigo-500 bg-indigo-600 px-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
         >
           {busy ? 'Reading…' : 'Read this stretch'}
-        </button>
+        </Button>
         {extent.source === 'chosen' && (
-          <button
-            type="button"
-            disabled={!!busy}
-            onClick={() => onRead(0, time.length)}
-            className="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
-          >
+          <Button disabled={!!busy} onClick={() => onRead(0, time.length)}>
             Read the whole file
-          </button>
+          </Button>
         )}
       </div>
       {/* Says what pressing it would do, or why it is off — a control that fails only when
           pressed, or that is disabled and silent, is the thing this row exists to avoid. */}
       <p
-        className={`text-xs ${error ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`}
+        className={`text-sm ${error ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`}
         role="status"
       >
         {error

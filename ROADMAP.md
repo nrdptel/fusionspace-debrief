@@ -799,8 +799,17 @@ test agree exactly, which is itself the check that the two have not drifted:
 | hand-rolled card treatments | 7 *(really 19)* | **10** | **floor is 4**, not 1 |
 | inverted-type files | 23 | **16** | **floor is at least 4, not 0** |
 | off-scale type sizes | 20 | **1** | floor is 1 — the shared brand wordmark |
-| files importing the primitives | 11 | **25** | most of the 46 |
-| `Card` adopters | 0 | **21** | — |
+| files importing the primitives | 11 | **29** | most of the 46 |
+| `Card` adopters | 0 | **23** | — |
+| `Button` adopters | 0 | **16** | — |
+| `Section` adopters | 0 | **2** | — |
+| `Segmented` adopters | 0 | **2** | — |
+| hand-rolled `<button>` outside `ui.tsx` | 90 | **39** | few |
+| `bg-indigo-600` outside `ui.tsx` | — | **1** | 0, and the 1 is a `<label>` that cannot be a `Button` |
+
+*(Re-measured 2026-07-31 at the end of the run, from §9's own shell block. The per-primitive counts
+read `app` as well as `components` — see `lib/design-system.test.ts` — because §5 defines `Section`
+by its route, and a count scoped to `components` could never see it adopted.)*
 
 **Three of those targets are not 0 and the file now says why in each case.** A budget whose target
 is unreachable trains the next session to ignore it, which is worse than not having it.

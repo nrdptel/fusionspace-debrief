@@ -1111,6 +1111,13 @@ export default function FlightReport({
       {/* Charts */}
       {zoomPresets.length > 1 && (
         <div className="flex flex-wrap items-center gap-2 print:hidden">
+          {/* NOT a `Segmented`, and the design audit was wrong to group it with the logbook's sort
+              and the comparison's channel picker. Those two are exactly-one-active — `Segmented`
+              takes a `value` and marks one option pressed — while this group has a real
+              none-active state: `activePreset` is null whenever the flyer has panned or zoomed the
+              chart by hand, and `e2e/analyze.spec.ts` asserts both presets read
+              `aria-pressed="false"` at once. Converting it would have to invent a selected option
+              that is not selected, which is worse than the hand-roll it replaced. */}
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Zoom to</span>
           {zoomPresets.map((p) => {
             const active = activePreset === p.label;

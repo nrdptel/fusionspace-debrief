@@ -1810,30 +1810,53 @@ function analyzeWhole(
   // honest reading is that neither recording resolves the speed, not that one of them
   // does. Withheld like any other unusable velocity rather than picked between.
   //
-  // **The window stops at the peak. Widening it to the whole ascent was tried twice on 2026-07-31,
-  // and the second attempt is the one to read.** The physics above reads like a statement about the
-  // whole climb, so judging the whole climb looks like the obvious correction.
+  // **Judged over the WHOLE ascent, not just up to the peak.** The physics above is a statement
+  // about the climb: from liftoff to apogee the rocket is going up. Stopping the window at
+  // `maxVelIdx` made the check weakest exactly where a trace is worst, because an artefact that
+  // drags the peak toward liftoff shrinks the window it would be judged in.
   //
-  // The first measurement said it "catches nothing and costs a sound read". Both halves were wrong,
-  // and wrong the same way: the sweep behind them only took files `importFlight` returns as
-  // `kind: 'flight'`, so it silently skipped the eleven records that reach analysis through the
-  // COLUMN MAPPER and reported 38 where the digest covers **50**. Re-measured over all 50, the
-  // widening changes exactly ONE record — `perfectflite…endurance-20211030` — and that record is
-  // not sound: it publishes Mach 1.19 with a Mach-1 crossing 30.5 m off the pad, against the
-  // Mach 0.93 the TeleMetrum measured on the SAME flight.
+  // **This was measured wrongly, reverted, then re-measured and restored — all on 2026-07-31.** The
+  // first sweep said it "flags zero additional flights and costs a sound read". Both halves were
+  // artefacts of the sweep: it only took files `importFlight` returns as `kind: 'flight'`, so it
+  // silently skipped the eleven records reaching analysis through the COLUMN MAPPER, and reported
+  // 38 records where the digest covers 50. Over all 50 it changes exactly ONE record —
+  // `perfectflite…endurance-20211030`, which published **Mach 1.19 with a Mach-1 crossing 30.5 m
+  // off the pad** against the **Mach 0.93 its flight's TeleMetrum measured**, off a log opening
+  // below the pad (−31 → −27 → −14 → +9 → +30 ft). `app/validation/page.tsx` already cited that
+  // pair as a trace that "stops being a reading of the speed at all".
   //
-  // It is still not applied, for a different and narrower reason. Widening changes WHICH guard
-  // fires, and on the synthetic case for `velocityOutclimbsItself` the noise guard shadows it — so
-  // the flight is refused with the right outcome and the wrong REASON, and the energy argument
-  // loses its coverage. Whether it also shadows that guard on the two real corpus flights it exists
-  // for was not established, and retiring a guard that protects real files as a side effect of
-  // fixing another is not a trade to make unmeasured. `endurance` is filed as an OPEN Sev-1 in
-  // `BACKLOG.md` with its numbers rather than closed by a change whose blast radius is unknown.
+  // The second objection was that widening might shadow `velocityOutclimbsItself` on real files.
+  // Measured, per record, by which warning fires: **that guard fires on ZERO of the 50**, before
+  // and after. It has no real-file coverage to lose — the guards ahead of it in the chain reach
+  // every record it would. It stays as a backstop, and its cover is synthetic by nature.
+  //
+  // Two details are part of the rule rather than patches on it:
+  //
+  //  - **Apogee itself is excluded**, which is the definition and not a fudge: apogee is the instant
+  //    the vertical velocity passes through zero, so the ascent is the open interval before it.
+  //    Including that sample tests the one point where "the rocket is going up" is false, and it
+  //    fired — `perfectflite…intrepid3tf1` has its whole-ascent minimum AT the apogee sample,
+  //    −38.1 m/s against a 146.3 m/s peak, 26%, which would have withheld a sound Mach 0.43 reading
+  //    for the flight having reached the top.
+  //  - **The excursion is read through a 3-point median**, so ONE sample cannot withhold a flight.
+  //    This is the rule the analysis already applies to altitude and states on the validation page —
+  //    "one sample standing well clear of both its neighbours is sensor noise" — pointed at the
+  //    velocity. It decides a real record: `eggtimer…skyward-lynx` writes a single glitched row at
+  //    t = 5.65 s (altitude 4,274 → 3,996 → 4,096 ft, raw velocity −5,560 ft/s between neighbours of
+  //    +1,520 and +2,000), putting the filtered channel at −122 m/s against a 427 m/s peak — 29%,
+  //    enough to lose a sound Mach 1.27 reading over one row in 460. Through the median that sample
+  //    reads +24 m/s and the flight stands. A genuinely noise-dominated trace dips for longer than
+  //    one sample, which is the difference being drawn.
   let velocityNoiseDominated = false;
   if (liftoffFound && maxVelIdx >= 0 && Number.isFinite(maxVelocity) && maxVelocity > 0) {
+    const vAt = (i: number): number => (Number.isFinite(velocity[i]) ? velocity[i] : 0);
     let worst = 0;
-    for (let i = liftoffRef; i <= maxVelIdx; i++) {
-      if (Number.isFinite(velocity[i]) && velocity[i] < worst) worst = velocity[i];
+    for (let i = liftoffRef; i < apogeeIdx; i++) {
+      const a = vAt(i - 1 >= liftoffRef ? i - 1 : i);
+      const b = vAt(i);
+      const c = vAt(i + 1 < apogeeIdx ? i + 1 : i);
+      const median = Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
+      if (median < worst) worst = median;
     }
     velocityNoiseDominated = -worst / maxVelocity > ASCENT_NOISE_FRACTION;
   }
@@ -1856,11 +1879,11 @@ function analyzeWhole(
   //
   // Measured over all **50** records that analyse — the set `corpus-digests.json` covers, including
   // the eleven reaching analysis through the column mapper: exactly one has its peak AT the liftoff
-  // sample. **This does not clear the class.** The nearest published peak is 0.050 s away — one
-  // sample, on `perfectflite…endurance-20211030`, which publishes Mach 1.19 at 30.5 m — and that is
-  // an OPEN Sev-1 in `BACKLOG.md`, deliberately not reached by relaxing this to a window. An earlier
-  // draft claimed the nearest was 0.700 s; that was the minimum over the named-parser subset only,
-  // which is exactly the subset that excluded the counterexample.
+  // sample. A second record, `perfectflite…endurance-20211030`, peaks 0.050 s after liftoff and was
+  // the same pathology; it is refused by the ascent-noise guard above rather than by relaxing this
+  // condition to a window, which would have meant a threshold with one data point. An earlier draft
+  // claimed the nearest published peak was 0.700 s away; that was the minimum over the named-parser
+  // subset only — exactly the subset that excluded the counterexample.
   const velocityPeakAtLiftoff = liftoffFound && maxVelIdx >= 0 && maxVelIdx === liftoffRef;
 
   // A barometric peak speed the flight's own accelerometer cannot account for. On a log

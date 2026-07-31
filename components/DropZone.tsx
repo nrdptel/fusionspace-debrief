@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
+import { Button } from './ui';
 
 export default function DropZone({
   onFiles,
@@ -39,22 +40,12 @@ export default function DropZone({
           them — anywhere on the page.
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
-          >
+          <Button variant="primary" onClick={() => inputRef.current?.click()} disabled={busy}>
             Choose files
-          </button>
-          <button
-            type="button"
-            onClick={onSample}
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
+          </Button>
+          <Button onClick={onSample} disabled={busy}>
             Try a sample flight
-          </button>
+          </Button>
         </div>
         <input
           ref={inputRef}

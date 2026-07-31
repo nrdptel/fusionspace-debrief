@@ -7,7 +7,7 @@ import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/fligh
 import type { ColumnMapping } from '@/lib/flight/build';
 import { ROLE_GROUPS, ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
 import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
-import { Card, Disclosure } from './ui';
+import { Button, Card, Disclosure } from './ui';
 
 interface Row {
   role: ColumnRole;
@@ -148,13 +148,9 @@ export default function ColumnMapper({
             </pre>
           </Disclosure>
         )}
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
-        >
+        <Button variant="primary" onClick={onCancel}>
           Choose a different file
-        </button>
+        </Button>
       </div>
     );
   }
@@ -171,7 +167,7 @@ export default function ColumnMapper({
           launch day.
         </p>
         {appliedSaved && (
-          <p className="mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+          <p className="mt-2 text-sm font-medium text-indigo-600 dark:text-indigo-400">
             Applied your saved column mapping for this layout — adjust any row if this file differs.
           </p>
         )}
@@ -278,14 +274,9 @@ export default function ColumnMapper({
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!ready}
-          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button variant="primary" onClick={submit} disabled={!ready}>
           Analyze flight
-        </button>
+        </Button>
         <button
           type="button"
           onClick={remember}
@@ -304,7 +295,7 @@ export default function ColumnMapper({
         </button>
         {/* A persistent live region: announces when the file becomes analysable
             (or a role is doubled up) as the user changes the selects above. */}
-        <span role="status" aria-live="polite" className="text-xs text-amber-600 dark:text-amber-400">
+        <span role="status" aria-live="polite" className="text-sm text-amber-600 dark:text-amber-400">
           {!ready
             ? 'Set a time column and an altitude or pressure column to continue.'
             : duplicated.length > 0
