@@ -6,11 +6,13 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D5 SHIPPED. D6 decomposed and NOT STARTED.** The decomposition changed the milestone — two of the three signals D6's own entry named do not exist in the corpus. Read D6's section in `ROADMAP.md` before scoping any of it. |
+| **D — capability** | **D5 SHIPPED. D6 decomposed and STARTED — its first increment is in.** The decomposition changed the milestone: two of the three signals D6's own entry named do not exist in the corpus, and `lib/parsers/d6Grouping.test.ts` now pins that. Read D6's section in `ROADMAP.md` before scoping any of it. |
 | **P — product & craft** | **P1 IN PROGRESS, and moved a long way this run.** `rounded-lg` is at 0 and guarded. Card treatments 19 (true figure) → 12. The four files the last handoff named as hand-rolling a card no longer do. |
 
-**PR #64 and #65 merged and are LIVE.** **PR #66 is open** carrying seven commits — everything below
-from "Say how to actually read the deployed version" onward. Merge it on green.
+**PR #64, #65 and #66 are all merged and LIVE.** Production was verified serving `91b3878` by
+fetching `/version.json` with a cache-buster — the plain fetch lags by about ten minutes and will
+tell you the deploy failed when it did not. **There are no open pull requests carrying unshipped
+work.**
 
 ## What shipped this run
 
@@ -32,7 +34,7 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
   surfaces, through one control and one stored choice.
 - **The three unshipped parts of PR #31**, rebuilt on today's `main` and re-measured.
 
-### Open on PR #66
+### Shipped in PR #66
 
 - **`rounded-lg` 22 → 0, and it is a guard now.** Classified one at a time by what the element IS:
   **15 containers to `xl`, 7 controls to `md`**.
@@ -42,13 +44,20 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
 - **The four chart containers** onto `<Card>`; `Card` takes a `ref` now.
 - **Seven derived-reading panels stopped whispering.** Labels, inputs, descriptions and every state
   message were at caption size, leaving the heading as the only body text on the panel.
-- **D6 decomposed**, and the decomposition is mostly a measurement — below.
+- **D6 decomposed**, and the decomposition is mostly a measurement — below. Its first increment
+  followed: `lib/parsers/d6Grouping.test.ts`, five assertions, four mutations.
+- **The design docs were shipping the utilities they forbid.** Tailwind v4 auto-detects sources, so
+  it read every file whose job is to NAME a banned class and emitted **25 dead rules** into the
+  production stylesheet. Found by the done-check's cold walk on the built export, not by reading
+  source — which is the argument for walking the artifact.
 
 ## Pick up first
 
-1. **D6's first increment is already specified and it is not grouping code** — commit this run's
-   separability measurement as a test so it is pinned and re-measured as the corpus grows. The
-   numbers are in `ROADMAP.md`'s D6 section; the probe that produced them is deleted.
+1. **D6's first increment is DONE — `lib/parsers/d6Grouping.test.ts`.** The next one is the arrival
+   signal: nothing in the corpus can demonstrate it, because every group in it is assembled by the
+   manifest rather than by a flyer dropping a folder. So either add such a fixture to
+   `debrief-fixtures` (see the bottom of this file) or build the proposal against a synthetic
+   arrival, and keep the five confusable pairs that test names as the standing negatives.
 2. **P1's remaining card treatments are 12, and the floor is 3.** What is left splits into three
    kinds: alert callouts (amber/red, in `Analyzer`, `ColumnMapper`, `FlightReport`) that want
    `Card tone="warn"`/`"danger"`; bordered table frames (`FlightCard`, `ColumnMapper`, `SampleTable`,
