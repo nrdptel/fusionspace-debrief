@@ -35,6 +35,29 @@ wild, ideas too big for one pass. One line each, newest first.
   would be invented rather than measured. The three Blue Raven outliers are worth a look on their
   own — they are the same files whose inertial channel wraps at 2¹⁶ (below).
 
+- **REFUTED 2026-07-31 — "five data surfaces `return null` with no empty state" is wrong on all
+  five, and P1 item 5 must not be scoped against it.** An audit this run counted five violations of
+  `DESIGN.md` §5's *"a surface with no empty state is not finished"*. Checked in both directions,
+  as `MAINTAINING.md` requires, and none survives:
+  - `ChannelExplorer.tsx:212` (`selected.length === 0`) was called the worst because it is
+    "reachable by ordinary interaction". **It is not reachable at all.** The ✕ that removes a
+    channel is rendered only `{selected.length > 1 && …}`, so the last channel cannot be
+    deselected; and `buildPlotChannels` returns the altitude channel unconditionally, so the list
+    is never empty for a flight that analysed. Dead defensive code, not a blank screen.
+  - `GroundTrack.tsx:466` — the parent already gates it: `{gpsLat && gpsLon && <GroundTrack …>}`
+    (`FlightReport.tsx:1305`). An `EmptyState` there would be unreachable too.
+  - `GpsApogee.tsx:15`, `FlightTimeline.tsx:31`, `EventChips.tsx:43` — conditional PANELS, not
+    surfaces. Their null return IS the "this flight has no GPS apogee / too few phases / no
+    events" case, which is most flights. An empty box on each would put three explanatory
+    rectangles on every ordinary flight, which is worse than silence and is the "generous
+    whitespace reads as a marketing page" failure §4 warns about.
+
+  The real gap §5 names is still open, and it is narrower than the count suggested: what a flyer
+  cannot learn is that their BOARD did not record GPS, and the place for that is "How this file
+  was read", not five empty containers. Note also `components/ui.tsx` exports no `LoadingState`
+  and no `OfflineState`, and `navigator.onLine` appears **0 times** in the repo — so two of the
+  five required states have no primitive to adopt yet, which P1 item 5 does not budget for.
+
 - **`DESIGN.md` §4 does not say which half-steps are on the spacing scale, and the code uses four of
   them 148 times.** §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
   but §4's OWN table then sanctions `px-3 py-1.5` and `px-2 py-1` for controls — so `-1.5` is
@@ -801,8 +824,21 @@ refuted. They are written down rather than fixed because each needs its own gate
     - **The LR file's second copy is the real hazard.** Its `Flight_Time` keeps counting monotonically
       across the join (−1.96 → 247.8 s, no backward step) while the wall clock jumps back **124.880 s**
       at row 6244. The device Liftoff flag rises TWICE, at t=0.000 and t=124.880. So past LR t≈122.9 the
-      same physical instant is +124.880 s on the LR clock. The HR file has no second copy. Any merge
-      must be against the FIRST copy only — which the analyzer already isolates (`nextFlightStart`).
+      same physical instant is +124.880 s on the LR clock. Any merge must be against the FIRST copy
+      only — which the analyzer already isolates (`nextFlightStart`).
+    - **RETRACTION — "the HR file has no second copy" was WRONG, and wrong in the way that matters.**
+      That claim stood here and in PR #29, inferred from `Flight_Time` being monotonic. It **is**
+      monotonic: re-measured 2026-07-31, **0 backward steps across all 93,164 rows**, and 93,164
+      distinct stamps. That is precisely why the inference was invalid — neither the flight clock nor
+      the wall clock marks the seam. Measured directly instead: **45,768 of 93,164 rows (49.1%) repeat
+      an earlier row's sensor columns byte-for-byte**, at fixed lags of **30,654 samples (61.308 s)**,
+      **14,139 (28.278 s)** and **44,793 (89.586 s)** — the device re-emits whole blocks of the flight.
+      The seam that IS visible is the attitude solution: the quaternion returns to exact identity
+      `1,0,0,0` at **t = 26.256, 59.286 and 87.564 s**, and at the file's start (−2.022).
+      **The consequence is a wrong number, not a missing one.** Aligned naively on the shared zero, a
+      merge would print an apogee shock labelled MEASURED for an event the device's own summary states
+      at 115.8 Gs. Any HR merge must isolate the first copy the same way the LR merge does. Every
+      figure in this bullet was reproduced from the file this run, not carried over.
     - **LR and HR agree on liftoff to 66 ms**, and that gap is detector latency, not a timebase
       disagreement: the 500 Hz accelerometer sees ignition immediately (threshold-insensitive — 1.2 g
       through 10 g all give t = −0.068 to −0.064 s) while LR cannot resolve better than its 0.02 s
