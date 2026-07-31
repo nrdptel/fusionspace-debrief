@@ -84,6 +84,17 @@ source tree builds to different hashes in CI than it does locally. Both the CDN 
 every cache: a stale build marker answers confidently and wrongly, which is worse than not having
 one. Offline the request simply fails, which is the honest answer.
 
+**That is true of our headers and NOT true end to end — add a cache-buster when you check.**
+Measured 2026-07-31: the deploy for `686f3e3` completed successfully, and a plain
+`curl https://debrief.fusionspace.co/version.json` went on answering the previous commit for
+about ten minutes, across several attempts. `?cb=$RANDOM` returned the new commit immediately, so
+something between the origin and here holds it despite the header. A session that trusts the
+plain fetch will conclude its own deploy failed and go looking for a fault that is not there:
+
+```bash
+curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"
+```
+
 ## Adding a parser
 
 Most loggers export a CSV or a labelled text dump. To teach Debrief a new one:
