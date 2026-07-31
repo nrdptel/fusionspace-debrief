@@ -249,7 +249,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   ErrorState: 1,
   Section: 0,
   Segmented: 0,
-  Disclosure: 0,
+  Disclosure: 3,
 };
 
 /** `DESIGN.md` §3's six sizes, and nothing else. `text-[11px]` is the sixth and is matched by the
