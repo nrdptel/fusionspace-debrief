@@ -823,3 +823,42 @@ test('the order a flyer puts the figures in follows into the document', async ({
   const chips = page.locator('[aria-label$="figure"]');
   await expect(chips.first()).toHaveAttribute('aria-label', 'Velocity figure');
 });
+
+// D5's last named clause: "set the series colours". The test that matters is not that the
+// swatch changes — it is that the colour reaches the SAVED FIGURE, because that is the artifact
+// a cert package or a club thread receives.
+test('a colour the flyer picks reaches the exported figure, and can be undone', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+
+  const svgStrokes = async () => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save .svg' }).click(),
+    ]);
+    return (await readFile(await dl.path())).toString('utf8');
+  };
+
+  const before = await svgStrokes();
+  expect(before, 'the palette default is what ships today').toContain('#6366f1');
+  expect(before).not.toContain('#ff0000');
+
+  // `fill` drives the native value setter and the React change path with it. Setting
+  // `.value` by hand and dispatching an event does NOT: React's value tracker sees no change
+  // and the handler never runs, which fails as though the feature were broken.
+  const swatch = page.locator('input[type="color"]').first();
+  await swatch.fill('#ff0000');
+
+  const after = await svgStrokes();
+  expect(after, 'the flyer’s colour is in the saved figure').toContain('#ff0000');
+  expect(after, 'and the default it replaced is gone').not.toContain('#6366f1');
+
+  // Double-click is the way back out — a choice with no way to undo it is a named tell.
+  await swatch.dblclick();
+  const undone = await svgStrokes();
+  expect(undone, 'the palette colour is back').toContain('#6366f1');
+  expect(undone).not.toContain('#ff0000');
+});

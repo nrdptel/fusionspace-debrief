@@ -44,6 +44,7 @@ export const DEVICE_DATA: readonly DeviceDatum[] = [
 
   { key: 'debrief.plotView', what: 'which channels the chart was plotting, and against what', kind: 'view' },
   { key: 'debrief.compareChannel', what: 'which channel a comparison opens on', kind: 'view' },
+  { key: 'debrief.compare.colors', what: 'the colours you gave your flights on a comparison', kind: 'view' },
   {
     key: 'debrief.firstStage',
     what: 'which recording you said flew as the first stage, per set of recordings you assembled',
