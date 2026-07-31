@@ -16,8 +16,8 @@ at session start; `git hash-object DESIGN.md` against the sibling's blob sha is 
 
 ## What shipped this run
 
-Seven pushes to this run's working branch, each independently gated (`npm test` · `npm run build` ·
-`npx playwright test`, all three green before each push), plus one merge to `main`.
+Eleven commits on this run's working branch, each independently gated (`npm test` · `npm run build` ·
+`npx playwright test`, all three green before every push), plus one merge to `main`.
 CI went green on the branch. The corpus was attached throughout: `lib/parsers/corpus.test.ts` reports
 **137 tests over 61 fixtures**, so no claim here rests on a suite that skipped itself.
 
