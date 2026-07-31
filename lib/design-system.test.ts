@@ -209,6 +209,14 @@ const BUDGET = {
    *  not taken as done — the state messages were converted because they are body text, and the seven
    *  now sit at 1–2 captions against 6–8 body rather than on the boundary. */
   invertedTypeFiles: 16,
+  /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
+   * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
+   * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
+   * its prose is `text-base`. A strict `xs > sm` filter calls that INVERTED while the page is
+   * exactly what §3 asks for. The metric's premise — that `text-sm` is the body default a caption
+   * should not outnumber — is a COMPONENT premise; §3 gives docs prose `text-base`, so on a docs
+   * route the comparison has no meaning. Widening this one the way the per-primitive count was
+   * widened would manufacture two false positives on the day it happened. */
   /** Sizes that are not on `DESIGN.md` §3's six-size scale at all.
    *
    *  §9's grep used to name only `text-lg`, because that is the one the sibling app had. This repo
@@ -237,7 +245,19 @@ const BUDGET = {
  *
  *  A zero here is not a failure; it is a primitive that exists and is not yet adopted, which is the
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
- *  condition. */
+ *  condition.
+ *
+ *  **This counts `app` as well as `components`, and it did not until 2026-07-31.** Reading only
+ *  `components` made the metric blind to the one primitive §5 defines by its ROUTE: "`Section` — a
+ *  titled region within a route … this is what a route is built from." Every `Section` there will
+ *  ever be lives in `app`, so converting a route left this line reading 0 and the next session would
+ *  have read that as "still unadopted" and done the work again. Measured the same day: all nine
+ *  route files imported ZERO primitives, so widening the denominator moved no other count — the
+ *  numbers below are the same ones, over a set that can now see the work.
+ *
+ *  This is the fourth §9 metric to turn out to measure something other than what it was reached for,
+ *  after the two blind greps and the suite-wide type ratio. The pattern is the same every time: a
+ *  measurement scoped to where the drift was FIRST noticed, then read as covering the class. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 23,
   Button: 10,
@@ -247,7 +267,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Extrapolated: 1,
   EmptyState: 1,
   ErrorState: 1,
-  Section: 0,
+  Section: 2,
   Segmented: 0,
   Disclosure: 3,
 };
@@ -354,6 +374,15 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
   it(`has at least ${BUDGET.uiAdopters} components importing the shared primitives`, () => {
     // The direction that matters: this number only ever goes up, and it is what "adopted" means.
     //
+    // **This one stays scoped to `components` while the per-primitive count below reads `app` too,
+    // and the difference is deliberate rather than an oversight.** This assertion IS `DESIGN.md`
+    // §9's shared grep, character for character, and §9 is carried identically by the sibling repo;
+    // widening it here would fork the shared file to fit one app. The per-primitive count is
+    // test-only — §9 has no such grep — so it could widen without that cost, and it had to, because
+    // `Section` lives in `app` by definition. Whether §9's own grep should read `components app` in
+    // BOTH repos is a real question and it is recorded as owed to the sibling in `HANDOFF.md`; it is
+    // not settled by editing one copy.
+    //
     // The grep is quote-agnostic on purpose. `DESIGN.md` §9 carried a double-quoted literal, written
     // for the sibling repo, and every import in THIS repo is single-quoted — so run here it answered
     // 0 whether adoption was 0% or 100%. A compliance command that cannot fail is worse than none,
@@ -383,9 +412,11 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
       }
       return names;
     };
+    // `ui`, not `components` — see PRIMITIVE_ADOPTERS. A route is where `Section` lives, so a
+    // count that reads only `components` can never see it adopted.
     const counted: Record<string, number> = {};
     for (const name of Object.keys(PRIMITIVE_ADOPTERS)) {
-      counted[name] = components.filter((f) => importedBy(f).has(name)).length;
+      counted[name] = ui.filter((f) => importedBy(f).has(name)).length;
     }
     expect(counted, 'adoption per primitive (see PRIMITIVE_ADOPTERS)').toEqual(PRIMITIVE_ADOPTERS);
   });

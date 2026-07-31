@@ -129,7 +129,15 @@ export function Card({
   );
 }
 
-/** A titled region within a route — `DESIGN.md` §5. What a route is built from. */
+/** A titled region within a route — `DESIGN.md` §5. What a route is built from.
+ *
+ *  `title` is the section's HEADING, not the native tooltip attribute, so the native one is
+ *  `Omit`ted from the passthrough for the same reason `Card` omits it. **This was missed here and
+ *  caught only when the primitive gained its first adopter**: intersected rather than omitted, the
+ *  two produce `ReactNode & string`, so `title` silently accepts a plain string and rejects every
+ *  heading carrying markup — an `<em>`, or an `&apos;`. Fourteen sections on the two docs routes
+ *  failed `tsc` at once. A primitive with zero adopters is a primitive whose contract has never
+ *  been executed, which is the argument for adopting one rather than merely shipping it. */
 export function Section({
   title,
   description,
@@ -141,7 +149,7 @@ export function Section({
   title: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
-} & React.HTMLAttributes<HTMLElement>) {
+} & Omit<React.HTMLAttributes<HTMLElement>, 'title'>) {
   return (
     <section className={cx('mt-8 first:mt-0', className)} {...rest}>
       <div className="flex items-start justify-between gap-3">

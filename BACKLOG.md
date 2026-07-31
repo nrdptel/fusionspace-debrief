@@ -359,8 +359,38 @@ wild, ideas too big for one pass. One line each, newest first.
   18.3 s flight time for a 10,245 ft flight recorded further down this file. Fix, and pin with cases
   beyond 2x in both directions.
 
-- **The three docs routes skip a heading level, and `Section` exists to fix it but does not fit yet.**
-  Measured 2026-07-31. `/methods`, `/validation` and `/privacy` go `text-3xl` (the `<h1>`) straight to
+- **DONE 2026-07-31 for TWO of the three routes — and the third was never the same shape.**
+  `/privacy` (6 sections) and `/validation` (8) are now built from `<Section>`: measured on the built
+  export, both go `text-3xl` (30 px) → `text-xl` (20 px) → `text-base` prose (16 px), with 32 px
+  (`mt-8`) between sections, in both themes. All three obstacles below were real and each was taken
+  as written: the wrapper lost `space-y-6`, every first child lost its `mt-2`, and the prose
+  question was decided rather than dodged — `text-sm` → `text-base`, because §3's own table gives
+  `text-base` to "prose in docs". The device-data reference list keeps `text-sm` explicitly, since
+  it is a dense enumeration of storage keys rather than prose.
+
+  **`/methods` is NOT that shape and converting it would have been wrong.** It has ONE `<h2>`, in a
+  `Method` helper rendered 47 times inside a `sm:grid-cols-2` glossary; those headings are
+  definition terms carrying `id` anchors, not section headings, and `Section`'s `mt-8` block
+  structure would destroy the two-column layout. So the primitive was not forced onto it.
+
+  **A first draft of this entry claimed those `<h2>`s "render at 14 px — below the 16 px prose
+  around them". That was wrong and is corrected here rather than quietly deleted:** the glossary
+  grid is `text-sm`, so its prose is 14 px too and the headings were the SAME size as their own
+  body, not below it — a heading with no size cue at all, which is a different defect from the one
+  claimed. It was written from the shape of the other two routes rather than from a measurement of
+  this one, which is exactly what `MAINTAINING.md` forbids. Caught by the pre-push review.
+  Fixed in the same commit: the term is now `text-base font-medium` — §3's subsection heading, one
+  step above its `text-sm` definition body — and the page lede joins the other two routes at
+  `text-base`. The 47-entry grid stays `text-sm`, the same call as privacy's device-data block:
+  a dense reference list is not prose.
+
+  **What adoption found that shipping the primitive had not:** `Section`'s `title` was typed
+  `React.ReactNode` intersected with `HTMLAttributes`, which resolves to `ReactNode & string` — so
+  it rejected every heading carrying markup. Fourteen sections failed `tsc` at once. `Card` already
+  carries the `Omit<…, 'title'>` that prevents this, with a comment explaining it; `Section` was
+  missed because it had no adopters to execute its contract.
+
+  Original entry: `/methods`, `/validation` and `/privacy` go `text-3xl` (the `<h1>`) straight to
   `text-base` (every `<h2>`), skipping `text-xl` entirely — and `DESIGN.md` §3 gives `text-xl` to
   "section heading" and `text-base` to "subsection heading, and prose in docs". These `<h2>`s are
   direct siblings of the `<h1>`, so they are section headings sitting a level small. That is the

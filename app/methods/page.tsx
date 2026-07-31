@@ -21,7 +21,7 @@ export default function MethodsPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
           Where the numbers come from
         </h1>
-        <p className="mt-3 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-3 max-w-3xl text-base text-zinc-600 dark:text-zinc-400">
           Every logger is different, so Debrief reads each file into one common shape — a time base
           plus named channels in SI units — and runs the same analysis on all of them. Here is how
           each number is worked out, and where it can be wrong. For how these reads are checked
@@ -947,7 +947,7 @@ function Method({ id, title, children }: { id: MethodId; title: string; children
     <div>
       {/* The heading IS the anchor, and it carries the same scroll-margin the report's jump
           targets do, so a link from a reading doesn't land the definition under the chrome. */}
-      <h2 id={id} className="scroll-mt-6 font-medium text-zinc-800 dark:text-zinc-200">
+      <h2 id={id} className="scroll-mt-6 text-base font-medium text-zinc-800 dark:text-zinc-200">
         {title}
       </h2>
       <p className="mt-1 max-w-3xl">{children}</p>

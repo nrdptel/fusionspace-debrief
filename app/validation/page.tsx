@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import { Section } from '@/components/ui';
 import { SITE_URL } from '@/lib/links';
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export default function ValidationPage() {
       <h1 className="mt-12 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
         How Debrief is validated
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+      <p className="mt-3 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
         Debrief is a measurement instrument, so a number is only worth having if you can trust it.
         None of what follows makes the reads perfect — a barometric altitude is still a barometric
         altitude — but here is exactly how each one is checked, and where it is known to fall short.
@@ -30,12 +31,9 @@ export default function ValidationPage() {
         .
       </p>
 
-      <div className="mt-8 space-y-6 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Real flights, checked against real ground truth
-          </h2>
-          <p className="mt-2">
+      <div className="mt-8 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
+        <Section title="Real flights, checked against real ground truth">
+          <p>
             The analysis is regression-tested against a private corpus of real flight logs — dozens
             of them, spanning ten logger families — not synthetic data. Each log is paired with
             independent ground truth: a <strong>second altimeter that flew the same flight</strong>,
@@ -50,13 +48,10 @@ export default function ValidationPage() {
             corpus and parsed without asserting the wrong number, so the gap is documented rather than
             quietly locked in as correct.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Physical and logical invariants
-          </h2>
-          <p className="mt-2">
+        <Section title="Physical and logical invariants">
+          <p>
             Some checks need no reference number at all — they just have to hold for any real flight,
             whatever the logger. A deceleration is never a positive number dressed up as one; the
             events fall in flight order and none sits above apogee; boost&nbsp;+&nbsp;coast adds up to
@@ -75,13 +70,10 @@ export default function ValidationPage() {
             contradicts itself trips these guards even when there is no ground truth to compare
             against — the kind of bug a single golden number can miss.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            The logger&apos;s own figures, in your own report
-          </h2>
-          <p className="mt-2">
+        <Section title={<>The logger&apos;s own figures, in your own report</>}>
+          <p>
             Validation you can see for yourself: when a file carries the device&apos;s own headline
             figures (as an AltimeterCloud export writes its apogee and velocities, or a PerfectFlite
             preamble states its apogee), Debrief shows them beside its independent read as a
@@ -91,13 +83,14 @@ export default function ValidationPage() {
             own device — the comparison view lines them up side by side the same way: independent
             measurements that can disagree, not a consensus dressed as certainty.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Why Debrief&apos;s apogee is usually a little lower than the file&apos;s biggest number
-          </h2>
-          <p className="mt-2">
+        <Section
+          title={
+            <>Why Debrief&apos;s apogee is usually a little lower than the file&apos;s biggest number</>
+          }
+        >
+          <p>
             An easy check anyone can run: open the altitude column in a spreadsheet, take the
             largest value, and compare. Across <strong>40 corpus flights</strong>, Debrief&apos;s
             apogee lands within <strong>1% of the file&apos;s own raw maximum on 31 of them</strong> —
@@ -127,13 +120,10 @@ export default function ValidationPage() {
             corpus run to 4.6% — it is a real barometric artefact in the file, and the read says so
             on the report rather than here.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            What the readings cannot settle: whether two files are one flight
-          </h2>
-          <p className="mt-2">
+        <Section title="What the readings cannot settle: whether two files are one flight">
+          <p>
             Debrief tells a comparison of one flight from a comparison of several by the{' '}
             <strong>dates the files state</strong>, and by nothing else. It is fair to ask why the
             numbers don&apos;t decide it — two recordings of one flight ought to agree — so this was
@@ -154,13 +144,10 @@ export default function ValidationPage() {
             wrong clock is the one thing that would make it wrong. Debrief reports the day a file
             states and never quietly corrects it.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Grounded in published sources
-          </h2>
-          <p className="mt-2">
+        <Section title="Grounded in published sources">
+          <p>
             The methods are implemented from published formulas and cited, not copied from another
             tool: barometric altitude and air density from the constant-lapse standard atmosphere (US
             Standard Atmosphere, 1976); drag coefficient from the coast deceleration and parachute
@@ -169,13 +156,10 @@ export default function ValidationPage() {
             temperature. Each parser reads a format from its published or observed layout and surfaces
             the numbers the file already carries — never a vendored engine.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Where it is known to be weak
-          </h2>
-          <p className="mt-2">
+        <Section title="Where it is known to be weak">
+          <p>
             Honesty is the point of a measurement instrument, so the limits are stated in the read
             itself, not buried here:
           </p>
@@ -357,11 +341,10 @@ export default function ValidationPage() {
             haven&apos;t flown. For that margin-critical work, reach for a dedicated, well-validated
             simulator.
           </p>
-        </section>
+        </Section>
 
-        <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Try it</h2>
-          <p className="mt-2">
+        <Section title="Try it">
+          <p>
             The quickest way to judge it is to drop in a flight you already know the numbers for — or
             open the{' '}
             <Link href="/" className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100">
@@ -370,7 +353,7 @@ export default function ValidationPage() {
             and read its cross-check against the logger&apos;s own figures. Everything runs in your
             browser; nothing is uploaded.
           </p>
-        </section>
+        </Section>
       </div>
 
       <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">

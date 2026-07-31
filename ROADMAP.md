@@ -821,6 +821,12 @@ the artifact rather than the tree.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
+
+   *(2026-07-31: `navigator.onLine` is read NOWHERE in `components` or `app` — measured, 0 hits — so
+   the offline state is undelivered suite-wide rather than missing on some surfaces. That is either
+   20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
+   change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
+
 6. **Two primaries on one surface** — `ColumnMapper` only now. ~~`RecentFlights`~~ **DONE
    2026-07-31**: its second indigo fill was the note editor's Save, which is now secondary. The
    logbook's one primary is "Compare N flights", the action the surface exists to perform. A
@@ -835,6 +841,20 @@ the artifact rather than the tree.
    7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.
    Kept here rather than added to `DESIGN.md` §9, because a new metric in that file is a change owed
    to the sibling repo in the same run and this run cannot push there.
+
+9. **`Section` had ZERO adopters and now has 2 — the two docs routes.** `/privacy` and `/validation`
+   are built from it; `/methods` was measured and deliberately NOT converted, because its 47 `<h2>`s
+   are glossary terms in a two-column grid rather than section headings. The heading skip those
+   pages carried (`text-3xl` straight to `text-base`) is closed: 30 → 20 → 16 px on the built
+   export, both themes, with §4's `mt-8` between sections.
+
+   **The per-primitive ratchet could not have seen this, and that is the finding worth keeping.**
+   It counted `components` only, while §5 defines `Section` BY its route — "this is what a route is
+   built from" — so every `Section` there will ever be was outside what the check could read. It
+   counts `app` too now. Measured the same day: all nine route files imported zero primitives, so
+   widening the denominator moved no other number. This is the fourth §9 metric to measure
+   something other than what it was reached for, after the two blind greps and the suite-wide type
+   ratio.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
