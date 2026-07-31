@@ -16,6 +16,7 @@ import type { ColumnMapping } from '@/lib/flight/build';
 import ColumnMapper from './ColumnMapper';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
+import GroupProposalBanner from './GroupProposalBanner';
 import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { emptyFolderMessage } from './Analyzer';
@@ -145,6 +146,7 @@ export default function CompareSurface() {
       setNote(null);
       const { results, skipped, mappable: mappableFiles, paired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
+      logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
       logbook.refresh();
 
       const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
@@ -321,6 +323,14 @@ export default function CompareSurface() {
     return (
       <>
         <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
+        {/* Same reason as the analyze route: this branch renders without the logbook, and the
+            offer has to be where the drop puts the flyer. */}
+        <GroupProposalBanner
+          recents={logbook.recents}
+          arrived={logbook.arrived}
+          onGroup={logbook.group}
+          onDismiss={logbook.clearArrived}
+        />
         <CompareView
           comparison={comparison}
           note={note ?? undefined}
@@ -438,6 +448,8 @@ export default function CompareSurface() {
         onImport={logbook.importAll}
         onGroup={logbook.group}
         forgotten={logbook.forgotten}
+          arrived={logbook.arrived}
+          onDismissProposal={logbook.clearArrived}
         onDismissForgotten={logbook.clearForgotten}
       />
     </div>

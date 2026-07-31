@@ -8,6 +8,7 @@ import { CROSS_CHECK_WIDE, MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX } from '@/lib/recents';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
+import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { Button } from './ui';
@@ -55,6 +56,8 @@ export default function RecentFlights({
   onGroup,
   forgotten = [],
   onDismissForgotten,
+  arrived = [],
+  onDismissProposal,
 }: {
   recents: RecentMeta[];
   sys: UnitChoice;
@@ -73,6 +76,11 @@ export default function RecentFlights({
    *  to quietly eat the first. */
   forgotten?: string[];
   onDismissForgotten?: () => void;
+  /** Logbook ids the drop that just happened produced. A grouping is only ever OFFERED over
+   *  these — never over the whole logbook — so the offer is about the files the flyer just
+   *  dropped, and saying no to it is final without anything having to be stored. */
+  arrived?: string[];
+  onDismissProposal?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -311,6 +319,12 @@ export default function RecentFlights({
   return (
     <div className="mt-8">
       {filePicker}
+      <GroupProposalBanner
+        recents={recents}
+        arrived={arrived}
+        onGroup={onGroup}
+        onDismiss={onDismissProposal}
+      />
       {/* What the last drop cost, named. The prune has always run; saying nothing about it
           meant a flyer found out by counting, days later, with nothing to do about it. */}
       {forgotten.length > 0 && (

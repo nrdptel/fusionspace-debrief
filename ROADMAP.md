@@ -647,9 +647,56 @@ JSON keep every key. Verified still true after this slice: `analyzedDataCsv` tak
 
 ## D6 — Propose which files belong to one flight, and be refusable
 
-**Status:** NOT STARTED — decomposed 2026-07-31 from the one-line entry below, and the decomposition
-changed the milestone. **The signal its own text named is not there**, and that is measured rather
-than suspected. Read the measurement before scoping anything.
+**Status:** IN PROGRESS — decomposed 2026-07-31, then **amended 2026-07-31 by a second measurement
+that found a signal the decomposition had concluded did not exist.** A flyer can now be OFFERED a
+grouping, with the evidence, and accept or refuse it in one press. Pinned by
+`lib/proposeGroups.test.ts` (11 assertions, four falsified by mutation, including the corpus
+measurement) and three journeys in `e2e/analyze.spec.ts` walking the real app.
+
+### The amendment, measured 2026-07-31 — read this before the decomposition below
+
+The decomposition concluded that no CONTENT signal separates one flight's files from another's, and
+that only *arrival* survives. That is true of the three signals it tested and **false in general**:
+it never looked at the file NAME.
+
+**Featherweight's download tool writes the launch second into every file name it produces.** Over
+the manifest's 61 files, 12 carry `MM-DD-YYYY_HH_MM_SS`, and a ±120 s rule over them yields
+**16 true pairs and 0 false pairs** — the separable distribution D6 concluded did not exist. The
+widest spread inside a true group is 5 s; the nearest pair that must be refused is 956 s away, so
+the tolerance sits 24× above the widest true pair and 8× below the nearest false one.
+
+It is the LAUNCH instant, not the download time, and that was verified rather than assumed:
+`BlRv_SN1537_HR_04-12-2025_12_45_49.csv` opens at `12:45:47.382` with `Flight_Time -2.040`, so
+T0 = 12:45:49.4 — the second in its own name. That is why it can be shown to a flyer as evidence.
+
+**Two bounds, both load-bearing.** All 12 stamped files are Featherweight-ecosystem, so this is a
+vendor-specific key that NARROWS a proposal rather than replacing arrival — and it is exactly why
+the staged pairs the notes below name as standing negatives are refused for a *reason* rather than
+by a special case: none of their files is stamped. And a file name is not a measurement, so this
+deliberately never becomes `FlownAt`: it is evidence for a grouping the flyer confirms, and nothing
+else reads it.
+
+**Also corrected:** the decomposition's figures ("44 manifest files", "21 groups") predate the
+current corpus, which holds **61 files in 29 groups**. Its conclusions about apogee and wall-clock
+agreement were re-checked and stand.
+
+### What shipped 2026-07-31
+
+- `lib/proposeGroups.ts` — `launchStampFromName` and `proposeGroups`. A proposal needs BOTH
+  co-arrival and stamp agreement; neither alone is sufficient, and the module says why in full.
+- `components/GroupProposalBanner.tsx` — the offer, with its evidence in words and two presses:
+  *Yes, one flight* / *No, separate flights*. Accepting runs the same `planGrouping` the manual
+  press runs, so there is one code path and nothing new in the data model.
+- **It renders where the drop LANDS the flyer**, which is not where it started. It was written
+  inside `RecentFlights`, and a walk of the built export showed that is the one place a flyer is
+  not looking after dropping two files: both surfaces switch to the comparison, and the analyze
+  route returns early on `phase === 'compare'` without rendering the logbook at all. An offer
+  nobody sees at the moment it applies is the "feature reachable only by knowing it is there" tell.
+
+**What is left:** the primary is a suggestion and the banner does not yet let the flyer change it
+before accepting (the row control still does, after). Featherweight also publishes an in-file join
+key — a sync counter shared by the HR and LR files — which would separate *one recording exported
+twice* from *two instruments*, the relation `same_flight_group` conflates.
 
 **Outcome.** A flyer who drops a launch day's folder is *offered* the grouping D3 makes them state
 by hand — with the evidence shown, the flight still ungrouped until they accept, and a proposal that

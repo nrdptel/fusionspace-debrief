@@ -233,7 +233,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 27,
+  uiAdopters: 28,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -260,7 +260,7 @@ const BUDGET = {
  *  measurement scoped to where the drift was FIRST noticed, then read as covering the class. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 23,
-  Button: 10,
+  Button: 11,
   Chip: 3,
   Readout: 2,
   IconButton: 2,

@@ -24,6 +24,7 @@ import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
+import GroupProposalBanner from './GroupProposalBanner';
 import {
   saveRecent,
   saveCaption,
@@ -414,6 +415,7 @@ export default function Analyzer() {
       const { results, skipped, mappable, paired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
 
       logbook.reportForgotten(forgotten);
+      logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
       logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
@@ -719,6 +721,15 @@ export default function Analyzer() {
     return (
       <>
         <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
+        {/* The offer belongs where the drop lands the flyer. This branch returns without the
+            logbook, so a proposal rendered only inside `RecentFlights` is invisible at exactly
+            the moment it applies — measured on the built export before this was moved out. */}
+        <GroupProposalBanner
+          recents={logbook.recents}
+          arrived={logbook.arrived}
+          onGroup={logbook.group}
+          onDismiss={logbook.clearArrived}
+        />
         <CompareView
           comparison={state.comparison}
           note={state.note}
@@ -775,6 +786,8 @@ export default function Analyzer() {
           onImport={logbook.importAll}
           onGroup={logbook.group}
           forgotten={logbook.forgotten}
+          arrived={logbook.arrived}
+          onDismissProposal={logbook.clearArrived}
           onDismissForgotten={logbook.clearForgotten}
         />
       )}
