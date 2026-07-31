@@ -584,10 +584,11 @@ refuted. They are written down rather than fixed because each needs its own gate
   their own file's column headers (`mappings.v1`), and their rocket's parameters (`mass.kg`,
   `dragmass.kg`, `diameter.m`, `chute.m`, `drogue.m`, `rail`, `maindeploy.m`, `delay.s`), plus
   `plotView`, `plotPresets`, `compareChannel`, `hiddenEvents`, `report.hidden`,
-  `report.hiddenFigures`, `report.order`, `theme`, `units`. Line 65-66 then says clearing browser
-  data "or using the 'clear' control on the recents list" removes all of it — but
-  `components/useLogbook.ts:62` clears IndexedDB and `compare.captions` only, so **17 keys
-  survive**. A flyer lending a laptop presses Clear and the device still holds their rocket's
+  `report.hiddenFigures`, `report.order`, `report.figureOrder`, `theme`, `units`. Line 65-66 then
+  says clearing browser data "or using the 'clear' control on the recents list" removes all of it —
+  but `components/useLogbook.ts:62` clears IndexedDB and `compare.captions` only, so **18 keys
+  survive** (17 when this was written; `report.figureOrder` was added 2026-07-31 and survives Clear
+  exactly like the rest). A flyer lending a laptop presses Clear and the device still holds their rocket's
   descending mass, body and canopy diameters, rail length, main-deploy altitude and motor delay.
   PRIVACY IS SACRED is the invariant this sits under, and the page is the artifact that states it.
 

@@ -690,10 +690,15 @@ flyer reads one surface rather than the suite total.
 | card call sites hand-rolling one | 0 | — | 17 |
 | off-scale spacing | 0 | 25 | **0** (grep widened — see item 1) |
 | off-scale type sizes | 0 (honest floor 1) | 20 | **1** |
-| files where `text-xs` > `text-sm` | 0 | 26 | 23 |
-| components importing `./ui` | most of 46 | 0 | **11** |
-| components importing `Button` | most | 0 | **9** |
-| hand-rolled `<button>` elements | few | 90 | **52** outside `ui.tsx` |
+| files where `text-xs` > `text-sm` | 0 — **but read item 2 first** | 26 | 23 |
+| components importing `./ui` | most of 47 | 0 | **13** |
+| components importing `Button` | most | 0 | **10** |
+| hand-rolled `<button>` elements | few | 90 | **41** outside `ui.tsx` (46 in tree) |
+
+Measured at the end of the 2026-07-31 run, with §9's own commands. Two of these moved for reasons
+worth keeping: `off-scale spacing` reached a *real* 0 only after the grep was widened twice — it
+had been reporting 0 against 8 live occurrences — and `hand-rolled <button>` fell 52 → 41 in one
+surface, `RecentFlights`, which also lost a fifth button weight and its second primary.
 
 **Off-scale type's floor is 1, and it is not a shortfall.** The one that remains is the brand
 wordmark, `text-2xl md:text-3xl` in the sibling app too, which §10 makes shared and non-negotiable.
