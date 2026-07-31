@@ -8,6 +8,7 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, type UnitChoice } from '@/lib/display';
 import { peakAgreement, peakTimeTolerance } from '@/lib/crossPeak';
+import { Card } from './ui';
 
 export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sys: UnitChoice }) {
   const gps = metrics.gpsApogeeAltitude;
@@ -27,10 +28,7 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
       : null;
 
   return (
-    <section
-      aria-labelledby="gpsapo-heading"
-      className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40"
-    >
+    <Card as="section" tone="sunken" aria-labelledby="gpsapo-heading">
       <p id="gpsapo-heading" className="mb-0.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         The GPS recording
       </p>
@@ -111,6 +109,6 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
           </>
         )}
       </p>
-    </section>
+    </Card>
   );
 }

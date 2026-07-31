@@ -47,7 +47,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button } from './ui';
+import { Button, Card } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -1055,7 +1055,7 @@ export default function FlightReport({
         <div
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+          className="rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
         >
           <h3 id="worth-knowing" className="mb-1 text-sm font-medium text-amber-900 dark:text-amber-100">
             Worth knowing
@@ -1069,7 +1069,7 @@ export default function FlightReport({
       )}
 
       {notes.length > 0 && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+        <Card tone="sunken" className="text-sm">
           <h3 id="how-this-file-was-read" className="mb-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
             How this file was read
           </h3>
@@ -1078,7 +1078,7 @@ export default function FlightReport({
               <li key={i}>{w}</li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       <section aria-labelledby="readings-heading">
@@ -1269,7 +1269,7 @@ export default function FlightReport({
           {events.map((e) => (
             <div
               key={e.type + e.index}
-              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
+              className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
             >
               <span className="flex items-center gap-2">
                 <span

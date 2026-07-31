@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import type { ReadExtent } from '@/lib/analyze/types';
+import { Card } from './ui';
 
 /** The first sample at or after `t`, and the last at or before it — a plain binary search,
  *  because a flight's time base is ascending by construction. */
@@ -94,7 +95,7 @@ export default function CropControl({
             : null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 print:hidden dark:border-zinc-800 dark:bg-zinc-900/40">
+    <Card tone="sunken" className="flex flex-col gap-2 print:hidden">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <p className="basis-full text-xs font-medium text-zinc-700 dark:text-zinc-300">
           This stretch is my flight
@@ -163,6 +164,6 @@ export default function CropControl({
           ? problem
             : `Reads ${samples.toLocaleString()} samples${whole ? ' — the whole file' : ''}, from ${f?.toFixed(1)} s to ${t?.toFixed(1)} s of a ${fileEnd.toFixed(1)} s file.`}
       </p>
-    </div>
+    </Card>
   );
 }

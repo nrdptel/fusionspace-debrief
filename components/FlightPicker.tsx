@@ -2,6 +2,7 @@
 
 import type { FlightSegment, ReadExtent } from '@/lib/analyze/types';
 import { fmtLength, fmtTime, type UnitChoice } from '@/lib/display';
+import { Card } from './ui';
 
 /**
  * Which flight in the download the flyer is reading, and a way to open any of the others.
@@ -33,10 +34,7 @@ export default function FlightPicker({
   // marking a row the readings no longer belong to.
   const current = segments.find((s) => s.from === extent.from && s.to === extent.to);
   return (
-    <section
-      aria-labelledby="flights-in-this-file"
-      className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden"
-    >
+    <Card as="section" tone="sunken" className="print:hidden" aria-labelledby="flights-in-this-file">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3
           id="flights-in-this-file"
@@ -78,6 +76,6 @@ export default function FlightPicker({
           );
         })}
       </ul>
-    </section>
+    </Card>
   );
 }

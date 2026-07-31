@@ -2,6 +2,7 @@
 
 import type { RecentMeta } from '@/lib/recents';
 import { fmtLength, fmtSpeed, type UnitChoice } from '@/lib/display';
+import { Card } from './ui';
 
 /**
  * Which RECORDING of this flight the readings on this page came from, and a way to open any of
@@ -42,10 +43,7 @@ export default function RecordingPicker({
   const showApogee = !hidden?.includes('Apogee');
   const showSpeed = !hidden?.includes('Max velocity');
   return (
-    <section
-      aria-labelledby="recordings-of-this-flight"
-      className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden"
-    >
+    <Card as="section" tone="sunken" className="print:hidden" aria-labelledby="recordings-of-this-flight">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 id="recordings-of-this-flight" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {recordings.length} recordings of this flight
@@ -96,6 +94,6 @@ export default function RecordingPicker({
           );
         })}
       </ul>
-    </section>
+    </Card>
   );
 }

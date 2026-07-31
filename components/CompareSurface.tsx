@@ -381,7 +381,7 @@ export default function CompareSurface() {
           second time as the event bubbled. The box stays as the visible affordance and the
           file picker. */}
       <div
-        className="rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center transition dark:border-zinc-700"
+        className="rounded-xl border border-dashed border-zinc-300 px-4 py-4 text-center transition dark:border-zinc-700"
       >
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {logbook.recents.length === 0
@@ -396,7 +396,7 @@ export default function CompareSurface() {
           {MAX_COMPARE} flights are in — that&apos;s one stroke colour each, and more than that is
           a chart nobody can read — so anything after them is named for you rather than opened.
         </p>
-        <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
+        <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
           Choose flight logs
           <input
             type="file"

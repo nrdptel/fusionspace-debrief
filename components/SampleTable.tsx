@@ -264,7 +264,7 @@ export default function SampleTable({
           if (el && el.clientHeight && el.clientHeight !== height) setHeight(el.clientHeight);
         }}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-        className="mt-1.5 max-h-[22rem] overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
+        className="mt-1.5 max-h-[22rem] overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800"
       >
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900">

@@ -66,14 +66,49 @@ function countMatches(
 /** The counts as they stand. Each is a ratchet toward the target named beside it; lower it in the
  *  same commit as the conversion that earns it, and never raise one. */
 const BUDGET = {
-  /** `rounded-lg` is not in the system at all — containers are `xl`, controls are `md`. Target 0. */
-  roundedLg: 22,
+  /** `rounded-lg` is not in the system at all — containers are `xl`, controls are `md`. **At the
+   *  target, so this is a guard rather than a ratchet** — it may never go up again.
+   *
+   *  All 22 were classified one at a time by what the element IS rather than swept to a single
+   *  value, because a sweep picks whichever radius the majority happened to want and re-blurs the
+   *  distinction the scale exists to make. Containers took `xl` — the mapper's preview table, the
+   *  flight picker's list, the ground track's map frame, the report's three figure frames; controls
+   *  took `md` — the two error-page links, the mapper's buttons, the `<label>` acting as a button
+   *  on the comparison, the drop zone's own control.
+   *
+   *  The split fell **15 container / 7 control**, and that is the useful measurement: this value was
+   *  landing mostly on real containers, one radius step short of the one the system gives them. It
+   *  was not a control radius leaking upward — it was containers quietly shipping at two different
+   *  radii, which is exactly the difference a reader notices and cannot name. */
+  roundedLg: 0,
   /** Distinct card treatments. One of these is `<Card>`'s own string, which is the target state; the
    *  rest are hand-rolls still to convert. Two of them will not fold into `Card` and want their own
    *  named primitive — the page-level drop zone (`border-dashed … p-10`, an interactive target
    *  rather than a container) and the floating drop overlay (`border-2 border-dashed … shadow-lg`,
-   *  which needs elevation) — so the honest floor here is 3 and not 1. Recorded in `ROADMAP.md`. */
-  cardTreatments: 7,
+   *  which needs elevation) — so the honest floor here is 3 and not 1. Recorded in `ROADMAP.md`.
+   *
+   *  **This number went UP, from 7 to 18, and then down to 13. Read this before assuming a
+   *  regression, and before ever raising it again.** The rule above says never raise one, and that
+   *  rule is intact: no hand-rolled card was added. This grep anchors on `rounded-xl border`, so it
+   *  could only ever see a hand-roll that had already picked the RIGHT radius — and eleven of them
+   *  were sitting one step away at `rounded-lg`, invisible to the check written to catch them. The
+   *  `rounded-lg` conversion in this same commit did not create those eleven; it revealed them.
+   *
+   *  The proof is a measurement, not an argument. Run radius-agnostically over the tree as it stood
+   *  BEFORE the conversion — normalising `lg` and `xl` to one token — and the count is **19**. After
+   *  the conversion it is 18, because two treatments that differed only by radius collapsed into
+   *  one. The conversion's net effect on hand-rolled cards was −1.
+   *
+   *  This is the card grep's version of the `offScaleSpacing` bug two entries down, and the same
+   *  lesson: a compliance grep anchored on the compliant value can only see drift that is already
+   *  half-fixed. **The anchor is safe now and was not before** — `roundedLg` above is a guard at 0,
+   *  so a hand-roll can no longer hide at the middle radius.
+   *
+   *  18 → 13 is the seven `bg-zinc-50 px-4 py-3` panels moving onto `<Card tone="sunken">`, which
+   *  is the tone that was added FOR them and had four adopters while seven more wrote it out by
+   *  hand. They were five distinct strings for one thing: two differing only in where `print:hidden`
+   *  sat relative to the `dark:` variants, the rest by a `text-sm` or a text colour. */
+  cardTreatments: 13,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -105,7 +140,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 20,
+  uiAdopters: 25,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -119,7 +154,7 @@ const BUDGET = {
  *  state this milestone is closing. What must not happen is a zero silently BECOMING the finished
  *  condition. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 12,
+  Card: 19,
   Button: 10,
   Chip: 3,
   Readout: 2,

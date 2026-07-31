@@ -125,7 +125,7 @@ export default function ColumnMapper({
             it — so there are no channels to map and no flight to analyze.
           </p>
         </div>
-        <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
           <p>
             Debrief reads a logger&apos;s <strong className="font-medium">text export</strong> — CSV, TSV or
             plain text — an <strong className="font-medium">Excel spreadsheet</strong>, and two{' '}
@@ -153,7 +153,7 @@ export default function ColumnMapper({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
         >
           Choose a different file
         </button>
@@ -284,7 +284,7 @@ export default function ColumnMapper({
           type="button"
           onClick={submit}
           disabled={!ready}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Analyze flight
         </button>

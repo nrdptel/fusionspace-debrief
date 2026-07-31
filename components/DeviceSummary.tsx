@@ -8,6 +8,7 @@ import type { ReportedValue } from '@/lib/flight/types';
 import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { compareReported, REPORTED_QUANTITY } from '@/lib/flight/reported';
+import { Card } from './ui';
 
 function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   const q = REPORTED_QUANTITY[metric];
@@ -40,10 +41,7 @@ export default function DeviceSummary({
   const anyGravity = rows.some((x) => x.gravityConvention);
 
   return (
-    <section
-      aria-labelledby="devsum-heading"
-      className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40"
-    >
+    <Card as="section" tone="sunken" aria-labelledby="devsum-heading">
       <p id="devsum-heading" className="mb-0.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         The logger&apos;s own summary
       </p>
@@ -110,6 +108,6 @@ export default function DeviceSummary({
           does. Both are shown as each instrument states them; neither is adjusted into the other.
         </p>
       )}
-    </section>
+    </Card>
   );
 }
