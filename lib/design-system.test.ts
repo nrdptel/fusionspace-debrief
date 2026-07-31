@@ -225,7 +225,7 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 25,
+  uiAdopters: 27,
 } as const;
 
 /** How many components import EACH primitive by name.

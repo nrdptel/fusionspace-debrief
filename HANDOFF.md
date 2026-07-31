@@ -7,7 +7,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **D — capability** | **D5 SHIPPED. D6 decomposed and STARTED — its first increment is in.** The decomposition changed the milestone: two of the three signals D6's own entry named do not exist in the corpus, and `lib/parsers/d6Grouping.test.ts` now pins that. Read D6's section in `ROADMAP.md` before scoping any of it. |
-| **P — product & craft** | **P1 IN PROGRESS, and moved a long way this run.** `rounded-lg` is at 0 and guarded. Card treatments 19 (true figure) → 12. The four files the last handoff named as hand-rolling a card no longer do. |
+| **P — product & craft** | **P1 IN PROGRESS, and moved a long way this run.** `rounded-lg` is at 0 and guarded. Card treatments 19 (true figure) → **10**, against a floor of 4. `Card` 0 → 23 adopters, `Disclosure` 0 → 3. The four files the last handoff named as hand-rolling a card no longer do. |
 
 **PR #64, #65 and #66 are all merged and LIVE.** Production was verified serving `91b3878` by
 fetching `/version.json` with a cache-buster — the plain fetch lags by about ten minutes and will
@@ -20,7 +20,7 @@ Every increment independently gated (`npm test` · `npm run build` · `npx playw
 green before every push). The corpus was attached throughout — `lib/parsers/corpus.test.ts` reports
 **138 tests over 61 fixtures** — so no claim here rests on a suite that skipped itself.
 
-**Steady-state gate: 974 unit tests over 67 files, build clean, 236 e2e.**
+**Steady-state gate: 979 unit tests over 68 files, build clean, 236 e2e.**
 
 ### Merged and live
 
@@ -51,6 +51,14 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
   production stylesheet. Found by the done-check's cold walk on the built export, not by reading
   source — which is the argument for walking the artifact.
 
+### Shipped in PR #67
+
+- **D6's first increment** — `lib/parsers/d6Grouping.test.ts`, five assertions, four mutations.
+- **The three alert callouts** onto `Card`'s `warn`/`danger` tones, live-region roles intact and
+  falsified.
+- **A conversion RULED OUT** — the bordered frames must not become `Card`s; see below.
+- **`Disclosure` went from 0 adopters to 3.**
+
 ## Pick up first
 
 1. **D6's first increment is DONE — `lib/parsers/d6Grouping.test.ts`.** The next one is the arrival
@@ -68,9 +76,30 @@ green before every push). The corpus was attached throughout — `lib/parsers/co
    `lib/design-system.test.ts`. If that frame ever earns a primitive it is `Frame`, not a `Card` tone.
    What is genuinely left is three treatments that will never fold in (drop zone, drop overlay,
    frame) plus `Card` itself.
-3. **`DESIGN.md` §5's five required states.** `EmptyState` has one adopter and `ErrorState` one;
-   §5 says outright "a surface with no empty state is not finished". `Section`, `Segmented` and
-   `Disclosure` still have **zero** adopters.
+3. **`DESIGN.md` §5's five required states, and the two primitives still at zero.** `Disclosure`
+   was closed this run (0 → 3). `Section` and `Segmented` remain at **zero**, and `EmptyState` /
+   `ErrorState` have one adopter each while §5 says "a surface with no empty state is not finished".
+   Note the empty-state hunt has already been run once and all five candidates were refuted — see
+   below — so start from §5's list of surfaces rather than from a grep for `return null`.
+
+## The §9 counts at the end of this run
+
+The shell block in `DESIGN.md` §9 and `lib/design-system.test.ts` agree exactly, which is itself the
+check that the two copies have not drifted:
+
+| count | start of run | end | target |
+|---|---|---|---|
+| `rounded-lg` | 22 | **0** | 0 — a guard now, may never rise |
+| off-scale spacing | 0 *(really 8 — the grep was blind)* | **0** | 0 — a guard now |
+| hand-rolled card treatments | 7 *(really 19)* | **10** | **floor 4**, not 1 |
+| inverted-type files | 23 | **16** | **floor at least 4**, not 0 |
+| off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
+| files importing the primitives | 20 | **27** | most of the 46 |
+| `Card` adopters | 12 | **23** | — |
+| `Disclosure` adopters | 0 | **3** | — |
+
+**Three of those targets are not 0**, and each says why where it is defined. A budget whose target is
+unreachable trains the next session to ignore it.
 
 ## Traps this run hit — read these before repeating them
 
