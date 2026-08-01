@@ -243,6 +243,21 @@ wild, ideas too big for one pass. One line each, newest first.
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
+- **Four unit `<select>`s measure 43x44 px at a 390 px viewport — one pixel under the touch
+  floor on the WIDTH.** Measured 2026-08-01 on the built export of `382d37b`, `hasTouch: true`
+  (without which every figure here is wrong). `Speed`, `Acceleration`, `Temperature`, `Pressure`
+  in the units control; `globals.css`'s `@media (pointer: coarse)` block floors `min-height` and
+  reaches them, so the height is right and the width is what a four-across row leaves. Not a
+  regression from this run and possibly not worth fixing — filed because 43 is a measurement and
+  "about 44" is not.
+- **`<label>` and other elements the coarse-pointer floor does not reach are the real touch gap:
+  27 elements under 44 px at 390 px, the smallest a "Compare" label at 58x18 and a logbook
+  "Label" field label at 324x16.** `globals.css` covers `button`, `select`, `[role="button"]` and
+  `input` and not `<label>`, `<summary>` or a plain `<a>` — which is exactly why `TOUCH_TARGET`
+  exists on the primitives. **Unverified as a real defect:** a `<label>` wrapping a 44 px control
+  is still reachable by tapping the control, so the count is an upper bound on the problem and not
+  the problem. Establish which of the 27 actually have no reachable target before spending an
+  increment on it.
 - **`ChannelExplorer`'s window-stats table, `ColumnMapper`'s and `StitchSurface`'s tables still
   cannot be sorted or copied.** `DataTable` exists now (`components/ui.tsx`) and the two cross-check
   tables are on it, so each of these three is a small conversion rather than new work. Measured
