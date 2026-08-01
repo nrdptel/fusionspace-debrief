@@ -2000,3 +2000,42 @@ test('every channel the board recorded is readable as numbers, not just the plot
   await expect(table.locator('th', { hasText: 'Batt_Volts' })).toHaveAttribute('aria-sort', 'descending');
   expect(await dataRows().first().locator('td').first().textContent()).toBe(sortedTop);
 });
+
+// The window-stats table is the one a cert document quotes — min, max and mean of each channel
+// over the stretch of flight the flyer zoomed to — and the only way to get those into one was to
+// retype them off the screen. It cannot be a `DataTable` (the channel is a `th scope="row"` and a
+// channel with no samples in the zoom collapses its whole row to one `colSpan` cell), so what got
+// lifted is the copy affordance rather than the machinery.
+test('the window stats copy as a real table, with the unit beside each channel', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/blueraven-app-lr.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  const copy = page.getByRole('button', { name: 'Copy these stats' });
+  await expect(copy).toBeVisible();
+  await copy.click();
+
+  const clip = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const out: Record<string, string> = {};
+    for (const item of items) for (const type of item.types) out[type] = await (await item.getType(type)).text();
+    return out;
+  });
+
+  const lines = clip['text/plain'].split('\n');
+  expect(lines[0].split('\t').slice(0, 5)).toEqual(['Channel', 'Unit', 'min', 'max', 'mean']);
+  // A real row: a named channel, its unit, and three numbers — not empty cells, and not the
+  // header repeated.
+  const alt = lines.find((l) => l.startsWith('Altitude (AGL)\t'));
+  expect(alt).toBeTruthy();
+  const cols = alt!.split('\t');
+  expect(cols[1]).toBe('ft');
+  for (const v of cols.slice(2, 5)) expect(v).toMatch(/^-?[\d,.]+$/);
+  // max is at or above min, or the columns are transposed.
+  expect(Number(cols[3].replace(/,/g, ''))).toBeGreaterThanOrEqual(Number(cols[2].replace(/,/g, '')));
+  expect(clip['text/html']).toContain('<th>Channel</th>');
+  expect(clip['text/html']).not.toContain('<span');
+});

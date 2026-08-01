@@ -1103,8 +1103,19 @@ the artifact rather than the tree.
    all"*, falsified by blanking the clipboard text alone and watching it go red while the badge
    stayed correct. Adopters 29 → 31; `<table>` in a component 7 files → 6.
 
-   **Still open:** `ColumnMapper`, `StitchSurface` and `ChannelExplorer`'s window-stats table — the
-   three remaining tables with no sort and no copy. Arrow-key cell navigation is **not** implemented
+   **The window-stats table has the copy but not the primitive, and that is the right answer.**
+   It puts the channel in a `th scope="row"` and collapses a whole row to one `colSpan` cell when a
+   channel has no samples in the current zoom; modelling either in `DataTable` would add config
+   surface for one caller, which is how a shared layer stops being used. What it owed a flyer was
+   the copy — these are the min/max/mean a cert document quotes, over the stretch of flight they
+   zoomed to — so `CopyTableButton` was lifted out of `DataTable` instead, and both use it. The rows
+   are built at press time, so the copy follows the zoom rather than the window at mount. Pinned by
+   `e2e/analyze.spec.ts` → *"the window stats copy as a real table, with the unit beside each
+   channel"*, which checks the unit column and that max ≥ min rather than only that something
+   arrived. **Copyable tables: 2 → 5.**
+
+   **Still open:** `ColumnMapper` and `StitchSurface` — the two remaining tables with no sort and
+   no copy. Arrow-key cell navigation is **not** implemented
    and §5's "keyboard-navigable" is therefore only partly delivered: every affordance is on the Tab
    path, cell-to-cell movement is not. Said here rather than claimed, because a four-row cross-check
    would not benefit and a claim is worse than a gap.

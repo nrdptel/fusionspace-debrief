@@ -28,7 +28,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button, Card, Segmented } from './ui';
+import { Button, Card, CopyTableButton, Segmented } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -667,6 +667,33 @@ function Stats({
           {xName} {num(shownLo)}–{num(shownHi)} {xUnit}
         </span>
       </div>
+      {/* These are the numbers a cert document quotes — min, max and mean of each channel over
+          the stretch of flight the flyer zoomed to — and until now the only way to get them into
+          one was to retype them off the screen. The rows are built at press time, so the copy
+          follows the zoom rather than whatever the window was when the panel mounted. */}
+      {rows.length > 0 && (
+        <CopyTableButton
+          label="Copy these stats"
+          title="Copy this window's figures — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
+          header={[
+            'Channel',
+            'Unit',
+            'min',
+            'max',
+            'mean',
+            ...(showDeltaRate ? ['Δ', `rate (per ${xUnit})`] : []),
+          ]}
+          rows={() =>
+            rows.map(({ c, s }) => [
+              c.label,
+              c.unitLabel(sys),
+              ...(s
+                ? [num(s.min), num(s.max), num(s.mean), ...(showDeltaRate ? [num(s.delta), num(s.rate)] : [])]
+                : Array(showDeltaRate ? 5 : 3).fill('no samples in range')),
+            ])
+          }
+        />
+      )}
       <div className="overflow-x-auto">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <thead>

@@ -492,6 +492,62 @@ export function EmptyState({
   );
 }
 
+/**
+ * A table's way out to a spreadsheet — the control and the announcement, together, so every
+ * table says the same thing when it worked and the same thing when the browser refused.
+ *
+ * Separate from `DataTable` because not every table can BE one and that is not a failure. The
+ * window-stats table puts the channel in a `th scope="row"` and collapses a whole row to one
+ * `colSpan` cell when a channel has no samples in the zoom; modelling either in the primitive
+ * would add config surface for one caller, which is how a shared layer stops being used. What
+ * those tables actually owe a flyer is the copy, not the machinery — so the copy is the thing
+ * that got lifted.
+ */
+export function CopyTableButton({
+  header,
+  rows,
+  label = 'Copy table',
+  title,
+  className,
+}: {
+  header: string[];
+  /** Built at press time, so what lands on the clipboard is what is on screen right now — a
+   *  zoomed window, a chosen sort — rather than whatever the table held when it mounted. */
+  rows: () => string[][];
+  label?: string;
+  title?: string;
+  className?: string;
+}) {
+  const [said, setSaid] = React.useState('');
+  const copy = async () => {
+    const body = rows();
+    const ok = await copyTable(header, body);
+    setSaid(
+      ok
+        ? `Copied — ${body.length} ${body.length === 1 ? 'row' : 'rows'}, in the order on screen`
+        : 'This browser wouldn’t let Debrief write to the clipboard.',
+    );
+    window.setTimeout(() => setSaid(''), 4000);
+  };
+  return (
+    <span className={cx('flex items-center justify-end gap-2', className)}>
+      {/* Always mounted and empty when there is nothing to say: a live region that appears and
+          disappears announces unreliably. */}
+      <span role="status" aria-live="polite" className="min-h-4 grow text-xs font-medium text-indigo-600 dark:text-indigo-400">
+        {said}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => void copy()}
+        title={title ?? 'Copy this table — as a table for a spreadsheet or document, and as tab-separated text everywhere else'}
+      >
+        {label}
+      </Button>
+    </span>
+  );
+}
+
 /** One column of a `DataTable`. `cell` is what a flyer reads; `text` is what the clipboard gets,
  *  and the two are separate on purpose — an agreement badge reads as a coloured chip on screen and
  *  has to arrive in a spreadsheet as "agree · 0.6%", not as markup or as an empty cell. */
@@ -552,7 +608,6 @@ export function DataTable<R>({
   className?: string;
 }) {
   const [sort, setSort] = React.useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
-  const [said, setSaid] = React.useState('');
 
   const ordered = React.useMemo(() => {
     if (!sort) return rows;
@@ -573,33 +628,15 @@ export function DataTable<R>({
   const cycle = (key: string) =>
     setSort((s) => (s?.key !== key ? { key, dir: 'desc' } : s.dir === 'desc' ? { key, dir: 'asc' } : null));
 
-  const copy = async () => {
-    const ok = await copyTable(
-      columns.map((c) => c.header),
-      ordered.map((r) => columns.map((c) => c.text(r))),
-    );
-    setSaid(
-      ok
-        ? `Copied — ${ordered.length} ${ordered.length === 1 ? 'row' : 'rows'}, in the order on screen`
-        : 'This browser wouldn’t let Debrief write to the clipboard.',
-    );
-    window.setTimeout(() => setSaid(''), 4000);
-  };
-
   return (
     <div className={className}>
-      <div className="flex items-center justify-end gap-2">
-        {/* Always mounted and empty when there is nothing to say: a live region that appears and
-            disappears announces unreliably. */}
-        <p role="status" aria-live="polite" className="min-h-4 grow text-xs font-medium text-indigo-600 dark:text-indigo-400">
-          {said}
-        </p>
-        {rows.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => void copy()} title="Copy this table — as a table for a spreadsheet or document, and as tab-separated text everywhere else">
-            {copyLabel}
-          </Button>
-        )}
-      </div>
+      {rows.length > 0 && (
+        <CopyTableButton
+          label={copyLabel}
+          header={columns.map((c) => c.header)}
+          rows={() => ordered.map((r) => columns.map((c) => c.text(r)))}
+        />
+      )}
       <div className={cx('mt-1 overflow-auto', maxHeight && 'rounded-xl border border-zinc-200 dark:border-zinc-800')} style={maxHeight ? { maxHeight } : undefined}>
         <table className="w-full border-collapse text-sm">
           {caption && <caption className="sr-only">{caption}</caption>}
