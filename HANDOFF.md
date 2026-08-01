@@ -6,8 +6,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D6 SHIPPED.** A flyer who drops two files off one flight is offered the grouping, sees the evidence in words, **says which recording reports the flight**, and accepts or refuses in one press. Its last open item was **refused on a measurement** rather than built. **D7 is the next unstarted D milestone and has not been decomposed.** |
-| **P — product & craft** | **P1 IN PROGRESS.** Two cross-check tables now line their digits up, the sixth radius is gone, and `Segmented` went 2 → 3 adopters. Items 3, 5, 7 and 8 remain; item 4's premise was measured and corrected. |
+| **D — capability** | **D6 SHIPPED, and D7 is DECOMPOSED and NOT STARTED.** A flyer who drops two files off one flight is offered the grouping, sees the evidence in words, **says which recording reports the flight**, and accepts or refuses in one press. D6's last open item was **refused on a measurement** rather than built. D7 now has four slices with the ground truth that would settle each — **and its own stated first slice turned out to be already shipped**, corrected in place. |
+| **P — product & craft** | **P1 IN PROGRESS, four slices this run.** The two cross-check tables line their digits up; the sixth radius is gone (12 sites); every dark surface is back on one of the two the system has (11 sites); and the site header stops spending the caveat colour on a tip jar. `Button` 16 → 18 adopters, `Segmented` 2 → 3. Items 5, 7 and 8 remain; items 3 and 4 were measured and both entries were **stale by 3×** — see below. |
 
 **Everything this run is on the pinned branch and open as ONE pull request, #72.** Under
 SHIPPED-MEANS-REACHABLE none of it has reached a flyer yet. Merging it on green is all that is
@@ -25,7 +25,7 @@ three green before every push. The corpus was attached throughout — `lib/parse
 reports **138 tests over 61 manifest fixtures, 41 of them analysed** — so no claim here rests on a
 suite that skipped itself.
 
-**Steady state at the end of the run: 999 unit tests over 69 files, build clean, 241 e2e.**
+**Steady state at the end of the run: 1,001 unit tests over 69 files, build clean, 241 e2e.**
 (Baseline at session start was 990 / 239.)
 
 ### 1. Sev-1 — a drag coefficient read off a refused velocity (`f267b30`)
@@ -65,7 +65,33 @@ directions and both errors were counting prose:** the standing note said 11, a s
 ### 3. D6 — the flyer names which recording reports the flight (`9250757`)
 
 The row control could always change the primary, but only once the flight existed — so the one
-moment a flyer is looking at both files was the one moment they could not say.
+moment a flyer is looking at both files was the one moment they could not say. D6's other open item
+was **refused on a measurement** rather than built — the Featherweight sync counter joins two
+unrelated flights, on different continents nine months apart, at a single constant offset with
+100.0% agreement over 96,629 samples, a larger and cleaner join than the true pair manages over
+9,655.
+
+### 4. The floor-apogee caveat, on the three surfaces that dropped it (`b820a23`)
+
+Same class as the Sev-1, one surface further out. `jsonMetrics` omitted `apogeeIsFloor` while
+already carrying `accelerationClipped`; the shareable card printed Apogee bare beside a velocity it
+already qualifies as "derived"; and the comparison could crown a floor **highest**, where the
+acceleration row has blocked its crown on `anyClipped` all along. Reachable on two real records —
+`issuiuc-intrepid1` (996.2 m) and `intrepid2` (1,081.6 m). No reading moves.
+
+### 5. D7 decomposed, and two stale pointers corrected (`0b87b17`)
+
+D6 shipping left the D-track dry. D7's own stated first slice — `COMPETITION.md` row 6, "show the
+flyer the board's own reported summary beside ours, which nothing surfaces to a flyer" — **was
+already shipped**: `DeviceSummary` has done it all along and row 6 was marked RESOLVED the same day
+the pointer was written.
+
+### 6. The header stops spending the caveat colour (`8f9217b`)
+
+`KofiButton` was amber, which §2 reserves for `warn`. `ThemeToggle` beside it hand-rolled
+`BUTTON_VARIANTS.secondary` at a different padding. Both are `<Button variant="secondary"
+size="sm">` now. `Button` gained `target`/`rel` in its type — the `href` branch already spread them
+at runtime, so the type was the only thing stopping an external link from using the primitive.
 
 ## Traps this run hit — read these before repeating them
 
@@ -107,15 +133,23 @@ moment a flyer is looking at both files was the one moment they could not say.
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
 | hand-rolled card treatments | 10 | **10** | floor 4, not 1 |
-| inverted-type files | 16 | **16** | floor at least 4, not 0 |
+| inverted-type files | 16 | **15** | floor at least 4, not 0 |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
 | files importing the primitives | 29 | **29** | most of the 46 |
+| `Button` adopters | 16 | **18** | — |
 | `Segmented` adopters | 2 | **3** | — |
 | bare `rounded` (**not** a §9 metric) | 12 | **0** | 0, and **unguarded** |
+| unsanctioned dark surfaces (**not** a §9 metric) | 11 | **0** | 0, and **unguarded** |
 
 **No count moved the wrong way.** One tried to: the proposal banner's new label was `text-xs` and
 took inverted files 16 → 17. It is `text-sm` now, which is what §3 asks for on a label beside a
 control, and the ratchet is what caught it.
+
+**And read the 16 → 15 as what it is — the adoption effect, not an improvement.** `KofiButton` and
+`ThemeToggle` moved onto `Button size="sm"`, whose own class string is `text-xs`, so the class left
+those two files and went into `ui.tsx`. **Not one glyph changed size.** The budget says this in
+place, because a number that moves the right way for the wrong reason is how a ratchet stops
+meaning anything.
 
 ## Pick up first
 
