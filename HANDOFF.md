@@ -7,7 +7,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **D — capability** | **D7 IN PROGRESS — slices 1 and 3 shipped.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
-| **P — product & craft** | **P1 IN PROGRESS — item 4 started.** `DataTable` exists in `components/ui.tsx` and the two cross-check tables are on it, which is the first time either could be copied at all. Items **5**, **7** and **8** remain, and item 4 has three tables left. |
+| **P — product & craft** | **P1 IN PROGRESS — item 4 started.** `DataTable` and `CopyTableButton` exist in `components/ui.tsx`; both cross-check tables are on the first and the window-stats table on the second. **Copyable tables 2 → 5.** Items **5**, **7** and **8** remain, and item 4 has two tables left (`ColumnMapper`, `StitchSurface`). |
 
 **Everything this run is on the branch and in one pull request.** See *Where the work is* below.
 
@@ -55,10 +55,35 @@ which is what made it fit: an agreement badge is a coloured chip on screen and h
 spreadsheet as `agree · 0.6%`. `DeviceSummary` and `GpsApogee` are converted and now share one
 `agreementText`, so badge and clipboard cannot drift.
 
-### 4. A flake fixed on its third occurrence
+### 4. The copy, lifted out of `DataTable` for the tables that cannot be one
+
+The window-stats table holds the min/max/mean a cert document quotes, over the stretch of flight
+the flyer zoomed to, and retyping them off the screen was the only way to get them into one. It
+**cannot** be a `DataTable` — the channel is a `th scope="row"` and a channel with no samples in the
+zoom collapses its row to one `colSpan` cell — and forcing it would add config surface for one
+caller, which is how a shared layer stops being used. So `CopyTableButton` was lifted instead and
+`DataTable` uses it too. Rows are built at press time, so the copy follows the zoom.
+
+### 5. A flake fixed on its third occurrence
 
 `e2e/compare.spec.ts:434` was racing the navigation the column mapper pushes. `waitForURL` first,
 then the heading. 5/5 in isolation and green in the full suite.
+
+### 6. The cold walks
+
+**Phone, 390 px, `hasTouch: true`, offline.** Nothing wrong on the surfaces this run changed: no
+horizontal overflow on any route *including the sample table at twelve columns* (it scrolls inside
+its own container and leaves the page alone), the channel-scope control renders at 390 px rather
+than existing only on a wide screen, the stats copy control is 114×44, and an offline reload still
+serves the app. Two pre-existing touch findings filed in `BACKLOG.md` with their measurements —
+four unit `<select>`s at 43×44 (one pixel under on width) and 27 elements under 44 px that are
+mostly `<label>`s the `pointer: coarse` floor does not reach. **The 27 is an upper bound, not a
+defect count:** a label wrapping a 44 px control is still reachable by tapping the control, and
+which of the 27 genuinely have no reachable target is unestablished.
+
+**Desktop, tenth use.** A four-file drop lands on "Comparing 4 flights" and the comparison copies
+as a real table; zero page errors across the walk. The GPS cross-check copies
+`Apogee → 9,459 ft → 9,322 ft → agree · +1.5%`, verdict included.
 
 ## Traps this run hit — read these before repeating them
 
@@ -84,6 +109,13 @@ then the heading. 5/5 in isolation and green in the full suite.
   after posting and strip it — `mcp__github__update_pull_request` with the corrected body.
 - **`mcp__github__pull_request_read` with `get_check_runs`** is the cheap, working call (`get_status`
   reports `pending`/`total_count: 0` forever on this repo). Unchanged from last run and still true.
+- **The §9 bare-`rounded` one-liner counts PROSE unless you filter to class strings.** It read 1 at
+  the end of this run and the one hit is `FlightReport.tsx:508`, a comment about uPlot having
+  "rounded the window to its axis". The real count is 0. Last run recorded the same trap for the
+  word "G**rounded**"; a leading-boundary regex is necessary and not sufficient.
+- **`pkill -f e2e-server` matches its own shell** and kills the command that ran it — the tool
+  returns exit 144 and whatever followed the `pkill` in that same invocation never ran. Two edits
+  were silently lost to this. Put the `pkill` in its own call, or match more narrowly.
 
 ## Where the work is
 
