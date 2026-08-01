@@ -851,7 +851,9 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 
 ## D7 — Deeper honest insight, the stated moat
 
-**Status:** NOT STARTED — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
+**Status:** IN PROGRESS — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
+**Slice 3 shipped 2026-08-01** (corpus assertions 40 → 55, and a tolerance that was absorbing a
+gravity). Slices 1, 2 and 4 remain; slice 1 is the most visible to a flyer.
 
 **Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
 That sentence was already in the after-list and it is the whole constraint: this milestone is where
@@ -886,12 +888,42 @@ different kind, and each slice below names the ground truth that would settle it
    reading carries a measured range whose basis is a corpus statistic, cited on the validation
    page, and a test fails if the range is quoted without its basis.
 
-3. **The readings the corpus can settle and nothing asserts.** Recorded because it is the standing
-   hole: the corpus asserts an apogee on most fixtures and almost nothing else, which is exactly
-   where 2026-08-01's Sev-1 lived — a Cd of 0.00 and a window of "Mach 9.90 – 23.10" on a flight
+3. ~~**The readings the corpus can settle and nothing asserts.**~~ **DONE 2026-08-01 — and the
+   tolerance turned out to be hiding a whole gravity.** Recorded because it was the standing hole:
+   the corpus asserted an apogee on most fixtures and almost nothing else, which is exactly where
+   that day's earlier Sev-1 lived — a Cd of 0.00 and a window of "Mach 9.90 – 23.10" on a flight
    whose golden value was green. *Done when* every fixture whose `manifest.csv` row carries a
    velocity or Mach ground truth asserts it, and the count of asserted quantities per fixture is
    itself pinned so it cannot quietly fall.
+
+   **Measured before touching anything:** all 61 manifest rows carry a `stated_max_velocity`, and
+   the effective contract (`expected.json` + `corpus-overrides.json`) asserted **40 quantities over
+   33 fixtures — 33 apogee, 4 maxAccel, 3 maxVelocity**. It is **55 over 34** now: `maxVelocity`
+   3 → 12, `maxAccel` 4 → 10, and 13 fixtures pin two quantities or more. Pinned by
+   `corpus.test.ts` → *"says how many quantities it pins per flight, and never fewer"*, a floor
+   ratchet rather than an equality, so adding a fixture cannot turn it red.
+
+   **The find worth keeping is not the count.** Every one of the eight Altus Metrum flights read
+   **exactly +9.80 m/s² — one standard gravity, zero spread** — above its own stated peak
+   acceleration. That is not a defect: `lib/analyze/index.ts` deliberately reports SPECIFIC FORCE
+   (+1 g at rest, what the sensor measures) while AltOS states its peak net of gravity, and
+   `/methods` has said so all along. The defect was in the **contract**: both accel asserts stated
+   the gravity-removed figure and carried `tolPct: 6`, so the tolerance was absorbing the offset.
+   One g is 1.2% of an 84 g boost and 9.4% of a 10.7 g one, which means the tolerance had to be set
+   by the smallest flight anyone wanted to assert, **and no regression narrower than a gravity could
+   ever trip any accel assert.** An `Assert` now names its `basis` and the ground truth is converted
+   onto Debrief's convention before comparison; the eight then agree to **within 0.006%** and the
+   tolerance went 6% → 2%, where it measures precision instead of a definition. A `maxAccel` assert
+   with no basis is now refused outright.
+
+   **Falsified, five ways**, because an assert that cannot fail is worse than none: dropping the
+   basis from the smallest accel flight goes red at 2% (114.4 vs 104.6±2%); a perturbed velocity and
+   a perturbed acceleration each go red; a `basis` on a non-acceleration metric is refused; and the
+   untouched contract stays green.
+
+   **What is still NOT pinned, stated rather than glossed:** descent rates — 17 manifest rows carry
+   one and no fixture asserts it. `/validation` now says that out loud rather than implying all four
+   headline numbers are checked. That is the next slice's starting point.
 
 4. **Stage-aware readings on a composite.** D4 stitches per-stage logs into one flight; the
    readings still describe the composite as though it were one motor. A staged flyer wants each

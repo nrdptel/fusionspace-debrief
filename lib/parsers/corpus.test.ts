@@ -48,7 +48,19 @@ const present = existsSync(SPEC);
 
 const G0 = 9.80665;
 
-type Assert = { metric: string; value: number; unit: string; tolPct: number };
+/** How a ground-truth acceleration is stated. Debrief reports SPECIFIC FORCE — what the
+ *  accelerometer actually measures, +1 g standing still on the pad — but a logger's own
+ *  summary often states the peak with gravity already taken out (AltusMetrum's does), and
+ *  the two differ by exactly one g whatever the flight. Left unstated, that offset does not
+ *  show up as a disagreement: it hides inside a percentage tolerance, which is why every
+ *  accel assert here carried `tolPct: 6`. One g is 1.2% of an 84 g boost and 9.4% of a 10.7 g
+ *  one, so the tolerance had to be set by the SMALLEST flight anybody wanted to assert, and
+ *  no regression narrower than a gravity could ever trip any of them. Naming the basis
+ *  converts the ground truth onto Debrief's convention instead, and the same eight corpus
+ *  flights then agree to within 0.006% — display rounding — so the tolerance can go back to
+ *  measuring precision. */
+type AccelBasis = 'specific-force' | 'gravity-removed';
+type Assert = { metric: string; value: number; unit: string; tolPct: number; basis?: AccelBasis };
 interface Fixture {
   file: string;
   expect: { kind: 'flight' | 'mapping' | 'reject'; parser?: string; rejectMatch?: string };
@@ -334,14 +346,25 @@ function runFixture(fx: Fixture) {
  */
 function assertGolden(fx: Fixture, a: ReturnType<typeof analyzeFlight>): void {
   for (const as of fx.assert ?? []) {
+    // A basis is a statement about an accelerometer's convention and means nothing on a
+    // speed or a height. Refuse it outright rather than ignoring it, so a basis written on
+    // the wrong metric fails loudly instead of sitting in the contract doing nothing.
+    expect(
+      as.basis === undefined || as.metric === 'maxAccel',
+      `${as.metric}: a basis only applies to an acceleration`,
+    ).toBe(true);
     const si = metricSI[as.metric](a.metrics);
     expect(si, `${as.metric} present`).not.toBeNull();
     expect(Number.isNaN(si as number), `${as.metric} is NaN`).toBe(false);
     const got = toStatedUnit(as.metric, si as number, as.unit);
-    const lo = as.value * (1 - as.tolPct / 100);
-    const hi = as.value * (1 + as.tolPct / 100);
-    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeGreaterThanOrEqual(lo);
-    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeLessThanOrEqual(hi);
+    // Put the ground truth on Debrief's basis before comparing — never the other way round,
+    // because the reading under test is the one that has to stay honest.
+    const want = as.basis === 'gravity-removed' ? as.value + toStatedUnit('maxAccel', G0, as.unit) : as.value;
+    const lo = want * (1 - as.tolPct / 100);
+    const hi = want * (1 + as.tolPct / 100);
+    const how = as.basis === 'gravity-removed' ? ` (${as.value} stated net of gravity → ${want.toFixed(2)} as specific force)` : '';
+    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${want.toFixed(2)}±${as.tolPct}%${how}`).toBeGreaterThanOrEqual(lo);
+    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${want.toFixed(2)}±${as.tolPct}%${how}`).toBeLessThanOrEqual(hi);
   }
 }
 
@@ -386,6 +409,48 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     // would otherwise show up as a still-green suite.
     expect(analysed, summary).toBeGreaterThanOrEqual(41);
     expect(steppedAround.length, summary).toBe(0);
+  });
+
+  /**
+   * How much of each flight is actually pinned, counted — a ratchet, so coverage can only go
+   * up. Milestone D7's third slice asks for exactly this, and for the reason the drag Sev-1
+   * of 2026-08-01 demonstrated: the corpus asserted an apogee on most fixtures and almost
+   * nothing else, so a flight could publish a Cd of 0.00 over a window of "Mach 9.90 – 23.10"
+   * with its golden value green. An apogee is one number out of a flight; a suite that pins
+   * only apogees is not checking the analysis, it is checking the barometer.
+   *
+   * The counts are floors, never equalities: adding a fixture or a ground truth must not
+   * turn this red. What it catches is coverage QUIETLY FALLING — an assert dropped to make a
+   * change pass, which is the move this whole file exists to prevent and the one nobody
+   * reviewing a fortnight of merges would spot.
+   *
+   * Measured 2026-08-01 over 61 fixtures. `maxVelocity` 3 → 12 and `maxAccel` 4 → 10 in the
+   * same commit as this check: every manifest row carries a stated peak speed, and the nine
+   * added agree with the device's own figure to 0.0% because Debrief reads that very channel
+   * — so what they pin is that it keeps reading the right column, in the right units, over
+   * the right window. A units, sign or window regression moves them by far more than 2%.
+   */
+  it('says how many quantities it pins per flight, and never fewer', () => {
+    const fixtures = [...byFile.values()];
+    const asserts = fixtures.flatMap((f) => f.assert ?? []);
+    const per = (metric: string) => asserts.filter((a) => a.metric === metric).length;
+    const summary =
+      `${asserts.length} assertions over ${fixtures.filter((f) => (f.assert ?? []).length > 0).length} of ${fixtures.length} fixtures — ` +
+      `apogee ${per('apogee')}, maxVelocity ${per('maxVelocity')}, maxAccel ${per('maxAccel')}, ` +
+      `drogue ${per('drogue')}, main ${per('main')}; ` +
+      `${fixtures.filter((f) => (f.assert ?? []).length >= 2).length} pin two or more quantities`;
+    expect(asserts.length, summary).toBeGreaterThanOrEqual(55);
+    expect(per('apogee'), summary).toBeGreaterThanOrEqual(33);
+    expect(per('maxVelocity'), summary).toBeGreaterThanOrEqual(12);
+    expect(per('maxAccel'), summary).toBeGreaterThanOrEqual(10);
+    // A flight pinned on one number is a flight pinned on its barometer. This is the count
+    // the slice exists to move, so it is held separately from the total.
+    expect(fixtures.filter((f) => (f.assert ?? []).length >= 2).length, summary).toBeGreaterThanOrEqual(13);
+    // Every acceleration ground truth in this corpus comes off a logger that states its peak
+    // net of gravity. If one ever arrives without a basis it is being compared across
+    // conventions — a full g of silent error — so require the basis rather than assume it.
+    const bare = asserts.filter((a) => a.metric === 'maxAccel' && a.basis === undefined);
+    expect(bare, `every maxAccel ground truth must name its basis; ${bare.length} do not`).toHaveLength(0);
   });
 
   /**
