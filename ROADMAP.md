@@ -849,6 +849,65 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 
 ---
 
+## D7 — Deeper honest insight, the stated moat
+
+**Status:** NOT STARTED — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
+
+**Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
+That sentence was already in the after-list and it is the whole constraint: this milestone is where
+"measurement instrument, not simulator" is easiest to breach, because every new reading is one more
+chance to publish a number the data does not support.
+
+### What is already there, measured 2026-08-01 before proposing anything
+
+**21 readings** in `lib/readings.ts` — apogee, max/burnout velocity, max and average acceleration,
+thrust-to-weight, burn time, burnout altitude, coast time and efficiency, max Q, drogue and main
+descent rates, descent and flight time, ground temperature, battery, peak roll rate, revolutions,
+tilt at burnout — plus eight derived panels: measured Cd, parachute Cd, drogue Cd, deploy altitude,
+landing energy, ejection delay, rail exit, and the GPS and device-summary cross-checks.
+
+**So D7 is not "add the obvious readings".** They are shipped. What is missing is depth of a
+different kind, and each slice below names the ground truth that would settle it.
+
+### The slices, ranked by what a flyer can check
+
+1. **Every recorded channel readable as numbers, not just six.** `SampleTable` shows the channels
+   the explorer has selected, and the explorer caps at `MAX_SERIES = 6` — a limit whose own comment
+   justifies it as "how many traces stay readable", which is a fact about a CHART and not about a
+   table. `analyzedDataCsv` already carries every channel, so the data is there and only the
+   in-app view is capped. AltosUI "shows all of the data available from the flight computer"
+   (VERIFIED). *Done when* a flyer can read every channel their board recorded without swapping
+   chart selections, and a Blue Raven high-rate log proves it.
+
+2. **A reading's uncertainty, not just its value.** The invariants require an accuracy claim to be
+   "a range with their basis, not a flattering single number", and to name a caveat's DIRECTION and
+   size where the corpus can measure them. The corpus can: it is grouped by flight, so a second
+   instrument's reading of the same flight bounds the first. *Done when* at least one headline
+   reading carries a measured range whose basis is a corpus statistic, cited on the validation
+   page, and a test fails if the range is quoted without its basis.
+
+3. **The readings the corpus can settle and nothing asserts.** Recorded because it is the standing
+   hole: the corpus asserts an apogee on most fixtures and almost nothing else, which is exactly
+   where 2026-08-01's Sev-1 lived — a Cd of 0.00 and a window of "Mach 9.90 – 23.10" on a flight
+   whose golden value was green. *Done when* every fixture whose `manifest.csv` row carries a
+   velocity or Mach ground truth asserts it, and the count of asserted quantities per fixture is
+   itself pinned so it cannot quietly fall.
+
+4. **Stage-aware readings on a composite.** D4 stitches per-stage logs into one flight; the
+   readings still describe the composite as though it were one motor. A staged flyer wants each
+   stage's burn, its own thrust-to-weight, and the coast between them. *Done when* the three staged
+   corpus groups named by `lib/parsers/d6Grouping.test.ts` report per-stage figures, and a
+   single-stage flight is unchanged.
+
+**What this milestone must NOT do**, stated because it is the likely failure: no reading that
+cannot be reproduced from the flight's own record, no motor recommendation, no comparison against a
+simulation, and no number whose method is not on the methods page in the same change.
+
+**Size.** 4–6 increments. Slice 3 is the cheapest and the one with a Sev-1 already behind it; slice
+1 is the most visible to a flyer.
+
+---
+
 ## P1 — One design system, adopted
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
@@ -1242,12 +1301,16 @@ be merged, and the tightest apogee agreement in the corpus is between two files 
 same flight. The signal that survives is how the files ARRIVED. Numbers and reasoning in the D6
 section.
 
-**D7 — Deeper honest insight, the stated moat.** North Star 1's third bullet: more of what the data
-supports, each reading validated against the corpus, the logger's own reported summary and published
-sources, and each arriving with its method on the methods page. Decompose by readings a flyer asks for
-and that can be checked — not by whatever is computable. `COMPETITION.md` row 6 is the cheapest first
-slice: show the flyer the board's own reported summary beside ours, which the corpus already uses as
-ground truth and which nothing surfaces to a flyer.
+**D7 — Deeper honest insight, the stated moat. DECOMPOSED 2026-08-01 — see its own section above
+`D8`.** North Star 1's third bullet.
+
+**Its stated first slice was already shipped, and the pointer is corrected rather than left to cost
+someone an increment.** This entry said `COMPETITION.md` row 6 was "the cheapest first slice: show
+the flyer the board's own reported summary beside ours … which nothing surfaces to a flyer."
+`components/DeviceSummary.tsx` has done exactly that all along, rendered by `FlightReport.tsx:1045`
+on any flight whose file carries a summary, and **row 6 was itself marked `HAVE` / RESOLVED on
+2026-07-31** — the same day this pointer was written. Checked before building, which is the whole
+reason to check.
 
 **D8 — Orientation and high-rate data.** `COMPETITION.md` rows 3 and 4: the boards flyers increasingly
 own record far more than a baro trace, and the vendor tool shows it. Only honest where the log carries
