@@ -243,6 +243,15 @@ wild, ideas too big for one pass. One line each, newest first.
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
+- **A copy test that clicks and then reads the clipboard in the next statement RACES the write,
+  and passes locally while failing on a slower CI runner.** Shipped one on 2026-08-01
+  (`e2e/stitch.spec.ts` "the composite timeline copies as a real table") — 3/3 locally and green on
+  both CI jobs of the PR that added it, then failed twice, including the retry, on the next CI run:
+  `clip['text/plain']` was `undefined`, because `navigator.clipboard.read()` returned before the
+  handler's `await copyTable(...)` had written anything. Fixed forward on both tests that had the
+  omission by waiting for the app's own `role="status"` announcement first, which is what every
+  older copy test in the suite already did. **The general rule: after any control whose handler is
+  async, wait for the app to SAY it finished before asserting on what it did.**
 - **Four unit `<select>`s measure 43x44 px at a 390 px viewport — one pixel under the touch
   floor on the WIDTH.** Measured 2026-08-01 on the built export of `382d37b`, `hasTouch: true`
   (without which every figure here is wrong). `Speed`, `Acceleration`, `Temperature`, `Pressure`

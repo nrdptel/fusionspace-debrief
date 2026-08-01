@@ -2017,6 +2017,9 @@ test('the window stats copy as a real table, with the unit beside each channel',
   const copy = page.getByRole('button', { name: 'Copy these stats' });
   await expect(copy).toBeVisible();
   await copy.click();
+  // The announcement first — the copy is async, and reading the clipboard in the next statement
+  // races the write. See the note in e2e/stitch.spec.ts; the same omission failed there on CI.
+  await expect(page.getByRole('status').filter({ hasText: /Copied/ })).toBeVisible();
 
   const clip = await page.evaluate(async () => {
     const items = await navigator.clipboard.read();

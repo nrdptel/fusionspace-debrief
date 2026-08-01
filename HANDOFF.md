@@ -148,12 +148,20 @@ the removal of the dead one).
 1. **Nothing is owed from this run except merging #75** if it has not been merged. Check CI on the
    head commit first — the last increment's checks may still have been running.
 
-2. **D7 slice 2 is the one with the most leverage left, and this run built its evidence.** "A
-   reading's uncertainty, not just its value." The sweep that found the gravity offset also
-   measured the *derived-velocity* error across the corpus: barometric peaks run **+2.8%, +3.0%,
-   +9.4%, +17.2% and +99.7%** against ground truth, device-measured peaks **0.0%** on all eleven.
-   That is already a corpus statistic with a direction and a size; slice 2 wants it attached to a
-   headline reading with a test that fails if the range is quoted without its basis.
+2. **D7 slice 2 is the one with the most leverage left, and it is now DECOMPOSED FROM MEASUREMENT
+   in `ROADMAP.md` — read that before touching it.** The sweep that found the gravity offset also
+   measured derived-velocity error across the corpus: barometric peaks run **+2.8%, +3.0%, +9.4%,
+   +17.2%, +99.7%** — every one high — against **0.0%** on all eleven device-measured ones. The
+   roadmap entry carries the table, the smallest shippable slice, and **three cautions that would
+   each make a careless range wrong**: the 0.0% column is self-consistency rather than accuracy;
+   the +99.7% file's velocity column is its own altitude differenced; and the ratio's basis
+   (speeds vs Mach) has to be named or the range is a wrong claim under a right-looking number.
+
+   **It was deliberately not built this run**, and that is the one judgement call worth
+   re-examining. A range published on a headline reading is a safety-relevant number, and
+   `MAINTAINING.md` is explicit that one does not get shipped without grounding it properly.
+   Starting it with little room left would have meant rushing exactly that. The evidence is
+   banked instead, which is a real increment and not a deferral dressed as one.
 
 3. **P1 item 4 has three tables left** — `ColumnMapper`, `StitchSurface` and `ChannelExplorer`'s
    window-stats table, none of which can be sorted or copied. The primitive exists now, so each is
