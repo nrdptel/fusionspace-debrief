@@ -14,7 +14,72 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-01 — `apogeeIsFloor` is computed and then dropped by four surfaces, and it is the same
+  class as the Sev-1 above.** `lib/analyze/types.ts:27` defines it; a record whose log ends at its
+  own peak reports a LOWER BOUND. But `lib/report.ts:1155`'s `jsonMetrics` omits it entirely, so
+  `analysisJson` and `compareJson` emit `apogee: 984.3` with nothing saying it is a floor;
+  `lib/flightCard.ts:39` prints Apogee bare on the shareable card; and `lib/report.ts:811`'s
+  comparison row carries `rank: true` with no `rankBlocked`, so a floor apogee can win the
+  "highest" crown against a real one. **Not reproduced by me** — reported by an adversarial read of
+  the analysis surfaces and read back in the source, but not driven in the app. Reproduce before
+  scoping.
+- **2026-08-01 — `jsonMetrics` also omits `maxVelocityWithheld`**, so a withheld peak exports as
+  `maxVelocity: null`, which `lib/analyze/types.ts:33` says means "the flight has no such reading".
+  A refusal and an absence become the same JSON. Same read, same caveat: not driven in the app.
+- **2026-08-01 — `lib/gps.ts:189`'s `trackKml` substitutes 0 for any non-finite altitude sample**,
+  so an altitude the analyzer WITHHELD exports as 0 m into a file a flyer opens in Google Earth.
+  Not reproduced by me.
+- **2026-08-01 — `burnoutVelocity`, `coastEfficiency` and `dragLossAltitude` gate on
+  `velocityImplausible`, not on `series.velocityUnusable`** (`lib/analyze/index.ts:2665`, `:2527`).
+  On a `gap` flight the headline peak is withheld while a speed read off the same trace is still
+  published on the metric tile, the .txt/.md/.html row and the .json — and `dragLossAltitude` is
+  printed as "N ft short of a drag-free coast", a drag figure, on the very flight where the new
+  card says a drag figure is withheld. **No corpus record reaches this state today** (all 15
+  withheld records are `implausible` or have no coast), which is why it was filed rather than
+  fixed: a guard that fires on zero real files is worse than nothing until a fixture exists.
+- **2026-08-01 — `RecentMeta` stores `apogeeM` with no provenance flag beside it**
+  (`lib/recents.ts:15`, written at `lib/ingest.ts:168` and `Analyzer.tsx:271`). This BLOCKS putting
+  each recording's reading on D6's "Reported by" control, which is where a flyer would most want
+  it — a bare number there pushes them toward the larger of two figures when the larger may be the
+  floor. Storing the flag is the prerequisite; note `lib/recents.ts` warns that three further
+  rebuilds (`toMeta`, `serializeLogbook`, `normalizeFlight`) must each name a new field and fail
+  SILENTLY if they do not.
+- **2026-08-01 — `components/ui.tsx`'s `Segmented` root is `inline-flex` with no `max-w-full`, no
+  wrap and no `overflow-x-auto`**, so any adopter passing an unbounded label scrolls the whole
+  DOCUMENT sideways rather than the control. Measured at a 390 px viewport with a 25-character
+  label: `document.scrollWidth` 423 px against a 390 px client, and 108 px over at body size.
+  Debrief bounds the label at the call site instead, because the primitive's signature is shared
+  with the sibling repo — **the hardening is owed to a run that can push both.**
+- **2026-08-01 — five primitives `DESIGN.md` §5 declares as the vocabulary do not exist in
+  `components/ui.tsx` at all:** `NumberField`, `DataTable`, `Panel`, `Tabs`, `Figure`. The nine
+  hand-rolled `<input type="number">` across `DragCoefficient:125,142`, `ParachuteCd:96`,
+  `DeployAltitude:69`, `LandingEnergy:104`, `EjectionDelay:60` and `CropControl` are what
+  `NumberField` would collapse. Filed as one entry because the fix is one decision: build them or
+  change §5, and §5 is owed to both repos either way.
+- **2026-08-01 — `components/KofiButton.tsx:17` spends `amber` on a tip jar in the persistent site
+  header.** §2 reserves amber for `warn` — "an estimate outside its envelope, an extrapolation, a
+  caveat" — and says semantic colours are "never for decoration". Every other amber in the tree is
+  genuinely semantic (`Card tone="warn"`, `Extrapolated`, `RailExit`'s stability caution,
+  `GpsApogee`'s source-disagreement chip). A flyer learns amber means "this number is caveated";
+  spending it on chrome devalues the one signal the safety posture leans on. `components/
+  ThemeToggle.tsx:73` sits beside it hand-rolling `BUTTON_VARIANTS.secondary` at a different
+  padding, so the two convert together or the header pairing breaks.
+
 ## SEV-1 — none open
+
+- **FIXED 2026-08-01 (was Sev-1, live in production until PR #72 merges): five corpus flights
+  published a drag coefficient and a Mach window off a velocity trace the analysis had refused.**
+  `canMeasureDrag` asked about the altitude source and the coast geometry and never about
+  `velocityUnusable`. The `issuiuc-kairos` booster published **Cd 0.00 over "Mach 9.90 – 23.10"**
+  with its own Max velocity row reading *withheld* a few centimetres up the page; an L1 sport
+  flight published **Cd 2.52** where the real range is about 0.3–0.75. Measured: 15 analysed
+  records carry the flag, 5 have the coast geometry. Cd is v² in the numerator, so a refused trace
+  does not soften the answer, it squares it. Rail-exit velocity had the same hole from the other
+  side (`velocitySource === 'device'` only) — **latent, not live**: all 15 withheld corpus records
+  are barometric. Pinned by `lib/drag.test.ts`, `lib/rail.test.ts` and a corpus invariant, each
+  falsified by mutation. Walked on the built export of `0b87b17`: the panel now says *"Withheld…"*
+  and **zero Mach claims appear anywhere on that page**.
+
 
 - **FIXED 2026-07-31 (was Sev-1, and was OPEN for three commits of this same run):
   `perfectflite__issuiuc-endurance-20211030__StratoLogger.csv` stated Mach 1.19 and a Mach-1

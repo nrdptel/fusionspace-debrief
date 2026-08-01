@@ -93,10 +93,12 @@ moment a flyer is looking at both files was the one moment they could not say.
   20 px tall at a 390 px viewport and 44 px with touch emulation on — `globals.css` floors targets
   under `@media (pointer: coarse)`. The 20 px was a measurement error, not a defect, and would have
   sent a session chasing a fix that was already there.
-- **`mcp__github__pull_request_read` with `get_status` reports `pending` and `total_count: 0`
-  forever on this repo.** It reads the legacy commit-status API, which nothing here writes.
-  `get_check_runs` also returns 0. Use `actions_list` with `list_workflow_runs` — but filter it,
-  because unfiltered it returns about **450 KB** in one response.
+- **`mcp__github__pull_request_read` with `get_status` reports `pending` / `total_count: 0` forever
+  on this repo.** It reads the legacy commit-status API, which nothing here writes. **Use
+  `get_check_runs`** — it returns the two real jobs (`frontend`, `e2e`) and is the cheap call. It
+  also returns 0 in the first seconds after a push, before the checks are created, which reads
+  exactly like the `get_status` failure and is not one; ask again. `actions_list` works too but
+  returns about **450 KB** unfiltered, which is most of a context window for two booleans.
 
 ## The §9 counts at the end of this run
 
