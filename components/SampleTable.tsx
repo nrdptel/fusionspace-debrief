@@ -71,7 +71,7 @@ function SortableHeader({
           onClick={onCopy}
           aria-label={`Copy the ${label} column`}
           title={`Copy the ${label} column — every row in this window, in view order`}
-          className="rounded px-1 py-1 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          className="rounded-md px-1 py-1 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
           <span aria-hidden="true">⧉</span>
         </button>

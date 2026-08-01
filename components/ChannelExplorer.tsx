@@ -301,7 +301,7 @@ export default function ChannelExplorer({
                 onClick={() => setYKeys((ks) => ks.filter((k) => k !== c.key))}
                 aria-label={`Remove ${c.label} from the plot`}
                 title="Remove"
-                className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               >
                 ✕
               </button>
@@ -393,7 +393,7 @@ export default function ChannelExplorer({
               onClick={() => setPresets(deletePreset(p.name))}
               aria-label={`Forget the ${p.name} view`}
               title="Forget this view"
-              className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             >
               ✕
             </button>

@@ -871,9 +871,28 @@ the artifact rather than the tree.
 3. **Three unsanctioned dark surfaces, 32 uses**, where §2 allows one beside the two sanctioned:
    `dark:bg-zinc-900/40` ×27, `/30` ×4, `/60` ×1, against `dark:bg-zinc-900` ×41 and `/50` ×4.
    The earlier entry said "`/40`, 30 times" and named only one of the three.
-4. **`DataTable`.** 7 tables (not 6), 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
-   `SampleTable.tsx`, which already has the sticky header, `aria-sort` and the clipboard copy, and
-   collapse `CompareView`'s independent second copy onto it.
+4. **`DataTable`.** 7 tables (re-verified 2026-08-01: exactly 7, all in `components/`, no
+   `role="table"`/`role="grid"` surface anywhere, so 7 is the whole population), 2 sortable,
+   2 copyable, 0 keyboard-navigable. Lift it from `SampleTable.tsx`, which already has the sticky
+   header, `aria-sort` and the clipboard copy.
+
+   **~~and collapse `CompareView`'s independent second copy onto it~~ — that clause is wrong and
+   is withdrawn.** Measured 2026-08-01: `CompareView`'s table is **transposed**. Metrics are rows
+   and flights are columns, and sorting a row *reorders the columns* — it ranks flights by that
+   metric — where `SampleTable`'s sort reorders rows. The two share an `aria-sort` attribute and
+   nothing else: one puts `aria-sort` on `th[scope=col]`, the other on `th[scope=row]`. Collapsing
+   them produces a union of two different components, not one primitive, which is how a shared
+   layer acquires the config surface that makes nobody use it.
+
+   **What is genuinely liftable from `SampleTable`**, measured the same day: `SortableHeader`
+   (the button-inside-`th` + `aria-sort` + per-column ⧉ copy pattern), `cycleSort`/`sortState`
+   (the three-state cycle, third click restoring record order), the copy-what-is-on-screen
+   contract over `lib/copyTable`, the always-mounted `role="status"` live region, the sticky
+   `thead` scroll shell, and the `colSpan` empty row. **What is NOT liftable:** the entire prop
+   surface is the explorer's column model — `seriesData: Float64Array[]` with `xVals` as a phantom
+   column addressed by a `col < 0` sentinel, the `view`→`[from,to]` window scan, `ROW_H`-based
+   virtualisation with spacer rows, and the event jump strip. None of it generalises to a four-row
+   cross-check table.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
@@ -911,6 +930,30 @@ the artifact rather than the tree.
    widening the denominator moved no other number. This is the fourth §9 metric to measure
    something other than what it was reached for, after the two blind greps and the suite-wide type
    ratio.
+
+10. ~~**A sixth radius nobody counts:** bare `rounded` (0.25rem) at 11 sites.~~ **DONE 2026-08-01 —
+    and the count was wrong in both directions before it was measured properly.** The entry said 11;
+    a sweep this run first said 15. Both were counting prose. `rounded` sits inside the word
+    "G**rounded**", so `\brounded\b` matches a heading on `/validation`, and a comment in
+    `FlightReport` about uPlot having "rounded the window to its axis" matched too. The honest
+    figure is **12 class uses over 6 files** — `DeviceSummary` ×4, `ChannelExplorer` / `CompareView`
+    / `GpsApogee` ×2, `RecentFlights` / `SampleTable` ×1 — found with a leading boundary
+    (`(?<![-\w])rounded(?![-\w])`) and then filtered to lines that are actually class strings.
+    Every one is a chip or an icon button, so every one became `rounded-md`, which is §2's own
+    value for a control. Three of the six files are tables.
+
+    **No §9 metric was added for it, deliberately.** `DESIGN.md` §9 is carried identically by the
+    sibling repo and `lib/design-system.test.ts` is its executable copy, so a new count here alone
+    would fork the file — the same reason item 8's "17 hand-rolled card sites" lives in this list
+    rather than in the ratchet. **The check is owed to a run that can push both repos**, and until
+    then this conversion is unguarded: nothing fails if a bare `rounded` comes back.
+
+11. **`tabular-nums` on the two cross-check tables.** **DONE 2026-08-01.** `GpsApogee` and
+    `DeviceSummary` rendered their numbers `font-mono` with proportional digits — on the two
+    surfaces §6 exists for, where a GPS apogee sits directly above a barometric one and a device's
+    own summary figure sits beside Debrief's read of it. Comparing two numbers column-to-column is
+    the entire job of both tables and the digits did not line up. Four cells; suite-wide
+    `tabular-nums` is **27** against `font-mono` **90**, from 5 against 81 at P1's start.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
