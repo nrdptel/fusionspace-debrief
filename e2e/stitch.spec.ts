@@ -264,3 +264,60 @@ test('the composite timeline copies as a real table, on the common clock', async
   expect(clip['text/html']).toContain('<th>Recording</th>');
   expect(clip['text/html']).not.toContain('<span');
 });
+
+/**
+ * D7 slice 4, walked: each recording's own readings, beside each other, on the surface that knows
+ * they are one launch.
+ *
+ * The composite has held every recording's whole analysis since D4 and surfaced ONE number off
+ * it — the burn — so a flyer who wanted the sustainer's own apogee or the thrust-to-weight the
+ * booster left the pad at had to leave, open each file on its own, and hold two reports in their
+ * head.
+ *
+ * This reads the NUMBERS, not the headings. A panel with every label and no values is exactly the
+ * shape a broken data path takes here — `recordings` is new state, and a stage panel built from an
+ * empty array renders the same labels — and it would satisfy any assertion that only counted them.
+ */
+test('each recording reports its own readings, and they are not merged into one', async ({ page }) => {
+  const ids = await idsFor(page, [BOOSTER, SUSTAINER]);
+  await page.goto(`/stitch/?ids=${ids}`);
+
+  const panel = page.getByRole('region', { name: /What each recording read on its own/i });
+  await expect(panel).toBeVisible({ timeout: 20_000 });
+
+  // One block per recording, each named by its file — the same provenance every timeline row
+  // carries, for the same reason.
+  for (const f of [BOOSTER, SUSTAINER]) await expect(panel.getByText(f, { exact: false })).toBeVisible();
+
+  // By NAME, through the same `data-stage` / `data-reading` hooks the single-flight grid uses.
+  // The Readout's VALUE div, not the whole tile: the tile's text also holds the label and the
+  // qualifier under it, and "24.6 s to apogee" sits in the same node as the apogee itself.
+  const read = (file: string, label: string) =>
+    panel.locator(`[data-stage="${file}"] [data-reading="${label}"] > div:nth-child(2)`).innerText();
+
+  // The two apogees are the two recordings' OWN apogees and are different numbers. If a future
+  // change ever merged them, this is the assertion that would go red — and merging is the one
+  // thing this surface must never do.
+  const booster = await read(BOOSTER, 'Apogee');
+  const sustainer = await read(SUSTAINER, 'Apogee');
+  for (const [f, t] of [[BOOSTER, booster], [SUSTAINER, sustainer]] as const)
+    expect(t, `${f} shows a real apogee, not a blank`).toMatch(/\d/);
+  expect(booster).not.toBe(sustainer);
+
+  // The lower, shorter recording really is the lower one — so the panels are attached to the right
+  // recordings rather than both showing whichever analysis happened to be first.
+  const num = (s: string) => Number((s.match(/[\d,.]+/) ?? [''])[0].replace(/,/g, ''));
+  expect(num(booster), `${booster} is below ${sustainer}`).toBeLessThan(num(sustainer));
+
+  // The booster's own thrust-to-weight — a per-stage figure the competitive ledger records as
+  // shipped by no tool in the field, and one a flyer previously had to open the file alone to see.
+  await expect(panel.locator(`[data-stage="${BOOSTER}"] [data-reading="Burn time"]`)).toContainText(/\d/);
+
+  // A unit switch reaches these numbers, which is what makes them readings rather than strings
+  // baked at load time — the bug the state shape was chosen to prevent.
+  const before = await read(SUSTAINER, 'Apogee');
+  await page.locator('summary').filter({ hasText: 'per quantity' }).click();
+  await page.locator('details select').first().selectOption('m');
+  await expect.poll(() => read(SUSTAINER, 'Apogee'), { timeout: 10_000 }).not.toBe(before);
+  expect(await read(SUSTAINER, 'Apogee')).toMatch(/\bm$/);
+});

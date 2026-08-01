@@ -14,6 +14,24 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-01 — "Burn time" on the corpus's staged flight is 23.9 s, of which 15.8 s the motor was
+  not burning.** `lib/analyze/index.ts:2666` defines `burnTime` as `time[burnoutIdx] − liftoffTime`,
+  which is the span from liftoff to the end of powered flight — the same number as the burn
+  duration on every flight with one continuous burn, and not the same number on a staged one.
+  Measured on `altusmetrum__reddit-meraki2-121km__Mega38-1_TeleMega.csv` (manifest: **O7800 booster
+  + N3100 sustainer**): two ascent thrust runs on the signed axial channel, **T+0.00–4.46 s and
+  T+20.25–23.83 s**, so 8.04 s under thrust across a 23.91 s span. The tile reads "Burn time 23.9 s
+  — derived from the speed peak", which says how the instant was found and not that two thirds of
+  the span was a coast. `avgBoostAcceleration` is averaged over the same span and so is diluted by
+  it (138.5 m/s² reported). **Reproduced by me**, twice: the thrust runs against the file's own
+  axial trace, and the ignition itself — the axial steps −15.7 → +92.7 in one 0.25 s sample and
+  peaks at 549 m/s² while the speed goes 427 → 1,663 m/s.
+  **Not fixed, and the blocker is stated rather than glossed:** `iss-endurance`, a single-motor
+  flight, also produces a second run (T+5.65–6.95, peak 80.7 m/s²) inside a stretch where the
+  record repeats a sample and its altitude goes backwards. A detector separating one example from
+  one example is fitting, not measuring. What would settle it: a second staged record in the
+  corpus, or endurance's second run corroborated or refuted against its StratoLogger. `ROADMAP.md`
+  D7 carries this as the next slice.
 - **2026-08-01 — `dark:bg-zinc-800` is a FOURTH dark surface level and `ROADMAP.md` P1 item 3's
   census says it is not.** That entry records the post-sweep state as `dark:bg-zinc-900` ×52,
   `dark:bg-zinc-900/50` ×8, "everything else 0". Measured now with
@@ -297,6 +315,19 @@ wild, ideas too big for one pass. One line each, newest first.
   breaches of a rule the file
   contradicts itself on. Settling it means one sentence in §4 naming the sanctioned half-steps —
   a change to `DESIGN.md` in BOTH repos, which is why it is filed rather than taken.
+  **Amended 2026-08-01, and the amendment is mostly a correction to the count above.** `GroundTrack`'s
+  `Stat` tile was `py-2.5` and became `py-2` while it was being folded into `<Frame>`, because
+  leaving a half-step inside a conversion is how a ledger silently stops matching the tree. But
+  re-measuring before writing "21 → 20" gave **11 real uses, not 20** — the 21 was taken
+  2026-07-31 and other conversions have removed the rest since without anyone updating this line,
+  which is the same drift item 3 of `ROADMAP.md` P1 turned out to have. The honest state, measured
+  today over `components/` and `app/` and with comment lines excluded: `-2.5` at **11 sites** —
+  `px-2.5` in the four note/label inputs (`FlightReport` ×2, `CompareView` ×2), `RecentFlights`'s
+  filter input, `FlightReport`'s section-nav chip, and `mt-2.5`/`mb-2.5` on four panel
+  descriptions (`GpsApogee` ×2, `RecognizedFormats`, `DeviceSummary`). The other three figures in
+  this entry are from the same stale sweep and should be re-measured before being spent against.
+  **Do not read this as the entry being half-done**: a run that swept the rest without changing §4
+  would be removing occurrences of a rule the file has not yet made.
 - **`components/RecentFlights.tsx:630,638` marks the fastest and highest remembered flights with a
   `text-amber-500` ★.** `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A

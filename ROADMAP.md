@@ -851,11 +851,23 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 
 ## D7 — Deeper honest insight, the stated moat
 
-**Status:** IN PROGRESS — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
-**Slices 1, 2 and 3 shipped 2026-08-01.** Corpus assertions 40 → 54 and a tolerance that was
-absorbing a gravity; every recorded channel readable as numbers; and the derived-peak overstatement
-made a computed, corpus-pinned figure instead of prose that had drifted into publishing a number no
-pair produces. **Slice 4 (stage-aware readings on a composite) is what remains.**
+**Status:** SHIPPED 2026-08-01 — all four slices, decomposed and finished the same day D6 left the
+D-track dry. Corpus assertions 40 → 54 and a tolerance that was absorbing a gravity; every recorded
+channel readable as numbers; the derived-peak overstatement made a computed, corpus-pinned figure
+instead of prose that had drifted into publishing a number no pair produces; and each recording of a
+staged launch reading its own figures on the composite, which no tool in the field ships from flight
+logs.
+
+**Two of the four slices had a false premise, and that is the durable lesson from this milestone.**
+Slice 1's stated first slice turned out to be already shipped, and slice 4's said the composite
+"describes itself as though it were one motor" when `lib/composite.ts` merges nothing and never has.
+Both were written from reading the code's intent rather than running it. The next decomposition of
+any milestone should open by executing the thing it claims is missing.
+
+**Where the depth is still owed** is recorded in slice 4 below: a staged flight's burn time is the
+span from liftoff to the end of powered flight, and on the corpus's two-motor record 15.79 s of that
+23.91 s span was a coast. It is not fixed, the blocker is one file, and what would settle it is
+written down.
 
 **Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
 That sentence was already in the after-list and it is the whole constraint: this milestone is where
@@ -1051,11 +1063,55 @@ different kind, and each slice below names the ground truth that would settle it
    one and no fixture asserts it. `/validation` now says that out loud rather than implying all four
    headline numbers are checked. That is the next slice's starting point.
 
-4. **Stage-aware readings on a composite.** D4 stitches per-stage logs into one flight; the
-   readings still describe the composite as though it were one motor. A staged flyer wants each
-   stage's burn, its own thrust-to-weight, and the coast between them. *Done when* the three staged
-   corpus groups named by `lib/parsers/d6Grouping.test.ts` report per-stage figures, and a
-   single-stage flight is unchanged.
+4. ~~**Stage-aware readings on a composite.**~~ **DONE 2026-08-01 — and its stated premise was
+   false, which is the second slice of this milestone to open that way.** The entry said "the
+   readings still describe the composite as though it were one motor". Nothing did: `lib/composite.ts`
+   says in its own first paragraph that "**It merges nothing** — there is no composite altitude, no
+   composite speed, no blended reading of any kind", `Composite` has no metrics field at all, and
+   `StitchSurface` never imported `metricTiles`. There was no merged reading to make stage-aware.
+
+   **What was actually missing is the opposite of what the entry described.** The composite has held
+   every recording's whole `FlightAnalysis` since D4 and surfaced exactly ONE number off it — the
+   burn duration — so a flyer who wanted the sustainer's own apogee, its peak speed, or the
+   thrust-to-weight the booster left the pad at had to leave the surface that knows these are one
+   launch, open each file on its own, and hold two or three reports in their head.
+
+   *Done when* the three staged corpus groups named by `lib/parsers/d6Grouping.test.ts` report
+   per-stage figures, and a single-stage flight is unchanged. **Met, and measured:** `stageTiles`
+   in `lib/readings.ts` is a subset of `metricTiles` selected BY LABEL — so a stage panel cannot
+   invent a reading, cannot format one differently from the single-flight grid, and cannot drop a
+   qualifier — and `corpus.test.ts` → *"every staged group reports per-stage figures, and each is
+   one recording's own"* runs it over the real logs. **9 recordings across the three groups report
+   figures**, e.g. the Kairos booster at *Apogee 2,973 m · Max velocity 332 m/s · Max acceleration
+   84.6 g · **Thrust-to-weight 5.0:1** · Burn time 5.1 s · Burnout altitude 1,012 m* beside its
+   sustainer at *Apogee 4,045 m · 366 m/s · 9.5 g · Burn time 4.8 s*. Nothing is combined: a
+   booster's apogee is where the booster came down. `e2e/stitch.spec.ts` walks it and reads the
+   NUMBERS rather than the headings — a panel with every label and no values is exactly the shape a
+   broken data path takes when `recordings` is new state — falsified by pointing every stage at the
+   first recording's metrics and watching the two apogees become one string.
+
+   **`COMPETITION.md` row 23 is why this is worth more than it looks**: per-stage burn time and
+   per-stage thrust-to-weight derived from FLIGHT LOGS are shipped by no tool in the field. AltosUI
+   opens one file per window and its per-"stage" tabs are flight STATES; OpenRocket has per-stage
+   branches but only from a simulation; RockSim colours per stage role, from a design.
+
+   **What this slice did NOT do, with the measurement that says why.** A staged flight's `burnTime`
+   is still the span from liftoff to the end of powered flight, and on `meraki2` that is **23.91 s
+   of which 15.79 s the motor was not burning** — two ascent thrust runs, T+0.00–4.46 and
+   T+20.25–23.83, on a manifest-stated **O7800 booster + N3100 sustainer**. The second ignition is
+   unmistakable in the record: the signed axial steps −15.7 → +92.7 in one 0.25 s sample, peaks at
+   549 m/s² (56 g), and the speed goes 427 → 1,663 m/s. `avgBoostAcceleration` is averaged across
+   the same span and diluted by it.
+
+   **The blocker is one file and it is stated rather than glossed.** `iss-endurance` — one motor by
+   its manifest row — also produces a second run, T+5.65–6.95 peaking at 80.7 m/s², inside a stretch
+   where the record repeats a sample and its altitude goes backwards. A rule that fires on meraki2
+   and not on endurance can be written and would be separating one example from one example, which
+   is fitting rather than measuring, on a number a flyer reads. **What would settle it:** a second
+   staged record in the corpus, or endurance's second run corroborated or refuted against the
+   StratoLogger that flew with it (it is a redundant-board group, so the second board exists — it
+   simply has no accelerometer, which is itself worth checking against its baro-derived speed). That
+   is the next slice, and it is a corpus request as much as a code change.
 
 **What this milestone must NOT do**, stated because it is the likely failure: no reading that
 cannot be reproduced from the flight's own record, no motor recommendation, no comparison against a
@@ -1635,7 +1691,35 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
-- **2026-08-01 — D6's Featherweight sync-counter join key is REFUSED, not deferred, and D6 is
+- **2026-08-01 — a record that genuinely holds two burns was found, and NO detector was built on
+  it.** `meraki2` — a stated O7800 booster under an N3100 sustainer — shows two ascent thrust runs
+  15.79 s apart on its signed axial channel, and the second ignition is unmistakable (−15.7 →
+  +92.7 m/s² in one 0.25 s sample, peaking at 549 m/s², speed 427 → 1,663 m/s). The tempting move
+  was a second-ignition event and a split burn time, which would have been a genuinely
+  first-in-field reading. **Rejected because the corpus holds exactly one positive example and one
+  near-miss**: `iss-endurance`, one motor by its manifest row, produces a second run too, inside a
+  stretch where the record repeats a sample and its altitude runs backwards. A rule that fires on
+  one and not the other is fitted to two data points, on a number a flyer reads. The measurement is
+  banked in slice 4 and in `BACKLOG.md` with exactly what would settle it — a second staged record,
+  or endurance's second run checked against the StratoLogger that flew with it. **Reverse this the
+  moment either arrives**; it is a deferral with a named trigger, not a refusal.
+
+- **2026-08-01 — `Frame` was built in `components/ui.tsx` and deliberately NOT added to
+  `DESIGN.md` §5.** §5 is the shared component vocabulary and both repos carry the file
+  identically; `add_repo` for the sibling was attempted this run and refused by the harness, so a
+  §5 edit here would fork it. **Building the primitive without listing it is sanctioned by §9's own
+  sentence** — "a treatment that matches the grep but is genuinely not a card … gets its own named
+  primitive rather than a `shadow` prop on `Card`" — which is in the shared file already. The
+  alternatives were worse in both directions: fork §5 now, or leave six hand-rolled treatments and
+  a count stuck at 10 because a documentation edit could not be made. The §5 entry is recorded as
+  owed in `HANDOFF.md`, alongside the five §9 edits already owed there.
+
+- **2026-08-01 — D7 slice 4 was reinterpreted rather than executed as written, because its premise
+  was false.** The entry said the composite's readings "describe it as though it were one motor";
+  `lib/composite.ts` merges nothing and never has. Rather than mark the slice not-applicable, it
+  was read as the gap its *done when* actually describes — per-stage figures on the composite —
+  which turned out to be real, unbuilt, and shipped by no tool in the field. The alternative was to
+  close D7 with slice 4 struck out, which would have banked a milestone and built nothing.
   closed without it.** The item proposed using the `Sync` column the HR and LR files share as an
   in-file join key, to separate *one recording exported twice* from *two instruments*. Measured
   over the corpus: it cannot. `Sync` is a free-running millisecond counter mod 250, derived from

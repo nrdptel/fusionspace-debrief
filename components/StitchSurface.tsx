@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-import { buildComposite, fmtCompositeTime, type Composite } from '@/lib/composite';
+import { buildComposite, fmtCompositeTime, type Composite, type CompositeRecording } from '@/lib/composite';
+import { stageTiles } from '@/lib/readings';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
 import type { StitchRefusal } from '@/lib/stitch';
 import { fmtLength } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { EVENT_COLOR } from '@/lib/eventStyle';
-import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Readout } from './ui';
+import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Readout } from './ui';
 
 /**
  * One timeline across several per-stage recordings of one launch.
@@ -24,8 +25,9 @@ import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Readout } 
  *
  * - **No merged reading.** No composite altitude, no composite speed. Two stages' recordings are
  *   independent measurements of different parts of one flight.
- * - **No staging mark.** No corpus record holds two separable burns, so `EventType` has no
- *   `separation` member and nothing here may invent one.
+ * - **No staging mark.** `EventType` has no `separation` member and nothing here may invent one.
+ *   One corpus record does hold two separable burns; nothing yet tells it apart from a single-motor
+ *   flight with a corrupted stretch. See `lib/composite.ts`.
  * - **No time to a tenth.** Two boards bolted into ONE airframe still disagree by half a second
  *   once aligned, so times print in whole seconds and marks within a second are shown as
  *   unordered rather than sequenced.
@@ -67,7 +69,10 @@ type State =
   | { kind: 'loading' }
   | { kind: 'unreadable'; why: string }
   | { kind: 'refused'; refusal: StitchRefusal }
-  | { kind: 'ready'; composite: Composite; names: string[] };
+  /** `recordings` carries each one's whole analysis, not a formatted reading: the units control
+   *  sits on this surface too, and tiles built at load time would have kept whichever system was
+   *  chosen when the composite was assembled. */
+  | { kind: 'ready'; composite: Composite; names: string[]; recordings: CompositeRecording[] };
 
 export default function StitchSurface() {
   const { sys } = useUnits();
@@ -98,15 +103,13 @@ export default function StitchSurface() {
     }
     const stated = readFirstStage(wanted);
     setFirstStage(stated);
-    const built = buildComposite(
-      inputs.map((i) => ({ name: i.name, analysis: i.analysis })),
-      stated,
-    );
+    const recordings: CompositeRecording[] = inputs.map((i) => ({ name: i.name, analysis: i.analysis }));
+    const built = buildComposite(recordings, stated);
     if (!built.ok) {
       setState({ kind: 'refused', refusal: built.refusal });
       return;
     }
-    setState({ kind: 'ready', composite: built.composite, names: inputs.map((i) => i.name) });
+    setState({ kind: 'ready', composite: built.composite, names: inputs.map((i) => i.name), recordings });
   }, []);
 
   // Follow the address bar rather than keeping a private idea of what is on screen — the same
@@ -193,7 +196,14 @@ export default function StitchSurface() {
     );
   }
 
-  const { composite, names } = state1!;
+  const { composite, names, recordings } = state1!;
+  // Built at render, so a unit switch reaches every stage's numbers — the same contract every
+  // other reading on every other surface has.
+  const stages = recordings.map((r) => ({
+    name: r.name,
+    tiles: stageTiles(r.analysis.metrics, sys),
+    burn: composite.burns.find((b) => b.name === r.name) ?? null,
+  }));
 
   return (
     <div className="space-y-4">
@@ -339,24 +349,58 @@ export default function StitchSurface() {
         </p>
       </Card>
 
-      {composite.burns.length > 0 && (
-        <Card as="section" aria-labelledby="burns-heading" title={<span id="burns-heading">What each board called the burn</span>}>
+      {/* What each stage did, on its own recording.
+          The composite has always had every recording's full analysis in hand and shown one number
+          off it — the burn — so a flyer who wanted the sustainer's own apogee, its peak speed or
+          the thrust-to-weight it left the pad at had to leave, open each file separately, and hold
+          three reports in their head. Every figure here is one board's reading of the part of the
+          launch it flew, and none of them is combined with any other: a booster's apogee is where
+          the BOOSTER came down. That is the same rule `lib/composite.ts` applies to the marks. */}
+      {stages.length > 0 && (
+        <Card
+          as="section"
+          aria-labelledby="per-stage-heading"
+          title={<span id="per-stage-heading">What each recording read on its own</span>}
+        >
           <p className="-mt-1 mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-            Until the stages separate every board is in the same airframe recording the same burn — so
-            these ought to agree, and where they do not it is usually the two detectors disagreeing
-            about what &ldquo;burnout&rdquo; means rather than the flight. Debrief shows them and gates
-            on none of it: across the corpus a <em>measured</em> burn runs 0.8&ndash;6.0&nbsp;s and a{' '}
-            <em>derived</em> one 0.05&ndash;23.9&nbsp;s, so a spread between two of them can be a
-            definition rather than a discrepancy.
+            Each of these is one board&apos;s own reading of the part of the launch it flew, on its own
+            pad datum and its own clock — <strong className="font-medium">never combined</strong>. A
+            booster&apos;s apogee is where the booster came down, not a stage of one number. Where a
+            reading is missing, that board did not record what it needed.
           </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {composite.burns.map((b) => (
-              <Readout
-                key={b.name}
-                label={b.name}
-                value={`${b.durationS.toFixed(2)} s`}
-                sub={<Chip label="from" value={b.provenance} mono={false} />}
-              />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* `data-stage` / `data-reading` are the hooks `MetricGrid` already uses for the
+                single-flight grid — a reading has to be reachable by NAME, or a walk of this
+                surface can only assert that some numbers are present somewhere. */}
+            {stages.map((s) => (
+              <Frame key={s.name} data-stage={s.name} className="p-4">
+                <h3 className="font-mono text-xs break-all text-zinc-600 dark:text-zinc-400">
+                  {s.name}
+                  {firstStage === s.name && (
+                    <span className="ml-2 font-sans text-zinc-500 dark:text-zinc-500">· you said this flew first</span>
+                  )}
+                </h3>
+                {s.tiles.length > 0 ? (
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {s.tiles.map((t) => (
+                      <Readout key={t.label} data-reading={t.label} label={t.label} value={t.value} sub={t.sub} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    Nothing this panel reports is in this recording — it carries no altitude, speed or
+                    acceleration Debrief could read.
+                  </p>
+                )}
+                {s.burn && (
+                  <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                    Burn located <Chip label="from" value={s.burn.provenance} mono={false} /> — across the
+                    corpus a <em>measured</em> burn runs 0.8–6.0 s and a <em>derived</em> one 0.05–23.9 s,
+                    so a spread between two boards can be a definition rather than a discrepancy. Until the
+                    stages separate every board is in the same airframe recording the same burn.
+                  </p>
+                )}
+              </Frame>
             ))}
           </div>
         </Card>

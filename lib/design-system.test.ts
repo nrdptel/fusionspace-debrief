@@ -311,8 +311,12 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
    *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical
    *  string out again would collapse into the same bucket and move nothing. See the frame test
-   *  below, which is the one that would fail. */
-  Frame: 5,
+   *  below, which is the one that would fail.
+   *
+   *  5 → 6 is `StitchSurface`, whose per-stage panels are frames for the same reason the rest are:
+   *  each holds a grid of `Readout`s that carry their own tone, inside a `Card` that is already
+   *  raised — and §2 forbids nesting raised inside raised. */
+  Frame: 6,
 };
 
 /** `DESIGN.md` §3's six sizes, and nothing else. `text-[11px]` is the sixth and is matched by the
@@ -487,13 +491,33 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     // conversion that just took five sites onto `<Frame>` would be unguarded by the only check that
     // looks like it covers it.
     //
-    // One occurrence, and it is the primitive's own. Anything else is a hand-roll.
-    const FRAME = /rounded-xl border border-zinc-200 dark:border-zinc-800/g;
+    // **Matched by its PARTS, not as a contiguous string, and that correction is the whole value
+    // of this assertion.** Written as one literal it saw only the strings whose four tokens happen
+    // to sit next to each other — and three of the six sites this primitive replaced did not:
+    // `FlightReport`'s event tile put `gap-3` before the radius and `px-3 py-2 text-sm` before the
+    // dark variant, and `GroundTrack`'s `<dl>` and `Stat` tile interleaved the same way. So the
+    // guard covered exactly the half that a falsification against `SampleTable` happened to
+    // exercise, and a hand-roll in the OTHER form — the more common one, because a real call site
+    // has layout utilities mixed in — would have gone straight past it.
+    //
+    // A frame is: the container radius, the hairline border, and NO fill. The last clause is what
+    // separates it from a hand-rolled `Card`, which carries all three tokens plus a `bg-`, and
+    // which the treatment count above already catches as its own distinct string.
+    const isFrame = (s: string) =>
+      s.includes('rounded-xl') &&
+      s.includes('border-zinc-200') &&
+      s.includes('dark:border-zinc-800') &&
+      !/\bbg-/.test(s);
     const sites: string[] = [];
-    for (const f of ui) for (const _ of f.text.match(FRAME) ?? []) sites.push(f.path);
-    expect(sites, `the frame treatment, by file (only components/ui.tsx may carry it)`).toEqual([
-      'components/ui.tsx',
-    ]);
+    for (const f of ui) {
+      // Per class-string rather than per file, so two hand-rolls in one file are two findings —
+      // and per LINE, because a class string is written on one.
+      for (const line of f.text.split('\n')) if (isFrame(line)) sites.push(`${f.path}: ${line.trim().slice(0, 90)}`);
+    }
+    expect(
+      sites.map((s) => s.split(':')[0]),
+      `the frame treatment, by site (only components/ui.tsx may carry it):\n${sites.join('\n')}`,
+    ).toEqual(['components/ui.tsx']);
   });
 
   it('keeps the primitives themselves inside the system', () => {

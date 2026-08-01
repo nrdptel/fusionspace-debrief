@@ -148,24 +148,36 @@ export function Card({
  *
  *  Padding is off by default, because most of these are scroll shells whose content bleeds to the
  *  border. Pass it in `className` where a frame does own its edges. */
-export function Frame<T extends HTMLElement = HTMLDivElement>({
-  as: Tag = 'div',
+/** The elements a frame is allowed to be, and the DOM type each one hands to a `ref`.
+ *
+ *  A frame's element is not a style choice, for the same reason `Card`'s is not: two of these are a
+ *  `<canvas>` and a `<dl>`, and rendering either as a `<div>` would change what the markup MEANS
+ *  rather than how it looks. Only the tags that have a call site are here — a union member with no
+ *  caller is config surface nobody asked for. */
+type FrameElements = { div: HTMLDivElement; dl: HTMLDListElement; canvas: HTMLCanvasElement };
+
+export function Frame<T extends keyof FrameElements = 'div'>({
+  as: Tag = 'div' as T,
   className,
   children,
   ref,
   ...rest
 }: {
-  /** A frame's ELEMENT is not a style choice, for the same reason `Card`'s is not: two of these are
-   *  a `<canvas>` and a `<dl>`, and rendering either as a `<div>` would change what the markup
-   *  means rather than how it looks. */
-  as?: 'div' | 'dl' | 'ul' | 'canvas';
-  /** Generic where `Card`'s is fixed to the div, because the frames that need a ref are not all
-   *  divs: `SampleTable` measures its scroll shell and `FlightCard` draws into a `<canvas>`. The
-   *  parameter is inferred from whatever the caller passes, and the single cast below is the same
-   *  narrowing `Card` already does for `Tag` — JSX intersects the prop types of a union of
-   *  intrinsics, so a `ref` typed for one arm is rejected by the others. */
-  ref?: React.Ref<T>;
+  as?: T;
+  /** Keyed off `as` rather than off itself.
+   *
+   *  `Card`'s is fixed to the div, which the frames cannot use: `SampleTable` measures its scroll
+   *  shell and `FlightCard` draws into a `<canvas>`. The obvious loosening — a bare
+   *  `ref?: React.Ref<T>` with `T` free — was written here first and is worse than the fixed
+   *  version rather than better, because `T` then occurs in exactly one place and is INFERRED FROM
+   *  THE REF: `<Frame as="dl" ref={aCanvasRef}>` type-checks and hands a `<dl>` to a canvas ref. A
+   *  type that defines itself can never be wrong. Indexing the map makes `as` decide it, so that
+   *  call is the error it should be. */
+  ref?: React.Ref<FrameElements[T]>;
 } & React.HTMLAttributes<HTMLElement>) {
+  // The same narrowing `Card` does for its own `Tag`: JSX intersects the prop types of a union of
+  // intrinsics, so a `ref` typed for one arm is rejected by the others. The cast is confined to
+  // this line; the contract above it is exact.
   const El = Tag as 'div';
   return (
     <El ref={ref as React.Ref<HTMLDivElement>} className={cx(FRAME, className)} {...rest}>

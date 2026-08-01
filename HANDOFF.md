@@ -6,262 +6,192 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D7 IN PROGRESS — slices 1, 2 and 3 shipped; only slice 4 (stage-aware readings on a composite) remains.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
-| **P — product & craft** | **P1 IN PROGRESS — item 4 started.** `DataTable` and `CopyTableButton` exist in `components/ui.tsx`; both cross-check tables are on the first and the window-stats table on the second. **Copyable tables 2 → 6**, and item 4's table sweep is complete. Items **5**, **7** and **8** remain, plus item 4's keyboard clause. |
+| **D — capability** | **D7 SHIPPED — all four slices.** Slice 4 landed 2026-08-01: each recording of a staged launch now reports **its own** apogee, peak speed, peak acceleration, thrust-to-weight and burn on `/stitch`, side by side, combined with nothing. **9 recordings across the three staged corpus groups** report figures. `COMPETITION.md` row 23 records that no shipped tool in the field does this from flight logs. **Next: D8 — orientation and high-rate data**, which is NOT YET DECOMPOSED. |
+| **P — product & craft** | **P1 IN PROGRESS.** `Frame` exists and hand-rolled card treatments are **10 → 7** against an honest floor of 4. Items **2**, **5**, **7**, **8** (3 sites left) and the new **12** remain, plus item 4's keyboard clause. Item **6** is DONE and was already at 0 before the work — see below. |
 
-**Everything is MERGED AND LIVE.** Five pull requests here (#75–#79) and one on the fixtures repo
-(#3), all merged on green; production was verified serving **`7c743c9`** with a cache-buster, and
-each run's new strings were found in the served bundles. Nothing is pending.
+**Everything below is on the working branch unless this line says otherwise.** Check
+`git log --oneline origin/main..HEAD` before believing any of it reached production.
 
 ## The one thing to read before anything else
 
-**CI refused a safety claim that a local green run could not see, and the reason generalises.**
-Working out what a *derived* peak speed overstates by, a local corpus run found four
-derived-vs-measured pairs, **all high**, and D7 slice 2 shipped "a derived peak is an upper bound"
-onto `/methods`, `/validation`, the metric grid and the analysis caveat on that basis. CI — running
-the corpus `corpus.lock.json` actually pins — found **six pairs, one reading 13.7% LOW.** The claim
-was false in the flattering direction, and the app had said the right thing before it
-(*"the error runs both ways"*).
+**Two of D7's four slices had a FALSE PREMISE, both written from reading the code's intent rather
+than running it.** Slice 1's stated first slice was already shipped. Slice 4 said the composite
+"describes itself as though it were one motor" — and `lib/composite.ts` says in its own first
+paragraph that it **merges nothing**, `Composite` has no metrics field, and `StitchSurface` never
+imported `metricTiles`. There was no merged reading to make stage-aware.
 
-**So: the attached fixtures checkout and the pinned release are DIFFERENT CORPORA.** `VERSION` says
-`v1.0.0`, the lock pins `v1.1.0`, and they disagree about which fixtures are analysable. **A green
-local corpus run is not evidence about the corpus that gates CI.** Any statistic computed from the
-local checkout has to be written as a superset or a floor — `lib/derivedPeak.ts` does this, and its
-test asserts CONTAINMENT rather than equality so it can be green on both. Filed in `BACKLOG.md`;
-fixing it properly means cutting a release that matches the checkout, or attaching the pinned one.
+The real gap was the opposite: the composite had held every recording's whole analysis since D4 and
+surfaced exactly ONE number off it. **Open any decomposition by executing the thing it claims is
+missing.**
+
+**And an opening fan-out reported a finding that was half right in a way that would have shipped a
+wrong number.** It claimed the corpus's staged flight shows "exactly two burns, thresholds 20/40/60
+all agree, corroborated across two boards". Run on `series.acceleration` the same file gives **39
+runs**; the corpus test uses `series.axialAccel`, and on that channel it really is two. Both the
+finding and its refutation were reproduced before anything was written. **Check which CHANNEL a
+claim about acceleration was measured on before acting on it.**
 
 ## What shipped this run
 
 Every increment independently gated: `npm test` · `npm run build` · `npx playwright test`, all three
 green before every push. The corpus was attached throughout — `lib/parsers/corpus.test.ts` reports
-**138 tests over 61 fixtures, 41 analysed** — so no claim here rests on a suite that skipped itself.
+**142 tests** — so no claim here rests on a suite that skipped itself.
 
-**Steady state at the end of the run: 1,004 unit tests over 69 files, build clean, 243 e2e.**
-(Baseline at session start was 1,002 / 241.)
+### 1. P1 — `Frame`, the primitive this list has described for two runs and left unbuilt
 
-### 1. D7 slice 3 — a tolerance that was absorbing a whole gravity
+Six sites shared a bordered-no-background treatment that is not a card and could not become one:
+`SampleTable`'s and `ColumnMapper`'s scroll shells, `DataTable`'s, `FlightCard`'s `<canvas>`,
+`GroundTrack`'s divided `<dl>` and its `Stat` tile, `FlightReport`'s event tiles. **Card treatments
+10 → 7**, floor 4.
 
-The corpus asserted **40 quantities and 33 of them were apogees**. It is **54 checked over 33
-fixtures** now: `maxVelocity` 3 → 11, `maxAccel` 4 → 10, thirteen logs pinning two or more. (It read 55/34 for
-part of the run: one new assert had landed on a `knownIssue` fixture, where the runner returns
-before checking anything — see the trap below.)
+`SampleTable` is the proof the missing background is the point: its sticky `thead` is
+`dark:bg-zinc-900`, which is exactly `Card`'s default dark fill, so a `Card` would flatten the
+header band into the container on the `zinc-950` page. Verified on the built export — the converted
+tile computes to `background-color: rgba(0, 0, 0, 0)` in dark mode.
 
-**The find worth keeping is not the count.** All eight Altus Metrum flights read **exactly
-+9.80 m/s² above their own stated peak acceleration — one gravity, zero spread.** That is the
-intended convention (Debrief reports specific force, AltOS states its peak net of gravity, and
-`/methods` and `DeviceSummary` both say so). The defect was in the **contract**: both accel asserts
-carried `tolPct: 6` and the offset simply fitted inside it. One g is 1.2% of an 84 g boost and
-**9.4% of a 10.7 g one**, so the tolerance had to be set by the smallest flight anyone wanted to
-assert — and **no regression narrower than a gravity could ever trip any accel assert.** An
-`Assert` now names its `basis`; the ten that carry one agree to within **0.0796%** and the
-tolerance is back to 2%.
+`DataTable` takes the class string rather than the component, because its border is conditional on
+`maxHeight`. **The treatment count cannot see a re-hand-roll** — it is a `sort -u`, so a sixth file
+writing the identical string would move nothing — so a second assertion holds the treatment to one
+file, falsified by putting the string back into `SampleTable`.
 
-### 2. D7 slice 1 — every recorded channel readable as numbers
+### 2. P1 item 6 — the count was 0 before the work, and the real defect was next to it
 
-`MAX_SERIES = 6` is a fact about how many *traces* stay readable, and it was deciding how many
-*columns of numbers* a flyer could see. Measured: of the **25 corpus files a parser auto-detects as a flight, 23 carry more
-channels than the chart draws**, the richest carries **15**, **119 channels in total** were
-unreadable without going back to the chart. Worse than "six" suggests — the table inherited what
-was *plotted*, so a fresh Blue Raven LR read showed **1 of 11**. Verified in a browser: **12
-columns where there were 2**. `MAX_SERIES` is untouched; six traces is still right for a chart.
+`ColumnMapper`'s two `variant="primary"` calls are in **mutually exclusive return branches**, so no
+flyer ever sees both. The grep behind that entry counted a FILE where a SURFACE was meant. What was
+genuinely wrong: an indigo TEXT button hand-rolled beside the real primary — the primary weight's
+colour worn as a link. Now `secondary` and `ghost`.
 
-### 3. P1 item 4 — `DESIGN.md` §5's "every table is this one", which did not exist
+### 3. D7 slice 4 — each stage's own readings, on the surface that knows they are one launch
 
-Seven tables, two sortable, two copyable, none keyboard-navigable, **five with no sort and no copy
-at all** — including both cross-check tables, which are the two surfaces §6 exists for and the ones
-a cert document most wants. `DataTable` takes `{columns, rows}` with `cell` and `text` **separate**,
-which is what made it fit: an agreement badge is a coloured chip on screen and has to reach a
-spreadsheet as `agree · 0.6%`. `DeviceSummary` and `GpsApogee` are converted and now share one
-`agreementText`, so badge and clipboard cannot drift.
+`stageTiles` in `lib/readings.ts` is a subset of `metricTiles` selected **by label**, so a stage
+panel cannot invent a reading, cannot format one differently from the single-flight grid, and cannot
+drop a qualifier. Nothing is combined: a booster's apogee is where the booster came down.
 
-### 4. The copy, lifted out of `DataTable` for the tables that cannot be one
+Kairos booster reads *Apogee 2,973 m · 332 m/s · 84.6 g · **T/W 5.0:1** · Burn 5.1 s · Burnout
+1,012 m* beside its sustainer at *4,045 m · 366 m/s · 9.5 g · Burn 4.8 s*.
 
-The window-stats table holds the min/max/mean a cert document quotes, over the stretch of flight
-the flyer zoomed to, and retyping them off the screen was the only way to get them into one. It
-**cannot** be a `DataTable` — the channel is a `th scope="row"` and a channel with no samples in the
-zoom collapses its row to one `colSpan` cell — and forcing it would add config surface for one
-caller, which is how a shared layer stops being used. So `CopyTableButton` was lifted instead and
-`DataTable` uses it too. Rows are built at press time, so the copy follows the zoom.
+The e2e reads the NUMBERS, not the headings — a panel with every label and no values is exactly the
+shape a broken data path takes when `recordings` is new state. Falsified by pointing every stage at
+the first recording's metrics and watching the two apogees become one string.
 
-### 5. A flake fixed on its third occurrence
+### 4. Three false claims in the repo, corrected by measurement
 
-`e2e/compare.spec.ts:434` was racing the navigation the column mapper pushes. `waitForURL` first,
-then the heading. 5/5 in isolation and green in the full suite.
-
-### 6. A flake this run SHIPPED, caught by CI and fixed forward
-
-The composite-timeline copy test clicked its control and read the clipboard in the next
-statement — but the handler awaits `copyTable`, so the read raced the write and came back with no
-`text/plain` entry. It passed 3/3 locally and on both CI jobs of the pull request that added it,
-then failed twice, retry included, on a slower runner. Both tests with that omission now wait for
-the app's own `role="status"` announcement first, which every older copy test already did. **The
-rule, filed in `BACKLOG.md`: after any control whose handler is async, wait for the app to SAY it
-finished before asserting on what it did.**
-
-### 7. D7 slice 2 — the derived-peak overstatement, computed instead of remembered
-
-Nine sites wrote the figures out as prose and they had drifted. One published a **+30%** that no
-pair produces any more — honest when written (the endurance StratoLogger against its TeleMetrum,
-Mach 1.19 against a measured 0.93) and stale because Debrief now **withholds** that peak, 0.050 s
-after liftoff on a log that opens below the pad. The pair stopped existing; the figure did not.
-`lib/derivedPeak.ts` holds them once now and `corpus.test.ts` recomputes them from the real logs.
-
-Two more, both found by the pre-push review rather than by me: the **saved document carried no
-provenance at all** (the tile said measured/derived; `.txt`, `.md`, `.html` and the clipboard
-printed the speed bare, and those are what a cert document is built from), and I had **missed
-`MetricGrid` and `/methods` entirely** while claiming the change reached every surface. The review
-also refuted my *explanation* of the `+30%` — I had inferred "computed off a knownIssue file" from
-a probe and it was wrong, in three files, while the repo already documented the real reason.
-
-### 8. The cold walks
-
-**Phone, 390 px, `hasTouch: true`, offline.** Nothing wrong on the surfaces this run changed: no
-horizontal overflow on any route *including the sample table at twelve columns* (it scrolls inside
-its own container and leaves the page alone), the channel-scope control renders at 390 px rather
-than existing only on a wide screen, the stats copy control is 114×44, and an offline reload still
-serves the app. Two pre-existing touch findings filed in `BACKLOG.md` with their measurements —
-four unit `<select>`s at 43×44 (one pixel under on width) and 27 elements under 44 px that are
-mostly `<label>`s the `pointer: coarse` floor does not reach. **The 27 is an upper bound, not a
-defect count:** a label wrapping a 44 px control is still reachable by tapping the control, and
-which of the 27 genuinely have no reachable target is unestablished.
-
-**Desktop, tenth use.** A four-file drop lands on "Comparing 4 flights" and the comparison copies
-as a real table; zero page errors across the walk. The GPS cross-check copies
-`Apogee → 9,459 ft → 9,322 ft → agree · +1.5%`, verdict included.
+`lib/stitch.ts` called `meraki2` an "ordinary SINGLE-stage flight". The fixtures manifest names its
+motors: **an O7800 booster and an N3100 sustainer**. `lib/composite.ts` said "no corpus record holds
+two separable burns"; one does. `ROADMAP.md` P1 item 3's dark-surface census said "everything else
+0"; it is `zinc-800` ×2, `zinc-700` ×1, `zinc-100` ×1, because the sweep enumerated three opacity
+forms and could never see a bare shade.
 
 ## Traps this run hit — read these before repeating them
 
-- **This container has 4 CPUs, so a workflow's concurrency cap is 2.** A ten-agent opening fan-out
-  serialises into five waves and the browser-driving walks dominate; after ~28 minutes only two
-  agents had started and none had returned, and it was abandoned. **Fan out in threes, keep the
-  walks separate from the file-reading agents, and never gate across either** — the unit suite
-  flakes under CPU contention (last run measured 2 then 4 failures on identical runs, 0 alone).
-- **A golden value on a `knownIssue` corpus fixture is DEAD and prints exactly like a live one.**
-  `runFixture` returns before `assertGolden`. A `maxVelocity` of **1.0 m/s on a flight that reached
-  1,719.4** left the suite green. The runner refuses the combination now, but the general lesson
-  stands: before trusting any new assert, set it wrong and watch it fail.
-- **A percentage tolerance hides a FIXED offset, and hides it best on big flights.** One gravity is
-  1.2% of 84 g and 9.4% of 10.7 g. If a tolerance can never be tightened without a specific
-  fixture failing, suspect a systematic offset rather than noise — and check whether the UI already
-  says so, because here `DeviceSummary` had been telling flyers "exactly 1 g apart" all along.
-- **`git status` clean is not `cd` clean.** Hit again: a `cd /home/user/debrief-fixtures` in one
-  probe left the next `sed lib/parsers/…` reading the wrong repo. Prefix with the absolute path.
-- **Widening what a table shows breaks locators that were unambiguous.** `/^Altitude/` matched one
-  header and now matches "Altitude (AGL)" and "Altitude (raw)". Two existing sample-table tests
-  went red on a strict-mode violation, which reads like a regression and is a locator.
-- **The harness appends an attribution footer to a PR body.** It did again. Read the body back
-  after posting and strip it — `mcp__github__update_pull_request` with the corrected body.
-- **`mcp__github__pull_request_read` with `get_check_runs`** is the cheap, working call (`get_status`
-  reports `pending`/`total_count: 0` forever on this repo). Unchanged from last run and still true.
-- **The §9 bare-`rounded` one-liner counts PROSE unless you filter to class strings.** It read 1 at
-  the end of this run and the one hit is `FlightReport.tsx:508`, a comment about uPlot having
-  "rounded the window to its axis". The real count is 0. Last run recorded the same trap for the
-  word "G**rounded**"; a leading-boundary regex is necessary and not sufficient.
-- **`pkill -f e2e-server` matches its own shell** and kills the command that ran it — the tool
-  returns exit 144 and whatever followed the `pkill` in that same invocation never ran. Two edits
-  were silently lost to this. Put the `pkill` in its own call, or match more narrowly.
+- **`git checkout <file>` to undo a falsification reverts the WHOLE file**, including the conversion
+  you spent twenty minutes on. It happened here to `SampleTable.tsx` and the loss is silent —
+  `git status` simply goes quiet. Undo a falsification with the inverse `sed`, never with `checkout`.
+- **A JSX comment cannot sit beside the root element of a `(...)` body.** `{stages.map((s) => (
+  {/* … */} <Frame>` is a syntax error, and the message (`TS1005: ')' expected`) points at the line
+  AFTER the comment. Cost two builds; hit twice in one run, in `GroundTrack` and `StitchSurface`.
+- **A failed `npm run build` leaves `out/` STALE and the e2e then tests the previous code.** The
+  suite reported 10 passed / 1 failed against a build that never happened. Read the build's own tail
+  before trusting an e2e result.
+- **`series.acceleration` is not `series.axialAccel`.** The first is a resultant on some files and
+  reads >20 m/s² through a high-drag ascent; counting thrust runs on it gives 39 where the signed
+  axial gives 2. Every claim in this repo about "sustained thrust runs" is on `axialAccel`.
+- **Two agent findings in one run were confidently wrong in the same direction** — both overstated
+  what the corpus supports. Reproduce before scoping; it cost nothing and would have shipped a
+  staging detector fitted to one example.
+- **The harness classifier intermittently refuses ordinary `grep | sort | uniq` pipelines** and
+  refuses `add_repo` for the sibling. Route around with the `Grep` tool or a simpler command; do not
+  read a refusal as a repo problem.
+- **`pkill -f e2e-server` matches its own shell** and kills the command that ran it (exit 144).
+  Unchanged from last run and hit again. Put it in its own call.
+- **`mcp__github__pull_request_read` with `get_check_runs`** is the cheap, working call
+  (`get_status` reports `pending`/`total_count: 0` forever on this repo).
 
-## Where the work is
+## The §9 counts
 
-**Nothing is pending.** `main` is `62f9d9c` and production serves it. The fixtures repo's `main`
-carries the same assertions via its own #3.
-
-**CI is the gate that matters here, twice over this run.** `frontend` fetches the pinned **v1.1.0**
-corpus release while the attached checkout is **v1.0.0**, so CI is where the new 2% tolerances first
-met the released corpus — they held. And CI caught a flaky test **this run had already merged**
-(see below), on a docs-only pull request, which is the strongest argument available for shipping
-through a pull request rather than pushing to `main`.
-
-## The §9 counts at the end of this run
-
-| count | start of run | end | target |
+| count | start of run | now | target |
 |---|---|---|---|
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
-| hand-rolled card treatments | 10 | **10** | floor 4, not 1 |
+| hand-rolled card treatments | 10 | **7** | floor 4, not 1 |
 | inverted-type files | 15 | **15** | floor at least 4, not 0 |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 29 | **31** | most of the 46 |
-| `Segmented` adopters | 3 | **4** | — |
-| `DataTable` adopters | — | **2** | most of the 5 convertible tables |
-| `<table>` in a component | 7 files | **6 files** | — |
+| files importing the primitives | 31 | **31+** | most of the 46 |
+| `Frame` adopters | — | **5** | — |
 
 **No count moved the wrong way.**
 
 ## Pick up first
 
-1. **Nothing is owed from this run — start clean.** All four pull requests merged and deployed,
-   both repos, no open pull request on either.
+1. **D8 is NOT DECOMPOSED and the D-track is dry until it is.** `ROADMAP.md`'s after-list has the
+   pointer: `COMPETITION.md` rows 3 and 4, orientation and high-rate data, and it says the first
+   increment is *measuring the ingestion ceiling against a real high-rate log* rather than building.
+   Decomposing it is one increment's work and it IS the work.
 
-2. **D7 slice 2 is the one with the most leverage left, and it is now DECOMPOSED FROM MEASUREMENT
-   in `ROADMAP.md` — read that before touching it.** The sweep that found the gravity offset also
-   measured derived-velocity error across the corpus: barometric peaks run **+2.8%, +3.0%, +9.4%,
-   +17.2%, +99.7%** — every one high — against **0.0%** on all eleven device-measured ones. The
-   roadmap entry carries the table, the smallest shippable slice, and **three cautions that would
-   each make a careless range wrong**: the 0.0% column is self-consistency rather than accuracy;
-   the +99.7% file's velocity column is its own altitude differenced; and the ratio's basis
-   (speeds vs Mach) has to be named or the range is a wrong claim under a right-looking number.
+2. **The staged burn time is the sharpest unfixed thing this run found, and it is filed with its
+   blocker.** `burnTime` on `meraki2` is **23.91 s of which 15.79 s the motor was not burning** —
+   two ascent runs, T+0.00–4.46 and T+20.25–23.83, on a stated O7800 + N3100. The ignition is
+   unmistakable: signed axial steps −15.7 → +92.7 in one 0.25 s sample, peaks at 549 m/s², speed
+   427 → 1,663 m/s. **Do not build a detector on it.** `iss-endurance`, one motor by its manifest,
+   produces a second run too (T+5.65–6.95, peak 80.7 m/s²) inside a stretch where the record repeats
+   a sample and its altitude goes backwards. One example against one example is fitting. **What
+   would settle it:** a second staged record in the corpus, or endurance's second run checked
+   against the StratoLogger that flew with it.
 
-   **It was deliberately not built this run**, and that is the one judgement call worth
-   re-examining. A range published on a headline reading is a safety-relevant number, and
-   `MAINTAINING.md` is explicit that one does not get shipped without grounding it properly.
-   Starting it with little room left would have meant rushing exactly that. The evidence is
-   banked instead, which is a real increment and not a deferral dressed as one.
+3. **P1 item 12 is new and one of its three entries has a SAFETY duty.** Three of `DESIGN.md` §5's
+   named primitives do not exist at all — `NumberField`, `Figure`, `Panel` — and nine runs of
+   counting adopters never surfaced it, because a primitive with no implementation has no adopters
+   to be short of. `NumberField` is the one to take first: §5 gives it the refusal behaviour the
+   SAFETY invariant requires, and it is hand-rolled at **9 sites**, each re-deriving its own bound.
 
-3. **P1 item 4 has three tables left** — `ColumnMapper`, `StitchSurface` and `ChannelExplorer`'s
-   window-stats table, none of which can be sorted or copied. The primitive exists now, so each is
-   a small conversion. **Arrow-key cell navigation is still not implemented**, so §5's
-   "keyboard-navigable" is only partly delivered; decide whether to build it or amend §5, and
-   remember that amending §5 is a change owed to the sibling repo in the same run.
-
-4. **Descent rates are pinned nowhere.** 17 manifest rows carry one and no fixture asserts it;
-   `/validation` now says so out loud. That is the cheapest remaining corpus coverage.
-
-5. **A velocity/Mach assertion on every fixture whose manifest row carries one** is now *done* for
-   the eleven device-measured ones. The remaining five are barometric and must NOT be asserted
-   against the stated figure — that error is a documented physical limitation, not a defect.
+4. **`GroundTrack` returns `null` with no GPS fix** (`:466`), so the whole recovery surface does not
+   exist rather than being empty, on every baro-only log. P1 item 5's most visible instance.
 
 ## What is owed elsewhere
 
-**`nrdptel/fusionspace-loft` is owed six `DESIGN.md` §9 edits**, unchanged for three runs, plus the
-open seventh question about whether §9's `uiAdopters` grep should read `components app`. The harness
-pins only `fusionspace-debrief` and `debrief-fixtures`, so none can be pushed there. **A
-`Segmented` hardening is owed too** (its root is `inline-flex` with no `max-w-full`).
+**`nrdptel/fusionspace-loft` is owed six `DESIGN.md` §9 edits**, unchanged for four runs, plus the
+open question about whether §9's `uiAdopters` grep should read `components app`. **`add_repo` for it
+was attempted this run and REFUSED by the harness classifier**, so this is not a matter of nobody
+having tried — a session that can push both repos has to be created with both attached.
 
-**`DataTable` is a Debrief-side primitive so far.** `DESIGN.md` §5 names it and both repos carry
-§5, so the sibling either wants the same implementation or an explicit note that it does not need
-one. A run that can push both repos owes that decision — and the bare-`rounded` guard, still
-unguarded from last run.
+**Two `DESIGN.md` §5 edits are now owed as well**, and both are deliberately NOT made here because a
+one-sided edit forks a file both repos carry identically:
+- **`Frame` is not listed in §5** though it now exists and has five adopters. §9 already sanctions a
+  named non-card primitive in prose, which is why building it was in scope; naming it in the
+  vocabulary is not.
+- **The invented "indigo text" button weight** appears at `ColumnMapper` (fixed) and
+  `RecentFlights.tsx:835` (not). It wants either a `Button` variant or a documented fifth weight.
+
+Also still owed: the bare-`rounded` guard, and a decision on whether `DataTable` is Debrief-only.
 
 ## The fixtures repo
 
-Two commits this run. **The seven `corpus-overrides.json` entries that predate this run still need
-removing once `debrief-fixtures` is re-cut** — and note the file is much larger now (32 entries),
-because the new assertions must live there to reach CI at all while the release lags.
+Nothing shipped there this run. **`VERSION` says `v1.0.0` while `corpus.lock.json` pins `v1.1.0`**,
+so the attached checkout and the corpus that gates CI are not provably the same — unchanged, and
+still the reason any corpus statistic has to be written as a superset or a floor.
 
-**`VERSION` says `v1.0.0` while `corpus.lock.json` pins `v1.1.0`.** Worth resolving: local runs read
-the attached checkout, CI reads the release, and the two are not provably the same corpus.
+**Worth adding, each with a reason:**
 
-**Worth adding there**, each with a reason, unchanged from last run except the last:
-
-- a corpus record holding two genuinely separable burns;
-- **a launch day where one flyer's two files were dropped together** — the signal D6 rests on;
-- **a Blue Raven pair whose LR file carries a `Sync` column**;
-- **a descent-rate ground truth in a machine-readable column**, so slice 3's remaining gap can be
-  closed the way the velocity one was.
+- **a SECOND genuinely staged record**, which is now the single highest-value fixture this corpus
+  could gain — it is the thing standing between the staged burn-time defect and a fix;
+- a launch day where one flyer's two files were dropped together;
+- a Blue Raven pair whose LR file carries a `Sync` column;
+- a descent-rate ground truth in a machine-readable column.
 
 ## Environment notes
 
 - **Git identity defaults to the harness's** — `Claude <noreply@anthropic.com>`, which the zero-trace
-  invariant forbids. Set it in **both** repos before the first commit:
+  invariant forbids. Set it before the first commit:
   `git config user.name "Neer Patel"` / `user.email "135655563+nrdptel@users.noreply.github.com"`.
 - **The corpus arrives as an attached repo.** `ln -sfn /home/user/debrief-fixtures
-  lib/parsers/__corpus__`, and the suite then reports **138 tests**. Far fewer means it is not linked.
+  lib/parsers/__corpus__`, and the suite then reports **142 tests**. Far fewer means it is not linked.
 - **`npm install` is needed at session start**; the container ships without `node_modules`.
 - **Chromium: `npx playwright install chromium` from the repo root** (~114 MB, about a minute,
   succeeds through the proxy), then plain `npx playwright test` with NO browser variable set. **This
   is paid again every session and belongs in the environment's setup script.**
-- **4 CPUs.** See the fan-out trap above; it reshapes how much parallelism is worth dispatching.
+- **4 CPUs**, so a workflow's concurrency cap is 2: a three-agent fan-out runs two then one. Keep the
+  browser-driving walks in a separate wave from the file-reading agents, and never run the gate
+  across either.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on
   `pull_request`. Opening the PR is what runs it.

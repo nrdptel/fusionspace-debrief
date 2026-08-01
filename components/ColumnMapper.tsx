@@ -277,11 +277,14 @@ export default function ColumnMapper({
         <Button variant="primary" onClick={submit} disabled={!ready}>
           Analyze flight
         </Button>
-        {/* One primary, then the two weights §5 actually has. Both of these were hand-rolled text
-            buttons — the first in the accent colour, which is the fill weight's colour worn as text
-            and reads as a second primary on the one surface a flyer has to get right. Remembering
-            the mapping is a real second action, so it takes `secondary`; choosing another file is
-            the way back out, so it takes `ghost`. */}
+        {/* One primary and two secondaries. Both of these were hand-rolled text buttons — the
+            first in the accent colour, which is the fill weight's colour worn as text and reads as
+            a second primary on the one surface a flyer has to get right.
+
+            Neither is `ghost`, and that is §5 rather than taste: ghost is "toolbar and in-table
+            actions only", and "choose a different file" is neither — it is the way OUT of a screen
+            a flyer can be stuck on, which is the last control that should be the faintest thing on
+            the page. §5 caps primaries at one; it does not cap secondaries. */}
         <Button
           onClick={remember}
           disabled={!ready}
@@ -289,9 +292,7 @@ export default function ColumnMapper({
         >
           {remembered ? 'Columns remembered ✓' : 'Remember these columns'}
         </Button>
-        <Button variant="ghost" onClick={onCancel}>
-          Choose a different file
-        </Button>
+        <Button onClick={onCancel}>Choose a different file</Button>
         {/* A persistent live region: announces when the file becomes analysable
             (or a role is doubled up) as the user changes the selects above. */}
         <span role="status" aria-live="polite" className="text-sm text-amber-600 dark:text-amber-400">

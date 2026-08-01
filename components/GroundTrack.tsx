@@ -713,9 +713,14 @@ export default function GroundTrack({
   );
 }
 
-// `py-2.5` here was an unsanctioned half-step — §4's table sanctions `py-1.5` and `py-1` and
-// nothing else — and it was invisible to §9's spacing grep, which reads `py-2` and passes it.
-// Folding the tile into the shared frame is the moment to put it back on the scale.
+// `py-2.5` here was one of the unsanctioned half-steps `DESIGN.md` §9 records as ledgered in
+// `BACKLOG.md` rather than swept — 21 `-2.5`s, of which this was one. It is `py-2` now, which is
+// on §4's scale outright, because the tile was being folded into the shared frame anyway and
+// leaving a half-step inside a conversion is how the ledger's count silently stops matching the
+// tree. The ledger is decremented in the same commit; the other 20 still want the §4 decision
+// about which half-steps are on the scale, and that is a change owed to both repos.
+// (§4's `px-3 py-1.5` row is about the inside of a CONTROL and does not sanction this tile either
+// way — an earlier draft of this comment said it did, which was simply wrong.)
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <Frame className="px-3 py-2">
