@@ -131,6 +131,56 @@ export function Card({
   );
 }
 
+/** A bordered clip around content that owns its own surface, and the ONE thing that separates it
+ *  from `Card` is that it has no background.
+ *
+ *  That sounds like a missing prop and is not. `lib/design-system.test.ts` records the measurement:
+ *  five sites shared this treatment and every one of them holds something that paints its own fill —
+ *  a `<canvas>`, a scrolling table with a `bg-zinc-50` sticky header, a divided `<dl>`. `SampleTable`
+ *  is the proof. Its sticky `<thead>` is `dark:bg-zinc-900`, which is exactly `Card`'s default dark
+ *  tone: on the page's `dark:bg-zinc-950` body the transparent frame lets that header read as a
+ *  distinct lighter band, and putting it on a `Card` flattens band and container into one colour so
+ *  the header stops being a header. So a `tone="none"` on `Card` would not be the same component with
+ *  a value switched off — it would be a container whose defining property is absent.
+ *
+ *  `DESIGN.md` §9 sanctions exactly this: "a treatment that matches the grep but is genuinely not a
+ *  card … gets its own named primitive rather than a `shadow` prop on `Card`."
+ *
+ *  Padding is off by default, because most of these are scroll shells whose content bleeds to the
+ *  border. Pass it in `className` where a frame does own its edges. */
+export function Frame<T extends HTMLElement = HTMLDivElement>({
+  as: Tag = 'div',
+  className,
+  children,
+  ref,
+  ...rest
+}: {
+  /** A frame's ELEMENT is not a style choice, for the same reason `Card`'s is not: two of these are
+   *  a `<canvas>` and a `<dl>`, and rendering either as a `<div>` would change what the markup
+   *  means rather than how it looks. */
+  as?: 'div' | 'dl' | 'ul' | 'canvas';
+  /** Generic where `Card`'s is fixed to the div, because the frames that need a ref are not all
+   *  divs: `SampleTable` measures its scroll shell and `FlightCard` draws into a `<canvas>`. The
+   *  parameter is inferred from whatever the caller passes, and the single cast below is the same
+   *  narrowing `Card` already does for `Tag` — JSX intersects the prop types of a union of
+   *  intrinsics, so a `ref` typed for one arm is rejected by the others. */
+  ref?: React.Ref<T>;
+} & React.HTMLAttributes<HTMLElement>) {
+  const El = Tag as 'div';
+  return (
+    <El ref={ref as React.Ref<HTMLDivElement>} className={cx(FRAME, className)} {...rest}>
+      {children}
+    </El>
+  );
+}
+
+/** The frame's own class string, shared with `DataTable` — which needs it CONDITIONALLY (only a
+ *  table given a `maxHeight` gets a scroll shell; a short one sits directly in whatever contains it
+ *  and a second border would double up), so it cannot render `<Frame>` unconditionally without
+ *  either two branches or a `bordered` prop that exists for one caller. Inside the primitive layer,
+ *  sharing the token is the right answer; outside it, use `<Frame>`. */
+const FRAME = 'rounded-xl border border-zinc-200 dark:border-zinc-800';
+
 /** A titled region within a route — `DESIGN.md` §5. What a route is built from.
  *
  *  `title` is the section's HEADING, not the native tooltip attribute, so the native one is
@@ -637,7 +687,7 @@ export function DataTable<R>({
           rows={() => ordered.map((r) => columns.map((c) => c.text(r)))}
         />
       )}
-      <div className={cx('mt-1 overflow-auto', maxHeight && 'rounded-xl border border-zinc-200 dark:border-zinc-800')} style={maxHeight ? { maxHeight } : undefined}>
+      <div className={cx('mt-1 overflow-auto', maxHeight && FRAME)} style={maxHeight ? { maxHeight } : undefined}>
         <table className="w-full border-collapse text-sm">
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead className={cx('text-left text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400', maxHeight && 'sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900')}>

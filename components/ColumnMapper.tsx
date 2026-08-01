@@ -7,7 +7,7 @@ import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/fligh
 import type { ColumnMapping } from '@/lib/flight/build';
 import { ROLE_GROUPS, ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
 import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
-import { Button, Card, Disclosure } from './ui';
+import { Button, Card, Disclosure, Frame } from './ui';
 
 interface Row {
   role: ColumnRole;
@@ -178,7 +178,7 @@ export default function ColumnMapper({
           another, and in a four-column table on a phone they are the part that goes off the
           edge. The same markup is a table from sm: up, so nothing is duplicated in the DOM
           and every control keeps one accessible name. */}
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <Frame className="overflow-x-auto">
         <table className="block w-full border-collapse text-sm sm:table">
           <thead className="hidden sm:table-header-group">
             <tr className="border-b border-zinc-200 bg-zinc-50 text-left dark:border-zinc-800 dark:bg-zinc-900/50">
@@ -248,7 +248,7 @@ export default function ColumnMapper({
             })}
           </tbody>
         </table>
-      </div>
+      </Frame>
 
       {mappedDate && (
         <p
@@ -277,22 +277,21 @@ export default function ColumnMapper({
         <Button variant="primary" onClick={submit} disabled={!ready}>
           Analyze flight
         </Button>
-        <button
-          type="button"
+        {/* One primary, then the two weights §5 actually has. Both of these were hand-rolled text
+            buttons — the first in the accent colour, which is the fill weight's colour worn as text
+            and reads as a second primary on the one surface a flyer has to get right. Remembering
+            the mapping is a real second action, so it takes `secondary`; choosing another file is
+            the way back out, so it takes `ghost`. */}
+        <Button
           onClick={remember}
           disabled={!ready}
           title="Remember these columns for future files with the same layout — kept on this device"
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-indigo-400 dark:hover:text-indigo-300"
         >
           {remembered ? 'Columns remembered ✓' : 'Remember these columns'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-        >
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
           Choose a different file
-        </button>
+        </Button>
         {/* A persistent live region: announces when the file becomes analysable
             (or a role is doubled up) as the user changes the selects above. */}
         <span role="status" aria-live="polite" className="text-sm text-amber-600 dark:text-amber-400">

@@ -140,8 +140,30 @@ const BUDGET = {
    *  the live-region role it had (`role="alert"`, `role="status" aria-live="polite"`), which passes
    *  through untouched: a screen reader following "Reading…" is the whole reason the analyzer's one
    *  announces itself, and a silent conversion would have removed the announcement rather than the
-   *  hand-roll. */
-  cardTreatments: 10,
+   *  hand-roll.
+   *
+   *  **10 → 7 is the FRAME, which this comment has described for two runs as the thing to build and
+   *  then left unbuilt.** Four distinct strings over six sites — `SampleTable`'s and `ColumnMapper`'s
+   *  scroll shells, `DataTable`'s, `FlightCard`'s `<canvas>`, `GroundTrack`'s divided `<dl>` and its
+   *  `Stat` tile, and `FlightReport`'s event rows — became one `<Frame>` in `components/ui.tsx`. The
+   *  argument above for NOT folding them into `Card` is unchanged and is exactly why the primitive is
+   *  its own: a frame has no background, and every one of these holds something that paints its own.
+   *
+   *  Two details worth keeping. `DataTable` takes the class string rather than the component, because
+   *  its border is conditional on `maxHeight` — a short table sits directly in whatever contains it
+   *  and a second border would double up — and a `bordered` prop existing for one caller is how a
+   *  shared layer acquires the config surface that stops anyone using it. And `Frame`'s `ref` is
+   *  GENERIC where `Card`'s is fixed to the div, because the two frames that need one are a scroll
+   *  shell and a `<canvas>`; fixing it would have forced a cast at each call site instead of one
+   *  inside the primitive.
+   *
+   *  **The remaining 7 against the honest floor of 4.** `Card` and `Frame` are two of the four. The
+   *  other two are the page-level drop zone and the floating drop overlay, which still want their own
+   *  named primitives. The three genuine hand-rolls left are `RecognizedFormats` (a raised card
+   *  written out by hand, with an off-scale `py-3.5`), `RecentFlights`'s list row (a raised card that
+   *  is also a click target), and `CompareSurface`'s dashed box (a SECOND drop-target treatment
+   *  beside `DropZone`'s). */
+  cardTreatments: 7,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -285,6 +307,12 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  and the other is a virtualised view over `Float64Array` series. See the primitive's own
    *  comment for why folding either in would produce a union rather than a primitive. */
   DataTable: 2,
+  /** The bordered-no-background container, lifted 2026-08-01 from the five sites that had written
+   *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
+   *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical
+   *  string out again would collapse into the same bucket and move nothing. See the frame test
+   *  below, which is the one that would fail. */
+  Frame: 5,
 };
 
 /** `DESIGN.md` §3's six sizes, and nothing else. `text-[11px]` is the sixth and is matched by the
@@ -450,6 +478,22 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
       }
     }
     expect(found.length, `off-scale type sizes:\n${found.sort().join('\n')}`).toBe(BUDGET.offScaleType);
+  });
+
+  it('writes the frame treatment out in exactly one place', () => {
+    // The card-treatment count above is a `sort -u`, which makes it blind in one direction that
+    // matters here: a sixth file hand-rolling the frame's EXACT string would collapse into the
+    // bucket `components/ui.tsx` already fills and the count would not move at all. So the
+    // conversion that just took five sites onto `<Frame>` would be unguarded by the only check that
+    // looks like it covers it.
+    //
+    // One occurrence, and it is the primitive's own. Anything else is a hand-roll.
+    const FRAME = /rounded-xl border border-zinc-200 dark:border-zinc-800/g;
+    const sites: string[] = [];
+    for (const f of ui) for (const _ of f.text.match(FRAME) ?? []) sites.push(f.path);
+    expect(sites, `the frame treatment, by file (only components/ui.tsx may carry it)`).toEqual([
+      'components/ui.tsx',
+    ]);
   });
 
   it('keeps the primitives themselves inside the system', () => {

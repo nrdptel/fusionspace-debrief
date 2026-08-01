@@ -9,7 +9,7 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
 import { useIsDark } from './useIsDark';
-import { Button, Card } from './ui';
+import { Button, Card, Frame } from './ui';
 
 /** The plot is square and capped, so a wide column doesn't stretch a north-up map. */
 const MAX_SIZE = 420;
@@ -690,7 +690,7 @@ export default function GroundTrack({
             <h4 className="text-xs font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Wind aloft (by altitude)</h4>
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">measured from the descent drift</span>
           </div>
-          <dl className="mt-2 divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          <Frame as="dl" className="mt-2 divide-y divide-zinc-200 overflow-hidden dark:divide-zinc-800">
             {profile.map((l) => (
               <div key={l.altLoM} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
                 <dt className="font-mono text-zinc-500 dark:text-zinc-400">
@@ -702,7 +702,7 @@ export default function GroundTrack({
                 </dd>
               </div>
             ))}
-          </dl>
+          </Frame>
           <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
             Under canopy the rocket drifts with the air, so its drift across each layer is the wind there. The slow,
             low layers read cleanest; a sparse upper layer is dropped rather than guessed.
@@ -713,11 +713,14 @@ export default function GroundTrack({
   );
 }
 
+// `py-2.5` here was an unsanctioned half-step — §4's table sanctions `py-1.5` and `py-1` and
+// nothing else — and it was invisible to §9's spacing grep, which reads `py-2` and passes it.
+// Folding the tile into the shared frame is the moment to put it back on the scale.
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+    <Frame className="px-3 py-2">
       <dt className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</dt>
       <dd className="mt-0.5 font-mono text-base font-semibold text-zinc-900 dark:text-zinc-100">{value}</dd>
-    </div>
+    </Frame>
   );
 }

@@ -47,7 +47,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card, Disclosure } from './ui';
+import { Button, Card, Disclosure, Frame } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -1306,9 +1306,9 @@ export default function FlightReport({
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((e) => (
-            <div
+            <Frame
               key={e.type + e.index}
-              className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
+              className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
             >
               <span className="flex items-center gap-2">
                 <span
@@ -1330,7 +1330,7 @@ export default function FlightReport({
                   <span className="block">{fmtAccel(e.peakAccel, sys)} shock</span>
                 )}
               </span>
-            </div>
+            </Frame>
           ))}
         </div>
       </div>

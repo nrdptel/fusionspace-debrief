@@ -7,7 +7,7 @@ import type { UnitChoice } from '@/lib/display';
 import { flightCardStats } from '@/lib/flightCard';
 import { recordingLine, type ReportMeta } from '@/lib/report';
 import { download } from '@/lib/download';
-import { Button } from './ui';
+import { Button, Frame } from './ui';
 
 // The card is drawn on white at a fixed social-friendly size, regardless of the
 // app's theme, so it reads cleanly wherever it's pasted.
@@ -322,11 +322,12 @@ export default function FlightCard({
           </Button>
         </div>
       </div>
-      <canvas
+      <Frame
+        as="canvas"
         ref={canvasRef}
         role="img"
         aria-label={`Shareable flight card for ${stem}: apogee ${fmtLength(metrics.apogeeAltitude, sys)} with the altitude curve.`}
-        className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800"
+        className="w-full"
         style={{ aspectRatio: `${W} / ${H}` }}
       />
       {msg && (

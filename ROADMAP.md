@@ -1173,6 +1173,19 @@ the artifact rather than the tree.
 
    Census after: `dark:bg-zinc-900` ×52, `dark:bg-zinc-900/50` ×8, **everything else 0**.
 
+   **That last clause was false when it was written, and it is corrected here rather than left to
+   read as a finished sweep.** Re-measured 2026-08-01 with a pattern that does not presuppose an
+   opacity suffix — `grep -rohE 'dark:bg-zinc-[0-9]+(/[0-9]+)?' components app | sort | uniq -c` —
+   the census is `zinc-900` ×45, `zinc-900/50` ×8, `zinc-950` ×6, and then **`zinc-800` ×2,
+   `zinc-700` ×1 and `zinc-100` ×1**. The sweep enumerated the three opacity forms somebody had in
+   front of them (`/40`, `/30`, `/60`) and so could never see a bare shade, which is the same
+   shape as the spacing and off-scale-type greps §9 has already had to widen twice. The four are
+   `FlightReport.tsx:773` (section-nav active chip), `DeviceSummary.tsx:115` ("consistent"
+   agreement chip), `ui.tsx`'s `Segmented` active thumb — inherited by all five adopters, which
+   makes it the most-rendered off-system surface in the app — and `SiteHeader`'s inverted active
+   nav pill, which §10 makes a shared pattern and therefore a suite-level fork. Filed in
+   `BACKLOG.md`; unfixed.
+
    *Worth knowing before "restoring" any of these:* several were chips or buttons sitting inside a
    `Card`, where `/40` gave a faint tone break in dark mode that light mode never had — a
    `bg-white` chip on a `bg-white` card is already flat and separated by its border alone. The
@@ -1252,16 +1265,61 @@ the artifact rather than the tree.
    20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
    change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
 
-6. **Two primaries on one surface** — `ColumnMapper` only now. ~~`RecentFlights`~~ **DONE
-   2026-07-31**: its second indigo fill was the note editor's Save, which is now secondary. The
-   logbook's one primary is "Compare N flights", the action the surface exists to perform. A
-   FIFTH button weight went with it — an indigo-outlined "These N are one flight", which §5 does
-   not have.
+6. ~~**Two primaries on one surface** — `ColumnMapper` only now.~~ **DONE 2026-08-01, and the
+   remaining count was 0 before the work started.** `ColumnMapper`'s two `variant="primary"` calls
+   are at `:151` and `:277`, in the two arms of a `if (!mappable) return …` — **mutually exclusive
+   branches, so no flyer ever sees both.** The grep that produced this entry counted occurrences in
+   a file, and a file is not a surface. Say that rather than bank a fix for a defect that was not
+   there.
+
+   What WAS wrong on that surface, and is fixed: **an indigo TEXT button hand-rolled beside the
+   real primary** — `text-indigo-600 hover:text-indigo-500` on "Remember these columns" — which is
+   the primary weight's colour worn as a link, on the one surface a flyer has to get right. It now
+   takes `secondary`, because remembering the mapping is a real second action, and "Choose a
+   different file" takes `ghost`, because it is the way back out. Two hand-rolled `<button>`s gone
+   with it. **A second instance of that same invented weight survives at `RecentFlights.tsx:835`**
+   (underlined, `text-[11px]`) — two files reached for the same missing weight independently, which
+   is either a `Button` variant or a documented fifth in §5, and either way is owed to both repos.
+
+   ~~`RecentFlights`~~ **DONE 2026-07-31**: its second indigo fill was the note editor's Save, which
+   is now secondary. The logbook's one primary is "Compare N flights", the action the surface exists
+   to perform. A FIFTH button weight went with it — an indigo-outlined "These N are one flight",
+   which §5 does not have.
 7. **The remaining 41 hand-rolled `<button>` elements** outside `components/ui.tsx` (46 in the
    tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
    there is genuinely not `Button` — the row itself as a click target, the file-name text button,
    the ✕ (an `IconButton` with a responsive size), the sort chips and the checkbox labels.
 8. **12 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+
+   **STARTED 2026-08-01 — the FRAME exists now, and the count is 10 → 7 against an honest floor of
+   4.** This list and `lib/design-system.test.ts` have both described the frame for two runs as the
+   thing to build and then left it unbuilt, so the six sites that shared it went on being six
+   just-this-onces. `<Frame>` is in `components/ui.tsx`: `rounded-xl border border-zinc-200
+   dark:border-zinc-800` and nothing else, because the missing background is the whole point —
+   every one of these holds something that paints its own fill, and `SampleTable`'s sticky
+   `dark:bg-zinc-900` header against `Card`'s identical default is the proof that a `tone="none"`
+   would not have been the same component with a value switched off. Adopters: `SampleTable`'s and
+   `ColumnMapper`'s scroll shells, `FlightCard`'s `<canvas>`, `GroundTrack`'s divided `<dl>` and its
+   `Stat` tile, `FlightReport`'s event tiles. `DataTable` takes the class rather than the component,
+   because its border is conditional on `maxHeight` and a `bordered` prop existing for one caller is
+   how a shared layer stops being used.
+
+   Two things rode along. `Frame`'s `ref` is **generic** where `Card`'s is fixed to the div, because
+   two of these are a scroll shell and a `<canvas>`; fixing it would have pushed a cast to every
+   call site instead of one inside the primitive. And `GroundTrack`'s `Stat` was `py-2.5`, an
+   unsanctioned half-step §9's spacing grep cannot see — it reads `py-2` and passes — now `py-2`.
+
+   **The count cannot see a re-hand-roll of the frame**, because it is a `sort -u` and a sixth file
+   writing the identical string would land in the bucket `ui.tsx` already fills. So a separate
+   assertion holds the treatment to exactly one file, falsified by putting the string back into
+   `SampleTable` and watching it name that file.
+
+   **The 3 left above the floor of 4**, each a genuine hand-roll and each a different job:
+   `RecognizedFormats.tsx:22` (a raised card written out by hand, with an off-scale `py-3.5`),
+   `RecentFlights.tsx:584` (a raised card that is also a click target), and
+   `CompareSurface.tsx:394` (a SECOND drop-target treatment beside `DropZone`'s — the two want one
+   named primitive between them, which would take the floor to 4 with `Card`, `Frame`, the drop
+   target and the floating drop overlay).
    *(Re-measured 2026-08-01: **12**, not 17. Like item 3 this number had drifted downward as other
    slices landed. Of the 12, one is `<Card>`'s own string and two are the drop zone and the drop
    overlay, which §9 already records as wanting their own named primitives rather than folding into
@@ -1308,6 +1366,31 @@ the artifact rather than the tree.
     own summary figure sits beside Debrief's read of it. Comparing two numbers column-to-column is
     the entire job of both tables and the digits did not line up. Four cells; suite-wide
     `tabular-nums` is **27** against `font-mono` **90**, from 5 against 81 at P1's start.
+
+12. **Three of §5's named primitives do not exist at all, and this list had never said so.**
+    Measured 2026-08-01 by reading §5 against `components/ui.tsx` rather than by reading the
+    conversion counts, which is why nine runs of counting adopters never surfaced it: a primitive
+    with no implementation has no adopters to be short of, so every count it should have moved was
+    silent.
+
+    - **`NumberField`** — §5: "**Every** numeric input in either app is this", and it "owns the
+      refusal behaviour the SAFETY invariant requires: a value that cannot mean anything physically
+      is bounded or refused at the field". It is hand-rolled at **9 sites**, each re-deriving its
+      own bound: `DeployAltitude.tsx:68` silently clamps to `MAX_REASONABLE_DEPLOY_M`,
+      `DragCoefficient.tsx:125` only sets `min={0}`. So the behaviour a flyer's Cd and landing
+      energy depend on is per-file and has no shared test. **This is the one with a safety duty
+      attached and it should be the next slice of P1.**
+    - **`Figure`** — §5: a chart with its title, legend, axis units, "and its own empty and
+      extrapolated states". `Chart.tsx` renders a bare uPlot; `grep -n 'empty\|error\|loading'` over
+      it returns 0. The chart is the surface a flight-log analyzer exists to show, and a short or
+      failed series draws a blank canvas that says nothing.
+    - **`Panel`** — §5: a dismissible `Card` that "owns focus return (see `useReturnFocus`)".
+      `grep -rn 'Panel|useReturnFocus' components app` → **0**, while `UnitsControl` and
+      `FigureChooser` each hand-roll a dismissible surface and each manage their own focus return.
+
+    These are not new work invented here; they are §5 as written, unimplemented. Recorded so the
+    milestone's *done when* can be judged against the whole vocabulary rather than against the part
+    that happened to have adopters.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
