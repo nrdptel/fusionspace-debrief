@@ -851,7 +851,9 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 
 ## D7 — Deeper honest insight, the stated moat
 
-**Status:** NOT STARTED — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
+**Status:** IN PROGRESS — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
+**Slices 1 and 3 shipped 2026-08-01** (corpus assertions 40 → 54, and a tolerance that was absorbing a
+gravity; and every recorded channel readable as numbers). Slices 2 and 4 remain.
 
 **Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
 That sentence was already in the after-list and it is the whole constraint: this milestone is where
@@ -871,13 +873,36 @@ different kind, and each slice below names the ground truth that would settle it
 
 ### The slices, ranked by what a flyer can check
 
-1. **Every recorded channel readable as numbers, not just six.** `SampleTable` shows the channels
-   the explorer has selected, and the explorer caps at `MAX_SERIES = 6` — a limit whose own comment
-   justifies it as "how many traces stay readable", which is a fact about a CHART and not about a
-   table. `analyzedDataCsv` already carries every channel, so the data is there and only the
-   in-app view is capped. AltosUI "shows all of the data available from the flight computer"
-   (VERIFIED). *Done when* a flyer can read every channel their board recorded without swapping
-   chart selections, and a Blue Raven high-rate log proves it.
+1. ~~**Every recorded channel readable as numbers, not just six.**~~ **DONE 2026-08-01.**
+   `SampleTable` showed the channels the explorer had selected, and the explorer caps at
+   `MAX_SERIES = 6` — a limit whose own comment justifies it as "how many traces stay readable",
+   which is a fact about a CHART and not about a table. `analyzedDataCsv` already carried every
+   channel, so the data was there and only the in-app view was capped. AltosUI "shows all of the
+   data available from the flight computer" (VERIFIED). *Done when* a flyer can read every channel
+   their board recorded without swapping chart selections, and a Blue Raven log proves it.
+
+   **Measured over the corpus before building:** of the **25 corpus files a parser auto-detects as
+   a flight**, **23 carry more channels than the chart will draw at once**, the richest carries **15**, and **119 channels in total**
+   could not be read as numbers without going back to the chart and swapping the selection. Worse
+   than the "six" in the title suggests — the table inherited whatever the flyer had *plotted*, so
+   on a fresh Blue Raven LR read it showed **1 of 11**, not 6 of 11.
+
+   The table has its own scope now, defaulting to every channel, with a `Segmented` giving the
+   chart's own selection back in one press for reading the plot's numbers. The conversion to
+   display units is deferred until the `<details>` is actually opened: this is one array per
+   channel, and 15 channels of a 190,000-sample file is ~23 MB to hold for a panel that is
+   collapsed by default. Verified in a real browser on `blueraven-app-lr.csv` — **12 columns where
+   there were 2** — and pinned by `e2e/analyze.spec.ts` → *"every channel the board recorded is
+   readable as numbers, not just the plotted ones"*. It reads the NUMBERS, not just the headings —
+   a table with every header and no cells is exactly the shape a broken data path takes here, and
+   would satisfy a column count. It names four channels a six-trace chart could never show together,
+   checks the battery column parses as a plausible voltage, and pins the keyed sort across a scope
+   change. Falsified by pinning the table back to the chart's selection and watching it go red at 2
+   columns.
+
+   **`MAX_SERIES` is untouched**, deliberately: six traces on two axes is still the right answer
+   for a chart, and the defect was never the limit — it was a chart's limit deciding what a table
+   could show.
 
 2. **A reading's uncertainty, not just its value.** The invariants require an accuracy claim to be
    "a range with their basis, not a flattering single number", and to name a caveat's DIRECTION and
@@ -886,12 +911,50 @@ different kind, and each slice below names the ground truth that would settle it
    reading carries a measured range whose basis is a corpus statistic, cited on the validation
    page, and a test fails if the range is quoted without its basis.
 
-3. **The readings the corpus can settle and nothing asserts.** Recorded because it is the standing
-   hole: the corpus asserts an apogee on most fixtures and almost nothing else, which is exactly
-   where 2026-08-01's Sev-1 lived — a Cd of 0.00 and a window of "Mach 9.90 – 23.10" on a flight
+3. ~~**The readings the corpus can settle and nothing asserts.**~~ **DONE 2026-08-01 — and the
+   tolerance turned out to be hiding a whole gravity.** Recorded because it was the standing hole:
+   the corpus asserted an apogee on most fixtures and almost nothing else, which is exactly where
+   that day's earlier Sev-1 lived — a Cd of 0.00 and a window of "Mach 9.90 – 23.10" on a flight
    whose golden value was green. *Done when* every fixture whose `manifest.csv` row carries a
    velocity or Mach ground truth asserts it, and the count of asserted quantities per fixture is
    itself pinned so it cannot quietly fall.
+
+   **Measured before touching anything:** all 61 manifest rows carry a `stated_max_velocity`, and
+   the effective contract (`expected.json` + `corpus-overrides.json`) asserted **40 quantities over
+   33 fixtures — 33 apogee, 4 maxAccel, 3 maxVelocity**. It is **54 CHECKED over 33** now:
+   `maxVelocity` 3 → 11, `maxAccel` 4 → 10, and 13 fixtures pin two quantities or more.
+
+   **It read 55 over 34 for part of the run, and the correction is the useful part.** One of the
+   nine new velocity asserts landed on a fixture carrying a `knownIssue`, and `runFixture` returns
+   before `assertGolden` — so it was never evaluated. Set to **1.0 m/s on a flight that reached
+   1,719.4 m/s, the suite stayed green.** That is the same trap the mapping branch already refuses
+   for a never-analysed file, and worse here because the new ratchet was counting it. The runner
+   refuses the combination outright now, the ratchet counts only fixtures it actually asserts on,
+   and both published figures came down by one. Pinned by
+   `corpus.test.ts` → *"says how many quantities it pins per flight, and never fewer"*, a floor
+   ratchet rather than an equality, so adding a fixture cannot turn it red.
+
+   **The find worth keeping is not the count.** Every one of the eight Altus Metrum flights read
+   **exactly +9.80 m/s² — one standard gravity, zero spread** — above its own stated peak
+   acceleration. That is not a defect: `lib/analyze/index.ts` deliberately reports SPECIFIC FORCE
+   (+1 g at rest, what the sensor measures) while AltOS states its peak net of gravity, and
+   `/methods` has said so all along. The defect was in the **contract**: both accel asserts stated
+   the gravity-removed figure and carried `tolPct: 6`, so the tolerance was absorbing the offset.
+   One g is 1.2% of an 84 g boost and 9.4% of a 10.7 g one, which means the tolerance had to be set
+   by the smallest flight anyone wanted to assert, **and no regression narrower than a gravity could
+   ever trip any accel assert.** An `Assert` now names its `basis` and the ground truth is converted
+   onto Debrief's convention before comparison; the eight then agree to **within 0.006%** and the
+   tolerance went 6% → 2%, where it measures precision instead of a definition. A `maxAccel` assert
+   with no basis is now refused outright.
+
+   **Falsified, five ways**, because an assert that cannot fail is worse than none: dropping the
+   basis from the smallest accel flight goes red at 2% (114.4 vs 104.6±2%); a perturbed velocity and
+   a perturbed acceleration each go red; a `basis` on a non-acceleration metric is refused; and the
+   untouched contract stays green.
+
+   **What is still NOT pinned, stated rather than glossed:** descent rates — 17 manifest rows carry
+   one and no fixture asserts it. `/validation` now says that out loud rather than implying all four
+   headline numbers are checked. That is the next slice's starting point.
 
 4. **Stage-aware readings on a composite.** D4 stitches per-stage logs into one flight; the
    readings still describe the composite as though it were one motor. A staged flyer wants each
@@ -1023,6 +1086,39 @@ the artifact rather than the tree.
    `role="table"`/`role="grid"` surface anywhere, so 7 is the whole population), 2 sortable,
    2 copyable, 0 keyboard-navigable. Lift it from `SampleTable.tsx`, which already has the sticky
    header, `aria-sort` and the clipboard copy.
+
+   **STARTED 2026-08-01 — the primitive exists and the two cross-check tables are on it.**
+   `DataTable` is in `components/ui.tsx` with a `{columns, rows}` model: sortable where a column
+   supplies a `compare`, copyable as a whole over `lib/copyTable`, sticky header behind an optional
+   `maxHeight`, an always-mounted `role="status"` live region, and the `colSpan` empty row. The
+   column type carries **`cell` and `text` separately**, which is the piece that made it fit these
+   surfaces at all: an agreement badge reads as a coloured chip on screen and has to reach a
+   spreadsheet as `agree · 0.6%`, not as markup and not as an empty cell.
+
+   `DeviceSummary` and `GpsApogee` are converted — **the two surfaces §6 exists for, and neither
+   had any copy path at all**: the numbers a cert document most wants were on screen and the only
+   way into a spreadsheet was to retype them. Both now also share one `agreementText`, so the badge
+   and the clipboard cannot drift into saying different things about the same row. Pinned by
+   `e2e/device-summary.spec.ts` → *"the logger cross-check copies as a real table, verdict and
+   all"*, falsified by blanking the clipboard text alone and watching it go red while the badge
+   stayed correct. Adopters 29 → 31; `<table>` in a component 7 files → 6.
+
+   **The window-stats table has the copy but not the primitive, and that is the right answer.**
+   It puts the channel in a `th scope="row"` and collapses a whole row to one `colSpan` cell when a
+   channel has no samples in the current zoom; modelling either in `DataTable` would add config
+   surface for one caller, which is how a shared layer stops being used. What it owed a flyer was
+   the copy — these are the min/max/mean a cert document quotes, over the stretch of flight they
+   zoomed to — so `CopyTableButton` was lifted out of `DataTable` instead, and both use it. The rows
+   are built at press time, so the copy follows the zoom rather than the window at mount. Pinned by
+   `e2e/analyze.spec.ts` → *"the window stats copy as a real table, with the unit beside each
+   channel"*, which checks the unit column and that max ≥ min rather than only that something
+   arrived. **Copyable tables: 2 → 5.**
+
+   **Still open:** `ColumnMapper` and `StitchSurface` — the two remaining tables with no sort and
+   no copy. Arrow-key cell navigation is **not** implemented
+   and §5's "keyboard-navigable" is therefore only partly delivered: every affordance is on the Tab
+   path, cell-to-cell movement is not. Said here rather than claimed, because a four-row cross-check
+   would not benefit and a claim is worse than a gap.
 
    **~~and collapse `CompareView`'s independent second copy onto it~~ — that clause is wrong and
    is withdrawn.** Measured 2026-08-01: `CompareView`'s table is **transposed**. Metrics are rows

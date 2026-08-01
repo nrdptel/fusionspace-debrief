@@ -170,3 +170,41 @@ test('the comparison surface pairs a device summary too', async ({ page }) => {
   // …and no longer calls it a file that was left out.
   await expect(note).not.toContainText('not a flight record');
 });
+
+// "Tables you cannot sort, filter, or copy out of" is a named tell, and the cross-check is the
+// table a cert document most wants: the logger's own figure, Debrief's independent read, and how
+// far apart they are. It had no copy path at all — the numbers were on screen and the only way
+// into a spreadsheet was to retype them. What lands there has to carry the VERDICT as words too,
+// because "agree · 0.6%" is the column a reader needs and two bare numbers make them redo the
+// comparison by hand.
+test('the logger cross-check copies as a real table, verdict and all', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const lr = readFileSync(fx('blueraven-app-lr.csv'));
+  const summary = readFileSync(fx('blueraven-app.summary.csv'));
+
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'BlRv_SN0829_LR_05-11-2024.csv', mimeType: 'text/csv', buffer: lr },
+    { name: 'BlRv_SN0829_summary_05-11-2024_.csv', mimeType: 'text/csv', buffer: summary },
+  ]);
+
+  const panel = page.getByRole('region', { name: /logger.s own summary/i });
+  await expect(panel).toBeVisible();
+  await panel.getByRole('button', { name: /Copy the logger’s summary/ }).click();
+  await expect(panel.getByRole('status')).toContainText(/Copied — \d+ rows?, in the order on screen/);
+
+  const clip = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const out: Record<string, string> = {};
+    for (const item of items) for (const type of item.types) out[type] = await (await item.getType(type)).text();
+    return out;
+  });
+
+  // Tab-separated for anywhere that takes text, and a real table for a spreadsheet.
+  expect(clip['text/plain']).toMatch(/^Reading\tLogger\tDebrief\tAgreement\n/);
+  expect(clip['text/plain']).toMatch(/\nApogee\t[\d,]+ ft\t[\d,]+ ft\t(agree|differ|consistent)/);
+  expect(clip['text/html']).toContain('<th>Agreement</th>');
+  // The badge is a coloured chip on screen; it must not arrive as markup or as an empty cell.
+  expect(clip['text/html']).not.toContain('<span');
+  expect(clip['text/html']).toMatch(/<td>(agree|differ|consistent)[^<]*<\/td>/);
+});

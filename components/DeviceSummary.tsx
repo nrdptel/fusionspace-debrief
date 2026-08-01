@@ -8,11 +8,31 @@ import type { ReportedValue } from '@/lib/flight/types';
 import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { compareReported, REPORTED_QUANTITY } from '@/lib/flight/reported';
-import { Card } from './ui';
+import { Card, DataTable } from './ui';
 
 function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   const q = REPORTED_QUANTITY[metric];
   return q === 'length' ? fmtLength(si, sys) : q === 'speed' ? fmtSpeed(si, sys) : fmtAccel(si, sys);
+}
+
+type Row = {
+  r: ReportedValue;
+  computed: number;
+  has: boolean;
+  deltaPct: number | null;
+  status: ReturnType<typeof compareReported>[number]['status'];
+  gravityConvention?: boolean;
+};
+
+/** The verdict as words. Written once and used for both the badge and the clipboard, so what a
+ *  flyer pastes into a cert document carries the judgement rather than two bare numbers — and so
+ *  the two can never drift into saying different things about the same row. */
+function agreementText(x: Row): string {
+  if (x.status == null) return 'not computed';
+  if (x.gravityConvention) return 'agree · exactly 1 g apart*';
+  if (x.status === 'agree') return `agree · ${x.deltaPct! < 0.05 ? '≈0' : x.deltaPct!.toFixed(1)}%`;
+  if (x.status === 'consistent') return `consistent · ${x.deltaPct!.toFixed(0)}%`;
+  return `differ · ${x.deltaPct!.toFixed(0)}%`;
 }
 
 export default function DeviceSummary({
@@ -49,56 +69,62 @@ export default function DeviceSummary({
         The device wrote these figures into the file. Shown beside Debrief&apos;s independent read as a cross-check —
         agreement builds confidence, a gap is worth a look.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              <th className="py-1 pr-4 font-medium">Reading</th>
-              <th className="py-1 pr-4 font-medium">Logger</th>
-              <th className="py-1 pr-4 font-medium">Debrief</th>
-              <th className="py-1 font-medium">Agreement</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ r, computed, has, deltaPct, status, gravityConvention }) => (
-              <tr key={r.metric} className="border-t border-zinc-200 dark:border-zinc-800">
-                <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{r.label}</td>
-                <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{fmt(r.metric, r.value, sys)}</td>
-                <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
-                  {has ? fmt(r.metric, computed, sys) : '—'}
-                </td>
-                <td className="py-1.5">
-                  {status == null ? (
-                    <span className="text-zinc-500 dark:text-zinc-400">not computed</span>
-                  ) : gravityConvention ? (
-                    <span
-                      title="The same reading under two conventions, not a disagreement: an accelerometer at rest reads 1 g, which Debrief reports (the force the airframe felt) and this device subtracts (what the rocket was accelerated by). The two figures are exactly one gravity apart."
-                      className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                    >
-                      agree · exactly 1 g apart*
-                    </span>
-                  ) : status === 'agree' ? (
-                    <span className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                      agree · {deltaPct! < 0.05 ? '≈0' : deltaPct!.toFixed(1)}%
-                    </span>
-                  ) : status === 'consistent' ? (
-                    <span
-                      title="A descent rate is a windowed average of an unsteady descent, not a single instant, so two independent reads are expected to differ by more than a peak would — this is consistent, not a discrepancy."
-                      className="inline-flex items-center rounded-md border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                    >
-                      consistent · {deltaPct!.toFixed(0)}%
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                      differ · {deltaPct!.toFixed(0)}%
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        caption="The logger's own reported figures beside Debrief's independent read"
+        copyLabel="Copy the logger’s summary"
+        rows={rows}
+        rowKey={(x) => x.r.metric}
+        columns={[
+          { key: 'reading', header: 'Reading', cell: (x) => x.r.label, text: (x) => x.r.label },
+          {
+            key: 'logger',
+            header: 'Logger',
+            cell: (x) => <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{fmt(x.r.metric, x.r.value, sys)}</span>,
+            text: (x) => fmt(x.r.metric, x.r.value, sys),
+          },
+          {
+            key: 'debrief',
+            header: 'Debrief',
+            cell: (x) => (
+              <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                {x.has ? fmt(x.r.metric, x.computed, sys) : '—'}
+              </span>
+            ),
+            text: (x) => (x.has ? fmt(x.r.metric, x.computed, sys) : '—'),
+          },
+          {
+            key: 'agreement',
+            header: 'Agreement',
+            cell: (x) =>
+              x.status == null ? (
+                <span className="text-zinc-500 dark:text-zinc-400">not computed</span>
+              ) : x.gravityConvention ? (
+                <span
+                  title="The same reading under two conventions, not a disagreement: an accelerometer at rest reads 1 g, which Debrief reports (the force the airframe felt) and this device subtracts (what the rocket was accelerated by). The two figures are exactly one gravity apart."
+                  className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                >
+                  {agreementText(x)}
+                </span>
+              ) : x.status === 'agree' ? (
+                <span className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  {agreementText(x)}
+                </span>
+              ) : x.status === 'consistent' ? (
+                <span
+                  title="A descent rate is a windowed average of an unsteady descent, not a single instant, so two independent reads are expected to differ by more than a peak would — this is consistent, not a discrepancy."
+                  className="inline-flex items-center rounded-md border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                >
+                  {agreementText(x)}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  {agreementText(x)}
+                </span>
+              ),
+            text: agreementText,
+          },
+        ]}
+      />
       {anyGravity && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           *An accelerometer at rest on the pad reads 1&nbsp;g. Debrief reports that specific force —

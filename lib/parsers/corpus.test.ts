@@ -48,7 +48,21 @@ const present = existsSync(SPEC);
 
 const G0 = 9.80665;
 
-type Assert = { metric: string; value: number; unit: string; tolPct: number };
+/** How a ground-truth acceleration is stated. Debrief reports SPECIFIC FORCE — what the
+ *  accelerometer actually measures, +1 g standing still on the pad — but a logger's own
+ *  summary often states the peak with gravity already taken out (AltusMetrum's does), and
+ *  the two differ by exactly one g whatever the flight. Left unstated, that offset does not
+ *  show up as a disagreement: it hides inside a percentage tolerance, which is why every
+ *  accel assert here carried `tolPct: 6`. One g is 1.2% of an 84 g boost and 9.4% of a 10.7 g
+ *  one, so the tolerance had to be set by the SMALLEST flight anybody wanted to assert, and
+ *  no regression narrower than a gravity could ever trip any of them. Naming the basis
+ *  converts the ground truth onto Debrief's convention instead, and the ten asserts that
+ *  carry one then agree to within 0.0796% — so the tolerance can go back to measuring
+ *  precision. Eight of the ten are 0.0000% because their ground truth is stated in m/s² and
+ *  is the file's own peak column; the two at 0.079% and 0.012% are stated in whole-number g
+ *  (62.3, 83.6), and that residue is the rounding in the ground truth, not in the read. */
+type AccelBasis = 'specific-force' | 'gravity-removed';
+type Assert = { metric: string; value: number; unit: string; tolPct: number; basis?: AccelBasis };
 interface Fixture {
   file: string;
   expect: { kind: 'flight' | 'mapping' | 'reject'; parser?: string; rejectMatch?: string };
@@ -316,7 +330,22 @@ function runFixture(fx: Fixture) {
 
   // A documented mis-read or intentional anomaly: prove it still parses without throwing,
   // but don't assert the (known-wrong / meaningless) numbers or the invariants.
-  if (fx.knownIssue) return;
+  //
+  // A golden value written on one is therefore DEAD — it sits in the contract looking armed
+  // and is never evaluated, which is the same trap the mapping branch above refuses for a
+  // never-analysed file, and it is worse here because it also inflates the coverage ratchet
+  // with an assertion that cannot fail. Caught 2026-08-01 by writing one: a `maxVelocity` of
+  // 1.0 m/s on a flight that reached 1,719.4 m/s left the suite green. Refuse the combination
+  // outright, so the only way to pin a number is one the runner actually checks — fix the
+  // parser and drop the `knownIssue` to arm it.
+  if (fx.knownIssue) {
+    expect(
+      fx.assert ?? [],
+      `${name}: carries golden values but is a known issue, so nothing below is ever checked — ` +
+        `drop the knownIssue to arm them, or drop the asserts`,
+    ).toHaveLength(0);
+    return;
+  }
 
   // Every real flight must satisfy the physical/logical invariants, whether or not
   // it carries golden-value asserts.
@@ -334,14 +363,25 @@ function runFixture(fx: Fixture) {
  */
 function assertGolden(fx: Fixture, a: ReturnType<typeof analyzeFlight>): void {
   for (const as of fx.assert ?? []) {
+    // A basis is a statement about an accelerometer's convention and means nothing on a
+    // speed or a height. Refuse it outright rather than ignoring it, so a basis written on
+    // the wrong metric fails loudly instead of sitting in the contract doing nothing.
+    expect(
+      as.basis === undefined || as.metric === 'maxAccel',
+      `${as.metric}: a basis only applies to an acceleration`,
+    ).toBe(true);
     const si = metricSI[as.metric](a.metrics);
     expect(si, `${as.metric} present`).not.toBeNull();
     expect(Number.isNaN(si as number), `${as.metric} is NaN`).toBe(false);
     const got = toStatedUnit(as.metric, si as number, as.unit);
-    const lo = as.value * (1 - as.tolPct / 100);
-    const hi = as.value * (1 + as.tolPct / 100);
-    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeGreaterThanOrEqual(lo);
-    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${as.value}±${as.tolPct}%`).toBeLessThanOrEqual(hi);
+    // Put the ground truth on Debrief's basis before comparing — never the other way round,
+    // because the reading under test is the one that has to stay honest.
+    const want = as.basis === 'gravity-removed' ? as.value + toStatedUnit('maxAccel', G0, as.unit) : as.value;
+    const lo = want * (1 - as.tolPct / 100);
+    const hi = want * (1 + as.tolPct / 100);
+    const how = as.basis === 'gravity-removed' ? ` (${as.value} stated net of gravity → ${want.toFixed(2)} as specific force)` : '';
+    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${want.toFixed(2)}±${as.tolPct}%${how}`).toBeGreaterThanOrEqual(lo);
+    expect(got, `${as.metric} ${got.toFixed(1)} ${as.unit} vs ${want.toFixed(2)}±${as.tolPct}%${how}`).toBeLessThanOrEqual(hi);
   }
 }
 
@@ -386,6 +426,73 @@ describe('private corpus regression (lib/parsers/__corpus__)', () => {
     // would otherwise show up as a still-green suite.
     expect(analysed, summary).toBeGreaterThanOrEqual(41);
     expect(steppedAround.length, summary).toBe(0);
+  });
+
+  /**
+   * How much of each flight is actually pinned, counted — a ratchet, so coverage can only go
+   * up. Milestone D7's third slice asks for exactly this, and for the reason the drag Sev-1
+   * of 2026-08-01 demonstrated: the corpus asserted an apogee on most fixtures and almost
+   * nothing else, so a flight could publish a Cd of 0.00 over a window of "Mach 9.90 – 23.10"
+   * with its golden value green. An apogee is one number out of a flight; a suite that pins
+   * only apogees is not checking the analysis, it is checking the barometer.
+   *
+   * The counts are floors, never equalities: adding a fixture or a ground truth must not
+   * turn this red. What it catches is coverage QUIETLY FALLING — an assert dropped to make a
+   * change pass, which is the move this whole file exists to prevent and the one nobody
+   * reviewing a fortnight of merges would spot.
+   *
+   * Measured 2026-08-01 over 61 fixtures. `maxVelocity` 3 → 12 and `maxAccel` 4 → 10 in the
+   * same commit as this check: every manifest row carries a stated peak speed, and the nine
+   * added agree with the device's own figure to 0.0% because Debrief reads that very channel
+   * — so what they pin is that it keeps reading the right column, in the right units, over
+   * the right window. A units, sign or window regression moves them by far more than 2%.
+   */
+  it('says how many quantities it pins per flight, and never fewer', () => {
+    // Counted over fixtures the runner actually ASSERTS ON. A `knownIssue` fixture returns
+    // before `assertGolden`, so an assert written on one is dead — counting it would let
+    // coverage be moved onto a fixture that never checks it while every number here stayed
+    // green, which is precisely the "quietly fall" this ratchet exists to prevent. The
+    // runner refuses that combination outright now; this counts the same way so the two
+    // cannot disagree.
+    const fixtures = [...byFile.values()].filter((f) => !f.knownIssue);
+    const asserts = fixtures.flatMap((f) => f.assert ?? []);
+    const per = (metric: string) => asserts.filter((a) => a.metric === metric).length;
+    const summary =
+      `${asserts.length} checked assertions over ${fixtures.filter((f) => (f.assert ?? []).length > 0).length} of ${byFile.size} fixtures — ` +
+      `apogee ${per('apogee')}, maxVelocity ${per('maxVelocity')}, maxAccel ${per('maxAccel')}, ` +
+      `drogue ${per('drogue')}, main ${per('main')}; ` +
+      `${fixtures.filter((f) => (f.assert ?? []).length >= 2).length} pin two or more quantities`;
+    expect(asserts.length, summary).toBeGreaterThanOrEqual(54);
+    expect(per('apogee'), summary).toBeGreaterThanOrEqual(33);
+    expect(per('maxVelocity'), summary).toBeGreaterThanOrEqual(11);
+    expect(per('maxAccel'), summary).toBeGreaterThanOrEqual(10);
+    // A flight pinned on one number is a flight pinned on its barometer. This is the count
+    // the slice exists to move, so it is held separately from the total.
+    expect(fixtures.filter((f) => (f.assert ?? []).length >= 2).length, summary).toBeGreaterThanOrEqual(13);
+  });
+
+  /**
+   * Not a floor — a requirement, and the difference is deliberate. Every acceleration ground
+   * truth this corpus has comes off a logger that states its peak net of gravity, while
+   * Debrief reports specific force; the two are exactly one g apart. An assert that does not
+   * say which basis it is on is being compared across conventions, and that error is silent,
+   * fixed in size, and invisible to a percentage tolerance on a large flight.
+   *
+   * So this one DOES go red when a new maxAccel ground truth arrives without a basis —
+   * including from a re-cut of the separately-released `expected.json`, whose generator has
+   * no notion of `basis`. That is the intended behaviour rather than an oversight in the
+   * ratchet above: the fix is to name the basis in `corpus-overrides.json`, which is exactly
+   * what that file is for while the corpus release lags the code.
+   */
+  it('every acceleration ground truth says which basis it is stated on', () => {
+    const bare = [...byFile.values()]
+      .filter((f) => !f.knownIssue)
+      .flatMap((f) => (f.assert ?? []).map((a) => ({ file: f.file.split('/').pop(), a })))
+      .filter((x) => x.a.metric === 'maxAccel' && x.a.basis === undefined);
+    expect(
+      bare.map((x) => x.file),
+      'a maxAccel assert with no basis is compared across gravity conventions — add `"basis": "gravity-removed"` (or "specific-force") in corpus-overrides.json',
+    ).toHaveLength(0);
   });
 
   /**

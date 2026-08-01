@@ -38,8 +38,16 @@ export default function ValidationPage() {
             of them, spanning ten logger families — not synthetic data. Each log is paired with
             independent ground truth: a <strong>second altimeter that flew the same flight</strong>,
             or the <strong>device&apos;s own reported summary</strong> written into the file. Debrief
-            reads each log and its headline numbers — apogee, max velocity, max acceleration, descent
-            rates — are compared against that ground truth within a tolerance. The whole corpus is
+            reads each log and its headline numbers are compared against that ground truth within a
+            tolerance. How much of each flight that pins is counted rather than described:{' '}
+            <strong>54 assertions over 33 of the 61 logs</strong> — 33 apogees, 11 peak speeds and 10
+            peak accelerations, with 13 logs pinning two quantities or more. That count is itself
+            held by a test, and it counts only assertions the suite actually reaches: a log kept for
+            a documented mis-read is parsed but never asserted on, so a golden value written on one
+            would sit in the contract looking armed and check nothing. Writing one is refused. Descent rates are{' '}
+            <em>not</em> yet pinned anywhere, and saying so is the point of counting: an apogee is one
+            number out of a flight, and a suite that pins only apogees is checking the barometer
+            rather than the analysis. The whole corpus is
             re-run on every change; a read that drifts out of tolerance fails the build before it can
             ship. Where a flight was recorded by more than one device, the two independent reads are
             also reconciled against <em>each other</em> — apogee has to agree to within a few percent,
@@ -47,6 +55,19 @@ export default function ValidationPage() {
             as recordings that stop agreeing. Logs Debrief is known to still mis-read are kept in the
             corpus and parsed without asserting the wrong number, so the gap is documented rather than
             quietly locked in as correct.
+          </p>
+          <p>
+            A ground truth also has to be stated on the same basis as the reading it checks. A
+            logger&apos;s summary usually gives its peak acceleration with gravity already taken out,
+            while Debrief reports specific force — what the sensor actually measures, +1&nbsp;g
+            standing still on the pad. The two differ by exactly one gravity on every flight, which
+            is 1.2% of an 84&nbsp;g boost but 9.4% of a 10.7&nbsp;g one, so a percentage tolerance
+            wide enough to swallow it on the small flight hides real error on the large one. Each
+            acceleration ground truth here names its basis and is converted before comparison; the
+            ten that carry one then agree to <strong>within 0.08%</strong>, and the tolerance went
+            from 6% back to 2% where it measures precision instead of a definition. Eight of the ten
+            agree exactly; the residue on the other two is the ground truth being stated in
+            whole-number g, not spread in the read.
           </p>
         </Section>
 

@@ -243,6 +243,45 @@ wild, ideas too big for one pass. One line each, newest first.
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
+- **Four unit `<select>`s measure 43x44 px at a 390 px viewport — one pixel under the touch
+  floor on the WIDTH.** Measured 2026-08-01 on the built export of `382d37b`, `hasTouch: true`
+  (without which every figure here is wrong). `Speed`, `Acceleration`, `Temperature`, `Pressure`
+  in the units control; `globals.css`'s `@media (pointer: coarse)` block floors `min-height` and
+  reaches them, so the height is right and the width is what a four-across row leaves. Not a
+  regression from this run and possibly not worth fixing — filed because 43 is a measurement and
+  "about 44" is not.
+- **`<label>` and other elements the coarse-pointer floor does not reach are the real touch gap:
+  27 elements under 44 px at 390 px, the smallest a "Compare" label at 58x18 and a logbook
+  "Label" field label at 324x16.** `globals.css` covers `button`, `select`, `[role="button"]` and
+  `input` and not `<label>`, `<summary>` or a plain `<a>` — which is exactly why `TOUCH_TARGET`
+  exists on the primitives. **Unverified as a real defect:** a `<label>` wrapping a 44 px control
+  is still reachable by tapping the control, so the count is an upper bound on the problem and not
+  the problem. Establish which of the 27 actually have no reachable target before spending an
+  increment on it.
+- **`ChannelExplorer`'s window-stats table, `ColumnMapper`'s and `StitchSurface`'s tables still
+  cannot be sorted or copied.** `DataTable` exists now (`components/ui.tsx`) and the two cross-check
+  tables are on it, so each of these three is a small conversion rather than new work. Measured
+  2026-08-01: 6 `<table>` elements left in `components/`, 4 copyable, 0 with arrow-key cell
+  navigation.
+- **`DataTable` does not implement arrow-key cell navigation, so `DESIGN.md` §5's
+  "keyboard-navigable" is only partly delivered.** Every affordance is on the Tab path; cell-to-cell
+  movement is not. Either build it or amend §5 — and amending §5 is a change owed to the sibling
+  repo in the same run, which is why it is filed rather than done.
+- **The agreement badge is hand-rolled identically in `DeviceSummary` and `GpsApogee`** — the same
+  emerald/amber `inline-flex … rounded-md border … px-1.5 py-0.5 text-xs` pair in both, 4 variants
+  over 2 files. `Chip` is the primitive it wants, but `Chip` has only `default | accent` tones and
+  adding `ok`/`warn` changes a signature `DESIGN.md` §5 shares with the sibling repo. Filed rather
+  than diverged. The *text* is already shared (`agreementText`), so the two can no longer disagree
+  about what they say — only about how they look.
+- **`debrief-fixtures` `VERSION` says `v1.0.0` while `corpus.lock.json` pins `v1.1.0`.** Local runs
+  read the attached checkout and CI fetches the release, so the two are not provably the same
+  corpus. Measured 2026-08-01; the fixtures repo carries no tags to reconcile it against. CI passing
+  on this run's new 2% tolerances is evidence they agree on the files that matter, not proof.
+- **Descent rates are asserted on no corpus fixture at all**, while 17 manifest rows carry a
+  `stated_descent_rates` ground truth. Measured 2026-08-01 alongside the velocity work, which closed
+  the same gap for peak speed (3 → 11) and acceleration (4 → 10). The blocker is that the column is
+  free text ("drogue 17.0 m/s; main 8.8 m/s") rather than machine-readable, and two of the flights
+  it names are ones Debrief withholds a rate for on purpose.
 - **`e2e/logbook.spec.ts:677` "the label and notes a flyer types stay with the flight" flaked once**
   in a full-suite run on 2026-07-31, immediately after the disclosure conversion — which made it look
   exactly like a regression in that conversion, and it is not. **Checked before being called a flake,
@@ -262,9 +301,15 @@ wild, ideas too big for one pass. One line each, newest first.
   Second flaky test now recorded in this file; if a third appears, the shared cause is worth hunting
   rather than the individual tests.
 
-- **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
-  every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
-  with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with
+- ~~**`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
+  every re-run.**~~ **FIXED 2026-08-01, on its third occurrence and exactly as diagnosed below.**
+  The assertion now waits for the navigation (`page.waitForURL(/\/compare\?ids=/)`) before the
+  heading, rather than racing it; 5/5 in isolation and green in the full suite after. The diagnosis
+  below was correct and cost nothing to act on — it is kept because the *shape* recurs: two of the
+  three flakes recorded in this file are assertions that follow a state write, and this one is the
+  first with a confirmed cause. *"a file a batch drop could not read can be mapped into the
+  comparison it arrived with"* failed waiting for `Comparing 3 flights` after the column mapper's
+  *Analyze flight*, with
   Playwright's log showing `waiting for "…/compare?ids=a,b,c&u=ft" navigation to finish`. So the
   address is already correct and the assertion is racing the navigation that follows the mapping,
   not a wrong result. It passes alone every time and passed the immediately following full run

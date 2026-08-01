@@ -2,27 +2,192 @@
   "_comment": "Committed corpus-contract overrides, merged over the fetched expected.json by `file`. The corpus ships as a separately-versioned release asset (see corpus.lock.json), so a parser fix in code lands before expected.json can be regenerated and re-released. This is the in-repo, CI-reachable home for a fixture's updated contract in that window — it carries the full expectation (kind, parser, asserts) so golden-value coverage isn't lost. Remove an entry once the debrief-fixtures corpus is re-cut to include it. An override only applies when its target file is present in the fetched corpus.",
   "fixtures": [
     {
-      "file": "altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.eeprom",
+      "file": "altusmetrum/altusmetrum__issuiuc-endurance-20211030__TeleMetrum.csv",
+      "group": "iss-endurance-20211030",
+      "device": "Altus Metrum AltOS (TeleMetrum) CSV export",
+      "priority": 2,
+      "supportedByDebrief": "yes",
       "expect": {
         "kind": "flight",
-        "parser": "altos-eeprom"
+        "parser": "altusmetrum"
       },
-      "requireChannels": ["pressure", "accelAxial", "latitude", "longitude"],
-      "assert": [{ "metric": "apogee", "value": 2487, "unit": "ft", "tolPct": 3 }],
-      "note": "The RAW DOWNLOAD off the board, read directly — was kind:mapping, with the note 'native AltOS .eeprom binary (unsupported) -> mapping fallback', and the generic mapper found zero columns in it because there are none: the file is a JSON header plus the flash log as hex. The assert is the ground truth the paired CSV is held to (a StratoLogger on the same booster), NOT the CSV itself — so this pins the raw read against a second altimeter rather than against Debrief's other reading of the same bytes. AltosUI's own export of this file is the sample-for-sample check, in altosEeprom.test.ts."
+      "requireChannels": [
+        "velocity",
+        "latitude",
+        "longitude"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 9363,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 315.08,
+          "unit": "m/s",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 184.4,
+          "unit": "m/s²",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "groundTruth": "second altimeter (StratoLogger same flight: 9304 ft) + device data",
+      "note": "TeleMetrum vs StratoLogger same flight (9304 ft)"
     },
     {
-      "file": "altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__SG1-May-EasyMega.eeprom",
+      "file": "altusmetrum/altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv",
+      "group": "iss-intrepid2-20220623",
+      "device": "Altus Metrum AltOS (TeleMetrum) CSV export",
+      "priority": 2,
+      "supportedByDebrief": "yes",
       "expect": {
         "kind": "flight",
-        "parser": "altos-eeprom"
+        "parser": "altusmetrum"
       },
-      "requireChannels": ["pressure", "accelAxial", "temperature"],
-      "assert": [
-        { "metric": "apogee", "value": 1876, "unit": "ft", "tolPct": 3 },
-        { "metric": "maxAccel", "value": 62.3, "unit": "g", "tolPct": 6 }
+      "requireChannels": [
+        "velocity"
       ],
-      "note": "Raw download, log format 16 (EasyMega v2): 32-byte records with raw MS5607 conversions compensated from the coefficients in the file's own header. Same ground truth as the paired CSV export (the device summary), same tolerances."
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 3548,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 475.34,
+          "unit": "m/s",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 299.1,
+          "unit": "m/s²",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "groundTruth": "device summary (single COTS altimeter; SRAD flight_computer also on flight)",
+      "note": "device summary"
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv",
+      "group": "iss-irec2023-20230621",
+      "device": "Altus Metrum AltOS (EasyMega) CSV export",
+      "priority": 3,
+      "supportedByDebrief": "yes",
+      "expect": {
+        "kind": "flight",
+        "parser": "altusmetrum"
+      },
+      "requireChannels": [
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 27286,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 580.86,
+          "unit": "m/s",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 187.8,
+          "unit": "m/s²",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "groundTruth": "second altimeter (TeleMega same flight: 27309 ft)",
+      "note": "SUPERSONIC; EasyMega vs TeleMega (27309 ft)"
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv",
+      "group": "iss-irec2023-20230621",
+      "device": "Altus Metrum AltOS (TeleMega) CSV export",
+      "priority": 3,
+      "supportedByDebrief": "yes",
+      "expect": {
+        "kind": "flight",
+        "parser": "altusmetrum"
+      },
+      "requireChannels": [
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 27309,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 595.95,
+          "unit": "m/s",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 143.33,
+          "unit": "m/s²",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "groundTruth": "second altimeter (EasyMega same flight: 27286 ft)",
+      "note": "SUPERSONIC; TeleMega vs EasyMega (27286 ft)"
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv",
+      "group": "iss-kairos-20240323",
+      "device": "Altus Metrum AltOS (TeleMega) CSV export",
+      "priority": 2,
+      "supportedByDebrief": "yes",
+      "expect": {
+        "kind": "flight",
+        "parser": "altusmetrum"
+      },
+      "requireChannels": [
+        "velocity",
+        "accelAxial"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 9756,
+          "unit": "ft",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 83.6,
+          "unit": "g",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 332.48,
+          "unit": "m/s",
+          "tolPct": 2
+        }
+      ],
+      "groundTruth": "device summary + paired eeprom",
+      "note": "high-g boost"
     },
     {
       "file": "altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-Telemega.eeprom",
@@ -30,36 +195,225 @@
         "kind": "flight",
         "parser": "altos-eeprom"
       },
-      "requireChannels": ["pressure", "accelAxial", "temperature", "latitude", "longitude"],
+      "requireChannels": [
+        "pressure",
+        "accelAxial",
+        "temperature",
+        "latitude",
+        "longitude"
+      ],
       "assert": [
-        { "metric": "apogee", "value": 9756, "unit": "ft", "tolPct": 2 },
-        { "metric": "maxAccel", "value": 83.6, "unit": "g", "tolPct": 6 }
+        {
+          "metric": "apogee",
+          "value": 9756,
+          "unit": "ft",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 83.6,
+          "unit": "g",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
       ],
       "note": "Raw download, log format 22 (TeleMega v6), and the one whose tick counter rolls over mid-flight. Same ground truth and tolerances as the paired CSV export."
     },
     {
-      "file": "entacore-aim/entacore-aim__utsa-sac2024__skys_limit.xtra",
+      "file": "altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv",
       "expect": {
-        "kind": "reject",
-        "rejectMatch": "an Entacore AIM XTRA raw flight file"
+        "kind": "flight",
+        "parser": "altusmetrum"
       },
-      "note": "Still unread — the .xtra is a Boost serialization archive of a C++ object graph and the corpus has no per-sample ground truth for it, only a screenshot, so a decoder for it could not be checked. What changed is the answer: it was kind:mapping, and a file the mapper finds no columns in is reported to the flyer as 'no data rows in this file — is it a flight log export?', which is false. It IS a flight log. Now it is named."
+      "requireChannels": [
+        "altitude",
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 13268,
+          "unit": "ft",
+          "tolPct": 4
+        }
+      ],
+      "note": "AltOS radio-telemetry CSV (tick/ptype); lossy and truncated mid-descent, but apogee ~13268 ft matches the on-board flight-log read. Was mapping. Pending debrief-fixtures re-cut."
     },
     {
-      "file": "entacore-aim/entacore-aim__utsa-sac2024__skys_limit_from_raw.xtra",
+      "file": "altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.csv",
+      "group": "iss-sg1.1-20231001",
+      "device": "Altus Metrum AltOS (TeleMetrum) CSV export",
+      "priority": 2,
+      "supportedByDebrief": "yes",
       "expect": {
-        "kind": "reject",
-        "rejectMatch": "an Entacore AIM XTRA raw flight file"
+        "kind": "flight",
+        "parser": "altusmetrum"
       },
-      "note": "As above — the same flight, re-extracted from the raw flash by the AIM XTRA software."
+      "requireChannels": [
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 2487,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 118.09,
+          "unit": "m/s",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 235.68,
+          "unit": "m/s²",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "groundTruth": "second altimeter (StratoLogger same flight) + paired eeprom",
+      "note": "vs StratoLogger same booster"
     },
     {
-      "file": "entacore-aim/entacore-aim__utsa-sac2024__06192024_skys_limitsacflight.bin",
+      "file": "altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.eeprom",
       "expect": {
-        "kind": "reject",
-        "rejectMatch": "raw flash snapshot off an altimeter"
+        "kind": "flight",
+        "parser": "altos-eeprom"
       },
-      "note": "A raw flash snapshot: a tagged variable-length record stream with no vendor tag table available and no per-sample ground truth to check a guess against. Named rather than decoded, for the same reason as the .xtra beside it."
+      "requireChannels": [
+        "pressure",
+        "accelAxial",
+        "latitude",
+        "longitude"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 2487,
+          "unit": "ft",
+          "tolPct": 3
+        }
+      ],
+      "note": "The RAW DOWNLOAD off the board, read directly — was kind:mapping, with the note 'native AltOS .eeprom binary (unsupported) -> mapping fallback', and the generic mapper found zero columns in it because there are none: the file is a JSON header plus the flash log as hex. The assert is the ground truth the paired CSV is held to (a StratoLogger on the same booster), NOT the CSV itself — so this pins the raw read against a second altimeter rather than against Debrief's other reading of the same bytes. AltosUI's own export of this file is the sample-for-sample check, in altosEeprom.test.ts."
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-TeleMega.csv",
+      "group": "iss-sg1.2-20231118",
+      "device": "Altus Metrum AltOS (TeleMega) CSV export",
+      "priority": 2,
+      "supportedByDebrief": "yes",
+      "expect": {
+        "kind": "flight",
+        "parser": "altusmetrum"
+      },
+      "requireChannels": [
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 6939,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 279.4,
+          "unit": "m/s",
+          "tolPct": 2
+        },
+        {
+          "metric": "maxAccel",
+          "value": 104.6,
+          "unit": "m/s²",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "groundTruth": "second altimeter (Blue Raven High+Low on same sustainer)",
+      "note": "sustainer; cross-checks Blue Raven High/Low"
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__SG1-May-EasyMega.eeprom",
+      "expect": {
+        "kind": "flight",
+        "parser": "altos-eeprom"
+      },
+      "requireChannels": [
+        "pressure",
+        "accelAxial",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 1876,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxAccel",
+          "value": 62.3,
+          "unit": "g",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        }
+      ],
+      "note": "Raw download, log format 16 (EasyMega v2): 32-byte records with raw MS5607 conversions compensated from the coefficients in the file's own header. Same ground truth as the paired CSV export (the device summary), same tolerances."
+    },
+    {
+      "file": "altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__easymega_data.csv",
+      "group": "iss-stargazer1-20230507",
+      "device": "Altus Metrum AltOS (EasyMega) CSV export",
+      "priority": 2,
+      "supportedByDebrief": "yes",
+      "expect": {
+        "kind": "flight",
+        "parser": "altusmetrum"
+      },
+      "requireChannels": [
+        "velocity",
+        "accelAxial"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 1876,
+          "unit": "ft",
+          "tolPct": 3
+        },
+        {
+          "metric": "maxAccel",
+          "value": 62.3,
+          "unit": "g",
+          "tolPct": 2,
+          "basis": "gravity-removed"
+        },
+        {
+          "metric": "maxVelocity",
+          "value": 102.8,
+          "unit": "m/s",
+          "tolPct": 2
+        }
+      ],
+      "groundTruth": "device summary (paired with SG1-May-EasyMega.eeprom)",
+      "note": "paired with the .eeprom"
+    },
+    {
+      "file": "blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv",
+      "group": "reddit-meraki2-121km",
+      "device": "Featherweight Blue Raven LOW-RATE FIP CSV (from shared sheet)",
+      "priority": 3,
+      "supportedByDebrief": "yes",
+      "expect": {
+        "kind": "flight",
+        "parser": "blueraven"
+      },
+      "knownIssue": "121 km space-shot: barometric altitude model is only valid in the troposphere, so Debrief reads ~75 km (247,755 ft) vs the GPS-verified 121,589 m / 398,914 ft.",
+      "groundTruth": "GPS-verified official (widely reported record flight) + second altimeter (TeleMega vs Blue Raven same flight)",
+      "note": "extreme-altitude baro limitation"
     },
     {
       "file": "blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm_summary_01-18-2026_10_48_41_.csv",
@@ -78,75 +432,17 @@
       "note": "Key-value device summary — recognised and explained rather than mapped."
     },
     {
-      "file": "featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv",
+      "file": "eggtimer/eggtimer__euroc-aris-euler-explosion__Eggtimer_data.csv",
       "expect": {
         "kind": "flight",
-        "parser": "featherweight-gps-gs"
-      },
-      "requireChannels": ["altitude", "latitude", "longitude"],
-      "assert": [{ "metric": "apogee", "value": 6295.75, "unit": "ft", "tolPct": 1 }],
-      "note": "Featherweight GPS ground-station export. Was kind:mapping and never analysed — it states no elapsed time, so the mapper had no time base to offer and the file was a dead end, and the roles it did guess were the receiver's own position rather than the rocket's. Now a named parser: the time base is the DATE+TIME wall clock and the flight is the TRACKER columns. The assert is the Blue Raven's stated 6,295.75 ft on the same flight — a barometer against a GPS, 0.5% apart."
-    },
-    {
-      "file": "featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_summary_04-12-2025_12_45_50_.csv",
-      "expect": {
-        "kind": "reject",
-        "rejectMatch": "summary file for “GPSTrk05305”"
-      },
-      "note": "Key-value Featherweight GPS summary — recognised and explained rather than mapped."
-    },
-    {
-      "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff",
-      "expect": {
-        "kind": "flight",
-        "parser": "missileworks-rff"
-      },
-      "requireChannels": ["pressure"],
-      "assert": [{ "metric": "apogee", "value": 13304, "unit": "ft", "tolPct": 4 }],
-      "note": "The RAW flight file mDACS saves off the altimeter — was kind:mapping, 'graceful fallback', with zero columns found because the file has none: it is a .NET-serialised List<Int16> holding the log as it came off the board. Same ground truth and tolerance as the text export of this flight beside it (the flight report in the thread, ~13,304 ft). The two are the same 3,541 barometer readings, asserted exactly in missileworksRff.test.ts; the apogee differs from the export's by the atmosphere model, since the raw file has no altitude column to read."
-    },
-    {
-      "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Data.txt",
-      "expect": {
-        "kind": "flight",
-        "parser": "missileworks-rrc3"
+        "parser": "eggtimer"
       },
       "requireChannels": [
         "altitude",
-        "pressure",
-        "velocity",
-        "temperature"
-      ],
-      "assert": [
-        {
-          "metric": "apogee",
-          "value": 13304,
-          "unit": "ft",
-          "tolPct": 4
-        }
-      ],
-      "note": "RRC3 mDACS imperial (UTF-16, TAB); altitude unit resolved from the barometric pressure column; ~13304 ft. Pending debrief-fixtures re-cut."
-    },
-    {
-      "file": "missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv",
-      "expect": {
-        "kind": "flight",
-        "parser": "missileworks-rrc3"
-      },
-      "requireChannels": [
-        "altitude",
-        "pressure",
         "velocity"
       ],
-      "assert": [
-        {
-          "metric": "apogee",
-          "value": 9121,
-          "unit": "ft",
-          "tolPct": 3
-        }
-      ],
-      "note": "RRC3 mDACS metric (EUROPEAN semicolon + comma-decimal); altitude unit resolved from the barometric pressure column; ~9121 ft. Pending debrief-fixtures re-cut."
+      "note": "Eggtimer EUROPEAN semicolon export (ARIS EULER explosion flight); feet via delimiter-aware parser (was mapper metres). Apogee ~958 ft vs device summary ~976 ft. Pending debrief-fixtures re-cut.",
+      "knownIssue": "ARIS Euler explosion flight — the in-air breakup corrupts the descent phase (a negative \"main\" rate), so it is parsed but not invariant-asserted. With the delimiter-aware Eggtimer parser its apogee now reads ~958 ft (feet) vs the device summary ~976 ft, instead of ~2808 ft via the generic mapper (metres)."
     },
     {
       "file": "eggtimer/eggtimer__euroc-stacarl2-semicolon__sta-carl2-eggtimer.csv",
@@ -169,37 +465,57 @@
       "note": "Eggtimer EUROPEAN semicolon export; feet read via the delimiter-aware parser (was mapper metres, 3.3x high). Cross-checks RRC3 same flight ~9121 ft. Velocity column is corrupt (withheld). Pending debrief-fixtures re-cut."
     },
     {
-      "file": "eggtimer/eggtimer__euroc-aris-euler-explosion__Eggtimer_data.csv",
+      "file": "entacore-aim/entacore-aim__utsa-sac2024__06192024_skys_limitsacflight.bin",
       "expect": {
-        "kind": "flight",
-        "parser": "eggtimer"
+        "kind": "reject",
+        "rejectMatch": "raw flash snapshot off an altimeter"
       },
-      "requireChannels": [
-        "altitude",
-        "velocity"
-      ],
-      "note": "Eggtimer EUROPEAN semicolon export (ARIS EULER explosion flight); feet via delimiter-aware parser (was mapper metres). Apogee ~958 ft vs device summary ~976 ft. Pending debrief-fixtures re-cut.",
-      "knownIssue": "ARIS Euler explosion flight — the in-air breakup corrupts the descent phase (a negative \"main\" rate), so it is parsed but not invariant-asserted. With the delimiter-aware Eggtimer parser its apogee now reads ~958 ft (feet) vs the device summary ~976 ft, instead of ~2808 ft via the generic mapper (metres)."
+      "note": "A raw flash snapshot: a tagged variable-length record stream with no vendor tag table available and no per-sample ground truth to check a guess against. Named rather than decoded, for the same reason as the .xtra beside it."
     },
     {
-      "file": "altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv",
+      "file": "entacore-aim/entacore-aim__utsa-sac2024__skys_limit.xtra",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "an Entacore AIM XTRA raw flight file"
+      },
+      "note": "Still unread — the .xtra is a Boost serialization archive of a C++ object graph and the corpus has no per-sample ground truth for it, only a screenshot, so a decoder for it could not be checked. What changed is the answer: it was kind:mapping, and a file the mapper finds no columns in is reported to the flyer as 'no data rows in this file — is it a flight log export?', which is false. It IS a flight log. Now it is named."
+    },
+    {
+      "file": "entacore-aim/entacore-aim__utsa-sac2024__skys_limit_from_raw.xtra",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "an Entacore AIM XTRA raw flight file"
+      },
+      "note": "As above — the same flight, re-extracted from the raw flash by the AIM XTRA software."
+    },
+    {
+      "file": "featherweight-gps/fwgps__trf-f1machbuster-jan18__GPS_GS03748_01-18-2026_10_32_45.csv",
       "expect": {
         "kind": "flight",
-        "parser": "altusmetrum"
+        "parser": "featherweight-gps-gs"
       },
       "requireChannels": [
         "altitude",
-        "velocity"
+        "latitude",
+        "longitude"
       ],
       "assert": [
         {
           "metric": "apogee",
-          "value": 13268,
+          "value": 6295.75,
           "unit": "ft",
-          "tolPct": 4
+          "tolPct": 1
         }
       ],
-      "note": "AltOS radio-telemetry CSV (tick/ptype); lossy and truncated mid-descent, but apogee ~13268 ft matches the on-board flight-log read. Was mapping. Pending debrief-fixtures re-cut."
+      "note": "Featherweight GPS ground-station export. Was kind:mapping and never analysed — it states no elapsed time, so the mapper had no time base to offer and the file was a dead end, and the roles it did guess were the receiver's own position rather than the rocket's. Now a named parser: the time base is the DATE+TIME wall clock and the flight is the TRACKER columns. The assert is the Blue Raven's stated 6,295.75 ft on the same flight — a barometer against a GPS, 0.5% apart."
+    },
+    {
+      "file": "featherweight-gps/fwgps__trf-lemiv-l3__GPSTrk05305_summary_04-12-2025_12_45_50_.csv",
+      "expect": {
+        "kind": "reject",
+        "rejectMatch": "summary file for “GPSTrk05305”"
+      },
+      "note": "Key-value Featherweight GPS summary — recognised and explained rather than mapped."
     },
     {
       "file": "jollylogic/jollylogic__altimeterthree-official-sample__SampleRocketFlight.csv",
@@ -354,6 +670,68 @@
         }
       ],
       "note": "Named Rocketry Ltd Mercury / AltimeterCloud parser — was the generic mapper, which needed the columns set by hand and read this device's centi-degree temperature column as thousands of degrees (then discarded it, so the flight had no ground temperature and no speed of sound from one). Apogee is unchanged by the parser and still matches the device's own summary. Mercury V1, columns-first; bmp_temp(x100) → 35.1 °C. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv",
+      "expect": {
+        "kind": "flight",
+        "parser": "missileworks-rrc3"
+      },
+      "requireChannels": [
+        "altitude",
+        "pressure",
+        "velocity"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 9121,
+          "unit": "ft",
+          "tolPct": 3
+        }
+      ],
+      "note": "RRC3 mDACS metric (EUROPEAN semicolon + comma-decimal); altitude unit resolved from the barometric pressure column; ~9121 ft. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_2015_Flight_Data.txt",
+      "expect": {
+        "kind": "flight",
+        "parser": "missileworks-rrc3"
+      },
+      "requireChannels": [
+        "altitude",
+        "pressure",
+        "velocity",
+        "temperature"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 13304,
+          "unit": "ft",
+          "tolPct": 4
+        }
+      ],
+      "note": "RRC3 mDACS imperial (UTF-16, TAB); altitude unit resolved from the barometric pressure column; ~13304 ft. Pending debrief-fixtures re-cut."
+    },
+    {
+      "file": "missileworks-rrc3/missileworks-rrc3__xprs2015__XPRS_Scratch_2015.rff",
+      "expect": {
+        "kind": "flight",
+        "parser": "missileworks-rff"
+      },
+      "requireChannels": [
+        "pressure"
+      ],
+      "assert": [
+        {
+          "metric": "apogee",
+          "value": 13304,
+          "unit": "ft",
+          "tolPct": 4
+        }
+      ],
+      "note": "The RAW flight file mDACS saves off the altimeter — was kind:mapping, 'graceful fallback', with zero columns found because the file has none: it is a .NET-serialised List<Int16> holding the log as it came off the board. Same ground truth and tolerance as the text export of this flight beside it (the flight report in the thread, ~13,304 ft). The two are the same 3,541 barometer readings, asserted exactly in missileworksRff.test.ts; the apogee differs from the export's by the atmosphere model, since the raw file has no altitude column to read."
     }
   ]
 }

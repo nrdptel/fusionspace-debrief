@@ -238,8 +238,9 @@ const BUDGET = {
    *  suite's wordmark to satisfy a count. Every other off-scale size is a content size and is
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
-  /** Components importing the shared primitives. Target: most of the 44. This one only goes UP. */
-  uiAdopters: 29,
+  /** Components importing the shared primitives. Target: most of the 44. This one only goes UP.
+   *  29 → 31 on 2026-08-01: the two cross-check tables moved onto `DataTable`. */
+  uiAdopters: 31,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -274,8 +275,16 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   EmptyState: 1,
   ErrorState: 1,
   Section: 2,
-  Segmented: 3,
+  /** 3 → 4 on 2026-08-01: the sample table's channel scope, which is 2 mutually exclusive
+   *  options with both visible — §5's own definition of when to reach for this. */
+  Segmented: 4,
   Disclosure: 3,
+  /** §5's "every table is this one", started 2026-08-01 on the two cross-check tables — the two
+   *  surfaces §6 exists for and the ones a cert document most wants to lift. `SampleTable` and
+   *  `CompareView` are deliberately NOT counted here and are not meant to be: one is transposed
+   *  and the other is a virtualised view over `Float64Array` series. See the primitive's own
+   *  comment for why folding either in would produce a union rather than a primitive. */
+  DataTable: 2,
 };
 
 /** `DESIGN.md` §3's six sizes, and nothing else. `text-[11px]` is the sixth and is matched by the

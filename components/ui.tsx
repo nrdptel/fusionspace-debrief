@@ -1,7 +1,9 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 
+import { copyTable } from '@/lib/copyTable';
 import { TOUCH_TARGET, TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
 
 /**
@@ -487,6 +489,212 @@ export function EmptyState({
       <p className="mx-auto mt-1 max-w-prose text-sm text-zinc-600 dark:text-zinc-400">{what}</p>
       {action && <div className="mt-3 flex justify-center">{action}</div>}
     </Card>
+  );
+}
+
+/**
+ * A table's way out to a spreadsheet — the control and the announcement, together, so every
+ * table says the same thing when it worked and the same thing when the browser refused.
+ *
+ * Separate from `DataTable` because not every table can BE one and that is not a failure. The
+ * window-stats table puts the channel in a `th scope="row"` and collapses a whole row to one
+ * `colSpan` cell when a channel has no samples in the zoom; modelling either in the primitive
+ * would add config surface for one caller, which is how a shared layer stops being used. What
+ * those tables actually owe a flyer is the copy, not the machinery — so the copy is the thing
+ * that got lifted.
+ */
+export function CopyTableButton({
+  header,
+  rows,
+  label = 'Copy table',
+  title,
+  className,
+}: {
+  header: string[];
+  /** Built at press time, so what lands on the clipboard is what is on screen right now — a
+   *  zoomed window, a chosen sort — rather than whatever the table held when it mounted. */
+  rows: () => string[][];
+  label?: string;
+  title?: string;
+  className?: string;
+}) {
+  const [said, setSaid] = React.useState('');
+  const copy = async () => {
+    const body = rows();
+    const ok = await copyTable(header, body);
+    setSaid(
+      ok
+        ? `Copied — ${body.length} ${body.length === 1 ? 'row' : 'rows'}, in the order on screen`
+        : 'This browser wouldn’t let Debrief write to the clipboard.',
+    );
+    window.setTimeout(() => setSaid(''), 4000);
+  };
+  return (
+    <span className={cx('flex items-center justify-end gap-2', className)}>
+      {/* Always mounted and empty when there is nothing to say: a live region that appears and
+          disappears announces unreliably. */}
+      <span role="status" aria-live="polite" className="min-h-4 grow text-xs font-medium text-indigo-600 dark:text-indigo-400">
+        {said}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => void copy()}
+        title={title ?? 'Copy this table — as a table for a spreadsheet or document, and as tab-separated text everywhere else'}
+      >
+        {label}
+      </Button>
+    </span>
+  );
+}
+
+/** One column of a `DataTable`. `cell` is what a flyer reads; `text` is what the clipboard gets,
+ *  and the two are separate on purpose — an agreement badge reads as a coloured chip on screen and
+ *  has to arrive in a spreadsheet as "agree · 0.6%", not as markup or as an empty cell. */
+export type DataColumn<R> = {
+  key: string;
+  header: string;
+  align?: 'left' | 'right';
+  /** Omit to make the column unsortable — which is the right answer for a label column whose
+   *  order is the reading order somebody chose. */
+  compare?: (a: R, b: R) => number;
+  cell: (row: R) => React.ReactNode;
+  text: (row: R) => string;
+};
+
+/**
+ * The one table — `DESIGN.md` §5. Sortable where a column says how, copyable as a whole, with a
+ * sticky header and a real empty state.
+ *
+ * **"Tables you cannot sort, filter, or copy out of" is a named tell in `MAINTAINING.md`, and it
+ * is only fixable once rather than per table.** Measured 2026-08-01: seven tables in this repo, two
+ * sortable, two copyable, none keyboard-navigable, and five with no sort and no copy at all —
+ * including both cross-check tables, which are the two surfaces §6 exists for and exactly what a
+ * flyer writing a cert document needs to lift.
+ *
+ * **What this deliberately does NOT try to absorb**, measured before building it: `SampleTable` and
+ * `CompareView`. `CompareView`'s table is TRANSPOSED — metrics are rows, flights are columns, and
+ * sorting a row reorders the COLUMNS — so it puts `aria-sort` on `th[scope=row]` where this puts it
+ * on `th[scope=col]`. `SampleTable`'s entire prop surface is the explorer's column model:
+ * `Float64Array` series, a phantom x column addressed by a `col < 0` sentinel, and `ROW_H`
+ * virtualisation over hundreds of thousands of samples. Folding either in produces the union of two
+ * components rather than one primitive, which is how a shared layer acquires the config surface
+ * that stops anyone using it. They keep their own tables and this serves the other five.
+ *
+ * Keyboard access here is every affordance on the Tab path — each sortable header and the copy
+ * control are real buttons. Arrow-key cell-to-cell navigation is NOT implemented; on a four-row
+ * cross-check it would be ceremony, and claiming it would be worse than not having it.
+ */
+export function DataTable<R>({
+  columns,
+  rows,
+  rowKey,
+  empty,
+  copyLabel = 'Copy table',
+  caption,
+  maxHeight,
+  className,
+}: {
+  columns: DataColumn<R>[];
+  rows: R[];
+  rowKey: (row: R, i: number) => string;
+  /** Shown in place of the body when there is nothing — never "No data" (§5). */
+  empty?: React.ReactNode;
+  copyLabel?: string;
+  /** Screen-reader name for the table, so two cross-checks on one page are told apart. */
+  caption?: string;
+  /** Sets a scroll shell and a sticky header. Omit for a short table that needs neither. */
+  maxHeight?: string;
+  className?: string;
+}) {
+  const [sort, setSort] = React.useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
+
+  const ordered = React.useMemo(() => {
+    if (!sort) return rows;
+    const col = columns.find((c) => c.key === sort.key);
+    if (!col?.compare) return rows;
+    const sign = sort.dir === 'desc' ? -1 : 1;
+    // Index order rather than a copy, so a stable tie keeps the order the caller chose.
+    return rows
+      .map((r, i) => [r, i] as const)
+      .sort((a, b) => {
+        const d = col.compare!(a[0], b[0]);
+        return d === 0 ? a[1] - b[1] : sign * d;
+      })
+      .map(([r]) => r);
+  }, [rows, sort, columns]);
+
+  /** Third click restores the order the rows arrived in — the same cycle `SampleTable` uses. */
+  const cycle = (key: string) =>
+    setSort((s) => (s?.key !== key ? { key, dir: 'desc' } : s.dir === 'desc' ? { key, dir: 'asc' } : null));
+
+  return (
+    <div className={className}>
+      {rows.length > 0 && (
+        <CopyTableButton
+          label={copyLabel}
+          header={columns.map((c) => c.header)}
+          rows={() => ordered.map((r) => columns.map((c) => c.text(r)))}
+        />
+      )}
+      <div className={cx('mt-1 overflow-auto', maxHeight && 'rounded-xl border border-zinc-200 dark:border-zinc-800')} style={maxHeight ? { maxHeight } : undefined}>
+        <table className="w-full border-collapse text-sm">
+          {caption && <caption className="sr-only">{caption}</caption>}
+          <thead className={cx('text-left text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400', maxHeight && 'sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900')}>
+            <tr>
+              {columns.map((c) => {
+                const state = sort?.key !== c.key ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending';
+                return (
+                  <th
+                    key={c.key}
+                    scope="col"
+                    aria-sort={c.compare ? state : undefined}
+                    className={cx('py-1 font-medium', c.align === 'right' ? 'text-right' : 'text-left', 'pr-4 last:pr-0')}
+                  >
+                    {c.compare ? (
+                      <button
+                        type="button"
+                        onClick={() => cycle(c.key)}
+                        title={`Sort by ${c.header}`}
+                        className={cx(
+                          'inline-flex items-center gap-1 uppercase tracking-wide transition hover:text-zinc-800 dark:hover:text-zinc-200',
+                          state !== 'none' && 'text-indigo-600 dark:text-indigo-400',
+                        )}
+                      >
+                        {c.header}
+                        <span aria-hidden="true" className={state === 'none' ? 'opacity-0' : ''}>
+                          {state === 'ascending' ? '▲' : '▼'}
+                        </span>
+                      </button>
+                    ) : (
+                      c.header
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((r, i) => (
+              <tr key={rowKey(r, i)} className="border-t border-zinc-200 dark:border-zinc-800">
+                {columns.map((c) => (
+                  <td key={c.key} className={cx('py-1.5 pr-4 last:pr-0', c.align === 'right' && 'text-right')}>
+                    {c.cell(r)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {ordered.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="px-3 py-4 text-center text-sm text-zinc-600 dark:text-zinc-400">
+                  {empty ?? 'Nothing to show yet.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

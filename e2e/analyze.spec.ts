@@ -765,21 +765,23 @@ test('the sample table sorts by any column, and returns to sample order', async 
 
   // Sort by the altitude column, descending: the top row must be the highest sample.
   // The sort control, not the column's copy button beside it.
-  const altHeader = table.getByRole('button', { name: /^Altitude/ });
+  // "Altitude (AGL)" exactly: the table now shows every channel the file holds, so the raw
+  // altitude sits beside the cleaned one and a /^Altitude/ locator matches both.
+  const altHeader = table.getByRole('button', { name: /^Altitude \(AGL\)/ });
   await altHeader.click();
   const top = Number(await secondCol().innerText());
   const next = Number(await table.locator('tbody tr').nth(1).locator('td').nth(1).innerText());
   expect(top).toBeGreaterThanOrEqual(next);
   expect(top).toBeGreaterThan(Number(t0));
   // Announced to a screen reader, not only drawn.
-  await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'descending');
+  await expect(table.locator('th', { hasText: 'Altitude (AGL)' })).toHaveAttribute('aria-sort', 'descending');
 
   // Second click flips it; the third puts the samples back in the order they were recorded.
   await altHeader.click();
-  await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'ascending');
+  await expect(table.locator('th', { hasText: 'Altitude (AGL)' })).toHaveAttribute('aria-sort', 'ascending');
   expect(Number(await secondCol().innerText())).toBeLessThanOrEqual(top);
   await altHeader.click();
-  await expect(table.locator('th', { hasText: 'Altitude' })).toHaveAttribute('aria-sort', 'none');
+  await expect(table.locator('th', { hasText: 'Altitude (AGL)' })).toHaveAttribute('aria-sort', 'none');
   expect(await firstCell().innerText()).toBe(t0);
 });
 
@@ -795,7 +797,7 @@ test('one channel copies out of the sample table on its own', async ({ page, con
   await page.locator('summary', { hasText: 'Show the samples' }).click();
 
   const table = page.locator('table').filter({ has: page.getByRole('button', { name: /^Time/ }) }).first();
-  await table.getByRole('button', { name: /Copy the Altitude .* column/ }).click();
+  await table.getByRole('button', { name: /Copy the Altitude \(AGL\).* column/ }).click();
   await expect(page.getByText(/copied — [\d,]+ rows/)).toBeVisible();
 
   const text = await page.evaluate(() => navigator.clipboard.readText());
@@ -1907,4 +1909,133 @@ test('files that name different launches are not offered as one flight', async (
   await expect(page.getByRole('region', { name: 'Files that may be one flight' })).toHaveCount(0);
   await page.getByRole('button', { name: '← Back to a single flight' }).click();
   await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(2, { timeout: 10_000 });
+});
+
+// D7 slice 1. `MAX_SERIES` is a fact about how many TRACES stay readable on one chart — six
+// lines on two axes — and it was silently deciding how many COLUMNS OF NUMBERS a flyer could
+// see, because the sample table inherited the chart's selection. Measured over the corpus: of the
+// 25 files a parser auto-detects as a flight, 23 carry more channels than the chart draws, and
+// 119 channels in total could not be read as numbers without going back to the chart and
+// swapping the selection. AltosUI "shows all of the data available from the flight computer";
+// the CSV export here always did too, so the data was there and only the in-app view was capped.
+test('every channel the board recorded is readable as numbers, not just the plotted ones', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/blueraven-app-lr.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await page.locator('summary', { hasText: 'Show the samples' }).click();
+
+  const table = page.locator('table').filter({ has: page.getByRole('button', { name: /^Time/ }) }).first();
+  const headers = () => table.locator('thead th');
+
+  // The chart is drawing a handful of traces; the table is showing everything the file holds.
+  const scope = page.getByRole('group', { name: /Which channels the sample table shows/ });
+  await expect(scope).toBeVisible();
+  const everyLabel = await scope.getByRole('button', { name: /Every channel/ }).innerText();
+  const total = Number(everyLabel.match(/\((\d+)\)/)![1]);
+  const plottedLabel = await scope.getByRole('button', { name: /Just what's plotted/ }).innerText();
+  const plotted = Number(plottedLabel.match(/\((\d+)\)/)![1]);
+
+  // The chart is drawing few and the file holds many, or this file proves nothing. Both sides
+  // come off the control's own labels, so they are also checked against the DOM below.
+  expect(total).toBeGreaterThan(plotted);
+
+  // Default is every channel — the x column plus one per channel.
+  await expect(headers()).toHaveCount(total + 1);
+  // …including ones a six-trace chart could never show at once: a raw altitude beside the
+  // cleaned one, the device's own inertial altitude, the battery and the temperature. These
+  // are the file's channels, not the app's count of them.
+  for (const name of ['Altitude (raw)', 'Inertial_Altitude', 'Batt_Volts', 'Temperature']) {
+    await expect(table.locator('th', { hasText: name })).toBeVisible();
+  }
+
+  // READABLE AS NUMBERS is the milestone's own wording, so read the numbers. A table with every
+  // header and no cells would satisfy a column count, and that is exactly the shape a broken
+  // data path takes here.
+  const firstRow = table.locator('tbody tr').filter({ has: page.locator('td:not([colspan])') }).first();
+  await expect(firstRow.locator('td')).toHaveCount(total + 1);
+  const cells = await firstRow.locator('td').allTextContents();
+  // Every cell is a number or an explicit "—"; at least four channels carry a real reading, and
+  // they are not all the same value (which a stuck or mis-indexed series would give).
+  const numeric = cells.filter((c) => /^-?[\d.]+$/.test(c.trim()));
+  expect(numeric.length).toBeGreaterThanOrEqual(5);
+  for (const c of cells) expect(c.trim()).toMatch(/^(-?[\d.]+|—)$/);
+  expect(new Set(numeric).size).toBeGreaterThan(1);
+
+  // The battery column in particular: a voltage is unmistakable, and it is a channel the chart
+  // could not have been showing next to an altitude without a second axis.
+  // textContent, not innerText: the headers are CSS-uppercased, so innerText reads BATT_VOLTS.
+  const battIdx = (await headers().allTextContents()).findIndex((h) => h.includes('Batt_Volts'));
+  expect(battIdx).toBeGreaterThan(0);
+  expect(Number(cells[battIdx])).toBeGreaterThan(1);
+  expect(Number(cells[battIdx])).toBeLessThan(30);
+
+  // And the chart's own selection is still one press away, for reading the plot's numbers.
+  await scope.getByRole('button', { name: /Just what's plotted/ }).click();
+  await expect(headers()).toHaveCount(plotted + 1);
+  await scope.getByRole('button', { name: /Every channel/ }).click();
+  await expect(headers()).toHaveCount(total + 1);
+
+  // The sort is held by its COLUMN, not by a column index, and this is what that buys. Sort by a
+  // channel only the wide set has, then narrow: the column is gone, so no header may claim a sort
+  // and the rows must be back in record order. Held as an index it stayed armed at a position that
+  // now meant a different channel — or none — so the rows silently reverted while every header
+  // read aria-sort="none": a sort that was on, showing nothing, with no way to see or clear it.
+  const battHeader = table.getByRole('button', { name: /^Batt_Volts/ });
+  const dataRows = () => table.locator('tbody tr').filter({ has: page.locator('td:not([colspan])') });
+  const recordTop = await dataRows().first().locator('td').first().textContent();
+  await battHeader.click();
+  await expect(table.locator('th', { hasText: 'Batt_Volts' })).toHaveAttribute('aria-sort', 'descending');
+  const sortedTop = await dataRows().first().locator('td').first().textContent();
+  expect(sortedTop).not.toBe(recordTop);
+
+  await scope.getByRole('button', { name: /Just what's plotted/ }).click();
+  await expect(table.locator('th[aria-sort="descending"], th[aria-sort="ascending"]')).toHaveCount(0);
+  expect(await dataRows().first().locator('td').first().textContent()).toBe(recordTop);
+
+  // And when the column comes back, its sort comes back WITH the header that says so — the two
+  // never disagree, which is the whole point of keying it.
+  await scope.getByRole('button', { name: /Every channel/ }).click();
+  await expect(table.locator('th', { hasText: 'Batt_Volts' })).toHaveAttribute('aria-sort', 'descending');
+  expect(await dataRows().first().locator('td').first().textContent()).toBe(sortedTop);
+});
+
+// The window-stats table is the one a cert document quotes — min, max and mean of each channel
+// over the stretch of flight the flyer zoomed to — and the only way to get those into one was to
+// retype them off the screen. It cannot be a `DataTable` (the channel is a `th scope="row"` and a
+// channel with no samples in the zoom collapses its whole row to one `colSpan` cell), so what got
+// lifted is the copy affordance rather than the machinery.
+test('the window stats copy as a real table, with the unit beside each channel', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/blueraven-app-lr.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  const copy = page.getByRole('button', { name: 'Copy these stats' });
+  await expect(copy).toBeVisible();
+  await copy.click();
+
+  const clip = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const out: Record<string, string> = {};
+    for (const item of items) for (const type of item.types) out[type] = await (await item.getType(type)).text();
+    return out;
+  });
+
+  const lines = clip['text/plain'].split('\n');
+  expect(lines[0].split('\t').slice(0, 5)).toEqual(['Channel', 'Unit', 'min', 'max', 'mean']);
+  // A real row: a named channel, its unit, and three numbers — not empty cells, and not the
+  // header repeated.
+  const alt = lines.find((l) => l.startsWith('Altitude (AGL)\t'));
+  expect(alt).toBeTruthy();
+  const cols = alt!.split('\t');
+  expect(cols[1]).toBe('ft');
+  for (const v of cols.slice(2, 5)) expect(v).toMatch(/^-?[\d,.]+$/);
+  // max is at or above min, or the columns are transposed.
+  expect(Number(cols[3].replace(/,/g, ''))).toBeGreaterThanOrEqual(Number(cols[2].replace(/,/g, '')));
+  expect(clip['text/html']).toContain('<th>Channel</th>');
+  expect(clip['text/html']).not.toContain('<span');
 });

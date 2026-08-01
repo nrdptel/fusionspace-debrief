@@ -19,6 +19,9 @@ import { EVENT_COLOR } from '@/lib/eventStyle';
 // away, because a sample you can't see is a sample you can't check.
 
 const ROW_H = 24; // px — fixed, so a scroll offset maps straight to a row index
+/** The x column's stand-in key. It is not one of `channels`, so it needs a name of its own to be
+ *  sorted by identity like the rest; `-1` remains its index everywhere below. */
+const X_KEY = '\u0000x';
 const OVERSCAN = 6;
 
 function fmt(v: number): string {
@@ -146,7 +149,25 @@ export default function SampleTable({
   // row numbers moves. Measured on this machine at 7 ms for the largest analysable corpus
   // file (36,701 rows) and 56 ms for 200,000, so it stays a click rather than a wait — and it
   // only runs when a sort is actually on.
-  const [sort, setSort] = useState<{ col: number; dir: 'desc' | 'asc' } | null>(null);
+  //
+  // Held by the column's KEY, not by its index. The set of columns is not fixed any more — the
+  // table shows every channel by default and the flyer can drop it back to the chart's own
+  // selection — and an index into a list that just got shorter is a different column or no column
+  // at all. Stored as an index it went silently wrong in both directions: sorting by a channel the
+  // narrower set does not contain left `sort` armed at an index whose `seriesData` entry was
+  // `undefined`, so `order` fell back to null and the rows quietly reverted to sample order while
+  // every header read `aria-sort="none"` — a sort that was on, showing nothing, with no way for
+  // the flyer to see it or turn it off. Keyed, the sort follows its column when it survives the
+  // change and clears itself when it does not.
+  const [sortKey, setSortKey] = useState<{ key: string; dir: 'desc' | 'asc' } | null>(null);
+  const colOf = (key: string) => (key === X_KEY ? -1 : channels.findIndex((c) => c.key === key));
+  const sort = useMemo(() => {
+    if (!sortKey) return null;
+    const col = colOf(sortKey.key);
+    return col === -1 && sortKey.key !== X_KEY ? null : { col, dir: sortKey.dir };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortKey, channels]);
+
   const order = useMemo(() => {
     if (!sort) return null;
     const src = sort.col < 0 ? xVals : seriesData[sort.col];
@@ -168,8 +189,8 @@ export default function SampleTable({
   }, [sort, from, to, xVals, seriesData]);
 
   /** Third click on a column returns the samples to the order they were recorded in. */
-  const cycleSort = (col: number) => {
-    setSort((s) => (s?.col !== col ? { col, dir: 'desc' } : s.dir === 'desc' ? { col, dir: 'asc' } : null));
+  const cycleSort = (key: string) => {
+    setSortKey((s) => (s?.key !== key ? { key, dir: 'desc' } : s.dir === 'desc' ? { key, dir: 'asc' } : null));
   };
   const sortState = (col: number): 'none' | 'ascending' | 'descending' =>
     sort?.col !== col ? 'none' : sort.dir === 'asc' ? 'ascending' : 'descending';
@@ -227,7 +248,7 @@ export default function SampleTable({
         </h4>
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
           {rows.toLocaleString('en-US')} {rows === 1 ? 'row' : 'rows'} · exact values, in your units ·
-          click a column to sort, ⧉ to copy it · <em>Save .csv</em> for the whole set
+          click a column to sort, ⧉ to copy it
         </p>
       </div>
       {/* One element, always mounted, empty when there's nothing to say: a live region that
@@ -272,7 +293,7 @@ export default function SampleTable({
               <SortableHeader
                 label={`${xName}${xUnit ? ` (${xUnit})` : ''}`}
                 state={sortState(-1)}
-                onClick={() => cycleSort(-1)}
+                onClick={() => cycleSort(X_KEY)}
                 onCopy={() => void copyColumn(-1, `${xName}${xUnit ? ` (${xUnit})` : ''}`)}
               />
               {channels.map((c, ci) => {
@@ -282,7 +303,7 @@ export default function SampleTable({
                     key={c.key}
                     label={label}
                     state={sortState(ci)}
-                    onClick={() => cycleSort(ci)}
+                    onClick={() => cycleSort(c.key)}
                     onCopy={() => void copyColumn(ci, label)}
                   />
                 );
