@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { launchStampFromName, proposeGroups } from './proposeGroups';
+import { distinguishingLabels, launchStampFromName, proposeGroups } from './proposeGroups';
 import type { RecentMeta } from './recents';
 
 /**
@@ -209,5 +209,67 @@ describe('the corpus decides whether this rule can exist at all', () => {
       .filter((r) => launchStampFromName(r.name) != null)
       .map((r) => r.name);
     expect(offenders, 'staged files carrying a launch stamp would need an explicit refusal').toEqual([]);
+  });
+});
+
+describe('distinguishingLabels', () => {
+  it('reduces two vendor file names to the part that actually differs', () => {
+    // The real pair the proposal rule was built on. Forty characters, two of which differ, and
+    // they sit in the middle — a flyer on a phone should not have to diff that by eye to answer
+    // "which instrument reports my flight".
+    expect(
+      distinguishingLabels([
+        'BlRv_SN1537_HR_04-12-2025_12_45_49.csv',
+        'BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+      ]),
+    ).toEqual(['HR', 'LR']);
+  });
+
+  it('trims the separators the cut lands on, and handles three', () => {
+    expect(
+      distinguishingLabels(['flight_TeleMega_2025.csv', 'flight_TeleMetrum_2025.csv', 'flight_EasyMini_2025.csv']),
+    ).toEqual(['TeleMega', 'TeleMetrum', 'EasyMini']);
+  });
+
+  it('falls back to the full names rather than shortening to something misleading', () => {
+    // One name a prefix of another: the shorter one's remainder is empty, so there is no honest
+    // short label for it and a blank segment would be worse than a long one. This is the
+    // commonest duplicate download there is — the browser's "(1)" copy.
+    expect(distinguishingLabels(['flight.csv', 'flight-2.csv'])).toEqual(['flight.csv', 'flight-2.csv']);
+    expect(
+      distinguishingLabels(['BlRv_04-12-2025.csv', 'BlRv_04-12-2025 (1).csv']),
+    ).toEqual(['BlRv_04-12-2025.csv', 'BlRv_04-12-2025 (1).csv']);
+    // A remainder with no letter or digit in it at all — punctuation is not a label.
+    expect(distinguishingLabels(['x_+_z.csv', 'x_#_z.csv'])).toEqual(['x_+_z.csv', 'x_#_z.csv']);
+    // A digit IS a label, so this one shortens rather than falling back.
+    expect(distinguishingLabels(['log_1_a.csv', 'log_2_a.csv'])).toEqual(['1', '2']);
+    // Identical names cannot be told apart at all — two labels reading the same would point the
+    // flyer at the wrong recording, which is the one outcome worse than a long label.
+    expect(distinguishingLabels(['same.csv', 'same.csv'])).toEqual(['same.csv', 'same.csv']);
+  });
+
+  it('does not shorten to two labels that only LOOK different', () => {
+    // The same word, composed two ways: NFC (U+00E9) and NFD (e + U+0301). macOS stores file
+    // names decomposed, so a file copied off a Mac and its sibling copied off the board really
+    // do differ this way — and they render identically. Comparing raw code points passes the
+    // collision guard and hands the flyer two buttons they cannot tell apart.
+    const nfc = 'vol_caf\u00e9_2025.csv';
+    const nfd = 'vol_cafe\u0301_2025.csv';
+    expect(nfc).not.toEqual(nfd);
+    expect(distinguishingLabels([nfc, nfd])).toEqual([nfc, nfd]);
+  });
+
+  it('shortens a non-Latin name instead of giving up on it', () => {
+    // An ASCII-only test for "is there anything here" judges these unusable and falls back to two
+    // full names — making the fallback the normal path for anyone not flying in English.
+    expect(distinguishingLabels(['\u98db\u884c_\u9ad8_2025.csv', '\u98db\u884c_\u4f4e_2025.csv'])).toEqual([
+      '\u9ad8',
+      '\u4f4e',
+    ]);
+  });
+
+  it('leaves a lone name alone', () => {
+    expect(distinguishingLabels(['only.csv'])).toEqual(['only.csv']);
+    expect(distinguishingLabels([])).toEqual([]);
   });
 });

@@ -51,6 +51,22 @@ const base: FlightMetrics = {
 };
 
 describe('flightCardStats', () => {
+  it('says an apogee is a floor, on the artefact most likely to be posted', () => {
+    // The card already qualifies a derived speed and a clipped acceleration. Apogee was the one
+    // headline that went out bare — and this is the surface built to be pasted into a club chat,
+    // so it is the worst place to print a lower bound as though it were the number. Two corpus
+    // records reach this state: issuiuc-intrepid1 (996.2 m) and intrepid2 (1,081.6 m).
+    const normal = flightCardStats(base, 'metric');
+    expect(normal[0].label).toBe('Apogee');
+    expect(normal[0].sub).toBeUndefined();
+
+    const floor = flightCardStats({ ...base, apogeeIsFloor: true }, 'metric');
+    expect(floor[0].label).toBe('Apogee');
+    expect(floor[0].sub, 'a floor apogee has to say so on the card').toBe('at least this high');
+    // The value itself is unchanged — the caveat is added, the reading is not altered.
+    expect(floor[0].value).toBe(normal[0].value);
+  });
+
   it('leads with apogee and includes the available headline numbers', () => {
     const stats = flightCardStats(base, 'metric');
     expect(stats.map((s) => s.label)).toEqual(['Apogee', 'Max velocity', 'Max accel', 'Flight time']);

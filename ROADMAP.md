@@ -647,11 +647,24 @@ JSON keep every key. Verified still true after this slice: `analyzedDataCsv` tak
 
 ## D6 — Propose which files belong to one flight, and be refusable
 
-**Status:** IN PROGRESS — decomposed 2026-07-31, then **amended 2026-07-31 by a second measurement
-that found a signal the decomposition had concluded did not exist.** A flyer can now be OFFERED a
-grouping, with the evidence, and accept or refuse it in one press. Pinned by
-`lib/proposeGroups.test.ts` (11 assertions, four falsified by mutation, including the corpus
-measurement) and three journeys in `e2e/analyze.spec.ts` walking the real app.
+**Status:** SHIPPED 2026-08-01 — pinned by `lib/proposeGroups.test.ts` (15 assertions, five
+falsified by mutation, including the corpus measurement) and **four** journeys in
+`e2e/analyze.spec.ts` walking the real app: offered-with-evidence, refused-and-nothing-merged,
+not-offered-across-different-launches, and the flyer naming which recording reports the flight
+before accepting.
+
+Decomposed 2026-07-31, then **amended 2026-07-31 by a second measurement that found a signal the
+decomposition had concluded did not exist**, and closed 2026-08-01 when the last open item was
+**refused on a measurement** rather than built — see *What is left* below. A flyer drops two files
+off one flight, is offered the grouping with the evidence in words, says which recording reports
+it, and accepts or refuses in one press.
+
+**The gap against the original *done when*, recorded rather than implied:** every clause is met —
+the offer, the evidence, one press, exactly what D3's manual grouping gives, no proposal across
+the five confusable pairs, no staged pair proposed, nothing grouped without acceptance. What is
+NOT delivered is separating *one recording exported twice* from *two instruments*; that relation
+is still conflated, the sync counter cannot separate it, and the summary CSV's serial number is
+the next place to look. It is D7's starting point, not a reopening of this one.
 
 ### The amendment, measured 2026-07-31 — read this before the decomposition below
 
@@ -693,10 +706,63 @@ agreement were re-checked and stand.
   route returns early on `phase === 'compare'` without rendering the logbook at all. An offer
   nobody sees at the moment it applies is the "feature reachable only by knowing it is there" tell.
 
-**What is left:** the primary is a suggestion and the banner does not yet let the flyer change it
-before accepting (the row control still does, after). Featherweight also publishes an in-file join
-key — a sync counter shared by the HR and LR files — which would separate *one recording exported
-twice* from *two instruments*, the relation `same_flight_group` conflates.
+**What is left: nothing. Both remaining items are closed, one shipped and one refused on a
+measurement.**
+
+- ~~the primary is a suggestion and the banner does not yet let the flyer change it before
+  accepting~~ **SHIPPED 2026-08-01.** The banner carries a `Segmented` "Reported by" control,
+  seeded from the suggestion and overridable before the press. Each option is labelled with the
+  part of the file names that actually differs — `distinguishingLabels`, which strips the shared
+  head and tail at TOKEN boundaries, because character-level matching walks straight through the
+  boundary and turns `HR`/`LR` into `H`/`L`. Pinned by `e2e/analyze.spec.ts` — *the flyer names
+  which recording reports the flight, before accepting* — which was falsified by mutation twice:
+  the first version of the assert passed with the choice thrown away, because the logbook row
+  carries a nested list of every recording by name and so contains both names whichever one is
+  primary. It asserts on the "reported by" line now, in both directions.
+
+  **Each option carried that recording's apogee for one draft, and it came out again — recorded
+  here rather than rediscovered.** `RecentMeta` stores `apogeeM` with no `apogeeIsFloor` beside
+  it, and that flag is real: a record whose log ends at its own peak reports a LOWER BOUND. A bare
+  number on the control that decides which instrument reports the flight pushes a flyer toward the
+  larger of two figures when the larger one may be the floor — the same defect as publishing a Cd
+  off a refused velocity, one surface further on. What each recording read belongs where it is
+  already shown with its context, on the recording strip after the flight exists. **Putting an
+  apogee back on this control means storing its provenance first.**
+
+  Two more, both caught by the pre-push read and both now pinned. The options' width is
+  FLYER-controlled — they are file names — and `Segmented` lays them out in a row, so a long label
+  scrolled the whole DOCUMENT sideways on a phone: measured 423 px against a 390 px client, and
+  108 px over once the options moved up to body size. Labels are clipped at 18 characters and
+  `e2e/touch.spec.ts` asserts `scrollWidth <= clientWidth` with deliberately long names. And the
+  control renders only for 2–5 recordings, which is §5's own range for `Segmented`; beyond that the
+  offer degrades to its suggestion and the row control, rather than inventing a vocabulary.
+
+- ~~Featherweight publishes an in-file join key — a sync counter shared by the HR and LR files~~
+  **REFUSED 2026-08-01 — measured, and it is the apogee failure again.** `Sync` is a free-running
+  millisecond counter mod 250, deterministic from the timebase, carrying no per-recording
+  identity. `lib/parsers/blueraven.ts:66` already said so in one clause — *"the on-board sync code
+  rolls over every 250 ms and can't be used directly"* — and the measurement confirms it is fatal
+  rather than inconvenient:
+
+  | pair | relation | shared samples | distinct offsets | best offset agreement |
+  |---|---|---|---|---|
+  | `lemiv-HR` × `lemiv-LR` | **true** — one board | 9,655 | 1 | 100.0% |
+  | `lemiv-HR` × `reddit-HR` | **false** — unrelated flights | 96,629 | 1 | 100.0% |
+
+  A TRF L3 flight and a Reddit 121 km flight — different airframes, different continents, about
+  nine months apart — join *perfectly*, at a single constant offset, across 96,629 shared samples.
+  The false pair is not merely admitted; it is **indistinguishable from the true one**, and it is
+  the larger and cleaner join of the two. Any two files sharing a `Flight_Time` grid agree at some
+  constant offset, because that is all the counter is.
+
+  It is worse than a bad threshold: `blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` **has no
+  `Sync` column at all**, so one of the four genuine pairs is unjoinable before any rule runs.
+
+  **The only real per-recording identity in this data is in the summary CSV** — `Serial
+  number,SN1537` and a firmware stamp — and only 2 of the 4 Blue Raven groups ship a summary file.
+  It is already captured as `RecentFlight.summaryText`. That is where a future attempt at
+  separating *one recording exported twice* from *two instruments* should start, and it is a
+  narrower capability than this item claimed.
 
 **Outcome.** A flyer who drops a launch day's folder is *offered* the grouping D3 makes them state
 by hand — with the evidence shown, the flight still ungrouped until they accept, and a proposal that
@@ -783,13 +849,79 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 
 ---
 
+## D7 — Deeper honest insight, the stated moat
+
+**Status:** NOT STARTED — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
+
+**Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
+That sentence was already in the after-list and it is the whole constraint: this milestone is where
+"measurement instrument, not simulator" is easiest to breach, because every new reading is one more
+chance to publish a number the data does not support.
+
+### What is already there, measured 2026-08-01 before proposing anything
+
+**21 readings** in `lib/readings.ts` — apogee, max/burnout velocity, max and average acceleration,
+thrust-to-weight, burn time, burnout altitude, coast time and efficiency, max Q, drogue and main
+descent rates, descent and flight time, ground temperature, battery, peak roll rate, revolutions,
+tilt at burnout — plus eight derived panels: measured Cd, parachute Cd, drogue Cd, deploy altitude,
+landing energy, ejection delay, rail exit, and the GPS and device-summary cross-checks.
+
+**So D7 is not "add the obvious readings".** They are shipped. What is missing is depth of a
+different kind, and each slice below names the ground truth that would settle it.
+
+### The slices, ranked by what a flyer can check
+
+1. **Every recorded channel readable as numbers, not just six.** `SampleTable` shows the channels
+   the explorer has selected, and the explorer caps at `MAX_SERIES = 6` — a limit whose own comment
+   justifies it as "how many traces stay readable", which is a fact about a CHART and not about a
+   table. `analyzedDataCsv` already carries every channel, so the data is there and only the
+   in-app view is capped. AltosUI "shows all of the data available from the flight computer"
+   (VERIFIED). *Done when* a flyer can read every channel their board recorded without swapping
+   chart selections, and a Blue Raven high-rate log proves it.
+
+2. **A reading's uncertainty, not just its value.** The invariants require an accuracy claim to be
+   "a range with their basis, not a flattering single number", and to name a caveat's DIRECTION and
+   size where the corpus can measure them. The corpus can: it is grouped by flight, so a second
+   instrument's reading of the same flight bounds the first. *Done when* at least one headline
+   reading carries a measured range whose basis is a corpus statistic, cited on the validation
+   page, and a test fails if the range is quoted without its basis.
+
+3. **The readings the corpus can settle and nothing asserts.** Recorded because it is the standing
+   hole: the corpus asserts an apogee on most fixtures and almost nothing else, which is exactly
+   where 2026-08-01's Sev-1 lived — a Cd of 0.00 and a window of "Mach 9.90 – 23.10" on a flight
+   whose golden value was green. *Done when* every fixture whose `manifest.csv` row carries a
+   velocity or Mach ground truth asserts it, and the count of asserted quantities per fixture is
+   itself pinned so it cannot quietly fall.
+
+4. **Stage-aware readings on a composite.** D4 stitches per-stage logs into one flight; the
+   readings still describe the composite as though it were one motor. A staged flyer wants each
+   stage's burn, its own thrust-to-weight, and the coast between them. *Done when* the three staged
+   corpus groups named by `lib/parsers/d6Grouping.test.ts` report per-stage figures, and a
+   single-stage flight is unchanged.
+
+**What this milestone must NOT do**, stated because it is the likely failure: no reading that
+cannot be reproduced from the flight's own record, no motor recommendation, no comparison against a
+simulation, and no number whose method is not on the methods page in the same change.
+
+**Size.** 4–6 increments. Slice 3 is the cheapest and the one with a Sev-1 already behind it; slice
+1 is the most visible to a flyer.
+
+---
+
 ## P1 — One design system, adopted
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
-**Where the counts stand, measured 2026-07-31 at the end of the run** — the §9 shell block and the
+**Measured 2026-08-01 at the end of that run, from §9's own shell block:** `rounded-lg` **0** ·
+card treatments **10** · off-scale spacing **0** · off-scale type **1** · inverted files **15** ·
+components importing `./ui` **29** · `Button` adopters **18** · `Segmented` adopters **3** · bare
+`rounded` **0** · unsanctioned dark surfaces **0**. No count moved the wrong way; one tried to and
+the ratchet caught it. **Read inverted files 16 → 15 as the adoption effect, not an improvement** —
+the `text-xs` moved out of two converted files and into `ui.tsx`, and no glyph changed size.
+
+**Where the counts stood, measured 2026-07-31 at the end of that run** — the §9 shell block and the
 test agree exactly, which is itself the check that the two have not drifted:
 
 | count | was | now | target |
@@ -868,12 +1000,47 @@ the artifact rather than the tree.
    which is §3's floor for a number a flyer reads to make a decision and its requirement that
    compared numerals line up column to column. That moved the file 27/3 → 26/6; it does not clear
    the inversion, and it was not meant to.
-3. **Three unsanctioned dark surfaces, 32 uses**, where §2 allows one beside the two sanctioned:
-   `dark:bg-zinc-900/40` ×27, `/30` ×4, `/60` ×1, against `dark:bg-zinc-900` ×41 and `/50` ×4.
-   The earlier entry said "`/40`, 30 times" and named only one of the three.
-4. **`DataTable`.** 7 tables (not 6), 2 sortable, 2 copyable, 0 keyboard-navigable. Lift it from
-   `SampleTable.tsx`, which already has the sticky header, `aria-sort` and the clipboard copy, and
-   collapse `CompareView`'s independent second copy onto it.
+3. ~~**Three unsanctioned dark surfaces, 32 uses**~~ **DONE 2026-08-01, and the count was stale by
+   3×.** Re-measured before touching anything: **11 uses, not 32** — `/40` ×9, `/30` ×1, `/60` ×1.
+   Earlier work had already taken most of them without the entry being updated, which is the
+   argument for measuring a number before spending an increment on it.
+
+   All 11 are gone. Each was decided by **its own light-mode half**, using §2's table rather than a
+   judgement per site: a light `bg-white` is `raised`, so its dark half is `dark:bg-zinc-900`; a
+   light `bg-zinc-50` is `sunken`, so its dark half is `dark:bg-zinc-900/50`. That mapping settled
+   ten of them mechanically. The eleventh, `DropZone`, was off-system on **both** halves —
+   `bg-zinc-50/50` over `dark:bg-zinc-900/30` — and is now `bg-zinc-50` / `dark:bg-zinc-900/50`,
+   verified on the built export in both themes (light `oklch(0.985 0 0)`, dark zinc-900 at 50%
+   over the page).
+
+   Census after: `dark:bg-zinc-900` ×52, `dark:bg-zinc-900/50` ×8, **everything else 0**.
+
+   *Worth knowing before "restoring" any of these:* several were chips or buttons sitting inside a
+   `Card`, where `/40` gave a faint tone break in dark mode that light mode never had — a
+   `bg-white` chip on a `bg-white` card is already flat and separated by its border alone. The
+   conversion makes dark match light rather than removing a deliberate effect.
+4. **`DataTable`.** 7 tables (re-verified 2026-08-01: exactly 7, all in `components/`, no
+   `role="table"`/`role="grid"` surface anywhere, so 7 is the whole population), 2 sortable,
+   2 copyable, 0 keyboard-navigable. Lift it from `SampleTable.tsx`, which already has the sticky
+   header, `aria-sort` and the clipboard copy.
+
+   **~~and collapse `CompareView`'s independent second copy onto it~~ — that clause is wrong and
+   is withdrawn.** Measured 2026-08-01: `CompareView`'s table is **transposed**. Metrics are rows
+   and flights are columns, and sorting a row *reorders the columns* — it ranks flights by that
+   metric — where `SampleTable`'s sort reorders rows. The two share an `aria-sort` attribute and
+   nothing else: one puts `aria-sort` on `th[scope=col]`, the other on `th[scope=row]`. Collapsing
+   them produces a union of two different components, not one primitive, which is how a shared
+   layer acquires the config surface that makes nobody use it.
+
+   **What is genuinely liftable from `SampleTable`**, measured the same day: `SortableHeader`
+   (the button-inside-`th` + `aria-sort` + per-column ⧉ copy pattern), `cycleSort`/`sortState`
+   (the three-state cycle, third click restoring record order), the copy-what-is-on-screen
+   contract over `lib/copyTable`, the always-mounted `role="status"` live region, the sticky
+   `thead` scroll shell, and the `colSpan` empty row. **What is NOT liftable:** the entire prop
+   surface is the explorer's column model — `seriesData: Float64Array[]` with `xVals` as a phantom
+   column addressed by a `col < 0` sentinel, the `view`→`[from,to]` window scan, `ROW_H`-based
+   virtualisation with spacer rows, and the event jump strip. None of it generalises to a four-row
+   cross-check table.
 5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
    state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
    `ErrorState` exist and have one adopter each.
@@ -892,7 +1059,11 @@ the artifact rather than the tree.
    tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
    there is genuinely not `Button` — the row itself as a click target, the file-name text button,
    the ✕ (an `IconButton` with a responsive size), the sort chips and the checkbox labels.
-8. **17 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+8. **12 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+   *(Re-measured 2026-08-01: **12**, not 17. Like item 3 this number had drifted downward as other
+   slices landed. Of the 12, one is `<Card>`'s own string and two are the drop zone and the drop
+   overlay, which §9 already records as wanting their own named primitives rather than folding into
+   `Card` — so the real adoption debt is nearer 9.)*
    This is the adoption debt the §9 count does not measure: §9 counts distinct TREATMENTS, which is
    7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.
    Kept here rather than added to `DESIGN.md` §9, because a new metric in that file is a change owed
@@ -911,6 +1082,30 @@ the artifact rather than the tree.
    widening the denominator moved no other number. This is the fourth §9 metric to measure
    something other than what it was reached for, after the two blind greps and the suite-wide type
    ratio.
+
+10. ~~**A sixth radius nobody counts:** bare `rounded` (0.25rem) at 11 sites.~~ **DONE 2026-08-01 —
+    and the count was wrong in both directions before it was measured properly.** The entry said 11;
+    a sweep this run first said 15. Both were counting prose. `rounded` sits inside the word
+    "G**rounded**", so `\brounded\b` matches a heading on `/validation`, and a comment in
+    `FlightReport` about uPlot having "rounded the window to its axis" matched too. The honest
+    figure is **12 class uses over 6 files** — `DeviceSummary` ×4, `ChannelExplorer` / `CompareView`
+    / `GpsApogee` ×2, `RecentFlights` / `SampleTable` ×1 — found with a leading boundary
+    (`(?<![-\w])rounded(?![-\w])`) and then filtered to lines that are actually class strings.
+    Every one is a chip or an icon button, so every one became `rounded-md`, which is §2's own
+    value for a control. Three of the six files are tables.
+
+    **No §9 metric was added for it, deliberately.** `DESIGN.md` §9 is carried identically by the
+    sibling repo and `lib/design-system.test.ts` is its executable copy, so a new count here alone
+    would fork the file — the same reason item 8's "17 hand-rolled card sites" lives in this list
+    rather than in the ratchet. **The check is owed to a run that can push both repos**, and until
+    then this conversion is unguarded: nothing fails if a bare `rounded` comes back.
+
+11. **`tabular-nums` on the two cross-check tables.** **DONE 2026-08-01.** `GpsApogee` and
+    `DeviceSummary` rendered their numbers `font-mono` with proportional digits — on the two
+    surfaces §6 exists for, where a GPS apogee sits directly above a barometric one and a device's
+    own summary figure sits beside Debrief's read of it. Comparing two numbers column-to-column is
+    the entire job of both tables and the digits did not line up. Four cells; suite-wide
+    `tabular-nums` is **27** against `font-mono` **90**, from 5 against 81 at P1's start.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
@@ -1113,12 +1308,16 @@ be merged, and the tightest apogee agreement in the corpus is between two files 
 same flight. The signal that survives is how the files ARRIVED. Numbers and reasoning in the D6
 section.
 
-**D7 — Deeper honest insight, the stated moat.** North Star 1's third bullet: more of what the data
-supports, each reading validated against the corpus, the logger's own reported summary and published
-sources, and each arriving with its method on the methods page. Decompose by readings a flyer asks for
-and that can be checked — not by whatever is computable. `COMPETITION.md` row 6 is the cheapest first
-slice: show the flyer the board's own reported summary beside ours, which the corpus already uses as
-ground truth and which nothing surfaces to a flyer.
+**D7 — Deeper honest insight, the stated moat. DECOMPOSED 2026-08-01 — see its own section above
+`D8`.** North Star 1's third bullet.
+
+**Its stated first slice was already shipped, and the pointer is corrected rather than left to cost
+someone an increment.** This entry said `COMPETITION.md` row 6 was "the cheapest first slice: show
+the flyer the board's own reported summary beside ours … which nothing surfaces to a flyer."
+`components/DeviceSummary.tsx` has done exactly that all along, rendered by `FlightReport.tsx:1045`
+on any flight whose file carries a summary, and **row 6 was itself marked `HAVE` / RESOLVED on
+2026-07-31** — the same day this pointer was written. Checked before building, which is the whole
+reason to check.
 
 **D8 — Orientation and high-rate data.** `COMPETITION.md` rows 3 and 4: the boards flyers increasingly
 own record far more than a baro trace, and the vendor tool shows it. Only honest where the log carries
@@ -1150,6 +1349,29 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-01 — D6's Featherweight sync-counter join key is REFUSED, not deferred, and D6 is
+  closed without it.** The item proposed using the `Sync` column the HR and LR files share as an
+  in-file join key, to separate *one recording exported twice* from *two instruments*. Measured
+  over the corpus: it cannot. `Sync` is a free-running millisecond counter mod 250, derived from
+  the timebase, so any two files on a shared `Flight_Time` grid agree at *some* constant offset.
+  The true pair `lemiv-HR × lemiv-LR` joins at 1 distinct offset with 100.0% agreement over 9,655
+  shared samples — and so does `lemiv-HR × reddit-HR`, two unrelated flights on different
+  continents nine months apart, at 1 distinct offset and 100.0% over 96,629. The false join is the
+  larger and cleaner of the two. One genuine pair has no `Sync` column at all. Rejected: shipping
+  it with a tolerance, which is the mistake apogee agreement already taught this milestone, and
+  which here would be worse because the false pair scores *identically* rather than merely close.
+  Also rejected: leaving the item open as "hard", which would have cost a future run an increment
+  to re-derive. The reversible part is written down — the summary CSV's serial number is real
+  per-recording identity, on 2 of 4 groups, already captured as `RecentFlight.summaryText`.
+
+- **2026-08-01 — no §9 metric was added for the bare-`rounded` sixth radius.** The 12 sites were
+  converted, but `DESIGN.md` §9 is carried identically by the sibling repo and
+  `lib/design-system.test.ts` is its executable copy, so adding a count here alone would fork the
+  file. Rejected: adding the guard anyway and accepting the fork, and rejected: leaving the 12
+  sites unconverted until a run can push both. The conversion is therefore **unguarded** and this
+  file says so — a bare `rounded` can come back without failing anything. Same reasoning as item
+  8's hand-rolled card sites.
 
 - **2026-07-31 — `DESIGN.md` was re-synced FROM the sibling repo, and then changed in both.** The two
   copies had diverged: the sibling's was 2.7 KB newer and carried three lessons this repo did not have

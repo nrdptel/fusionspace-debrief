@@ -71,7 +71,7 @@ function SortableHeader({
           onClick={onCopy}
           aria-label={`Copy the ${label} column`}
           title={`Copy the ${label} column — every row in this window, in view order`}
-          className="rounded px-1 py-1 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          className="rounded-md px-1 py-1 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
           <span aria-hidden="true">⧉</span>
         </button>
@@ -246,7 +246,7 @@ export default function SampleTable({
               key={e.type + e.index}
               type="button"
               onClick={() => jumpTo(e)}
-              className="inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               <span
                 className="h-2 w-2 shrink-0 rounded-full"

@@ -796,6 +796,10 @@ export function compareMetricRows(
   // maximum is unknown — the row's "highest" crown is withheld: which flight actually
   // pulled the most g can't be settled when one reading railed at its limit.
   const anyClipped = flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
+  // The same argument as `anyClipped`, one row up. A floor apogee is a LOWER BOUND — the log
+  // ends at its own peak and the rocket was still climbing — so which flight actually went
+  // highest cannot be settled from these numbers, and crowning one says it can.
+  const anyFloor = flights.some((f) => f.metrics.apogeeIsFloor && Number.isFinite(f.metrics.apogeeAltitude));
   const clipTag = (m: FlightMetrics) => (m.accelClipped && Number.isFinite(m.maxAcceleration) ? ' (clipped)' : '');
   // A descent rate off a record that stops in the air is a short leg, not a landing — the
   // grid and the saved report say so on the flight's own page, and this table is the one
@@ -808,7 +812,13 @@ export function compareMetricRows(
   // where a single highest value is a meaningful "best" to emphasize. `rankBlocked`
   // withholds that crown even on a rankable row when the comparison can't settle it.
   const specs: { label: string; get: (m: FlightMetrics) => string; value: (m: FlightMetrics) => number; rank?: boolean; rankBlocked?: boolean }[] = [
-    { label: 'Apogee', get: (m) => fmtLength(m.apogeeAltitude, sys), value: (m) => m.apogeeAltitude, rank: true },
+    {
+      label: 'Apogee',
+      get: (m) => fmtLength(m.apogeeAltitude, sys) + (m.apogeeIsFloor ? ' (at least)' : ''),
+      value: (m) => m.apogeeAltitude,
+      rank: true,
+      rankBlocked: anyFloor,
+    },
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee), value: (m) => m.timeToApogee },
     {
       label: 'Max velocity',
@@ -1153,6 +1163,10 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
   const { round, len, spd, acc, sec, prs } = jsonConv(sys);
   return {
     apogee: len(m.apogeeAltitude),
+    // Rides with its value, the same way `accelerationClipped` does. Without it a floor
+    // apogee — the log ended at its own peak, so the rocket was still going up — exported
+    // as a flat fact, and a document built from this JSON could not tell the difference.
+    apogeeIsFloor: m.apogeeIsFloor,
     timeToApogee: sec(m.timeToApogee),
     maxVelocity: spd(m.maxVelocity),
     maxVelocitySource: m.maxVelocitySource,

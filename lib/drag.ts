@@ -42,6 +42,16 @@ export interface DragResult {
  *  acceleration this needs.) */
 export function canMeasureDrag(series: FlightSeries, events: FlightEvent[]): boolean {
   if (series.altitudeSource === 'gps') return false;
+  // Cd is read straight off the coast velocity — it is v² in the numerator and dv/dt in
+  // the derivative — so a velocity trace the analysis has already refused cannot produce
+  // one. Without this the panel republished exactly the figure the headline withheld:
+  // measured over the corpus, 15 records reach here with `velocityUnusable` set and 5 of
+  // them carry the coast geometry below, so five flights published a Cd —
+  // and the Kairos booster published a Cd of 0.00 with a window of "Mach 9.90 – 23.10"
+  // while its own Max velocity row read "withheld — the speed this trace gives is not
+  // physically possible". A withheld reading has to stay withheld on every surface that
+  // derives from it, or the caveat is worth nothing.
+  if (series.velocityUnusable) return false;
   const burnout = events.find((e) => e.type === 'burnout');
   const apogee = events.find((e) => e.type === 'apogee');
   return !!burnout && !!apogee && apogee.index - burnout.index >= 4;

@@ -18,7 +18,7 @@ export default function Home() {
       <div className="mx-auto w-full max-w-5xl">
         <SiteHeader current="analyze" unitsSlot={<HeaderUnits />} />
 
-      <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden">
+      <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/50 print:hidden">
         <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
           How to use this
         </summary>

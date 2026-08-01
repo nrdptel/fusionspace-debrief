@@ -36,7 +36,18 @@ export interface CardStat {
  *  said "derived" the whole time. The altitude the peak occurred at is dropped — the grid
  *  has room for it, a card does not, and the provenance is the part that changes the claim. */
 export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice, hidden?: string[]): CardStat[] {
-  const stats: CardStat[] = [{ label: 'Apogee', reading: 'Apogee', value: fmtLength(metrics.apogeeAltitude, sys) }];
+  const stats: CardStat[] = [
+    {
+      label: 'Apogee',
+      reading: 'Apogee',
+      value: fmtLength(metrics.apogeeAltitude, sys),
+      // The card already qualifies a derived speed and a clipped acceleration; the apogee
+      // was the one headline that went out bare. Same argument as the docstring above —
+      // this is the artefact that gets posted to a club chat, so it is the worst place to
+      // print a lower bound as though it were the number.
+      ...(metrics.apogeeIsFloor ? { sub: 'at least this high' } : {}),
+    },
+  ];
   if (Number.isFinite(metrics.maxVelocity)) {
     const src = metrics.maxVelocitySource === 'device' ? 'measured' : 'derived';
     stats.push({

@@ -105,6 +105,66 @@ function secondsApart(a: string | null, b: string | null): number | null {
   return Math.abs(ta - tb) / 1000;
 }
 
+/**
+ * The part of each name that is NOT shared with the others — what actually tells these files
+ * apart.
+ *
+ * A proposal exists because the names agree, so most of each name is identical by construction:
+ * `BlRv_SN1537_HR_04-12-2025_12_45_49.csv` and `BlRv_SN1537_LR_04-12-2025_12_45_49.csv` differ
+ * in two characters buried in the middle of forty. Offering those as the labels on a control
+ * asks the flyer to diff two strings by eye, on a phone, to answer a question about which
+ * instrument reports their flight.
+ *
+ * So the shared head and tail are removed and what remains is the label — `HR` and `LR` above.
+ * That is also the honest answer to "what is the difference between these files", which is the
+ * question the control is really asking.
+ *
+ * Falls back to the full names whenever the result would mislead: one name a prefix of another,
+ * a remainder that is empty or punctuation-only, or any collision between two labels. A wrong
+ * short label is worse than a long right one, because the flyer cannot tell it is wrong.
+ *
+ * Two details that look like pedantry and are not. **Unicode is normalised before the labels are
+ * compared**, because `café` typed on a Mac (NFD, `e` + combining acute) and `café` off the board
+ * (NFC) are different code-point sequences that render identically — so an unnormalised collision
+ * check passes and the flyer is shown two labels they cannot tell apart, which is the one outcome
+ * this function exists to prevent. And **the "is there anything here" test is `\p{L}\p{N}`, not
+ * `A-Za-z0-9`**: an ASCII test judges a perfectly good Japanese or Cyrillic label unusable and
+ * falls back to two forty-character names, so the fallback would be the normal path for anyone
+ * not flying in English.
+ */
+export function distinguishingLabels(names: string[]): string[] {
+  if (names.length < 2) return [...names];
+
+  // Split on separators but KEEP them, so what is left can be rejoined as it was written. The
+  // comparison runs on whole tokens rather than characters, and that is load-bearing: character
+  // matching walks in from the right straight through the token boundary, so `..._HR_04-12...`
+  // and `..._LR_04-12...` share the `R` and the labels come out `H` and `L`. It reads as a near
+  // miss and is the whole answer being wrong.
+  const parts = names.map((n) => n.split(/([\s._-]+)/));
+  const tokens = parts.map((p) => p.filter((_, i) => i % 2 === 0));
+  const shortest = Math.min(...tokens.map((t) => t.length));
+
+  let head = 0;
+  while (head < shortest && tokens.every((t) => t[head] === tokens[0][head])) head++;
+
+  let tail = 0;
+  while (
+    tail < shortest - head &&
+    tokens.every((t) => t[t.length - 1 - tail] === tokens[0][tokens[0].length - 1 - tail])
+  ) {
+    tail++;
+  }
+
+  const cut = parts.map((p) => {
+    const from = head * 2;
+    const to = p.length - tail * 2;
+    return (to > from ? p.slice(from, to).join('') : '').replace(/^[\s._-]+|[\s._-]+$/g, '');
+  });
+  const seen = cut.map((c) => c.normalize('NFC'));
+  const usable = cut.every((c) => /[\p{L}\p{N}]/u.test(c)) && new Set(seen).size === seen.length;
+  return usable ? cut : [...names];
+}
+
 /** Rows that look like one flight, and the reason, in the words a flyer is shown. */
 export interface GroupProposal {
   /** The logbook ids being offered as one flight — always two or more. */

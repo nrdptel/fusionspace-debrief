@@ -14,6 +14,8 @@
 // — rather than the coarse near-pad altitude. A barometric-only velocity is itself
 // too soft to trust this low and this early, so the caller withholds it there.
 
+import type { FlightSeries } from './analyze/types';
+
 /** Common launch-rail lengths, in metres (4/6/8/10/12 ft — standard 1010/1515). */
 export const RAIL_LENGTHS_M = [1.219, 1.829, 2.438, 3.048, 3.658];
 export const DEFAULT_RAIL_M = 2.438; // 8 ft
@@ -21,6 +23,27 @@ export const DEFAULT_RAIL_M = 2.438; // 8 ft
 /** Below roughly this, a rocket is commonly considered to have left the rail too
  *  slowly to be reliably stable — surfaced as a gentle heads-up, not a rule. */
 export const MARGINAL_RAIL_VELOCITY = 15; // m/s (~49 ft/s)
+
+/**
+ * Whether a rail-exit velocity may be read from this flight at all — the two conditions
+ * that decide it, in one place the surface cannot forget half of.
+ *
+ * `velocitySource` says where the trace came from; `velocityUnusable` says whether the
+ * analysis will stand behind it. Reading only the first published a rail-exit speed, its
+ * Mach and the low-airflow caution off a trace whose peak the headline had already
+ * refused. They are separate questions and both have to be asked, which is the argument
+ * for asking them here rather than in a component: every other velocity-reading surface
+ * in the app consults `velocityUnusable`, and the one that hand-rolled its own test is
+ * the one that got it wrong.
+ */
+export function canMeasureRailExit(
+  series: Pick<FlightSeries, 'velocitySource' | 'velocityUnusable'>,
+  liftoffIndex: number | null,
+): boolean {
+  if (series.velocitySource !== 'device') return false;
+  if (series.velocityUnusable) return false;
+  return liftoffIndex != null && liftoffIndex >= 0;
+}
 
 /**
  * Rail-exit velocity (m/s): the flown velocity at the point the rocket had travelled

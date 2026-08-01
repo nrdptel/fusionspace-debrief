@@ -581,7 +581,7 @@ export default function RecentFlights({
           return (
             <li
               key={r.id}
-              className={`group rounded-xl border bg-white transition hover:border-indigo-400 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60 ${
+              className={`group rounded-xl border bg-white transition hover:border-indigo-400 dark:bg-zinc-900 dark:hover:border-indigo-500/60 ${
                 note.note
                   ? 'border-zinc-200 border-l-2 border-l-indigo-400 dark:border-zinc-800 dark:border-l-indigo-500/60'
                   : 'border-zinc-200 dark:border-zinc-800'
@@ -813,7 +813,7 @@ export default function RecentFlights({
                               {rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—'}
                             </span>
                             {isPrimary ? (
-                              <span className="shrink-0 rounded border border-indigo-400 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-500/60 dark:text-indigo-300">
+                              <span className="shrink-0 rounded-md border border-indigo-400 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:border-indigo-500/60 dark:text-indigo-300">
                                 reports this flight
                               </span>
                             ) : (

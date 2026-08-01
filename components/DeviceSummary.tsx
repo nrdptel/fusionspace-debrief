@@ -63,8 +63,8 @@ export default function DeviceSummary({
             {rows.map(({ r, computed, has, deltaPct, status, gravityConvention }) => (
               <tr key={r.metric} className="border-t border-zinc-200 dark:border-zinc-800">
                 <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{r.label}</td>
-                <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">{fmt(r.metric, r.value, sys)}</td>
-                <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">
+                <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{fmt(r.metric, r.value, sys)}</td>
+                <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                   {has ? fmt(r.metric, computed, sys) : '—'}
                 </td>
                 <td className="py-1.5">
@@ -73,23 +73,23 @@ export default function DeviceSummary({
                   ) : gravityConvention ? (
                     <span
                       title="The same reading under two conventions, not a disagreement: an accelerometer at rest reads 1 g, which Debrief reports (the force the airframe felt) and this device subtracts (what the rocket was accelerated by). The two figures are exactly one gravity apart."
-                      className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                      className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
                     >
                       agree · exactly 1 g apart*
                     </span>
                   ) : status === 'agree' ? (
-                    <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    <span className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                       agree · {deltaPct! < 0.05 ? '≈0' : deltaPct!.toFixed(1)}%
                     </span>
                   ) : status === 'consistent' ? (
                     <span
                       title="A descent rate is a windowed average of an unsteady descent, not a single instant, so two independent reads are expected to differ by more than a peak would — this is consistent, not a discrepancy."
-                      className="inline-flex items-center rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                      className="inline-flex items-center rounded-md border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                     >
                       consistent · {deltaPct!.toFixed(0)}%
                     </span>
                   ) : (
-                    <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
                       differ · {deltaPct!.toFixed(0)}%
                     </span>
                   )}

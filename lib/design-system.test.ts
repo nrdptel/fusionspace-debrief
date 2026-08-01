@@ -208,7 +208,13 @@ const BUDGET = {
    *  of these seven would have flipped on labels and inputs alone, landing at exactly 4/4. That was
    *  not taken as done — the state messages were converted because they are body text, and the seven
    *  now sit at 1–2 captions against 6–8 body rather than on the boundary. */
-  invertedTypeFiles: 16,
+  /** 16 → 15 on 2026-08-01, and it is the ADOPTION EFFECT rather than an improvement — say so,
+   *  because a number that moves the right way for the wrong reason is how a ratchet stops meaning
+   *  anything. `KofiButton` and `ThemeToggle` moved onto `Button size="sm"`, whose own class string
+   *  is `text-xs`; the class left the two files and went into `ui.tsx`. Not one glyph changed size.
+   *  §9 documents exactly this effect for the suite-wide ratio, and it reaches the per-file count
+   *  too whenever a converted file was small enough that its buttons were most of its type. */
+  invertedTypeFiles: 15,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
@@ -260,7 +266,7 @@ const BUDGET = {
  *  measurement scoped to where the drift was FIRST noticed, then read as covering the class. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 23,
-  Button: 16,
+  Button: 18,
   Chip: 3,
   Readout: 2,
   IconButton: 2,
@@ -268,7 +274,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   EmptyState: 1,
   ErrorState: 1,
   Section: 2,
-  Segmented: 2,
+  Segmented: 3,
   Disclosure: 3,
 };
 

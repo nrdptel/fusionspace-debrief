@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { railExitVelocity, RAIL_LENGTHS_M, DEFAULT_RAIL_M, MARGINAL_RAIL_VELOCITY } from './rail';
+import {
+  canMeasureRailExit,
+  railExitVelocity,
+  RAIL_LENGTHS_M,
+  DEFAULT_RAIL_M,
+  MARGINAL_RAIL_VELOCITY,
+} from './rail';
 
 const f64 = (xs: number[]) => Float64Array.from(xs);
 // A uniform 0.1 s clock of the given length.
@@ -56,6 +62,22 @@ describe('railExitVelocity (displacement integral from liftoff)', () => {
     const v = railExitVelocity(t, vel, 2, 0);
     expect(v).not.toBeNull();
     expect(Number.isFinite(v!)).toBe(true);
+  });
+
+  it('refuses a speed trace the analysis withheld, not just a barometric one', () => {
+    // Both questions, not one. The panel asked only where the trace came FROM, so a logged
+    // velocity the analysis had already refused still produced a rail-exit speed, its Mach,
+    // and the "left the rail slowly" caution — off the same trace whose peak the headline
+    // withheld. Every corpus refusal so far is barometric, so nothing in the suite would
+    // have caught the missing half.
+    expect(canMeasureRailExit({ velocitySource: 'device', velocityUnusable: false }, 0)).toBe(true);
+    expect(canMeasureRailExit({ velocitySource: 'device', velocityUnusable: true }, 0)).toBe(false);
+    expect(canMeasureRailExit({ velocitySource: 'baro', velocityUnusable: false }, 0)).toBe(false);
+    // An unknown liftoff is still refused, with or without the new clause.
+    expect(canMeasureRailExit({ velocitySource: 'device', velocityUnusable: false }, null)).toBe(false);
+    expect(canMeasureRailExit({ velocitySource: 'device', velocityUnusable: false }, -1)).toBe(false);
+    // `velocityUnusable` is optional on the series; absent must read as usable.
+    expect(canMeasureRailExit({ velocitySource: 'device' }, 0)).toBe(true);
   });
 
   it('exposes sane constants', () => {

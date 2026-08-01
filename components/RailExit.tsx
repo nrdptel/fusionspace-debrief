@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FlightSeries } from '@/lib/analyze/types';
 import { fmtMach, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
-import { railExitVelocity, RAIL_LENGTHS_M, DEFAULT_RAIL_M, MARGINAL_RAIL_VELOCITY } from '@/lib/rail';
+import {
+  canMeasureRailExit,
+  railExitVelocity,
+  RAIL_LENGTHS_M,
+  DEFAULT_RAIL_M,
+  MARGINAL_RAIL_VELOCITY,
+} from '@/lib/rail';
 import { Card } from './ui';
 
 const PREF_KEY = 'debrief.rail';
@@ -57,7 +63,14 @@ export default function RailExit({
   };
 
   // Only a logged velocity is trustworthy this low; a baro-derived one is withheld.
-  const measurable = series.velocitySource === 'device' && liftoffIndex != null && liftoffIndex >= 0;
+  // A logged one the analysis has REFUSED is withheld too, and for a different reason —
+  // so the two are kept apart below rather than sharing a message. `velocitySource`
+  // says where the trace came from; `velocityUnusable` says whether it can be believed,
+  // and reading only the first published a rail-exit speed, its Mach, and the low-airflow
+  // caution off a trace the headline had already declined to report.
+  const logged = series.velocitySource === 'device';
+  const refused = series.velocityUnusable === true;
+  const measurable = canMeasureRailExit(series, liftoffIndex);
   const v = useMemo(
     () => (measurable ? railExitVelocity(series.time, series.velocity, railM, liftoffIndex as number) : null),
     [series, railM, measurable, liftoffIndex],
@@ -102,7 +115,19 @@ export default function RailExit({
         )}
       </div>
 
-      {!measurable && (
+      {/* The refusal is only worth naming on a flight that HAS a logged velocity — otherwise
+          the standing reason below is the true one, and leading with the refusal would tell a
+          barometric flyer that a judgement about this flight is what stopped the reading when
+          in fact no barometric flight can ever produce it. Every refusal reached so far is
+          barometric, so ordering these the other way round would have hidden the real message
+          on every flight that gets one. */}
+      {!measurable && logged && refused && (
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          This flight’s speed trace is one Debrief won’t stand behind — the same reason its peak speed is withheld —
+          so nothing read off it is shown here either.
+        </p>
+      )}
+      {!measurable && !(logged && refused) && (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Rail clearance happens in the first metre or two, where a velocity derived from barometric altitude is too
           soft to read reliably — this needs a logged (accelerometer) velocity, which this flight doesn’t have.

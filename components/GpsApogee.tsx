@@ -50,18 +50,18 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
           <tbody>
             <tr className="border-t border-zinc-200 dark:border-zinc-800">
               <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">Apogee</td>
-              <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">
+              <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                 {fmtLength(gps, sys)}
               </td>
-              <td className="py-1.5 pr-4 font-mono text-zinc-800 dark:text-zinc-200">
+              <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                 {fmtLength(baro, sys)}
               </td>
               <td className="py-1.5">
                 <span
                   className={
                     verdict === 'agree'
-                      ? 'inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
-                      : 'inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
+                      ? 'inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
+                      : 'inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
                   }
                   title={
                     verdict === 'different-peak'

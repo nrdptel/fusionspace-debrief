@@ -1815,7 +1815,7 @@ test('two files that name the same launch are offered as one flight, and the fly
   // The offer is where the drop LANDS the flyer. This route returns early on the comparison
   // without rendering the logbook at all, so an offer that lived only in the logbook would be
   // invisible at the exact moment it applies.
-  const banner = page.locator('[role="status"]').filter({ hasText: 'look like one flight' });
+  const banner = page.getByRole('region', { name: 'Files that may be one flight' });
   await expect(banner).toBeVisible({ timeout: 20_000 });
   // The evidence is the feature: a fact the flyer can check against the two file names in front
   // of them, not "these look similar".
@@ -1829,11 +1829,11 @@ test('two files that name the same launch are offered as one flight, and the fly
   await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toHaveCount(0);
 
   // The flyer accepts, and gets exactly what stating it by hand gives them.
-  await page.locator('[role="status"]').filter({ hasText: 'look like one flight' })
+  await page.getByRole('region', { name: 'Files that may be one flight' })
     .getByRole('button', { name: 'Yes, one flight' }).click();
   await expect(logbook.locator('> li')).toHaveCount(1, { timeout: 10_000 });
   await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toBeVisible();
-  await expect(page.locator('[role="status"]').filter({ hasText: 'look like one flight' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Files that may be one flight' })).toHaveCount(0);
 });
 
 test('an offered grouping can be refused, and nothing is merged', async ({ page }) => {
@@ -1842,7 +1842,7 @@ test('an offered grouping can be refused, and nothing is merged', async ({ page 
     await stamped('altusmetrum-telemetrum.csv', 'BlRv_SN1537 HR_04-12-2025_12_45_49.csv'),
     await stamped('featherweight-raven-fip.csv', 'BlRv_SN1537 LR_04-12-2025_12_45_49.csv'),
   ]);
-  const banner = page.locator('[role="status"]').filter({ hasText: 'look like one flight' });
+  const banner = page.getByRole('region', { name: 'Files that may be one flight' });
   await expect(banner).toBeVisible({ timeout: 20_000 });
   await banner.getByRole('button', { name: 'No, separate flights' }).click();
 
@@ -1851,6 +1851,47 @@ test('an offered grouping can be refused, and nothing is merged', async ({ page 
   await page.getByRole('button', { name: '← Back to a single flight' }).click();
   await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(2, { timeout: 10_000 });
   await expect(page.getByRole('button', { name: /Recorded 2 times/ })).toHaveCount(0);
+});
+
+test('the flyer names which recording reports the flight, before accepting', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    await stamped('altusmetrum-telemetrum.csv', 'BlRv_SN1537 HR_04-12-2025_12_45_49.csv'),
+    await stamped('featherweight-raven-fip.csv', 'BlRv_SN1537 LR_04-12-2025_12_45_49.csv'),
+  ]);
+  const banner = page.getByRole('region', { name: 'Files that may be one flight' });
+  await expect(banner).toBeVisible({ timeout: 20_000 });
+
+  // Which recording reports the flight is a real choice between two instruments, and it was
+  // only answerable AFTER the flight existed — the row control could always change it, so the
+  // one moment the flyer is looking at both files was the one moment they could not say.
+  const picker = banner.getByRole('group', { name: 'Which recording reports this flight' });
+  await expect(picker).toBeVisible();
+  const options = picker.getByRole('button');
+  await expect(options).toHaveCount(2);
+
+  // Labelled by the only part of the two names that differs, rather than by the forty
+  // characters they share — the offer exists because the names agree.
+  const suggested = picker.locator('button[aria-pressed="true"]');
+  await expect(suggested).toHaveCount(1);
+  const other = picker.locator('button[aria-pressed="false"]');
+  const label = ((await other.textContent()) ?? '').split('\u00b7')[0].trim();
+  expect(['HR', 'LR']).toContain(label);
+
+  await other.click();
+  await expect(picker.locator('button[aria-pressed="true"]')).toContainText(label);
+
+  await banner.getByRole('button', { name: 'Yes, one flight' }).click();
+  await page.getByRole('button', { name: '\u2190 Back to a single flight' }).click();
+  const logbook = page.getByRole('list', { name: 'Your flights' });
+  await expect(logbook.locator('> li')).toHaveCount(1, { timeout: 10_000 });
+  // Assert on the "reported by" line specifically, NOT on the row: the row carries a nested
+  // list of every recording by name, so `SN1537 HR` appears in it whichever one is primary and
+  // an assertion there passes with the choice thrown away. Mutation-checked both ways round.
+  const reportedBy = page.getByRole('button', { name: /Recorded 2 times/ });
+  await expect(reportedBy).toBeVisible();
+  await expect(reportedBy).toContainText(`SN1537 ${label}`);
+  await expect(reportedBy).not.toContainText(`SN1537 ${label === 'HR' ? 'LR' : 'HR'}`);
 });
 
 test('files that name different launches are not offered as one flight', async ({ page }) => {
@@ -1863,7 +1904,7 @@ test('files that name different launches are not offered as one flight', async (
     await stamped('featherweight-raven-fip.csv', 'GPS_GS03748_04-12-2025_13_01_45.csv'),
   ]);
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('[role="status"]').filter({ hasText: 'look like one flight' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Files that may be one flight' })).toHaveCount(0);
   await page.getByRole('button', { name: '← Back to a single flight' }).click();
   await expect(page.getByRole('list', { name: 'Your flights' }).locator('> li')).toHaveCount(2, { timeout: 10_000 });
 });

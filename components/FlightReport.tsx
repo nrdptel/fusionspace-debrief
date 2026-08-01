@@ -1098,7 +1098,47 @@ export default function FlightReport({
 
         {/* Measured drag coefficient — read from the coast deceleration, so it needs a
             real coast between burnout and apogee (and an accelerometer or baro trace). */}
-        {canMeasureDrag(series, events) && <DragCoefficient series={series} events={events} sys={sys} />}
+        {canMeasureDrag(series, events) ? (
+          <DragCoefficient series={series} events={events} sys={sys} />
+        ) : (
+          // A withheld reading says why it is withheld. This panel used to simply not
+          // render, which on a flight whose speed trace was refused left the flyer with no
+          // way to tell "this flight can't give a Cd" from "Debrief forgot" — and the
+          // refusal is the interesting fact, because it is the same one behind the withheld
+          // peak speed.
+          //
+          // It renders ONLY where the flight would otherwise have produced a Cd: the same
+          // coast geometry `canMeasureDrag` wants, with the velocity judgement taken out.
+          // Without that, the eight corpus flights that have no burnout at all would be told
+          // the refusal is what stopped the reading, when nothing could have produced one.
+          // The other two reasons (GPS altitude, no measurable coast) stay unnarrated because
+          // they are properties of the flight rather than a judgement Debrief made about it.
+          canMeasureDrag({ ...series, velocityUnusable: false }, events) && (
+            <Card as="section" aria-labelledby="drag-withheld-heading">
+              <h3
+                id="drag-withheld-heading"
+                className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300"
+              >
+                Drag coefficient (measured)
+              </h3>
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                {metrics.maxVelocityWithheld === 'gap' ? (
+                  <>
+                    Withheld. C<sub>d</sub> is read straight off the coast speed, and this record has a stretch of the
+                    ascent it doesn’t cover — the same gap that withholds the peak speed. A drag figure fitted across a
+                    hole would read as a measurement.
+                  </>
+                ) : (
+                  <>
+                    Withheld. C<sub>d</sub> is read straight off the coast speed, and this flight’s speed trace is one
+                    Debrief won’t stand behind — the same reason its peak speed is withheld. A drag figure from it
+                    would carry that error squared.
+                  </>
+                )}
+              </p>
+            </Card>
+          )
+        )}
       </div>
 
       <FlightTimeline events={events} metrics={metrics} sys={sys} />
