@@ -117,7 +117,10 @@ describe('flightCardStats', () => {
     // cert PDF all say Mach 1.3. The grid tile said "derived" the whole time.
     const derived: FlightMetrics = { ...base, maxVelocitySource: 'baro', accelerationSource: 'baro', mach: 2.64 };
     const stats = flightCardStats(derived, 'metric');
-    expect(stats.find((s) => s.label === 'Max velocity')?.sub).toBe('Mach 2.64 · derived');
+    // "derived" alone let a reader take the figure as a floor. The card carries the DIRECTION now,
+    // in the short form the image has room for — same claim as the tile and the saved report, and
+    // `lib/readings.test.ts` holds all three to naming it.
+    expect(stats.find((s) => s.label === 'Max velocity')?.sub).toBe('Mach 2.64 · derived (usually reads high)');
     expect(stats.find((s) => s.label === 'Max accel')?.sub).toBe('derived');
 
     const measured = flightCardStats(base, 'metric');

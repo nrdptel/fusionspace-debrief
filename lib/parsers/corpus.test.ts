@@ -18,6 +18,12 @@ import { buildPlotChannels } from '../explore';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 import { alignStages } from '../stitch';
 import { canMeasureDrag } from '../drag';
+import {
+  DERIVED_PEAK_PAIRS,
+  DERIVED_PEAK_FLIGHTS,
+  DERIVED_PEAK_ALWAYS_HIGH,
+  derivedPeakRange,
+} from '../derivedPeak';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -2648,3 +2654,106 @@ describe('a descent rate is averaged over time, not over samples', () => {
   });
 });
 
+
+/**
+ * The published figure for what a DERIVED peak speed overstates by, recomputed from the corpus.
+ *
+ * D7 slice 2 asks for a headline reading to carry "a measured range whose basis is a corpus
+ * statistic … and a test fails if the range is quoted without its basis". This is that test.
+ *
+ * It exists because the figures had drifted, and the way they drifted is the point: several sites
+ * still published a **+30%** that was HONEST WHEN WRITTEN — the endurance StratoLogger against its
+ * TeleMetrum — and stopped existing when the ascent-noise guard began withholding that peak (the
+ * enumeration above this file's own pair list says so). Nothing connected the guard to the figure,
+ * so the figure outlived the pair. `lib/derivedPeak.ts` holds them once now and this holds that
+ * file to the corpus, so the published number shrinks with the enumeration instead of being
+ * remembered.
+ *
+ * The basis is the corpus's own strongest ground truth — it is grouped by flight, so where one
+ * recording MEASURED the speed and another differentiated it out of an altitude, the second is
+ * bounded by the first. Nothing else in the corpus can bound a derived peak at all.
+ */
+describe('what a derived peak speed overstates by, measured rather than remembered', () => {
+  if (!present) {
+    it.skip('corpus not fetched', () => {});
+    return;
+  }
+  it('matches lib/derivedPeak.ts, pair for pair', { timeout: 180_000 }, () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: { file: string; group?: string }[] };
+    const groupOf = new Map(spec.fixtures.map((f) => [f.file, f.group]));
+    const reads = corpusReads().filter((r) => r.reach === 'analysed' && r.metrics && !r.velocityWithheld);
+
+    const byGroup = new Map<string, typeof reads>();
+    for (const r of reads) {
+      const g = groupOf.get(r.file);
+      if (!g) continue;
+      if (!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g)!.push(r);
+    }
+
+    const pairs: { group: string; speedPct: number; machPct: number }[] = [];
+    for (const [g, rs] of byGroup) {
+      const measured = rs.filter((r) => r.metrics!.maxVelocitySource === 'device' && Number.isFinite(r.metrics!.maxVelocity));
+      const derived = rs.filter((r) => r.metrics!.maxVelocitySource !== 'device' && Number.isFinite(r.metrics!.maxVelocity));
+      if (!measured.length || !derived.length) continue;
+      for (const d of derived) {
+        // Against the CLOSEST measured read of that flight, so the figure is the smallest
+        // defensible overstatement rather than the most dramatic one available.
+        let best = measured[0];
+        for (const m of measured) {
+          if (Math.abs(m.metrics!.maxVelocity - d.metrics!.maxVelocity) < Math.abs(best.metrics!.maxVelocity - d.metrics!.maxVelocity)) best = m;
+        }
+        const speedPct = ((d.metrics!.maxVelocity - best.metrics!.maxVelocity) / best.metrics!.maxVelocity) * 100;
+        const dm = d.metrics!.mach;
+        const bm = best.metrics!.mach;
+        const machPct = Number.isFinite(dm as number) && Number.isFinite(bm as number) && (bm as number) > 0
+          ? (((dm as number) - (bm as number)) / (bm as number)) * 100
+          : NaN;
+        pairs.push({ group: g, speedPct, machPct });
+      }
+    }
+
+    const shown = pairs
+      .map((p) => `${p.group} +${p.speedPct.toFixed(1)}% speeds / +${p.machPct.toFixed(1)}% Mach`)
+      .sort()
+      .join('\n');
+
+    // CONTAINMENT, not equality. A container's checked-out fixtures and the release asset
+    // `corpus.lock.json` pins are not guaranteed to be the same corpus, and on 2026-08-01 they
+    // were not: locally this found four pairs, CI found six. Equality would make the check pass on
+    // exactly one corpus and go red on the other, which teaches the next session to widen it. So
+    // every pair the corpus in front of us finds must be REPRESENTED in `lib/derivedPeak.ts` —
+    // a pair the corpus shows and the published list omits is the failure that matters — while a
+    // listed pair a smaller corpus cannot reproduce is not.
+    for (const p of pairs) {
+      const speed = Math.round(p.speedPct);
+      const mach = Math.round(p.machPct);
+      const match = DERIVED_PEAK_PAIRS.find((x) => x.speedPct === speed);
+      expect(
+        match,
+        `the corpus shows a ${speed}% pair on ${p.group} that lib/derivedPeak.ts does not publish:\n${shown}`,
+      ).toBeTruthy();
+      expect(
+        match!.machPct,
+        `${p.group}: the Mach ratio must be computed, not copied from the speed ratio`,
+      ).toBe(mach);
+    }
+    expect(DERIVED_PEAK_PAIRS.length, shown).toBeGreaterThanOrEqual(pairs.length);
+    expect(DERIVED_PEAK_FLIGHTS, shown).toBeGreaterThanOrEqual(new Set(pairs.map((p) => p.group)).size);
+
+    // The DIRECTION is the claim a flyer acts on, and it must not be more flattering than the
+    // corpus. Publishing "always high" while any pair reads low would say a derived peak is an
+    // upper bound when it is not — the exact overclaim this constant was set to `false` for.
+    expect(
+      DERIVED_PEAK_ALWAYS_HIGH,
+      `some corpus pair reads LOW, so the published claim may not be "always high":\n${shown}`,
+    ).toBe(pairs.every((p) => p.speedPct > 0) && DERIVED_PEAK_PAIRS.every((p) => p.speedPct > 0));
+
+    // …and at least one pair must genuinely differ between the bases, or the distinction this
+    // module exists to keep straight would be one nothing in the data supports.
+    expect(
+      pairs.some((p) => Math.round(p.speedPct) !== Math.round(p.machPct)),
+      `the two bases must be different numbers on at least one real pair:\n${shown}`,
+    ).toBe(true);
+  });
+});

@@ -4,6 +4,7 @@ import SiteHeader from '@/components/SiteHeader';
 import type { MethodId } from '@/lib/methodIds';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_URL } from '@/lib/links';
+import { derivedPeakList } from '@/lib/derivedPeak';
 
 export const metadata: Metadata = {
   title: 'Where the numbers come from — Debrief',
@@ -199,8 +200,11 @@ export default function MethodsPage() {
           <Method id="velocity-max-velocity" title="Velocity & max velocity">
             Used straight from the device when it logged a velocity (an accelerometer-integrated speed
             is best through the fast boost); otherwise it&apos;s the time-derivative of the cleaned
-            altitude, smoothed to the file&apos;s own sample rate. Derived velocity is softer at peak
-            speed, and labelled wherever it appears. A logged velocity column that turns out to be the
+            altitude, smoothed to the file&apos;s own sample rate. A derived velocity usually reads{' '}
+            <strong>high</strong> at the peak rather than soft — smoothing does soften a peak, but
+            what differentiation adds is generally larger. Across the corpus pairs that carry both
+            reads it runs {derivedPeakList('speed')} on the speeds: mostly high, once 14% low, so it
+            bounds the speed in neither direction. It is labelled wherever it appears. A logged velocity column that turns out to be the
             file&apos;s <em>own altitude differenced sample to sample</em> is not a second reading at
             all — a baro-only altimeter has no speed sensor, so what it writes there carries the
             barometer&apos;s quantization as speed, and its peak is that noise (one real export of a
@@ -231,11 +235,12 @@ export default function MethodsPage() {
             the timings and the descent still read normally from the altitude. A derived speed that peaks
             at or past the transonic region (about Mach&nbsp;0.9 up) carries a further caveat:
             approaching Mach&nbsp;1 the airflow over a barometric pressure port goes locally supersonic
-            and a shock sits on it, distorting the sensed pressure and the speed read from it — and the
-            error runs both ways. Two flights recorded on two devices each bracket it: one baro trace
-            read Mach&nbsp;1.19 where its partner measured 0.93, another Mach&nbsp;2.64 where its
-            partner measured 1.22. So no baro peak from Mach&nbsp;0.9 up can confirm the rocket went
-            supersonic, nor bound how fast it really went. It&apos;s flagged, not withheld; an
+            and a shock sits on it, distorting the sensed pressure and the speed read from it — and
+            the error runs both ways. It is usually high, and the corpus pairs span{' '}
+            {derivedPeakList('speed')}: the widest is a baro trace reading Mach&nbsp;2.64 where its
+            partner measured 1.22, and one reads 14% <em>below</em> its partner. So no baro peak from
+            Mach&nbsp;0.9 up can confirm the rocket went supersonic, and it bounds how fast it really
+            went in neither direction. It&apos;s flagged, not withheld; an
             accelerometer or an inertial solution settles it.
           </Method>
           <Method id="gps-speed-supersonic" title="A GPS speed doesn't settle it either">
@@ -250,10 +255,14 @@ export default function MethodsPage() {
             1,340&nbsp;ft/s — <strong>+5%</strong> against the measurement and <strong>+9%</strong>
             against itself, as speed ratios; the two Mach figures, 1.32 against 1.22, differ by +8%,
             since Mach also carries the air the peak was read in. That direction holds for every
-            derived peak the corpus can check, and the sizes are not small: the two barometric speeds
-            on that same flight run <strong>+23%</strong> and <strong>+110%</strong>, and a
-            PerfectFlite barometric peak runs <strong>+30%</strong> against an AltusMetrum inertial
-            recording of the endurance flight. High by an amount nothing on the file bounds is not a
+            derived peak the corpus can check bar one, and the sizes are not small: the full set is{' '}
+            {derivedPeakList('speed')} on the speeds, from a device&apos;s own binary download read
+            beside its CSV export to a barometer through the transonic push — and one pair that runs
+            the other way. (An endurance-flight PerfectFlite peak used to be quoted here at{' '}
+            <strong>+30%</strong>; Debrief withholds that peak now — it sits 0.05&nbsp;s after
+            liftoff on a log that opens below the pad — so the pair no longer exists. The list moves
+            as the guards improve, which is why these figures are computed from the corpus rather
+            than written down.) Wrong by an amount nothing on the file bounds is not a
             figure that decides whether a flight went supersonic, so a GPS-derived crossing is flagged
             the same way a barometric one is. The number is still shown: it is the flyer&apos;s own
             record, and the direction of its error is stated with it.

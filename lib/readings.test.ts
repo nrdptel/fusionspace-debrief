@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { descentStoppedAloft, metricTiles } from './readings';
 import { headlineRows, type RecoveryFigures } from './report';
+import { velocityProvenance } from './readings';
 import type { FlightMetrics } from './analyze/types';
 
 // A flight that has every reading Debrief can produce. Nothing here is a measurement —
@@ -91,6 +92,44 @@ describe('the screen and the saved report agree on which readings exist', () => 
     // read a number off the page and saved a write-up got a document without it.
     const missing = gridLabels.filter((l) => !reportLabels.includes(l));
     expect(missing, `on screen but in no saved report: ${missing.join(', ')}`).toEqual([]);
+  });
+
+  // The labels agreeing is half of it. The QUALIFIER has to travel too — `lib/report.ts` says so
+  // in its own comment ("the document a flyer files has to carry the qualifier the screen shows,
+  // or the number that leaves the app is the one without it") and carried it for the apogee floor
+  // while the peak speed left bare, because `velocityProvenance` was module-private and there was
+  // nothing to call. A flyer filing a cert document got a speed with no sign it had been
+  // differentiated out of an altitude — on the one reading whose derived form the corpus measures
+  // as reading HIGH by up to 110%.
+  it('carries the peak speed’s provenance into the saved report, not just onto the tile', () => {
+    for (const [name, m] of [
+      ['measured', { ...EVERYTHING, maxVelocitySource: 'device' as const }],
+      ['derived', { ...EVERYTHING, maxVelocitySource: 'baro' as const }],
+    ] as const) {
+      const tile = metricTiles(m, 'imperial').find((t) => t.label === 'Max velocity');
+      const row = headlineRows(m, 'imperial').find(([l]) => l === 'Max velocity');
+      expect(tile, `${name}: the tile exists`).toBeTruthy();
+      expect(row, `${name}: the report row exists`).toBeTruthy();
+      const want = velocityProvenance(m);
+      expect(row![1], `${name}: the saved row must carry the provenance — got "${row![1]}"`).toContain(want);
+      // …and it must be the SAME words the tile uses, from the same function, so the two can
+      // never drift into describing one reading two ways.
+      expect(tile!.sub ?? '', `${name}: the tile must say the same — got "${tile!.sub}"`).toContain(want);
+    }
+  });
+
+  // "derived" alone is the vague caveat the safety invariant rejects: it has to name the
+  // DIRECTION, because a flyer told their peak is soft will read it as a floor when the corpus
+  // says it is a ceiling.
+  it('says which WAY a derived peak is wrong, not merely that it is derived', () => {
+    // BOTH forms — the share card has room only for the short one, and it is the surface where an
+    // unqualified figure did the most damage, so it is the one that must not lose the direction.
+    for (const form of ['full', 'short'] as const) {
+      const derived = velocityProvenance({ ...EVERYTHING, maxVelocitySource: 'baro' }, form);
+      expect(derived, `${form}: names the method`).toContain('derived');
+      expect(derived, `${form}: names the DIRECTION`).toMatch(/high/i);
+      expect(velocityProvenance({ ...EVERYTHING, maxVelocitySource: 'device' }, form)).toBe('measured');
+    }
   });
 
   it('adds nothing to the report that the page does not show, beyond the documented rows', () => {

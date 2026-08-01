@@ -2,6 +2,7 @@ import type { FlightMetrics } from '@/lib/analyze/types';
 import { visibleRows } from '@/lib/reportProfile';
 import { metricTiles } from '@/lib/readings';
 import ReadingChooser from './ReadingChooser';
+import { derivedPeakList } from '@/lib/derivedPeak';
 import { Card, Extrapolated, Readout } from './ui';
 import { fmtLength, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
@@ -107,14 +108,15 @@ export default function MetricGrid({
                 through the transonic region, but differentiating a coarse, lagging altitude runs the peak high — on
                 the corpus GPS flight a second instrument also recorded, this read came out about 5% above the
                 measured speed, and 9% above the tracker&apos;s own stated figure. Every other derived peak the
-                corpus can check runs high too, by 23%, 30% and 110%. An accelerometer or an inertial solution
-                would settle it.
+                corpus can check usually runs high too — the pairs span {derivedPeakList('speed')}. An
+                accelerometer or an inertial solution would settle it.
               </>
             ) : (
               <>
-                a barometer can&apos;t confirm supersonic flight (the shock over the pressure port distorts the sensed
-                pressure from about Mach 0.9 up, and the error runs both ways). An accelerometer or an inertial
-                solution would settle it.
+                a barometer can&apos;t confirm supersonic flight: the shock over the pressure port distorts the
+                sensed pressure from about Mach 0.9 up, and the error runs both ways — the corpus pairs span
+                {' '}{derivedPeakList('speed')}, usually high but not always, so this figure bounds the speed
+                in neither direction. An accelerometer or an inertial solution would settle it.
               </>
             )}
           </Extrapolated>

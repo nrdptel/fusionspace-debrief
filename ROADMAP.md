@@ -852,8 +852,10 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 ## D7 — Deeper honest insight, the stated moat
 
 **Status:** IN PROGRESS — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
-**Slices 1 and 3 shipped 2026-08-01** (corpus assertions 40 → 54, and a tolerance that was absorbing a
-gravity; and every recorded channel readable as numbers). Slices 2 and 4 remain.
+**Slices 1, 2 and 3 shipped 2026-08-01.** Corpus assertions 40 → 54 and a tolerance that was
+absorbing a gravity; every recorded channel readable as numbers; and the derived-peak overstatement
+made a computed, corpus-pinned figure instead of prose that had drifted into publishing a number no
+pair produces. **Slice 4 (stage-aware readings on a composite) is what remains.**
 
 **Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
 That sentence was already in the after-list and it is the whole constraint: this milestone is where
@@ -904,15 +906,70 @@ different kind, and each slice below names the ground truth that would settle it
    for a chart, and the defect was never the limit — it was a chart's limit deciding what a table
    could show.
 
-2. **A reading's uncertainty, not just its value.** The invariants require an accuracy claim to be
+2. ~~**A reading's uncertainty, not just its value.**~~ **DONE 2026-08-01 — and the figures it was
+   supposed to attach turned out to be wrong.** The invariants require an accuracy claim to be
    "a range with their basis, not a flattering single number", and to name a caveat's DIRECTION and
    size where the corpus can measure them. The corpus can: it is grouped by flight, so a second
    instrument's reading of the same flight bounds the first. *Done when* at least one headline
    reading carries a measured range whose basis is a corpus statistic, cited on the validation
    page, and a test fails if the range is quoted without its basis.
 
-   **NOT STARTED — and the measurement it needs was taken 2026-08-01, so the next run builds
-   rather than re-derives.** Every manifest row carries a `stated_max_velocity`; sweeping all of
+   **What shipped.** `lib/derivedPeak.ts` holds the figures once — pairs, both bases, and the
+   basis each rests on — and `lib/parsers/corpus.test.ts` → *"matches lib/derivedPeak.ts, pair for
+   pair"* recomputes them from the real logs and fails if they move, so a published accuracy figure
+   can no longer drift from the corpus. Six sites that had written the sentence out by hand now
+   read from it.
+
+   **Three things were wrong before it, all found by measuring rather than by reading:**
+   - **A published `+30%` that no pair in the corpus produces.** Its stated source was "a
+     PerfectFlite baro against an AltusMetrum inertial on the endurance flight" — the endurance
+     group holds ONE recording, and the PerfectFlite that does sit beside a TeleMetrum is on sg1.1
+     and is a `knownIssue` fixture the runner never analyses. **A published accuracy figure had
+     been computed off a read Debrief refuses to stand behind.**
+   - **`/validation` said a derived peak is "softer at peak speed than a logged one".** It reads
+     HIGH — the analysis says so at `lib/analyze/index.ts:2739`, and a corpus test has been named
+     *"a speed differentiated out of an altitude reads high, not soft"* the whole time. Telling a
+     flyer their peak is soft invites reading it as a floor when the corpus says it is a ceiling,
+     which is the dangerous direction on a supersonic claim. The same bullet said two flights
+     "bracket the error in both directions" and then gave two examples that are both high.
+   - **The saved document carried no provenance at all.** `lib/report.ts` says in its own comment
+     that "the document a flyer files has to carry the qualifier the screen shows" — and did that
+     for the apogee floor while the peak speed left bare, because `maxVelocitySub` was
+     module-private and there was nothing to call. The tile said measured/derived; the `.txt`,
+     `.md`, `.html`, the clipboard and the print card all printed the speed bare. `.md` and `.txt`
+     are precisely what a cert document is built from.
+
+   **The shape of the measurement, which matters more than the range.** Four pairs over two
+   flights, and they are not four of a kind — the spread widens exactly as the comparison gets less
+   clean: a TeleMetrum's CSV against its own `.eeprom` (**+4%**, one device, one flight, method
+   isolated with no confound at all) · a Blue Raven against a Featherweight GPS (**+5%**) · against
+   an Eggtimer Quantum baro (**+23%**) · against an Eggtimer Proton baro through the transonic push
+   (**+110%**). So +4% is what differentiating costs when nothing else differs. `isolatesMethod`
+   carries that distinction in the data so the wide end cannot be quoted as the cost of the method.
+
+   **The most important thing this slice produced is a claim CI refused.** A local run found four
+   pairs, all high, and the first version of this work published *"a derived peak is an upper
+   bound"* on that basis — on `/methods`, on `/validation`, on the metric grid and in the analysis's
+   own caveat. **CI, running the corpus `corpus.lock.json` actually pins, found six pairs and one of
+   them reads 13.7% LOW.** So the claim was false, and it was false in the flattering direction:
+   telling a flyer their derived peak is a ceiling when it is not.
+
+   Worse, the app had said the right thing before — *"the error runs both ways"* — and the
+   "correction" to *"reads high"* was the regression. What was genuinely wrong in the original was
+   only its examples (it offered two, both high) and one stale figure. **The published wording is
+   back to both-ways, now with the measured spread beside it**: `-14% to +110%`, usually high,
+   bounding the speed in neither direction.
+
+   **This is also the first hard evidence that the attached fixtures checkout and the pinned release
+   are different corpora** — `VERSION` says `v1.0.0`, `corpus.lock.json` pins `v1.1.0`, and they do
+   not agree about which fixtures are analysable. A local green run cannot see the difference, so
+   `lib/derivedPeak.ts` is a **superset** and its test asserts CONTAINMENT rather than equality: a
+   pair the corpus shows and the published list omits fails, a listed pair a smaller corpus cannot
+   reproduce does not. Equality would have made the check pass on exactly one corpus and go red on
+   the other, which teaches the next session to widen it.
+
+   *(The original decomposition, kept because its cautions still hold:)*
+   **Measured 2026-08-01, so the next run builds rather than re-derives.** Every manifest row carries a `stated_max_velocity`; sweeping all of
    them through the real pipeline gives peak speed against ground truth, split by how Debrief got
    it:
 

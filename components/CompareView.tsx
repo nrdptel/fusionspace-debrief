@@ -9,6 +9,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
+import { derivedPeakCaveat } from '@/lib/derivedPeak';
 import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
 import { loadCompareChannel, saveCompareChannel, loadHiddenEvents, saveHiddenEvents } from '@/lib/plotView';
 import ReadingChooser from './ReadingChooser';
@@ -746,9 +747,7 @@ export default function CompareView({
                 <>
                   {' '}
                   <span className="text-zinc-500 dark:text-zinc-400">
-                    *the recordings mix a value the device measured with one differentiated out of an
-                    altitude, which reads high at the peak — 5% to 110% high on the corpus flights that
-                    carry both — so that spread overstates the disagreement rather than bounding it.
+                    *{derivedPeakCaveat().charAt(0).toLowerCase()}{derivedPeakCaveat().slice(1)}
                   </span>
                 </>
               )}

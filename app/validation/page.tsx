@@ -4,6 +4,7 @@ import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { Section } from '@/components/ui';
 import { SITE_URL } from '@/lib/links';
+import { derivedPeakList } from '@/lib/derivedPeak';
 
 export const metadata: Metadata = {
   title: 'How Debrief is validated — Debrief',
@@ -206,14 +207,20 @@ export default function ValidationPage() {
               figure it produced is not evidence of anything.
             </li>
             <li>
-              A <strong>derived (barometric) velocity or acceleration</strong> is a smoothed estimate,
-              softer at peak speed than a logged one, and labelled wherever it appears. From about
-              Mach&nbsp;0.9 up it stops being a reading of the speed at all: two corpus flights each
-              recorded on two devices bracket the error in both directions — one baro trace read
-              Mach&nbsp;1.19 against a measured 0.93, another Mach&nbsp;2.64 against a measured 1.22 —
-              so a baro peak there is flagged and never counted as proof of a supersonic flight. Only a
-              speed the device itself measured settles that; a speed differentiated from an altitude
-              never does, whichever sensor wrote the altitude.
+              A <strong>derived (barometric or GPS) velocity</strong> is worked out from the altitude
+              rather than measured, and it is labelled wherever it appears.
+              It <strong>usually reads high</strong> at the peak, sometimes by a lot — and it is{' '}
+              <strong>not a bound in either direction</strong>. Every corpus flight recorded twice,
+              where one recording measured the speed and the other derived it, gives{' '}
+              <strong>{derivedPeakList('speed')}</strong> on the speeds ({derivedPeakList('mach')}{' '}
+              comparing the Mach numbers, which is a different ratio and is quoted here under its own
+              name). Most run high; <strong>one reads 14% low</strong>, which is why a derived peak
+              cannot be treated as a ceiling any more than as a floor. The cleanest pair is one
+              device&apos;s CSV export against its own binary download — same flight, same sensor —
+              and it reads <strong>+4%</strong>; the widest is a different barometer through the
+              transonic push, at <strong>+110%</strong>. From about Mach&nbsp;0.9 up a baro trace
+              stops being a reading of the speed at all, so a peak there is flagged and never counted
+              as proof of a supersonic flight. Only a speed the device itself measured settles that.
             </li>
             <li>
               A <strong>logged velocity column that is really the file&apos;s own altitude
