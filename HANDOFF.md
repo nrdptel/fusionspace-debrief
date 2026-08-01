@@ -6,13 +6,29 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D7 IN PROGRESS — slices 1, 2 and 3 shipped.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
+| **D — capability** | **D7 IN PROGRESS — slices 1, 2 and 3 shipped; only slice 4 (stage-aware readings on a composite) remains.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
 | **P — product & craft** | **P1 IN PROGRESS — item 4 started.** `DataTable` and `CopyTableButton` exist in `components/ui.tsx`; both cross-check tables are on the first and the window-stats table on the second. **Copyable tables 2 → 6**, and item 4's table sweep is complete. Items **5**, **7** and **8** remain, plus item 4's keyboard clause. |
 
-**Everything this run is MERGED AND LIVE.** Three pull requests here (#75, #76, #77) and one on
-the fixtures repo (#3), all merged on green; production was verified serving **`62f9d9c`** with a
-cache-buster, and the run's new strings were found in the served bundles. Nothing is pending —
-under SHIPPED-MEANS-REACHABLE this run shipped **9 increments, all reachable by a flyer.**
+**Everything is MERGED AND LIVE.** Five pull requests here (#75–#79) and one on the fixtures repo
+(#3), all merged on green; production was verified serving **`7c743c9`** with a cache-buster, and
+each run's new strings were found in the served bundles. Nothing is pending.
+
+## The one thing to read before anything else
+
+**CI refused a safety claim that a local green run could not see, and the reason generalises.**
+Working out what a *derived* peak speed overstates by, a local corpus run found four
+derived-vs-measured pairs, **all high**, and D7 slice 2 shipped "a derived peak is an upper bound"
+onto `/methods`, `/validation`, the metric grid and the analysis caveat on that basis. CI — running
+the corpus `corpus.lock.json` actually pins — found **six pairs, one reading 13.7% LOW.** The claim
+was false in the flattering direction, and the app had said the right thing before it
+(*"the error runs both ways"*).
+
+**So: the attached fixtures checkout and the pinned release are DIFFERENT CORPORA.** `VERSION` says
+`v1.0.0`, the lock pins `v1.1.0`, and they disagree about which fixtures are analysable. **A green
+local corpus run is not evidence about the corpus that gates CI.** Any statistic computed from the
+local checkout has to be written as a superset or a floor — `lib/derivedPeak.ts` does this, and its
+test asserts CONTAINMENT rather than equality so it can be green on both. Filed in `BACKLOG.md`;
+fixing it properly means cutting a release that matches the checkout, or attaching the pinned one.
 
 ## What shipped this run
 
@@ -82,7 +98,22 @@ the app's own `role="status"` announcement first, which every older copy test al
 rule, filed in `BACKLOG.md`: after any control whose handler is async, wait for the app to SAY it
 finished before asserting on what it did.**
 
-### 7. The cold walks
+### 7. D7 slice 2 — the derived-peak overstatement, computed instead of remembered
+
+Nine sites wrote the figures out as prose and they had drifted. One published a **+30%** that no
+pair produces any more — honest when written (the endurance StratoLogger against its TeleMetrum,
+Mach 1.19 against a measured 0.93) and stale because Debrief now **withholds** that peak, 0.050 s
+after liftoff on a log that opens below the pad. The pair stopped existing; the figure did not.
+`lib/derivedPeak.ts` holds them once now and `corpus.test.ts` recomputes them from the real logs.
+
+Two more, both found by the pre-push review rather than by me: the **saved document carried no
+provenance at all** (the tile said measured/derived; `.txt`, `.md`, `.html` and the clipboard
+printed the speed bare, and those are what a cert document is built from), and I had **missed
+`MetricGrid` and `/methods` entirely** while claiming the change reached every surface. The review
+also refuted my *explanation* of the `+30%` — I had inferred "computed off a knownIssue file" from
+a probe and it was wrong, in three files, while the repo already documented the real reason.
+
+### 8. The cold walks
 
 **Phone, 390 px, `hasTouch: true`, offline.** Nothing wrong on the surfaces this run changed: no
 horizontal overflow on any route *including the sample table at twelve columns* (it scrolls inside
