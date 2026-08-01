@@ -286,7 +286,7 @@ export default function ChannelExplorer({
         {selected.map((c, i) => (
           <span
             key={c.key}
-            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white py-1 pl-2 pr-1 text-xs dark:border-zinc-800 dark:bg-zinc-900/40"
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white py-1 pl-2 pr-1 text-xs dark:border-zinc-800 dark:bg-zinc-900"
           >
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -370,7 +370,7 @@ export default function ChannelExplorer({
             type="button"
             onClick={() => applyPreset(b)}
             title={b.about}
-            className="inline-flex min-h-[1.75rem] items-center rounded-md border border-dashed border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-300 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
+            className="inline-flex min-h-[1.75rem] items-center rounded-md border border-dashed border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
           >
             {b.name}
           </button>
@@ -378,7 +378,7 @@ export default function ChannelExplorer({
         {presets.map((p) => (
           <span
             key={p.name}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white py-0.5 pl-1.5 pr-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/40"
+            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white py-0.5 pl-1.5 pr-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
           >
             <button
               type="button"

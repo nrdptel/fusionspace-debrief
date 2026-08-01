@@ -934,9 +934,25 @@ the artifact rather than the tree.
    which is §3's floor for a number a flyer reads to make a decision and its requirement that
    compared numerals line up column to column. That moved the file 27/3 → 26/6; it does not clear
    the inversion, and it was not meant to.
-3. **Three unsanctioned dark surfaces, 32 uses**, where §2 allows one beside the two sanctioned:
-   `dark:bg-zinc-900/40` ×27, `/30` ×4, `/60` ×1, against `dark:bg-zinc-900` ×41 and `/50` ×4.
-   The earlier entry said "`/40`, 30 times" and named only one of the three.
+3. ~~**Three unsanctioned dark surfaces, 32 uses**~~ **DONE 2026-08-01, and the count was stale by
+   3×.** Re-measured before touching anything: **11 uses, not 32** — `/40` ×9, `/30` ×1, `/60` ×1.
+   Earlier work had already taken most of them without the entry being updated, which is the
+   argument for measuring a number before spending an increment on it.
+
+   All 11 are gone. Each was decided by **its own light-mode half**, using §2's table rather than a
+   judgement per site: a light `bg-white` is `raised`, so its dark half is `dark:bg-zinc-900`; a
+   light `bg-zinc-50` is `sunken`, so its dark half is `dark:bg-zinc-900/50`. That mapping settled
+   ten of them mechanically. The eleventh, `DropZone`, was off-system on **both** halves —
+   `bg-zinc-50/50` over `dark:bg-zinc-900/30` — and is now `bg-zinc-50` / `dark:bg-zinc-900/50`,
+   verified on the built export in both themes (light `oklch(0.985 0 0)`, dark zinc-900 at 50%
+   over the page).
+
+   Census after: `dark:bg-zinc-900` ×52, `dark:bg-zinc-900/50` ×8, **everything else 0**.
+
+   *Worth knowing before "restoring" any of these:* several were chips or buttons sitting inside a
+   `Card`, where `/40` gave a faint tone break in dark mode that light mode never had — a
+   `bg-white` chip on a `bg-white` card is already flat and separated by its border alone. The
+   conversion makes dark match light rather than removing a deliberate effect.
 4. **`DataTable`.** 7 tables (re-verified 2026-08-01: exactly 7, all in `components/`, no
    `role="table"`/`role="grid"` surface anywhere, so 7 is the whole population), 2 sortable,
    2 copyable, 0 keyboard-navigable. Lift it from `SampleTable.tsx`, which already has the sticky
@@ -977,7 +993,11 @@ the artifact rather than the tree.
    tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
    there is genuinely not `Button` — the row itself as a click target, the file-name text button,
    the ✕ (an `IconButton` with a responsive size), the sort chips and the checkbox labels.
-8. **17 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+8. **12 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
+   *(Re-measured 2026-08-01: **12**, not 17. Like item 3 this number had drifted downward as other
+   slices landed. Of the 12, one is `<Card>`'s own string and two are the drop zone and the drop
+   overlay, which §9 already records as wanting their own named primitives rather than folding into
+   `Card` — so the real adoption debt is nearer 9.)*
    This is the adoption debt the §9 count does not measure: §9 counts distinct TREATMENTS, which is
    7, and seven strings spread over seventeen sites is one number going to 1 and another going to 0.
    Kept here rather than added to `DESIGN.md` §9, because a new metric in that file is a change owed

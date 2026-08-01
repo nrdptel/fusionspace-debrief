@@ -25,7 +25,7 @@ export default function LogDetails({ flight }: { flight: RawFlight }) {
   for (const m of info.meta) rows.push({ label: m.key, value: m.value });
 
   return (
-    <details className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40 print:hidden">
+    <details className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/50 print:hidden">
       <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
         Log details
       </summary>
@@ -49,7 +49,7 @@ export default function LogDetails({ flight }: { flight: RawFlight }) {
               {info.channels.map((c, i) => (
                 <span
                   key={`${c.label}-${i}`}
-                  className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300"
+                  className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
                 >
                   {c.label}
                   {c.unit && <span className="ml-1 text-zinc-500 dark:text-zinc-400">{c.unit}</span>}

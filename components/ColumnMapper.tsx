@@ -181,7 +181,7 @@ export default function ColumnMapper({
       <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
         <table className="block w-full border-collapse text-sm sm:table">
           <thead className="hidden sm:table-header-group">
-            <tr className="border-b border-zinc-200 bg-zinc-50 text-left dark:border-zinc-800 dark:bg-zinc-900/40">
+            <tr className="border-b border-zinc-200 bg-zinc-50 text-left dark:border-zinc-800 dark:bg-zinc-900/50">
               <th className="px-3 py-2 font-medium text-zinc-600 dark:text-zinc-400">Column</th>
               <th className="px-3 py-2 font-medium text-zinc-600 dark:text-zinc-400">Role</th>
               <th className="px-3 py-2 font-medium text-zinc-600 dark:text-zinc-400">Unit</th>

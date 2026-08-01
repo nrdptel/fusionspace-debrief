@@ -19,7 +19,7 @@ export default function RecognizedFormats() {
   return (
     <section
       aria-labelledby="formats-heading"
-      className="rounded-xl border border-zinc-200 bg-white px-4 py-3.5 dark:border-zinc-800 dark:bg-zinc-900/40"
+      className="rounded-xl border border-zinc-200 bg-white px-4 py-3.5 dark:border-zinc-800 dark:bg-zinc-900"
     >
       <h2 id="formats-heading" className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Recognized loggers

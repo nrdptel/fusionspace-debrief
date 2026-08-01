@@ -581,7 +581,7 @@ export default function RecentFlights({
           return (
             <li
               key={r.id}
-              className={`group rounded-xl border bg-white transition hover:border-indigo-400 dark:bg-zinc-900/40 dark:hover:border-indigo-500/60 ${
+              className={`group rounded-xl border bg-white transition hover:border-indigo-400 dark:bg-zinc-900 dark:hover:border-indigo-500/60 ${
                 note.note
                   ? 'border-zinc-200 border-l-2 border-l-indigo-400 dark:border-zinc-800 dark:border-l-indigo-500/60'
                   : 'border-zinc-200 dark:border-zinc-800'
