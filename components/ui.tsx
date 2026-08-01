@@ -204,6 +204,13 @@ export function Button({
    *  focus stops, and leaves the anchor short of the touch floor because only the inner element
    *  carries it. */
   href?: string;
+  /** Only meaningful beside `href`, and declared because `ButtonHTMLAttributes` does not carry
+   *  them: the `href` branch already spreads them onto the anchor at runtime, so without these
+   *  the type was the only thing stopping an external link from using this primitive — and the
+   *  one that tried hand-rolled an `<a>` instead. `rel` is the caller's to get right; this does
+   *  not default it, because a same-origin link does not want `noopener noreferrer`. */
+  target?: string;
+  rel?: string;
   /** Declared explicitly because `ButtonHTMLAttributes` does not carry it. React 19 passes `ref`
    *  to a function component as an ordinary prop, so no forwarding wrapper is needed — but the
    *  type has to say so, and the surfaces that return focus to a control hand it a ref. */

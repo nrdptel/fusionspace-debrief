@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Button } from './ui';
 
 type Theme = 'system' | 'light' | 'dark';
 
@@ -65,17 +66,17 @@ export default function ThemeToggle() {
   const shown: Theme = mounted ? theme : 'system';
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="sm"
       onClick={cycle}
       title={`Theme: ${LABEL[shown]} (click to change)`}
       aria-label={`Color theme: ${LABEL[shown]}. Click to change.`}
-      className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
     >
       <span aria-hidden="true" className="text-sm leading-none">
         {ICON[shown]}
       </span>
       {LABEL[shown]}
-    </button>
+    </Button>
   );
 }
