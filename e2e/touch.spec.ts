@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 const fixture = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
 
@@ -263,4 +264,41 @@ test('a loaded comparison is thumb-sized, and orderable, on a phone', async ({ p
     return out;
   });
   expect(small, `controls under 44 px tall in a loaded comparison:\n${small.join('\n')}`).toEqual([]);
+});
+
+// The grouping offer carries a control whose options are FILE-DERIVED, so their width is the
+// flyer's, not ours. `Segmented` lays options out in a row, so an unbounded label is a
+// horizontal scrollbar on the whole document rather than on the control — and a page that
+// scrolls sideways on a phone is the failure `DESIGN.md` names outright. Measured before the
+// clip existed: a 25-character label took `document.scrollWidth` to 423 px against a 390 px
+// client. Two names deliberately renamed long, camelCase so there is no break opportunity.
+const stampedFile = async (file: string, name: string) => ({
+  name,
+  mimeType: 'text/csv',
+  buffer: await readFile(path.join(__dirname, '../lib/parsers/__fixtures__/', file)),
+});
+
+test('a grouping offer with long file names does not push the page sideways', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    await stampedFile('altusmetrum-telemetrum.csv', 'BigKahunaL3CertBoosterCam_04-12-2025_12_45_49.csv'),
+    await stampedFile('featherweight-raven-fip.csv', 'BigKahunaL3CertSustainerCam_04-12-2025_12_45_49.csv'),
+  ]);
+  const banner = page.getByRole('region', { name: 'Files that may be one flight' });
+  await expect(banner).toBeVisible({ timeout: 30_000 });
+  await expect(banner.getByRole('group', { name: 'Which recording reports this flight' })).toBeVisible();
+
+  const { scrollW, clientW } = await page.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth,
+    clientW: document.documentElement.clientWidth,
+  }));
+  expect(scrollW, `the document is ${scrollW - clientW}px wider than the phone it is on`).toBeLessThanOrEqual(clientW);
+
+  // And the options are still thumb-sized after being clipped.
+  const opts = banner.getByRole('group', { name: 'Which recording reports this flight' }).getByRole('button');
+  for (let i = 0; i < (await opts.count()); i++) {
+    const r = (await opts.nth(i).boundingBox())!;
+    expect(r.height, 'a "Reported by" option').toBeGreaterThanOrEqual(44);
+  }
 });

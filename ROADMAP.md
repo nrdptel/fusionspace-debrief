@@ -647,11 +647,24 @@ JSON keep every key. Verified still true after this slice: `analyzedDataCsv` tak
 
 ## D6 — Propose which files belong to one flight, and be refusable
 
-**Status:** IN PROGRESS — decomposed 2026-07-31, then **amended 2026-07-31 by a second measurement
-that found a signal the decomposition had concluded did not exist.** A flyer can now be OFFERED a
-grouping, with the evidence, and accept or refuse it in one press. Pinned by
-`lib/proposeGroups.test.ts` (11 assertions, four falsified by mutation, including the corpus
-measurement) and three journeys in `e2e/analyze.spec.ts` walking the real app.
+**Status:** SHIPPED 2026-08-01 — pinned by `lib/proposeGroups.test.ts` (15 assertions, five
+falsified by mutation, including the corpus measurement) and **four** journeys in
+`e2e/analyze.spec.ts` walking the real app: offered-with-evidence, refused-and-nothing-merged,
+not-offered-across-different-launches, and the flyer naming which recording reports the flight
+before accepting.
+
+Decomposed 2026-07-31, then **amended 2026-07-31 by a second measurement that found a signal the
+decomposition had concluded did not exist**, and closed 2026-08-01 when the last open item was
+**refused on a measurement** rather than built — see *What is left* below. A flyer drops two files
+off one flight, is offered the grouping with the evidence in words, says which recording reports
+it, and accepts or refuses in one press.
+
+**The gap against the original *done when*, recorded rather than implied:** every clause is met —
+the offer, the evidence, one press, exactly what D3's manual grouping gives, no proposal across
+the five confusable pairs, no staged pair proposed, nothing grouped without acceptance. What is
+NOT delivered is separating *one recording exported twice* from *two instruments*; that relation
+is still conflated, the sync counter cannot separate it, and the summary CSV's serial number is
+the next place to look. It is D7's starting point, not a reopening of this one.
 
 ### The amendment, measured 2026-07-31 — read this before the decomposition below
 
@@ -693,10 +706,63 @@ agreement were re-checked and stand.
   route returns early on `phase === 'compare'` without rendering the logbook at all. An offer
   nobody sees at the moment it applies is the "feature reachable only by knowing it is there" tell.
 
-**What is left:** the primary is a suggestion and the banner does not yet let the flyer change it
-before accepting (the row control still does, after). Featherweight also publishes an in-file join
-key — a sync counter shared by the HR and LR files — which would separate *one recording exported
-twice* from *two instruments*, the relation `same_flight_group` conflates.
+**What is left: nothing. Both remaining items are closed, one shipped and one refused on a
+measurement.**
+
+- ~~the primary is a suggestion and the banner does not yet let the flyer change it before
+  accepting~~ **SHIPPED 2026-08-01.** The banner carries a `Segmented` "Reported by" control,
+  seeded from the suggestion and overridable before the press. Each option is labelled with the
+  part of the file names that actually differs — `distinguishingLabels`, which strips the shared
+  head and tail at TOKEN boundaries, because character-level matching walks straight through the
+  boundary and turns `HR`/`LR` into `H`/`L`. Pinned by `e2e/analyze.spec.ts` — *the flyer names
+  which recording reports the flight, before accepting* — which was falsified by mutation twice:
+  the first version of the assert passed with the choice thrown away, because the logbook row
+  carries a nested list of every recording by name and so contains both names whichever one is
+  primary. It asserts on the "reported by" line now, in both directions.
+
+  **Each option carried that recording's apogee for one draft, and it came out again — recorded
+  here rather than rediscovered.** `RecentMeta` stores `apogeeM` with no `apogeeIsFloor` beside
+  it, and that flag is real: a record whose log ends at its own peak reports a LOWER BOUND. A bare
+  number on the control that decides which instrument reports the flight pushes a flyer toward the
+  larger of two figures when the larger one may be the floor — the same defect as publishing a Cd
+  off a refused velocity, one surface further on. What each recording read belongs where it is
+  already shown with its context, on the recording strip after the flight exists. **Putting an
+  apogee back on this control means storing its provenance first.**
+
+  Two more, both caught by the pre-push read and both now pinned. The options' width is
+  FLYER-controlled — they are file names — and `Segmented` lays them out in a row, so a long label
+  scrolled the whole DOCUMENT sideways on a phone: measured 423 px against a 390 px client, and
+  108 px over once the options moved up to body size. Labels are clipped at 18 characters and
+  `e2e/touch.spec.ts` asserts `scrollWidth <= clientWidth` with deliberately long names. And the
+  control renders only for 2–5 recordings, which is §5's own range for `Segmented`; beyond that the
+  offer degrades to its suggestion and the row control, rather than inventing a vocabulary.
+
+- ~~Featherweight publishes an in-file join key — a sync counter shared by the HR and LR files~~
+  **REFUSED 2026-08-01 — measured, and it is the apogee failure again.** `Sync` is a free-running
+  millisecond counter mod 250, deterministic from the timebase, carrying no per-recording
+  identity. `lib/parsers/blueraven.ts:66` already said so in one clause — *"the on-board sync code
+  rolls over every 250 ms and can't be used directly"* — and the measurement confirms it is fatal
+  rather than inconvenient:
+
+  | pair | relation | shared samples | distinct offsets | best offset agreement |
+  |---|---|---|---|---|
+  | `lemiv-HR` × `lemiv-LR` | **true** — one board | 9,655 | 1 | 100.0% |
+  | `lemiv-HR` × `reddit-HR` | **false** — unrelated flights | 96,629 | 1 | 100.0% |
+
+  A TRF L3 flight and a Reddit 121 km flight — different airframes, different continents, about
+  nine months apart — join *perfectly*, at a single constant offset, across 96,629 shared samples.
+  The false pair is not merely admitted; it is **indistinguishable from the true one**, and it is
+  the larger and cleaner join of the two. Any two files sharing a `Flight_Time` grid agree at some
+  constant offset, because that is all the counter is.
+
+  It is worse than a bad threshold: `blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` **has no
+  `Sync` column at all**, so one of the four genuine pairs is unjoinable before any rule runs.
+
+  **The only real per-recording identity in this data is in the summary CSV** — `Serial
+  number,SN1537` and a firmware stamp — and only 2 of the 4 Blue Raven groups ship a summary file.
+  It is already captured as `RecentFlight.summaryText`. That is where a future attempt at
+  separating *one recording exported twice* from *two instruments* should start, and it is a
+  narrower capability than this item claimed.
 
 **Outcome.** A flyer who drops a launch day's folder is *offered* the grouping D3 makes them state
 by hand — with the evidence shown, the flight still ungrouped until they accept, and a proposal that
@@ -1193,6 +1259,29 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-01 — D6's Featherweight sync-counter join key is REFUSED, not deferred, and D6 is
+  closed without it.** The item proposed using the `Sync` column the HR and LR files share as an
+  in-file join key, to separate *one recording exported twice* from *two instruments*. Measured
+  over the corpus: it cannot. `Sync` is a free-running millisecond counter mod 250, derived from
+  the timebase, so any two files on a shared `Flight_Time` grid agree at *some* constant offset.
+  The true pair `lemiv-HR × lemiv-LR` joins at 1 distinct offset with 100.0% agreement over 9,655
+  shared samples — and so does `lemiv-HR × reddit-HR`, two unrelated flights on different
+  continents nine months apart, at 1 distinct offset and 100.0% over 96,629. The false join is the
+  larger and cleaner of the two. One genuine pair has no `Sync` column at all. Rejected: shipping
+  it with a tolerance, which is the mistake apogee agreement already taught this milestone, and
+  which here would be worse because the false pair scores *identically* rather than merely close.
+  Also rejected: leaving the item open as "hard", which would have cost a future run an increment
+  to re-derive. The reversible part is written down — the summary CSV's serial number is real
+  per-recording identity, on 2 of 4 groups, already captured as `RecentFlight.summaryText`.
+
+- **2026-08-01 — no §9 metric was added for the bare-`rounded` sixth radius.** The 12 sites were
+  converted, but `DESIGN.md` §9 is carried identically by the sibling repo and
+  `lib/design-system.test.ts` is its executable copy, so adding a count here alone would fork the
+  file. Rejected: adding the guard anyway and accepting the fork, and rejected: leaving the 12
+  sites unconverted until a run can push both. The conversion is therefore **unguarded** and this
+  file says so — a bare `rounded` can come back without failing anything. Same reasoning as item
+  8's hand-rolled card sites.
 
 - **2026-07-31 — `DESIGN.md` was re-synced FROM the sibling repo, and then changed in both.** The two
   copies had diverged: the sibling's was 2.7 KB newer and carried three lessons this repo did not have
