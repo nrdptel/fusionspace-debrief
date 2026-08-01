@@ -911,6 +911,44 @@ different kind, and each slice below names the ground truth that would settle it
    reading carries a measured range whose basis is a corpus statistic, cited on the validation
    page, and a test fails if the range is quoted without its basis.
 
+   **NOT STARTED — and the measurement it needs was taken 2026-08-01, so the next run builds
+   rather than re-derives.** Every manifest row carries a `stated_max_velocity`; sweeping all of
+   them through the real pipeline gives peak speed against ground truth, split by how Debrief got
+   it:
+
+   | source | fixtures | agreement with the ground truth |
+   |---|---|---|
+   | device velocity channel | 11 | **0.0%** on every one |
+   | device channel vs a *summary* figure | 1 | −4.7% (`lemiv-l3` Blue Raven LR: 427.0 m/s read, 448.3 stated) |
+   | barometric, derived | 5 | **+2.8%, +3.0%, +9.4%, +17.2%, +99.7%** — every one HIGH |
+
+   **Three cautions, all of which would make a careless range wrong:**
+   - The 0.0% column is **self-consistency, not accuracy**: Debrief reads the device's own velocity
+     channel and the device's summary states that same peak. It bounds units, sign and window — not
+     how well the instrument measured the flight. A range built on it would be a claim about
+     agreement with itself.
+   - The **+99.7%** is `Proton-FW_format.csv`, whose velocity column is the file's own altitude
+     differenced (the corpus records its raw peak as 4,880 ft/s on a Mach 1.3 flight). It is a real
+     barometric read and belongs in the population, but quoting it as the top of a range without
+     saying what it is would read as an instrument error rather than a method limit.
+   - **Say which basis the ratio is on.** The invariant names this exactly: the same GPS pair reads
+     +5% on the speeds and +8% on the Mach numbers, and `/validation` already quotes both. A range
+     published under the wrong one is its own wrong claim.
+
+   **What already exists, checked before proposing anything** — this is the trap slice 1 fell into,
+   where the stated first slice turned out to be shipped. `/validation` and `lib/analyze/index.ts`
+   already carry the direction AND the size in prose: *"Every derived peak the corpus can check runs
+   the same way, the barometric ones by +23%, +30% and +110%"*, plus the transonic caveat naming
+   Mach 1.19-against-0.93 and 2.64-against-1.22. **So the gap is not that the number is unknown; it
+   is that no READING CARRIES it.** The caveat lives beside the tile as prose, and `lib/readings.ts`
+   says only `derived` where §6 and the safety invariant want a range with a basis.
+
+   **The smallest shippable slice**, therefore: give `maxVelocity` a machine-readable uncertainty
+   (a signed range plus the basis it was measured on) on the flight model, surface it wherever the
+   reading is surfaced — the metric grid, the report, the comparison, the print card and every
+   export — and hold the prose and the number side by side in a test, the way `lib/readings.test.ts`
+   already holds two reading lists side by side, so the page and the figure cannot drift.
+
 3. ~~**The readings the corpus can settle and nothing asserts.**~~ **DONE 2026-08-01 — and the
    tolerance turned out to be hiding a whole gravity.** Recorded because it was the standing hole:
    the corpus asserted an apogee on most fixtures and almost nothing else, which is exactly where
