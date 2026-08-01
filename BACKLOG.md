@@ -243,6 +243,30 @@ wild, ideas too big for one pass. One line each, newest first.
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
+- **`ChannelExplorer`'s window-stats table, `ColumnMapper`'s and `StitchSurface`'s tables still
+  cannot be sorted or copied.** `DataTable` exists now (`components/ui.tsx`) and the two cross-check
+  tables are on it, so each of these three is a small conversion rather than new work. Measured
+  2026-08-01: 6 `<table>` elements left in `components/`, 4 copyable, 0 with arrow-key cell
+  navigation.
+- **`DataTable` does not implement arrow-key cell navigation, so `DESIGN.md` §5's
+  "keyboard-navigable" is only partly delivered.** Every affordance is on the Tab path; cell-to-cell
+  movement is not. Either build it or amend §5 — and amending §5 is a change owed to the sibling
+  repo in the same run, which is why it is filed rather than done.
+- **The agreement badge is hand-rolled identically in `DeviceSummary` and `GpsApogee`** — the same
+  emerald/amber `inline-flex … rounded-md border … px-1.5 py-0.5 text-xs` pair in both, 4 variants
+  over 2 files. `Chip` is the primitive it wants, but `Chip` has only `default | accent` tones and
+  adding `ok`/`warn` changes a signature `DESIGN.md` §5 shares with the sibling repo. Filed rather
+  than diverged. The *text* is already shared (`agreementText`), so the two can no longer disagree
+  about what they say — only about how they look.
+- **`debrief-fixtures` `VERSION` says `v1.0.0` while `corpus.lock.json` pins `v1.1.0`.** Local runs
+  read the attached checkout and CI fetches the release, so the two are not provably the same
+  corpus. Measured 2026-08-01; the fixtures repo carries no tags to reconcile it against. CI passing
+  on this run's new 2% tolerances is evidence they agree on the files that matter, not proof.
+- **Descent rates are asserted on no corpus fixture at all**, while 17 manifest rows carry a
+  `stated_descent_rates` ground truth. Measured 2026-08-01 alongside the velocity work, which closed
+  the same gap for peak speed (3 → 11) and acceleration (4 → 10). The blocker is that the column is
+  free text ("drogue 17.0 m/s; main 8.8 m/s") rather than machine-readable, and two of the flights
+  it names are ones Debrief withholds a rate for on purpose.
 - **`e2e/logbook.spec.ts:677` "the label and notes a flyer types stay with the flight" flaked once**
   in a full-suite run on 2026-07-31, immediately after the disclosure conversion — which made it look
   exactly like a regression in that conversion, and it is not. **Checked before being called a flake,

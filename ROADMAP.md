@@ -852,8 +852,8 @@ cross-group pairs named by `lib/parsers/d6Grouping.test.ts`**, that the staged `
 ## D7 — Deeper honest insight, the stated moat
 
 **Status:** IN PROGRESS — decomposed 2026-08-01, after D6 shipped and left the D-track dry.
-**Slice 3 shipped 2026-08-01** (corpus assertions 40 → 55, and a tolerance that was absorbing a
-gravity). Slices 1, 2 and 4 remain; slice 1 is the most visible to a flyer.
+**Slices 1 and 3 shipped 2026-08-01** (corpus assertions 40 → 54, and a tolerance that was absorbing a
+gravity; and every recorded channel readable as numbers). Slices 2 and 4 remain.
 
 **Decompose by readings a flyer ASKS FOR and that can be CHECKED, never by what is computable.**
 That sentence was already in the after-list and it is the whole constraint: this milestone is where
@@ -873,13 +873,34 @@ different kind, and each slice below names the ground truth that would settle it
 
 ### The slices, ranked by what a flyer can check
 
-1. **Every recorded channel readable as numbers, not just six.** `SampleTable` shows the channels
-   the explorer has selected, and the explorer caps at `MAX_SERIES = 6` — a limit whose own comment
-   justifies it as "how many traces stay readable", which is a fact about a CHART and not about a
-   table. `analyzedDataCsv` already carries every channel, so the data is there and only the
-   in-app view is capped. AltosUI "shows all of the data available from the flight computer"
-   (VERIFIED). *Done when* a flyer can read every channel their board recorded without swapping
-   chart selections, and a Blue Raven high-rate log proves it.
+1. ~~**Every recorded channel readable as numbers, not just six.**~~ **DONE 2026-08-01.**
+   `SampleTable` showed the channels the explorer had selected, and the explorer caps at
+   `MAX_SERIES = 6` — a limit whose own comment justifies it as "how many traces stay readable",
+   which is a fact about a CHART and not about a table. `analyzedDataCsv` already carried every
+   channel, so the data was there and only the in-app view was capped. AltosUI "shows all of the
+   data available from the flight computer" (VERIFIED). *Done when* a flyer can read every channel
+   their board recorded without swapping chart selections, and a Blue Raven log proves it.
+
+   **Measured over the corpus before building:** **23 of 25 analysable logs carry more channels
+   than the chart will draw at once**, the richest carries **15**, and **119 channels in total**
+   could not be read as numbers without going back to the chart and swapping the selection. Worse
+   than the "six" in the title suggests — the table inherited whatever the flyer had *plotted*, so
+   on a fresh Blue Raven LR read it showed **1 of 11**, not 6 of 11.
+
+   The table has its own scope now, defaulting to every channel, with a `Segmented` giving the
+   chart's own selection back in one press for reading the plot's numbers. The conversion to
+   display units is deferred until the `<details>` is actually opened: this is one array per
+   channel, and 15 channels of a 190,000-sample file is ~23 MB to hold for a panel that is
+   collapsed by default. Verified in a real browser on `blueraven-app-lr.csv` — **12 columns where
+   there were 2** — and pinned by `e2e/analyze.spec.ts` → *"every channel the board recorded is
+   readable as numbers, not just the plotted ones"*, which asserts the count against the file's own
+   channel total rather than a hard-coded number, and names four channels a six-trace chart could
+   never show together. Falsified by pinning the table back to the chart's selection and watching
+   it go red at 2 columns.
+
+   **`MAX_SERIES` is untouched**, deliberately: six traces on two axes is still the right answer
+   for a chart, and the defect was never the limit — it was a chart's limit deciding what a table
+   could show.
 
 2. **A reading's uncertainty, not just its value.** The invariants require an accuracy claim to be
    "a range with their basis, not a flattering single number", and to name a caveat's DIRECTION and

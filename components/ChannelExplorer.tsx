@@ -28,7 +28,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button, Card } from './ui';
+import { Button, Card, Segmented } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -160,6 +160,31 @@ export default function ChannelExplorer({
         }),
     [yKeys, byKey, sys],
   );
+
+  // Which channels the SAMPLE TABLE shows, which is a different question from which the chart
+  // draws — see the note at its call site. Every channel by default: that is the reading a flyer
+  // came for, and the chart's six-trace limit has no business deciding it.
+  const [tableScope, setTableScope] = useState<'all' | 'plotted'>('all');
+  const [samplesOpen, setSamplesOpen] = useState(false);
+  // Converted only once the table is actually open. A log can run to hundreds of thousands of
+  // samples and this is one array per channel — 15 channels of a 190,000-sample file is ~23 MB,
+  // which is not worth holding for a panel that is collapsed by default and often never opened.
+  //
+  // `samplesOpen` gates the CHANNEL LIST as well as the data, and must: the table draws its
+  // headers from `channels` and its cells from `seriesData`, so handing it eleven channels and
+  // an empty data array yields eleven headers over rows of one cell. That is invisible inside a
+  // closed `<details>`, which is exactly why it would have survived — the fix is to keep the two
+  // in step rather than to special-case the render.
+  const showAll = tableScope === 'all' && samplesOpen && channels.length > selected.length;
+  const tableChannels = showAll ? channels : selected;
+  const tableSeriesData = useMemo(() => {
+    if (!showAll) return seriesData;
+    return channels.map((c) => {
+      const out = new Float64Array(c.values.length);
+      for (let i = 0; i < out.length; i++) out[i] = c.toDisplay(c.values[i], sys);
+      return out;
+    });
+  }, [showAll, channels, sys, seriesData]);
 
   // Memoized so a zoom (which updates `view` for the stats panel) doesn't change
   // these prop identities and force the chart to re-initialize, which would snap
@@ -521,13 +546,34 @@ export default function ChannelExplorer({
 
       {/* The numbers behind the plot. Collapsed by default — the chart is the answer most
           of the time — but one click away, and it follows the chart's zoom. */}
-      <details className="mt-4">
+      <details className="mt-4" onToggle={(e) => setSamplesOpen((e.currentTarget as HTMLDetailsElement).open)}>
         <summary className="cursor-pointer select-none text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">
           Show the samples
         </summary>
+        {/* The table's columns are its own choice, not the chart's. `MAX_SERIES` is a fact about
+            how many TRACES stay readable — six lines on one axis — and it was silently deciding
+            how many COLUMNS of numbers a flyer could see. Measured over the corpus: 23 of 25 real
+            logs carry more channels than the chart will draw at once, one carries 15, and 119
+            channels in total could not be read as numbers without going back to the chart and
+            swapping the selection. `analyzedDataCsv` has always carried every one of them, so the
+            data was there and only the in-app view was capped. */}
+        {channels.length > selected.length && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Segmented
+              size="sm"
+              ariaLabel="Which channels the sample table shows"
+              value={tableScope}
+              onChange={setTableScope}
+              options={[
+                { value: 'all', label: `Every channel (${channels.length})` },
+                { value: 'plotted', label: `Just what's plotted (${selected.length})` },
+              ]}
+            />
+          </div>
+        )}
         <SampleTable
-          channels={selected}
-          seriesData={seriesData}
+          channels={tableChannels}
+          seriesData={tableSeriesData}
           xVals={xVals}
           xName={xName}
           xUnit={xUnit}

@@ -275,7 +275,9 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   EmptyState: 1,
   ErrorState: 1,
   Section: 2,
-  Segmented: 3,
+  /** 3 → 4 on 2026-08-01: the sample table's channel scope, which is 2 mutually exclusive
+   *  options with both visible — §5's own definition of when to reach for this. */
+  Segmented: 4,
   Disclosure: 3,
   /** §5's "every table is this one", started 2026-08-01 on the two cross-check tables — the two
    *  surfaces §6 exists for and the ones a cert document most wants to lift. `SampleTable` and
