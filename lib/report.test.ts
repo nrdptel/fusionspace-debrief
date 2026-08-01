@@ -154,6 +154,48 @@ describe('report exports', () => {
     expect(tableRows.every((l) => bars(l) === bars('| a | b |') || bars(l) === bars('| a | b | c | d | e |'))).toBe(true);
   });
 
+  it('carries the floor-apogee caveat into the JSON and refuses the highest-apogee crown', () => {
+    // `apogeeIsFloor` means the log ended at its own peak and the rocket was still climbing, so
+    // the apogee is a LOWER BOUND. The screen and the text exports have always said so
+    // (`apogeeSub`), and `jsonMetrics` dropped it — so a cert document built from the JSON
+    // could not tell a bound from a measurement. Two corpus records are in this state:
+    // issuiuc-intrepid1 and intrepid2.
+    const floorA = { ...analysis, metrics: { ...analysis.metrics, apogeeIsFloor: true } };
+
+    const plain = JSON.parse(analysisJson(flight, analysis, 'metric', 0));
+    expect(plain.metrics.apogeeIsFloor, 'the key rides with the value either way').toBe(false);
+    const doc = JSON.parse(analysisJson(flight, floorA, 'metric', 0));
+    expect(doc.metrics.apogeeIsFloor).toBe(true);
+    // The reading itself is unchanged — a caveat is added, a number is not moved.
+    expect(doc.metrics.apogee).toBe(plain.metrics.apogee);
+
+    // And the comparison must not crown a "highest apogee" it cannot settle. Same argument as
+    // `anyClipped` on the acceleration row, which has blocked its crown all along.
+    const inputs = (metricsList: (typeof analysis.metrics)[]): CompareInput[] =>
+      metricsList.map((m, i) => ({
+        id: `f${i}`,
+        name: `flight ${i}`,
+        flight,
+        analysis: { ...analysis, metrics: m },
+      })) as unknown as CompareInput[];
+
+    const settled = compareMetricRows(buildComparison(inputs([analysis.metrics, analysis.metrics])).flights, 'metric');
+    const apogeeRow = (rows: ReturnType<typeof compareMetricRows>) => rows.find((r) => r.label === 'Apogee')!;
+    expect(apogeeRow(settled), 'the Apogee row exists to be found').toBeTruthy();
+
+    const blocked = compareMetricRows(
+      buildComparison(inputs([analysis.metrics, { ...analysis.metrics, apogeeIsFloor: true }])).flights,
+      'metric',
+    );
+    // Whatever shape the crown takes, a floor in the column set must remove it and must not
+    // remove it when every apogee is settled.
+    expect(
+      JSON.stringify(blocked).includes('(at least)'),
+      'a floor apogee is marked as a bound in the comparison',
+    ).toBe(true);
+    expect(JSON.stringify(settled).includes('(at least)')).toBe(false);
+  });
+
   it('withholds the event speeds in every export when the velocity was judged unusable', () => {
     // The headline already withholds an unusable velocity; the event tables read the same
     // trace sample by sample, so they have to withhold it too — an export that prints the

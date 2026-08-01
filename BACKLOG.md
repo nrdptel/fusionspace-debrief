@@ -14,15 +14,18 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-- **2026-08-01 — `apogeeIsFloor` is computed and then dropped by four surfaces, and it is the same
-  class as the Sev-1 above.** `lib/analyze/types.ts:27` defines it; a record whose log ends at its
-  own peak reports a LOWER BOUND. But `lib/report.ts:1155`'s `jsonMetrics` omits it entirely, so
-  `analysisJson` and `compareJson` emit `apogee: 984.3` with nothing saying it is a floor;
-  `lib/flightCard.ts:39` prints Apogee bare on the shareable card; and `lib/report.ts:811`'s
-  comparison row carries `rank: true` with no `rankBlocked`, so a floor apogee can win the
-  "highest" crown against a real one. **Not reproduced by me** — reported by an adversarial read of
-  the analysis surfaces and read back in the source, but not driven in the app. Reproduce before
-  scoping.
+- **FIXED 2026-08-01 — `apogeeIsFloor` was computed and then dropped by three exporting surfaces.**
+  `lib/analyze/types.ts:27` defines it; a record whose log ends at its own peak reports a LOWER
+  BOUND, and `apogeeSub` has always said so on screen and in the text exports. But `jsonMetrics`
+  omitted it, so `analysisJson` and `compareJson` emitted a flat `apogee` a cert document could not
+  tell from a measurement; `flightCard.ts` printed Apogee bare on the artefact built to be posted
+  to a club chat, beside a velocity it already qualifies as "derived" and an acceleration it
+  already qualifies as "may be clipped"; and the comparison's Apogee row carried `rank: true` with
+  no `rankBlocked`, so a floor could take the "highest" crown from a settled reading. **Reachable
+  on real files: two corpus records** — `issuiuc-intrepid1` (996.2 m) and `issuiuc-intrepid2`
+  (1,081.6 m). Fixed by mirroring the `accelerationClipped` / `anyClipped` conventions that were
+  already there for the sibling caveat. Pinned in `lib/report.test.ts` and `lib/flightCard.test.ts`,
+  three mutations, each red.
 - **2026-08-01 — `jsonMetrics` also omits `maxVelocityWithheld`**, so a withheld peak exports as
   `maxVelocity: null`, which `lib/analyze/types.ts:33` says means "the flight has no such reading".
   A refusal and an absence become the same JSON. Same read, same caveat: not driven in the app.
