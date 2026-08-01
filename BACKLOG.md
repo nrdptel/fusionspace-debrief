@@ -262,9 +262,15 @@ wild, ideas too big for one pass. One line each, newest first.
   Second flaky test now recorded in this file; if a third appears, the shared cause is worth hunting
   rather than the individual tests.
 
-- **`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
-  every re-run.** *"a file a batch drop could not read can be mapped into the comparison it arrived
-  with"* fails waiting for `Comparing 3 flights` after the column mapper's *Analyze flight*, with
+- ~~**`e2e/compare.spec.ts:434` is flaky, twice in ~10 full-suite runs on 2026-07-31, and green on
+  every re-run.**~~ **FIXED 2026-08-01, on its third occurrence and exactly as diagnosed below.**
+  The assertion now waits for the navigation (`page.waitForURL(/\/compare\?ids=/)`) before the
+  heading, rather than racing it; 5/5 in isolation and green in the full suite after. The diagnosis
+  below was correct and cost nothing to act on — it is kept because the *shape* recurs: two of the
+  three flakes recorded in this file are assertions that follow a state write, and this one is the
+  first with a confirmed cause. *"a file a batch drop could not read can be mapped into the
+  comparison it arrived with"* failed waiting for `Comparing 3 flights` after the column mapper's
+  *Analyze flight*, with
   Playwright's log showing `waiting for "…/compare?ids=a,b,c&u=ft" navigation to finish`. So the
   address is already correct and the assertion is racing the navigation that follows the mapping,
   not a wrong result. It passes alone every time and passed the immediately following full run

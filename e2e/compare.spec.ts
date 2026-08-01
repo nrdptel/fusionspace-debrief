@@ -451,8 +451,17 @@ test('a file a batch drop could not read can be mapped into the comparison it ar
   await page.getByRole('button', { name: 'Analyze flight' }).click();
 
   // Back to a comparison — now of three flights, at an address that survives a reload.
+  //
+  // Wait for the NAVIGATION before the heading. Confirming the mapping pushes `/compare?ids=…`,
+  // and asserting on the heading first raced it: the assertion was resolving against the page the
+  // mapper had just left while Playwright's own log read `waiting for "…/compare?ids=a,b,c&u=ft"
+  // navigation to finish`. That made it flaky — three times in ~15 full-suite runs across
+  // 2026-07-31 and 2026-08-01, green on every re-run alone. The address was always right, so this
+  // is a wait rather than a defect in the app, and it is fixed by waiting for the thing that
+  // actually happens first rather than by adding a retry. A flaky check in a suite nobody reads
+  // for a fortnight teaches the next session to wave real failures through.
+  await page.waitForURL(/\/compare\?ids=/);
   await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
-  expect(page.url()).toContain('/compare?ids=');
   await expect(page.getByText('perfectflite-stratologger').first()).toBeVisible();
 });
 

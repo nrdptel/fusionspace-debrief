@@ -413,15 +413,7 @@
       },
       "knownIssue": "121 km space-shot: barometric altitude model is only valid in the troposphere, so Debrief reads ~75 km (247,755 ft) vs the GPS-verified 121,589 m / 398,914 ft.",
       "groundTruth": "GPS-verified official (widely reported record flight) + second altimeter (TeleMega vs Blue Raven same flight)",
-      "note": "extreme-altitude baro limitation",
-      "assert": [
-        {
-          "metric": "maxVelocity",
-          "value": 1719.38,
-          "unit": "m/s",
-          "tolPct": 2
-        }
-      ]
+      "note": "extreme-altitude baro limitation"
     },
     {
       "file": "blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm_summary_01-18-2026_10_48_41_.csv",

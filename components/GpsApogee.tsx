@@ -8,7 +8,15 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, type UnitChoice } from '@/lib/display';
 import { peakAgreement, peakTimeTolerance } from '@/lib/crossPeak';
-import { Card } from './ui';
+import { Card, DataTable } from './ui';
+
+/** The verdict as words, so the clipboard carries the judgement and not just two numbers a
+ *  spreadsheet would leave the reader to compare. */
+function agreementText(verdict: ReturnType<typeof peakAgreement>, deltaPct: number): string {
+  if (verdict === 'different-peak') return 'not the same peak';
+  const pct = Math.abs(deltaPct) < 0.05 ? '≈0' : deltaPct.toFixed(1);
+  return `${verdict === 'agree' ? 'agree' : 'differ'} · ${deltaPct > 0 ? '+' : ''}${pct}%`;
+}
 
 export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sys: UnitChoice }) {
   const gps = metrics.gpsApogeeAltitude;
@@ -37,52 +45,48 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
         independent recordings of one flight, which fail in different ways. Shown side by side as a
         cross-check, never averaged: the analysis stays on the barometric channel.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              <th className="py-1 pr-4 font-medium">Reading</th>
-              <th className="py-1 pr-4 font-medium">GPS</th>
-              <th className="py-1 pr-4 font-medium">Barometer</th>
-              <th className="py-1 font-medium">Agreement</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-zinc-200 dark:border-zinc-800">
-              <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">Apogee</td>
-              <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
-                {fmtLength(gps, sys)}
-              </td>
-              <td className="py-1.5 pr-4 font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
-                {fmtLength(baro, sys)}
-              </td>
-              <td className="py-1.5">
-                <span
-                  className={
-                    verdict === 'agree'
-                      ? 'inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
-                      : 'inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
-                  }
-                  title={
-                    verdict === 'different-peak'
-                      ? 'The two recordings put the peak too far apart in time to be the same instant, so how close the heights are says nothing about whether they corroborate each other.'
-                      : undefined
-                  }
-                >
-                  {verdict === 'different-peak' ? (
-                    'not the same peak'
-                  ) : (
-                    <>
-                      {verdict === 'agree' ? 'agree' : 'differ'} · {deltaPct > 0 ? '+' : ''}
-                      {Math.abs(deltaPct) < 0.05 ? '≈0' : deltaPct.toFixed(1)}%
-                    </>
-                  )}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        caption="Apogee as the GPS recorded it, beside the barometric read"
+        copyLabel="Copy the GPS cross-check"
+        rows={[{ gps, baro, verdict, deltaPct }]}
+        rowKey={() => 'apogee'}
+        columns={[
+          { key: 'reading', header: 'Reading', cell: () => 'Apogee', text: () => 'Apogee' },
+          {
+            key: 'gps',
+            header: 'GPS',
+            cell: (r) => <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{fmtLength(r.gps, sys)}</span>,
+            text: (r) => fmtLength(r.gps, sys),
+          },
+          {
+            key: 'baro',
+            header: 'Barometer',
+            cell: (r) => <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{fmtLength(r.baro, sys)}</span>,
+            text: (r) => fmtLength(r.baro, sys),
+          },
+          {
+            key: 'agreement',
+            header: 'Agreement',
+            cell: (r) => (
+              <span
+                className={
+                  r.verdict === 'agree'
+                    ? 'inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
+                    : 'inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
+                }
+                title={
+                  r.verdict === 'different-peak'
+                    ? 'The two recordings put the peak too far apart in time to be the same instant, so how close the heights are says nothing about whether they corroborate each other.'
+                    : undefined
+                }
+              >
+                {agreementText(r.verdict, r.deltaPct)}
+              </span>
+            ),
+            text: (r) => agreementText(r.verdict, r.deltaPct),
+          },
+        ]}
+      />
       <p className="mt-2.5 text-xs text-zinc-500 dark:text-zinc-400">
         {metrics.gpsAscentFixes != null && (
           <>

@@ -40,9 +40,11 @@ export default function ValidationPage() {
             or the <strong>device&apos;s own reported summary</strong> written into the file. Debrief
             reads each log and its headline numbers are compared against that ground truth within a
             tolerance. How much of each flight that pins is counted rather than described:{' '}
-            <strong>55 assertions over 34 of the 61 logs</strong> — 33 apogees, 12 peak speeds and 10
+            <strong>54 assertions over 33 of the 61 logs</strong> — 33 apogees, 11 peak speeds and 10
             peak accelerations, with 13 logs pinning two quantities or more. That count is itself
-            held by a test, so coverage can rise but never quietly fall. Descent rates are{' '}
+            held by a test, and it counts only assertions the suite actually reaches: a log kept for
+            a documented mis-read is parsed but never asserted on, so a golden value written on one
+            would sit in the contract looking armed and check nothing. Writing one is refused. Descent rates are{' '}
             <em>not</em> yet pinned anywhere, and saying so is the point of counting: an apogee is one
             number out of a flight, and a suite that pins only apogees is checking the barometer
             rather than the analysis. The whole corpus is
@@ -62,8 +64,10 @@ export default function ValidationPage() {
             is 1.2% of an 84&nbsp;g boost but 9.4% of a 10.7&nbsp;g one, so a percentage tolerance
             wide enough to swallow it on the small flight hides real error on the large one. Each
             acceleration ground truth here names its basis and is converted before comparison; the
-            eight logs that carry one then agree to <strong>within 0.006%</strong>, and the tolerance
-            went from 6% back to 2% where it measures precision instead of a definition.
+            ten that carry one then agree to <strong>within 0.08%</strong>, and the tolerance went
+            from 6% back to 2% where it measures precision instead of a definition. Eight of the ten
+            agree exactly; the residue on the other two is the ground truth being stated in
+            whole-number g, not spread in the read.
           </p>
         </Section>
 

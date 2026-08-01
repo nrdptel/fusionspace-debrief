@@ -1056,6 +1056,28 @@ the artifact rather than the tree.
    2 copyable, 0 keyboard-navigable. Lift it from `SampleTable.tsx`, which already has the sticky
    header, `aria-sort` and the clipboard copy.
 
+   **STARTED 2026-08-01 — the primitive exists and the two cross-check tables are on it.**
+   `DataTable` is in `components/ui.tsx` with a `{columns, rows}` model: sortable where a column
+   supplies a `compare`, copyable as a whole over `lib/copyTable`, sticky header behind an optional
+   `maxHeight`, an always-mounted `role="status"` live region, and the `colSpan` empty row. The
+   column type carries **`cell` and `text` separately**, which is the piece that made it fit these
+   surfaces at all: an agreement badge reads as a coloured chip on screen and has to reach a
+   spreadsheet as `agree · 0.6%`, not as markup and not as an empty cell.
+
+   `DeviceSummary` and `GpsApogee` are converted — **the two surfaces §6 exists for, and neither
+   had any copy path at all**: the numbers a cert document most wants were on screen and the only
+   way into a spreadsheet was to retype them. Both now also share one `agreementText`, so the badge
+   and the clipboard cannot drift into saying different things about the same row. Pinned by
+   `e2e/device-summary.spec.ts` → *"the logger cross-check copies as a real table, verdict and
+   all"*, falsified by blanking the clipboard text alone and watching it go red while the badge
+   stayed correct. Adopters 29 → 31; `<table>` in a component 7 files → 6.
+
+   **Still open:** `ColumnMapper`, `StitchSurface` and `ChannelExplorer`'s window-stats table — the
+   three remaining tables with no sort and no copy. Arrow-key cell navigation is **not** implemented
+   and §5's "keyboard-navigable" is therefore only partly delivered: every affordance is on the Tab
+   path, cell-to-cell movement is not. Said here rather than claimed, because a four-row cross-check
+   would not benefit and a claim is worse than a gap.
+
    **~~and collapse `CompareView`'s independent second copy onto it~~ — that clause is wrong and
    is withdrawn.** Measured 2026-08-01: `CompareView`'s table is **transposed**. Metrics are rows
    and flights are columns, and sorting a row *reorders the columns* — it ranks flights by that
