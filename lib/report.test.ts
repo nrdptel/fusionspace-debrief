@@ -154,6 +154,25 @@ describe('report exports', () => {
     expect(tableRows.every((l) => bars(l) === bars('| a | b |') || bars(l) === bars('| a | b | c | d | e |'))).toBe(true);
   });
 
+  it('tells a withheld peak speed apart from a flight that never had one, in the JSON', () => {
+    // `analyze/types.ts` states the distinction and why it matters: 'gap' and 'implausible' are
+    // "Debrief declining to report a number from data that IS there", while null is "the only
+    // case where 'not in this log' is true". `jsonMetrics` emitted `maxVelocity: null` for all
+    // three, so a document built from the export could not tell a refusal from an absence.
+    const none = JSON.parse(analysisJson(flight, analysis, 'metric', 0));
+    expect(none.metrics.maxVelocityWithheld, 'the key is present either way').toBe(null);
+
+    for (const reason of ['gap', 'implausible'] as const) {
+      const withheld = {
+        ...analysis,
+        metrics: { ...analysis.metrics, maxVelocity: NaN, maxVelocityWithheld: reason },
+      };
+      const doc = JSON.parse(analysisJson(flight, withheld, 'metric', 0));
+      expect(doc.metrics.maxVelocity, 'the value is still absent').toBe(null);
+      expect(doc.metrics.maxVelocityWithheld, `a ${reason} refusal says so`).toBe(reason);
+    }
+  });
+
   it('carries the floor-apogee caveat into the JSON and refuses the highest-apogee crown', () => {
     // `apogeeIsFloor` means the log ended at its own peak and the rocket was still climbing, so
     // the apogee is a LOWER BOUND. The screen and the text exports have always said so

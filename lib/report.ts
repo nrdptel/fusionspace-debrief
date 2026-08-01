@@ -1169,6 +1169,12 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     apogeeIsFloor: m.apogeeIsFloor,
     timeToApogee: sec(m.timeToApogee),
     maxVelocity: spd(m.maxVelocity),
+    /** Rides with its value, like `apogeeIsFloor` and `accelerationClipped`. Without it a
+     *  withheld peak exports as `maxVelocity: null`, and `analyze/types.ts` says what that
+     *  means on its own: "null — the log carries no speed and none could be derived, which is
+     *  the only case where 'not in this log' is true." A refusal and an absence became the same
+     *  JSON, and the type had already written down why that is actively wrong. */
+    maxVelocityWithheld: m.maxVelocityWithheld,
     maxVelocitySource: m.maxVelocitySource,
     maxVelocityAltitude: len(m.maxVelocityAltitude),
     maxMach: m.mach != null ? round(m.mach, 3) : null,
