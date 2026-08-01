@@ -9,7 +9,10 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D7 IN PROGRESS — slices 1 and 3 shipped.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
 | **P — product & craft** | **P1 IN PROGRESS — item 4 started.** `DataTable` and `CopyTableButton` exist in `components/ui.tsx`; both cross-check tables are on the first and the window-stats table on the second. **Copyable tables 2 → 6**, and item 4's table sweep is complete. Items **5**, **7** and **8** remain, plus item 4's keyboard clause. |
 
-**Everything this run is on the branch and in one pull request.** See *Where the work is* below.
+**Everything this run is MERGED AND LIVE.** Three pull requests here (#75, #76, #77) and one on
+the fixtures repo (#3), all merged on green; production was verified serving **`62f9d9c`** with a
+cache-buster, and the run's new strings were found in the served bundles. Nothing is pending —
+under SHIPPED-MEANS-REACHABLE this run shipped **9 increments, all reachable by a flyer.**
 
 ## What shipped this run
 
@@ -69,7 +72,17 @@ caller, which is how a shared layer stops being used. So `CopyTableButton` was l
 `e2e/compare.spec.ts:434` was racing the navigation the column mapper pushes. `waitForURL` first,
 then the heading. 5/5 in isolation and green in the full suite.
 
-### 6. The cold walks
+### 6. A flake this run SHIPPED, caught by CI and fixed forward
+
+The composite-timeline copy test clicked its control and read the clipboard in the next
+statement — but the handler awaits `copyTable`, so the read raced the write and came back with no
+`text/plain` entry. It passed 3/3 locally and on both CI jobs of the pull request that added it,
+then failed twice, retry included, on a slower runner. Both tests with that omission now wait for
+the app's own `role="status"` announcement first, which every older copy test already did. **The
+rule, filed in `BACKLOG.md`: after any control whose handler is async, wait for the app to SAY it
+finished before asserting on what it did.**
+
+### 7. The cold walks
 
 **Phone, 390 px, `hasTouch: true`, offline.** Nothing wrong on the surfaces this run changed: no
 horizontal overflow on any route *including the sample table at twelve columns* (it scrolls inside
@@ -119,13 +132,14 @@ as a real table; zero page errors across the walk. The GPS cross-check copies
 
 ## Where the work is
 
-**Pull request #75, `claude/ultracode-maintenance-vjgt9k` → `main`.** CI ran green on both jobs
-(`frontend` and `e2e`) for the first two increments — which matters more than the local run,
-because `frontend` fetches the pinned **v1.1.0** corpus release while the attached checkout is
-**v1.0.0**, so CI is where these new 2% tolerances first met the released corpus. They held.
+**Nothing is pending.** `main` is `62f9d9c` and production serves it. The fixtures repo's `main`
+carries the same assertions via its own #3.
 
-The fixtures repo has its own branch of the same name with two commits (the new assertions, and
-the removal of the dead one).
+**CI is the gate that matters here, twice over this run.** `frontend` fetches the pinned **v1.1.0**
+corpus release while the attached checkout is **v1.0.0**, so CI is where the new 2% tolerances first
+met the released corpus — they held. And CI caught a flaky test **this run had already merged**
+(see below), on a docs-only pull request, which is the strongest argument available for shipping
+through a pull request rather than pushing to `main`.
 
 ## The §9 counts at the end of this run
 
@@ -145,8 +159,8 @@ the removal of the dead one).
 
 ## Pick up first
 
-1. **Nothing is owed from this run except merging #75** if it has not been merged. Check CI on the
-   head commit first — the last increment's checks may still have been running.
+1. **Nothing is owed from this run — start clean.** All four pull requests merged and deployed,
+   both repos, no open pull request on either.
 
 2. **D7 slice 2 is the one with the most leverage left, and it is now DECOMPOSED FROM MEASUREMENT
    in `ROADMAP.md` — read that before touching it.** The sweep that found the gravity offset also
