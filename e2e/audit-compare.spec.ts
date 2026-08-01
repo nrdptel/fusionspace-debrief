@@ -25,11 +25,16 @@ test('a rocketeer compares two flights end to end', async ({ page, context }) =>
   // Mixed velocity sources → the baro flight is marked, with an explaining note.
   await expect(page.getByText(/\(baro\)/).first()).toBeVisible();
   await expect(page.getByText(/differentiated out of the altitude rather than logged/)).toBeVisible();
-  // …and the cross-check itself says which way a mixed measured/derived spread is wrong.
-  // On every corpus pair that carries both, the derived peak reads HIGH, so the spread
-  // overstates the disagreement — calling it "the looser bound" pointed the other way.
-  await expect(page.getByText(/mix a value the device measured with one differentiated out of an/)).toBeVisible();
-  await expect(page.getByText(/overstates the disagreement rather than bounding it/)).toBeVisible();
+  // …and the cross-check itself says what a mixed measured/derived spread is worth. Asserted as
+  // the CLAIM rather than as a sentence: the figures come from `lib/derivedPeak.ts` and move as
+  // the corpus does, so pinning the exact wording made this test fail for a caveat getting more
+  // accurate. What must never disappear is that the caveat names the method, gives the measured
+  // range, and says the spread is partly method rather than a real disagreement.
+  const caveat = page.getByText(/mix a value the device measured with one differentiated out of an/);
+  await expect(caveat).toBeVisible();
+  await expect(caveat).toContainText(/usually reads HIGH/i);
+  await expect(caveat).toContainText(/-?\d+% to \+?\d+%/);
+  await expect(caveat).toContainText(/partly method/);
 
   // Every overlay channel renders and titles itself correctly.
   const channel = async (button: string, heading: RegExp | string) => {

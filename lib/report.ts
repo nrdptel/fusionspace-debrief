@@ -36,7 +36,8 @@ import {
   type Comparison,
   type CompareFlight,
 } from './compare';
-import { apogeeSub, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent } from './readings';
+import { derivedPeakCaveat } from './derivedPeak';
+import { apogeeSub, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -198,7 +199,11 @@ export function headlineRows(
   if (Number.isFinite(m.timeToApogee)) rows.push(['Time to apogee', fmtTime(m.timeToApogee)]);
   if (Number.isFinite(m.maxVelocity)) {
     const mach = m.mach ? ` (${fmtMach(m.mach)})` : '';
-    rows.push(['Max velocity', fmtSpeed(m.maxVelocity, sys) + mach]);
+    // …and that applies to the PEAK SPEED too, which it did not until now. The tile has always
+    // said measured or derived; every saved document printed the number bare, so a cert write-up
+    // carried a speed with no sign it had been differentiated out of an altitude. Same rule as the
+    // apogee floor two lines up, same shared source as the screen.
+    rows.push(['Max velocity', `${fmtSpeed(m.maxVelocity, sys)}${mach} — ${velocityProvenance(m)}`]);
   } else if (m.maxVelocityWithheld != null) {
     // A saved report that simply omits the row says the flight had no peak speed. It had
     // one; Debrief declined to report it, and the document has to carry that distinction
@@ -973,7 +978,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
       .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const mixed = agree.some((a) => a.mixedSource)
-      ? ' \\*The recordings mix a value the device measured with one differentiated out of an altitude, which reads HIGH at the peak — 5% to 110% high on the corpus flights that carry both — so that spread overstates the disagreement rather than bounding it.'
+      ? ` \\*${derivedPeakCaveat()}`
       : '';
     const sat = agree.some((a) => a.saturated)
       ? ' †One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
@@ -1059,7 +1064,7 @@ export function compareHtml(
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const foot = [
       agree.some((a) => a.mixedSource)
-        ? '*The recordings mix a value the device measured with one differentiated out of an altitude, which reads HIGH at the peak — 5% to 110% high on the corpus flights that carry both — so that spread overstates the disagreement rather than bounding it.'
+        ? `*${derivedPeakCaveat()}`
         : '',
       agree.some((a) => a.saturated)
         ? '†One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'

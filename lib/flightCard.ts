@@ -7,6 +7,7 @@ import type { FlightMetrics } from './analyze/types';
 import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from './display';
 import type { UnitChoice } from './display';
 import { visibleRows } from './reportProfile';
+import { velocityProvenance } from './readings';
 
 export interface CardStat {
   /** What the card prints. Short on purpose — four of these share the card's width, so
@@ -49,7 +50,10 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice, hidden?
     },
   ];
   if (Number.isFinite(metrics.maxVelocity)) {
-    const src = metrics.maxVelocitySource === 'device' ? 'measured' : 'derived';
+    // The same words the tile and the saved report use, from the same function — this line used to
+    // hand-roll them, so the moment the other two started naming the DIRECTION of a derived peak's
+    // error the print card would have been the one surface still saying just "derived".
+    const src = velocityProvenance(metrics, 'short');
     stats.push({
       label: 'Max velocity',
       reading: 'Max velocity',

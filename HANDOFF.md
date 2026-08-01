@@ -6,7 +6,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D7 IN PROGRESS — slices 1 and 3 shipped.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
+| **D — capability** | **D7 IN PROGRESS — slices 1, 2 and 3 shipped.** A flyer can now read **every channel their board recorded as numbers**, not the ≤6 the chart happened to be drawing; and the corpus pins **54 quantities over 33 logs** instead of 40 over 33, of which 33 were apogees. Slices **2** (a reading's uncertainty as a measured range) and **4** (stage-aware readings on a composite) remain. |
 | **P — product & craft** | **P1 IN PROGRESS — item 4 started.** `DataTable` and `CopyTableButton` exist in `components/ui.tsx`; both cross-check tables are on the first and the window-stats table on the second. **Copyable tables 2 → 6**, and item 4's table sweep is complete. Items **5**, **7** and **8** remain, plus item 4's keyboard clause. |
 
 **Everything this run is MERGED AND LIVE.** Three pull requests here (#75, #76, #77) and one on

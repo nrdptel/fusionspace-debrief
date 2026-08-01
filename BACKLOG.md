@@ -243,6 +243,19 @@ wild, ideas too big for one pass. One line each, newest first.
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.
+- **The attached fixtures checkout and the corpus `corpus.lock.json` pins are DIFFERENT CORPORA,
+  and the difference changes what Debrief may claim.** Proved 2026-08-01: a derived-vs-measured
+  sweep found **4 pairs locally and 6 in CI**, and one of the two CI-only pairs (the sg1.1
+  PerfectFlite StratoLogger) reads **13.7% LOW** where every local pair reads high — which is the
+  difference between "a derived peak is an upper bound" being true and being a false safety claim.
+  `VERSION` reads `v1.0.0`; the lock pins `v1.1.0`. **A green local corpus run is therefore not
+  evidence about the corpus that gates CI**, and any statistic computed from the local checkout
+  must be written as a superset or a floor, never as an exact population. Fixing this properly
+  means either cutting a release that matches the checkout or attaching the pinned one.
+- **Nothing tells a session that a published constant was derived from a narrower corpus than CI
+  runs.** `lib/derivedPeak.ts` handles it by asserting containment rather than equality, which is
+  the right shape but is a per-file decision that the next such constant will have to rediscover.
+  Worth a note in `CONTRIBUTING.md` if a second one appears.
 - **A copy test that clicks and then reads the clipboard in the next statement RACES the write,
   and passes locally while failing on a slower CI runner.** Shipped one on 2026-08-01
   (`e2e/stitch.spec.ts` "the composite timeline copies as a real table") — 3/3 locally and green on

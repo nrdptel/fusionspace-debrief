@@ -39,7 +39,9 @@ export interface Tile {
 
 /** Mach (when known), the altitude the peak speed was reached at, and its
  *  provenance — measured off a logged/inertial velocity, or derived from the
- *  barometric altitude (softer at peak). Provenance is shown for the peak the way
+ *  barometric altitude (which usually reads high at the peak, not soft, and bounds the speed
+ *  in neither direction — see `velocityProvenance`).
+ *  Provenance is shown for the peak the way
  *  the max-acceleration tile shows it, so a headline number never reads as more
  *  direct than it is. */
 function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
@@ -54,8 +56,30 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
   const parts: string[] = [];
   if (m.mach) parts.push(fmtMach(m.mach));
   if (Number.isFinite(m.maxVelocityAltitude)) parts.push(`at ${fmtLength(m.maxVelocityAltitude, sys)}`);
-  parts.push(m.maxVelocitySource === 'device' ? 'measured' : 'derived');
+  parts.push(velocityProvenance(m));
   return parts.join(' · ');
+}
+
+/** How the peak speed was obtained, in one word or two — and the DIRECTION of the error when it
+ *  was derived, because "derived" alone is the vague caveat the safety invariant rejects.
+ *
+ *  Exported for the same reason `apogeeSub` and `burnoutSub` are, and it should have been from the
+ *  start: `lib/report.ts` says in its own comment that "the document a flyer files has to carry the
+ *  qualifier the screen shows, or the number that leaves the app is the one without it" — and then
+ *  carried it for the apogee and not for the peak speed, because this was module-private and there
+ *  was nothing to call. So the tile said "derived" while the .txt, .md, .html, the clipboard and
+ *  the print card all printed the speed bare. A cert document is exactly where that matters most. */
+export function velocityProvenance(m: FlightMetrics, form: 'full' | 'short' = 'full'): string {
+  if (m.maxVelocitySource === 'device') return 'measured';
+  // Two lengths, one claim. The share card is a small image posted to a club chat and cannot carry
+  // a clause — but it is also the surface where an unqualified figure did the most damage (nine
+  // corpus flights put a SUPERSONIC claim on one, the loudest reading Mach 2.64 where the device
+  // summary, a second altimeter, a GPS and an L3 cert PDF all say Mach 1.3). So it gets the short
+  // form rather than the bare word: whichever surface a flyer is looking at, "derived" never
+  // appears without the tendency attached. "Usually" is doing real work — five of the six corpus
+  // pairs read high and one reads 14% low, so this is a tendency and not a bound, and a label that
+  // promised a ceiling would be the same overclaim in the other direction.
+  return form === 'short' ? 'derived (usually reads high)' : 'derived, which usually reads high at the peak';
 }
 
 /** Whether the record actually reached the ground. `descentSource` is set only where a

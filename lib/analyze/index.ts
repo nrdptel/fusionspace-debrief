@@ -9,6 +9,7 @@ import type { RawFlight, Channel } from '../flight/types';
 import { getChannel } from '../flight/types';
 import { sliceFlight } from '../flight/slice';
 import { G0 } from '../units';
+import { derivedPeakList } from '../derivedPeak';
 import type {
   AnalyzeOptions,
   FlightAnalysis,
@@ -2410,10 +2411,14 @@ function analyzeWhole(
   // lands above the measurement: 1,466 ft/s at 2.1 Hz against a Blue Raven's measured
   // 1,401 ft/s on the same flight (+5% on the speeds, +8% comparing the two Mach figures),
   // and above that tracker's own stated 1,340 ft/s (+9%). Every derived peak the corpus can
-  // check runs the same way — the barometric ones on that flight by +23% and +110%, and a
-  // PerfectFlite baro against an AltusMetrum inertial on the endurance flight by +30%. A
-  // reading that is high by an amount nothing on the file bounds is not one that settles
-  // whether a flight went supersonic.
+  // check runs the same way — the figures are in `lib/derivedPeak.ts` and are recomputed from
+  // the corpus on every run. This comment used to add "a PerfectFlite baro against an
+  // AltusMetrum inertial on the endurance flight by +30%", and that pair was real: its
+  // StratoLogger read Mach 1.19 against the TeleMetrum's measured 0.93. The ascent-noise guard
+  // withholds that peak now — 0.050 s after liftoff at 30.5 m AGL, off a log that opens below the
+  // pad — so the pair stopped existing while the figure went on being printed. A reading that is
+  // high by an amount nothing on the file bounds is not one that settles whether a flight went
+  // supersonic.
   // The corpus used to appear to say +28% for GPS specifically, from a ground-station log
   // whose peak was differentiated across four missing fixes; that peak is withheld now.
   // Quote a speed ratio or a Mach ratio, but say which — they differ by three points here.
@@ -2722,7 +2727,7 @@ function analyzeWhole(
     // is neither proof of a supersonic flight nor a floor under the real speed.
     if (velBaro && mach !== null && mach >= TRANSONIC_BARO_LOW) {
       warnings.push(
-        `The peak speed (about Mach ${mach.toFixed(2)}) is at or past the transonic region, where a barometric speed is unreliable — the shock wave over the pressure port distorts the sensed pressure, and the error runs both ways: corpus flights recorded on two devices show a baro trace reading Mach 1.19 against a measured 0.93, and Mach 2.64 against a measured 1.22. So this figure can neither confirm the rocket went supersonic nor bound how fast it actually went. An accelerometer, an inertial solution or GPS would settle it.`,
+        `The peak speed (about Mach ${mach.toFixed(2)}) is at or past the transonic region, where a barometric speed is unreliable — the shock wave over the pressure port distorts the sensed pressure, and the error runs both ways — the corpus pairs span ${derivedPeakList('speed')} on the speeds, usually high but not always. So this figure can neither confirm the rocket went supersonic nor bound how fast it actually went. An accelerometer, an inertial solution or GPS would settle it.`,
       );
     }
   } else if (velocitySource === 'baro' && mach !== null && mach >= TRANSONIC_BARO_LOW) {
@@ -2731,7 +2736,7 @@ function analyzeWhole(
     // still differentiated from it, and the corpus says a coarse GPS altitude differentiated
     // puts the peak high rather than soft.
     warnings.push(
-      `The peak speed (about Mach ${mach.toFixed(2)}) is worked out from the GPS altitude rather than measured. Nothing distorts a GPS through the transonic region the way a shock over a pressure port distorts a barometer, but differentiating a coarse, lagging GPS altitude runs the peak high: on the corpus GPS flight a second instrument also recorded, this read comes out above the measurement — 1,466 ft/s where a Blue Raven on the same flight measured 1,401 ft/s, and above the tracker's own stated 1,340 ft/s: +5% and +9% on the speeds, or +8% comparing the two Mach figures. Every derived peak the corpus can check runs the same way, the barometric ones by +23%, +30% and +110%. So it doesn't confirm the rocket went supersonic, and it isn't a floor under how fast it actually went.`,
+      `The peak speed (about Mach ${mach.toFixed(2)}) is worked out from the GPS altitude rather than measured. Nothing distorts a GPS through the transonic region the way a shock over a pressure port distorts a barometer, but differentiating a coarse, lagging GPS altitude runs the peak high: on the corpus GPS flight a second instrument also recorded, this read comes out above the measurement — 1,466 ft/s where a Blue Raven on the same flight measured 1,401 ft/s, and above the tracker's own stated 1,340 ft/s: +5% and +9% on the speeds, or +8% comparing the two Mach figures. Almost every derived peak the corpus can check runs the same way; the pairs span ${derivedPeakList('speed')} on the speeds, and one runs the other way. So it doesn't confirm the rocket went supersonic, and it isn't a floor under how fast it actually went.`,
     );
   }
   if (sampleHz > 0 && sampleHz < 5 && velocitySource === 'baro') {
