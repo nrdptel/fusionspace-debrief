@@ -17,6 +17,7 @@ import { buildComparison, crossCheck, type CompareInput } from '../compare';
 import { buildPlotChannels } from '../explore';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 import { alignStages } from '../stitch';
+import { canMeasureDrag } from '../drag';
 
 // Golden-value regression against the full private flight-log corpus (61 real logs across
 // 10 logger families). The corpus is fetched on demand into ./__corpus__/ by
@@ -537,6 +538,14 @@ interface CorpusRead {
   velocityWithheld: boolean;
   /** Seconds from liftoff to apogee — what a burn time is held against. */
   timeToApogeeS: number;
+  /** Whether this flight has the SHAPE a measured Cd needs — barometric/accel altitude and a
+   *  real coast between burnout and apogee — ignoring whether the speed trace is believable.
+   *  Held beside `dragOffered` so the invariant below can prove it is guarding live records
+   *  rather than an empty set. */
+  dragGeometry: boolean;
+  /** Whether the app would actually offer this flight a measured Cd — `canMeasureDrag`'s own
+   *  answer, so the invariant tests the shipped predicate rather than restating it. */
+  dragOffered: boolean;
   /** Time (s) at which a genuine signed-axial trace falls through zero — thrust = drag, the
    *  end of thrust — searched from the boost peak to one second past the speed peak, exactly
    *  the window the analyzer allows. NaN when the flight has no signed axial channel or the
@@ -589,6 +598,8 @@ function corpusReads(): CorpusRead[] {
       hasBurnoutEvent: false,
       velocityWithheld: false,
       timeToApogeeS: NaN,
+      dragGeometry: false,
+      dragOffered: false,
       axialZeroCrossingT: NaN,
       landingApproachFrac: NaN,
     };
@@ -676,6 +687,12 @@ function corpusReads(): CorpusRead[] {
       velocityWithheld: series.velocityUnusable === true,
       timeToApogeeS: metrics.timeToApogee,
       axialZeroCrossingT,
+      // The shipped predicate asked with the flag under test forced OFF — so it stays tied to
+      // the real rule (a hand-copy of the geometry drifts silently the moment `canMeasureDrag`
+      // changes, and would then report a guard protecting five records while protecting none)
+      // while remaining independent of the thing the invariant is about.
+      dragGeometry: canMeasureDrag({ ...series, velocityUnusable: false }, events),
+      dragOffered: canMeasureDrag(series, events),
     });
   }
   corpusReadCache = out;
@@ -2232,6 +2249,44 @@ describe('burnout is the end of thrust, not the apogee charge', () => {
     expect(withheld, 'some corpus flight has its speed withheld and still reports a burnout').toBeGreaterThan(2);
   });
 
+  it('never offers a measured Cd on a flight whose speed it withheld', { timeout: 60_000 }, () => {
+    // The defect this pins shipped and was live: `canMeasureDrag` asked about the ALTITUDE
+    // source and the coast geometry, and never about whether the velocity trace was one the
+    // analysis would stand behind. So five analysed records — four generic-CSV L1 flights and
+    // the Kairos booster — rendered a drag panel whose Max velocity row, a few centimetres up
+    // the same page, read "withheld". The booster published "Mach 9.90 – 23.10".
+    //
+    // A golden value could not have caught it: no fixture asserts a Cd, and the digest blesses
+    // whatever was there when it was written. What catches it is the RELATION between two
+    // surfaces, which is what this holds.
+    let guarded = 0;
+    let offered = 0;
+    for (const { file, velocityWithheld, dragGeometry, dragOffered } of corpusReads()) {
+      if (dragOffered) offered++;
+      if (!velocityWithheld) continue;
+      expect(
+        dragOffered,
+        `${file}: the speed trace was withheld, so a measured Cd read off it must be withheld too`,
+      ).toBe(false);
+      if (dragGeometry) guarded++;
+    }
+    // Two tripwires, because the assert above is one-sided and would go green on a
+    // `canMeasureDrag` that had simply stopped returning true at all.
+    //
+    // Measured 2026-08-01: 5 withheld flights carry the coast geometry — the Kairos booster
+    // plus four generic-CSV logs from one flyer on one day. The floor sits below 5 rather
+    // than at it because four of the five are that single family, so a re-cut that re-maps
+    // them would drop this to 1 for a reason unrelated to the rule being guarded.
+    expect(
+      guarded,
+      'some corpus flight has its speed withheld AND the coast geometry a Cd needs — otherwise this guards nothing',
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      offered,
+      'some corpus flight is still OFFERED a measured Cd — otherwise the assert above passes on a dead predicate',
+    ).toBeGreaterThan(10);
+  });
+
   it('reads burnout off the accelerometer wherever the trace actually crosses zero', { timeout: 60_000 }, () => {
     // The search bound, not the threshold, is what makes this reachable. On specific force
     // the velocity peak IS the +1 g crossing (dv/dt = a − g), so thrust = drag comes after
@@ -2485,3 +2540,4 @@ describe('a descent rate is averaged over time, not over samples', () => {
     ).toBe(8);
   });
 });
+

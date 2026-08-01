@@ -107,6 +107,20 @@ describe('dragCoefficient', () => {
     expect(canMeasureDrag({ ...series, altitudeSource: 'gps' }, events)).toBe(false);
   });
 
+  it('refuses a velocity the analysis withheld, rather than squaring it into a Cd', () => {
+    const { series, events } = coastFlight({ cd: 0.5, massKg: m, diameterM: d, rho: 1.2, device: true });
+    // The same flight, differing only in the judgement the analysis reached about its
+    // speed trace. Cd is v² in the numerator, so a trace that is not trustworthy enough
+    // to publish a peak speed is not trustworthy enough to publish a drag figure — and
+    // the Mach window this panel prints beside it is a supersonic claim in its own right.
+    expect(canMeasureDrag(series, events)).toBe(true);
+    expect(dragCoefficient(series, events, m, d)).not.toBeNull();
+
+    const refused: FlightSeries = { ...series, velocityUnusable: true };
+    expect(canMeasureDrag(refused, events)).toBe(false);
+    expect(dragCoefficient(refused, events, m, d)).toBeNull();
+  });
+
   it('diameterToM converts mm and inches', () => {
     expect(diameterToM(54, 'mm')).toBeCloseTo(0.054, 6);
     expect(diameterToM(2, 'in')).toBeCloseTo(0.0508, 6);
