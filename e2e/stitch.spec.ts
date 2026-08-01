@@ -219,3 +219,41 @@ test('the route is a static export', () => {
   const html = readFileSync(path.join(process.cwd(), 'out', 'stitch', 'index.html'), 'utf8');
   expect(html).toContain('One launch, several recordings');
 });
+
+// A staged flight's mark timeline is what a cert write-up quotes — which mark, at what time on the
+// common clock, off which recording, at what height on that recording's own datum. It was readable
+// and nothing else, so the way into a document was to retype it.
+test('the composite timeline copies as a real table, on the common clock', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const ids = await idsFor(page, [BOOSTER, SUSTAINER]);
+  await page.goto(`/stitch/?ids=${ids}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Copy the timeline' }).click();
+  const clip = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const out: Record<string, string> = {};
+    for (const item of items) for (const type of item.types) out[type] = await (await item.getType(type)).text();
+    return out;
+  });
+
+  const lines = clip['text/plain'].split('\n');
+  const head = lines[0].split('\t');
+  expect(head.slice(0, 3)).toEqual(['Time (s)', 'Mark', 'Recording']);
+  // The unit rides in the HEADER, not in every cell — a spreadsheet sorts a column of bare
+  // numbers and will not sort "1,234 ft".
+  expect(head[3]).toMatch(/^Its own altitude \((ft|m)\)$/);
+  const body = lines.slice(1).filter(Boolean);
+  expect(body.length).toBeGreaterThan(5);
+  // Every data row carries a mark and names its recording, and the altitude is a bare number.
+  for (const l of body) {
+    const c = l.split('\t');
+    expect(c[1].length).toBeGreaterThan(0);
+    expect([BOOSTER, SUSTAINER]).toContain(c[2]);
+    expect(c[3]).toMatch(/^(-?[\d,.]+|—)$/);
+  }
+  // Both recordings reach the clipboard, which is the whole point of a composite.
+  expect(new Set(body.map((l) => l.split('\t')[2]))).toEqual(new Set([BOOSTER, SUSTAINER]));
+  expect(clip['text/html']).toContain('<th>Recording</th>');
+  expect(clip['text/html']).not.toContain('<span');
+});

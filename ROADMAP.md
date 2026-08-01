@@ -1114,8 +1114,19 @@ the artifact rather than the tree.
    channel"*, which checks the unit column and that max ≥ min rather than only that something
    arrived. **Copyable tables: 2 → 5.**
 
-   **Still open:** `ColumnMapper` and `StitchSurface` — the two remaining tables with no sort and
-   no copy. Arrow-key cell navigation is **not** implemented
+   **The composite timeline has the copy too** (2026-08-01). A staged flight's marks — which mark,
+   at what time on the common clock, off which recording, at what height on that recording's own
+   datum — is what a cert write-up quotes, and it was readable and nothing else. Two details worth
+   keeping because they are what makes a copied table usable rather than merely present: the unit
+   rides in the HEADER and the altitude cells are bare numbers, because a spreadsheet will not sort
+   `1,234 ft`; and the tie marker travels as a WORD, because `↳` says nothing once it is out of this
+   table and away from the row above it. **Copyable tables: 2 → 6.**
+
+   **Still open:** `ColumnMapper` only — and it is the one table here that is not data a flyer
+   copies. It is the mapping UI: its cells are `<select>`s for choosing what each column of an
+   unrecognised CSV means. Sorting it is meaningless and copying it would yield the flyer's own
+   in-progress choices. Left deliberately, so a later run does not read "1 of 7 unconverted" as
+   debt. **That makes item 4's table sweep complete**, with the keyboard clause below still owed. Arrow-key cell navigation is **not** implemented
    and §5's "keyboard-navigable" is therefore only partly delivered: every affordance is on the Tab
    path, cell-to-cell movement is not. Said here rather than claimed, because a four-row cross-check
    would not benefit and a claim is worse than a gap.
