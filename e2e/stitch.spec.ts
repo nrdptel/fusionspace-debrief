@@ -230,6 +230,13 @@ test('the composite timeline copies as a real table, on the common clock', async
   await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole('button', { name: 'Copy the timeline' }).click();
+  // Wait for the ANNOUNCEMENT before reading the clipboard. The copy is async — the control's
+  // handler awaits `copyTable` — so clicking and reading in the next statement races the write,
+  // and the read comes back with no `text/plain` entry at all. It passed 3/3 locally and both CI
+  // jobs on the pull request that added it, then failed twice on a later CI run: a slower runner
+  // is all it takes. The status line is the app's own signal that the write finished, which is
+  // why every other copy test in this suite waits for it.
+  await expect(page.getByRole('status').filter({ hasText: /Copied/ })).toBeVisible();
   const clip = await page.evaluate(async () => {
     const items = await navigator.clipboard.read();
     const out: Record<string, string> = {};
