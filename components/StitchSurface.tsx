@@ -9,7 +9,7 @@ import type { StitchRefusal } from '@/lib/stitch';
 import { fmtLength } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { EVENT_COLOR } from '@/lib/eventStyle';
-import { Button, Card, Chip, EmptyState, ErrorState, Readout } from './ui';
+import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Readout } from './ui';
 
 /**
  * One timeline across several per-stage recordings of one launch.
@@ -243,6 +243,29 @@ export default function StitchSurface() {
             Lined up on the launch · times in whole seconds
           </p>
         </div>
+        {/* A staged flight's mark timeline is the thing a cert write-up quotes, and it was
+            readable and nothing else. The altitude column carries its unit in the header rather
+            than in every cell, because a spreadsheet sorts a column of bare numbers and will not
+            sort "1,234 ft". The tie marker travels as a word: "↳" says nothing once it is out of
+            this table and next to the row above it. */}
+        {composite.marks.length > 0 && (
+          <div className="px-4 pb-2">
+            <CopyTableButton
+              label="Copy the timeline"
+              title="Copy these marks — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
+              header={['Time (s)', 'Mark', 'Recording', `Its own altitude (${fmtLength(0, sys).replace(/^[\d.,]+\s*/, '')})`, 'Note']}
+              rows={() =>
+                composite.marks.map((m) => [
+                  fmtCompositeTime(m.t),
+                  m.label,
+                  m.recording,
+                  m.altitudeM == null ? '—' : fmtLength(m.altitudeM, sys).replace(/\s*[a-zA-Z]+$/, ''),
+                  m.tiedWithPrevious ? 'within a second of the mark above — not ordered against it' : '',
+                ])
+              }
+            />
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-zinc-50 dark:bg-zinc-900/50">
