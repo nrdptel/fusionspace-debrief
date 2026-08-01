@@ -9,9 +9,15 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D6 SHIPPED, and D7 is DECOMPOSED and NOT STARTED.** A flyer who drops two files off one flight is offered the grouping, sees the evidence in words, **says which recording reports the flight**, and accepts or refuses in one press. D6's last open item was **refused on a measurement** rather than built. D7 now has four slices with the ground truth that would settle each — **and its own stated first slice turned out to be already shipped**, corrected in place. |
 | **P — product & craft** | **P1 IN PROGRESS, four slices this run.** The two cross-check tables line their digits up; the sixth radius is gone (12 sites); every dark surface is back on one of the two the system has (11 sites); and the site header stops spending the caveat colour on a tip jar. `Button` 16 → 18 adopters, `Segmented` 2 → 3. Items 5, 7 and 8 remain; items 3 and 4 were measured and both entries were **stale by 3×** — see below. |
 
-**Everything this run is on the pinned branch and open as ONE pull request, #72.** Under
-SHIPPED-MEANS-REACHABLE none of it has reached a flyer yet. Merging it on green is all that is
-needed, and merging on green is pre-authorised.
+**Everything this run is MERGED AND LIVE.** PR #72 (11 commits) and PR #73 (1 commit) both merged
+on green; production was verified serving `b51b9a4` with a cache-buster, and the four new strings
+this run added were found in the served bundles. Nothing is pending — under
+SHIPPED-MEANS-REACHABLE this run shipped 12 increments, all reachable by a flyer.
+
+*(A live browser walk of production was NOT possible: Chromium in this container cannot reach
+`debrief.fusionspace.co` — `ERR_CONNECTION_RESET`, because it is not routed through the sandbox
+proxy that `curl` uses. The built export of the shipped tree was walked instead, and the served
+bundles were fetched and grepped. Worth knowing before planning a run around a production walk.)*
 
 **A Sev-1 was found and fixed, and it is the reason to merge rather than let this sit.** Five real
 corpus flights published a drag coefficient and a Mach window computed from a velocity trace the
@@ -153,15 +159,19 @@ meaning anything.
 
 ## Pick up first
 
-1. **Merge PR #72.** It carries a Sev-1 fix. Nothing in this run is reachable by a flyer until it
-   lands.
+1. **Nothing is owed from this run — start clean.** Both pull requests merged and deployed.
 
-2. **D7 needs decomposing — the D-track has no queued milestone.** `ROADMAP.md`'s after-list
-   describes it as "deeper honest insight, the stated moat". Decomposing it is one increment's work
-   and it IS the work; do not fall back to the defect ledger because the D-track looks empty.
-   **D6 leaves it a concrete starting point:** separating *one recording exported twice* from *two
-   instruments* is still unsolved, the sync counter cannot do it (measured, below), and the summary
-   CSV's serial number is where to look next.
+2. **D7 is decomposed and NOT STARTED — take a slice of it, and take it before anything in
+   `BACKLOG.md`.** Four slices, each naming the ground truth that would settle it. **Slice 3 is the
+   cheapest and already has a Sev-1 behind it:** the corpus asserts an apogee on most fixtures and
+   almost nothing else, which is exactly where this run's drag defect lived — green golden values
+   while the panel published Cd 0.00 over "Mach 9.90 – 23.10". **Slice 1 is the most visible to a
+   flyer:** every recorded channel readable as numbers, rather than the six the sample table
+   inherits from the chart's own `MAX_SERIES` limit.
+
+   **D6 leaves D7 a concrete starting point:** separating *one recording exported twice* from *two
+   instruments* is still unsolved, the sync counter provably cannot do it (measured — see below),
+   and the summary CSV's `Serial number` is where to look next.
 
 3. **P1's remaining items, in the order the roadmap ranks them.** Item 4's premise was corrected
    this run — `CompareView`'s table is **transposed** and will not collapse onto `SampleTable`, so
