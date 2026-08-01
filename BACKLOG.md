@@ -26,9 +26,13 @@ wild, ideas too big for one pass. One line each, newest first.
   (1,081.6 m). Fixed by mirroring the `accelerationClipped` / `anyClipped` conventions that were
   already there for the sibling caveat. Pinned in `lib/report.test.ts` and `lib/flightCard.test.ts`,
   three mutations, each red.
-- **2026-08-01 — `jsonMetrics` also omits `maxVelocityWithheld`**, so a withheld peak exports as
-  `maxVelocity: null`, which `lib/analyze/types.ts:33` says means "the flight has no such reading".
-  A refusal and an absence become the same JSON. Same read, same caveat: not driven in the app.
+- **FIXED 2026-08-01 — `jsonMetrics` omitted `maxVelocityWithheld`**, so a withheld peak exported
+  as `maxVelocity: null`, which `lib/analyze/types.ts` says is "the only case where 'not in this
+  log' is true". A refusal and an absence were the same JSON, and the type had already written down
+  why that is actively wrong: 'gap' and 'implausible' are "Debrief declining to report a number
+  from data that IS there". The key now rides with its value, like `apogeeIsFloor` and
+  `accelerationClipped`. Pinned in `lib/report.test.ts` across both reasons, falsified by removing
+  the key.
 - **2026-08-01 — `lib/gps.ts:189`'s `trackKml` substitutes 0 for any non-finite altitude sample**,
   so an altitude the analyzer WITHHELD exports as 0 m into a file a flyer opens in Google Earth.
   Not reproduced by me.
