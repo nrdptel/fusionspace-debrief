@@ -1913,8 +1913,8 @@ test('files that name different launches are not offered as one flight', async (
 
 // D7 slice 1. `MAX_SERIES` is a fact about how many TRACES stay readable on one chart — six
 // lines on two axes — and it was silently deciding how many COLUMNS OF NUMBERS a flyer could
-// see, because the sample table inherited the chart's selection. Measured over the corpus:
-// 23 of 25 real logs carry more channels than the chart will draw at once, one carries 15, and
+// see, because the sample table inherited the chart's selection. Measured over the corpus: of the
+// 25 files a parser auto-detects as a flight, 23 carry more channels than the chart draws, and
 // 119 channels in total could not be read as numbers without going back to the chart and
 // swapping the selection. AltosUI "shows all of the data available from the flight computer";
 // the CSV export here always did too, so the data was there and only the in-app view was capped.
@@ -1937,21 +1937,66 @@ test('every channel the board recorded is readable as numbers, not just the plot
   const plottedLabel = await scope.getByRole('button', { name: /Just what's plotted/ }).innerText();
   const plotted = Number(plottedLabel.match(/\((\d+)\)/)![1]);
 
-  // This file genuinely carries more than the chart draws, or the test proves nothing.
+  // The chart is drawing few and the file holds many, or this file proves nothing. Both sides
+  // come off the control's own labels, so they are also checked against the DOM below.
   expect(total).toBeGreaterThan(plotted);
-  expect(total).toBeGreaterThanOrEqual(8);
 
   // Default is every channel — the x column plus one per channel.
   await expect(headers()).toHaveCount(total + 1);
   // …including ones a six-trace chart could never show at once: a raw altitude beside the
-  // cleaned one, the device's own inertial altitude, the battery and the temperature.
+  // cleaned one, the device's own inertial altitude, the battery and the temperature. These
+  // are the file's channels, not the app's count of them.
   for (const name of ['Altitude (raw)', 'Inertial_Altitude', 'Batt_Volts', 'Temperature']) {
     await expect(table.locator('th', { hasText: name })).toBeVisible();
   }
+
+  // READABLE AS NUMBERS is the milestone's own wording, so read the numbers. A table with every
+  // header and no cells would satisfy a column count, and that is exactly the shape a broken
+  // data path takes here.
+  const firstRow = table.locator('tbody tr').filter({ has: page.locator('td:not([colspan])') }).first();
+  await expect(firstRow.locator('td')).toHaveCount(total + 1);
+  const cells = await firstRow.locator('td').allTextContents();
+  // Every cell is a number or an explicit "—"; at least four channels carry a real reading, and
+  // they are not all the same value (which a stuck or mis-indexed series would give).
+  const numeric = cells.filter((c) => /^-?[\d.]+$/.test(c.trim()));
+  expect(numeric.length).toBeGreaterThanOrEqual(5);
+  for (const c of cells) expect(c.trim()).toMatch(/^(-?[\d.]+|—)$/);
+  expect(new Set(numeric).size).toBeGreaterThan(1);
+
+  // The battery column in particular: a voltage is unmistakable, and it is a channel the chart
+  // could not have been showing next to an altitude without a second axis.
+  // textContent, not innerText: the headers are CSS-uppercased, so innerText reads BATT_VOLTS.
+  const battIdx = (await headers().allTextContents()).findIndex((h) => h.includes('Batt_Volts'));
+  expect(battIdx).toBeGreaterThan(0);
+  expect(Number(cells[battIdx])).toBeGreaterThan(1);
+  expect(Number(cells[battIdx])).toBeLessThan(30);
 
   // And the chart's own selection is still one press away, for reading the plot's numbers.
   await scope.getByRole('button', { name: /Just what's plotted/ }).click();
   await expect(headers()).toHaveCount(plotted + 1);
   await scope.getByRole('button', { name: /Every channel/ }).click();
   await expect(headers()).toHaveCount(total + 1);
+
+  // The sort is held by its COLUMN, not by a column index, and this is what that buys. Sort by a
+  // channel only the wide set has, then narrow: the column is gone, so no header may claim a sort
+  // and the rows must be back in record order. Held as an index it stayed armed at a position that
+  // now meant a different channel — or none — so the rows silently reverted while every header
+  // read aria-sort="none": a sort that was on, showing nothing, with no way to see or clear it.
+  const battHeader = table.getByRole('button', { name: /^Batt_Volts/ });
+  const dataRows = () => table.locator('tbody tr').filter({ has: page.locator('td:not([colspan])') });
+  const recordTop = await dataRows().first().locator('td').first().textContent();
+  await battHeader.click();
+  await expect(table.locator('th', { hasText: 'Batt_Volts' })).toHaveAttribute('aria-sort', 'descending');
+  const sortedTop = await dataRows().first().locator('td').first().textContent();
+  expect(sortedTop).not.toBe(recordTop);
+
+  await scope.getByRole('button', { name: /Just what's plotted/ }).click();
+  await expect(table.locator('th[aria-sort="descending"], th[aria-sort="ascending"]')).toHaveCount(0);
+  expect(await dataRows().first().locator('td').first().textContent()).toBe(recordTop);
+
+  // And when the column comes back, its sort comes back WITH the header that says so — the two
+  // never disagree, which is the whole point of keying it.
+  await scope.getByRole('button', { name: /Every channel/ }).click();
+  await expect(table.locator('th', { hasText: 'Batt_Volts' })).toHaveAttribute('aria-sort', 'descending');
+  expect(await dataRows().first().locator('td').first().textContent()).toBe(sortedTop);
 });

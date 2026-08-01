@@ -23,7 +23,9 @@ green before every push. The corpus was attached throughout — `lib/parsers/cor
 ### 1. D7 slice 3 — a tolerance that was absorbing a whole gravity
 
 The corpus asserted **40 quantities and 33 of them were apogees**. It is **54 checked over 33
-fixtures** now: `maxVelocity` 3 → 11, `maxAccel` 4 → 10, thirteen logs pinning two or more.
+fixtures** now: `maxVelocity` 3 → 11, `maxAccel` 4 → 10, thirteen logs pinning two or more. (It read 55/34 for
+part of the run: one new assert had landed on a `knownIssue` fixture, where the runner returns
+before checking anything — see the trap below.)
 
 **The find worth keeping is not the count.** All eight Altus Metrum flights read **exactly
 +9.80 m/s² above their own stated peak acceleration — one gravity, zero spread.** That is the
@@ -38,7 +40,7 @@ tolerance is back to 2%.
 ### 2. D7 slice 1 — every recorded channel readable as numbers
 
 `MAX_SERIES = 6` is a fact about how many *traces* stay readable, and it was deciding how many
-*columns of numbers* a flyer could see. Measured: **23 of 25 analysable corpus logs carry more
+*columns of numbers* a flyer could see. Measured: of the **25 corpus files a parser auto-detects as a flight, 23 carry more
 channels than the chart draws**, the richest carries **15**, **119 channels in total** were
 unreadable without going back to the chart. Worse than "six" suggests — the table inherited what
 was *plotted*, so a fresh Blue Raven LR read showed **1 of 11**. Verified in a browser: **12

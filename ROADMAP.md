@@ -881,8 +881,8 @@ different kind, and each slice below names the ground truth that would settle it
    data available from the flight computer" (VERIFIED). *Done when* a flyer can read every channel
    their board recorded without swapping chart selections, and a Blue Raven log proves it.
 
-   **Measured over the corpus before building:** **23 of 25 analysable logs carry more channels
-   than the chart will draw at once**, the richest carries **15**, and **119 channels in total**
+   **Measured over the corpus before building:** of the **25 corpus files a parser auto-detects as
+   a flight**, **23 carry more channels than the chart will draw at once**, the richest carries **15**, and **119 channels in total**
    could not be read as numbers without going back to the chart and swapping the selection. Worse
    than the "six" in the title suggests — the table inherited whatever the flyer had *plotted*, so
    on a fresh Blue Raven LR read it showed **1 of 11**, not 6 of 11.
@@ -893,10 +893,12 @@ different kind, and each slice below names the ground truth that would settle it
    channel, and 15 channels of a 190,000-sample file is ~23 MB to hold for a panel that is
    collapsed by default. Verified in a real browser on `blueraven-app-lr.csv` — **12 columns where
    there were 2** — and pinned by `e2e/analyze.spec.ts` → *"every channel the board recorded is
-   readable as numbers, not just the plotted ones"*, which asserts the count against the file's own
-   channel total rather than a hard-coded number, and names four channels a six-trace chart could
-   never show together. Falsified by pinning the table back to the chart's selection and watching
-   it go red at 2 columns.
+   readable as numbers, not just the plotted ones"*. It reads the NUMBERS, not just the headings —
+   a table with every header and no cells is exactly the shape a broken data path takes here, and
+   would satisfy a column count. It names four channels a six-trace chart could never show together,
+   checks the battery column parses as a plausible voltage, and pins the keyed sort across a scope
+   change. Falsified by pinning the table back to the chart's selection and watching it go red at 2
+   columns.
 
    **`MAX_SERIES` is untouched**, deliberately: six traces on two axes is still the right answer
    for a chart, and the defect was never the limit — it was a chart's limit deciding what a table
@@ -919,8 +921,16 @@ different kind, and each slice below names the ground truth that would settle it
 
    **Measured before touching anything:** all 61 manifest rows carry a `stated_max_velocity`, and
    the effective contract (`expected.json` + `corpus-overrides.json`) asserted **40 quantities over
-   33 fixtures — 33 apogee, 4 maxAccel, 3 maxVelocity**. It is **55 over 34** now: `maxVelocity`
-   3 → 12, `maxAccel` 4 → 10, and 13 fixtures pin two quantities or more. Pinned by
+   33 fixtures — 33 apogee, 4 maxAccel, 3 maxVelocity**. It is **54 CHECKED over 33** now:
+   `maxVelocity` 3 → 11, `maxAccel` 4 → 10, and 13 fixtures pin two quantities or more.
+
+   **It read 55 over 34 for part of the run, and the correction is the useful part.** One of the
+   nine new velocity asserts landed on a fixture carrying a `knownIssue`, and `runFixture` returns
+   before `assertGolden` — so it was never evaluated. Set to **1.0 m/s on a flight that reached
+   1,719.4 m/s, the suite stayed green.** That is the same trap the mapping branch already refuses
+   for a never-analysed file, and worse here because the new ratchet was counting it. The runner
+   refuses the combination outright now, the ratchet counts only fixtures it actually asserts on,
+   and both published figures came down by one. Pinned by
    `corpus.test.ts` → *"says how many quantities it pins per flight, and never fewer"*, a floor
    ratchet rather than an equality, so adding a fixture cannot turn it red.
 

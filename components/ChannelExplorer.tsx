@@ -177,14 +177,23 @@ export default function ChannelExplorer({
   // in step rather than to special-case the render.
   const showAll = tableScope === 'all' && samplesOpen && channels.length > selected.length;
   const tableChannels = showAll ? channels : selected;
-  const tableSeriesData = useMemo(() => {
-    if (!showAll) return seriesData;
-    return channels.map((c) => {
-      const out = new Float64Array(c.values.length);
-      for (let i = 0; i < out.length; i++) out[i] = c.toDisplay(c.values[i], sys);
-      return out;
-    });
-  }, [showAll, channels, sys, seriesData]);
+  // Its own memo, depending on the channel set and the units and NOTHING else. Folded into the
+  // branch below it would have carried `seriesData` as a dependency — which the every-channel
+  // path never reads — so adding or removing one chart chip, or applying a saved view, would
+  // re-allocate all fifteen arrays for a table whose contents had not changed. That is the exact
+  // cost the deferral above exists to avoid, reintroduced through a dependency array.
+  const allSeriesData = useMemo(
+    () =>
+      samplesOpen
+        ? channels.map((c) => {
+            const out = new Float64Array(c.values.length);
+            for (let i = 0; i < out.length; i++) out[i] = c.toDisplay(c.values[i], sys);
+            return out;
+          })
+        : [],
+    [samplesOpen, channels, sys],
+  );
+  const tableSeriesData = showAll ? allSeriesData : seriesData;
 
   // Memoized so a zoom (which updates `view` for the stats panel) doesn't change
   // these prop identities and force the chart to re-initialize, which would snap
@@ -551,9 +560,10 @@ export default function ChannelExplorer({
           Show the samples
         </summary>
         {/* The table's columns are its own choice, not the chart's. `MAX_SERIES` is a fact about
-            how many TRACES stay readable — six lines on one axis — and it was silently deciding
-            how many COLUMNS of numbers a flyer could see. Measured over the corpus: 23 of 25 real
-            logs carry more channels than the chart will draw at once, one carries 15, and 119
+            how many TRACES stay readable — six lines over two axes — and it was silently deciding
+            how many COLUMNS of numbers a flyer could see. Measured over the corpus: of the 25 files
+            a parser auto-detects as a flight, 23 carry more channels than the chart draws at once,
+            the richest carries 15, and 119
             channels in total could not be read as numbers without going back to the chart and
             swapping the selection. `analyzedDataCsv` has always carried every one of them, so the
             data was there and only the in-app view was capped. */}
