@@ -914,7 +914,14 @@ simulation, and no number whose method is not on the methods page in the same ch
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
-**Where the counts stand, measured 2026-07-31 at the end of the run** — the §9 shell block and the
+**Measured 2026-08-01 at the end of that run, from §9's own shell block:** `rounded-lg` **0** ·
+card treatments **10** · off-scale spacing **0** · off-scale type **1** · inverted files **15** ·
+components importing `./ui` **29** · `Button` adopters **18** · `Segmented` adopters **3** · bare
+`rounded` **0** · unsanctioned dark surfaces **0**. No count moved the wrong way; one tried to and
+the ratchet caught it. **Read inverted files 16 → 15 as the adoption effect, not an improvement** —
+the `text-xs` moved out of two converted files and into `ui.tsx`, and no glyph changed size.
+
+**Where the counts stood, measured 2026-07-31 at the end of that run** — the §9 shell block and the
 test agree exactly, which is itself the check that the two have not drifted:
 
 | count | was | now | target |
