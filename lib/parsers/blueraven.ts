@@ -269,6 +269,10 @@ export interface HighRateStream {
    *  estimate. See `lib/highRate.ts` for why that makes this different from stitching. */
   time: Float64Array;
   channels: Channel[];
+  /** Parallel to `channels`: true where the channel is part of an attitude solution and must be
+   *  reduced as one coherent sample, false where it is a rate whose peak is worth preserving.
+   *  See `HR_COLUMNS`; the distinction is load-bearing, not a formatting choice. */
+  coherent: boolean[];
   /** Samples per second, rounded — 500 Hz on every corpus file, against 50 Hz for the low-rate
    *  half. Carried so a surface can say what rate a trace was recorded at. */
   rateHz: number;
@@ -291,18 +295,27 @@ export interface HighRateStream {
  *  **No axis is claimed to be the long one.** At rest `lemiv` reads `Accel_X −0.99` while `jan10`
  *  reads `Accel_Z −1.00` — the board is mounted differently in different rockets — so none of these
  *  is mapped to `accelAxial` or `rollRate`, both of which are defined by the rocket's long axis.
- *  Guessing it from one file is how a lateral reading gets published as an axial one. */
-const HR_COLUMNS: { column: string; label: string; unit: string; scale: number }[] = [
-  { column: 'gyro_x', label: 'Gyro X', unit: 'deg/s', scale: 1 },
-  { column: 'gyro_y', label: 'Gyro Y', unit: 'deg/s', scale: 1 },
-  { column: 'gyro_z', label: 'Gyro Z', unit: 'deg/s', scale: 1 },
-  { column: 'accel_x', label: 'Accel X', unit: 'm/s2', scale: 9.80665 },
-  { column: 'accel_y', label: 'Accel Y', unit: 'm/s2', scale: 9.80665 },
-  { column: 'accel_z', label: 'Accel Z', unit: 'm/s2', scale: 9.80665 },
-  { column: 'quat_1', label: 'Quat 1', unit: '', scale: 1 },
-  { column: 'quat_2', label: 'Quat 2', unit: '', scale: 1 },
-  { column: 'quat_3', label: 'Quat 3', unit: '', scale: 1 },
-  { column: 'quat_4', label: 'Quat 4', unit: '', scale: 1 },
+ *  Guessing it from one file is how a lateral reading gets published as an axial one.
+ *
+ *  **`reduce` is the difference between a rate and an attitude, and getting it wrong publishes a
+ *  number the board never produced.** A gyro or accelerometer trace has a PEAK worth keeping, so
+ *  it is reduced by extremum (`lib/highRate.ts`). A quaternion has none — its norm is 1 by
+ *  construction — and its four components only mean anything TOGETHER, as one rotation at one
+ *  instant. Reducing them independently was measured to give a merged norm averaging 1.0132 on
+ *  `jan10` and 1.0089 on `lemiv`: a 4-tuple assembled from four different instants, which is not a
+ *  rotation and not an attitude the board ever solved, presented as "the board's own attitude
+ *  solution". They take one coherent sample per window instead. */
+const HR_COLUMNS: { column: string; label: string; unit: string; scale: number; reduce: 'extremum' | 'sample' }[] = [
+  { column: 'gyro_x', label: 'Gyro X', unit: 'deg/s', scale: 1, reduce: 'extremum' },
+  { column: 'gyro_y', label: 'Gyro Y', unit: 'deg/s', scale: 1, reduce: 'extremum' },
+  { column: 'gyro_z', label: 'Gyro Z', unit: 'deg/s', scale: 1, reduce: 'extremum' },
+  { column: 'accel_x', label: 'Accel X', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
+  { column: 'accel_y', label: 'Accel Y', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
+  { column: 'accel_z', label: 'Accel Z', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
+  { column: 'quat_1', label: 'Quat 1', unit: '', scale: 1, reduce: 'sample' },
+  { column: 'quat_2', label: 'Quat 2', unit: '', scale: 1, reduce: 'sample' },
+  { column: 'quat_3', label: 'Quat 3', unit: '', scale: 1, reduce: 'sample' },
+  { column: 'quat_4', label: 'Quat 4', unit: '', scale: 1, reduce: 'sample' },
 ];
 
 /**
@@ -317,6 +330,12 @@ const HR_COLUMNS: { column: string; label: string; unit: string; scale: number }
  * So the test is the repeat count, not a rail VALUE: the four files rail at 2,291.5, 2,293.4,
  * 2,293.5 and 2,294.1, close enough to be obviously one part and far enough apart that a hard-coded
  * constant would be wrong on three of them.
+ *
+ * **Only ever asked of a channel that can rail.** Applied to a quaternion it fires on every corpus
+ * file — `Quat_1` sits at exactly 1.00000 for thousands of pad samples because the norm is 1 by
+ * construction — and the flight then carried "the sensor behind Quat 1 RAILED … the true rate went
+ * at least that high" about a component that has no rate and no sensor. A fabricated saturation
+ * warning is a safety-invariant breach in the same way a missing one is.
  */
 function railed(values: Float64Array): boolean {
   let max = 0;
@@ -396,6 +415,8 @@ export function highRateStream(text: string): HighRateStream | null {
 
   const channels: Channel[] = [];
   const saturated: string[] = [];
+  /** Per channel, whether it must be reduced as one coherent sample rather than by extremum. */
+  const coherent: boolean[] = [];
   for (const c of present) {
     const values = new Float64Array(keep.length);
     let any = false;
@@ -406,7 +427,8 @@ export function highRateStream(text: string): HighRateStream | null {
     }
     if (!any) continue;
     channels.push({ kind: 'other', label: c.label, unit: c.unit, values });
-    if (railed(values)) saturated.push(c.label);
+    coherent.push(c.reduce === 'sample');
+    if (c.reduce === 'extremum' && railed(values)) saturated.push(c.label);
   }
   if (channels.length === 0) return null;
 
@@ -414,6 +436,7 @@ export function highRateStream(text: string): HighRateStream | null {
   return {
     time: Float64Array.from(time),
     channels,
+    coherent,
     rateHz: span > 0 ? Math.round((time.length - 1) / span) : 0,
     saturated,
   };

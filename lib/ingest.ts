@@ -13,10 +13,10 @@
 import { importFlight, ParseGuidanceError } from './parsers';
 import { summaryFigures } from './parsers/deviceSummary';
 import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers/blueraven';
-import { halvesOfOneDownload, readHighRateOnto } from './highRate';
+import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { attachSummaryText, saveRecent } from './recents';
+import { attachHighRateText, attachSummaryText, saveRecent } from './recents';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -144,10 +144,11 @@ function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summ
  */
 function pairHighRate(
   results: IngestedFlight[],
-  streams: { name: string; stream: HighRateStream; why: string }[],
-): { paired: string[]; unpaired: { name: string; why: string }[] } {
+  streams: { name: string; stream: HighRateStream; why: string; text: string }[],
+): { paired: string[]; unpaired: { name: string; why: string }[]; remember: { id: string; text: string }[] } {
   const paired: string[] = [];
   const unpaired: { name: string; why: string }[] = [];
+  const remember: { id: string; text: string }[] = [];
   for (const s of streams) {
     // Only a Blue Raven can be the other half of a Blue Raven download. Without this a stream
     // would attach to whatever else happened to be in the folder on a name coincidence.
@@ -155,16 +156,26 @@ function pairHighRate(
     const target =
       candidates.find((r) => halvesOfOneDownload(s.name, r.name)) ??
       // One Blue Raven flight and one stream in a drop are each other's, whatever they are
-      // called — the same rule `pairSummaries` uses, and it covers a renamed half.
-      (candidates.length === 1 && streams.length === 1 ? candidates[0] : undefined);
+      // called — the same rule `pairSummaries` uses, and it covers a renamed half. **Unless the
+      // names positively contradict**: `pairSummaries` can fall back freely because a summary
+      // carries the rocket it belongs to, and a stream carries nothing at all, so without this
+      // one download's 500 Hz traces get drawn on another download's flight under a note saying
+      // both halves are one board's record of one flight.
+      (candidates.length === 1 && streams.length === 1 && !namesContradict(s.name, candidates[0].name)
+        ? candidates[0]
+        : undefined);
     if (!target) {
       unpaired.push({ name: s.name, why: s.why });
       continue;
     }
     target.flight = readHighRateOnto(target.flight, s.stream, flightTimeOrigin(target.text) ?? 0);
     paired.push(`${s.name} → ${target.name}`);
+    // …and the logbook keeps the stream's TEXT beside the log's, so reopening this flight tomorrow
+    // reads it again. Without this the traces vanished on reload and were never in a comparison
+    // built from ids at all, while the drop's note said they were on the explorer.
+    if (target.savedId) remember.push({ id: target.savedId, text: s.text });
   }
-  return { paired, unpaired };
+  return { paired, unpaired, remember };
 }
 
 /**
@@ -184,7 +195,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   const mappable: { name: string; text: string }[] = [];
   const summaries: IngestOutcome['summaries'] = [];
   /** Blue Raven high-rate streams, held until every file is read so each can find its flight. */
-  const highRate: { name: string; stream: HighRateStream; why: string }[] = [];
+  const highRate: { name: string; stream: HighRateStream; why: string; text: string }[] = [];
   const unread: string[] = [];
 
   for (const [i, file] of files.entries()) {
@@ -238,7 +249,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
       // flight is in this drop can only be answered once every file has been read.
       const stream = text && e instanceof ParseGuidanceError ? highRateStream(text) : null;
       if (stream) {
-        highRate.push({ name: file.name, stream, why: (e as ParseGuidanceError).message });
+        highRate.push({ name: file.name, stream, why: (e as ParseGuidanceError).message, text });
         continue;
       }
       // A guidance error explains itself (the Blue Raven high-rate file); anything else is
@@ -255,6 +266,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   // one. An unpaired stream keeps the parser's own guidance, so dropping one alone is unchanged.
   const hr = pairHighRate(results, highRate);
   skipped.push(...hr.unpaired);
+  for (const r of hr.remember) await attachHighRateText(r.id, r.text);
   for (const r of remember) await attachSummaryText(r.id, r.text);
   for (const s of unpaired) {
     // Two different facts, and only one of them is ever true. With no flights in the drop the

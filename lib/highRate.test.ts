@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { flightTimeOrigin, highRateStream } from './parsers/blueraven';
 import { importFlight } from './parsers';
-import { halvesOfOneDownload, readHighRateOnto } from './highRate';
+import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import type { RawFlight } from './flight/types';
 
 const CORPUS = 'lib/parsers/__corpus__/blueraven/';
@@ -162,12 +162,44 @@ describe('a Blue Raven high-rate file is the other half of one flight', () => {
     expect(alone.some((c) => c.label === 'Gyro X')).toBe(false);
   }, 120_000);
 
+  it.skipIf(!present)('keeps the attitude a rotation the board actually solved', () => {
+    // Found by review, and the first version of this feature shipped it wrong. Reducing the four
+    // quaternion components INDEPENDENTLY by extremum takes each from a different instant, and the
+    // result is not a rotation: the merged norm averaged 1.0132 on jan10 and 1.0089 on lemiv where
+    // a unit quaternion is exactly 1 — presented, at the time, as "the board's own attitude
+    // solution". The components now come from one shared sample per instant.
+    for (const [hrName, lrName, group] of PAIRS) {
+      const stream = highRateStream(read(hrName))!;
+      const merged = readHighRateOnto(flightOf(lrName), stream, flightTimeOrigin(read(lrName))!);
+      const q = [1, 2, 3, 4].map((i) => merged.channels.find((c) => c.label === `Quat ${i}`)!.values);
+      let worst = 0;
+      let n = 0;
+      for (let i = 0; i < q[0].length; i++) {
+        if (!q.every((c) => Number.isFinite(c[i]))) continue;
+        worst = Math.max(worst, Math.abs(Math.hypot(q[0][i], q[1][i], q[2][i], q[3][i]) - 1));
+        n++;
+      }
+      expect(n, `${group}: no attitude samples to check`).toBeGreaterThan(100);
+      // The board writes 5 decimal places, so a whole sample's norm is 1 to within its own
+      // rounding. Anything looser would pass the four-different-instants bug this pins.
+      expect(worst, `${group}: merged attitude is not a unit quaternion`).toBeLessThan(0.001);
+    }
+  }, 120_000);
+
   it.skipIf(!present)('flags a railed sensor rather than reading its rail as a measurement', () => {
     // Every corpus download rails at least one gyro axis, at 2,291.5–2,294.1 deg/s. The SAFETY
     // invariant requires a saturated sensor be flagged; a peak read off a rail is a floor.
     for (const [hrName, , group] of PAIRS) {
       const stream = highRateStream(read(hrName))!;
       expect(stream.saturated.length, `${group} — expected a railed gyro axis`).toBeGreaterThan(0);
+      // **This assertion is why the review caught what the test did not.** The original pinned
+      // only that SOMETHING railed, so it stayed green while every corpus file also flagged
+      // "Quat 1" — a component normalised to ±1 by construction, whose maximum repeats for
+      // thousands of pad samples. A fabricated saturation warning about a sensor that does not
+      // exist is a safety-invariant breach in the same way a missing one is.
+      for (const label of stream.saturated) {
+        expect(label, `${group}: ${label} cannot rail — it is a normalised attitude component`).not.toMatch(/^Quat/);
+      }
       const lrName = PAIRS.find(([h]) => h === hrName)![1];
       const merged = readHighRateOnto(flightOf(lrName), stream, flightTimeOrigin(read(lrName))!);
       expect(merged.notes.some((n) => n.includes('RAILED')), group).toBe(true);
@@ -192,5 +224,58 @@ describe('a Blue Raven high-rate file is the other half of one flight', () => {
     ).toBe(false);
     // And the two halves of one flight pair whatever else is in the name.
     expect(halvesOfOneDownload('BlueRaven-HighRate.csv', 'BlueRaven-LR.csv')).toBe(true);
+  });
+
+  it.skipIf(!present)('survives a reopen, so the note the drop printed stays true', async () => {
+    // Found by review, and it made the drop's own sentence false on a surface. `/compare` does not
+    // use the ingested flights at all — it re-reads every flight from the logbook by id through
+    // `importRecent` — so the traces were on the analyze page, absent from the comparison, and
+    // gone from both after a reload, while the note said "its traces are on the channel explorer".
+    const { importRecent } = await import('./reopen');
+    const [hrName, lrName] = PAIRS[0];
+    const stored = { name: lrName, text: read(lrName), highRateText: read(hrName) };
+
+    const reopened = importRecent(stored);
+    expect(reopened.kind).toBe('flight');
+    if (reopened.kind !== 'flight') return;
+    for (const label of ['Gyro X', 'Accel Z', 'Quat 1']) {
+      expect(reopened.flight.channels.some((c) => c.label === label), `${label} lost on reopen`).toBe(true);
+    }
+
+    // Without the stored half it comes back as the low-rate flight alone — so the assertion above
+    // is measuring the restore rather than something the low-rate file always carried.
+    const alone = importRecent({ name: lrName, text: read(lrName) });
+    expect(alone.kind).toBe('flight');
+    if (alone.kind !== 'flight') return;
+    expect(alone.flight.channels.some((c) => c.label === 'Gyro X')).toBe(false);
+
+    // A stored half that no longer parses contributes nothing rather than breaking the reopen —
+    // the same posture `withSummary` takes, because losing the flight is far worse than losing
+    // the traces.
+    const junk = importRecent({ ...stored, highRateText: 'not a flight log at all' });
+    expect(junk.kind).toBe('flight');
+  }, 120_000);
+
+  it('refuses to hang one download’s stream on another download’s flight', () => {
+    // Found by review. The "one flight and one stream in this drop are each other's" fallback is
+    // what rescues a renamed half, and without a contradiction check it also pairs two files whose
+    // own names say they are different launches — drawing April's 500 Hz gyro trace on January's
+    // flight under a note reading "both halves are one board's record of one flight".
+    const april = 'BlRv_SN1537_HR_04-12-2025_12_45_49.csv';
+    const january = 'BLRVN87-bckup LR_01-10-2026_14_55_30.csv';
+    expect(namesContradict(april, january), 'two stated launch seconds nine months apart').toBe(true);
+
+    // The two halves of one download never contradict — same stamp, to the second.
+    expect(namesContradict(PAIRS[0][0], PAIRS[0][1])).toBe(false);
+    expect(namesContradict(PAIRS[1][0], PAIRS[1][1])).toBe(false);
+
+    // A renamed half carries no stamp, so there is nothing to contradict and the fallback still
+    // works. This is the case the fallback exists for, and it must not be caught by the guard.
+    expect(namesContradict('BlueRaven-HighRate.csv', 'my rocket.csv')).toBe(false);
+    expect(namesContradict(april, 'my rocket.csv')).toBe(false);
+
+    // Within the tolerance `lib/proposeGroups.ts` measured, two stamps are the same launch: one
+    // board's clock against another's runs to 5 s inside a true group.
+    expect(namesContradict('r_HR_04-12-2025_12_45_49.csv', 'r_LR_04-12-2025_12_45_54.csv')).toBe(false);
   });
 });

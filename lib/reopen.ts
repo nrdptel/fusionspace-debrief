@@ -12,6 +12,8 @@
 
 import { importFlight, type ImportResult } from './parsers';
 import { summaryFigures } from './parsers/deviceSummary';
+import { flightTimeOrigin, highRateStream } from './parsers/blueraven';
+import { readHighRateOnto } from './highRate';
 import { buildFlight } from './flight/build';
 import type { ColumnRole } from './flight/columns';
 import type { RecentFlight } from './recents';
@@ -20,10 +22,10 @@ import type { RecentFlight } from './recents';
  *  and re-reading the device summary it was paired with when it carries one of those.
  *  Falls back to the mapper result — never to a wrong flight — if the stored mapping no
  *  longer builds (an edited backup, a role this build no longer has). */
-export function importRecent(rec: Pick<RecentFlight, 'name' | 'text' | 'bytes' | 'mapping' | 'summaryText'>): ImportResult {
+export function importRecent(rec: Pick<RecentFlight, 'name' | 'text' | 'bytes' | 'mapping' | 'summaryText' | 'highRateText'>): ImportResult {
   // `bytes` where the row has them — a raw binary download's text is a lossy view of it,
   // so re-reading that text would hand the parser a different file than the one dropped.
-  const base = withSummary(importFlight({ name: rec.name, text: rec.text, ...(rec.bytes ? { bytes: rec.bytes } : {}) }), rec.summaryText);
+  const base = withHighRate(withSummary(importFlight({ name: rec.name, text: rec.text, ...(rec.bytes ? { bytes: rec.bytes } : {}) }), rec.summaryText), rec.text, rec.highRateText);
   if (base.kind !== 'mapping' || !rec.mapping?.length) return base;
   try {
     const flight = buildFlight({
@@ -35,11 +37,28 @@ export function importRecent(rec: Pick<RecentFlight, 'name' | 'text' | 'bytes' |
       mappings: rec.mapping.map((m) => ({ index: m.index, role: m.role as ColumnRole, unit: m.unit })),
       reported: base.table.reported,
     });
-    return withSummary({ kind: 'flight', flight, parser: MAPPED_BY_HAND, confidence: 1 }, rec.summaryText);
+    return withHighRate(withSummary({ kind: 'flight', flight, parser: MAPPED_BY_HAND, confidence: 1 }, rec.summaryText), rec.text, rec.highRateText);
   } catch {
     // The mapping doesn't fit this file any more — ask rather than guess.
     return base;
   }
+}
+
+/** Put a stored high-rate stream back onto a re-read flight, exactly as the original drop did.
+ *
+ *  Re-REDUCED here rather than restored from stored values, for the same reason `withSummary`
+ *  re-reads the summary: the reduction is this feature's most likely thing to improve, and a flight
+ *  saved today should get tomorrow's version of it without the flyer re-dropping two files.
+ *
+ *  **This is what makes the drop's own note true.** Without it the traces were on the report until
+ *  the page reloaded, and a comparison built from ids — which re-reads every flight through this
+ *  function — never had them, while the note said "its traces are on the channel explorer". A
+ *  stream that no longer parses simply contributes nothing. */
+function withHighRate(result: ImportResult, lowRateText: string, highRateText?: string): ImportResult {
+  if (!highRateText || result.kind !== 'flight') return result;
+  const stream = highRateStream(highRateText);
+  if (!stream) return result;
+  return { ...result, flight: readHighRateOnto(result.flight, stream, flightTimeOrigin(lowRateText) ?? 0) };
 }
 
 /** Put a stored device summary's figures back onto a re-read flight — beside Debrief's own

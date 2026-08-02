@@ -49,21 +49,32 @@
 // would act on" that `MAINTAINING.md` ranks first, and D8's own decomposition forbids exactly this
 // ("no decimation that could move a reported peak").
 //
-// So the reduction keeps, for each of the flight's own sample instants, **the largest-magnitude
-// sample the board actually recorded in that window** — nothing is averaged, interpolated or
-// invented, and every plotted point is a real sample from the file. The peak is preserved by
-// construction: every high-rate sample falls in exactly one window, and each window keeps its own
-// largest, so the largest overall survives whichever window it landed in. `lib/highRate.test.ts`
-// pins that against the raw columns over every corpus pair, and it is falsifiable — swapping the
-// extremum for a midpoint sample turns it red on all four.
+// So for a RATE — gyro, accelerometer — the reduction keeps, at each of the flight's own sample
+// instants, **the largest-magnitude sample the board actually recorded in that window**. Nothing is
+// averaged, interpolated or invented, and every plotted point is a real sample from the file. The
+// peak is preserved by construction: every high-rate sample falls in exactly one window, and each
+// window keeps its own largest, so the largest overall survives whichever window it landed in.
+// `lib/highRate.test.ts` pins that against the raw columns over every corpus pair, and it is
+// falsifiable — swapping the extremum for a midpoint sample turns it red on all four.
 //
 // What this costs, stated rather than hidden: between the peaks the trace is an ENVELOPE of the
 // stream, not the stream. It never understates what the board recorded and never shows a value the
 // board did not record, which is the honest direction for a reduction whose alternative is
 // discarding the file.
+//
+// ## An ATTITUDE is reduced the other way, and getting that wrong invented a rotation
+//
+// The same reduction applied to the quaternion is not conservative — it is meaningless. |q| is 1 by
+// construction, so there is no peak to preserve, and the four components only say anything TOGETHER.
+// Reduced independently they came from four different instants: the merged norm averaged **1.0132**
+// on `jan10` and **1.0089** on `lemiv` against an exact 1, which is not a rotation and not an
+// attitude the board ever solved — while the note beside it called it "the board's own attitude
+// solution". The attitude channels take ONE whole sample per window instead, chosen once and shared
+// by all four, so what is plotted is a rotation the board actually computed.
 
 import type { HighRateStream } from './parsers/blueraven';
 import type { Channel, RawFlight } from './flight/types';
+import { LAUNCH_TOLERANCE_S, launchStampFromName } from './proposeGroups';
 
 /** The vendor's own high-rate / low-rate marker in a file name, as a delimiter-bounded token.
  *
@@ -103,6 +114,26 @@ export function halvesOfOneDownload(highRateName: string, lowRateName: string): 
   return hr.length >= 4 && hr === lr;
 }
 
+/** Do these two names positively CONTRADICT each other about which flight they are?
+ *
+ *  Different from `halvesOfOneDownload` returning false, and the difference is what makes the
+ *  caller's "one flight and one stream in this drop are each other's" fallback safe. Two names can
+ *  fail to match because a flyer renamed one — the case the fallback exists for — or because they
+ *  are demonstrably two different launches, and only the second must refuse.
+ *
+ *  The evidence is D6's launch stamp: Featherweight's downloader writes the launch second into the
+ *  file name, so two stamps that disagree are the vendor's own software saying these came off the
+ *  board as separate flights. `lib/proposeGroups.ts` measured the tolerance — 120 s, against a
+ *  widest true spread of 5 s and a nearest true refusal at 956 s — and it is reused rather than
+ *  re-derived. Where either name carries no stamp there is no contradiction to find, so this is
+ *  false and the fallback may proceed. */
+export function namesContradict(a: string, b: string): boolean {
+  const stampA = launchStampFromName(a);
+  const stampB = launchStampFromName(b);
+  if (!stampA || !stampB) return false;
+  return Math.abs(Date.parse(stampA + 'Z') - Date.parse(stampB + 'Z')) / 1000 > LAUNCH_TOLERANCE_S;
+}
+
 /**
  * Reduce one high-rate channel onto the flight's own sample instants, keeping the extremes.
  *
@@ -110,20 +141,34 @@ export function halvesOfOneDownload(highRateName: string, lowRateName: string): 
  * the window running to the midpoint of each neighbouring pair, so every input falls in exactly one
  * output and no sample is counted twice or missed.
  *
- * Input samples outside the flight's own span are DROPPED rather than folded into the end windows.
- * They are real, but the flight record does not cover the moment they happened, and pushing them
- * into the last window would draw a spike at a time it did not occur — `f1machbuster-10`'s stream
- * runs 20 s past the end of its low-rate log and is the case that makes this matter. NaN marks
- * every instant the stream did not reach, which is what the chart already renders as a gap.
+ * Input samples more than half a flight-sample outside the flight's own span are DROPPED rather
+ * than folded into the end windows. They are real, but the flight record does not cover the moment
+ * they happened, and pushing them into the last window would draw a spike at a time it did not
+ * occur — `f1machbuster-10`'s stream runs 20 s past the end of its low-rate log and is the case
+ * that makes this matter. The end windows do reach the same half-step past the first and last
+ * instants that every interior window reaches past its own, because that is the instant those
+ * samples belong to; what they do not do is absorb the other 19.99 s. NaN marks every instant the
+ * stream did not reach, which is what the chart already renders as a gap.
  */
-function ontoFlightClock(streamTime: Float64Array, values: Float64Array, flightTime: Float64Array): Float64Array {
-  const out = new Float64Array(flightTime.length).fill(NaN);
+function windowsOf(streamTime: Float64Array, flightTime: Float64Array): [lo: number, hi: number][] {
   const n = flightTime.length;
-  if (n === 0 || streamTime.length === 0) return out;
-  let cursor = 0;
-  for (let i = 0; i < n; i++) {
+  // Two instants are the minimum that define a window at all; one sample gives no spacing to take
+  // a half-step from and produced a NaN window, which silently emptied every channel while the
+  // drop still reported the file as read.
+  if (n < 2 || streamTime.length === 0) return [];
+  return Array.from({ length: n }, (_, i) => {
     const lo = i === 0 ? flightTime[0] - (flightTime[1] - flightTime[0]) / 2 : (flightTime[i - 1] + flightTime[i]) / 2;
     const hi = i === n - 1 ? flightTime[n - 1] + (flightTime[n - 1] - flightTime[n - 2]) / 2 : (flightTime[i] + flightTime[i + 1]) / 2;
+    return [lo, hi] as [number, number];
+  });
+}
+
+/** Reduce a RATE — a gyro or accelerometer trace, where the peak is the thing worth keeping. */
+function extremumOnto(streamTime: Float64Array, values: Float64Array, windows: [number, number][]): Float64Array {
+  const out = new Float64Array(windows.length).fill(NaN);
+  let cursor = 0;
+  for (let i = 0; i < windows.length; i++) {
+    const [lo, hi] = windows[i];
     while (cursor < streamTime.length && streamTime[cursor] < lo) cursor++;
     let best = NaN;
     let bestMag = -1;
@@ -142,6 +187,42 @@ function ontoFlightClock(streamTime: Float64Array, values: Float64Array, flightT
 }
 
 /**
+ * Which single stream sample represents each window — the one nearest its instant, or −1.
+ *
+ * **Computed once and shared by every coherent channel, which is the entire point.** A quaternion's
+ * four components are one rotation; reducing them independently assembles a 4-tuple out of four
+ * different instants, and the result is not a rotation at all. Measured before this existed: the
+ * merged norm averaged 1.0132 on `jan10` and 1.0089 on `lemiv` where a unit quaternion is exactly
+ * 1, and `readHighRateOnto` was presenting that as "the board's own attitude solution".
+ *
+ * There is also nothing for an extremum to preserve here — |q| is 1 by construction, so the
+ * largest component is a fact about which way the rocket happened to be pointing, not a peak.
+ */
+function representativeSamples(streamTime: Float64Array, windows: [number, number][], flightTime: Float64Array): Int32Array {
+  const pick = new Int32Array(windows.length).fill(-1);
+  let cursor = 0;
+  for (let i = 0; i < windows.length; i++) {
+    const [lo, hi] = windows[i];
+    while (cursor < streamTime.length && streamTime[cursor] < lo) cursor++;
+    let bestGap = Infinity;
+    for (let j = cursor; j < streamTime.length && streamTime[j] < hi; j++) {
+      const gap = Math.abs(streamTime[j] - flightTime[i]);
+      if (gap < bestGap) {
+        bestGap = gap;
+        pick[i] = j;
+      }
+    }
+  }
+  return pick;
+}
+
+function sampleOnto(values: Float64Array, pick: Int32Array): Float64Array {
+  const out = new Float64Array(pick.length).fill(NaN);
+  for (let i = 0; i < pick.length; i++) if (pick[i] >= 0) out[i] = values[pick[i]];
+  return out;
+}
+
+/**
  * Read a high-rate stream onto a flight, returning the flight with its channels added.
  *
  * The flight is returned rather than mutated in place… except that `lib/ingest.ts` assigns the
@@ -154,9 +235,12 @@ export function readHighRateOnto(flight: RawFlight, stream: HighRateStream, lowR
   // Both halves state the same `Flight_Time`; the flight was re-based off its own earliest sample
   // when it was parsed, so the stream takes that same subtraction and lands where it always was.
   const onFlightClock = stream.time.map((t) => t - lowRateOriginS) as Float64Array;
-  const added: Channel[] = stream.channels.map((c) => ({
+  const windows = windowsOf(onFlightClock, flight.time);
+  if (windows.length === 0) return flight;
+  const pick = representativeSamples(onFlightClock, windows, flight.time);
+  const added: Channel[] = stream.channels.map((c, i) => ({
     ...c,
-    values: ontoFlightClock(onFlightClock, c.values, flight.time),
+    values: stream.coherent[i] ? sampleOnto(c.values, pick) : extremumOnto(onFlightClock, c.values, windows),
   }));
   const covered = added.some((c) => c.values.some(Number.isFinite));
   if (!covered) return flight;
@@ -165,9 +249,11 @@ export function readHighRateOnto(flight: RawFlight, stream: HighRateStream, lowR
     `Read the ${stream.rateHz} Hz high-rate stream from this flight's other file onto the ` +
       `${Math.round((flight.time.length - 1) / (flight.time[flight.time.length - 1] - flight.time[0]))} Hz ` +
       `flight clock — both halves are one board's record of one flight and share its ` +
-      `Flight_Time column, so nothing was aligned or estimated. Each plotted point is the largest ` +
-      `sample the board recorded in that instant's window, so peaks are the board's own; between ` +
-      `them the trace is an envelope of the stream rather than the stream itself.`,
+      `Flight_Time column, so nothing was aligned or estimated. On the gyro and accelerometer ` +
+      `traces each plotted point is the largest sample the board recorded in that instant's ` +
+      `window, so the peaks are the board's own and between them the trace is an envelope rather ` +
+      `than the stream itself. The attitude components are one whole sample per instant instead, ` +
+      `because four components picked separately would not be a rotation the board ever solved.`,
   ];
   if (stream.saturated.length > 0) {
     notes.push(
