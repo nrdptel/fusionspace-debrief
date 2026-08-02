@@ -546,7 +546,11 @@ export default function GroundTrack({
         >
           {reading ? (
             <>
-              <span className="font-mono">
+              {/* `tabular-nums` because this line REWRITES ITSELF as the pointer sweeps the
+                  track. With proportional digits the whole readout shifts horizontally on every
+                  sample, which is the one place lined-up digits are load-bearing for reading at
+                  all rather than for comparing. */}
+              <span className="font-mono tabular-nums">
                 {Number.isFinite(reading.t) && <>{fmtTime(reading.t)} · </>}
                 {fmtLength(reading.distM, sys)} from pad · {Math.round(reading.bearing)}°{' '}
                 {compass(reading.bearing)}
@@ -615,7 +619,7 @@ export default function GroundTrack({
       {/* The exact landing coordinates and a GPX you can navigate to on a phone
           or handheld — the precise walkback, on top of the rough bearing. */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="font-mono text-sm text-zinc-700 dark:text-zinc-300">{coords}</span>
+        <span className="font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-300">{coords}</span>
         <Button
           size="sm"
           onClick={() => {
@@ -691,22 +695,22 @@ export default function GroundTrack({
         <div className="mt-4">
           <div className="flex items-baseline justify-between gap-2">
             <h4 className="text-xs font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">Wind aloft (by altitude)</h4>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">measured from the descent drift</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">measured from the descent drift</span>
           </div>
           <Frame as="dl" className="mt-2 divide-y divide-zinc-200 overflow-hidden dark:divide-zinc-800">
             {profile.map((l) => (
               <div key={l.altLoM} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
-                <dt className="font-mono text-zinc-500 dark:text-zinc-400">
+                <dt className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
                   {Math.round(lengthIn(l.altLoM, sys)).toLocaleString('en-US')}–
                   {Math.round(lengthIn(l.altHiM, sys)).toLocaleString('en-US')} {unitsOf(sys).length}
                 </dt>
-                <dd className="font-mono font-medium text-zinc-800 dark:text-zinc-200">
+                <dd className="font-mono font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
                   {fmtSpeed(l.speed, sys)} from {compass(l.fromBearing)}
                 </dd>
               </div>
             ))}
           </Frame>
-          <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
             Under canopy the rocket drifts with the air, so its drift across each layer is the wind there. The slow,
             low layers read cleanest; a sparse upper layer is dropped rather than guessed.
           </p>
@@ -724,11 +728,26 @@ export default function GroundTrack({
 // about which half-steps are on the scale, and that is a change owed to both repos.
 // (§4's `px-3 py-1.5` row is about the inside of a CONTROL and does not sanction this tile either
 // way — an earlier draft of this comment said it did, which was simply wrong.)
+/** Deliberately NOT `Readout`, though it renders the same thing at the same sizes.
+ *
+ *  These are `<dt>`/`<dd>` inside a `<dl>` — a screen reader announces them as term/definition
+ *  pairs — and `Readout` renders `<div>`s. Converting would take the recovery grid out of the
+ *  list semantics it has, which is exactly the trade `Card`'s `as` prop exists to refuse; and
+ *  `Readout` cannot take an `as`, because it renders THREE elements rather than one. So the two
+ *  genuine `DESIGN.md` violations here are fixed in place rather than by adoption:
+ *  - the label was `text-[11px]`, which §3 reserves for axis ticks and diagram annotations. A
+ *    stat label is a caption, which is the size above it.
+ *  - the value had `font-mono` and no `tabular-nums`. These five tiles sit in one grid and are
+ *    read against each other — walkback distance, bearing, max drift, wind, off-vertical — by a
+ *    flyer standing in a field deciding where to walk, and §3 requires lined-up digits for
+ *    exactly that. */
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <Frame className="px-3 py-2">
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</dt>
-      <dd className="mt-0.5 font-mono text-base font-semibold text-zinc-900 dark:text-zinc-100">{value}</dd>
+      <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</dt>
+      <dd className="mt-0.5 font-mono text-base font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+        {value}
+      </dd>
     </Frame>
   );
 }

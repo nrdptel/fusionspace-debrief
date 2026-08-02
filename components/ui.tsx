@@ -75,7 +75,16 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
  *    left out.
  *
  *  `close` is read through a ref so `dismiss` keeps one identity across renders and a call site can
- *  pass an inline arrow without re-arming anything that depends on it. */
+ *  pass an inline arrow without re-arming anything that depends on it.
+ *
+ *  **Two limits, stated because a primitive that hides them is worse than a hand-roll.**
+ *  - **The mounted-trigger contract is not ENFORCED, only documented.** `dismiss()` on an
+ *    unmounted trigger no-ops silently and focus lands on the body — the exact bug this exists to
+ *    prevent, now wearing a primitive's name. There is no cheap runtime check that is not itself
+ *    noise, so the guarantee is the review, and `lib/design-system.test.ts` holds the narrower one:
+ *    focus is moved from this file and nowhere else.
+ *  - **The open effect fires on any false→true transition**, so a future call site whose surface
+ *    starts open would steal focus on first paint. Both of today's start closed. */
 export function useReturnFocus(
   open: boolean,
   close: () => void,
@@ -780,29 +789,47 @@ export function Readout({
   value,
   sub,
   size = 'md',
+  layout = 'stacked',
   className,
   ...rest
 }: {
-  label: React.ReactNode;
+  /** Optional, and the omission is a real case rather than laxness: the seven derived-reading
+   *  panels each carry their own `<h3>` immediately above the value, so a label here would say it
+   *  twice. Where a readout sits in a grid of readouts — the metric tiles, the per-stage panels —
+   *  it names itself and this is required in practice. */
+  label?: React.ReactNode;
   /** Already formatted, unit included — see above. */
   value: React.ReactNode;
   /** Provenance, a caveat, or where the reading came from. */
   sub?: React.ReactNode;
   /** `hero` for the readings a surface exists to show; `md` for the rest. */
   size?: 'hero' | 'md';
+  /** Where `sub` sits. `stacked` puts it under the value, which is right in a grid of tiles
+   *  where the columns have to line up. `inline` puts it on the value's baseline, which is what
+   *  the seven derived-reading panels were hand-rolling: there the number and its qualifier read
+   *  as one sentence — "1,247 ft · main fired · 800 ft of drogue descent first" — inside a card
+   *  wide enough to hold it. Kept as a prop rather than converted to one layout because changing
+   *  seven panels' appearance is a product decision, and this change is about where the
+   *  treatment LIVES. */
+  layout?: 'stacked' | 'inline';
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={className} {...rest}>
-      <div className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{label}</div>
+    <div className={cx(layout === 'inline' && 'flex items-baseline gap-3', className)} {...rest}>
+      {label != null && (
+        <div className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{label}</div>
+      )}
       <div
         className={cx(
-          'mt-1 font-mono font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100',
+          'font-mono font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100',
           size === 'hero' ? 'text-xl' : 'text-base',
+          layout === 'stacked' && label != null && 'mt-1',
         )}
       >
         {value}
       </div>
-      {sub && <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{sub}</div>}
+      {sub && (
+        <div className={cx('text-xs text-zinc-500 dark:text-zinc-400', layout === 'stacked' && 'mt-0.5')}>{sub}</div>
+      )}
     </div>
   );
 }

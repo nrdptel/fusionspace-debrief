@@ -11,7 +11,7 @@ import {
   DEFAULT_RAIL_M,
   MARGINAL_RAIL_VELOCITY,
 } from '@/lib/rail';
-import { Card } from './ui';
+import { Card, Readout } from './ui';
 
 const PREF_KEY = 'debrief.rail';
 
@@ -106,14 +106,13 @@ export default function RailExit({
         </label>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
-          {v != null ? fmtSpeed(v, sys) : '—'}
-        </span>
-        {mach != null && Math.abs(mach) >= 0.8 && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">{fmtMach(mach)}</span>
-        )}
-      </div>
+      <Readout
+        size="hero"
+        layout="inline"
+        className="mt-3"
+        value={v != null ? fmtSpeed(v, sys) : '—'}
+        sub={mach != null && Math.abs(mach) >= 0.8 && fmtMach(mach)}
+      />
 
       {/* The refusal is only worth naming on a flight that HAS a logged velocity — otherwise
           the standing reason below is the true one, and leading with the refusal would tell a

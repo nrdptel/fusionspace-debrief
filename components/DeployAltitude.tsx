@@ -5,7 +5,7 @@ import { convert } from '@/lib/units';
 import { fmtLength, lengthIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { deployCheck, DEPLOY_SLOP_M, MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
-import { Card, NumberField } from './ui';
+import { Card, NumberField, Readout } from './ui';
 
 function plain(v: number, places: number): string {
   const f = Math.pow(10, places);
@@ -80,14 +80,13 @@ export default function DeployAltitude({
         />
       </div>
 
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
-          {fmtLength(mainAltitudeM, sys)}
-        </span>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          main fired · {fmtLength(drogueFallM, sys)} of drogue descent first
-        </span>
-      </div>
+      <Readout
+        size="hero"
+        layout="inline"
+        className="mt-3"
+        value={fmtLength(mainAltitudeM, sys)}
+        sub={<>main fired · {fmtLength(drogueFallM, sys)} of drogue descent first</>}
+      />
 
       {check != null ? (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">

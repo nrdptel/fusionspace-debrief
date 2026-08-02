@@ -6,7 +6,7 @@ import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { descentStoppedAloft, landingRate, landingRateIsWholeDescent } from '@/lib/readings';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
-import { Card, NumberField } from './ui';
+import { Card, NumberField, Readout } from './ui';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
 function massUnit(sys: UnitChoice): 'g' | 'oz' {
@@ -110,21 +110,27 @@ export default function LandingEnergy({
         />
       </div>
 
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
-          {ftlbf != null && joules != null
+      <Readout
+        size="hero"
+        layout="inline"
+        className="mt-3"
+        value={
+          ftlbf != null && joules != null
             ? systemOf(sys) === 'metric'
               ? `${round(joules, 0)} J`
               : `${round(ftlbf, ftlbf < 100 ? 1 : 0)} ft·lbf`
-            : '—'}
-        </span>
-        {ftlbf != null && joules != null && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            {systemOf(sys) === 'metric' ? `${round(ftlbf, ftlbf < 100 ? 1 : 0)} ft·lbf` : `${round(joules, 0)} J`}
-            {rate != null && ` · at ${fmtSpeed(rate, sys)} down`}
-          </span>
-        )}
-      </div>
+            : '—'
+        }
+        sub={
+          ftlbf != null &&
+          joules != null && (
+            <>
+              {systemOf(sys) === 'metric' ? `${round(ftlbf, ftlbf < 100 ? 1 : 0)} ft·lbf` : `${round(joules, 0)} J`}
+              {rate != null && ` · at ${fmtSpeed(rate, sys)} down`}
+            </>
+          )
+        }
+      />
 
       {/* The landing speed as a free-fall drop height — exact and mass-free, so it
           shows even before a mass is entered, giving the gut-feel "how hard". */}

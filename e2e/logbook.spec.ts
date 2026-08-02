@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
+
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 // The logbook backup/restore round-trip: export the remembered flights (and their
 // notes) to a file, clear the device, then import the file back and prove the
@@ -769,3 +772,34 @@ test('the logbook comes back to the stretch the flyer chose, not to Debrief’s 
   await expect(page.getByText(/You chose the stretch Debrief read/)).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('[data-reading="Apogee"]')).toContainText(/3,9\d\d ft|4,0\d\d ft/);
 });
+
+// The app's ONLY irreversible action, audited armed, in both schemes.
+//
+// Its twin on the privacy page has had this since a hand-run audit caught that control's first
+// contrast failure (white on amber-600, 3.19:1) with nothing guarding it. This panel had no such
+// case, and on 2026-08-02 it changed treatment — off a hand-rolled red box onto `Card
+// tone="danger"`, which is a different fill, a different border and a different body size. A
+// colour change on a destructive confirm is exactly the regression class that audit exists for,
+// so the two confirms are now guarded the same way rather than one of them being guarded because
+// it happened to break once.
+for (const scheme of ['light', 'dark'] as const) {
+  test(`the clear-confirm passes an accessibility audit while it is armed (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto('/');
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name: 'audited.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    const confirm = page.getByRole('alert').filter({ hasText: 'Delete' });
+    await expect(confirm).toBeVisible();
+    // Assert the panel is actually up before auditing it — an audit of a page whose confirm never
+    // opened passes for the wrong reason, which is the failure mode this whole file guards against.
+    await expect(confirm.getByRole('button', { name: 'Keep them' })).toBeFocused();
+
+    const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+}

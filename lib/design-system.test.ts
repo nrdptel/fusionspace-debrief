@@ -279,7 +279,28 @@ const BUDGET = {
    *  flight in a multi-flight download from another; and the walkback distance and bearing, read
    *  standing in a field deciding where to walk. §3 reserves `text-[11px]` for axis ticks and
    *  diagram annotations, which none of these is. */
-  invertedTypeFiles: 13,
+  /** 13 → 14 on 2026-08-02, and this is a THIRD way this count moves that the two entries above do
+   *  not cover. It is not the adoption effect and it is not a regression: **every glyph involved
+   *  got BIGGER.**
+   *
+   *  `GroundTrack` went 4/4 to 7/4 because three strings were converted UP from `text-[11px]` into
+   *  the caption size — the recovery tile's label, the "measured from the descent drift" note, and
+   *  the wind-aloft explanation. §3 reserves the smallest size for axis ticks and diagram
+   *  annotations, and none of those three is either, so each conversion is the rule being obeyed.
+   *  The count cannot see it, because it compares caption against body and says nothing about what
+   *  sits BELOW caption.
+   *
+   *  **Not "fixed" by pushing the three to `text-sm`.** They are a stat label, a provenance note
+   *  and an explanatory paragraph — precisely the "text AROUND such a value" that §3 says
+   *  `text-xs` is FOR. Raising them to clear a metric would breach the section the metric exists
+   *  to enforce, which is the trade `ROADMAP.md` item 2 already warns against. Recorded instead.
+   *
+   *  So this metric has now moved FOUR ways: adoption (a `text-sm` migrating into a primitive),
+   *  real improvement (a decision-grade number leaving caption size), real regression, and this —
+   *  a sub-caption string being brought ONTO the scale. Anyone reading a single delta here without
+   *  the entry beside it will draw the wrong conclusion. The map legend at `GroundTrack.tsx:587`
+   *  keeps `text-[11px]` and is the one that genuinely is a diagram annotation. */
+  invertedTypeFiles: 14,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
@@ -348,7 +369,25 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Card: 26,
   Button: 18,
   Chip: 3,
-  Readout: 2,
+  /** 2 → 9 on 2026-08-02. The seven derived-reading panels — deploy altitude, drag coefficient,
+   *  drogue Cd, ejection delay, landing energy, parachute Cd and rail exit — each hand-rolled a
+   *  BYTE-IDENTICAL hero value (`font-mono text-xl font-semibold tracking-tight tabular-nums
+   *  text-zinc-900 dark:text-zinc-100`), which is the `ACTION_BTN`-in-six-files shape P1's opening
+   *  audit removed once already and which had quietly restarted for readings.
+   *
+   *  The primitive gained exactly two things to fit them, and each is a real case rather than
+   *  config for one caller: `label` is optional, because all seven carry their own `<h3>`
+   *  immediately above the value and a label here would say it twice; and `layout="inline"` puts
+   *  the qualifier on the value's baseline, which is what all seven were doing — the number and
+   *  its qualifier read as one sentence in a card wide enough to hold it. Restacking them would
+   *  have been a product decision, and this change is about where the treatment LIVES.
+   *
+   *  `GroundTrack`'s `Stat` is an eighth site with the same treatment and is deliberately NOT
+   *  counted here: it renders `<dt>`/`<dd>` inside a `<dl>` and `Readout` renders `<div>`s, so
+   *  adopting it would strip the list semantics a screen reader announces — the trade `Card`'s
+   *  `as` exists to refuse, and `Readout` cannot take an `as` because it renders three elements.
+   *  Its two genuine §3 breaches were fixed in place instead. */
+  Readout: 9,
   /** §5's chart-with-its-own-states, built 2026-08-02. Two adopters, and half of it already
    *  existed TWICE: `ChartBlock` was declared separately in `FlightReport` and `CompareView`,
    *  differing only in an optional `id` and `note` — the `ACTION_BTN`-in-six-files shape P1's
@@ -606,11 +645,21 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     // itself nulls its own ref, focus silently drops to the body, and the next Tab lands on the
     // destructive button.
     //
-    // Matched on the CALL, not on a ref name, so renaming a ref cannot slip past it.
+    // Matched on the CALL, not on a ref name, so renaming a ref cannot slip past it — and on
+    // `.focus(` rather than `.focus()`, because `el.focus({ preventScroll: true })` is the
+    // commonest real variant and the zero-arg form would have let a third hand-rolled confirm
+    // through by adding one argument.
+    //
+    // Comments are stripped first, and this is the one place in this file where that is right:
+    // the suite-wide counts above are `DESIGN.md` §9's own greps and must stay literally that,
+    // but this assertion is not one of them, and a component that DESCRIBES focus handling in a
+    // doc comment is not moving focus. Without the strip it fails naming a comment, which is
+    // failing for a reason other than the one it gives.
     const sites: string[] = [];
     for (const f of ui) {
-      for (const line of f.text.split('\n')) {
-        if (/\.focus\(\)/.test(line)) sites.push(`${f.path}: ${line.trim().slice(0, 90)}`);
+      const code = f.text.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+      for (const line of code.split('\n')) {
+        if (/\.focus\s*\(/.test(line)) sites.push(`${f.path}: ${line.trim().slice(0, 90)}`);
       }
     }
     expect(
