@@ -25,7 +25,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
-import { Button, Card, Disclosure, Segmented } from './ui';
+import { Button, Card, Disclosure, Figure, Segmented } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -1070,7 +1070,7 @@ export default function CompareView({
           </p>
         )}
 
-        <ChartBlock title={active.unit ? `${active.label} (${active.unit})` : active.label}>
+        <Figure title={active.label} unit={active.unit || undefined}>
           <div ref={chartRef}>
             <Chart
               time={time}
@@ -1083,7 +1083,7 @@ export default function CompareView({
               syncKey={syncKey}
             />
           </div>
-        </ChartBlock>
+        </Figure>
       </div>
 
       {/* Which events are called out, in each flight's own colour. "Flight events" rather than
@@ -1098,13 +1098,3 @@ export default function CompareView({
   );
 }
 
-function ChartBlock({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">{title}</h3>
-      </div>
-      {children}
-    </Card>
-  );
-}

@@ -43,6 +43,28 @@ wild, ideas too big for one pass. One line each, newest first.
   five adopters, which makes the off-system surface the most-rendered one in the app. Item 3's
   claim is corrected in `ROADMAP.md` in the same commit as this entry. Not reproduced beyond the
   grep.
+- **CORRECTED 2026-08-02, hours after being filed — neither "vanishing surface" is what it was
+  filed as, and both were written from reading the code rather than driving it.** This is the
+  failure `MAINTAINING.md` warns about ("a finding is a claim until you have seen it yourself"),
+  committed by me and caught by trying to reproduce before scoping a fix. Corrected in full rather
+  than deleted, because the next session would otherwise re-derive both:
+  - **`ChannelExplorer.tsx:248` is NOT a one-way door.** The entry claimed a flyer reaches
+    `selected.length === 0` by unticking every channel. They cannot: `:332` renders the remove
+    control behind `selected.length > 1`, so the last channel has no ✕. And `yKeys` is
+    `useState(channels[0] ? [channels[0].key] : [])` — seeded from the flight's OWN channels on
+    every mount, never persisted — so a stale selection cannot empty it across flights either.
+    `buildPlotChannels` emits altitude, raw altitude and velocity on all 48 analysable corpus
+    files, so `channels` is never empty in practice. The `return null` is unreachable.
+  - **`GroundTrack.tsx:466` is narrower than filed.** `FlightReport.tsx:1391` only renders the
+    component when `gpsLat && gpsLon` exist, so a baro-only log does not hit that `return null` —
+    the surface is absent because the flight has no GPS, which is a different thing from a surface
+    that disappears. The reachable case is GPS columns PRESENT but unusable (all-NaN, or a fix that
+    never resolves), and **whether any corpus file reaches it is unmeasured.** Measure before
+    building.
+  - **What survives from both, and it is a real product question rather than a defect:** a flyer
+    whose board recorded no GPS is never told the recovery surface exists. `MAINTAINING.md` names
+    "a feature reachable only by knowing it is there" as a tell. That is P3 or P1 item 5 work, and
+    it is about ABSENCE, not about a vanishing panel.
 - **2026-08-01 — `components/GroundTrack.tsx:466` returns `null` when there is no GPS fix**, so on a
   baro-only log the whole recovery-map surface — ground track, walkback distance and bearing, wind
   aloft — is not merely empty, it does not exist and nothing on the page says the feature is there.

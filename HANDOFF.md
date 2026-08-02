@@ -7,10 +7,12 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **D — capability** | **D7 SHIPPED — all four slices.** Slice 4 landed 2026-08-01: each recording of a staged launch now reports **its own** apogee, peak speed, peak acceleration, thrust-to-weight and burn on `/stitch`, side by side, combined with nothing. **9 recordings across the three staged corpus groups** report figures. `COMPETITION.md` row 23 records that no shipped tool in the field does this from flight logs. **Next: D8 — orientation and high-rate data**, which is NOT YET DECOMPOSED. |
-| **P — product & craft** | **P1 IN PROGRESS.** `Frame` exists and hand-rolled card treatments are **10 → 7** against an honest floor of 4. Items **2**, **5**, **7**, **8** (3 sites left) and the new **12** remain, plus item 4's keyboard clause. Item **6** is DONE and was already at 0 before the work — see below. |
+| **P — product & craft** | **P1 IN PROGRESS.** Three §5 primitives that did not exist now do — `Frame`, `NumberField`, `Figure` — and hand-rolled card treatments are **10 → 7** against an honest floor of 4. Items **2**, **5**, **7** and **8** (3 sites left) remain, plus item 4's keyboard clause and item 12's `Panel`. Item **6** is DONE and was already at 0 before the work. |
 
-**Everything below is on the working branch unless this line says otherwise.** Check
-`git log --oneline origin/main..HEAD` before believing any of it reached production.
+**Three pull requests, #81 and #82 MERGED AND LIVE, #83 open.** Production was verified serving
+**`60d7346`** with a cache-buster. #83 carries the `Figure` conversion and two corrections; its CI
+was green on the first of its two commits at the time of writing. **Check
+`git log --oneline origin/main..HEAD` before believing anything below reached production.**
 
 ## The one thing to read before anything else
 
@@ -30,6 +32,17 @@ all agree, corroborated across two boards". Run on `series.acceleration` the sam
 runs**; the corpus test uses `series.axialAccel`, and on that channel it really is two. Both the
 finding and its refutation were reproduced before anything was written. **Check which CHANNEL a
 claim about acceleration was measured on before acting on it.**
+
+## The other thing to read before anything else
+
+**I filed two findings without reproducing them and both were wrong, in the same direction.** Both
+claimed a surface "vanishes" and neither does: `ChannelExplorer` hides its remove control on the
+last channel and re-seeds its selection per flight, and `GroundTrack` is only rendered when the
+flight has GPS at all. They were caught by trying to reproduce before scoping a fix, which is the
+order `MAINTAINING.md` gives and which filing them had skipped. Both are corrected in full in
+`BACKLOG.md` rather than deleted. **The agents made the same class of error twice this run and so
+did I — treat every "there is no affordance" claim, including your own, as unreproduced until you
+have driven it.**
 
 ## What shipped this run
 
@@ -74,7 +87,38 @@ The e2e reads the NUMBERS, not the headings — a panel with every label and no 
 shape a broken data path takes when `recordings` is new state. Falsified by pointing every stage at
 the first recording's metrics and watching the two apogees become one string.
 
-### 4. Three false claims in the repo, corrected by measurement
+### 4. P1 item 12 — `NumberField`, and a bound that was applied silently
+
+§5 gives it a duty no other primitive has and it did not exist; nine inputs hand-rolled it. **The
+bound was never missing — it was SILENT.** Type 50,000 ft into the main-deploy check and you got
+29,528 with nothing saying why. Six of the seven same-shaped panels are converted.
+
+**The primitive cannot see this from its value**, which is the detail worth keeping: these fields
+are controlled by the already-clamped number, so by the time a value arrives it is in range and the
+refused figure is gone. The first version read the bound off `value` and was *incapable of ever
+firing* — it passed review, `tsc` and a build, and only the e2e caught it.
+
+Two of the four findings against it were reachable and fixed (a rounded cap refused 39.2 in on a
+39.370-in bound; the invalid border was under 3:1). **Two were NOT reachable and are recorded as
+such rather than banked as fixes** — the render-time reset and the external-change guard are kept
+because they are correct, and their comments say plainly that no bug was measured behind them.
+
+### 5. D8 decomposed, and the measurement moved the milestone
+
+**There is no ingestion ceiling**: worst case 901 ms for 36,700 samples over 10.7 MB, top rate
+114 Hz. The blocker is that the **192,001-row Blue Raven high-rate file** carrying `Gyro_X/Y/Z`,
+`Accel_X/Y/Z` and `Quat_1..4` is REFUSED — correctly, for having no altitude — so the richest
+recording in the corpus reaches no surface. And nothing names an orientation channel: everything
+beyond altitude/velocity/Mach/Q/acceleration arrives as `r-0`…`r-12`.
+
+### 6. P1 item 12 — `Figure`, and an empty state deleted rather than shipped
+
+`ChartBlock` was declared separately in `FlightReport` and `CompareView`. Both are gone. **An
+`empty` prop was written, wired, tested and removed**: `CompareView` filters its channel list to
+metrics at least one flight recorded, so the state is unreachable there and the e2e for it could
+never have failed.
+
+### 7. Three false claims in the repo, corrected by measurement
 
 `lib/stitch.ts` called `meraki2` an "ordinary SINGLE-stage flight". The fixtures manifest names its
 motors: **an O7800 booster and an N3100 sustainer**. `lib/composite.ts` said "no corpus record holds
@@ -109,24 +153,32 @@ forms and could never see a bare shade.
 
 ## The §9 counts
 
-| count | start of run | now | target |
+| count | start of run | end of run | target |
 |---|---|---|---|
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
 | hand-rolled card treatments | 10 | **7** | floor 4, not 1 |
 | inverted-type files | 15 | **15** | floor at least 4, not 0 |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 31 | **31+** | most of the 46 |
-| `Frame` adopters | — | **5** | — |
+| files importing the primitives | 31 | **32** | most of the 46 |
+| `Frame` adopters | — | **6** | — |
+| `NumberField` adopters | — | **6** | the 7th is `CropControl`, deliberately not |
+| `Figure` adopters | — | **2** files, 4 call sites | — |
 
-**No count moved the wrong way.**
+**No count moved the wrong way.** Read `files importing the primitives` 31 → 32 carefully: the six
+panels that adopted `NumberField` moved it by **zero**, because every one already imported `Card`.
+A per-FILE count cannot see six controls being adopted — which is the third time a §9 metric has
+measured something other than what it was reached for, and the argument for the per-primitive map
+in `lib/design-system.test.ts`.
 
 ## Pick up first
 
-1. **D8 is NOT DECOMPOSED and the D-track is dry until it is.** `ROADMAP.md`'s after-list has the
-   pointer: `COMPETITION.md` rows 3 and 4, orientation and high-rate data, and it says the first
-   increment is *measuring the ingestion ceiling against a real high-rate log* rather than building.
-   Decomposing it is one increment's work and it IS the work.
+1. **D8 slice 1 — read the Blue Raven high-rate file as a SECOND RECORDING of a flight it does not
+   itself contain.** Decomposed with its measurements in `ROADMAP.md`. The machinery exists: the
+   model is multi-source-ready, `lib/stitch.ts` aligns recordings on a shared instant, and D6's
+   filename stamp already pairs `…HR_04-12-2025_12_45_49` with its `…LR_…` sibling to the second.
+   **The standalone refusal must survive unweakened** — a file with no altitude is not a flight, and
+   that clause is in the slice's own *done when* rather than left to judgement.
 
 2. **The staged burn time is the sharpest unfixed thing this run found, and it is filed with its
    blocker.** `burnTime` on `meraki2` is **23.91 s of which 15.79 s the motor was not burning** —
