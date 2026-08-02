@@ -414,11 +414,11 @@ export function Segmented<T extends string>({
  *  (`allMetrics.filter(...)`), so a chart with nothing to draw cannot be reached there at all. A
  *  guard that fires on nothing is worse than none.
  *
- *  The two surfaces that genuinely have this state do not have it as a CHART. `ChannelExplorer`
- *  returns `null` when every channel is deselected and `GroundTrack` returns `null` with no GPS
- *  fix, so in both cases the whole surface vanishes rather than a plot going blank — which is P1
- *  item 5's work and wants `EmptyState`, not a prop here. Add `empty` to this primitive when a call
- *  site needs it, with the case that needs it. */
+ *  Two other `return null`s looked like the reachable case and were checked rather than assumed:
+ *  neither is. `ChannelExplorer` hides its remove control on the last channel and re-seeds its
+ *  selection from each flight's own channels, and `GroundTrack` is only rendered when the flight
+ *  has GPS at all. `BACKLOG.md` carries both corrections. **Add `empty` to this primitive when a
+ *  call site needs it, with the case that needs it** — not before. */
 export function Figure({
   id,
   title,
