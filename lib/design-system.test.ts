@@ -297,6 +297,12 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Button: 18,
   Chip: 3,
   Readout: 2,
+  /** §5's chart-with-its-own-states, built 2026-08-02. Two adopters, and half of it already
+   *  existed TWICE: `ChartBlock` was declared separately in `FlightReport` and `CompareView`,
+   *  differing only in an optional `id` and `note` — the `ACTION_BTN`-in-six-files shape P1's
+   *  opening audit removed once already, restarting for charts. It owns the unit in the title too,
+   *  which both call sites were interpolating by hand. */
+  Figure: 2,
   /** §5's "every numeric input in either app is this", built 2026-08-02 after nine runs of
    *  counting adopters never noticed it did not exist — a primitive with no implementation has no
    *  adopters to be short of, so every count it should have moved was silent. Six of the seven

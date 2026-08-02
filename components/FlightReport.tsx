@@ -47,7 +47,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card, Disclosure, Frame } from './ui';
+import { Button, Card, Disclosure, Figure, Frame } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -1193,7 +1193,7 @@ export default function FlightReport({
         />
       )}
       <div className="space-y-6">
-        <ChartBlock id="altitude-chart" title={`Altitude (${unitsOf(sys).length} AGL)`}>
+        <Figure id="altitude-chart" title="Altitude" unit={`${unitsOf(sys).length} AGL`}>
           <div ref={altChartRef}>
             <Chart
               time={series.time}
@@ -1208,11 +1208,12 @@ export default function FlightReport({
               onView={onChartView}
             />
           </div>
-        </ChartBlock>
+        </Figure>
 
-        <ChartBlock
+        <Figure
           id="velocity-chart"
-          title={`Velocity (${unitsOf(sys).speed})`}
+          title="Velocity"
+          unit={unitsOf(sys).speed}
           note={series.velocitySource === 'device' ? 'logged by the device' : 'derived from altitude'}
         >
           <Chart
@@ -1227,12 +1228,13 @@ export default function FlightReport({
             xRange={chartRange}
             onView={onChartView}
           />
-        </ChartBlock>
+        </Figure>
 
         {hasAccel && (
-          <ChartBlock
+          <Figure
             id="acceleration-chart"
-            title={`${series.accelerationResultant ? 'Total acceleration' : 'Acceleration'} (${unitsOf(sys).accel})`}
+            title={series.accelerationResultant ? 'Total acceleration' : 'Acceleration'}
+            unit={unitsOf(sys).accel}
             note={
               series.accelerationResultant
                 ? 'resultant of the logged axes'
@@ -1253,7 +1255,7 @@ export default function FlightReport({
               xRange={chartRange}
               onView={onChartView}
             />
-          </ChartBlock>
+          </Figure>
         )}
         {!hasAccel && (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -1423,16 +1425,3 @@ export default function FlightReport({
   );
 }
 
-function ChartBlock({ id, title, note, children }: { id?: string; title: string; note?: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h3 id={id} className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
-          {title}
-        </h3>
-        {note && <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>}
-      </div>
-      {children}
-    </Card>
-  );
-}

@@ -396,6 +396,58 @@ export function Segmented<T extends string>({
   );
 }
 
+/** A chart with its title, its axis units and its own empty state — `DESIGN.md` §5.
+ *
+ *  Half of this already existed TWICE. `ChartBlock` was declared separately in `FlightReport` and
+ *  `CompareView`, differing only in an optional `id` and `note` — the same
+ *  `ACTION_BTN`-in-six-files shape P1's opening audit removed once already, restarting for charts.
+ *
+ *  **The unit belongs in the title and the title is built here, not passed in.** Both call sites
+ *  were interpolating it by hand — `` `Altitude (${unitsOf(sys).length} AGL)` `` in one and
+ *  `` `${active.label} (${active.unit})` `` in the other — which is two places that can disagree
+ *  about how a charted quantity is named, on two surfaces a flyer reads against each other. §5 asks
+ *  a figure to carry "axis units"; carrying them means owning the string.
+ *
+ *  **§5's "its own empty and extrapolated states" are NOT here, and that is measured rather than
+ *  skipped.** An `empty` prop was written, wired to the comparison, and removed: `CompareView`
+ *  already filters its channel list to metrics at least one compared flight recorded
+ *  (`allMetrics.filter(...)`), so a chart with nothing to draw cannot be reached there at all. A
+ *  guard that fires on nothing is worse than none.
+ *
+ *  The two surfaces that genuinely have this state do not have it as a CHART. `ChannelExplorer`
+ *  returns `null` when every channel is deselected and `GroundTrack` returns `null` with no GPS
+ *  fix, so in both cases the whole surface vanishes rather than a plot going blank — which is P1
+ *  item 5's work and wants `EmptyState`, not a prop here. Add `empty` to this primitive when a call
+ *  site needs it, with the case that needs it. */
+export function Figure({
+  id,
+  title,
+  unit,
+  note,
+  children,
+}: {
+  id?: string;
+  /** The quantity, WITHOUT its unit — see above. */
+  title: string;
+  /** From the units context, so a unit switch reaches the chart's own heading. */
+  unit?: string;
+  /** A short qualifier for the title row — what the trace is, or where it stops. */
+  note?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 id={id} className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+          {unit ? `${title} (${unit})` : title}
+        </h3>
+        {note && <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
 /** A compact key/value or filter token — `DESIGN.md` §5. `text-xs`, `rounded-md`, `px-2 py-1`.
  *
  *  Two props the sibling's `Chip` does not have, both because a chip in Debrief is not always a

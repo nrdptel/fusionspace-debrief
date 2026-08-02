@@ -43,6 +43,21 @@ wild, ideas too big for one pass. One line each, newest first.
   five adopters, which makes the off-system surface the most-rendered one in the app. Item 3's
   claim is corrected in `ROADMAP.md` in the same commit as this entry. Not reproduced beyond the
   grep.
+- **2026-08-02 — `components/ChannelExplorer.tsx:248` returns `null` when the flyer deselects every
+  channel**, so the surface a flight-log analyzer exists to show — the chart, the channel picker and
+  the sample table with it — is not empty, it is gone, and the only way back is a browser Back or a
+  reload. Unlike the GPS case below, a flyer reaches this **by using the control the surface
+  provides**: untick the channels one at a time and the last untick takes the whole panel with it.
+  That is a state a flyer can enter with no way back out, which `MAINTAINING.md` ranks second only
+  to a wrong number. Reproduce in under a minute: open the sample flight, scroll to the channel
+  explorer, untick every channel. Found 2026-08-02 while looking for a reachable case for `Figure`'s
+  empty state; it is the same shape as the GPS one and both belong to P1 item 5.
+- **2026-08-02 — `DESIGN.md` §5's chart empty state has NO reachable case on the comparison, and an
+  `empty` prop written for it was removed rather than shipped.** `CompareView` filters its channel
+  list to metrics at least one compared flight recorded (`allMetrics.filter(...)`), so a chart with
+  nothing to draw cannot be produced there — a guard that fires on nothing is worse than none.
+  Recorded so the next session does not re-derive it, and so `Figure` gaining an `empty` prop is
+  understood as owed to a call site that needs one rather than to the primitive being incomplete.
 - **2026-08-01 — `components/GroundTrack.tsx:466` returns `null` when there is no GPS fix**, so on a
   baro-only log the whole recovery-map surface — ground track, walkback distance and bearing, wind
   aloft — is not merely empty, it does not exist and nothing on the page says the feature is there.
