@@ -170,11 +170,19 @@ const BUDGET = {
    *  that genuinely will not fold in: `border-2 border-dashed … shadow-lg`, a floating element that
    *  needs elevation, and `Card` has no shadow by design.
    *
-   *  The fourth remaining string is `RecentFlights`'s logbook row — a raised card that is also a
-   *  click target, with a conditional left border for a note. It is a real hand-roll and it is left
-   *  because `Card`'s `as` union has no `li`, and widening a primitive's element list is a change
-   *  worth making with the conversion that needs it rather than ahead of it. */
-  cardTreatments: 4,
+   *  **4 → 3 on 2026-08-02 — AT THE FLOOR.** The last string was `RecentFlights`'s logbook row, and
+   *  `Card`'s `as` union gained `'li'` for it. That widening is the right shape rather than a
+   *  concession: the row is a card AND a list item — a flight in a list of flights — and rendering
+   *  it as a `<div>` to fit the primitive would have taken it out of the list semantics a screen
+   *  reader announces, which is the exact trade `as` exists to refuse. `Card`'s default tone IS
+   *  that row's treatment, written out by hand; what stayed in `className` is only the hover and
+   *  the indigo left edge marking an annotated flight.
+   *
+   *  **This is now a guard, like `roundedLg` and `offScaleSpacing`, and it may never rise.** The
+   *  three are `Card`, `Frame` and the floating drop overlay, and each is a distinct kind of
+   *  container rather than a hand-roll waiting to be converted. Any fourth string is a new
+   *  just-this-once. */
+  cardTreatments: 3,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -307,8 +315,9 @@ const BUDGET = {
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
   /** 23 → 26 on 2026-08-02: `RecognizedFormats`, `DropZone` and `CompareSurface`, the last three
    *  hand-rolled cards outside the logbook row. Two of them took `tone="muted"`, which existed
-   *  already and which both had written out by hand. */
-  Card: 26,
+   *  already and which both had written out by hand. 26 → 27 is the logbook row itself, which took
+   *  `as="li"`. */
+  Card: 27,
   Button: 18,
   Chip: 3,
   Readout: 2,

@@ -11,7 +11,7 @@ import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSprea
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
-import { Button, Segmented } from './ui';
+import { Button, Card, Segmented } from './ui';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -578,13 +578,17 @@ export default function RecentFlights({
           // nothing they typed reads as a broken search.
           const showing = opened.has(group.id) || matchedInside.has(group.id);
           const note = noteOf(group);
+          // A card that is also a list item and also a click target. `Card`'s default tone IS this
+          // row's treatment — `border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900`,
+          // written out by hand here — so what stays in `className` is only what is genuinely this
+          // row's: the hover, and the indigo left edge that marks a flight the flyer annotated.
           return (
-            <li
+            <Card
+              as="li"
               key={r.id}
-              className={`group rounded-xl border bg-white transition hover:border-indigo-400 dark:bg-zinc-900 dark:hover:border-indigo-500/60 ${
-                note.note
-                  ? 'border-zinc-200 border-l-2 border-l-indigo-400 dark:border-zinc-800 dark:border-l-indigo-500/60'
-                  : 'border-zinc-200 dark:border-zinc-800'
+              pad={false}
+              className={`group transition hover:border-indigo-400 dark:hover:border-indigo-500/60 ${
+                note.note ? 'border-l-2 border-l-indigo-400 dark:border-l-indigo-500/60' : ''
               }`}
             >
               <div className="flex items-center gap-3 px-3 py-2">
@@ -855,7 +859,7 @@ export default function RecentFlights({
                   )}
                 </div>
               )}
-            </li>
+            </Card>
           );
         })}
       </ul>
