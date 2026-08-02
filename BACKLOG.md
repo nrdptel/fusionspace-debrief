@@ -14,6 +14,21 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — the logbook stars a "best" the comparison refuses to crown and the report caveats:
+  three surfaces, one flight, two different claims.** `lib/logbook.ts:93`'s `personalBests` takes a
+  raw `uniqueMaxId(flights, r => r.apogeeM)` off `RecentMeta` — and `lib/recents.ts:10-45` carries
+  **no** `apogeeIsFloor`, no clipped flag and no source flag, so it cannot know. `lib/report.ts:856`
+  sets `rankBlocked: anyFloor` on the comparison's Apogee row for exactly this reason, and the
+  report renders the same flight as `… (at least)`. **Reproduce in under a minute:** remember a
+  flight whose apogee saturates (any corpus record that prints "(at least)"), remember a lower
+  second flight, and read the three surfaces — the report says the peak is a lower bound, the
+  comparison withholds the crown, the logbook stars it "Highest of your remembered flights".
+  A superlative over a set containing a floor is not settleable, and this is the
+  caveat-here/confident-claim-there shape `MAINTAINING.md` names. **Not folded into the hue fix that
+  found it**: closing it means adding a flag to the PERSISTED store and deciding what an entry saved
+  before that field existed may claim, which is a schema decision and its own increment. Found by
+  the pre-push review agent, not by the author.
+
 - **2026-08-02 — the three cold walks ran (desktop first use, desktop tenth use, phone), and the
   phone one measured rather than eyeballed.** Ranked by what a flyer loses. Fixed this run: the
   metre-in-a-feet-report caveat (its own commit). Everything below is filed, not fixed.
@@ -310,7 +325,14 @@ wild, ideas too big for one pass. One line each, newest first.
 - **2026-08-02 — the design-system audit ran for the first time and returned 40 divergences.**
   `MAINTAINING.md` calls this "the audit that has never been run". The full ranked list is in the
   run's report; the ones worth naming here, none yet fixed:
-  - **§2's colour-by-magnitude clause, twice.** `RecentFlights.tsx:647,658` paints an
+  - **§2's colour-by-magnitude clause, twice.** **FIXED 2026-08-02** — both hues are neutral now and
+    both surfaces carry the same ★, with every title and screen-reader string kept. Pinned by
+    `lib/design-system.test.ts` → *"never carries a superlative in a semantic colour"*, which scans a
+    symmetric window because the logbook's LEGEND writes the class before the word it explains and a
+    forward-only scan called that site clean. The audit filed this defect THREE times over two runs
+    at three different line numbers — `:647,658`, `:630,638` and once unnumbered — which is its own
+    finding about a ledger that is appended to rather than searched.
+    `RecentFlights.tsx:647,658` paints an
     **amber** ★ immediately left of the apogee and max-speed values to mark a personal best —
     and §2 gives amber one meaning, "an estimate outside its envelope, an extrapolation, a
     caveat", so the glyph reads as a caveat on the number it is praising. `CompareView.tsx:931`
@@ -391,7 +413,9 @@ wild, ideas too big for one pass. One line each, newest first.
   token misuse: `font-semibold` alone already marks it, and §3 gives that weight exactly this job.
   One line, deliberately not taken this run because it is churn beside the item-2 work above it.
 
-- **2026-08-02 — a leaderboard is painted in the CAVEAT colour.** `components/RecentFlights.tsx:647`
+- **2026-08-02 — a leaderboard is painted in the CAVEAT colour. FIXED 2026-08-02**, same day, with
+  the comparison table's indigo crown beside it — see the design-system audit entry above for the
+  check and the falsification. `components/RecentFlights.tsx:647`
   and `:658` mark the fastest and highest flights with a `text-amber-500` star. §2 reserves amber
   for `warn` — "an estimate outside its envelope, an extrapolation, a caveat" — and `KofiButton`'s
   own docblock cites that rule. Spending the caveat colour on a leaderboard is what makes a real
@@ -786,7 +810,8 @@ wild, ideas too big for one pass. One line each, newest first.
   **Do not read this as the entry being half-done**: a run that swept the rest without changing §4
   would be removing occurrences of a rule the file has not yet made.
 - **`components/RecentFlights.tsx:630,638` marks the fastest and highest remembered flights with a
-  `text-amber-500` ★.** `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
+  `text-amber-500` ★. FIXED 2026-08-02** — the third filing of one defect, and the line numbers had
+  moved twice by the time it was cleared. `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.

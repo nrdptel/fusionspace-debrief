@@ -642,8 +642,18 @@ export default function RecentFlights({
                     className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:ml-auto dark:text-zinc-300"
                     title="Max velocity"
                   >
+                    {/* The mark is a GLYPH, not a colour. §2 gives amber one meaning — "an estimate
+                        outside its envelope, an extrapolation, a caveat" — and this star was wearing
+                        it to say the opposite: that a reading is the best of the set. On a logbook
+                        scanned down a column, amber beside an apogee reads as a warning about that
+                        apogee. §2 also forbids colouring a number by whether it is large, outright.
+                        The basis is real and stays (the title and the screen-reader text both name
+                        it); what goes is the claim the hue was making. */}
                     {isSpeedBest && (
-                      <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
+                      <span
+                        className="mr-0.5 text-zinc-900 dark:text-zinc-100"
+                        title="Fastest of your remembered flights"
+                      >
                         ★<span className="sr-only">fastest, </span>
                       </span>
                     )}
@@ -654,7 +664,10 @@ export default function RecentFlights({
                     title="Apogee"
                   >
                     {isApogeeBest && (
-                      <span className="mr-0.5 text-amber-500" title="Highest of your remembered flights">
+                      <span
+                        className="mr-0.5 text-zinc-900 dark:text-zinc-100"
+                        title="Highest of your remembered flights"
+                      >
                         ★<span className="sr-only">highest, </span>
                       </span>
                     )}
@@ -883,7 +896,8 @@ export default function RecentFlights({
         </p>
       )}
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-        Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks
+        Remembered on this device only — never uploaded.{' '}
+        <span className="text-zinc-900 dark:text-zinc-100">★</span> marks
         your best; tick two or more to compare them — or, if they are two altimeters&apos; recordings of
         the <em>same</em> flight, to keep them as one flight. Each recording is still read on its own;
         you choose which one the flight is reported by. Add a <span aria-hidden="true">✎</span> note
