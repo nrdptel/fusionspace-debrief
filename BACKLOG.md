@@ -18,7 +18,11 @@ wild, ideas too big for one pass. One line each, newest first.
   phone one measured rather than eyeballed.** Ranked by what a flyer loses. Fixed this run: the
   metre-in-a-feet-report caveat (its own commit). Everything below is filed, not fixed.
 
-  **The one worth taking first — a chart is mouse-only, and the legend advertises otherwise.**
+  **FIXED 2026-08-02, later the same day: the chart's one-finger reading, the comparison's sort
+  cue and the colour swatches' tap target. The rest below stands.**
+
+  **~~The one worth taking first — a chart is mouse-only, and the legend advertises otherwise.~~
+  FIXED.**
   All six charts (five on `/`, one on `/compare`) render a live legend reading `time — altitude —`
   that NEVER fills in under touch: `Chart.tsx`'s touch handlers `return` unless
   `e.touches.length === 2`, so a single finger is pinch-zoom or nothing, and the uPlot cursor is
@@ -33,7 +37,8 @@ wild, ideas too big for one pass. One line each, newest first.
   **Touch targets that are genuinely under 44 px — 11, not the 22 a naive sweep reports.** The
   walk measured `::after` as well as the box and checked occlusion (0 of 124 controls had their
   centre stolen by a neighbour), so these are the honest survivors:
-  - **`input[type=color]` ×3 at 12×44** in the figures panel. A colour input is a REPLACED
+  - ~~**`input[type=color]` ×3 at 12×44** in the figures panel.~~ **FIXED** — the tap target moved
+    to a wrapping `<label>`, which is the only place it could go. A colour input is a REPLACED
     element, so it cannot generate an `::after` at all (measured 0×0) — `.touch-area` could not
     rescue these even if applied, and only `globals.css`'s coarse `min-height` lands. The
     documented gesture on them is double-click-to-reset. This one needs a different control, not
@@ -47,10 +52,11 @@ wild, ideas too big for one pass. One line each, newest first.
   - the footer's `Privacy` link at **42×44** — the one footer link that is site navigation, two
     pixels short on one axis.
 
-  **Hover-gated affordances that do not exist on a phone.** `CompareView.tsx:922`'s sort arrow is
-  `opacity-0 group-hover:opacity-40`, and `(hover: hover)` is false at 390 — so every non-active
-  column header renders its arrow at computed opacity 0 and **nothing on a phone says the table
-  sorts at all**. `SiteFooter.tsx:66` and `FusionSpaceBadge.tsx:27` hide their `↗` new-tab cue the
+  **Hover-gated affordances that do not exist on a phone. ~~The sort arrow~~ FIXED; the new-tab
+  cues stand.** `CompareView.tsx:922`'s sort arrow was `opacity-0 group-hover:opacity-40`, and
+  `(hover: hover)` is false at 390 — so every non-active column header rendered its arrow at
+  computed opacity 0 and **nothing on a phone said the table sorted at all**. It now carries
+  `pointer-coarse:opacity-40`, pinned in `e2e/touch.spec.ts`. `SiteFooter.tsx:66` and `FusionSpaceBadge.tsx:27` hide their `↗` new-tab cue the
   same way; cosmetic, but it is the whole cue.
 
   **The docs routes have no way to navigate them.** `/methods` is **30,707 px — 36.4 screens —
@@ -90,9 +96,12 @@ wild, ideas too big for one pass. One line each, newest first.
   −308..3495, so the file plainly holds thousands of feet somewhere the parser is not reading.
   Two candidate fixes, and they are not the same work: read the serial format's inertial position
   properly (a parser fix, D-track), or refuse to publish an apogee whose own record cannot support
-  it — the app already withholds VELOCITY on this file as not physically possible and never
-  applies the same test to a 9 m climb over 30.9 s (0.3 m/s average). **The second is the safety
-  fix and does not need the vendor's format.**
+  it. **The second SHIPPED 2026-08-02** — a record whose climb takes more than four times a
+  vertical throw to the same height now says so, bound measured across the corpus (worst real
+  flight 1.52, this file 22.2), pinned by `lib/analyze/ascent.test.ts` which asserts the tripped
+  set BY NAME. **The parser half is still open and is the one that would recover the real 2,115 m**
+  — the `Pos:` tokens on those same lines span −3143..9, −13..5405 and −308..3495, so the height is
+  in the file somewhere the parser is not reading.
 
 - **2026-08-02 — a StratoLogger column whose every cell reads `58.7F` gets the temperature unit
   prefilled as C, and "Remember these columns" saves the mistake.** Walk B measured GROUND TEMP

@@ -9,8 +9,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D8 slice 2 STARTED.** Looking for the milestone's own subject (the high-rate gyro/quaternion columns) meant reading the LOW-rate headers, which turned up a roll angle the Blue Raven had already solved and Debrief parsed straight past — and, on the generic importer's path, `Roll_Angle_(deg)` being auto-detected as a roll **RATE**, with a test asserting that was correct. `rollAngle` is its own kind now. **The rest of slice 2 remains**: `ChannelKind` members, units and provenance for the HR `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind: 'other'`. |
 | **P — product & craft** | **P1: two more §5 primitives are doing their job.** `useReturnFocus` exists (§5 named it; nothing implemented it) and the two destructive confirms share it. `Readout` went **2 → 9 adopters** — the seven derived-reading panels were hand-rolling a byte-identical hero value. Items **7** (29 hand-rolled `<button>`), item 4's keyboard clause, and the design-system audit's other 30-odd rows remain. |
 
-**Five increments are MERGED AND LIVE**; three more are on the branch awaiting a second pull
-request. Pull request #91 merged on green (`frontend` and `e2e` both succeeded) and production was
+**Five increments are MERGED AND LIVE**; four more are on the branch in pull request #92. Pull request #91 merged on green (`frontend` and `e2e` both succeeded) and production was
 verified serving exactly `c86695c` at 13:07Z. The branch was restarted from `main` after the merge,
 as the harness requires.
 
@@ -154,6 +153,20 @@ genuine §3 breaches were fixed in place instead.
 | `ErrorState` adopters | 2 | **2** | — |
 | hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few |
 | imperative focus moves outside `ui.tsx` | 6 | **0** | 0 — new assertion this run |
+
+## A CI note worth having before you push
+
+**The `e2e` job can stick.** On 2026-08-02 pull request #92's `e2e` job sat in its test step for
+**40+ minutes with no step progress** while `frontend` finished in 2m56s, and the same suite under
+CI's own settings (`CI=1`, which forces one worker and one retry) ran locally in **7.6 s for the
+spec in question and 3.8 min for all 254**. It was the runner, not the code. Re-pushing to the
+branch supersedes a stuck run with a fresh one; do that rather than reading a stall as a red gate.
+
+**And check what the corpus step actually did.** `Fetch private fixtures corpus` reports success in
+about 2 seconds, which is fast for a 26 MB release asset — the evidence that the corpus really ran
+is the `Test` step's duration (1m56s on that run, against a corpus-less suite that is far quicker),
+not the fetch step's exit code. If you need certainty, read the step's log rather than its
+conclusion.
 
 ## Pick up first
 
