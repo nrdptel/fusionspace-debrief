@@ -7,12 +7,12 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **D — capability** | **D8 slice 1 SHIPPED.** A Blue Raven's 500 Hz high-rate half is now read onto the flight its low-rate half recorded — gyro, accelerometer and the board's attitude, peak-preserving, with the standalone refusal untouched. **Slices 2 and 3 remain**, and slice 1 narrowed slice 2: the channels already arrive LABELLED (`Gyro X`, `Accel Z`, `Quat 1`), so what is left there is `ChannelKind` members, the units context, and the "this board did not record it" state. |
-| **P — product & craft** | **P1 still in progress.** Item 5 started on the app's most-hit error surface; item 2 took the events grid. Items **7** (hand-rolled buttons, **29** not 39/41), item 4's keyboard clause and item 12's `Panel` remain. |
+| **P — product & craft** | **P1 still in progress, and item 2 is DONE.** Item 5 started on the app's most-hit error surface. Item 2 closed the events grid and then the last three decision-grade numbers, taking inverted files to **13**. Items **7** (hand-rolled buttons, **29** not 39/41), item 4's keyboard clause and item 12's `Panel` remain. |
 
-**Everything this run shipped is MERGED AND LIVE.** PR #86 (six commits) and PR #87 (the
-correction below) both merged on green — `frontend` and `e2e` succeeded on each — and production was
-verified with a cache-buster serving **`e071c84`** at 05:38:27Z. `main` is **`24c0ba2`** at last
-measurement, and the branch was restarted from it after each merge.
+**Everything this run shipped is MERGED AND LIVE.** Four pull requests — #86, #87, #88, #89 — each
+merged on green with `frontend` and `e2e` succeeding, and production verified with a cache-buster
+after each. `main` is **`748090f`** and production served exactly that at 06:32:04Z. The branch was
+restarted from `main` after every merge.
 **Re-measure before believing this**: `git fetch --prune origin` then
 `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
 
@@ -89,11 +89,21 @@ The distinction worth keeping: the old reasoning ("a tag on every cell would be 
 about a COMPARISON and wrong about a CLAIM. What legitimately depends on mixing is the crown, which
 moved to `rankBlocked`.
 
-### 3. P1 — the error names its file, and the recovery numbers leave caption size (`d72288a`)
+### 3. P1 — the error names its file, and four surfaces leave caption size (`d72288a`, #89)
 
-Six of `Analyzer`'s ten error paths named no file at all. It renders through `ErrorState` now. And
-the events grid put the main-deploy height and the deployment shock at `text-xs` in tertiary colour —
-the numbers a flyer sizes a harness against.
+Six of `Analyzer`'s ten error paths named no file at all. It renders through `ErrorState` now.
+
+Then item 2 took every decision-grade number still below §3's floor: the events grid's main-deploy
+height and deployment shock (the numbers a flyer sizes a harness against), `RecordingPicker`'s and
+`FlightPicker`'s apogees and speeds (how a flyer decides WHICH recording to trust), and
+`GroundTrack`'s walkback distance and bearing (read standing in a field deciding where to walk).
+**Item 2 is done** — inverted files 13, and its target of 0 remains unreachable for the reason
+`ROADMAP.md` states: a chip-built component is inverted while fully compliant.
+
+### 4. §8's touch floor, and a number of my own I had to correct (#87)
+
+The done-check walk filed "20 controls under 44 px" and it was wrong by 4x — see the traps section.
+The honest figure is 3, one of which is fixed; the other two are §10-shared and owed to both repos.
 
 ## Traps this run hit — read these before repeating them
 
@@ -131,15 +141,18 @@ the numbers a flyer sizes a harness against.
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
 | hand-rolled card treatments | 3 | **3** | 3 — a GUARD, may never rise |
-| inverted-type files | 15 | **16** | not 0 — see below |
+| inverted-type files | 15 | **13** | not 0 — see below |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
 | files importing the primitives | 34 | **34** | most of the 46 |
 | `Card` adopters | 27 | **26** | — |
 | `ErrorState` adopters | 1 | **2** | — |
 | hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few — and `ROADMAP.md` said 39/41; it is 29 |
 
-**Inverted files 15 → 16 is the adoption effect, not a regression**, and it is recorded in
-`lib/design-system.test.ts` with the reason. `Analyzer`'s three remaining captions — a file name
+**Inverted files went 15 → 16 → 13, and the two moves are different things** — both recorded in
+`lib/design-system.test.ts` with their reasons. The rise was the ADOPTION EFFECT: `ErrorState` took
+`Analyzer`'s `text-sm` into `ui.tsx` and not one glyph changed size. The fall was REAL: three
+surfaces stopped rendering a decision-grade number below §3's floor and glyphs did change size.
+A count that cannot tell those apart is the trap §9 documents for the suite-wide ratio. `Analyzer`'s three remaining captions — a file name
 inside "Reading …", the help line under it, the amber mapping note — are the "unit, provenance,
 caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `SiteFooter`,
 `FusionSpaceBadge` and `ChannelExplorer` as a file inverted while fully compliant.
@@ -161,11 +174,7 @@ caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `
    alone forks the suite — this needs a session created with Loft attached. `MethodsPointer`, the
    one that is Debrief's own, is fixed.
 
-3. **P1 item 2's remaining three instances**, all filed in `BACKLOG.md` with file:line — the two
-   recording pickers at `text-[11px]` (the numbers a flyer picks which instrument to trust by) and
-   `GroundTrack`'s walkback line.
-
-4. **P1 item 7 is smaller than the roadmap says.** 29 hand-rolled `<button>` outside `ui.tsx`, not 39
+3. **P1 item 7 is smaller than the roadmap says.** 29 hand-rolled `<button>` outside `ui.tsx`, not 39
    or 41. Re-measure before budgeting an increment against any P1 number; 8 of 10 were stale.
 
 ## What is owed elsewhere
