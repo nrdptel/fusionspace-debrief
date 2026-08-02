@@ -2,7 +2,7 @@
 
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { finiteMinMax } from '@/lib/range';
 
 // Charts that share a syncKey share a hover cursor and zoom range, so the
@@ -140,6 +140,11 @@ export default function Chart({
 }: ChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
+  /** Where the keyboard has walked to, as a sample index. A ref rather than state: it is read
+   *  and written inside one key press and never drives a render on its own — the reading a
+   *  sighted user sees is uPlot's own legend, which is not React's to re-render. */
+  const cursorIdx = useRef<number | null>(null);
+  const [announced, setAnnounced] = useState('');
 
   useEffect(() => {
     const host = hostRef.current;
@@ -430,5 +435,130 @@ export default function Chart({
     };
   }, [time, series, markers, dark, height, fmt, fmtRight, xFmt, xLabel, xSorted, syncKey, onView, xRange]);
 
-  return <div ref={hostRef} className="w-full" role="img" aria-label={ariaLabel} />;
+  /** Read a value off the chart with the keyboard.
+   *
+   *  The chart already answered a mouse and, since the touch work, a finger — and answered a
+   *  keyboard with nothing at all: the host carried `role="img"` and an `aria-label` but no
+   *  `tabindex` and no key handling, so it could not even be focused. `GroundTrack` beside it has
+   *  had arrow keys, Home/End, PageUp/PageDown and Escape since it was built, which made this an
+   *  inconsistency inside one report as much as a gap against a spreadsheet.
+   *
+   *  It walks the samples in the VISIBLE window rather than the whole file. A logger armed on the
+   *  pad can record minutes before liftoff, and the chart deliberately opens framed on the flight
+   *  (`xRange`) — so Home and End mean the ends of what is being shown, and a zoom changes what
+   *  the arrows traverse, which is what someone looking at the plot would expect them to mean. */
+  const onKeyDown = (ev: React.KeyboardEvent<HTMLDivElement>) => {
+    const plot = plotRef.current;
+    if (!plot || time.length === 0) return;
+
+    // The window's ends, as sample indices. Only meaningful on a sorted x — plotting one channel
+    // against another gives a non-monotonic x where "the range between two times" is not a
+    // contiguous run of samples, so there the keyboard walks the whole series.
+    let lo = 0;
+    let hi = time.length - 1;
+    const { min, max } = plot.scales.x;
+    if (xSorted && min != null && max != null) {
+      while (lo < hi && time[lo] < min) lo++;
+      while (hi > lo && time[hi] > max) hi--;
+    }
+
+    const at = cursorIdx.current;
+    const go = (i: number) => {
+      ev.preventDefault();
+      const c = Math.max(lo, Math.min(hi, i));
+      cursorIdx.current = c;
+      // Drive uPlot's own cursor, so the live legend a mouse user reads is the same element the
+      // keyboard fills in — one reading, not a second one rendered elsewhere.
+      plot.setCursor({ left: plot.valToPos(time[c], 'x'), top: plot.over.clientHeight / 2 });
+      setAnnounced(describeAt(c));
+    };
+
+    const step = ev.shiftKey ? 10 : 1;
+    switch (ev.key) {
+      case 'ArrowRight':
+      case 'ArrowUp':
+        return go(at == null ? lo : at + step);
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        return go(at == null ? hi : at - step);
+      case 'Home':
+        return go(lo);
+      case 'End':
+        return go(hi);
+      case 'PageDown': {
+        // Between the marks the chart already draws — liftoff, burnout, apogee, deployment. The
+        // instants a flyer is actually looking for, rather than a fixed jump of N samples.
+        const next = markers.map((m) => m.x).filter((x) => x > (at == null ? -Infinity : time[at]));
+        if (next.length > 0) go(nearestIndex(Math.min(...next), lo, hi));
+        return;
+      }
+      case 'PageUp': {
+        const prev = markers.map((m) => m.x).filter((x) => x < (at == null ? Infinity : time[at]));
+        if (prev.length > 0) go(nearestIndex(Math.max(...prev), lo, hi));
+        return;
+      }
+      case 'Escape':
+        ev.preventDefault();
+        cursorIdx.current = null;
+        plot.setCursor({ left: -10, top: -10 });
+        setAnnounced('');
+        return;
+    }
+  };
+
+  /** The sample nearest an x value, within the window. */
+  function nearestIndex(x: number, lo: number, hi: number): number {
+    let best = lo;
+    let bestD = Infinity;
+    for (let i = lo; i <= hi; i++) {
+      const d = Math.abs(time[i] - x);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /** What a screen reader hears. The same numbers, through the same formatters, as the visible
+   *  legend — a reading stated twice in two shapes would be two readings to reconcile. A series
+   *  the record has no sample for at this instant is left out rather than announced as NaN. */
+  function describeAt(i: number): string {
+    const x = xFmt ? xFmt(time[i]) : `${time[i].toFixed(2)} s`;
+    const parts = [`${xLabel ?? 'time'} ${x}`];
+    for (const s of series) {
+      const v = s.values[i];
+      if (!Number.isFinite(v)) continue;
+      const f = s.axis === 'right' ? (fmtRight ?? fmt) : fmt;
+      parts.push(`${s.label} ${f ? f(v) : String(v)}`);
+    }
+    const mark = markers.find((m) => nearestIndex(m.x, 0, time.length - 1) === i);
+    return parts.join(', ') + (mark ? `, ${mark.label}` : '');
+  }
+
+  return (
+    <div className="w-full">
+      <div
+        ref={hostRef}
+        className="w-full"
+        role="img"
+        /* The instructions ride in the label rather than in visible text under every one of the
+           six charts: a keyboard user meets this element by focusing it, which is exactly when a
+           label is read out. `GroundTrack` states its keys the same way. */
+        aria-label={
+          ariaLabel
+            ? `${ariaLabel} Focus this chart and use the arrow keys to read a value — Home and End for the ends of the window shown, Page Up and Page Down to step between events, Escape to clear.`
+            : undefined
+        }
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+      />
+      {/* Only key presses write here. A pointer sweeping the plot sets a new reading on nearly
+          every pixel of travel, and routing that into a live region would queue an announcement
+          per pointer sample — the mistake `GroundTrack` made once and fixed. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {announced}
+      </p>
+    </div>
+  );
 }

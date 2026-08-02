@@ -1583,10 +1583,22 @@ the artifact rather than the tree.
    e2e asserts the FACT (the file is named where it is handled) rather than the surface — two
    surfaces answer this differently and both are right.
 
-   *(2026-07-31: `navigator.onLine` is read NOWHERE in `components` or `app` — measured, 0 hits — so
-   the offline state is undelivered suite-wide rather than missing on some surfaces. That is either
-   20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
-   change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
+   **2026-08-02, later still — the chart now answers a KEYBOARD, which closes the §8 half no state
+   audit reaches.** `Chart.tsx` carried `role="img"` and an `aria-label` but no `tabIndex` and no key
+   handling, so it could not be focused, while `GroundTrack` beside it has had arrow keys, Home/End,
+   PageUp/PageDown and Escape since it was built — an inconsistency inside one report, not only a
+   gap against a spreadsheet. (The `COMPETITION.md` row that filed this said "no `role`, `tabindex`
+   or focusable element"; the role was there, and the row is corrected.) Arrow keys now walk the
+   samples in the VISIBLE window — a logger armed on the pad records minutes the flight doesn't get,
+   and the chart opens framed on the flight, so Home and End mean the ends of what is shown.
+   PageUp/PageDown step between the marks already drawn. It drives uPlot's own cursor, so the live
+   legend is the same element for mouse, finger and key, and only deliberate presses write to the
+   `aria-live` region. Pinned by two `e2e/a11y.spec.ts` cases, three mutations run against them.
+
+   Worth keeping, because it cost real time: adding a status region to every chart broke an
+   unrelated ground-track test whose `p.sr-only[role="status"]` locator had been unique only by
+   accident — it matched five elements afterwards. Both that locator and the new one are now scoped
+   to the surface they are asserting about.
 
    **And one instance of this item was REFUTED before it was built, 2026-08-02.** `DataTable`'s
    default empty string is "Nothing to show yet.", which its own prop doc forbids by §5 — but the

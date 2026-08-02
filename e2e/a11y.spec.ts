@@ -260,3 +260,63 @@ test('a11y: the logbook and its clear-confirm', async ({ page }) => {
   }
   expect(violations.map((v) => v.id)).toEqual([]);
 });
+
+test('a chart answers the keyboard, and says what it read', async ({ page }) => {
+  // The gap this closes: the chart answered a mouse and, since the touch work, a finger — and a
+  // keyboard with nothing at all. `GroundTrack` beside it has had arrow keys since it was built,
+  // so this was an inconsistency inside one report as well as a gap against a spreadsheet.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  const chart = page.locator('[role="img"][tabindex="0"]').first();
+  await expect(chart, 'the chart can be focused at all').toBeVisible();
+
+  const legend = page.locator('.u-legend').first();
+  const before = (await legend.innerText()).replace(/\s+/g, ' ').trim();
+
+  await chart.focus();
+  await expect(chart, 'focus actually lands on it').toBeFocused();
+  await page.keyboard.press('Home');
+
+  const after = (await legend.innerText()).replace(/\s+/g, ' ').trim();
+  // The SAME legend a mouse user reads — one reading, not a second one rendered elsewhere.
+  expect(after, 'the legend filled in from the keyboard').not.toBe(before);
+  expect(after, 'and it holds an actual reading').toMatch(/\d/);
+
+  // What a screen reader hears. Only key presses write here, so it is empty until one lands.
+  // This chart's own status region — the sibling of the element just focused, so the assertion
+  // cannot pass on a reading some other chart or the ground track announced.
+  const said = chart.locator('xpath=following-sibling::p[@role="status"]');
+  const home = (await said.innerText()).trim();
+  expect(home, 'the reading is announced, not only drawn').toMatch(/\d/);
+
+  // Arrow keys move it, End goes to the other end, and the two are different instants.
+  await page.keyboard.press('End');
+  const end = (await said.innerText()).trim();
+  expect(end, 'End reads a different instant from Home').not.toBe(home);
+
+  await page.keyboard.press('ArrowLeft');
+  const stepped = (await said.innerText()).trim();
+  expect(stepped, 'an arrow key moves off the end').not.toBe(end);
+
+  // Escape clears the reading rather than leaving a stale one announced.
+  await page.keyboard.press('Escape');
+  expect((await said.innerText()).trim(), 'Escape clears it').toBe('');
+});
+
+test('every chart is reachable by keyboard, not just the first', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  // Whatever the surface draws, all of it answers the keyboard — a chart that opted out would be
+  // exactly the hover-only state §8 forbids, one surface further down the page.
+  const charts = page.locator('[role="img"][tabindex="0"]');
+  const n = await charts.count();
+  expect(n, 'the report draws charts').toBeGreaterThan(0);
+  for (let i = 0; i < n; i++) {
+    const label = await charts.nth(i).getAttribute('aria-label');
+    expect(label, `chart ${i} says how to read it with a keyboard`).toContain('arrow keys');
+  }
+});

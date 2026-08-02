@@ -1039,7 +1039,9 @@ test('the ground track can be read at a point, without a mouse', async ({ page }
 
   // Hovering is not a choice either: the visible line follows the pointer, but nothing is
   // announced. A live region fed from pointermove reads a new position aloud per pixel.
-  const spoken = page.locator('p.sr-only[role="status"]');
+  // The GROUND TRACK's announcements. Scoped by id rather than by shape: every chart on the
+  // report now carries a status region of its own, so `p.sr-only[role="status"]` matches five.
+  const spoken = page.locator('#ground-track-spoken');
   await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.5);
   await expect(readout).not.toContainText(/arrow keys/);
   await expect(spoken).toHaveText('');

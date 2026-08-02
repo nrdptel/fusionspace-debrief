@@ -574,7 +574,7 @@ export default function GroundTrack({
         {/* What a screen reader hears, and only when a fix was chosen deliberately — a key
             press or a tap, never a hover. Hovering is a pointer user's gesture and produces
             no announcement at all; the visible line above still follows the pointer. */}
-        <p className="sr-only" role="status" aria-live="polite">
+        <p id="ground-track-spoken" className="sr-only" role="status" aria-live="polite">
           {announced}
         </p>
 
