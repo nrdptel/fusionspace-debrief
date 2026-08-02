@@ -68,7 +68,10 @@ export default function FlightPicker({
                   Flight {s.index}
                   {here ? ' · reading' : ''}
                 </span>
-                <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                {/* Same as `RecordingPicker`: the apogee is how a flyer tells one flight in a
+                    multi-flight download from another, so it is decision-grade and takes §3's
+                    floor rather than the axis-tick size. */}
+                <span className="font-mono text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
                   {Number.isFinite(s.apogeeM) ? fmtLength(s.apogeeM, sys) : '—'} · {fmtTime(s.startTime)}
                 </span>
               </button>

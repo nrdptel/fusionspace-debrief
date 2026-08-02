@@ -1328,10 +1328,19 @@ the artifact rather than the tree.
    read down a column event against event; the provenance label beside them moved `text-[11px]` →
    `text-xs`, since §3 reserves the smallest size for axis ticks and diagram annotations.
 
-   **Still open on this item, measured 2026-08-02 and ranked:** `RecordingPicker.tsx:81` and
-   `FlightPicker.tsx:71` render each recording's apogee and max velocity at `text-[11px]` — the
-   numbers a flyer picks WHICH INSTRUMENT TO TRUST by, at a size §3 reserves for axis ticks;
-   `GroundTrack.tsx:542` puts the walkback distance and bearing at `text-xs`.
+   **DONE 2026-08-02, the same day, and this is the first time this count has moved for the
+   reason it exists.** `RecordingPicker`, `FlightPicker` and `GroundTrack` each rendered a
+   decision-grade number below §3's floor — the apogee and peak speed a flyer reads to decide WHICH
+   RECORDING to trust, the apogee that tells one flight in a multi-flight download from another,
+   and the walkback distance and bearing read standing in a field deciding where to walk. All three
+   left the inverted list: **16 → 13**, and unlike every previous move of this count, GLYPHS
+   ACTUALLY CHANGED SIZE. Nothing moved into `ui.tsx`.
+
+   **So this metric has now moved three ways in two runs, and the ratchet's comments tell them
+   apart:** 15 → 16 was pure adoption (a `text-sm` migrating into a primitive), 16 → 13 is real, and
+   the earlier 16 → 15 was adoption again. A count that cannot distinguish these is the trap §9
+   already documents for the suite-wide ratio; the per-entry reasoning in
+   `lib/design-system.test.ts` is what keeps it honest.
 
    **Already done on this file (2026-07-31):** the two decision-grade values — apogee and max
    velocity, the numbers the logbook exists to be scanned down — were `text-xs` in §2's TERTIARY
