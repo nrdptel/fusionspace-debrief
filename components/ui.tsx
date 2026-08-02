@@ -406,6 +406,115 @@ export function Segmented<T extends string>({
  *  - `mono={false}` for a value that is not a figure being compared with another figure. §3 asks for
  *    `font-mono tabular-nums` on numbers a flyer lines up column to column, which a count of hidden
  *    rows is not. */
+/** A numeric input with its unit, its bounds and its step — `DESIGN.md` §5, which says "**every**
+ *  numeric input in either app is this" and gives it a duty no other primitive here has: "it owns
+ *  the refusal behaviour the SAFETY invariant requires: a value that cannot mean anything
+ *  physically is bounded or refused at the field, not flown into a confident number downstream."
+ *
+ *  It did not exist. Nine inputs hand-rolled it, seven of them with a byte-identical class string,
+ *  and each panel re-derived its own bound — `DeployAltitude` clamping to `MAX_REASONABLE_DEPLOY_M`,
+ *  `DragCoefficient` setting only `min={0}`. That is §1's failure mode applied to the one control
+ *  whose output a flyer sizes a parachute against.
+ *
+ *  **What it does NOT do, and the distinction is the safety-relevant one.** It does not clamp, and
+ *  it does not change what any panel computes. The panels already clamp — `Math.min(x, MAX_…)` —
+ *  and they are the right place for it, because the cap is in SI and only the panel knows the
+ *  conversion. What was missing is that the clamp was **silent**: type 50,000 ft into a deploy
+ *  altitude and the field snapped to 29,527 with nothing saying why, which is exactly the "control
+ *  that fails only when pressed, or whose failure names something that isn't on the page" tell.
+ *  `DESIGN.md` §6 is explicit — "a withheld value says why, and what would restore it".
+ *
+ *  So the bound is stated where the flyer is typing, and announced when they cross it. The
+ *  announcement is a live region because a flyer who is looking at the keypad is not looking at
+ *  the hint. */
+export function NumberField({
+  label,
+  unit,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  ariaLabel,
+  placeholder,
+  width = 'w-20',
+  className,
+}: {
+  label: React.ReactNode;
+  /** Shown beside the input, never baked into `label` — a unit switch has to reach it. */
+  unit: React.ReactNode;
+  value: string;
+  onChange: (raw: string) => void;
+  /** In the FIELD's units, not SI. The panel owns the conversion because the panel owns the cap. */
+  min?: number;
+  max?: number;
+  step?: number | string;
+  /** The input's accessible name, which carries the unit spelled out — "(inches)" beats "(in)" to
+   *  a screen reader. Falls back to the visible label. */
+  ariaLabel?: string;
+  placeholder?: string;
+  /** The one thing that genuinely varies between call sites: a deploy altitude needs four digits
+   *  where a motor delay needs two. */
+  width?: string;
+  className?: string;
+}) {
+  // **What the flyer TYPED, which is not what the input shows.** Every one of these fields is
+  // controlled by a value the panel has already clamped — `onSet` does
+  // `Math.min(x, MAX_REASONABLE_DEPLOY_M)` and the field re-renders from the clamped number — so by
+  // the time the value comes back the refused figure is gone and there is nothing left to explain.
+  // That is precisely why the clamp was silent, and reading the bound off `value` cannot see it:
+  // the value is always in range by the time it arrives.
+  const [typed, setTyped] = React.useState<string | null>(null);
+  // A unit switch changes what the bound MEANS, so a message about the last thing typed in the old
+  // unit would be a wrong claim rather than a stale one. Cleared on any change to the bound.
+  React.useEffect(() => setTyped(null), [min, max, unit]);
+
+  const n = typed == null || typed.trim() === '' ? NaN : Number(typed);
+  const over = Number.isFinite(n) && max != null && n > max;
+  const under = Number.isFinite(n) && min != null && n < min;
+  // A bound is a number a flyer reads, so it is grouped like every other number in the app — §6.
+  // Unformatted, the deploy cap prints as "29528", which reads as a serial number rather than a
+  // height.
+  const bound = (v: number) => v.toLocaleString('en-US');
+  const suffix = typeof unit === 'string' ? ` ${unit}` : '';
+  return (
+    <label className={cx('flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400', className)}>
+      <span>{label}</span>
+      <span className="flex items-center gap-1">
+        <input
+          type="number"
+          inputMode="decimal"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            onChange(e.target.value);
+          }}
+          aria-label={ariaLabel}
+          aria-invalid={over || under ? true : undefined}
+          placeholder={placeholder}
+          className={cx(
+            width,
+            'rounded-md border bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
+            // The refusal is visible on the control itself, not only in the sentence under it: §2's
+            // `danger` is "a refusal, a value that cannot be computed".
+            over || under ? 'border-red-400 dark:border-red-500/60' : 'border-zinc-300 dark:border-zinc-700',
+          )}
+        />
+        <span className="font-mono">{unit}</span>
+      </span>
+      {/* Always mounted, so a screen reader following this panel hears the bound the moment it is
+          crossed rather than on the next thing that happens to re-render the region. */}
+      <span role="status" aria-live="polite" className="text-xs text-red-600 dark:text-red-400">
+        {over ? `Above ${bound(max!)}${suffix} — ${bound(max!)}${suffix} is used.` : ''}
+        {under ? `Below ${bound(min!)}${suffix} — this reading needs a value above it.` : ''}
+      </span>
+    </label>
+  );
+}
+
 export function Chip({
   label,
   value,

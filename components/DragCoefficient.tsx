@@ -6,7 +6,7 @@ import { systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { dragCoefficient, diameterToM, LEN_TO_M, MAX_REASONABLE_DIAMETER_M } from '@/lib/drag';
 import { massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
-import { Card } from './ui';
+import { Card, NumberField } from './ui';
 
 const MASS_KEY = 'debrief.dragmass.kg';
 const DIAM_KEY = 'debrief.diameter.m';
@@ -118,40 +118,28 @@ export default function DragCoefficient({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span>Coast mass</span>
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={massUnit === 'oz' ? 0.1 : 1}
-                value={massField}
-                onChange={(e) => onMass(e.target.value)}
-                aria-label={`Coast mass (${massUnit === 'oz' ? 'ounces' : 'grams'})`}
-                placeholder={massUnit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-              />
-              <span className="font-mono">{massUnit}</span>
-            </span>
-          </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span>Diameter</span>
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={lenUnit === 'in' ? 0.1 : 1}
-                value={diamField}
-                onChange={(e) => onDiam(e.target.value)}
-                aria-label={`Body diameter (${lenUnit === 'in' ? 'inches' : 'millimetres'})`}
-                placeholder={lenUnit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-              />
-              <span className="font-mono">{lenUnit}</span>
-            </span>
-          </label>
+          <NumberField
+            label="Coast mass"
+            unit={massUnit}
+            ariaLabel={`Coast mass (${massUnit === 'oz' ? 'ounces' : 'grams'})`}
+            value={massField}
+            onChange={onMass}
+            min={0}
+            max={Math.round(MAX_REASONABLE_MASS_KG / MASS_TO_KG[massUnit])}
+            step={massUnit === 'oz' ? 0.1 : 1}
+            placeholder={massUnit}
+          />
+          <NumberField
+            label="Diameter"
+            unit={lenUnit}
+            ariaLabel={`Body diameter (${lenUnit === 'in' ? 'inches' : 'millimetres'})`}
+            value={diamField}
+            onChange={onDiam}
+            min={0}
+            max={Math.round(MAX_REASONABLE_DIAMETER_M / LEN_TO_M[lenUnit])}
+            step={lenUnit === 'in' ? 0.1 : 1}
+            placeholder={lenUnit}
+          />
         </div>
       </div>
 

@@ -1128,6 +1128,17 @@ simulation, and no number whose method is not on the methods page in the same ch
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
+**2026-08-02: `Frame` and `NumberField` both exist now** (items 8 and 12), card treatments are
+**10 → 7** against an honest floor of 4, and the milestone's remaining shape is clearer than the
+list below suggests. What is left is three genuine card hand-rolls, `Figure` and `Panel`, the five
+states (item 5), the caption-size numbers (item 2), and the hand-rolled buttons (item 7).
+
+**And a caution the last two increments both earned.** Two of the counts in this list were stale by
+the time they were spent against — item 3's dark-surface census, and `BACKLOG.md`'s half-step
+figures, which read 21 and were 11. **Re-measure a number in this file before building against it**;
+these are records of what was true on the day, not live values, and the ratchet only guards the six
+counts it actually holds.
+
 **Measured 2026-08-01 at the end of that run, from §9's own shell block:** `rounded-lg` **0** ·
 card treatments **10** · off-scale spacing **0** · off-scale type **1** · inverted files **15** ·
 components importing `./ui` **29** · `Button` adopters **18** · `Segmented` adopters **3** · bare
@@ -1429,17 +1440,43 @@ the artifact rather than the tree.
     with no implementation has no adopters to be short of, so every count it should have moved was
     silent.
 
-    - **`NumberField`** — §5: "**Every** numeric input in either app is this", and it "owns the
-      refusal behaviour the SAFETY invariant requires: a value that cannot mean anything physically
-      is bounded or refused at the field". It is hand-rolled at **9 sites**, each re-deriving its
-      own bound: `DeployAltitude.tsx:68` silently clamps to `MAX_REASONABLE_DEPLOY_M`,
-      `DragCoefficient.tsx:125` only sets `min={0}`. So the behaviour a flyer's Cd and landing
-      energy depend on is per-file and has no shared test. **This is the one with a safety duty
-      attached and it should be the next slice of P1.**
+    - ~~**`NumberField`**~~ **DONE 2026-08-02, and the interesting part is what "bounded at the
+      field" turned out to require.** §5: "**Every** numeric input in either app is this", and it
+      "owns the refusal behaviour the SAFETY invariant requires: a value that cannot mean anything
+      physically is bounded or refused at the field". It was hand-rolled at 9 sites, seven of them
+      with a byte-identical class string, each re-deriving its own bound.
+
+      **The bound was never missing — it was SILENT, and that is a different defect.** Every panel
+      already does `Math.min(x, MAX_REASONABLE_…)`. Type 50,000 ft into the main-deploy check and
+      you got 29,528 with nothing on the page saying why the number you typed was not the number
+      used: `MAINTAINING.md`'s "a control that is always enabled and fails only when pressed"
+      wearing different clothes, on the panel a flyer uses to check what they set on the altimeter
+      against what actually fired.
+
+      **And the primitive cannot see it from the value, which is the finding worth keeping.** These
+      fields are CONTROLLED by the already-clamped number, so by the time a value reaches
+      `NumberField` it is always in range and the refused figure is gone. The first implementation
+      read the bound off `value` and was therefore incapable of ever firing — it passed a review, a
+      type-check and a build, and only the e2e caught it. `NumberField` keeps what was typed, which
+      is the only place that fact survives, and clears it on any change to the unit or the bound so
+      a message about the old unit cannot linger.
+
+      Six of the seven same-shaped panels are on it. `CropControl` is deliberately not: its two
+      inputs are a different shape (stacked label, `h-11 w-28`, `font-mono`) and bound each other,
+      so folding them in would add layout config for one caller — the same call `ColumnMapper`'s
+      table and `CompareView`'s transposed one already got. Pinned by `e2e/audit3.spec.ts` →
+      *"a deploy altitude beyond what the physics allows is bounded at the field, and says so"*,
+      which reads the bound off the control rather than hard-coding it, so a unit change or a
+      change to `MAX_REASONABLE_DEPLOY_M` cannot leave it passing against a stale number. Falsified
+      by disabling the announcement.
     - **`Figure`** — §5: a chart with its title, legend, axis units, "and its own empty and
       extrapolated states". `Chart.tsx` renders a bare uPlot; `grep -n 'empty\|error\|loading'` over
       it returns 0. The chart is the surface a flight-log analyzer exists to show, and a short or
-      failed series draws a blank canvas that says nothing.
+      failed series draws a blank canvas that says nothing. **Half of it already exists twice**,
+      which is the shape that says a primitive is owed: `ChartBlock` is declared separately in
+      `FlightReport.tsx:1426` and `CompareView.tsx:1101` — title, frame and chart host — the same
+      `ACTION_BTN`-in-six-files pattern P1's opening audit killed once. Lift that, then add the two
+      states §5 names. **The next slice of P1 after this list's item 5.**
     - **`Panel`** — §5: a dismissible `Card` that "owns focus return (see `useReturnFocus`)".
       `grep -rn 'Panel|useReturnFocus' components app` → **0**, while `UnitsControl` and
       `FigureChooser` each hand-roll a dismissible surface and each manage their own focus return.

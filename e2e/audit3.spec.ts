@@ -523,3 +523,45 @@ test('the comparison exports its chart as a PNG', async ({ page }) => {
   ]);
   expect(dl.suggestedFilename()).toMatch(/^compare-.*\.png$/);
 });
+
+/**
+ * `DESIGN.md` §5 gives `NumberField` a duty no other primitive has: "a value that cannot mean
+ * anything physically is bounded or refused **at the field**, not flown into a confident number
+ * downstream". The bound was always applied — every panel does `Math.min(x, MAX_REASONABLE_…)` —
+ * and it was applied SILENTLY, which is `MAINTAINING.md`'s "a control that is always enabled and
+ * fails only when pressed" wearing different clothes.
+ *
+ * Walked rather than unit-tested, because the thing being checked is what a flyer SEES when they
+ * type a number the physics refuses: the field says so, and it says which number was used instead.
+ */
+test('a deploy altitude beyond what the physics allows is bounded at the field, and says so', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Main deploy altitude' });
+  const field = panel.getByLabel(/Set main deploy altitude/);
+
+  // In range: nothing is said, and nothing is marked wrong. Asserted first so the refusal below
+  // cannot pass by the message simply always being there.
+  await field.fill('960');
+  await expect(panel.getByText(/is used\./)).toHaveCount(0);
+  await expect(field).not.toHaveAttribute('aria-invalid', 'true');
+
+  // MAX_REASONABLE_DEPLOY_M is 9,000 m — 29,527 ft. A flyer who types 50,000 got 29,527 with
+  // nothing on the page saying why the number they typed was not the number used.
+  await field.fill('50000');
+  await expect(panel.getByText(/is used\./)).toBeVisible();
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  // The message names the figure that WAS used, not just that something was wrong — §6's "a
+  // withheld value says why, and what would restore it" — and it names the SAME figure the field
+  // itself advertises as its maximum, read off the control rather than hard-coded here, so a unit
+  // change or a change to MAX_REASONABLE_DEPLOY_M cannot leave this passing against a stale number.
+  const max = Number(await field.getAttribute('max'));
+  expect(max, 'the field advertises its bound').toBeGreaterThan(0);
+  await expect(panel.getByText(new RegExp(`${max.toLocaleString('en-US')} ft is used`))).toBeVisible();
+
+  // And it clears. A state a flyer can enter with no way back out is its own named tell.
+  await field.fill('960');
+  await expect(panel.getByText(/is used\./)).toHaveCount(0);
+  await expect(panel.getByText(/right on the mark/)).toBeVisible();
+});

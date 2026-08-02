@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { parachuteCd, chuteDiameterToM, CHUTE_LEN_TO_M, MAX_REASONABLE_CHUTE_M } from '@/lib/parachute';
-import { Card } from './ui';
+import { Card, NumberField } from './ui';
 
 const CHUTE_KEY = 'debrief.chute.m';
 
@@ -89,23 +89,17 @@ export default function ParachuteCd({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span>Canopy diameter</span>
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={1}
-                value={chuteField}
-                onChange={(e) => onChute(e.target.value)}
-                aria-label={`Canopy diameter (${chuteUnit === 'in' ? 'inches' : 'centimetres'})`}
-                placeholder={chuteUnit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-              />
-              <span className="font-mono">{chuteUnit}</span>
-            </span>
-          </label>
+          <NumberField
+            label="Canopy diameter"
+            unit={chuteUnit}
+            ariaLabel={`Canopy diameter (${chuteUnit === 'in' ? 'inches' : 'centimetres'})`}
+            value={chuteField}
+            onChange={onChute}
+            min={0}
+            max={Math.round(MAX_REASONABLE_CHUTE_M / CHUTE_LEN_TO_M[chuteUnit])}
+            step={1}
+            placeholder={chuteUnit}
+          />
         </div>
       </div>
 

@@ -261,8 +261,13 @@ const BUDGET = {
    *  gone. If this ever needs to reach 0, it is a §3 change in both repos, not an edit here. */
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP.
-   *  29 → 31 on 2026-08-01: the two cross-check tables moved onto `DataTable`. */
-  uiAdopters: 31,
+   *  29 → 31 on 2026-08-01: the two cross-check tables moved onto `DataTable`. 31 → 36 on
+   *  2026-08-02: `SampleTable`, which had imported nothing at all, onto `Frame`. **The six panels
+   *  that moved onto `NumberField` in the same commit moved this by ZERO** — every one already
+   *  imported `Card`, so a per-FILE count cannot see six controls being adopted. That is the
+   *  argument for the per-primitive map below, and it is the third time a §9 metric has turned out
+   *  to measure something other than what it was reached for. */
+  uiAdopters: 32,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -292,6 +297,14 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Button: 18,
   Chip: 3,
   Readout: 2,
+  /** §5's "every numeric input in either app is this", built 2026-08-02 after nine runs of
+   *  counting adopters never noticed it did not exist — a primitive with no implementation has no
+   *  adopters to be short of, so every count it should have moved was silent. Six of the seven
+   *  hand-rolled numeric inputs are on it. The seventh, `CropControl`, is two inputs of a
+   *  different shape (a stacked label, `h-11 w-28`, `font-mono`, and a pair that bound each
+   *  other), and folding it in would add layout config for one caller — the same call
+   *  `ColumnMapper`'s table and `CompareView`'s transposed one already got. */
+  NumberField: 6,
   IconButton: 2,
   Extrapolated: 1,
   EmptyState: 1,
