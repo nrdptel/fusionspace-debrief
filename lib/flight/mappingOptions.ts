@@ -15,6 +15,9 @@ export const ROLE_GROUPS: { label: string; options: { value: ColumnRole; label: 
       { value: 'accelAxial', label: 'Acceleration (axial)' },
       { value: 'accelTotal', label: 'Acceleration (total)' },
       { value: 'rollRate', label: 'Roll rate' },
+      // Beside the rate, and named so the two cannot be picked by accident: a column of
+      // degrees chosen as a rate is a wrong number that looks right.
+      { value: 'rollAngle', label: 'Roll angle' },
       { value: 'tilt', label: 'Tilt angle' },
       { value: 'temperature', label: 'Temperature' },
       { value: 'voltage', label: 'Voltage' },
@@ -53,6 +56,13 @@ const UNIT_OPTIONS: Partial<Record<ColumnRole, string[]>> = {
   accelAxial: ['g', 'mg', 'm/s²'],
   accelTotal: ['g', 'mg', 'm/s²'],
   rollRate: ['deg/s', 'rad/s', 'rev/s'],
+  // `rollAngle` deliberately has NO entry, exactly like `tilt`, and the reason is a wrong
+  // number this nearly shipped. There is no `angle` quantity in `lib/units.ts` — only
+  // `rotation`, which is a RATE — so an angle kind has no `KIND_QUANTITY`, which means
+  // `build.ts` resolves no converter and passes the column through untouched. Offering
+  // `['deg', 'rad']` here would therefore have let a flyer pick radians and had Debrief
+  // store radians while labelling them `°`. Degrees are assumed and stated in the model;
+  // supporting radians means adding an `angle` quantity to the converter first.
   temperature: ['C', 'F', 'K'],
   voltage: ['V'],
 };

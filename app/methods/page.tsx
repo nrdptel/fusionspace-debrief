@@ -633,6 +633,34 @@ export default function MethodsPage() {
             rocket roll rate. No roll rate is reported for those files now: which axis of a
             three-axis gyro is the roll axis is logger-specific, and saying nothing is the honest
             answer.
+          {' '}
+            A column whose name says <span className="font-mono">angle</span> is read as one, and
+            that is a second shape of the same mistake — the sibling test above only fires where{' '}
+            <span className="font-mono">pitch</span> and <span className="font-mono">yaw</span> are
+            present, so a logger that writes <span className="font-mono">Roll_Angle</span> with
+            neither slipped past it and had its degrees reported as degrees per second. A roll angle
+            is now its own channel, plotted as an angle and never counted as a rate.
+          </Method>
+          <Method id="roll-angle" title="Roll angle (the board&apos;s own)">
+            Some boards solve their own orientation and write the roll angle into the log. Debrief
+            reads it where it is there and plots it beside the flight; it never derives one. The
+            Featherweight Blue Raven is the case in the corpus: its low-rate export carries a roll
+            angle, and it is <strong>cumulative</strong> — it keeps counting past a full turn rather
+            than wrapping, reaching <strong>26,099°</strong> on one corpus flight, so read it as how
+            far the airframe has rolled and not as a heading.
+          {' '}
+            It is the board&apos;s number, with the board&apos;s limit. The vendor states the method:
+            the angle is an integration of the measured roll rate over time and takes no account of
+            how motion in the other two axes moves the airframe, so the error accumulates through the
+            flight and grows fastest where the other axes are busiest — under thrust and through
+            deployment. Debrief carries that sentence with the channel rather than leaving it to be
+            looked up. No size is put on the drift: nothing in the corpus measures roll orientation
+            independently, so any figure here would be invented.
+          {' '}
+            The same files carry a <span className="font-mono">Future_Angle</span> column, and
+            Debrief deliberately does not read it. It is the board&apos;s projection of where its
+            tilt is heading, used for its own tilt lockout — not a recording of anything that
+            happened. Debrief reports flights that were flown.
           </Method>
           <Method id="battery" title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the

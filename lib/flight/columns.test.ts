@@ -85,20 +85,50 @@ describe('analyzeTable — headerless role inference from data shape', () => {
     expect(t.columns[2].role).toBe('voltage');
   });
 
-  it('tells a tilt angle from a roll angle (roll is a rate channel, tilt is its own)', () => {
+  it('tells a tilt angle from a roll angle, and both from a rate', () => {
+    // **This test used to assert the defect.** It read `expect(by('Roll_Angle_(deg)').role)
+    // .toBe('rollRate')`, with a comment explaining that "Roll_Angle" correctly "keys off
+    // 'roll' as a rate channel" — so a column of DEGREES was pinned as a channel of
+    // degrees-per-second, and the assert made it permanent.
+    //
+    // It is the same defect the AltimeterCloud block at the bottom of this file exists to
+    // stop, in the one shape that block cannot see: `releaseAttitudeRoll` fires only when
+    // `pitch` AND `yaw` siblings prove the file solves an attitude, and a logger writing
+    // `Tilt_Angle` / `Future_Angle` / `Roll_Angle` has neither. A ±180° column read as a rate
+    // peaks at a perfectly plausible 179.99 deg/s; the Blue Raven's own roll angle is
+    // cumulative and reaches 26,099° in the corpus, which as a rate is nonsense a flyer would
+    // still have had no way to spot on the chart.
     const rows = [
-      ['Flight_Time_(s)', 'Baro_Altitude_AGL_(feet)', 'Tilt_Angle_(deg)', 'Roll_Angle_(deg)'],
-      ['0.0', '0', '0', '0'],
-      ['0.1', '15', '2', '30'],
-      ['0.2', '40', '5', '65'],
-      ['0.3', '20', '8', '90'],
+      ['Flight_Time_(s)', 'Baro_Altitude_AGL_(feet)', 'Tilt_Angle_(deg)', 'Roll_Angle_(deg)', 'Roll Rate (deg/s)'],
+      ['0.0', '0', '0', '0', '4'],
+      ['0.1', '15', '2', '30', '11'],
+      ['0.2', '40', '5', '65', '9'],
+      ['0.3', '20', '8', '90', '2'],
     ];
     const t = analyzeTable(rows);
     const by = (h: string) => t.columns.find((c) => c.header === h)!;
     expect(by('Tilt_Angle_(deg)').role).toBe('tilt');
-    // "Roll_Angle" keys off "roll" as a rate channel, not stolen by the tilt test.
-    expect(by('Roll_Angle_(deg)').role).toBe('rollRate');
+    expect(by('Roll_Angle_(deg)').role).toBe('rollAngle');
+    // The rate is still a rate — the angle test must not swallow the column it sits beside.
+    expect(by('Roll Rate (deg/s)').role).toBe('rollRate');
     expect(by('Baro_Altitude_AGL_(feet)').role).toBe('altitude');
+  });
+
+  it('does not read a board’s FUTURE angle as anything', () => {
+    // Every Blue Raven low-rate file carries `Future_Angle_(deg)` between its tilt and its
+    // roll. It is the board's PROJECTION of where its tilt is heading — what it uses for its
+    // own tilt lockout — not a recording of anything that happened. Debrief reports what was
+    // flown, so this column stays ignored, and that is pinned rather than left to the fact
+    // that no keyword happens to match it today.
+    const rows = [
+      ['Flight_Time_(s)', 'Baro_Altitude_AGL_(feet)', 'Tilt_Angle_(deg)', 'Future_Angle_(deg)'],
+      ['0.0', '0', '0', '1'],
+      ['0.1', '15', '2', '3'],
+      ['0.2', '40', '5', '6'],
+      ['0.3', '20', '8', '9'],
+    ];
+    const t = analyzeTable(rows);
+    expect(t.columns.find((c) => c.header === 'Future_Angle_(deg)')!.role).toBe('ignore');
   });
 });
 

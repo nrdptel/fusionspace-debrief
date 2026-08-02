@@ -16,6 +16,12 @@ export type ChannelKind =
   | 'accelTotal' // magnitude of total acceleration, m/s²
   | 'velocity' // velocity as reported by the device, m/s
   | 'rollRate' // angular rate about the roll (long) axis, deg/s
+  | 'rollAngle' // angle THROUGH which the airframe has rolled about its long axis, degrees —
+  //   an orientation the logger itself solved, never a rate. Kept distinct from `rollRate`
+  //   because confusing the two is a wrong number that looks right: a ±180° column read as a
+  //   rate reports a plausible 179.99 deg/s peak. Boards that publish one state how they got
+  //   it (the Blue Raven integrates its own roll rate over time and says so), and that limit
+  //   travels with the channel rather than being inferred here.
   | 'tilt' // angle of the long axis from vertical, degrees (0 = straight up)
   | 'voltage' // battery / pyro voltage, V
   | 'latitude' // GPS latitude, decimal degrees (+N)

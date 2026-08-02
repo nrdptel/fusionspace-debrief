@@ -1209,6 +1209,57 @@ column a flyer has to recognise by its numbers.
    `Accel_X/Y/Z` and `Quat_1..4` become named channels with units and provenance rather than
    `r-7`. *Done when* a corpus file carrying them plots them by name, and a file that does not says
    "this board did not record it" rather than showing an empty axis.
+
+   **STARTED 2026-08-02 on the orientation channel that was not in this list at all, because
+   looking for the ones that were turned up a wrong number first.** The premise here is the
+   high-rate file's gyro and quaternion columns. Reading the LOW-rate file's headers instead —
+   all four app-CSV corpus exports — found `Tilt_Angle_(deg)`, `Future_Angle_(deg)` and
+   `Roll_Angle_(deg)` sitting side by side, with Debrief mapping only the first.
+
+   **The roll angle was not merely unread: it was read as a RATE, and that is a wrong number a
+   flyer would have acted on.** `normalize` turns `Roll_Angle_(deg)` into `roll angle deg`, so
+   the generic importer's `\broll\b` rate test matched and the column arrived as `rollRate` —
+   degrees published as degrees per second. It is the identical defect `releaseAttitudeRoll`
+   exists to stop, in the one shape that guard cannot see: it fires only where `pitch` AND `yaw`
+   siblings prove an attitude solution, and a board writing tilt/future/roll has neither.
+   **`lib/flight/columns.test.ts` was ASSERTING the defect** — `expect(by('Roll_Angle_(deg)')
+   .role).toBe('rollRate')`, with a comment explaining why that was correct — which is how it
+   survived. Corrected, with the reasoning kept.
+
+   `rollAngle` is now its own `ChannelKind` and `ColumnRole`, in degrees, offered in the mapper
+   beside the rate. The Blue Raven reads its column; the four corpus files carry it and the
+   serial `@ LOG_LOW` capture carries none, which is this slice's own "this board did not record
+   it" case. It is **cumulative and unwrapped** — it passes a full turn rather than resetting,
+   reaching **26,099°** on meraki, **24,240°** on jan18 and **−4,969°** on jan10 — so as a rate
+   it was nonsense a flyer had no way to spot on a chart.
+
+   The board's own limit travels with the channel rather than being left to be looked up: the
+   vendor states the roll angle is an integration of the measured roll rate over time that takes
+   no account of motion in the other two axes, so it drifts further from true the longer the
+   flight runs. **No size is put on that drift** — nothing in the corpus measures roll
+   orientation independently, so a percentage here would be invented.
+
+   **`Future_Angle_(deg)` is deliberately refused, and the refusal is pinned.** It is the
+   board's PROJECTION of where its tilt is heading, used for its own tilt lockout — not a
+   recording of anything that happened. Surfacing another instrument's forward estimate is what
+   the measurement-not-simulation invariant rules out.
+
+   Pinned by `lib/parsers/blueraven.test.ts` → *"every app-CSV low-rate export yields the
+   board's roll angle, matching its own column"* (over all four corpus files, comparing the
+   channel's extremes against the column read straight out of the file), *"a board that recorded
+   no angle says nothing about one"*, *"refuses the board's FUTURE angle"*, and by
+   `lib/flight/columns.test.ts` → *"tells a tilt angle from a roll angle, and both from a rate"*.
+   Four mutations were run against them — removing the header test, removing the parser mapping,
+   mapping the future angle, and making the caveat unconditional — and each failed the assertion
+   that names it.
+
+   **What remains on this slice**, unchanged: `ChannelKind` members, units and provenance for the
+   high-rate `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind:
+   'other'`. A verified fact from this run's competitive probe reopens the question slice 1
+   closed: the Blue Raven manual states the board *"measures which direction, relative to its
+   sensors, is the rocket axis by measuring the direction of the initial motion while the rocket
+   is on the rail"* — so for this board the mounting is knowable, where slice 1 assumed it was
+   not. See `COMPETITION.md`.
 3. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
    from a logger's own solved attitude; a quaternion series can give the same quantity through the
    flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and

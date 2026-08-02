@@ -35,6 +35,7 @@ export type ColumnRole =
   | 'accelTotal'
   | 'velocity'
   | 'rollRate'
+  | 'rollAngle'
   | 'tilt'
   | 'voltage'
   | 'latitude'
@@ -93,9 +94,23 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   { role: 'velocity', test: (h) => /\b(velocity|speed|veloc|vel)\b/.test(h) },
   // Roll/spin rate about the long axis. A bare "gyro" is left alone — that's three
   // axes and which one is roll is logger-specific — so it keys off "roll"/"spin".
+  // A roll ANGLE, before the rate test below, because the rate test would take it.
+  //
+  // **This was a live wrong number, measured 2026-08-02.** `normalize` turns
+  // `Roll_Angle_(deg)` into `roll angle deg`, so `\broll\b` matched and the column became a
+  // roll RATE — degrees reported as deg/s, on a ±180° column, which peaks at a perfectly
+  // plausible 179.99 deg/s. That is the identical defect `releaseAttitudeRoll` below was
+  // written to fix, surviving in a shape that guard cannot see: it fires only when `pitch`
+  // AND `yaw` siblings prove the file solves an attitude, and a logger that writes
+  // `Tilt_Angle` / `Future_Angle` / `Roll_Angle` has neither. The comment on the rate test
+  // claimed it "never steals a roll-angle"; it did.
+  //
+  // Keyed on the two words together rather than on `angle` alone, because a bare "angle"
+  // column is not necessarily a roll one and `tilt` below owns the off-vertical case.
+  { role: 'rollAngle', test: (h) => /\b(roll|spin)\b/.test(h) && /\bangle\b/.test(h) },
   { role: 'rollRate', test: (h) => /\b(roll|spin)\b/.test(h) || /rollrate/.test(h) },
   // Tilt / angle-off-vertical, when the logger computes an attitude. Keys off
-  // "tilt" so it never steals a roll-angle (handled above) or a bare "angle".
+  // "tilt" so it never steals a roll angle (handled above) or a bare "angle".
   { role: 'tilt', test: (h) => /\btilt\b/.test(h) },
   // GPS — guarded against acceleration headers so "lat. x accel." isn't mistaken
   // for latitude.
