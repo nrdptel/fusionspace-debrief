@@ -338,6 +338,19 @@ a grep that forbade every half-step would contradict the section it enforces. Th
 silently swept in or silently ignored; settling them means saying in §4 which half-steps are on the
 scale, and that is a change to this file in both repos.
 
+**The two copies of this block had DRIFTED, and the weaker side hid real drift in its app.**
+Reconciled 2026-08-02 — the first session in which both repos could be attached at once and the
+copies actually compared, which is why it stood for six runs. Three of Loft's greps were the weaker
+side: the spacing one listed a handful of off-scale values to hunt for instead of enumerating the
+scale and subtracting it, so it could not see a `gap-*`, a half-step, or anything past its largest
+alternative — and Loft's footer had sat two steps outside the scale on both top margins, reading as
+compliant, for as long as the check existed. The type one matched a single size name, so a seventh
+or eighth size under any other name passed. The card one could not survive a trailing space or a
+`dark:` variant. **The lesson is not "Loft was behind"** — Debrief's adoption grep was the weaker
+side of the same coin a run earlier. It is that a file shared verbatim between two repos cannot be
+verified from inside one of them, so whichever session next has both attached should diff them
+first, before trusting either copy.
+
 **Pin what you fix.** A drift you correct without a check comes back. The suite-level target is that
 these counts are asserted by a test, not re-measured by hand each run — and in both apps they now
 are: `lib/design-system.test.ts` is the executable copy of this block, with each count an EXACT
