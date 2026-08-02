@@ -12,10 +12,16 @@
 // Three things this deliberately cannot say, each refuted by measurement rather than by taste
 // (`ROADMAP.md` D4 has the corpus numbers):
 //
-//  1. **No mark here is a staging event.** No corpus record holds two separable burns — the one
-//     real staged pair has a sustainer whose log opens after separation — so `EventType` has no
-//     `separation` member to render and this table must not invent one. Every row names a
-//     recording; none names a stage.
+//  1. **No mark here is a staging event.** `EventType` has no `separation` member to render and
+//     this table must not invent one. Every row names a recording; none names a stage.
+//
+//     The reason is narrower than it was: this used to read "no corpus record holds two separable
+//     burns", and one does — `meraki2`, an O7800 booster under an N3100 sustainer, whose TeleMega
+//     shows two ascent thrust runs 15.79 s apart (see `lib/stitch.ts`). What has not changed is
+//     that nothing separates it from `iss-endurance`, a single-motor flight whose record produces
+//     a second run inside a corrupted stretch. One example against one example is not a rule, and
+//     a mark labelled "separation" on the strength of it would be a guess wearing a measurement's
+//     clothes on the surface built specifically to refuse that.
 //  2. **No composite time is good to a tenth.** The two boards on the corpus's real staged pair
 //     were bolted into ONE airframe over the first-stage burn and still disagree once aligned:
 //     the extra shift that minimises the difference is 0.56 s on altitude and 0.74 s on velocity,

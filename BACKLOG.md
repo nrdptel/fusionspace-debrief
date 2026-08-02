@@ -14,6 +14,83 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-01 — "Burn time" on the corpus's staged flight is 23.9 s, of which 15.8 s the motor was
+  not burning.** `lib/analyze/index.ts:2666` defines `burnTime` as `time[burnoutIdx] − liftoffTime`,
+  which is the span from liftoff to the end of powered flight — the same number as the burn
+  duration on every flight with one continuous burn, and not the same number on a staged one.
+  Measured on `altusmetrum__reddit-meraki2-121km__Mega38-1_TeleMega.csv` (manifest: **O7800 booster
+  + N3100 sustainer**): two ascent thrust runs on the signed axial channel, **T+0.00–4.46 s and
+  T+20.25–23.83 s**, so 8.04 s under thrust across a 23.91 s span. The tile reads "Burn time 23.9 s
+  — derived from the speed peak", which says how the instant was found and not that two thirds of
+  the span was a coast. `avgBoostAcceleration` is averaged over the same span and so is diluted by
+  it (138.5 m/s² reported). **Reproduced by me**, twice: the thrust runs against the file's own
+  axial trace, and the ignition itself — the axial steps −15.7 → +92.7 in one 0.25 s sample and
+  peaks at 549 m/s² while the speed goes 427 → 1,663 m/s.
+  **Not fixed, and the blocker is stated rather than glossed:** `iss-endurance`, a single-motor
+  flight, also produces a second run (T+5.65–6.95, peak 80.7 m/s²) inside a stretch where the
+  record repeats a sample and its altitude goes backwards. A detector separating one example from
+  one example is fitting, not measuring. What would settle it: a second staged record in the
+  corpus, or endurance's second run corroborated or refuted against its StratoLogger. `ROADMAP.md`
+  D7 carries this as the next slice.
+- **2026-08-01 — `dark:bg-zinc-800` is a FOURTH dark surface level and `ROADMAP.md` P1 item 3's
+  census says it is not.** That entry records the post-sweep state as `dark:bg-zinc-900` ×52,
+  `dark:bg-zinc-900/50` ×8, "everything else 0". Measured now with
+  `grep -rohE 'dark:bg-zinc-[0-9]+(/[0-9]+)?' components app | sort | uniq -c`: `zinc-800` ×2
+  (`FlightReport.tsx:773`'s section-nav active chip, `DeviceSummary.tsx:115`'s "consistent"
+  agreement chip), `zinc-700` ×1 (`ui.tsx`'s `Segmented` active thumb) and `zinc-100` ×1
+  (`SiteHeader`'s inverted active nav pill). The sweep was scoped to the `/40`, `/30` and `/60`
+  opacity forms, so it could never see a bare shade — and the `Segmented` one is inherited by all
+  five adopters, which makes the off-system surface the most-rendered one in the app. Item 3's
+  claim is corrected in `ROADMAP.md` in the same commit as this entry. Not reproduced beyond the
+  grep.
+- **2026-08-01 — `components/GroundTrack.tsx:466` returns `null` when there is no GPS fix**, so on a
+  baro-only log the whole recovery-map surface — ground track, walkback distance and bearing, wind
+  aloft — is not merely empty, it does not exist and nothing on the page says the feature is there.
+  `DESIGN.md` §5: "a surface with no empty state is not finished; it is the state a flyer sees
+  first." Reproduce by opening any StratoLogger or Eggtimer corpus file and searching the report
+  for "Ground track". P1 item 5's most visible instance.
+- **2026-08-01 — three of `DESIGN.md` §5's named primitives do not exist at all**, and each has a
+  duty the section assigns it. `NumberField` — "every numeric input in either app is this", and it
+  owns the SAFETY refusal — is hand-rolled at **9 sites** (`grep -rn 'type="number"' components`),
+  each re-deriving its own bound: `DeployAltitude.tsx:68` silently `Math.min`s to
+  `MAX_REASONABLE_DEPLOY_M` while `DragCoefficient.tsx:125` only sets `min={0}`. `Figure` — a chart
+  with its own empty and extrapolated states — is absent, and `Chart.tsx` renders a bare uPlot with
+  none of the five states, so a short or failed series draws a blank canvas saying nothing.
+  `Panel` — a dismissible `Card` that "owns focus return (see `useReturnFocus`)" — is absent, and
+  `grep -rn 'Panel|useReturnFocus' components app` returns 0 while `UnitsControl` and
+  `FigureChooser` each hand-roll their own. These are P1 scope, recorded here so the measurement is
+  not lost.
+- **2026-08-01 — decision-grade numbers still render at caption size on six surfaces**, which is
+  the specific breach `DESIGN.md` §3's floor exists to stop, and the §9 inverted-FILES count cannot
+  see any of them because each file's captions legitimately outnumber its body text. Measured:
+  `FlightReport.tsx:1324` (event times, altitudes, ejection shock — `font-mono text-xs`, no
+  `tabular-nums`), `GroundTrack.tsx:700` (wind aloft, read layer against layer),
+  `GroundTrack.tsx:542` (the scrub readout's distance and bearing from the pad — what a flyer walks
+  on), `GroundTrack.tsx:720` (`Stat` hand-rolls `Readout` at `text-[11px]`),
+  `FlightTimeline.tsx:93` (phase descent rates, compared row to row), and `FlightPicker.tsx:71` /
+  `RecordingPicker.tsx:81`, where the apogee is at `text-[11px]` — two sizes below the floor, in
+  the two controls whose entire job is choosing which recording to trust.
+- **2026-08-01 — `Chip` has 3 adopters against ~31 chip-shaped hand-rolls** (`rounded-md border`
+  with `text-xs` or `text-[11px]`, outside `ui.tsx`), so §5's chip is effectively unadopted;
+  `RecentFlights.tsx:629`'s format label at `text-[11px] px-1.5 py-0.5` is the worked example
+  against §5's `text-xs rounded-md px-2 py-1`. Related: `text-[11px]` has **12 non-chart uses
+  across 8 files**, where §3 restricts it to axis ticks and diagram annotations — the smallest size
+  in the system is being normalised as a general caption size, which is how a seventh size arrives.
+- **2026-08-01 — two controls reach past the primitive that covers them.** `RailExit.tsx:94` uses a
+  native `<select>` for the 5 rail lengths in `lib/rail.ts` where §5 says `Segmented` is "preferred
+  over a select" at 2–5 options and the app already has 5 `Segmented` adopters; and
+  `ChannelExplorer.tsx:33` declares a file-local `SELECT` class constant used at :346 and :379 —
+  the same shape as the `ACTION_BTN`-declared-in-six-files finding P1's opening audit killed, now
+  restarting for selects, because there is no `Select` primitive.
+- **2026-08-01 — "a cert document" is the wrong framing for anything staging-related, and two
+  primary sources settle it.** NAR: "Multiple stage and clustered rockets are specifically
+  disallowed for certification flights"
+  (<https://narocket.clubexpress.com/content.aspx?page_id=22&club_id=114127&module_id=673325>).
+  Tripoli: "Staged or Clustered rockets may not be used for certification flights"
+  (<https://tripoli.org/content.aspx?page_id=22&club_id=795696&module_id=479470>). A staged
+  flight's figures are for a club post, a build thread or a records claim — never a cert package.
+  Recorded because the composite surface's own copy and `ROADMAP.md` D4 both reach for the cert
+  framing, and it is simply not a use that exists.
 - **FIXED 2026-08-01 — `apogeeIsFloor` was computed and then dropped by three exporting surfaces.**
   `lib/analyze/types.ts:27` defines it; a record whose log ends at its own peak reports a LOWER
   BOUND, and `apogeeSub` has always said so on screen and in the text exports. But `jsonMetrics`
@@ -238,6 +315,19 @@ wild, ideas too big for one pass. One line each, newest first.
   breaches of a rule the file
   contradicts itself on. Settling it means one sentence in §4 naming the sanctioned half-steps —
   a change to `DESIGN.md` in BOTH repos, which is why it is filed rather than taken.
+  **Amended 2026-08-01, and the amendment is mostly a correction to the count above.** `GroundTrack`'s
+  `Stat` tile was `py-2.5` and became `py-2` while it was being folded into `<Frame>`, because
+  leaving a half-step inside a conversion is how a ledger silently stops matching the tree. But
+  re-measuring before writing "21 → 20" gave **11 real uses, not 20** — the 21 was taken
+  2026-07-31 and other conversions have removed the rest since without anyone updating this line,
+  which is the same drift item 3 of `ROADMAP.md` P1 turned out to have. The honest state, measured
+  today over `components/` and `app/` and with comment lines excluded: `-2.5` at **11 sites** —
+  `px-2.5` in the four note/label inputs (`FlightReport` ×2, `CompareView` ×2), `RecentFlights`'s
+  filter input, `FlightReport`'s section-nav chip, and `mt-2.5`/`mb-2.5` on four panel
+  descriptions (`GpsApogee` ×2, `RecognizedFormats`, `DeviceSummary`). The other three figures in
+  this entry are from the same stale sweep and should be re-measured before being spent against.
+  **Do not read this as the entry being half-done**: a run that swept the rest without changing §4
+  would be removing occurrences of a rule the file has not yet made.
 - **`components/RecentFlights.tsx:630,638` marks the fastest and highest remembered flights with a
   `text-amber-500` ★.** `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A

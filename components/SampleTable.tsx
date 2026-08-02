@@ -6,6 +6,7 @@ import type { PlotChannel } from '@/lib/explore';
 import type { UnitChoice } from '@/lib/display';
 import type { FlightEvent } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import { Frame } from './ui';
 
 // The numbers themselves. AltosUI has a data tab and Excel *is* one, and a measurement
 // instrument that will only draw you a picture of your own record is missing something:
@@ -279,13 +280,13 @@ export default function SampleTable({
           ))}
         </div>
       )}
-      <div
+      <Frame
         ref={(el) => {
           scrollRef.current = el;
           if (el && el.clientHeight && el.clientHeight !== height) setHeight(el.clientHeight);
         }}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-        className="mt-1.5 max-h-[22rem] overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800"
+        className="mt-1.5 max-h-[22rem] overflow-auto"
       >
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-900">
@@ -353,7 +354,7 @@ export default function SampleTable({
             )}
           </tbody>
         </table>
-      </div>
+      </Frame>
     </div>
   );
 }

@@ -76,12 +76,27 @@
 // (0.17–5.19 s) and the Kairos sustainer has ONE (307.67–312.29 s) — its log opens after
 // separation, so it never saw the booster burn at all. The SG1.2 sustainer has three, of lengths
 // 1.67 / 2.23 / 0.47 s, which are fragments of one boost rather than two burns. Across every
-// device-accel record: one run on 21 files, **two runs on three files — all ordinary SINGLE-stage
-// flights** (`iss-endurance`, `meraki2`, `asteria-lyrid`) — and three on the one staged record. A
-// "two burns means staging" rule fires on three single-stage flights and still does not pick out
-// the staged one. On baro-derived traces it is hopeless: those show five and nine "runs" on the
-// SG1.2 files, and a StratoLogger shows a 174-second one. So until a record arrives that holds
-// two separable burns, a composite may say which recording a mark came from and nothing more.
+// device-accel record: one run on 21 files, **two runs on three files** (`iss-endurance`,
+// `meraki2`, `asteria-lyrid`) — and three on the one staged record. On baro-derived traces it is
+// hopeless: those show five and nine "runs" on the SG1.2 files, and a StratoLogger shows a
+// 174-second one. So a composite may say which recording a mark came from and nothing more.
+//
+// **This paragraph used to call all three of those "ordinary SINGLE-stage flights", and one of
+// them is not.** `meraki2` is the corpus's genuinely staged record — `lib/parsers/d6Grouping.test.ts`
+// lists it, and the fixtures manifest names the motors: **an O7800 booster and an N3100
+// sustainer**. Re-measured 2026-08-01 on the signed axial channel, `Mega38-1_TeleMega` holds
+// exactly two ascent runs, **T+0.00–4.46 and T+20.25–23.83, 15.79 s apart**, and the second is not
+// a marginal one: the axial goes −15.7 → +92.7 in a single 0.25 s sample and peaks at 549 m/s²
+// (56 g) while the speed goes 427 → 1,663 m/s. That is a second motor, in the record, plainly.
+//
+// So the honest statement is narrower than the old one and is still a refusal. `iss-endurance` is
+// the reason: it produces a second run too — T+5.65–6.95, peaking at 80.7 m/s² — on a flight the
+// manifest gives ONE motor, inside a stretch where the record repeats a sample and its altitude
+// goes backwards. A rule that fires on meraki2 and not on endurance can be written, but it would
+// be separating one example from one example, which is fitting rather than measuring. **What is
+// true is that ONE corpus record holds two separable burns and no rule yet distinguishes it from a
+// data artifact.** `ROADMAP.md` D7 carries the numbers and what would settle it: a second staged
+// record, or endurance's second run corroborated (or refuted) by its StratoLogger.
 
 import type { FlightAnalysis, Provenance } from './analyze/types';
 

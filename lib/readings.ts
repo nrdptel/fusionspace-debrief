@@ -191,6 +191,43 @@ export function burnoutVelocitySub(m: FlightMetrics): string | undefined {
   return m.burnoutAtVelocityPeak ? `${base} — the same instant as max velocity` : base;
 }
 
+/**
+ * The readings a flyer asks for about ONE STAGE of a staged launch, in the order they are asked
+ * in: how high and how fast it got, how hard it pushed, and how long for.
+ *
+ * A subset of `metricTiles` rather than a second list, and by LABEL rather than by rebuilding the
+ * tiles — so a stage panel can never invent a reading, never format one differently from the way
+ * the single-flight grid formats it, and never carry a qualifier the grid has dropped. A label
+ * that stops existing takes its entry out of here silently, which is the right failure: the
+ * alternative is a per-stage tile whose value the rest of the app no longer computes.
+ *
+ * **What is deliberately NOT here, and why it is the whole point.** Nothing is combined. These are
+ * each ONE recording's reading of the part of the launch it flew — a booster's apogee is where the
+ * booster came down, not a stage of one number — so there is no per-stage total, no summed
+ * impulse, no composite anything. `lib/composite.ts` says the same thing about the marks; this is
+ * that rule applied to the readings.
+ *
+ * The descent and recovery readings are left out for a different reason: on a booster they
+ * describe a separate, complete little flight that ended in a field, which is worth reading — but
+ * on the surface whose job is the ASCENT of one launch it is the wrong question, and the flyer has
+ * `/compare` and the single-flight report for it. Say that rather than let the list grow to the
+ * full 21 per recording, which is four screens for three recordings.
+ */
+export const STAGE_READINGS = [
+  'Apogee',
+  'Max velocity',
+  'Max acceleration',
+  'Thrust-to-weight',
+  'Burn time',
+  'Burnout altitude',
+  'Burnout velocity',
+] as const;
+
+export function stageTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
+  const all = metricTiles(m, sys);
+  return STAGE_READINGS.map((label) => all.find((t) => t.label === label)).filter((t): t is Tile => t != null);
+}
+
 export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
   const out: Tile[] = [
     {

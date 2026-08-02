@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { descentStoppedAloft, metricTiles } from './readings';
+import { descentStoppedAloft, metricTiles, stageTiles, STAGE_READINGS } from './readings';
 import { headlineRows, type RecoveryFigures } from './report';
 import { velocityProvenance } from './readings';
 import type { FlightMetrics } from './analyze/types';
@@ -344,5 +344,78 @@ describe('a burnout velocity that is the max velocity', () => {
     expect(measured.find(([l]) => l === 'Burnout velocity')?.[1]).not.toMatch(/same instant/);
     const measuredAtPeak = headlineRows({ ...EVERYTHING, burnoutSource: 'measured', burnoutAtVelocityPeak: true, burnoutVelocity: 580.86, maxVelocity: 580.86 }, 'metric');
     expect(measuredAtPeak.find(([l]) => l === 'Burnout velocity')?.[1]).toMatch(/same instant as max velocity/);
+  });
+});
+
+describe('a stage panel shows one recording’s own readings and cannot invent one', () => {
+  it('is a strict subset of the single-flight grid, formatted identically', () => {
+    // The reason this is a filter over `metricTiles` and not a second list. Two lists describing
+    // one flight is the exact failure the file header records — six readings were on screen and in
+    // no saved report because the only way to compare them was to read both. A per-stage panel
+    // that rebuilt its own tiles could drift the same way, and worse: it would be the surface
+    // where a qualifier matters most, because a booster and a sustainer disagree by design.
+    const grid = metricTiles(EVERYTHING, 'imperial');
+    for (const t of stageTiles(EVERYTHING, 'imperial')) {
+      const same = grid.find((g) => g.label === t.label);
+      expect(same, `${t.label} exists in the single-flight grid`).toBeTruthy();
+      expect(t.value, `${t.label} is formatted the same on both surfaces`).toBe(same!.value);
+      expect(t.sub, `${t.label} carries the same qualifier on both surfaces`).toBe(same!.sub);
+    }
+  });
+
+  it('names only readings that exist, so a renamed one drops out rather than blanking', () => {
+    // `STAGE_READINGS` is a list of labels, and a label is a string: the one way this can go wrong
+    // is a reading being renamed in `metricTiles` while this list keeps the old name, which would
+    // empty the panel silently. Held side by side here, the same way the grid and the report are.
+    const labels = metricTiles(EVERYTHING, 'imperial').map((t) => t.label);
+    const unknown = STAGE_READINGS.filter((l) => !labels.includes(l));
+    expect(unknown, `named in STAGE_READINGS and produced by no reading: ${unknown.join(', ')}`).toEqual([]);
+  });
+
+  it('drops a reading the recording does not carry rather than printing a blank', () => {
+    // A GPS-only booster has no acceleration channel, so no thrust-to-weight and no burn. §6: "a
+    // withheld value says why, and what would restore it" — and a tile that is simply ABSENT
+    // explains nothing, so the panel says the board did not record it rather than showing an empty
+    // cell. What must never happen is a tile with no value in it.
+    const baroOnly: FlightMetrics = {
+      ...EVERYTHING,
+      maxAcceleration: NaN,
+      liftoffTWR: null,
+      burnTime: null,
+      burnoutAltitude: null,
+      burnoutVelocity: null,
+    };
+    const tiles = stageTiles(baroOnly, 'metric');
+    expect(tiles.map((t) => t.label)).toEqual(['Apogee', 'Max velocity']);
+    for (const t of tiles) expect(t.value, `${t.label} has a value`).toBeTruthy();
+  });
+
+  it('leaves the single-flight grid untouched', () => {
+    // The milestone's own "and a single-stage flight is unchanged". `stageTiles` reads
+    // `metricTiles` and adds nothing to it, so this is the assertion that the reading list a
+    // flyer sees on `/` did not move when the composite gained a panel.
+    expect(metricTiles(EVERYTHING, 'imperial').map((t) => t.label)).toEqual([
+      'Apogee',
+      'Max velocity',
+      'Max acceleration',
+      'Avg acceleration',
+      'Thrust-to-weight',
+      'Burn time',
+      'Burnout altitude',
+      'Burnout velocity',
+      'Coast to apogee',
+      'Coast efficiency',
+      'Max Q',
+      'Drogue descent',
+      'Descent rate',
+      'Main descent',
+      'Descent time',
+      'Flight time',
+      'Ground temp',
+      'Battery low',
+      'Peak roll rate',
+      'Revolutions',
+      'Tilt at burnout',
+    ]);
   });
 });
