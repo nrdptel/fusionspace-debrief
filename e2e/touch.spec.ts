@@ -351,3 +351,48 @@ test('one finger reads a value off the chart, and the reading stays put', async 
   // …and the drag did not count as a tap: the chart must not have zoomed back out under it.
   await expect(page.getByRole('heading', { name: 'Across the whole flight' })).toBeVisible();
 });
+
+// A phone has no hover, so an affordance revealed by hover does not exist there. Both of these
+// were measured at this viewport before they were fixed.
+test('the comparison says it sorts, and its colour swatches are thumb-sized', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-gps.csv')]);
+  await expect(page.getByRole('heading', { name: /Comparing 2 flights/ })).toBeVisible({ timeout: 25000 });
+
+  // The sort cue on a column that is NOT the active sort. It was `opacity-0 group-hover:…`, and
+  // `(hover: hover)` is false here — so every inactive header rendered its arrow at opacity 0 and
+  // nothing on the surface said the table sorted at all.
+  const arrows = await page.evaluate(() => {
+    const out: number[] = [];
+    for (const th of Array.from(document.querySelectorAll('th'))) {
+      const span = th.querySelector('button > span[aria-hidden="true"]');
+      if (span) out.push(Number(getComputedStyle(span).opacity));
+    }
+    return out;
+  });
+  expect(arrows.length, 'there are sortable row headers to check').toBeGreaterThan(2);
+  expect(
+    arrows.filter((o) => o > 0).length,
+    'every sort cue is visible without a hover, not just the active one',
+  ).toBe(arrows.length);
+
+  // A colour input is a REPLACED element: it can carry no `::after`, so `.touch-area` cannot reach
+  // it and only a coarse-pointer min-height applied — 44 px tall and 12 px wide. The tap target is
+  // the wrapping label now, so measure THAT.
+  const swatches = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('input[type="color"]')).map((i) => {
+      const label = i.closest('label');
+      const r = (label ?? i).getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), wrapped: label != null };
+    }),
+  );
+  expect(swatches.length, 'the comparison offers a colour per flight').toBeGreaterThan(0);
+  for (const s of swatches) {
+    expect(s.wrapped, 'the swatch is wrapped in a label that can carry the target').toBe(true);
+    expect(s.w, `swatch width ${s.w}`).toBeGreaterThanOrEqual(44);
+    expect(s.h, `swatch height ${s.h}`).toBeGreaterThanOrEqual(44);
+  }
+});
