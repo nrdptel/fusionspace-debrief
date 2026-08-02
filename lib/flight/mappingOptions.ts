@@ -70,3 +70,30 @@ const UNIT_OPTIONS: Partial<Record<ColumnRole, string[]>> = {
 export function unitOptionsFor(role: ColumnRole): string[] {
   return UNIT_OPTIONS[role] ?? [];
 }
+
+/**
+ * The unit to PRESELECT for a column, given whatever was read off the file.
+ *
+ * A wrong number reached the flyer through this, and it was a case mismatch. `resolveUnit`
+ * returns the CANONICAL unit, which is lower-case (`'f'`), while the options offered here are
+ * spelled the way a flyer reads them (`'F'`). A membership test on the raw strings therefore
+ * missed, and the caller fell through to `options[0]` — so a PerfectFlite StratoLogger whose
+ * every temperature cell reads `58.7F`, correctly resolved to Fahrenheit by `unitFromCells`,
+ * arrived in the mapper preselected as **Celsius**, and 58.7 °C is **138 °F** on the report.
+ *
+ * Temperature is the only role it could bite, because it is the only one whose options are not
+ * already in canonical spelling — but the fix belongs here rather than in a re-spelling of that
+ * one list, since the next role added with a capital in it would do the same thing silently.
+ *
+ * Returns the option's OWN spelling, never the caller's, so what is stored is always one of the
+ * strings this module offers.
+ */
+export function prefillUnit(role: ColumnRole, wantUnit: string | null | undefined): string {
+  const options = unitOptionsFor(role);
+  const want = wantUnit?.trim().toLowerCase();
+  if (want) {
+    const match = options.find((o) => o.toLowerCase() === want);
+    if (match) return match;
+  }
+  return options[0] ?? '';
+}

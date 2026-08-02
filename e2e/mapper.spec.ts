@@ -194,3 +194,38 @@ test('the mapper says when the date columns state no date it can read', async ({
   await page.getByRole('button', { name: 'Analyze flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 });
+
+test('a temperature the file states in Fahrenheit is not preselected as Celsius', async ({ page }) => {
+  // A wrong number that reached the report, traced from a cold walk of the built app. A
+  // PerfectFlite StratoLogger writes its temperature with the unit fused into every cell —
+  // `58.7F` — and `unitFromCells` reads that correctly. The mapper then dropped it, because the
+  // unit it resolves is canonical (`f`) and the options it offers are spelled for a reader (`F`),
+  // so a raw membership test missed and fell through to the first option. 58.7 read as Celsius
+  // is 138 °F, which is what the walk saw as GROUND TEMP.
+  const rows = ['Time\tAltitude\tTemp.\tVoltage'];
+  for (let i = 0; i < 60; i++) {
+    const alt = i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25);
+    rows.push(`${(i * 0.05).toFixed(2)}\t${alt}\t58.7F\t9.6`);
+  }
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'stratologger.txt', mimeType: 'text/plain', buffer: Buffer.from(rows.join('\n')) });
+
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  await expect(page.getByLabel(/Role for the Temp\. column/)).toHaveValue('temperature');
+  await expect(
+    page.getByLabel(/Unit for the Temp\. column/),
+    'the unit the file stated in every cell, not the first option',
+  ).toHaveValue('F');
+
+  // And correcting a role by hand keeps the file's own unit rather than resetting to the first
+  // option — the same defect one interaction further on.
+  await page.getByLabel(/Role for the Temp\. column/).selectOption('ignore');
+  await page.getByLabel(/Role for the Temp\. column/).selectOption('temperature');
+  await expect(
+    page.getByLabel(/Unit for the Temp\. column/),
+    'still Fahrenheit after the role was re-picked',
+  ).toHaveValue('F');
+});
