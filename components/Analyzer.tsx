@@ -803,6 +803,7 @@ export default function Analyzer() {
       {state.phase !== 'loading' && (
         <RecentFlights
           recents={logbook.recents}
+          status={logbook.status}
           sys={sys}
           onOpen={openRecent}
           onRemove={logbook.remove}

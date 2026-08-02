@@ -1698,6 +1698,33 @@ the artifact rather than the tree.
    20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
    change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
 
+   **DONE 2026-08-02 on the logbook, and this one was visible to EVERY returning flyer on EVERY
+   cold load.** `RecentFlights` used `recents.length === 0` as the sole discriminator for three of
+   the five states — genuinely empty, still loading, and browser-refused-storage — and only the
+   first is what its copy says. That is not a rare race: **every route here is a static export**, so
+   that block is prerendered into `out/index.html` and `out/compare/index.html`, and a flyer with
+   fifty flights read *"Flights you open are remembered here on this device"* with an offer to
+   restore a backup until ~1.4 MB of JS hydrated and IndexedDB answered. `CompareSurface` carried
+   the identical conflation with *"Your logbook is empty"*.
+
+   **The storage refusal could not be told from an empty logbook at all**, one layer down:
+   `listRecents()` caught the failure and returned `[]`, so a private window and a first-ever visit
+   were the same value. `readRecents()` now reports `{ recents, blocked }` and `useLogbook` exposes
+   `status: 'loading' | 'ready' | 'blocked'`; `listRecents` stays as a thin wrapper, so the callers
+   that only want rows are untouched.
+
+   **The pin reads the ARTIFACT, not the source**, because the source could never have shown this:
+   `e2e/logbook.spec.ts` → *"the prerendered page does not tell a returning flyer their logbook is
+   empty"* fetches `/` and `/compare/` as raw HTML — before a line of JS runs — and asserts the
+   promise is absent and the looking-for-flights line is present. Beside it, *"a browser that
+   refuses storage says so, instead of promising to remember"* removes `indexedDB` and checks the
+   surface says so and that analysis still works. Both falsified by mutation.
+
+   **Two things this deliberately did NOT do.** The `status` prop defaults to `'ready'`, so a caller
+   holding rows in hand need not thread it — and both real call sites do thread it. And the offline
+   state is still undelivered suite-wide (see the note above); this closes loading and error on one
+   surface, not the fifth state everywhere.
+
 6. ~~**Two primaries on one surface** — `ColumnMapper` only now.~~ **DONE 2026-08-01, and the
    remaining count was 0 before the work started.** `ColumnMapper`'s two `variant="primary"` calls
    are at `:151` and `:277`, in the two arms of a `if (!mappable) return …` — **mutually exclusive

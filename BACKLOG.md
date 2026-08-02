@@ -14,6 +14,31 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — P1 item 5's headline numbers count the wrong thing, and the entry should be
+  re-measured before it is spent against.** It reads "the denominator is 15 data surfaces … and
+  `StitchSurface` is the only one implementing more than one state". An audit found that number is
+  counting `ui.tsx` PRIMITIVE adopters (`EmptyState` / `ErrorState`), not states — which is why it
+  read 1 — and that at least five surfaces implement two or more. The logbook's loading and
+  storage-refused states are closed (see `ROADMAP.md`); the rest of the item still wants a real
+  census, and the standing question of whether `DESIGN.md` should assert an offline state per
+  surface at all is unchanged and owed to both repos.
+- **2026-08-02 — `components/Analyzer.tsx:292` silently swallows a failed save.** `if (saved.id)
+  set(...)` — `lib/recents.ts` catches the storage failure and returns `{ id: null }`, and no caller
+  reports it, so `state.savedId` stays unset and nothing on screen says the flight was not kept.
+  `FlightReport.tsx:1009` does say it in that case, but inside a disclosure `ui.tsx:749` defaults
+  CLOSED and titles "Label this report (optional)" — so the one sentence that tells a flyer their
+  flight was not remembered is behind a collapsed panel named for something else. Reproduce: block
+  site storage, analyse a file, look for any visible signal that it was not saved.
+- **2026-08-02 — `Figure` does not forward a `ref`, so two call sites hand-roll a bare div inside
+  it.** `components/FlightReport.tsx:1203` (`altChartRef`, consumed at :463) and
+  `components/CompareView.tsx:1109` each wrap `Figure`'s children in a ref-only `<div>` whose sole
+  job is `querySelector('canvas')` for the PNG/SVG export — while the `Card` that `Figure` renders
+  already accepts `ref` (`ui.tsx:187`), and `ChannelExplorer.tsx:510` and `GroundTrack.tsx:519`
+  already use exactly that. Forwarding `ref` through `Figure` deletes both divs with no change to
+  what the export finds. **Worth more than the two divs:** the `savePng` bodies at
+  `FlightReport:462-473`, `CompareView:481-492` and `ChannelExplorer:283-294` are byte-identical
+  apart from the output filename — the `ACTION_BTN`-in-six-files shape again, this time for chart
+  export.
 - **2026-08-02 — two recordings of ONE flight disagree about whether a charge fired, and the one
   that is wrong is the one that landed.** On `iss-irec2023`, sampled in 5 s buckets after apogee,
   **both** `irec_2023_easymega` and `irec_2023_telemega` fall at **34–35 m/s** and **both break to

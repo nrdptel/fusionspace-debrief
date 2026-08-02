@@ -45,6 +45,7 @@ function relativeTime(ts: number): string {
 
 export default function RecentFlights({
   recents,
+  status = 'ready',
   sys,
   onOpen,
   onRemove,
@@ -60,6 +61,9 @@ export default function RecentFlights({
   onDismissProposal,
 }: {
   recents: RecentMeta[];
+  /** Which of the list's three empty-looking states this is — see the block below. Defaults to
+   *  `ready` so a caller that genuinely has its rows in hand need not say so. */
+  status?: 'loading' | 'ready' | 'blocked';
   sys: UnitChoice;
   onOpen: (id: string) => void;
   onRemove: (id: string) => void;
@@ -168,6 +172,44 @@ export default function RecentFlights({
     () => setConfirming(false),
   );
 
+  // **Three of `DESIGN.md` §5's five states were one `if`.** `recents.length === 0` is true while
+  // the read is still in flight, true when the browser refuses storage, and true when the logbook
+  // is genuinely empty — and only the third of those is what the copy below says. The first is not
+  // a rare race: every route here is a STATIC EXPORT, so this block is prerendered into
+  // `out/index.html`, and a flyer with fifty flights read "flights you open are remembered here on
+  // this device" with an offer to restore a backup on every cold load until the bundle hydrated.
+  if (status === 'loading') {
+    return (
+      <div className="mt-8">
+        {filePicker}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
+          Looking for flights remembered on this device…
+        </p>
+      </div>
+    );
+  }
+  if (status === 'blocked') {
+    return (
+      <div className="mt-8">
+        {filePicker}
+        {/* Says what is true and what to do, not what Debrief would like to be true. The promise
+            in the empty state below — "flights you open are remembered here" — is exactly the
+            sentence a flyer must not be given when the browser has just refused to store one.
+            §2's `warn`, and NOT §5's `ErrorState`, decided rather than defaulted: `ErrorState` is a
+            `Card tone="danger"` with `role="alert"`, which is right for an operation the flyer just
+            attempted and that failed — a file that would not parse. Nothing here failed on their
+            command and the analysis still works; what changed is that one capability is
+            unavailable for this session, which is §2's "a caveat" rather than its "a refusal, a
+            value that cannot be computed, destructive". `role="status"` for the same reason: this
+            is polite information on arrival, not an interruption. */}
+        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+          This browser won&apos;t let Debrief read or keep a logbook on this device, so flights you
+          open here won&apos;t be remembered. A private window or blocked site storage will do that.
+          Analysis still works — export anything you want to keep before you leave the page.
+        </p>
+      </div>
+    );
+  }
   if (recents.length === 0) {
     return (
       <div className="mt-8">

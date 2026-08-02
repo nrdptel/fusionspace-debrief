@@ -135,6 +135,27 @@ not identify one in it*, and it points the flyer at the recordings instead of at
 validation page, the corpus invariant, the synthetic test and the regenerated digests all described
 a rule that is no longer there, so all of them went back.
 
+### 3. The logbook stops promising to remember flights it has not looked for (pending push)
+
+`RecentFlights` used `recents.length === 0` for three of `DESIGN.md` §5's five states — empty,
+loading, and storage-refused — and only the first is what its copy says. **Every route here is a
+static export**, so that block is prerendered into `out/index.html` and `out/compare/index.html`: a
+flyer with fifty flights read *"Flights you open are remembered here on this device"*, with an offer
+to restore a backup, on **every cold load** until the bundle hydrated and IndexedDB answered.
+`CompareSurface` carried the identical conflation with *"Your logbook is empty"*.
+
+One layer down, the refusal could not be told from an empty logbook at all: `listRecents()` caught
+the failure and returned `[]`, so a private window and a first-ever visit were the same value.
+`readRecents()` now reports `{ recents, blocked }`; `useLogbook` exposes
+`status: 'loading' | 'ready' | 'blocked'`; `listRecents` stays a thin wrapper so its other callers
+are untouched.
+
+**The pin reads the ARTIFACT, because the source could never have shown this.**
+`e2e/logbook.spec.ts` → *"the prerendered page does not tell a returning flyer their logbook is
+empty"* fetches `/` and `/compare/` as raw HTML, before a line of JS runs. Beside it, *"a browser
+that refuses storage says so"* removes `indexedDB` and checks the surface says so and that analysis
+still works. Both falsified by mutation.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe

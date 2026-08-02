@@ -399,11 +399,19 @@ export default function CompareSurface() {
           thing; they are the same kind of thing. */}
       <Card tone="muted" className="text-center transition">
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          {logbook.recents.length === 0
-            ? 'Your logbook is empty — drop a launch day’s files, or its folder, here to start'
-            : !enough
-              ? 'One flight in your logbook — a comparison needs at least two'
-              : 'Drop more flight logs here to add them'}
+          {/* The same three-states-as-one the logbook list carried: an empty logbook, a read that
+              has not come back, and a browser refusing storage all reach `length === 0`. This
+              surface is a STATIC EXPORT too, so "your logbook is empty" was prerendered into
+              `out/compare/index.html` and shown to every returning flyer until hydration. */}
+          {logbook.status === 'loading'
+            ? 'Looking for flights remembered on this device…'
+            : logbook.status === 'blocked'
+              ? 'This browser won’t let Debrief keep a logbook, so nothing is remembered between visits — drop the flights you want to compare here'
+              : logbook.recents.length === 0
+                ? 'Your logbook is empty — drop a launch day’s files, or its folder, here to start'
+                : !enough
+                  ? 'One flight in your logbook — a comparison needs at least two'
+                  : 'Drop more flight logs here to add them'}
         </p>
         <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
           Drop {MAX_COMPARE} or fewer and they&apos;re compared straight away; they go into the
@@ -439,6 +447,7 @@ export default function CompareSurface() {
           page, so a note added on either shows on both. */}
       <RecentFlights
         recents={logbook.recents}
+        status={logbook.status}
         sys={sys}
         onOpen={(id) => {
           // Reading one flight belongs on the analyze page, which can restore it from the

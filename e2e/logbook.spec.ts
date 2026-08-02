@@ -803,3 +803,41 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
 }
+
+// `DESIGN.md` §5's loading and error states on the logbook, and the reason they are checked HERE
+// rather than in a unit test: the defect only exists in the built artifact. Every route is a
+// static export, so whatever the logbook renders with an empty `recents` is baked into
+// `out/index.html` — and until the bundle hydrates and IndexedDB answers, that is what a flyer
+// with a full logbook sees. Reading the source could never have shown it.
+test('the prerendered page does not tell a returning flyer their logbook is empty', async ({ request }) => {
+  // Fetched, not visited: this is the HTML before a single line of JS has run, which is exactly
+  // what a cold load paints first.
+  for (const route of ['/', '/compare/']) {
+    const html = await (await request.get(route)).text();
+    expect(html, `${route} must not promise to remember flights before it has looked`).not.toContain(
+      'Flights you open are remembered here on this device',
+    );
+    expect(html, `${route} must not claim the logbook is empty before it has looked`).not.toContain(
+      'Your logbook is empty',
+    );
+    expect(html, `${route} says it is looking`).toContain('Looking for flights remembered on this device');
+  }
+});
+
+test('a browser that refuses storage says so, instead of promising to remember', async ({ page }) => {
+  // The refusal `listRecents` used to swallow: with no IndexedDB the read throws, and the old
+  // code returned [] — indistinguishable from a flyer who has never opened a flight, so the
+  // surface offered "flights you open are remembered here on this device" to someone for whom
+  // that had just stopped being true.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', { configurable: true, get: () => undefined });
+  });
+  await page.goto('/');
+  await expect(page.getByText(/won.t let Debrief read or keep a logbook/)).toBeVisible();
+  await expect(page.getByText('Flights you open are remembered here on this device')).toHaveCount(0);
+  // And the analysis still works — the refusal is about keeping, not about reading a file.
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'cert.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+});
