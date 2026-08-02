@@ -539,7 +539,10 @@ export default function GroundTrack({
             sr-only region below, which only discrete choices write to. */}
         <p
           id="ground-track-readout"
-          className="mx-auto mt-3 min-h-[2.5rem] max-w-[420px] text-center text-xs text-zinc-600 dark:text-zinc-400"
+          /* The walkback reading — how far from the pad and on what bearing. A flyer reads this
+             standing in a field deciding where to walk, so it is decision-grade and takes §3's
+             `text-sm` floor rather than caption size. */
+          className="mx-auto mt-3 min-h-[2.5rem] max-w-[420px] text-center text-sm text-zinc-600 dark:text-zinc-400"
         >
           {reading ? (
             <>

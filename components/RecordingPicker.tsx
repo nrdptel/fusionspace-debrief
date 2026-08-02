@@ -78,7 +78,13 @@ export default function RecordingPicker({
                     stretch this recording was last saved over: crop the flight and the two
                     disagree until the next save, which would paint a difference between one
                     instrument and itself on the surface built to show real ones. */}
-                <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                {/* P1 item 2. These were `text-[11px]`, which §3 reserves for axis ticks and
+                    diagram annotations — and they are the numbers a flyer reads to decide WHICH
+                    RECORDING of one flight to trust, which is the decision this whole surface
+                    exists for. §3's floor for a value read to make a decision is `text-sm`;
+                    `tabular-nums` because they are scanned down a column, instrument against
+                    instrument, and that comparison is the point. */}
+                <span className="font-mono text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
                   {here
                     ? 'the readings below'
                     : [

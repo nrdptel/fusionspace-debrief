@@ -268,7 +268,18 @@ const BUDGET = {
    *  `EventChips`, `RecognizedFormats`, `SiteFooter`, `FusionSpaceBadge` and `ChannelExplorer` as a
    *  file that is inverted while fully compliant, which is why item 2's target of 0 is not
    *  reachable and `ROADMAP.md` says so. */
-  invertedTypeFiles: 16,
+  /** 16 → 13 on 2026-08-02, and this one IS an improvement rather than an adoption effect — the
+   *  distinction matters and the two entries above it are the reason to state it. Glyphs actually
+   *  changed size: `RecordingPicker`, `FlightPicker` and `GroundTrack` each rendered a
+   *  decision-grade number at `text-[11px]` or `text-xs`, and all three left this list by taking
+   *  §3's `text-sm` floor. Nothing moved into `ui.tsx`.
+   *
+   *  What each of them was: the apogee and peak speed a flyer reads to decide WHICH RECORDING of
+   *  one flight to trust — the decision `RecordingPicker` exists for; the apogee that tells one
+   *  flight in a multi-flight download from another; and the walkback distance and bearing, read
+   *  standing in a field deciding where to walk. §3 reserves `text-[11px]` for axis ticks and
+   *  diagram annotations, which none of these is. */
+  invertedTypeFiles: 13,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
