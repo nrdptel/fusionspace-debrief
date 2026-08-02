@@ -2168,10 +2168,14 @@ function analyzeWhole(
    * both numbers is what lets the flyer see which board to believe.
    */
   const ASCENT_VS_VACUUM_LIMIT = 4;
+  let altitudeUnproven = false;
   if (liftoffFound && Number.isFinite(apogeeAlt) && apogeeAlt > 0) {
     const climbTime = apogeeTime - liftoffTime;
     const vacuumClimb = Math.sqrt((2 * apogeeAlt) / G0);
     if (climbTime > 0 && vacuumClimb > 0 && climbTime > ASCENT_VS_VACUUM_LIMIT * vacuumClimb) {
+      // The flag travels with the metrics so the apogee carries it wherever it goes; the warning
+      // below is the long form for the page.
+      altitudeUnproven = true;
       warnings.push(
         `This record does not describe a rocket flight. It reaches its highest point, ${lenTok(apogeeAlt)}, ` +
           `${formatSeconds(climbTime)} after liftoff — but a rocket that only ever got that high would be back on the ` +
@@ -2681,6 +2685,7 @@ function analyzeWhole(
   const metrics: FlightMetrics = {
     apogeeAltitude: apogeeAlt,
     apogeeIsFloor,
+    altitudeUnproven,
     timeToApogee: liftoffFound ? apogeeTime - liftoffTime : NaN,
     maxVelocity,
     maxVelocityWithheld: Number.isFinite(maxVelocity) ? null : ascentGapBreaksPeak ? 'gap' : velocityImplausible ? 'implausible' : null,

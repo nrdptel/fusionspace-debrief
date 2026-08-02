@@ -175,9 +175,18 @@ export function descentStoppedAloft(m: FlightMetrics): boolean {
  *  Exported so the saved report says the identical thing, like `burnoutSub`. */
 export function apogeeSub(m: FlightMetrics): string | undefined {
   const to = Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined;
-  if (!m.apogeeIsFloor) return to;
-  const floor = 'at least this high — the log ends at its own peak, so the rocket was still going up';
-  return to ? `${to} · ${floor}` : floor;
+  // A record whose climb is impossible for the height it reaches is not describing a flight, and
+  // the apogee is the reading that carries that furthest — onto the tile, into every export, onto
+  // the shareable card. It leads the sub rather than trailing it, because a flyer who reads three
+  // words of a caption reads the first three.
+  const unproven = m.altitudeUnproven
+    ? 'unproven — this record’s climb is too slow to be a flight, so its altitude channel is in doubt'
+    : undefined;
+  const floor = m.apogeeIsFloor
+    ? 'at least this high — the log ends at its own peak, so the rocket was still going up'
+    : undefined;
+  const parts = [unproven, to, floor].filter(Boolean);
+  return parts.length ? parts.join(' · ') : undefined;
 }
 
 export function burnoutSub(m: FlightMetrics): string | undefined {

@@ -128,3 +128,23 @@ describe('the ascent check over the real corpus', () => {
     expect(tripped).toEqual(['blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-Low.txt']);
   });
 });
+
+describe('the flag travels with the number, not just with the warning', () => {
+  it('marks the apogee reading itself, so it cannot leave the page unqualified', async () => {
+    const { metricTiles, apogeeSub } = await import('../readings');
+    const bad = analyzeFlight(crawlingRecord(9, 30.9));
+    expect(bad.metrics.altitudeUnproven, 'the metric carries it').toBe(true);
+    // The tile a flyer reads, and the same `apogeeSub` every export and the share card build from.
+    const tile = metricTiles(bad.metrics, 'imperial').find((t) => t.label === 'Apogee')!;
+    expect(tile.sub, 'the apogee tile says the altitude is in doubt').toMatch(/unproven/i);
+    expect(apogeeSub(bad.metrics), 'and so does the shared builder').toMatch(/unproven/i);
+
+    // A cold walk of the built export found the warning present and prominent while the apogee
+    // went out bare on the tile, in the .txt and on the share card — beside a max velocity that
+    // WAS inline-flagged. One surface qualified and another confident is the asymmetry
+    // `MAINTAINING.md` forbids, so the flag lives on the metric rather than in the warnings list.
+    const fine = analyzeFlight(crawlingRecord(200, 8));
+    expect(fine.metrics.altitudeUnproven, 'and stays off an ordinary flight').toBe(false);
+    expect(metricTiles(fine.metrics, 'imperial').find((t) => t.label === 'Apogee')!.sub ?? '').not.toMatch(/unproven/i);
+  });
+});

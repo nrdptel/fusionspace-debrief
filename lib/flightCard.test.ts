@@ -5,6 +5,7 @@ import type { FlightMetrics } from './analyze/types';
 
 const base: FlightMetrics = {
   apogeeIsFloor: false,
+  altitudeUnproven: false,
   apogeeAltitude: 1000,
   timeToApogee: 8,
   maxVelocity: 200,

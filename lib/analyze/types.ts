@@ -34,6 +34,14 @@ export interface FlightMetrics {
    *  case where "not in this log" is true. The first two are Debrief declining to report a
    *  number from data that IS there, and a tile saying the log lacks it is actively wrong. */
   maxVelocityWithheld: 'gap' | 'implausible' | null;
+  /** Set when the record's CLIMB is physically impossible for the height it reaches — the altitude
+   *  channel is not the one that recorded the flight. Carried on the metrics rather than left in
+   *  the warnings block because the apogee TRAVELS: onto the tile, into the .txt and .md exports,
+   *  and onto the shareable flight card. A cold walk of the built export found the warning present
+   *  and prominent while "31 ft" went out on all three of those unmarked, next to a max velocity
+   *  that WAS inline-flagged — the asymmetry `MAINTAINING.md` forbids, since a caveat on one
+   *  surface and a confident claim on another is worse than either alone. */
+  altitudeUnproven: boolean;
   maxVelocitySource: 'device' | 'baro';
   maxVelocityAltitude: number; // m AGL where max velocity occurred
   mach: number | null;
