@@ -6,7 +6,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D8 slice 2 STARTED, and it started with a wrong number.** Looking for the milestone's own subject (the high-rate gyro/quaternion columns) meant reading the LOW-rate headers, which turned up `Roll_Angle_(deg)` being auto-detected as a roll **RATE** — degrees published as degrees per second, with a test asserting it was correct. `rollAngle` is now its own kind; the Blue Raven reads the column it had been parsing past. **The rest of slice 2 remains**: `ChannelKind` members, units and provenance for the HR `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind: 'other'`. |
+| **D — capability** | **D8 slice 2 STARTED.** Looking for the milestone's own subject (the high-rate gyro/quaternion columns) meant reading the LOW-rate headers, which turned up a roll angle the Blue Raven had already solved and Debrief parsed straight past — and, on the generic importer's path, `Roll_Angle_(deg)` being auto-detected as a roll **RATE**, with a test asserting that was correct. `rollAngle` is its own kind now. **The rest of slice 2 remains**: `ChannelKind` members, units and provenance for the HR `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind: 'other'`. |
 | **P — product & craft** | **P1: two more §5 primitives are doing their job.** `useReturnFocus` exists (§5 named it; nothing implemented it) and the two destructive confirms share it. `Readout` went **2 → 9 adopters** — the seven derived-reading panels were hand-rolling a byte-identical hero value. Items **7** (29 hand-rolled `<button>`), item 4's keyboard clause, and the design-system audit's other 30-odd rows remain. |
 
 **Everything this run shipped is on the working branch and NOT yet in production.** Push the branch,
@@ -36,8 +36,18 @@ mapped. And the third was not merely unread:
   .toBe('rollRate')`, with a comment explaining why that was correct. That is how it survived. A
   golden assert only guards the number somebody thought to assert, and it can pin the wrong one.
 
-The Blue Raven's roll angle is **cumulative and unwrapped** — 26,099° on meraki, 24,240° on jan18,
-−4,969° on jan10 — so as a rate it was nonsense a flyer had no way to spot on a chart.
+**And the first version of this section overstated it, which the pre-push review caught.** That
+path is the column mapper, for an UNRECOGNISED file. `blueraven.ts` mapped no roll column at all
+beforehand — `git show HEAD~2:lib/parsers/blueraven.ts | grep mappings.push` has six lines and none
+is a roll — so no named-parser file ever published a wrong roll figure. The defect was reachable and
+latent, not observed. Overstating a defect's blast radius is its own wrong claim.
+
+The Blue Raven's roll angle is **cumulative and unwrapped** — peaks of 26,099° on meraki, 24,240° on
+jan18, −4,969° on jan10 — which is why such a column read as a rate gives a figure no flyer could
+sanity-check. **On meraki it is also a FLOOR**: that file's board-measured `Roll Rate (HZ)` column
+holds at exactly ±6.38889 rev/s (2,300 °/s) for **46 of its 36,700 samples**, which is a sensor at
+its limit. Integrating that rate reproduces the board's own stated angle exactly — **25,333° either
+way** — which confirms the vendor's stated method and makes the total a lower bound.
 
 ## The other thing to read before anything else
 

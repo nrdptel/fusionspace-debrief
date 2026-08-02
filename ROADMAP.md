@@ -1216,22 +1216,38 @@ column a flyer has to recognise by its numbers.
    all four app-CSV corpus exports — found `Tilt_Angle_(deg)`, `Future_Angle_(deg)` and
    `Roll_Angle_(deg)` sitting side by side, with Debrief mapping only the first.
 
-   **The roll angle was not merely unread: it was read as a RATE, and that is a wrong number a
-   flyer would have acted on.** `normalize` turns `Roll_Angle_(deg)` into `roll angle deg`, so
-   the generic importer's `\broll\b` rate test matched and the column arrived as `rollRate` —
-   degrees published as degrees per second. It is the identical defect `releaseAttitudeRoll`
-   exists to stop, in the one shape that guard cannot see: it fires only where `pitch` AND `yaw`
-   siblings prove an attitude solution, and a board writing tilt/future/roll has neither.
-   **`lib/flight/columns.test.ts` was ASSERTING the defect** — `expect(by('Roll_Angle_(deg)')
-   .role).toBe('rollRate')`, with a comment explaining why that was correct — which is how it
-   survived. Corrected, with the reasoning kept.
+   **A roll angle was also being read as a RATE — on the generic importer's path, and the scope
+   of that claim was corrected by review before it shipped.** `normalize` turns
+   `Roll_Angle_(deg)` into `roll angle deg`, so the generic `\broll\b` rate test matched and the
+   column arrived as `rollRate`: degrees published as degrees per second. It is the identical
+   defect `releaseAttitudeRoll` exists to stop, in the one shape that guard cannot see — it fires
+   only where `pitch` AND `yaw` siblings prove an attitude solution, and a board writing
+   tilt/future/roll has neither. **`lib/flight/columns.test.ts` was ASSERTING it** —
+   `expect(by('Roll_Angle_(deg)').role).toBe('rollRate')` with a comment explaining why that was
+   correct — which is how it survived.
+
+   **What it was NOT: a wrong number on any file Debrief recognises by name.** The first version
+   of this entry said the corpus files "reported a roll RATE"; they did not. `blueraven.ts`
+   mapped no roll column at all before this change, so the four Blue Ravens had no roll channel
+   of either kind. The exposure is an unrecognised CSV going through the column mapper — real,
+   reachable, and pinned — but latent rather than observed. The correction is kept here because
+   overstating a defect's blast radius is its own kind of wrong claim.
 
    `rollAngle` is now its own `ChannelKind` and `ColumnRole`, in degrees, offered in the mapper
    beside the rate. The Blue Raven reads its column; the four corpus files carry it and the
    serial `@ LOG_LOW` capture carries none, which is this slice's own "this board did not record
    it" case. It is **cumulative and unwrapped** — it passes a full turn rather than resetting,
-   reaching **26,099°** on meraki, **24,240°** on jan18 and **−4,969°** on jan10 — so as a rate
-   it was nonsense a flyer had no way to spot on a chart.
+   peaking at **26,099°** on meraki, **24,240°** on jan18 and **−4,969°** on jan10 — which is
+   why reading such a column as a rate produces a figure no flyer could sanity-check.
+
+   **And on meraki the angle is a FLOOR, which the first version of this slice did not say.**
+   That file also carries a board-measured `Roll Rate (HZ)` column, and it holds at exactly
+   ±6.38889 rev/s — **2,300 °/s** — for **46 of its 36,700 samples**, which is a sensor at its
+   limit rather than a rocket repeating a value. Whatever it did faster was not recorded, so
+   neither the rate nor the angle integrated from it contains it. The two agree exactly
+   otherwise: integrating that rate over the flight reproduces the board's own stated angle to
+   the degree, **25,333° either way**, which both confirms the vendor's stated method and makes
+   the total a lower bound. Said on the methods page.
 
    The board's own limit travels with the channel rather than being left to be looked up: the
    vendor states the roll angle is an integration of the measured roll rate over time that takes

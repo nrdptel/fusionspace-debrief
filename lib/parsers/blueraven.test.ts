@@ -457,10 +457,26 @@ describe('Blue Raven roll angle, over the real corpus', () => {
       expect(Math.min(...finite), `${name}: min matches the file`).toBeCloseTo(raw.min, 6);
       expect(Math.max(...finite), `${name}: max matches the file`).toBeCloseTo(raw.max, 6);
 
-      // No rate is invented from an angle. This is the regression that mattered: the column
-      // used to arrive as `rollRate`, so every one of these files reported a roll RATE whose
-      // peak was really a cumulative angle — jan18 reaches 24,240° and meraki 26,099°.
-      expect(getChannel(res.flight, 'rollRate'), `${name}: no rate invented`).toBeUndefined();
+      // No rate is INVENTED from an angle — a forward guard, not proof of a past fix, and the
+      // difference is worth stating because the first version of this comment got it wrong. It
+      // claimed "every one of these files reported a roll RATE"; they did not. **Measured across
+      // all 17 parser source files at the commit this branch started from: not one pushed a
+      // mapping with a `roll` role.** (Stated as a fact rather than as a `HEAD~n` command, because
+      // the first draft of this correction cited a relative ref that was already off by one and
+      // would drift another commit every time anyone touched this file.) So on these files there
+      // was nothing to misreport. The misdetection was on the GENERIC importer's path, where a
+      // `Roll_Angle`
+      // header with no pitch/yaw siblings took the rate role — reachable by any unrecognised
+      // spreadsheet, and pinned in `lib/flight/columns.test.ts` rather than here.
+      //
+      // What this assertion is FOR: a later change that mapped the angle column to `rollRate` in
+      // this parser would publish degrees as degrees per second on four real files, and it fails.
+      //
+      // **It is not a claim that these flights have no roll rate.** `…reddit-meraki2-121km…LR.csv`
+      // carries a real, board-MEASURED `Roll Rate (HZ)` column over all 36,700 samples that this
+      // parser does not read yet — `BACKLOG.md` carries it. Reading it must not be blocked by
+      // mistaking this line for a decision that it should not be.
+      expect(getChannel(res.flight, 'rollRate'), `${name}: no rate invented from the angle`).toBeUndefined();
 
       // The board's own limit travels with the channel.
       expect(res.flight.notes.some((n) => n.includes('integrates its measured roll rate')), `${name}: caveat carried`).toBe(true);

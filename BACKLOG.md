@@ -14,6 +14,66 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — meraki logs a board-MEASURED roll rate that Debrief still ignores while
+  publishing the integrated angle beside it.**
+  `blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` column 99 is `Roll Rate (HZ)`, 36,700
+  samples. `lib/parsers/blueraven.ts` maps no rate column, so Debrief now shows the drift-prone
+  DERIVED quantity from that file and drops the direct measurement in it. The unit path is ready —
+  `hz` resolves to `rev/s` as of this run — so this is a mapping and a `railed()` flag away.
+  **When it lands it must carry the saturation**: the column holds at exactly ±6.38889 rev/s
+  (2,300 °/s) for 46 of its 36,700 samples, so the rate is a floor and so is the angle built from
+  it. The other three Blue Raven LR files have no rate column, which is why the corpus assertion
+  in `blueraven.test.ts` says "no rate INVENTED from the angle" rather than "these flights have no
+  roll rate" — do not read that line as a decision against this.
+
+- **2026-08-02 — a header unit Debrief cannot resolve becomes the mapper's FIRST unit option, and
+  the flyer is never told.** This entry's first version blamed `unitFromHeader` returning null and
+  called the column "assumed canonical"; a review corrected it and the real mechanism is worse.
+  `rowFor` in `components/ColumnMapper.tsx` does `wantUnit && units.includes(wantUnit) ? wantUnit :
+  (units[0] ?? '')`, so when the header's unit does not resolve the UI **positively selects** the
+  first option and submits it. `buildFlight` then converts faithfully against a unit the file never
+  stated, and no "unrecognized unit" note fires because from the builder's side nothing was
+  unrecognised.
+
+  Found via `Roll Rate (HZ)`, where the first option is `deg/s` and 6.4 rev/s would print as
+  6.4 deg/s — 360× low. Fixed for Hz by adding the alias; **the shape is general and the blast
+  radius is every mapped role**: an unresolvable header unit silently becomes `ft` for altitude,
+  `m/s` for velocity, `Pa` for pressure, `C` for temperature. The honest fix is for the mapper to
+  distinguish "the header stated no unit" from "the header stated one I could not resolve" and to
+  say so at the field rather than choosing for the flyer.
+
+- **2026-08-02 — `lib/flight/build.ts:87` resolves the TIME column's unit with no quantity check.**
+  `resolveUnit(timeMap.unit ?? 's')` is not guarded the way the channel branch below it is, so a
+  time column carrying a rotation unit would scale the whole clock by 360. Unreachable from the
+  mapper, whose time options are `s`/`ms`/`min` — but `lib/reopen.ts:37` replays a STORED unit
+  unvalidated, so a hand-edited or future-version mapping can reach it. Pre-existing; newly worth
+  naming because adding the `hz` alias put a 360× factor within reach of it.
+
+- **2026-08-02 — a saved mapping template or a remembered flight replays a stored role, so a
+  correction to role DETECTION never reaches the flyers who already hit the bug.**
+  `components/ColumnMapper.tsx:46` prefers a saved template over the fresh guess and
+  `lib/mappingTemplates.ts` did not bump `debrief.mappings.v1`; `lib/reopen.ts:37` replays a stored
+  mapping with `m.role as ColumnRole`, unvalidated. So a column remembered as `rollRate` stays
+  `rollRate` — degrees published as deg/s indefinitely — for exactly the flyer the fix was for.
+  Needs a storage version bump plus a re-guess-on-mismatch path; not attempted this run because it
+  is a migration with its own failure modes.
+
+- **2026-08-02 — `tilt` and `rollAngle` share one `°` axis bucket in the channel explorer.**
+  `lib/explore.ts:75`'s `planAxes` groups by DISPLAY UNIT, so plotting both puts a 0–90° tilt and a
+  cumulative roll that reaches 26,099° on the same scale and flattens the tilt to a line. Two
+  channels in the same unit are not necessarily on the same scale.
+
+- **2026-08-02 — the roll-angle caveat is emitted when the COLUMN exists, not when the channel has
+  data.** `lib/parsers/blueraven.ts` pushes the note off `rollAngleIdx >= 0`, but
+  `lib/explore.ts:239` drops an all-NaN channel, so a blank `Roll_Angle` column produces a sentence
+  in "How this file was read" about a channel the flyer cannot see. The test covers column-absent,
+  not column-present-but-empty.
+
+- **2026-08-02 — nothing READS `rollAngle`, so no reading is grounded on it.** The channel is
+  plotted and exported and that is all; `lib/analyze` computes no figure from it, although
+  revolutions falls straight out (25,333° / 360 = 70.4 turns on meraki). The natural first reading
+  is total revolutions, and it must be labelled a floor wherever the rate it came from saturated.
+
 - **2026-08-02 — the corpus release CI fetches is three merged pull requests behind the fixtures
   repo, and `VERSION` cannot tell you so.** Measured in the attached checkout: `v1.0.0` and
   `v1.1.0` are **the same commit** (`c0cdd23`), `VERSION` reads `v1.0.0` at both tags AND at

@@ -635,27 +635,50 @@ export default function MethodsPage() {
             answer.
           {' '}
             A column whose name says <span className="font-mono">angle</span> is read as one, and
-            that is a second shape of the same mistake — the sibling test above only fires where{' '}
+            that closes a second shape of the same mistake. The sibling test above only fires where{' '}
             <span className="font-mono">pitch</span> and <span className="font-mono">yaw</span> are
-            present, so a logger that writes <span className="font-mono">Roll_Angle</span> with
-            neither slipped past it and had its degrees reported as degrees per second. A roll angle
-            is now its own channel, plotted as an angle and never counted as a rate.
+            present, so an unrecognised spreadsheet with a{' '}
+            <span className="font-mono">Roll_Angle</span> column and neither of those would have had
+            its degrees read as degrees per second. That path is the column mapper, not a named
+            logger — no file Debrief recognises by name was affected, because none of them mapped a
+            roll column at all. A roll angle is its own channel now, plotted as an angle and never
+            counted as a rate.
           </Method>
           <Method id="roll-angle" title="Roll angle (the board&apos;s own)">
             Some boards solve their own orientation and write the roll angle into the log. Debrief
             reads it where it is there and plots it beside the flight; it never derives one. The
             Featherweight Blue Raven is the case in the corpus: its low-rate export carries a roll
             angle, and it is <strong>cumulative</strong> — it keeps counting past a full turn rather
-            than wrapping, reaching <strong>26,099°</strong> on one corpus flight, so read it as how
-            far the airframe has rolled and not as a heading.
+            than wrapping. On one corpus flight it peaks at <strong>26,099°</strong> and ends the
+            flight at <strong>25,333°</strong>, having rolled back a little; read it as how far the
+            airframe has turned and not as a heading.
           {' '}
             It is the board&apos;s number, with the board&apos;s limit. The vendor states the method:
             the angle is an integration of the measured roll rate over time and takes no account of
             how motion in the other two axes moves the airframe, so the error accumulates through the
             flight and grows fastest where the other axes are busiest — under thrust and through
             deployment. Debrief carries that sentence with the channel rather than leaving it to be
-            looked up. No size is put on the drift: nothing in the corpus measures roll orientation
+            looked up. No size is put on that drift: nothing in the corpus measures roll orientation
             independently, so any figure here would be invented.
+          {' '}
+            <strong>And on the one flight in our test corpus that also logs its roll RATE, the angle
+            is a floor rather than a total.</strong> That file heads the rate column{' '}
+            <span className="font-mono">HZ</span>; taking that as revolutions per second is an
+            inference, and it is the arithmetic that supports it — the column holds at exactly
+            ±6.38889 for 46 of its 36,700 samples, and 6.38889 × 360 is a round{' '}
+            <span className="font-mono">2,300°/s</span>, a plausible gyro limit that no other reading
+            of the unit produces. A value repeated dozens of times at exactly the extreme is a sensor
+            sitting at its limit, not a rocket happening to repeat itself. Whatever the airframe did
+            faster than that was never recorded, so neither the rate nor the angle built from it can
+            contain it.
+          {' '}
+            That the board&apos;s angle really is the integral of that rate was checked rather than
+            assumed: integrating the rate over the flight reproduces the stated angle to the degree,{' '}
+            <span className="font-mono">25,333°</span> either way. <strong>Debrief does not perform
+            that integration</strong> — it reads the angle the board wrote and does not yet read the
+            rate at all; the check was run once against the corpus to confirm the vendor&apos;s
+            stated method, and it is quoted here for the same reason the rest of this page quotes
+            its sources.
           {' '}
             The same files carry a <span className="font-mono">Future_Angle</span> column, and
             Debrief deliberately does not read it. It is the board&apos;s projection of where its

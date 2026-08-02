@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeTable } from './columns';
+import { convert } from '../units';
 
 /** A headerless table: time, an altitude arc (rise then fall), and a flat voltage. */
 function headerlessRows(): string[][] {
@@ -112,6 +113,68 @@ describe('analyzeTable — headerless role inference from data shape', () => {
     // The rate is still a rate — the angle test must not swallow the column it sits beside.
     expect(by('Roll Rate (deg/s)').role).toBe('rollRate');
     expect(by('Baro_Altitude_AGL_(feet)').role).toBe('altitude');
+  });
+
+  it('refuses a header that claims to be an angle and a rate at once', () => {
+    // Found by review, after the angle test above was added and before it shipped: `Roll angle
+    // rate (deg/s)` matched on roll+angle, took the ANGLE role, and — because an angle kind has
+    // no unit quantity — had its stated deg/s silently dropped and relabelled `°`. That is the
+    // swap this pair of tests exists to prevent, pointing the other way.
+    //
+    // The first fix excluded `rate` from the angle test, which merely moved the wrong guess: an
+    // angle whose name mentions the rate it was integrated from became a rate again.
+    const rows: string[][] = [
+      ['t', 'alt', 'Roll angle rate (deg/s)'],
+      ...Array.from({ length: 40 }, (_, i) => [String(i * 0.1), String(i * 20), String(i)]),
+    ];
+    // **And the answer is neither role.** A header naming both quantities disagrees with itself,
+    // and no default is safe: called a rate, an angle's degrees publish as degrees per second;
+    // called an angle, a rate's deg/s is dropped and relabelled degrees, because an angle kind has
+    // no unit quantity. `Roll Angle (integrated rate)` is not contrived either — it is how the Blue
+    // Raven's own manual describes that board's angle. So the column is refused and the flyer picks
+    // in the mapper, the same answer `releaseAttitudeRoll` gives a bare `roll` beside pitch and yaw.
+    const c = analyzeTable(rows).columns.find((x) => x.header === 'Roll angle rate (deg/s)')!;
+    expect(c.role).toBe('ignore');
+    expect(c.unit, 'and a refused column carries no unit either').toBeNull();
+  });
+
+  it('refuses a roll header that names an angle and a rate, whichever way round', () => {
+    for (const header of ['Roll Angle (integrated rate)', 'Rate of roll angle', 'spin angle rate']) {
+      const rows: string[][] = [
+        ['t', 'alt', header],
+        ...Array.from({ length: 40 }, (_, i) => [String(i * 0.1), String(i * 20), String(i)]),
+      ];
+      const c = analyzeTable(rows).columns.find((x) => x.header === header)!;
+      expect(c.role, `${header}: refused rather than guessed`).toBe('ignore');
+    }
+  });
+
+  it('reads a roll rate written in Hz as revolutions per second, not as degrees per second', () => {
+    // The Blue Raven's low-rate export heads its rate column `Roll Rate (HZ)`, and until `hz` was
+    // an alias `unitFromHeader` could not resolve it, returned null, and the column reached the
+    // builder looking UNSTATED rather than unrecognised — so it was assumed already canonical and
+    // 6.4 rev/s would have been published as 6.4 deg/s, 360× low, with no note.
+    //
+    // Reachable because the angle fix freed the role: on the real meraki header both
+    // `Roll_Angle_(deg)` and `Roll Rate (HZ)` compete for `rollRate`, the angle used to win it,
+    // and once the angle took its own role the rate column started being mapped for the first time.
+    const rows: string[][] = [
+      ['Flight_Time_(s)', 'Baro_Altitude_AGL_(feet)', 'Roll_Angle_(deg)', 'Roll Rate (HZ)'],
+      ...Array.from({ length: 40 }, (_, i) => [String(i * 0.1), String(i * 20), String(i * 90), '6.38889']),
+    ];
+    const cols = analyzeTable(rows).columns;
+    const rate = cols.find((c) => c.header === 'Roll Rate (HZ)')!;
+    const angle = cols.find((c) => c.header === 'Roll_Angle_(deg)')!;
+    expect(angle.role, 'the angle keeps its own role').toBe('rollAngle');
+    expect(rate.role, 'which frees the rate role for the column that is one').toBe('rollRate');
+    expect(rate.unit, 'and Hz is recognised rather than dropped to null').toBe('rev/s');
+
+    // The value that settles the reading: this is the rail on the real file, and it is a whole
+    // number of degrees per second only under rev/s. Asserted through the ALIAS rather than
+    // through `rev/s`, so removing `hz` from the unit table fails this line — the earlier version
+    // went via `rev/s` and could not fail whatever `hz` did. The tolerance is loosened to 2 dp
+    // because 6.38889 × 360 is 2300.0004, which sits one digit from a 3-dp bound.
+    expect(convert(6.38889, 'hz', 'deg/s')).toBeCloseTo(2300, 2);
   });
 
   it('does not read a board’s FUTURE angle as anything', () => {
