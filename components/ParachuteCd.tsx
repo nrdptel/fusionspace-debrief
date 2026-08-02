@@ -96,7 +96,7 @@ export default function ParachuteCd({
             value={chuteField}
             onChange={onChute}
             min={0}
-            max={Math.round(MAX_REASONABLE_CHUTE_M / CHUTE_LEN_TO_M[chuteUnit])}
+            max={MAX_REASONABLE_CHUTE_M / CHUTE_LEN_TO_M[chuteUnit]}
             step={1}
             placeholder={chuteUnit}
           />

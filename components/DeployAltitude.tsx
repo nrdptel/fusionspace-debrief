@@ -73,7 +73,7 @@ export default function DeployAltitude({
           value={setField}
           onChange={onSet}
           min={0}
-          max={Math.round(convert(MAX_REASONABLE_DEPLOY_M, 'm', unit))}
+          max={convert(MAX_REASONABLE_DEPLOY_M, 'm', unit)}
           step={systemOf(sys) === 'imperial' ? 50 : 10}
           placeholder={unit}
           width="w-24"

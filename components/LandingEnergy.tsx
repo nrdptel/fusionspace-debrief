@@ -104,7 +104,7 @@ export default function LandingEnergy({
           value={massField}
           onChange={onMass}
           min={0}
-          max={Math.round(MAX_REASONABLE_MASS_KG / MASS_TO_KG[unit])}
+          max={MAX_REASONABLE_MASS_KG / MASS_TO_KG[unit]}
           step={unit === 'oz' ? 0.1 : 1}
           placeholder={unit === 'oz' ? 'oz' : 'g'}
         />

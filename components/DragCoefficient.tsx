@@ -125,7 +125,7 @@ export default function DragCoefficient({
             value={massField}
             onChange={onMass}
             min={0}
-            max={Math.round(MAX_REASONABLE_MASS_KG / MASS_TO_KG[massUnit])}
+            max={MAX_REASONABLE_MASS_KG / MASS_TO_KG[massUnit]}
             step={massUnit === 'oz' ? 0.1 : 1}
             placeholder={massUnit}
           />
@@ -136,7 +136,7 @@ export default function DragCoefficient({
             value={diamField}
             onChange={onDiam}
             min={0}
-            max={Math.round(MAX_REASONABLE_DIAMETER_M / LEN_TO_M[lenUnit])}
+            max={MAX_REASONABLE_DIAMETER_M / LEN_TO_M[lenUnit]}
             step={lenUnit === 'in' ? 0.1 : 1}
             placeholder={lenUnit}
           />

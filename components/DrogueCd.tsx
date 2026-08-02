@@ -98,7 +98,7 @@ export default function DrogueCd({
             value={field}
             onChange={onDiameter}
             min={0}
-            max={Math.round(MAX_REASONABLE_CHUTE_M / CHUTE_LEN_TO_M[unit])}
+            max={MAX_REASONABLE_CHUTE_M / CHUTE_LEN_TO_M[unit]}
             step={1}
             placeholder={unit}
           />

@@ -558,10 +558,110 @@ test('a deploy altitude beyond what the physics allows is bounded at the field, 
   // change or a change to MAX_REASONABLE_DEPLOY_M cannot leave this passing against a stale number.
   const max = Number(await field.getAttribute('max'));
   expect(max, 'the field advertises its bound').toBeGreaterThan(0);
-  await expect(panel.getByText(new RegExp(`${max.toLocaleString('en-US')} ft is used`))).toBeVisible();
+  const said = Number(((await panel.getByText(/is used\./).innerText()).match(/[\d,.]+/) ?? [''])[0].replace(/,/g, ''));
+  // Within one unit of the bound the CONTROL advertises. Not string-equal, because the sentence
+  // rounds for display and the comparison is exact — see `NumberField`. Checking they agree is the
+  // point; duplicating the formatting rule here would only assert the test against itself.
+  expect(Math.abs(said - max), `the message says ${said}, the field advertises ${max}`).toBeLessThan(1);
 
   // And it clears. A state a flyer can enter with no way back out is its own named tell.
   await field.fill('960');
   await expect(panel.getByText(/is used\./)).toHaveCount(0);
   await expect(panel.getByText(/right on the mark/)).toBeVisible();
+});
+
+/**
+ * The bound is compared EXACTLY and only the sentence rounds, and this is the case that
+ * distinguishes the two. A cap is a unit conversion of an SI constant, so it is rarely round:
+ * `MAX_REASONABLE_DIAMETER_M` is 1 m, which is 39.370… in. Round the cap before comparing and the
+ * field refuses 39.2 in — a value the panel's own `Math.min(n * 0.0254, 1)` passes through
+ * untouched. A refusal a flyer can see is false is worse than no refusal, on the panel whose output
+ * is a drag coefficient.
+ */
+test('a refusal does not outlive the value it described', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: 'Main deploy altitude' });
+  const field = panel.getByLabel(/Set main deploy altitude/);
+
+  // 1. A refusal, then a UNIT SWITCH. The bound means a different number now, so a message about
+  //    what was typed in the old unit is a wrong claim rather than a stale one — and because the
+  //    reset happens during render rather than in an effect, it must never be painted at all.
+  await field.fill('50000');
+  await expect(panel.getByText(/is used\./)).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'per quantity' }).click();
+  await page.locator('details select').first().selectOption('m');
+  await expect(panel.getByText(/is used\./)).toHaveCount(0);
+  await expect(field).not.toHaveAttribute('aria-invalid', 'true');
+
+  // 2. A LEGAL value in one unit that is legal in the other too, switched across. 20,000 ft is
+  //    6,096 m, under the 9,000 m cap, so nothing should ever say otherwise — **including for one
+  //    frame**, which is the whole difference between resetting during render and resetting in an
+  //    effect. A plain `toHaveCount(0)` cannot see that: Playwright retries, so a message that
+  //    appears and is cleared a frame later passes. Measured — the effect form passed this test
+  //    written that way, which is an assert that cannot fail.
+  //
+  //    So the live region is WATCHED across the switch rather than sampled after it.
+  await page.locator('details select').first().selectOption('ft');
+  await field.fill('20000');
+  await expect(panel.getByText(/is used\./)).toHaveCount(0);
+
+  await panel.evaluate((el) => {
+    (window as unknown as { __flash: string[] }).__flash = [];
+    const seen = (window as unknown as { __flash: string[] }).__flash;
+    const check = () => {
+      for (const s of el.querySelectorAll('[role="status"]')) {
+        const t = (s.textContent ?? '').trim();
+        if (t) seen.push(t);
+      }
+    };
+    check();
+    new MutationObserver(check).observe(el, { subtree: true, childList: true, characterData: true });
+  });
+  await page.locator('details select').first().selectOption('m');
+  await expect(field).toHaveValue(/6[,.]?09/);
+  const flashed = await page.evaluate(() => (window as unknown as { __flash: string[] }).__flash);
+  expect(flashed.filter((t) => /is used/.test(t)), `the live region said: ${JSON.stringify(flashed)}`).toEqual([]);
+  await page.locator('details select').first().selectOption('ft');
+
+  // 3. A refusal on a panel whose bound NEVER changes, then the flight reloaded underneath it.
+  //    `EjectionDelay` is 0/30/"s" — constants — so a reset keyed on the bound alone can never
+  //    fire there, and the message would sit on an empty field with no way back out.
+  //    Asserted unconditionally — a guarded `if (panel exists)` here would have made this whole
+  //    case skip silently, and it did while it was written that way.
+  const ej = page.getByRole('region', { name: 'Ejection delay' });
+  await expect(ej).toBeVisible();
+  const delay = ej.getByLabel(/Motor delay flown/i);
+  await delay.fill('60');
+  await expect(ej.getByText(/is used\./)).toBeVisible();
+
+  // The panel's own control puts the value back, WITHOUT a keystroke in the field — the external
+  // change the message must not survive. `EjectionDelay`'s bound is 0/30/"s", all constants, so a
+  // reset keyed on the bound alone can never fire here.
+  await delay.fill('');
+  await expect(ej.getByText(/is used\./)).toHaveCount(0);
+  await delay.fill('60');
+  await expect(ej.getByText(/is used\./)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 20_000 });
+  const ej2 = page.getByRole('region', { name: 'Ejection delay' });
+  await expect(ej2.getByText(/is used\./)).toHaveCount(0);
+  await expect(ej2.getByLabel(/Motor delay flown/i)).not.toHaveAttribute('aria-invalid', 'true');
+});
+
+test('a value just under a fractional bound is not refused', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+
+  const panel = page.getByRole('region', { name: /drag coefficient/i });
+  const field = panel.getByLabel(/Body diameter/);
+  const max = Number(await field.getAttribute('max'));
+  // The cap really is fractional here, or this test is checking nothing.
+  expect(max % 1, `the diameter cap ${max} is fractional`).toBeGreaterThan(0);
+
+  await field.fill(String(Math.floor(max)));
+  await expect(panel.getByText(/is used\./)).toHaveCount(0);
+  await field.fill(String(Math.ceil(max) + 10));
+  await expect(panel.getByText(/is used\./)).toBeVisible();
 });

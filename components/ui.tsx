@@ -450,8 +450,14 @@ export function NumberField({
   max?: number;
   step?: number | string;
   /** The input's accessible name, which carries the unit spelled out — "(inches)" beats "(in)" to
-   *  a screen reader. Falls back to the visible label. */
-  ariaLabel?: string;
+   *  a screen reader.
+   *
+   *  **Required, with no fallback to `label`, and that is deliberate.** The live region below sits
+   *  INSIDE the `<label>` so the whole row is one click target; a call site that left the input to
+   *  take its name from the label would therefore get an accessible name that GROWS the refusal
+   *  sentence into it — "Delay flown s Above 30 s — 30 s is used." Requiring it makes that
+   *  impossible rather than merely unlikely. */
+  ariaLabel: string;
   placeholder?: string;
   /** The one thing that genuinely varies between call sites: a deploy altitude needs four digits
    *  where a motor delay needs two. */
@@ -465,17 +471,60 @@ export function NumberField({
   // That is precisely why the clamp was silent, and reading the bound off `value` cannot see it:
   // the value is always in range by the time it arrives.
   const [typed, setTyped] = React.useState<string | null>(null);
-  // A unit switch changes what the bound MEANS, so a message about the last thing typed in the old
-  // unit would be a wrong claim rather than a stale one. Cleared on any change to the bound.
-  React.useEffect(() => setTyped(null), [min, max, unit]);
+
+  // **Reset during render, not in an effect** — React's own answer for state derived from props.
+  //
+  // The reason is that an effect runs AFTER paint, so the first render under a new unit would
+  // evaluate the OLD typed string against the NEW bound and paint a false "Above 9,000 m" into a
+  // live region before clearing it a frame later. **That flash was NOT reproducible here, and
+  // saying so is more useful than claiming it was fixed:** every unit switch that changes the bound
+  // also reformats the value, so the `value !== seenValue` branch below already clears during
+  // render. The two branches overlap on the only transition the app can currently produce, and an
+  // e2e that watches the live region with a MutationObserver across the switch records nothing in
+  // either form. Kept because it is the correct pattern and costs nothing, not because a bug was
+  // measured behind it.
+  const key = `${min}|${max}|${String(unit)}`;
+  const [seenKey, setSeenKey] = React.useState(key);
+
+  // Whether the parent's last change to `value` was OURS. A refusal has to survive the panel
+  // clamping what we just emitted — that clamp is the whole thing being explained — and must not
+  // survive anything else.
+  //
+  // **Also not currently reachable, and recorded as such.** The path this guards is a panel
+  // resetting its own value with no keystroke in the field, on a panel whose bound never changes
+  // (`EjectionDelay` is 0/30/"s"), which would leave an empty field carrying a red border,
+  // `aria-invalid` and a sentence about a value that is nowhere — a state with no way back out.
+  // Every route into it that exists today remounts the component, so `typed` is fresh anyway.
+  // Kept so that adding such a control later cannot resurrect the state; not counted as a fix.
+  const ours = React.useRef(false);
+  const [seenValue, setSeenValue] = React.useState(value);
+
+  if (key !== seenKey) {
+    setSeenKey(key);
+    setSeenValue(value);
+    setTyped(null);
+    ours.current = false;
+  } else if (value !== seenValue) {
+    setSeenValue(value);
+    if (!ours.current) setTyped(null);
+    ours.current = false;
+  }
 
   const n = typed == null || typed.trim() === '' ? NaN : Number(typed);
   const over = Number.isFinite(n) && max != null && n > max;
   const under = Number.isFinite(n) && min != null && n < min;
-  // A bound is a number a flyer reads, so it is grouped like every other number in the app — §6.
-  // Unformatted, the deploy cap prints as "29528", which reads as a serial number rather than a
-  // height.
-  const bound = (v: number) => v.toLocaleString('en-US');
+  // **Compared exactly, displayed rounded, and the two must not be the same number.** A caller's
+  // cap is a unit conversion of an SI constant, so it is rarely round: `MAX_REASONABLE_DIAMETER_M`
+  // is 1 m, which is 39.370… in. Rounding the cap before comparing — which the first version did —
+  // makes the message fire on a value the panel never clamped: at a cap of 39, typing 39.2 in is
+  // refused on screen while `Math.min(n * 0.0254, 1)` passes it through untouched. That is a
+  // refusal a flyer can see is false, on a panel whose output is a drag coefficient. So `over` and
+  // `under` test the exact figure and only the SENTENCE rounds.
+  //
+  // Grouped, and to one decimal below 100, because §6 wants precision that reflects the method: a
+  // deploy cap reads "29,528 ft", a canopy cap "39.4 in", and neither prints a float.
+  const bound = (v: number) =>
+    v.toLocaleString('en-US', { maximumFractionDigits: Math.abs(v) < 100 ? 1 : 0 });
   const suffix = typeof unit === 'string' ? ` ${unit}` : '';
   return (
     <label className={cx('flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400', className)}>
@@ -490,6 +539,7 @@ export function NumberField({
           value={value}
           onChange={(e) => {
             setTyped(e.target.value);
+            ours.current = true;
             onChange(e.target.value);
           }}
           aria-label={ariaLabel}
@@ -500,7 +550,11 @@ export function NumberField({
             'rounded-md border bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
             // The refusal is visible on the control itself, not only in the sentence under it: §2's
             // `danger` is "a refusal, a value that cannot be computed".
-            over || under ? 'border-red-400 dark:border-red-500/60' : 'border-zinc-300 dark:border-zinc-700',
+            // Full-strength `danger`, not a tint: a state indicator is a non-text element and wants
+            // 3:1 against its background. `red-400` on white and `red-500/60` over `zinc-900` both
+            // measured under it, so the border read as barely-there on the one control that had
+            // just refused a number.
+            over || under ? 'border-red-600 dark:border-red-400' : 'border-zinc-300 dark:border-zinc-700',
           )}
         />
         <span className="font-mono">{unit}</span>

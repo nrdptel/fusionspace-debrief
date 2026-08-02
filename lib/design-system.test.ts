@@ -262,7 +262,7 @@ const BUDGET = {
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP.
    *  29 → 31 on 2026-08-01: the two cross-check tables moved onto `DataTable`. 31 → 36 on
-   *  2026-08-02: `SampleTable`, which had imported nothing at all, onto `Frame`. **The six panels
+   *  31 → 32 on 2026-08-02: `SampleTable`, which had imported nothing at all, onto `Frame`. **The six panels
    *  that moved onto `NumberField` in the same commit moved this by ZERO** — every one already
    *  imported `Card`, so a per-FILE count cannot see six controls being adopted. That is the
    *  argument for the per-primitive map below, and it is the third time a §9 metric has turned out
