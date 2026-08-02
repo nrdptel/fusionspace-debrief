@@ -152,7 +152,15 @@ export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, lan
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<gpx version="1.1" creator="Debrief" xmlns="http://www.topografix.com/GPX/1/1">\n' +
     wpt +
-    `  <trk>\n    <name>${xmlEscape(name)}</name>\n    <trkseg>\n` +
+    `  <trk>\n    <name>${xmlEscape(name)}</name>\n` +
+    // Deliberately no `<ele>`. GPX defines elevation as metres above the WGS-84 ellipsoid, and the
+    // height Debrief has for these fixes is barometric height above the PAD — writing it into an
+    // `<ele>` would put a correct number under a label that means something else, which is how a
+    // reader gets a wrong answer from an honest file. The KML carries the trajectory instead, and
+    // says there what drew it. This `<desc>` exists so the two exports of one flight do not
+    // silently disagree about whether the track has a height.
+    `    <desc>Ground track only — where the rocket was, not how high. GPX elevation means height above the ellipsoid, and the height Debrief measured is above the pad; the KML export carries the trajectory and names the instrument that drew it.</desc>\n` +
+    `    <trkseg>\n` +
     pts.join('\n') +
     '\n    </trkseg>\n  </trk>\n</gpx>\n'
   );
@@ -181,6 +189,19 @@ export function trackKml(
   landingIndex: number,
   /** Whether the last fix is a landing — see `trackGpx`. */
   landed = true,
+  /** What drew the HEIGHT of each fix, in the flyer's words. The geometry in this file is
+   *  measured by two independent instruments — the receiver put each fix on the map, the
+   *  barometer put it at a height — and a document that shows a trajectory without saying so is
+   *  the one thing `MAINTAINING.md` forbids outright: a number with its provenance stripped off.
+   *
+   *  It matters here more than it looks. Measured over the corpus, the nine flights carrying both
+   *  a barometric and a GPS altitude disagree by **197–1,771 m on average** and by up to 2,949 m,
+   *  because they are not the same quantity: the barometer reads height above the pad and a
+   *  receiver reads height above the ellipsoid. Debrief draws the barometric one, which is both
+   *  the better vertical measurement and the one `relativeToGround` actually means — but a reader
+   *  opening this in Google Earth beside a GPS altitude column has no way to know that without
+   *  being told. */
+  altitudeNote?: string,
 ): string {
   const n = Math.min(lat.length, lon.length);
   const coords: string[] = [];
@@ -198,6 +219,7 @@ export function trackKml(
     '<kml xmlns="http://www.opengis.net/kml/2.2">\n' +
     '  <Document>\n' +
     `    <name>${xmlEscape(name)}</name>\n` +
+    (altitudeNote ? `    <description>${xmlEscape(altitudeNote)}</description>\n` : '') +
     '    <Style id="track">\n' +
     '      <LineStyle><color>ff5e63e0</color><width>2</width></LineStyle>\n' +
     '      <PolyStyle><color>335e63e0</color></PolyStyle>\n' +

@@ -240,3 +240,43 @@ describe('the pad a recovery reading is measured from', () => {
     expect(t.lat0).toBeCloseTo(34, 6);
   });
 });
+
+describe('an exported track says which instrument drew which part of it', () => {
+  const lat = Float64Array.from([40.1, 40.2, 40.3]);
+  const lon = Float64Array.from([-88.1, -88.2, -88.3]);
+  const alt = Float64Array.from([0, 500, 0]);
+
+  it('a KML names the two instruments behind its geometry', () => {
+    // The defect this closes: the file drew a 3D trajectory whose horizontal came from the
+    // receiver and whose vertical came from the barometer, and said nothing at all. Measured over
+    // the corpus, nine flights carry both altitudes and they differ by 197-1,771 m on average.
+    const kml = trackKml('flight', lat, lon, alt, 2, true, 'Positions are the GPS receiver’s. Heights are the barometer’s.');
+    expect(kml, 'the note reaches the file').toContain('<description>');
+    expect(kml).toContain('Heights are the barometer');
+    // Inside the Document, so Google Earth shows it against the whole track rather than a point.
+    expect(kml.indexOf('<description>'), 'the note sits in the Document').toBeGreaterThan(kml.indexOf('<Document>'));
+    expect(kml.indexOf('<description>')).toBeLessThan(kml.indexOf('<Placemark>'));
+  });
+
+  it('a KML written without a note is unchanged, so nothing claims a provenance it was not given', () => {
+    const kml = trackKml('flight', lat, lon, alt, 2);
+    expect(kml).not.toContain('<description>');
+  });
+
+  it('the note is escaped like every other value that reaches the file', () => {
+    const kml = trackKml('flight', lat, lon, alt, 2, true, 'baro & GPS <not> merged');
+    expect(kml).toContain('baro &amp; GPS &lt;not&gt; merged');
+    expect(kml, 'no raw angle bracket from the note').not.toContain('<not>');
+  });
+
+  it('a GPX says it carries no height, and why', () => {
+    // The two geospatial exports of one flight used to disagree in silence about whether the
+    // track had a height. GPX elevation means height above the ELLIPSOID and Debrief's height is
+    // above the pad, so writing one would put a correct number under a label meaning something
+    // else. The refusal is stated rather than left to be noticed.
+    const gpx = trackGpx('flight', lat, lon, 2);
+    expect(gpx, 'still no elevation element').not.toContain('<ele>');
+    expect(gpx, 'and it says so').toContain('<desc>');
+    expect(gpx).toContain('above the ellipsoid');
+  });
+});

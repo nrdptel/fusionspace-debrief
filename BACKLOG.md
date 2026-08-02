@@ -269,13 +269,26 @@ wild, ideas too big for one pass. One line each, newest first.
   header twice, or `Accel` twice) silently restores the wrong trace — a wrong-trace bug, not a
   missing-trace one.
 
-- **2026-08-02 — the KML export draws the GPS track at BAROMETRIC height.** `GroundTrack.tsx:654`
-  passes `altitude` — bound at `FlightReport.tsx:1409` to `series.altitude`, the barometric AGL
-  series — as the elevation of every GPS fix, while an `altitudeGps` channel may sit unused. The
-  exported geometry mixes two independent altitude recordings and the file says nothing about
-  which sensor drew it. `lib/gps.ts:139`'s GPX writes no `<ele>` at all, so the two geospatial
-  exports of one flight disagree about whether the track has a height. **Unreproduced** — filed
-  from a read of the code, not from opening a KML.
+- **DONE 2026-08-02 — the KML export drew the GPS track at BAROMETRIC height and said nothing.
+  Reproduced first, and reproducing it changed what the fix was.** The filing assumed the height
+  was WRONG. It is not: KML's `relativeToGround` means height above the ground, which is exactly
+  what a barometric AGL series measures, and the barometer is the better vertical instrument. A
+  receiver's altitude is measured above the ELLIPSOID and is a different quantity — measured over
+  the corpus, the **nine** flights carrying both disagree by **197–1,771 m on average** and by up
+  to **2,949 m**. Swapping to `altitudeGps` would have been a regression dressed as a fix.
+
+  The real defect is the one the invariant names: a document that shows a trajectory drawn by two
+  independent instruments — the receiver put each fix on the map, the barometer put it at a height
+  — with the provenance stripped off. The KML now carries a `<description>` saying so, and says it
+  differently where the flight also holds a receiver altitude that was NOT the one drawn, so a
+  single-instrument file is not told about a disagreement it cannot have.
+
+  The GPX's silence was the same defect in the other direction, and it stays silent for a stated
+  reason: GPX elevation is defined as height above the ellipsoid, so writing Debrief's above-the-pad
+  height into an `<ele>` would put a correct number under a label meaning something else. It now
+  carries a `<desc>` saying it is a ground track and pointing at the KML — so the two exports of one
+  flight no longer disagree in silence about whether the track has a height. Pinned by four cases in
+  `lib/gps.test.ts`, three mutations run against them.
 
 - **2026-08-02 — the design-system audit ran for the first time and returned 40 divergences.**
   `MAINTAINING.md` calls this "the audit that has never been run". The full ranked list is in the
