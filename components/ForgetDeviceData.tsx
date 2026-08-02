@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { deviceDataPresent, forgetDeviceData, type DeviceDatum } from '@/lib/deviceData';
-import { Button, Card } from './ui';
+import { Button, Card, useReturnFocus } from './ui';
 
 /** "Forget everything Debrief saved on this device", on the page that promises it.
  *
@@ -18,8 +18,6 @@ export default function ForgetDeviceData() {
   const [present, setPresent] = useState<DeviceDatum[] | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [done, setDone] = useState<number | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
 
   // What this browser holds, read after mount: a static export cannot know, and a count rendered
   // on the server would be a guess. Re-read whenever the panel opens or a pass finishes, because
@@ -29,21 +27,12 @@ export default function ForgetDeviceData() {
   const refresh = useCallback(() => setPresent(deviceDataPresent()), []);
   useEffect(refresh, [refresh]);
 
-  const disarm = useCallback(() => {
-    setConfirming(false);
-    triggerRef.current?.focus();
-  }, []);
-
-  // Focus the panel's SAFE control when it opens, so a keyboard or screen-reader flyer lands
-  // inside the thing that just appeared — and lands on "Keep them", never on the destructive one.
-  // The trigger stays MOUNTED behind the panel for the same reason the logbook's Clear does: a
-  // control that unmounts itself has already nulled its own ref, so restoring focus to it
-  // silently does nothing and drops a keyboard flyer to the body — from where the next Tab landed
-  // on "Yes, forget them". The first version of this did exactly that while its comment claimed
-  // to follow the pattern that avoids it.
-  useEffect(() => {
-    if (confirming) cancelRef.current?.focus();
-  }, [confirming]);
+  // The trigger stays MOUNTED behind the panel, which is the contract `useReturnFocus` documents
+  // and the reason it exists: the first version of this component unmounted its own trigger while
+  // its comment claimed to follow the pattern that avoids it.
+  const { triggerRef, safeRef, dismiss, onKeyDown } = useReturnFocus(confirming, () =>
+    setConfirming(false),
+  );
 
   if (present === null) return null;
 
@@ -67,7 +56,7 @@ export default function ForgetDeviceData() {
           <Button
             ref={triggerRef}
             onClick={() => {
-              if (confirming) return disarm();
+              if (confirming) return dismiss();
               const now = deviceDataPresent();
               setPresent(now);
               setDone(now.length === 0 ? 0 : null);
@@ -96,9 +85,7 @@ export default function ForgetDeviceData() {
               tone="danger"
               id="forget-device-data-confirm"
               role="alert"
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') disarm();
-              }}
+              onKeyDown={onKeyDown}
               className="mt-3 text-sm"
             >
               <p className="font-medium">
@@ -113,7 +100,7 @@ export default function ForgetDeviceData() {
                 {/* Safe first, in DOM order as well as on screen — and the SAFE one is the neutral
                     weight. `DESIGN.md` §5 reserves the danger weight for removal, so marking both
                     of them red told a flyer nothing about which way out was which. */}
-                <Button ref={cancelRef} size="sm" onClick={disarm}>
+                <Button ref={safeRef} size="sm" onClick={dismiss}>
                   Keep them
                 </Button>
                 <Button
@@ -121,9 +108,8 @@ export default function ForgetDeviceData() {
                   size="sm"
                   onClick={() => {
                     setDone(forgetDeviceData());
-                    setConfirming(false);
                     refresh();
-                    triggerRef.current?.focus();
+                    dismiss();
                   }}
                 >
                   Yes, forget them

@@ -591,6 +591,34 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     ).toEqual(['components/ui.tsx']);
   });
 
+  it('manages focus from exactly one place', () => {
+    // `DESIGN.md` §5 names `useReturnFocus` and, until 2026-08-02, nothing implemented it. Two
+    // surfaces hand-rolled all three of its parts — focus the safe control on open, Escape to
+    // dismiss, focus back to the trigger — and they are the same control written twice: the
+    // logbook's Clear confirm and the privacy page's Forget-these-settings confirm. Measured
+    // before the lift: **6 focus calls across 2 files**; after it, **2, both in the primitive**.
+    //
+    // This is a guard of the same shape as the frame assertion above, and for the same reason the
+    // adopter counts cannot serve: a THIRD confirm hand-rolling its own focus return would import
+    // nothing from `./ui`, so every count in this file would stay exactly where it is while the
+    // behaviour forked. Focus management is where that matters most — both call sites carried a
+    // comment describing a bug they had already shipped once, in which a trigger that unmounts
+    // itself nulls its own ref, focus silently drops to the body, and the next Tab lands on the
+    // destructive button.
+    //
+    // Matched on the CALL, not on a ref name, so renaming a ref cannot slip past it.
+    const sites: string[] = [];
+    for (const f of ui) {
+      for (const line of f.text.split('\n')) {
+        if (/\.focus\(\)/.test(line)) sites.push(`${f.path}: ${line.trim().slice(0, 90)}`);
+      }
+    }
+    expect(
+      [...new Set(sites.map((s) => s.split(':')[0]))],
+      `imperative focus moves, by site (only components/ui.tsx may carry them):\n${sites.join('\n')}`,
+    ).toEqual(['components/ui.tsx']);
+  });
+
   it('keeps the primitives themselves inside the system', () => {
     // The file everything else is converted ONTO cannot itself be off-system. A primitive that
     // breaks the rule teaches that the rule is optional.
