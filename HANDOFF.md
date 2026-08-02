@@ -7,9 +7,10 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **D — capability** | **D8 slice 2 SHIPPED.** The roll angle the Blue Raven had already solved was being parsed past — and on the generic importer's path `Roll_Angle_(deg)` was auto-detected as a roll **RATE**, with a test asserting that was correct. Then the slice's own subject: the HR `Gyro_*` / `Accel_*` / `Quat_*` channels now carry real `ChannelKind`s, and **Debrief measures which sensor axis is the airframe's long one** off the gravity the board felt on the rail — so a flyer can tell which of six traces is the roll. **Slice 3 is MEASURED and deliberately NOT SHIPPED** — read its ROADMAP entry before touching it. |
+| **defects** | **Two `BACKLOG.md` entries closed, and reproducing each changed what the fix was.** A wrong number was reaching the report — a StratoLogger temperature stated `58.7F` per cell, preselected as Celsius by a CASE MISMATCH, printing 138 °F. And the geospatial exports drew one trajectory from two instruments and said nothing. **Reproduce before scoping; both filings had the cause wrong.** |
 | **P — product & craft** | **P1: three more §5 primitives are doing their job, and the chart now answers a keyboard.** `useReturnFocus` exists (§5 named it; nothing implemented it); `Readout` went **2 → 9 adopters**; `Chart.tsx` had `role="img"` but no `tabIndex` and no key handling, where `GroundTrack` beside it has had arrow keys since it was built. Items **7** (29 hand-rolled `<button>`) and the design-system audit's other 30-odd rows remain. |
 
-**Ten increments are MERGED AND LIVE** across pull requests #91 and #92; **two more are on the
+**Ten increments are MERGED AND LIVE** across pull requests #91 and #92; **four more are on the
 branch in pull request #93**. #92 merged on green as `5b737b2`, and the branch was restarted from
 `main` after it, as the harness requires. #91 merged as `c86695c` and production was verified
 serving exactly that at 13:07Z.
@@ -150,6 +151,33 @@ spreadsheet. **`COMPETITION.md` row 26, which I wrote earlier this run, overstat
 Arrows walk the samples in the VISIBLE window, so a zoom changes what they traverse. It drives
 uPlot's own cursor, so the live legend is the same element for mouse, finger and key. Only
 deliberate presses write to the `aria-live` region — a pointer would queue one per pixel.
+
+### 8. The exported track says which instrument drew it (`326244b`)
+
+Filed in `BACKLOG.md` as "the KML draws the GPS track at BAROMETRIC height", **unreproduced** —
+and reproducing it changed the fix. The height is not wrong: `relativeToGround` means height above
+the ground, which is what a barometric AGL series measures. A receiver's altitude is above the
+ELLIPSOID, a different quantity — the **nine** corpus flights carrying both disagree by
+**197–1,771 m on average**, up to 2,949 m. Swapping to `altitudeGps` would have been a regression
+dressed as a fix.
+
+The real defect was the provenance: geometry drawn by two instruments, with the file silent. The
+KML now says so, and says it differently where a receiver altitude exists and was not drawn. The
+GPX stays without `<ele>` for a **stated** reason — GPX elevation means above the ellipsoid — and
+carries a `<desc>` so two exports of one flight no longer disagree in silence.
+
+### 9. A wrong number on the report, and it was a case mismatch (`7110307`)
+
+Walk B's **GROUND TEMP 138 °F** on a PerfectFlite StratoLogger. The file says `58.7F` in every
+cell; 58.7 read as Celsius is 137.66 °F. `unitFromCells` had been reading that `F` **correctly all
+along** and resolving it to canonical `'f'`; `ColumnMapper.rowFor` then asked whether
+`['C','F','K']` includes `'f'`, got false, and fell through to `options[0]`.
+
+Temperature is the only role whose options are not already in canonical spelling, which is why
+nothing else ever showed it — and why the fix is a shared `prefillUnit` rather than a re-spelling
+of that one list. It also closes the compounding half (a saved template replays through the same
+path), and fixing it turned up `setRole`, which threw the file's own unit away whenever a flyer
+corrected a role by hand.
 
 ## Traps this run hit — read these before repeating them
 
