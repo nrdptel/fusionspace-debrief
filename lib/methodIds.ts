@@ -42,6 +42,7 @@ export const METHOD_IDS = [
   'recovery-ground-track',
   'roll-spin',
   'roll-angle',
+  'long-axis',
   'battery',
   'mach-dynamic-pressure',
   'device-summary',

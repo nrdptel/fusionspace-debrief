@@ -255,6 +255,21 @@ export function readHighRateOnto(flight: RawFlight, stream: HighRateStream, lowR
       `than the stream itself. The attitude components are one whole sample per instant instead, ` +
       `because four components picked separately would not be a rotation the board ever solved.`,
   ];
+  // Which way is up the rocket, and how that was reached — a flyer looking at six traces called
+  // X, Y and Z otherwise has no way to tell which one is the roll rate. Stated with the evidence
+  // rather than asserted, and absent entirely on a record that could not establish it.
+  const long = stream.longAxis;
+  if (long) {
+    notes.push(
+      `The airframe's long axis is this board's ${long.letter} — measured, not assumed: over the ` +
+        `${long.restSeconds.toFixed(1)} s this record sat still before it moved, the accelerometer ` +
+        `felt ${long.restG.toFixed(2)} g of gravity lying ${long.offDeg.toFixed(1)}° off that axis, ` +
+        `which is a rocket standing on a rail. So ${long.letter} is the one along the rocket: its ` +
+        `gyro reads the roll rate and its accelerometer the axial load, and the other two read ` +
+        `across the airframe. Naming them is all this does — no reading is computed off these ` +
+        `traces, which are an envelope rather than the board's full stream.`,
+    );
+  }
   if (stream.saturated.length > 0) {
     notes.push(
       `The sensor behind ${stream.saturated.join(', ')} RAILED during this flight — it wrote its ` +

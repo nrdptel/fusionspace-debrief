@@ -15,8 +15,9 @@
 // altitude, so we point the user at the low-rate one.
 
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
-import { getChannel, type RawFlight, type Channel } from '../flight/types';
+import { getChannel, type RawFlight, type Channel, type ChannelKind } from '../flight/types';
 import { parseTable } from '../csv';
+import { G0 } from '../units';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 import { flownAtFromColumns } from '../flight/flownAt';
 
@@ -314,6 +315,120 @@ export interface HighRateStream {
   /** Labels of the channels whose sensor RAILED, so a surface can flag them. The SAFETY
    *  invariant requires a saturated sensor be flagged rather than read as a measurement. */
   saturated: string[];
+  /** Which of the board's three sensor axes is the airframe's LONG axis — or `null` where the
+   *  record cannot establish it. See `longAxisFromRest`. */
+  longAxis: LongAxis | null;
+}
+
+/** The airframe's long axis, as measured off the board's own accelerometer while the rocket
+ *  stood on the rail. `offDeg` and `restG` are carried so a surface can state how the answer
+ *  was reached rather than assert it. */
+export interface LongAxis {
+  /** 0, 1 or 2 — the index into the board's X/Y/Z sensor axes. */
+  index: number;
+  /** `X`, `Y` or `Z`. */
+  letter: string;
+  /** Angle between the long axis and the direction gravity was pulling, degrees. Zero is a
+   *  rocket standing exactly upright with the board square to the airframe. */
+  offDeg: number;
+  /** Magnitude of the specific force over the at-rest window, in g. Near 1 by definition —
+   *  carried because a value that is NOT near 1 is how this determination refuses. */
+  restG: number;
+  /** Seconds of at-rest recording the answer was averaged over. */
+  restSeconds: number;
+}
+
+/** Fraction of the at-rest vector the winning axis must carry: 0.966 is 15° off. Every corpus
+ *  record sits at 0.12°–1.72°, so this is a wide refusal rather than a tuned threshold. */
+const LONG_AXIS_MAX_OFF_DEG = 15;
+/** Specific force at rest, in g, and how far from 1 it may sit before the window is not a
+ *  rocket standing still. Measured 0.9935–0.9947 across the corpus. */
+const REST_G_TOLERANCE = 0.1;
+/** Total specific force that means it is no longer standing on the rail. A rocket's motor puts
+ *  it far past this; nothing at rest approaches it. */
+const MOVED_G = 2;
+/** Shortest at-rest window the average may be taken over. The corpus offers 1.34–1.90 s. */
+const MIN_REST_SECONDS = 0.2;
+
+/**
+ * Which way is up the rocket, measured rather than assumed.
+ *
+ * The vendor's manual says the board works out which of its axes is the rocket axis "by
+ * measuring the direction of the initial motion while the rocket is on the rail". The direction
+ * of INITIAL MOTION is not the thing to measure here, and that was established rather than
+ * guessed: reduced to "which axis carries the largest excursion", it separates the winner from
+ * the runner-up by only 1.1×–2.4× across the four corpus records and picks the WRONG axis on two
+ * of them, because at 500 Hz the lateral axes see shock and vibration that rival the boost.
+ *
+ * GRAVITY does the job instead, and it does it on a record that has not moved yet. A rocket on a
+ * rail stands within a degree or two of vertical, so the accelerometer's 1 g of specific force
+ * lies along the airframe. Measured over all four corpus high-rate files, the long axis sits
+ * **0.26°–1.72°** off the at-rest vector and outweighs the runner-up by **33.2×–216.4×** — well
+ * inside the 15° this refuses at.
+ *
+ * The window is the LAST stretch at rest before the first excursion past 2 g, not the first and
+ * not the longest: a rocket is often horizontal while it is being prepared, for longer than it
+ * then stands on the rail, and gravity lying across the airframe would name a lateral axis as
+ * the long one. `jan10` shows why the rule matters even without that — something disturbs it
+ * early, and the run nearest its launch is 0.29 s where the first is 1.34 s. The near one is
+ * both the right window and the cleaner reading (0.9987 g against 0.9947).
+ *
+ * Returns `null` — the number withheld, per the measurement invariant — where the record never
+ * moved, holds no at-rest window before it did, was not sitting in 1 g, or has no axis clearly
+ * along the airframe.
+ */
+export function longAxisFromRest(
+  triad: [Float64Array, Float64Array, Float64Array],
+  time: Float64Array,
+): LongAxis | null {
+  const n = Math.min(time.length, ...triad.map((v) => v.length));
+  const totalG = (i: number) => Math.hypot(triad[0][i], triad[1][i], triad[2][i]) / G0;
+
+  let moved = -1;
+  for (let i = 0; i < n; i++) {
+    const t = totalG(i);
+    if (Number.isFinite(t) && t > MOVED_G) {
+      moved = i;
+      break;
+    }
+  }
+  if (moved < 0) return null;
+
+  // The LAST at-rest run before it moved that is long enough to average over — the wait on the
+  // rail. Last rather than longest, and that is the whole safety of this: a rocket is usually
+  // horizontal while it is prepared, often for far longer than it then stands on the rail, and
+  // gravity lying across the airframe would name a LATERAL axis as the long one. Taking the
+  // longest window would prefer exactly that stretch. The length floor is what stops a brief
+  // steady blip just before ignition being read instead.
+  let bestFrom = -1;
+  let bestTo = -1;
+  let runFrom = -1;
+  for (let i = 0; i <= moved; i++) {
+    const atRest = i < moved && Math.abs(totalG(i) - 1) <= REST_G_TOLERANCE;
+    if (atRest && runFrom < 0) runFrom = i;
+    if (!atRest && runFrom >= 0) {
+      if (time[i - 1] - time[runFrom] >= MIN_REST_SECONDS) [bestFrom, bestTo] = [runFrom, i];
+      runFrom = -1;
+    }
+  }
+  if (bestFrom < 0) return null;
+  const restSeconds = time[bestTo - 1] - time[bestFrom];
+
+  const len = bestTo - bestFrom;
+  const mean = triad.map((v) => {
+    let sum = 0;
+    for (let i = bestFrom; i < bestTo; i++) sum += v[i];
+    return sum / len / G0;
+  });
+  const restG = Math.hypot(mean[0], mean[1], mean[2]);
+  if (!(Math.abs(restG - 1) <= REST_G_TOLERANCE)) return null;
+
+  const abs = mean.map(Math.abs);
+  const index = abs.indexOf(Math.max(...abs));
+  const offDeg = (Math.acos(Math.min(1, abs[index] / restG)) * 180) / Math.PI;
+  if (!(offDeg <= LONG_AXIS_MAX_OFF_DEG)) return null;
+
+  return { index, letter: 'XYZ'[index], offDeg, restG, restSeconds };
 }
 
 /** Blue Raven high-rate columns, in the order a flyer wants them, with the unit each one is
@@ -340,18 +455,41 @@ export interface HighRateStream {
  *  `jan10` and 1.0089 on `lemiv`: a 4-tuple assembled from four different instants, which is not a
  *  rotation and not an attitude the board ever solved, presented as "the board's own attitude
  *  solution". They take one coherent sample per window instead. */
-const HR_COLUMNS: { column: string; label: string; unit: string; scale: number; reduce: 'extremum' | 'sample' }[] = [
-  { column: 'gyro_x', label: 'Gyro X', unit: 'deg/s', scale: 1, reduce: 'extremum' },
-  { column: 'gyro_y', label: 'Gyro Y', unit: 'deg/s', scale: 1, reduce: 'extremum' },
-  { column: 'gyro_z', label: 'Gyro Z', unit: 'deg/s', scale: 1, reduce: 'extremum' },
-  { column: 'accel_x', label: 'Accel X', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
-  { column: 'accel_y', label: 'Accel Y', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
-  { column: 'accel_z', label: 'Accel Z', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
-  { column: 'quat_1', label: 'Quat 1', unit: '', scale: 1, reduce: 'sample' },
-  { column: 'quat_2', label: 'Quat 2', unit: '', scale: 1, reduce: 'sample' },
-  { column: 'quat_3', label: 'Quat 3', unit: '', scale: 1, reduce: 'sample' },
-  { column: 'quat_4', label: 'Quat 4', unit: '', scale: 1, reduce: 'sample' },
+const HR_COLUMNS: {
+  column: string;
+  label: string;
+  unit: string;
+  scale: number;
+  reduce: 'extremum' | 'sample';
+  kind: ChannelKind;
+  /** Which sensor axis this column reads, for the ones that have one — so a measured long axis
+   *  can say which of the three is along the airframe. `undefined` on the quaternion, whose
+   *  components are not per-axis. */
+  axis?: number;
+}[] = [
+  { column: 'gyro_x', label: 'Gyro X', unit: 'deg/s', scale: 1, reduce: 'extremum', kind: 'angularRate', axis: 0 },
+  { column: 'gyro_y', label: 'Gyro Y', unit: 'deg/s', scale: 1, reduce: 'extremum', kind: 'angularRate', axis: 1 },
+  { column: 'gyro_z', label: 'Gyro Z', unit: 'deg/s', scale: 1, reduce: 'extremum', kind: 'angularRate', axis: 2 },
+  { column: 'accel_x', label: 'Accel X', unit: 'm/s2', scale: G0, reduce: 'extremum', kind: 'accelAxis', axis: 0 },
+  { column: 'accel_y', label: 'Accel Y', unit: 'm/s2', scale: G0, reduce: 'extremum', kind: 'accelAxis', axis: 1 },
+  { column: 'accel_z', label: 'Accel Z', unit: 'm/s2', scale: G0, reduce: 'extremum', kind: 'accelAxis', axis: 2 },
+  { column: 'quat_1', label: 'Quat 1', unit: '', scale: 1, reduce: 'sample', kind: 'attitudeQuaternion' },
+  { column: 'quat_2', label: 'Quat 2', unit: '', scale: 1, reduce: 'sample', kind: 'attitudeQuaternion' },
+  { column: 'quat_3', label: 'Quat 3', unit: '', scale: 1, reduce: 'sample', kind: 'attitudeQuaternion' },
+  { column: 'quat_4', label: 'Quat 4', unit: '', scale: 1, reduce: 'sample', kind: 'attitudeQuaternion' },
 ];
+
+/** What a channel is called once the airframe's long axis is known. A gyro about the long axis
+ *  IS the roll rate and an accelerometer along it IS the axial one — that is what those words
+ *  mean — so the label says so. The `kind` deliberately does not follow (see `ChannelKind`):
+ *  naming a trace is not the same as letting the analysis read a number off it. */
+function airframeLabel(base: string, kind: ChannelKind, axis: number | undefined, long: LongAxis | null): string {
+  if (long == null || axis == null) return base;
+  const along = axis === long.index;
+  if (kind === 'angularRate') return `${base} — ${along ? 'roll rate' : 'lateral rate'}`;
+  if (kind === 'accelAxis') return `${base} — ${along ? 'along the airframe' : 'across the airframe'}`;
+  return base;
+}
 
 /**
  * Has this channel's sensor railed?
@@ -449,6 +587,8 @@ export function highRateStream(text: string): HighRateStream | null {
   if (time.length < 2) return null;
 
   const channels: Channel[] = [];
+  /** Parallel to `channels`: which sensor axis each reads, where it reads one. */
+  const axisOf: (number | undefined)[] = [];
   const saturated: string[] = [];
   /** Per channel, whether it must be reduced as one coherent sample rather than by extremum. */
   const coherent: boolean[] = [];
@@ -461,19 +601,34 @@ export function highRateStream(text: string): HighRateStream | null {
       if (Number.isFinite(v)) any = true;
     }
     if (!any) continue;
-    channels.push({ kind: 'other', label: c.label, unit: c.unit, values });
+    channels.push({ kind: c.kind, label: c.label, unit: c.unit, values });
+    axisOf.push(c.axis);
     coherent.push(c.reduce === 'sample');
     if (c.reduce === 'extremum' && railed(values)) saturated.push(c.label);
   }
   if (channels.length === 0) return null;
 
+  const clock = Float64Array.from(time);
+  // Only ever the full triad: two axes cannot say which of three is the long one, and a partial
+  // read would name whichever of the two happened to be nearer vertical.
+  const accel = [0, 1, 2].map((a) => channels.find((c, i) => c.kind === 'accelAxis' && axisOf[i] === a));
+  const longAxis = accel.every(Boolean)
+    ? longAxisFromRest(accel.map((c) => c!.values) as [Float64Array, Float64Array, Float64Array], clock)
+    : null;
+  // The label is the only thing the measured axis changes. `saturated` keeps the bare column
+  // names it was collected under, so the rail warning names the same channel either way.
+  for (let i = 0; i < channels.length; i++) {
+    channels[i] = { ...channels[i], label: airframeLabel(channels[i].label, channels[i].kind, axisOf[i], longAxis) };
+  }
+
   const span = time[time.length - 1] - time[0];
   return {
-    time: Float64Array.from(time),
+    time: clock,
     channels,
     coherent,
     rateHz: span > 0 ? Math.round((time.length - 1) / span) : 0,
     saturated,
+    longAxis,
   };
 }
 

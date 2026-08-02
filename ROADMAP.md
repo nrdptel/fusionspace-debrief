@@ -1269,13 +1269,53 @@ column a flyer has to recognise by its numbers.
    mapping the future angle, and making the caveat unconditional — and each failed the assertion
    that names it.
 
-   **What remains on this slice**, unchanged: `ChannelKind` members, units and provenance for the
-   high-rate `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind:
-   'other'`. A verified fact from this run's competitive probe reopens the question slice 1
-   closed: the Blue Raven manual states the board *"measures which direction, relative to its
-   sensors, is the rocket axis by measuring the direction of the initial motion while the rocket
-   is on the rail"* — so for this board the mounting is knowable, where slice 1 assumed it was
-   not. See `COMPETITION.md`.
+   **The reopened question is answered, and the answer is that the mounting IS knowable — but
+   not by the method the manual describes. SHIPPED 2026-08-02.** The `Gyro_*` / `Accel_*` /
+   `Quat_*` channels now carry `angularRate`, `accelAxis` and `attitudeQuaternion` kinds instead
+   of `other`, and — where the record can establish it — a label saying what each axis IS to the
+   airframe: *roll rate*, *lateral rate*, *along the airframe*, *across the airframe*. A flyer
+   looking at six traces called X, Y and Z can now tell which one is the roll.
+
+   **The vendor's stated method was measured before it was adopted, and rejected.** The manual
+   says the board finds the rocket axis "by measuring the direction of the initial motion while
+   the rocket is on the rail". Reduced to *which axis carries the largest excursion*, that
+   separates the winner from the runner-up by only **1.1×–2.4×** across the four corpus
+   high-rate files and picks the **WRONG** axis on two of them: at 500 Hz the lateral axes see
+   shock and vibration that rival the boost. The board has its own solution and more to go on
+   than its log; Debrief has the log.
+
+   **GRAVITY answers it instead, on the stretch before the record moved.** A rocket on a rail
+   stands within a degree or two of vertical, so the 1 g the accelerometer feels while it waits
+   lies along the airframe. Measured over all four files the long axis sits **0.26°–1.72°** off
+   the at-rest vector and outweighs the runner-up by **33.2×–216.4×**. Two of the four rest on
+   `X` and two on `Z`, which is the same board mounted differently in different rockets — the
+   fact slice 1 correctly refused to guess at.
+
+   **The window is the LAST still stretch before it moved, not the first and not the longest**,
+   and that rule was chosen on a failure rather than on the corpus: a rocket is often horizontal
+   while it is prepared, for longer than it then stands on the rail, and gravity across the
+   airframe would name a lateral axis as the long one. A synthetic record that lies down for 8 s
+   and stands for 1 s pins it. `jan10` shows the rule earns its keep on real data too — something
+   disturbs it early, so the run nearest its launch is 0.29 s where the first is 1.34 s, and the
+   near one is both the right window and the cleaner reading (0.9987 g against 0.9947).
+
+   **Withheld** where the record never left the ground, where no still window of at least 0.2 s
+   precedes it, where the board was turning or rocking through that window rather than resting,
+   or where no axis lies within 15° of the gravity it felt. Each of those four guards was
+   falsified by mutation; the rocking case exists **because** falsification found the at-rest
+   magnitude check unreachable by the tests as first written.
+
+   **The kinds deliberately do NOT become `rollRate` / `accelAxial`.** Those are what the
+   analysis reads to produce readings, and a high-rate stream reaches Debrief reduced to an
+   envelope — so a metric computed off one would be a number taken from a trace built for
+   looking at. Slice 1's boundary stands; naming a trace is not reading a number off it.
+
+   Pinned by `lib/parsers/blueraven.test.ts` → *"every high-rate export names its long axis, and
+   says how it knows"*, *"the margin over the runner-up is wide on every record"*, *"the traces
+   say which is roll and which is across the airframe"*, *"naming the axis does not let the
+   analysis read a number off it"*, and six refusal cases including *"takes the wait on the RAIL,
+   not the longer stretch lying on its side"*. Said on the methods page under **Which way is up
+   the rocket**.
 3. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
    from a logger's own solved attitude; a quaternion series can give the same quantity through the
    flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and

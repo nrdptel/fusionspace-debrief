@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { importFlight } from './index';
 import { analyzeFlight } from '../analyze';
 import { getChannel } from '../flight/types';
+import { highRateStream } from './blueraven';
 import { convert } from '../units';
 
 const ATM_PA = 101325;
@@ -496,5 +497,185 @@ describe('Blue Raven roll angle, over the real corpus', () => {
     expect(getChannel(res.flight, 'rollAngle'), 'no roll angle in a serial capture').toBeUndefined();
     expect(getChannel(res.flight, 'tilt'), 'no tilt either').toBeUndefined();
     expect(res.flight.notes.some((n) => n.includes('integrates its measured roll rate')), 'and no caveat about one').toBe(false);
+  });
+});
+
+/** The four app-CSV high-rate exports — the ones carrying `Gyro_*`, `Accel_*` and `Quat_*`. */
+const HR_FILES: [string, string, string, number][] = [
+  // file, expected long axis, the corpus measurement this pins
+  ['blueraven__reddit-meraki2-121km__BlueRaven-HighRate.csv', 'meraki', 'X', 0.81],
+  ['blueraven__trf-f1machbuster-jan10__BLRVN87-bckup HR_01-10-2026_14_55_30.csv', 'jan10', 'Z', 0.26],
+  ['blueraven__trf-f1machbuster-jan18__BlRv_159F1cm HR_01-18-2026_10_48_41.csv', 'jan18', 'Z', 0.38],
+  ['blueraven__trf-lemiv-l3__BlRv_SN1537_HR_04-12-2025_12_45_49.csv', 'lemiv', 'X', 1.72],
+];
+/** The serial `@ LOG_HIR` capture — unlabelled positional columns, deliberately unread. */
+const HR_SERIAL = 'blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-High.txt';
+
+describe('which way is up the rocket, over the real corpus', () => {
+  it.skipIf(!corpusPresent)('every high-rate export names its long axis, and says how it knows', () => {
+    for (const [file, tag, axis, offDeg] of HR_FILES) {
+      const s = highRateStream(readFileSync(CORPUS_DIR + file, 'utf8'));
+      expect(s, `${tag} yields a high-rate stream`).not.toBeNull();
+      const long = s!.longAxis;
+      expect(long, `${tag} establishes a long axis`).not.toBeNull();
+      expect(long!.letter, `${tag}'s long axis`).toBe(axis);
+      // The angle off the at-rest gravity vector, to two decimals — the evidence the answer
+      // rests on, so a change in the windowing that moved it would land here rather than pass.
+      expect(long!.offDeg, `${tag} sits ${offDeg}° off vertical`).toBeCloseTo(offDeg, 1);
+      // A rocket standing still feels exactly one gravity.
+      expect(long!.restG, `${tag} was at rest in 1 g`).toBeGreaterThan(0.99);
+      expect(long!.restG).toBeLessThan(1.01);
+      // Enough stillness to average over. Three records offer 1.7-1.9 s; `jan10` offers 0.29 s,
+      // because something disturbs it earlier and the run nearest the launch is the short one —
+      // which is the window this wants anyway, and the cleanest of the four at 0.9987 g.
+      expect(long!.restSeconds, `${tag} has a real at-rest window`).toBeGreaterThan(0.25);
+    }
+  });
+
+  it.skipIf(!corpusPresent)('the margin over the runner-up is wide on every record', () => {
+    // The claim the 15° refusal rests on: the long axis is not merely the largest of three, it
+    // dominates. Measured 33.2×–216.4×; asserted at 20× so a real change is visible but the
+    // assertion is not a restatement of today's arithmetic.
+    for (const [file, tag] of HR_FILES) {
+      const s = highRateStream(readFileSync(CORPUS_DIR + file, 'utf8'))!;
+      const long = s.longAxis!;
+      const rest = s.channels.filter((c) => c.kind === 'accelAxis');
+      expect(rest, `${tag} carries a full accelerometer triad`).toHaveLength(3);
+      // Ratio of the winning axis's at-rest component to the next largest, taken off the
+      // reported angle: tan(90° − off) is exactly that ratio for a unit vector.
+      const ratio = 1 / Math.tan((long.offDeg * Math.PI) / 180);
+      expect(ratio, `${tag} outweighs its runner-up`).toBeGreaterThan(20);
+    }
+  });
+
+  it.skipIf(!corpusPresent)('the traces say which is roll and which is across the airframe', () => {
+    for (const [file, tag, axis] of HR_FILES) {
+      const s = highRateStream(readFileSync(CORPUS_DIR + file, 'utf8'))!;
+      const labels = s.channels.map((c) => c.label);
+      expect(labels, `${tag} names its roll rate`).toContain(`Gyro ${axis} — roll rate`);
+      expect(labels, `${tag} names its axial load`).toContain(`Accel ${axis} — along the airframe`);
+      // Exactly one of each: three gyros, one roll and two lateral.
+      expect(labels.filter((l) => l.endsWith('roll rate')), `${tag} has ONE roll rate`).toHaveLength(1);
+      expect(labels.filter((l) => l.endsWith('lateral rate')), `${tag} has two lateral rates`).toHaveLength(2);
+      expect(labels.filter((l) => l.endsWith('along the airframe')), `${tag} has ONE axial trace`).toHaveLength(1);
+      expect(labels.filter((l) => l.endsWith('across the airframe')), `${tag} has two lateral traces`).toHaveLength(2);
+      // The quaternion has no axis to name and must not acquire one.
+      for (const l of labels.filter((x) => x.startsWith('Quat'))) expect(l).toMatch(/^Quat \d$/);
+    }
+  });
+
+  it.skipIf(!corpusPresent)('naming the axis does not let the analysis read a number off it', () => {
+    // The boundary slice 1 drew and this slice must not cross: these traces reach Debrief
+    // reduced to an envelope, so none of them may claim a kind the analysis reads.
+    for (const [file, tag] of HR_FILES) {
+      const s = highRateStream(readFileSync(CORPUS_DIR + file, 'utf8'))!;
+      for (const c of s.channels) {
+        expect(['accelAxis', 'angularRate', 'attitudeQuaternion'], `${tag}: ${c.label}`).toContain(c.kind);
+      }
+    }
+  });
+
+  it.skipIf(!corpusPresent)('a capture whose columns Debrief will not guess at claims no axis', () => {
+    // The serial @ LOG_HIR shape: positional tokens, refused whole. Its refusal is the answer,
+    // and an axis determination must not sneak a reading out of it.
+    expect(highRateStream(readFileSync(CORPUS_DIR + HR_SERIAL, 'utf8'))).toBeNull();
+  });
+});
+
+/** A synthetic high-rate export. `phases` are [seconds, [gx, gy, gz] in g] — the specific force
+ *  the accelerometer feels, which is what the board actually writes. 500 Hz, like the real ones. */
+function hrCsv(phases: [number, [number, number, number]][]): string {
+  const rows = ['Flight_Time_(s),Gyro_X,Gyro_Y,Gyro_Z,Accel_X,Accel_Y,Accel_Z,Quat_1,Quat_2,Quat_3,Quat_4'];
+  let t = -2;
+  for (const [secs, g] of phases) {
+    for (let i = 0; i < Math.round(secs * 500); i++) {
+      rows.push(`${t.toFixed(4)},0,0,0,${g[0]},${g[1]},${g[2]},1,0,0,0`);
+      t += 1 / 500;
+    }
+  }
+  return rows.join('\n');
+}
+const UPRIGHT_Z: [number, number, number] = [0, 0, -1];
+const HORIZONTAL_X: [number, number, number] = [-1, 0, 0];
+const BOOST_Z: [number, number, number] = [0, 0, -20];
+/** Being lifted from horizontal onto the rail — a total well outside the 1 g band. */
+const RAISING: [number, number, number] = [-0.7, 0, -0.9];
+
+describe('which way is up the rocket — the refusals, and the trap', () => {
+  it('takes the wait on the RAIL, not the longer stretch lying on its side', () => {
+    // The failure this rule exists to prevent, and the one a "longest window" rule walks into:
+    // eight seconds horizontal being prepared, then one second upright on the rail, then the
+    // motor. Gravity is along X for most of the record and along Z only at the end — and Z is
+    // the answer, because that is where it was pointing when it left.
+    // The swing up onto the rail is a real movement, so the record leaves 1 g while it happens
+    // — which is what separates the two windows.
+    const s = highRateStream(hrCsv([[8, HORIZONTAL_X], [0.4, RAISING], [1, UPRIGHT_Z], [1, BOOST_Z]]))!;
+    expect(s.longAxis, 'an axis is established').not.toBeNull();
+    expect(s.longAxis!.letter, 'the axis it was standing on, not the one it lay on').toBe('Z');
+    expect(s.longAxis!.restSeconds, 'averaged over the rail wait alone').toBeLessThan(2);
+  });
+
+  it('says nothing about a record that never left the ground', () => {
+    // No excursion past 2 g: nothing here establishes which way the rocket was pointing when it
+    // mattered, so the number is withheld rather than guessed from a bench recording.
+    expect(highRateStream(hrCsv([[10, UPRIGHT_Z]]))!.longAxis).toBeNull();
+  });
+
+  it('says nothing when there was no time at rest before it moved', () => {
+    // A record that opens mid-boost. There is no rail wait to read gravity off.
+    expect(highRateStream(hrCsv([[0.1, UPRIGHT_Z], [2, BOOST_Z]]))!.longAxis).toBeNull();
+  });
+
+  it('says nothing when the board is not square to the airframe', () => {
+    // Mounted at 45°, so gravity splits evenly between two axes and neither is the long one.
+    const d = -Math.SQRT1_2;
+    const s = highRateStream(hrCsv([[3, [0, d, d]], [1, BOOST_Z]]))!;
+    expect(s.longAxis, '45° is past the 15° this refuses at').toBeNull();
+  });
+
+  /** Gravity swinging through an arc while its magnitude stays a full 1 g — a board being
+   *  turned, or a rocket rocking on the rail. `centred` sweeps symmetrically about −Z. */
+  function swing(halfAngleDeg: number, centred: boolean): [number, [number, number, number]][] {
+    const out: [number, [number, number, number]][] = [];
+    const STEPS = 600; // 1.2 s at 500 Hz
+    for (let i = 0; i < STEPS; i++) {
+      const f = i / (STEPS - 1);
+      const deg = centred ? -halfAngleDeg + 2 * halfAngleDeg * f : halfAngleDeg * f;
+      const a = (deg * Math.PI) / 180;
+      out.push([1 / 500, [-Math.sin(a), 0, -Math.cos(a)]]);
+    }
+    return out;
+  }
+
+  it('says nothing when it swung through an arc while it was still', () => {
+    // Every sample reads a full 1 g, so the run-detection never breaks this window — but the
+    // direction sweeps 120°, and the average of it points 30° off the axis it ends up nearest.
+    // Caught by the off-axis refusal.
+    expect(highRateStream(hrCsv([...swing(120, false), [1, BOOST_Z]]))!.longAxis).toBeNull();
+  });
+
+  it('says nothing when it rocked evenly about an axis', () => {
+    // The case the at-rest MAGNITUDE check exists for, and the only one that reaches it —
+    // established by removing that check and finding the tests above still passed. Rocking ±60°
+    // symmetrically about Z averages to a vector pointing exactly along Z, so the off-axis
+    // refusal sees nothing wrong; what gives it away is that the average is only 0.83 g long
+    // where a board standing still reads a full one. Z may well BE the long axis here, and the
+    // answer is still withheld: this record did not show a rocket standing on a rail, and the
+    // measurement is only as good as that.
+    expect(highRateStream(hrCsv([...swing(60, true), [1, BOOST_Z]]))!.longAxis).toBeNull();
+  });
+
+  it('says nothing when the record is not in one gravity at all', () => {
+    // Caught a step earlier, by the run detection rather than by the average — half a g is never
+    // a sample at rest, so no window ever opens. Asserted separately because the two guards fail
+    // for different reasons and a change that merged them would lose one.
+    expect(highRateStream(hrCsv([[3, [0, 0, -0.5]], [1, BOOST_Z]]))!.longAxis).toBeNull();
+  });
+
+  it('leaves the traces bare when no axis was established', () => {
+    // The other half of the done-when: a board that did not establish it says nothing rather
+    // than labelling a guess.
+    const s = highRateStream(hrCsv([[10, UPRIGHT_Z]]))!;
+    for (const c of s.channels) expect(c.label).toMatch(/^(Gyro|Accel) [XYZ]$|^Quat \d$/);
   });
 });

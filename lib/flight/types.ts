@@ -33,6 +33,19 @@ export type ChannelKind =
   //   receiver had no fix: a GPS holds its last position rather than saying nothing.
   | 'satellites' // satellites in the fix — 0 means the position and GPS altitude beside
   //   it are held-over values, not measurements
+  //
+  // The three below are SENSOR-FRAME channels: one axis of a board's own inertial package,
+  // named by the axis the board wrote rather than by what the airframe was doing. They are
+  // deliberately NOT `accelAxial` / `rollRate`, even on a record where the long axis has been
+  // measured and the axial one is known: those kinds are what the analysis reads to produce
+  // readings, and a high-rate stream reaches Debrief reduced to an envelope (`lib/highRate.ts`),
+  // so a metric computed off one would be a number taken from a trace built for looking at.
+  // D8 keeps that for the slice that validates it.
+  | 'accelAxis' // acceleration along one of the board's own sensor axes, m/s²
+  | 'angularRate' // angular rate about one of the board's own sensor axes, deg/s
+  | 'attitudeQuaternion' // one component of the board's normalised attitude quaternion,
+  //   unitless. Only meaningful alongside its three siblings, at the same instant — see
+  //   `HighRateStream.coherent`
   | 'other';
 
 export interface Channel {

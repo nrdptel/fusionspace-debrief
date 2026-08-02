@@ -128,7 +128,10 @@ describe('a Blue Raven high-rate file is the other half of one flight', () => {
         ['Accel_Y', 'Accel Y', G],
         ['Accel_Z', 'Accel Z', G],
       ] as [string, string, number][]) {
-        const channel = merged.channels.find((c) => c.label === label);
+        // Matched by prefix: once the long axis has been measured the label goes on to say
+        // what the axis IS to the airframe ("Gyro X — lateral rate"). The column it came from
+        // is the part being pinned here.
+        const channel = merged.channels.find((c) => c.label === label || c.label.startsWith(`${label} — `));
         expect(channel, `${group} ${label}`).toBeDefined();
         let kept = 0;
         for (const v of channel!.values) if (Number.isFinite(v) && Math.abs(v) > kept) kept = Math.abs(v);
@@ -152,14 +155,20 @@ describe('a Blue Raven high-rate file is the other half of one flight', () => {
     const offered = buildPlotChannels(merged, analyzeFlight(merged).series);
     for (const label of ['Gyro X', 'Gyro Y', 'Gyro Z', 'Accel X', 'Accel Y', 'Accel Z', 'Quat 1']) {
       expect(
-        offered.some((c) => c.label === label),
+        offered.some((c) => c.label === label || c.label.startsWith(`${label} — `)),
         `${group}: the explorer does not offer ${label}`,
       ).toBe(true);
     }
+    // And it reaches the flyer carrying which axis is which, not just the board's letters —
+    // three gyros of which exactly one is the roll rate.
+    expect(
+      offered.filter((c) => c.label.endsWith('— roll rate')).length,
+      `${group}: the explorer does not say which trace is the roll rate`,
+    ).toBe(1);
     // And the flight without its other half offers none of them — so the test above is measuring
     // the merge rather than something the low-rate file already carried.
     const alone = buildPlotChannels(flightOf(lrName), analyzeFlight(flightOf(lrName)).series);
-    expect(alone.some((c) => c.label === 'Gyro X')).toBe(false);
+    expect(alone.some((c) => c.label.startsWith('Gyro X'))).toBe(false);
   }, 120_000);
 
   it.skipIf(!present)('keeps the attitude a rotation the board actually solved', () => {
@@ -239,15 +248,24 @@ describe('a Blue Raven high-rate file is the other half of one flight', () => {
     expect(reopened.kind).toBe('flight');
     if (reopened.kind !== 'flight') return;
     for (const label of ['Gyro X', 'Accel Z', 'Quat 1']) {
-      expect(reopened.flight.channels.some((c) => c.label === label), `${label} lost on reopen`).toBe(true);
+      expect(
+        reopened.flight.channels.some((c) => c.label === label || c.label.startsWith(`${label} — `)),
+        `${label} lost on reopen`,
+      ).toBe(true);
     }
+    // The measured long axis is part of what has to survive a reopen: it is read off the stream,
+    // so a restore that dropped it would put the letters back without saying what they are.
+    expect(
+      reopened.flight.channels.some((c) => c.label.endsWith('— roll rate')),
+      'the reopened flight no longer says which trace is the roll rate',
+    ).toBe(true);
 
     // Without the stored half it comes back as the low-rate flight alone — so the assertion above
     // is measuring the restore rather than something the low-rate file always carried.
     const alone = importRecent({ name: lrName, text: read(lrName) });
     expect(alone.kind).toBe('flight');
     if (alone.kind !== 'flight') return;
-    expect(alone.flight.channels.some((c) => c.label === 'Gyro X')).toBe(false);
+    expect(alone.flight.channels.some((c) => c.label.startsWith('Gyro X'))).toBe(false);
 
     // A stored half that no longer parses contributes nothing rather than breaking the reopen —
     // the same posture `withSummary` takes, because losing the flight is far worse than losing
