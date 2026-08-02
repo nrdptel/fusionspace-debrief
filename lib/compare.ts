@@ -361,12 +361,27 @@ export function recoveryDisagreement(flights: CompareFlight[], agree: Agreement[
   );
   if (resolved.length === 0 || whole.length === 0) return '';
   const n = (c: number, one: string, many: string) => (c === 1 ? one : `${c} ${many}`);
+  // **"with no deployment change in it" and "whether a charge fired" were both wrong, and the
+  // corpus proves it on the very pair this sentence was written for.** A whole-descent figure means
+  // Debrief did not RESOLVE a deployment in that record; it does not mean none happened. On
+  // `iss-irec2023` the two recordings of one flight are 5 s apart in where they stop and nothing
+  // else: sampled in 5 s buckets after apogee, BOTH fall at 34–35 m/s and BOTH break to 10 m/s at
+  // t≈60 s and ≈7,72x m — a 3:1 step at the same second and the same height on two independent
+  // altimeters, which is a canopy opening. `easymega` resolves it; `telemega` does not, because its
+  // record runs on to a landing and the last two seconds sit at rest, which drags the terminal
+  // median under the `mainTerminal > 1` guard and aborts the search. So this sentence was telling a
+  // flyer that their two boards "disagree about whether a charge fired" on a flight where both
+  // traces show the same charge firing — a claim about their ROCKET drawn from a limit of ours.
+  //
+  // Cause-agnostic on purpose. There are at least two ways to end up here and the note cannot tell
+  // them apart, so it says what is true of all of them and points at the recordings.
   return (
-    `The recordings disagree about the recovery itself, not by how much: ` +
+    `The recordings differ in what Debrief could resolve about the recovery, not by how much: ` +
     `${n(resolved.length, 'one resolved a deployment', 'resolved a deployment')} and ` +
-    `${n(whole.length, 'one read a single descent', 'read a single descent')} with no deployment change in it. ` +
-    `Those are different measurements, so none of them is cross-checked above — but two instruments on one ` +
-    `airframe disagreeing about whether a charge fired is worth chasing, not worth passing over in silence.`
+    `${n(whole.length, 'one reads as a single, undivided descent', 'read as a single, undivided descent')}. ` +
+    `Those are different measurements, so none of them is cross-checked above — either no deployment is in ` +
+    `that record, or Debrief could not identify one in it. Worth opening each recording and reading its ` +
+    `descent for yourself, not worth passing over in silence.`
   );
 }
 

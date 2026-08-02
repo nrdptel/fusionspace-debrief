@@ -14,6 +14,51 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — two recordings of ONE flight disagree about whether a charge fired, and the one
+  that is wrong is the one that landed.** On `iss-irec2023`, sampled in 5 s buckets after apogee,
+  **both** `irec_2023_easymega` and `irec_2023_telemega` fall at **34–35 m/s** and **both break to
+  10 m/s at t≈60 s and ≈7,72x m** — a 3:1 step at the same second and the same height on two
+  independent altimeters, which is a canopy opening. `easymega` resolves it and reports a main leg
+  of 13.11 m/s; **`telemega` resolves nothing and reports a whole-descent 11.30 m/s**, even though
+  it is the recording that rides that canopy all the way to the ground (13.5 → 6.5 m/s as the air
+  thickens, flat at 170 m from t=796 s). **Cause:** `telemega`'s last ~2 s sit at rest, so the
+  terminal median falls under `lib/analyze/index.ts`'s `mainTerminal > 1` guard and the walk-back
+  aborts. **Reproduce:** analyse both files and print `mainDescentRate` / `wholeDescentRate` and the
+  post-apogee rate profile. **Why it matters:** the comparison's cross-check note then tells the
+  flyer their two boards disagree about a deployment when both traces show the same one — the note's
+  wording is fixed, the detector is not. The honest fix is to stop the at-rest tail defeating the
+  terminal median (take the median over the moving part of the descent), which is an analysis change
+  and wants its own corpus sweep and gate.
+
+  **It happens twice, which makes it a pattern rather than one odd file.** `intrepid3tf2` is the
+  same shape: `AL1 March launch data.pf2` resolves a main at 235.3 s / 584 m and its record ends
+  2.1 s later at 572 m, while its sibling `AL0` — same flight — descends ~16 m/s to 238 s and then
+  **4–8 m/s from ~564 m down to 272 m**, confirming that main independently, and resolves nothing
+  itself because its last 10 s sit flat at 271 m. **In both pairs the recording that is WRONG is the
+  one that reached the ground.** So the guard meant to stop a noise-floor terminal is being tripped
+  by a real one: the rocket is on the ground, the median over the tail is ~0, and the search aborts.
+- **2026-08-02 — a canopy opening at 93% of apogee is labelled "Main deploy".** Same flight: the
+  only deployment `easymega` records fires at **7,717 m AGL — 25,318 ft**, and Debrief calls it
+  *Main deploy* and its leg *Main descent*. It is a real event and 13.11 m/s is a faithful reading
+  of it (the sibling reads ~12.2 m/s over the same window), but "main" means something specific to a
+  flyer — the second, slower canopy — and a single-deploy recovery from 27,000 ft is not it. The
+  label, not the number, is what is wrong. **This entry exists because a fix for the NUMBER was
+  written, gated and very nearly pushed before an adversarial re-check refuted the premise** — see
+  `HANDOFF.md`. Any future attempt starts by reading the 5 s rate profile of BOTH recordings.
+- **2026-08-02 — the chart draws a peak 295 ft ABOVE the Apogee tile beside it, on the same screen.**
+  `lib/analyze/index.ts:1275` cleans the altitude with a Hampel filter over a **0.3 s** window
+  (`windowFor(dt, 0.3)`), which by construction cannot remove an ejection transient wider than the
+  window — and `lib/analyze/types.ts` documents `series.altitude` as *"spike-cleaned — what the
+  report shows"*. **Measured over all 38 corpus records that analyse: 3 draw above their own
+  reported apogee, and only one materially** — `blueraven trf-lemiv-l3 LR` peaks at **3,675.98 m
+  (12,060.9 ft) at t=30.16 s against a reported apogee of 3,586.12 m (11,765.3 ft) at t=26.22 s**,
+  a gap of **89.9 m / 2.51%**. The other two are 6.2 m (0.07%) and 1.2 m (0.06%) — rounding, not
+  visible. **The apogee metric is right**: it matches the Blue Raven's own summary of 11,765.53 ft
+  to four significant figures. What is wrong is that `components/FlightReport.tsx`, `lib/explore.ts`
+  and `lib/compare.ts` all consume `series.altitude`, so the trace, the channel explorer and the
+  multi-recording resample top out above the tile. **Reproduce:** open that corpus file and read the
+  chart's y-extent against the Apogee tile. Not fixed here: widening the filter window is a
+  calculation change that touches every flight, and it needs its own corpus sweep and its own gate.
 - **2026-08-02 — the logbook stars a "best" the comparison refuses to crown and the report caveats:
   three surfaces, one flight, two different claims.** `lib/logbook.ts:93`'s `personalBests` takes a
   raw `uniqueMaxId(flights, r => r.apogeeM)` off `RecentMeta` — and `lib/recents.ts:10-45` carries
