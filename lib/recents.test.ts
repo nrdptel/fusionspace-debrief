@@ -238,6 +238,7 @@ describe('a backup carries every member of a flight, not the ones anyone remembe
     text: '{\n\t"log_format": 22\n}\n46 53 96 f6\n',
     bytes: new Uint8Array([0x46, 0x53, 0x96, 0xf6, 0x01, 0x00, 0xdf, 0xff]),
     summaryText: 'Rocket,Kairos\nApogee,9756 ft\n',
+    highRateText: 'Flight_Time_(s),Gyro_X,Accel_X,Quat_1\n-0.10,1.2,0.01,1.00000\n-0.098,1.4,0.02,1.00000\n',
     caption: { label: 'Kairos booster, March', notes: 'Sustainer did not light.' },
     read: { fromS: 12.5, toS: 320.25 },
     mapping: [{ index: 0, role: 'time', unit: 's' }],

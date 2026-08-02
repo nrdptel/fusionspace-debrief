@@ -257,6 +257,191 @@ function truncateInertial(flight: RawFlight): string | null {
   );
 }
 
+/** The gyro / accelerometer / attitude stream a Blue Raven writes beside its flight log.
+ *
+ *  Not a flight and never presented as one: it carries no altitude, so `parse()` still refuses
+ *  it exactly as before. This is the same file read as what it actually is — a second stream of
+ *  ONE recording, on the same clock as the low-rate half. */
+export interface HighRateStream {
+  /** The stream's own clock, seconds, on the `Flight_Time_(s)` origin its low-rate sibling
+   *  shares. Measured over all four corpus pairs: the two files' first samples sit 0.062–0.108 s
+   *  apart, which is the sample phase at a common −2 s pre-launch buffer and not an offset to
+   *  estimate. See `lib/highRate.ts` for why that makes this different from stitching. */
+  time: Float64Array;
+  channels: Channel[];
+  /** Parallel to `channels`: true where the channel is part of an attitude solution and must be
+   *  reduced as one coherent sample, false where it is a rate whose peak is worth preserving.
+   *  See `HR_COLUMNS`; the distinction is load-bearing, not a formatting choice. */
+  coherent: boolean[];
+  /** Samples per second, rounded — 500 Hz on every corpus file, against 50 Hz for the low-rate
+   *  half. Carried so a surface can say what rate a trace was recorded at. */
+  rateHz: number;
+  /** Labels of the channels whose sensor RAILED, so a surface can flag them. The SAFETY
+   *  invariant requires a saturated sensor be flagged rather than read as a measurement. */
+  saturated: string[];
+}
+
+/** Blue Raven high-rate columns, in the order a flyer wants them, with the unit each one is
+ *  actually in.
+ *
+ *  **The units are read off the data, not off the header** — the high-rate columns are bare
+ *  (`Gyro_X`, `Accel_X`, `Quat_1`) where the low-rate ones state theirs (`Baro_Altitude_AGL_(feet)`).
+ *  Measured over all four corpus high-rate files: the accelerometer's magnitude sitting on the pad
+ *  is 0.9935–0.9947, so it reads g and is converted to m/s² like every other channel here; the
+ *  quaternion's norm is 0.99998–1.00000, so it is a normalised attitude and unitless. The gyro is
+ *  degrees per second rather than radians: its rail sits at 2,291–2,294, which is 6.4 rev/s and an
+ *  ordinary coning rate, where radians would be 365 rev/s.
+ *
+ *  **No axis is claimed to be the long one.** At rest `lemiv` reads `Accel_X −0.99` while `jan10`
+ *  reads `Accel_Z −1.00` — the board is mounted differently in different rockets — so none of these
+ *  is mapped to `accelAxial` or `rollRate`, both of which are defined by the rocket's long axis.
+ *  Guessing it from one file is how a lateral reading gets published as an axial one.
+ *
+ *  **`reduce` is the difference between a rate and an attitude, and getting it wrong publishes a
+ *  number the board never produced.** A gyro or accelerometer trace has a PEAK worth keeping, so
+ *  it is reduced by extremum (`lib/highRate.ts`). A quaternion has none — its norm is 1 by
+ *  construction — and its four components only mean anything TOGETHER, as one rotation at one
+ *  instant. Reducing them independently was measured to give a merged norm averaging 1.0132 on
+ *  `jan10` and 1.0089 on `lemiv`: a 4-tuple assembled from four different instants, which is not a
+ *  rotation and not an attitude the board ever solved, presented as "the board's own attitude
+ *  solution". They take one coherent sample per window instead. */
+const HR_COLUMNS: { column: string; label: string; unit: string; scale: number; reduce: 'extremum' | 'sample' }[] = [
+  { column: 'gyro_x', label: 'Gyro X', unit: 'deg/s', scale: 1, reduce: 'extremum' },
+  { column: 'gyro_y', label: 'Gyro Y', unit: 'deg/s', scale: 1, reduce: 'extremum' },
+  { column: 'gyro_z', label: 'Gyro Z', unit: 'deg/s', scale: 1, reduce: 'extremum' },
+  { column: 'accel_x', label: 'Accel X', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
+  { column: 'accel_y', label: 'Accel Y', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
+  { column: 'accel_z', label: 'Accel Z', unit: 'm/s2', scale: 9.80665, reduce: 'extremum' },
+  { column: 'quat_1', label: 'Quat 1', unit: '', scale: 1, reduce: 'sample' },
+  { column: 'quat_2', label: 'Quat 2', unit: '', scale: 1, reduce: 'sample' },
+  { column: 'quat_3', label: 'Quat 3', unit: '', scale: 1, reduce: 'sample' },
+  { column: 'quat_4', label: 'Quat 4', unit: '', scale: 1, reduce: 'sample' },
+];
+
+/**
+ * Has this channel's sensor railed?
+ *
+ * A saturated sensor writes its rail value over and over; a real peak is touched once. Measured
+ * over the 24 gyro and accelerometer channels of the four corpus high-rate files, the count of
+ * samples sitting EXACTLY at the channel's own maximum separates the two cleanly with nothing in
+ * between: every railed gyro axis writes its maximum 13, 26, 44, 63, 261 or 6,729 times, and every
+ * unrailed channel — including every accelerometer axis on every file — writes it once or twice.
+ *
+ * So the test is the repeat count, not a rail VALUE: the four files rail at 2,291.5, 2,293.4,
+ * 2,293.5 and 2,294.1, close enough to be obviously one part and far enough apart that a hard-coded
+ * constant would be wrong on three of them.
+ *
+ * **Only ever asked of a channel that can rail.** Applied to a quaternion it fires on every corpus
+ * file — `Quat_1` sits at exactly 1.00000 for thousands of pad samples because the norm is 1 by
+ * construction — and the flight then carried "the sensor behind Quat 1 RAILED … the true rate went
+ * at least that high" about a component that has no rate and no sensor. A fabricated saturation
+ * warning is a safety-invariant breach in the same way a missing one is.
+ */
+function railed(values: Float64Array): boolean {
+  let max = 0;
+  for (const v of values) {
+    const a = Math.abs(v);
+    if (Number.isFinite(a) && a > max) max = a;
+  }
+  if (!(max > 0)) return false;
+  let atMax = 0;
+  for (const v of values) if (Math.abs(v) === max) atMax++;
+  return atMax >= 3;
+}
+
+/**
+ * The first `Flight_Time_(s)` an app-CSV export states, or null where it states none.
+ *
+ * `buildFlight` re-bases every flight so its own first sample is t=0 (`lib/flight/build.ts`), so a
+ * parsed flight's clock is the file's `Flight_Time` MINUS this. It is exposed because that is
+ * exactly the shift a high-rate stream needs to land on its flight's clock — an offset read out of
+ * the file rather than solved for, which is what keeps `lib/highRate.ts` out of the estimating
+ * business `lib/stitch.ts` has to live in.
+ */
+export function flightTimeOrigin(text: string): number | null {
+  const { rows } = parseTable(text, ',');
+  const headerIdx = findAppHeader(rows);
+  if (headerIdx < 0) return null;
+  const timeIdx = rows[headerIdx].map((c) => c.trim().toLowerCase()).findIndex((h) => h.includes('flight_time'));
+  if (timeIdx < 0) return null;
+  // The minimum, not the first row: `buildFlight` sorts by time before taking its origin, so a
+  // file whose rows are out of order re-bases on its earliest sample and this has to agree.
+  let min = Infinity;
+  for (const row of rows.slice(headerIdx + 1)) {
+    const t = Number(row[timeIdx]);
+    if (Number.isFinite(t) && t < min) min = t;
+  }
+  return Number.isFinite(min) ? min : null;
+}
+
+/**
+ * Read a Blue Raven high-rate export as the stream it is, or return null if this isn't one.
+ *
+ * Deliberately separate from `parse()`, which still throws `ParseGuidanceError` on exactly the
+ * same files — dropping one of these ALONE is still not a flight and still says so in the same
+ * words. This is only reachable once a low-rate sibling has been found to hang it on.
+ */
+export function highRateStream(text: string): HighRateStream | null {
+  // The serial `@ LOG_HIR` capture is a high-rate stream too, but its columns are unlabelled
+  // positional tokens; reading them would be a guess at the vendor's field order. Refused here
+  // rather than half-read, which leaves its `parse()` refusal the whole answer for that shape.
+  if (/\bLOG_HIR\b/.test(text.slice(0, 4000))) return null;
+
+  const { rows } = parseTable(text, ',');
+  const headerIdx = findAppHeader(rows);
+  if (headerIdx < 0) return null;
+  const lower = rows[headerIdx].map((c) => c.trim().toLowerCase());
+  const timeIdx = lower.findIndex((h) => h.includes('flight_time'));
+  if (timeIdx < 0) return null;
+  // A high-rate file is one with the orientation columns and NO altitude — the same test
+  // `parseAppCsv` refuses on, so the two can never both claim a file.
+  const hasAltitude = lower.some((h) => h.includes('altitude') || (h.includes('baro') && h.includes('agl')));
+  if (hasAltitude) return null;
+
+  const present = HR_COLUMNS.map((c) => ({ ...c, index: lower.indexOf(c.column) })).filter((c) => c.index >= 0);
+  if (present.length === 0) return null;
+
+  const dataRows = rows.slice(headerIdx + 1).filter((r) => r.some((c) => c !== ''));
+  const time: number[] = [];
+  const keep: number[] = [];
+  for (let i = 0; i < dataRows.length; i++) {
+    const t = Number(dataRows[i][timeIdx]);
+    // Strictly ascending, so the binning in `lib/highRate.ts` can walk one cursor.
+    if (!Number.isFinite(t) || (time.length > 0 && t <= time[time.length - 1])) continue;
+    time.push(t);
+    keep.push(i);
+  }
+  if (time.length < 2) return null;
+
+  const channels: Channel[] = [];
+  const saturated: string[] = [];
+  /** Per channel, whether it must be reduced as one coherent sample rather than by extremum. */
+  const coherent: boolean[] = [];
+  for (const c of present) {
+    const values = new Float64Array(keep.length);
+    let any = false;
+    for (let i = 0; i < keep.length; i++) {
+      const v = Number(dataRows[keep[i]][c.index]);
+      values[i] = Number.isFinite(v) ? v * c.scale : NaN;
+      if (Number.isFinite(v)) any = true;
+    }
+    if (!any) continue;
+    channels.push({ kind: 'other', label: c.label, unit: c.unit, values });
+    coherent.push(c.reduce === 'sample');
+    if (c.reduce === 'extremum' && railed(values)) saturated.push(c.label);
+  }
+  if (channels.length === 0) return null;
+
+  const span = time[time.length - 1] - time[0];
+  return {
+    time: Float64Array.from(time),
+    channels,
+    coherent,
+    rateHz: span > 0 ? Math.round((time.length - 1) / span) : 0,
+    saturated,
+  };
+}
+
 export const blueRavenParser: Parser = {
   id: 'blueraven',
   label: 'Featherweight Blue Raven',

@@ -7,7 +7,7 @@ import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogb
 import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
-import { ingestFiles, unreadNote } from '@/lib/ingest';
+import { ingestFiles, highRateNote, unreadNote } from '@/lib/ingest';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
 import { flightFromMapping } from '@/lib/mapped';
@@ -145,7 +145,7 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
       logbook.refresh();
@@ -199,20 +199,23 @@ export default function CompareSurface() {
         ...(offerable.length > 0 ? [] : mappableFiles.map((m) => `${m.name} — needs its columns mapped, one file at a time`)),
       ];
       const leftNote = left.length > 0 ? ` Left out: ${left.join('; ')}.` : '';
+      // The high-rate half of a Blue Raven download, read onto its flight — its own sentence
+      // rather than folded into the summary's, which claims a cross-check this is not.
+      const hrNote = highRatePaired.length > 0 ? ` ${highRateNote(highRatePaired)}` : '';
       const pairedNote =
         paired.length > 0
           ? ` Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`
           : '';
 
       if (merged.length >= 2) {
-        void load(merged, true, `${leftNote}${pairedNote}${overflowNote}${notRead}`.trim() || undefined);
+        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${overflowNote}${notRead}`.trim() || undefined);
         return;
       }
       setState('picking');
       setNote(
         results.length === 0
           ? `Nothing in that drop could be read as a flight.${leftNote}${notRead}`
-          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}${pairedNote}${notRead}`,
+          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}${pairedNote}${hrNote}${notRead}`,
       );
     },
     [load, logbook],

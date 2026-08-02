@@ -54,7 +54,7 @@ import type { RecentMeta } from './recents';
 /** How far apart two stated launch instants may be and still be one flight. Measured: the widest
  *  spread inside a true corpus group is 5 s (one board's clock against another's), and the nearest
  *  pair that must be REFUSED sits at 956 s. */
-const LAUNCH_TOLERANCE_S = 120;
+export const LAUNCH_TOLERANCE_S = 120;
 
 /** How far apart two rows may have reached the logbook and still count as one arrival. A drop is
  *  ingested in one pass, so files land milliseconds apart; this is loose enough for a folder whose

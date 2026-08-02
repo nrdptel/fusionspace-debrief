@@ -44,13 +44,22 @@ export interface Tile {
  *  Provenance is shown for the peak the way
  *  the max-acceleration tile shows it, so a headline number never reads as more
  *  direct than it is. */
+/** Why a peak speed was withheld, in the words every surface uses.
+ *
+ *  Exported because the comparison table and its exports say this too, and a refusal explained
+ *  one way on the metric grid and another way in a cert document is two accounts of one fact. */
+export function withheldReason(why: NonNullable<FlightMetrics['maxVelocityWithheld']>): string {
+  return why === 'gap'
+    ? 'the ascent has a stretch the record doesn’t cover'
+    : 'the speed this trace gives is not physically possible';
+}
+
 function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
   if (!Number.isFinite(m.maxVelocity)) {
     // "Not in this log" is only true when the file carries no speed at all. Where Debrief
     // withheld one it is the opposite of true — the data is there and the reading was
     // declined — and a withheld number has to say why it was withheld.
-    if (m.maxVelocityWithheld === 'gap') return 'withheld — the ascent has a stretch the record doesn’t cover';
-    if (m.maxVelocityWithheld === 'implausible') return 'withheld — the speed this trace gives is not physically possible';
+    if (m.maxVelocityWithheld != null) return `withheld — ${withheldReason(m.maxVelocityWithheld)}`;
     return 'not in this log';
   }
   const parts: string[] = [];

@@ -12,9 +12,11 @@
 
 import { importFlight, ParseGuidanceError } from './parsers';
 import { summaryFigures } from './parsers/deviceSummary';
+import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers/blueraven';
+import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { attachSummaryText, saveRecent } from './recents';
+import { attachHighRateText, attachSummaryText, saveRecent } from './recents';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -47,6 +49,14 @@ export interface IngestOutcome {
   /** "<summary file> → <log file>", one per summary that was read onto a flight. Empty on
    *  the ordinary single-file drop. */
   paired: string[];
+  /** "<high-rate file> → <flight file>", one per high-rate stream read onto its flight.
+   *
+   *  **Separate from `paired` deliberately.** Both surfaces render `paired` with copy that names
+   *  "the device's own summary" and its cross-check; a high-rate stream is neither — it is the
+   *  other half of the same recording, carrying traces rather than figures to check against. One
+   *  list would have told a flyer who dropped two Blue Raven halves that Debrief had read a
+   *  summary file they do not have. */
+  highRatePaired: string[];
   /** Flights this drop pushed out of the logbook. The logbook keeps a bounded window of
    *  un-noted flights (every entry holds the whole file text), and a launch day's folder is
    *  most of that window — so the third day quietly ate the first. Named now, so the flyer
@@ -120,6 +130,55 @@ function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summ
 }
 
 /**
+ * Put each high-rate stream onto the flight whose other half recorded it.
+ *
+ * Same shape as `pairSummaries` above and for the same reason: a file that threw on the way
+ * through the parsers is not always rubbish, and which flight it belongs to can only be decided
+ * once every file in the drop has been read. It lives here rather than on a surface so that
+ * dropping a Blue Raven's two halves on `/compare` and on the analyze page mean the same thing.
+ *
+ * **A stream that finds no flight is skipped with the parser's own words, unchanged.** Dropping
+ * one alone is still not a flight — it has no altitude — and the guidance it gets is still "drop
+ * the low-rate file instead". That is the whole point of the pairing: it only ever fires when the
+ * flyer already did.
+ */
+function pairHighRate(
+  results: IngestedFlight[],
+  streams: { name: string; stream: HighRateStream; why: string; text: string }[],
+): { paired: string[]; unpaired: { name: string; why: string }[]; remember: { id: string; text: string }[] } {
+  const paired: string[] = [];
+  const unpaired: { name: string; why: string }[] = [];
+  const remember: { id: string; text: string }[] = [];
+  for (const s of streams) {
+    // Only a Blue Raven can be the other half of a Blue Raven download. Without this a stream
+    // would attach to whatever else happened to be in the folder on a name coincidence.
+    const candidates = results.filter((r) => r.flight.format === 'blueraven');
+    const target =
+      candidates.find((r) => halvesOfOneDownload(s.name, r.name)) ??
+      // One Blue Raven flight and one stream in a drop are each other's, whatever they are
+      // called — the same rule `pairSummaries` uses, and it covers a renamed half. **Unless the
+      // names positively contradict**: `pairSummaries` can fall back freely because a summary
+      // carries the rocket it belongs to, and a stream carries nothing at all, so without this
+      // one download's 500 Hz traces get drawn on another download's flight under a note saying
+      // both halves are one board's record of one flight.
+      (candidates.length === 1 && streams.length === 1 && !namesContradict(s.name, candidates[0].name)
+        ? candidates[0]
+        : undefined);
+    if (!target) {
+      unpaired.push({ name: s.name, why: s.why });
+      continue;
+    }
+    target.flight = readHighRateOnto(target.flight, s.stream, flightTimeOrigin(target.text) ?? 0);
+    paired.push(`${s.name} → ${target.name}`);
+    // …and the logbook keeps the stream's TEXT beside the log's, so reopening this flight tomorrow
+    // reads it again. Without this the traces vanished on reload and were never in a comparison
+    // built from ids at all, while the drop's note said they were on the explorer.
+    if (target.savedId) remember.push({ id: target.savedId, text: s.text });
+  }
+  return { paired, unpaired, remember };
+}
+
+/**
  * Read every dropped file, analyse the ones that are flights, and remember them.
  *
  * `max` caps the number of *flights*, not input files: parsing keeps going past a file that
@@ -135,6 +194,8 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   const forgotten: string[] = [];
   const mappable: { name: string; text: string }[] = [];
   const summaries: IngestOutcome['summaries'] = [];
+  /** Blue Raven high-rate streams, held until every file is read so each can find its flight. */
+  const highRate: { name: string; stream: HighRateStream; why: string; text: string }[] = [];
   const unread: string[] = [];
 
   for (const [i, file] of files.entries()) {
@@ -183,6 +244,14 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         summaries.push({ name: file.name, figures, text });
         continue;
       }
+      // A Blue Raven high-rate file throws too, and it is not rubbish either: it is the other
+      // half of one board's record of one flight. Held aside like a summary, because whether its
+      // flight is in this drop can only be answered once every file has been read.
+      const stream = text && e instanceof ParseGuidanceError ? highRateStream(text) : null;
+      if (stream) {
+        highRate.push({ name: file.name, stream, why: (e as ParseGuidanceError).message, text });
+        continue;
+      }
       // A guidance error explains itself (the Blue Raven high-rate file); anything else is
       // just unreadable.
       skipped.push({
@@ -193,6 +262,11 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   }
   // …and only now, with every file read, can a summary be matched to the log it belongs to.
   const { paired, unpaired, remember } = pairSummaries(results, summaries);
+  // The same for a high-rate stream, which is the other half of a flight rather than a file about
+  // one. An unpaired stream keeps the parser's own guidance, so dropping one alone is unchanged.
+  const hr = pairHighRate(results, highRate);
+  skipped.push(...hr.unpaired);
+  for (const r of hr.remember) await attachHighRateText(r.id, r.text);
   for (const r of remember) await attachSummaryText(r.id, r.text);
   for (const s of unpaired) {
     // Two different facts, and only one of them is ever true. With no flights in the drop the
@@ -210,7 +284,22 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
           : `the device's own summary for “${s.figures.rocket}” — no log in this drop is named for that rocket, so Debrief can't tell which flight it belongs to`,
     });
   }
-  return { results, skipped, mappable, summaries: unpaired, paired, forgotten, unread };
+  return { results, skipped, mappable, summaries: unpaired, paired, highRatePaired: hr.paired, forgotten, unread };
+}
+
+/** The sentence a surface shows when a high-rate stream was read onto its flight.
+ *
+ *  Built here rather than at each call site for the reason at the top of this file: the analyze
+ *  page and the comparison surface both take a drop, and a fact stated in two places drifts into
+ *  two facts. It says what was done to the samples, because "read the high-rate file" would let a
+ *  flyer believe every one of its 192,001 rows is on the chart. */
+export function highRateNote(highRatePaired: string[]): string {
+  return (
+    `Read the high-rate half of this flight alongside it (${highRatePaired.join('; ')}) — both files ` +
+    `are one board's record of one flight and share its flight clock. Its gyro, accelerometer and ` +
+    `attitude traces are on the channel explorer; each point is the largest sample the board ` +
+    `recorded at that instant, so the peaks are the board's own.`
+  );
 }
 
 /** How many names one "not read" sentence will print before it starts counting instead. A drop can

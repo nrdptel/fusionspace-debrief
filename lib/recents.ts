@@ -63,6 +63,17 @@ export interface RecentFlight extends RecentMeta {
    *  or building a comparison from ids — dropped the device's own figures and the whole
    *  cross-check panel with them. Absent on every flight dropped without a summary. */
   summaryText?: string;
+  /** The text of the HIGH-RATE half of this flight's download, when one was dropped with it.
+   *
+   *  The SOURCE, for the same reason as `summaryText` above: a stored reduction is frozen at the
+   *  version that wrote it, while a stored source gets every later improvement to how it is read —
+   *  and the reduction here is the part most likely to change, since D8 has two more slices to go.
+   *
+   *  Without it the logbook held one half of a two-file flight. The traces were on the report until
+   *  the page was reloaded and then silently were not, and a comparison built from ids — which
+   *  re-reads every flight through `importRecent` — never had them at all, while the drop's own
+   *  note said they were there. Absent on every flight dropped without its high-rate half. */
+  highRateText?: string;
   /** The label and notes a flyer typed onto this flight's report.
    *
    *  Kept with the flight rather than with the view. The report has an address now, so a link
@@ -195,7 +206,7 @@ type FromTheFile = 'id' | 'addedAt' | 'name' | 'formatLabel' | 'apogeeM' | 'maxV
  * these has to survive it or coming back to a flight throws away what the flyer wrote on it
  * the second time rather than the first, which is the worst way to lose a thing.
  */
-const FLYER_OWNED = ['note', 'summaryText', 'caption', 'read', 'flightId'] as const;
+const FLYER_OWNED = ['note', 'summaryText', 'highRateText', 'caption', 'read', 'flightId'] as const;
 type FlyerOwned = (typeof FLYER_OWNED)[number];
 
 /**
@@ -243,6 +254,7 @@ export function replaceInPlace(rec: IncomingFlight, dups: RecentFlight[]): Omit<
     // logbook's prune reads it to decide what is kept.
     note: inherited('note') ?? '',
     ...(inherited('summaryText') ? { summaryText: inherited('summaryText')! } : {}),
+    ...(inherited('highRateText') ? { highRateText: inherited('highRateText')! } : {}),
     ...(inherited('caption') ? { caption: inherited('caption')! } : {}),
     ...(inherited('read') ? { read: inherited('read')! } : {}),
     ...(inherited('flightId') ? { flightId: inherited('flightId')! } : {}),
@@ -335,6 +347,17 @@ export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
 /** Remember the device-summary file a flight was paired with, so the pairing survives a
  *  reload. Written after the fact because the pairing can only be decided once every file in
  *  a drop has been read, and the flight is saved as it is read. */
+export async function attachHighRateText(id: string, highRateText: string): Promise<void> {
+  try {
+    const db = await idb();
+    const rec = await reqToPromise(tx(db, 'readonly').get(id) as IDBRequest<RecentFlight>);
+    if (!rec) return;
+    tx(db, 'readwrite').put({ ...rec, highRateText });
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function attachSummaryText(id: string, summaryText: string): Promise<void> {
   try {
     const db = await idb();
@@ -605,6 +628,9 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // not the altimeter's own stated figures, which is the comparison a flyer restored the
     // logbook to keep.
     ...(typeof r.summaryText === 'string' && r.summaryText ? { summaryText: r.summaryText } : {}),
+    // …and the high-rate half, for exactly the same reason: a restored flight without it comes
+    // back with half of what was dropped, and no note anywhere saying so.
+    ...(typeof r.highRateText === 'string' && r.highRateText ? { highRateText: r.highRateText } : {}),
     // …and the stretch of the file the flyer said was their flight. Export writes the whole
     // record, so a backup carries it; rebuilding field by field here is exactly what dropped
     // the caption once, and this is the same class of thing — something the flyer decided.
