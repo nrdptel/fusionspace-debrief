@@ -1516,6 +1516,21 @@ the artifact rather than the tree.
 5. **The five required states.** Re-measured 2026-08-02: the denominator is **15** data surfaces,
    not 13, and `StitchSurface` is the only one implementing more than one state.
 
+   **2026-08-02, later the same day — three §8 defects closed that no state audit would have
+   found, because they are not missing states but states a phone cannot reach.** A measured cold
+   walk at 390 px with `hasTouch` found: every chart's live legend advertising a reading that only
+   a mouse could produce (uPlot's cursor is mouse-driven and `Chart.tsx` returned unless two
+   fingers were down); `CompareView`'s sort cue at computed opacity 0 on every inactive column,
+   so nothing said the table sorted; and the colour swatches at 44 px tall and **12 px wide**,
+   which `.touch-area` could not have fixed because a colour input is a REPLACED element and
+   generates no `::after`. All three are fixed and pinned in `e2e/touch.spec.ts`.
+
+   Worth keeping from the same walk, measured and CLEAN: **zero controls that render at 1440 and
+   not at 390** (161 vs 161 on the report with every disclosure open, 120 vs 120 on `/compare`
+   with four flights), zero horizontal body scroll on any of the six routes, and offline better
+   than the promise — 39 cache entries and all six routes serving full content with no network
+   after visiting only `/`.
+
    **STARTED 2026-08-02 on the surface that mattered most.** `Analyzer`'s error phase — where every
    unreadable file dropped on `/` lands, the app's most-hit error surface — hand-rolled the danger
    card §5 gives `ErrorState`, and **six of its ten error paths named no file at all** ("That file
@@ -1710,8 +1725,21 @@ the artifact rather than the tree.
       `ACTION_BTN`-in-six-files pattern P1's opening audit killed once. Lift that, then add the two
       states §5 names. **The next slice of P1 after this list's item 5.**
     - **`Panel`** — §5: a dismissible `Card` that "owns focus return (see `useReturnFocus`)".
-      `grep -rn 'Panel|useReturnFocus' components app` → **0**, while `UnitsControl` and
-      `FigureChooser` each hand-roll a dismissible surface and each manage their own focus return.
+
+      **`useReturnFocus` SHIPPED 2026-08-02; `Panel` is deliberately NOT built, and this entry's
+      premise was wrong.** It said `UnitsControl` and `FigureChooser` each hand-roll a dismissible
+      surface with its own focus return. Measured: `UnitsControl` is a native
+      `<details>`/`<summary>`, where the browser owns dismissal and focus never leaves the summary,
+      and `FigureChooser` is an inline row of toggle chips with **no dismiss at all**. Nothing in
+      the app has the shape §5 draws, so a `Panel` built today would be a primitive with no call
+      site — which `Figure`'s own comment already settled.
+
+      What DID exist twice is the focus behaviour, on the two destructive confirms (the logbook's
+      Clear and the privacy page's Forget), which are the same control written twice.
+      `useReturnFocus` is §5's own named hook and now owns all three parts. **6 imperative focus
+      calls across 2 files → 2, both in `ui.tsx`**, pinned by a §9 assertion that holds focus
+      management to one file — because a third confirm hand-rolling its own would import nothing
+      from `./ui` and move no adopter count.
 
     These are not new work invented here; they are §5 as written, unimplemented. Recorded so the
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
