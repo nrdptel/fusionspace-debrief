@@ -6,163 +6,113 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D7 SHIPPED — all four slices.** Slice 4 landed 2026-08-01: each recording of a staged launch now reports **its own** apogee, peak speed, peak acceleration, thrust-to-weight and burn on `/stitch`, side by side, combined with nothing. **9 recordings across the three staged corpus groups** report figures. `COMPETITION.md` row 23 records that no shipped tool in the field does this from flight logs. **Next: D8 — orientation and high-rate data**, which is NOT YET DECOMPOSED. |
-| **P — product & craft** | **P1 IN PROGRESS, and its biggest count is CLOSED.** Three §5 primitives that did not exist now do — `Frame`, `NumberField`, `Figure` — and hand-rolled card treatments went **10 → 3, the floor**, which is a guard now and may never rise. Items **2**, **5** and **7** remain, plus item 4's keyboard clause and item 12's `Panel`. Items **6** and **8** are DONE. |
+| **D — capability** | **D8 slice 1 SHIPPED.** A Blue Raven's 500 Hz high-rate half is now read onto the flight its low-rate half recorded — gyro, accelerometer and the board's attitude, peak-preserving, with the standalone refusal untouched. **Slices 2 and 3 remain**, and slice 1 narrowed slice 2: the channels already arrive LABELLED (`Gyro X`, `Accel Z`, `Quat 1`), so what is left there is `ChannelKind` members, the units context, and the "this board did not record it" state. |
+| **P — product & craft** | **P1 still in progress.** Item 5 started on the app's most-hit error surface; item 2 took the events grid. Items **7** (hand-rolled buttons, **29** not 39/41), item 4's keyboard clause and item 12's `Panel` remain. |
 
-**Three pull requests, #81 and #82 MERGED AND LIVE, #83 open.** Production was verified serving
-**`60d7346`** with a cache-buster. #83 carries the `Figure` conversion and two corrections; its CI
-was green on the first of its two commits at the time of writing. **Check
-`git log --oneline origin/main..HEAD` before believing anything below reached production.**
+**PR #86 is open with four commits, CI green on the first three** (`frontend` and `e2e` both
+succeeded; the fourth pushed after and should be checked). **Nothing has reached production** —
+`main` was still `ea84b41` at last measurement. Merging on green is pre-authorised.
+**Run `git log --oneline origin/main..HEAD` before believing anything below reached a flyer.**
 
 ## The one thing to read before anything else
 
-**Two of D7's four slices had a FALSE PREMISE, both written from reading the code's intent rather
-than running it.** Slice 1's stated first slice was already shipped. Slice 4 said the composite
-"describes itself as though it were one motor" — and `lib/composite.ts` says in its own first
-paragraph that it **merges nothing**, `Composite` has no metrics field, and `StitchSurface` never
-imported `metricTiles`. There was no merged reading to make stage-aware.
+**Two clauses of D8 slice 1 were false premises, and both were found by executing them rather than
+reading them.** This is the third run in a row where that has been true, so treat it as the rule:
 
-The real gap was the opposite: the composite had held every recording's whole analysis since D4 and
-surfaced exactly ONE number off it. **Open any decomposition by executing the thing it claims is
-missing.**
+1. *"`lib/stitch.ts` already aligns recordings on a shared instant, which is the machinery this
+   needs."* It is not. Stitch aligns DIFFERENT boards and returns `verified: false` because nothing
+   establishes the offset. One board writes both halves off ONE flight clock — all four corpus pairs
+   open within **0.062–0.108 s**, the sample phase of 500 Hz against 50 Hz. Reaching for stitch would
+   have imported an estimate where an exact value was sitting in the file.
+2. *"pinned over both corpus HR files."* There are **five**, and one is a different shape entirely.
 
-**And an opening fan-out reported a finding that was half right in a way that would have shipped a
-wrong number.** It claimed the corpus's staged flight shows "exactly two burns, thresholds 20/40/60
-all agree, corroborated across two boards". Run on `series.acceleration` the same file gives **39
-runs**; the corpus test uses `series.axialAccel`, and on that channel it really is two. Both the
-finding and its refutation were reproduced before anything was written. **Check which CHANNEL a
-claim about acceleration was measured on before acting on it.**
+**And the obvious implementation was a Sev-1 that a measurement caught before it shipped.**
+Resampling 500 Hz onto the 50 Hz clock — what `multiTimebase` already offers, and what a subagent
+recommended — loses **69.0%** of `jan18`'s `Accel_Z` peak: 264 g read as 82 g. Measure the reduction
+before choosing it.
 
 ## The other thing to read before anything else
 
-**I filed two findings without reproducing them and both were wrong, in the same direction.** Both
-claimed a surface "vanishes" and neither does: `ChannelExplorer` hides its remove control on the
-last channel and re-seeds its selection per flight, and `GroundTrack` is only rendered when the
-flight has GPS at all. They were caught by trying to reproduce before scoping a fix, which is the
-order `MAINTAINING.md` gives and which filing them had skipped. Both are corrected in full in
-`BACKLOG.md` rather than deleted. **The agents made the same class of error twice this run and so
-did I — treat every "there is no affordance" claim, including your own, as unreproduced until you
-have driven it.**
+**The pre-push agent review found four real bugs in my own work, and the tests I had written could
+not see three of them.** Do not skip that step, and do not treat your own falsification as
+sufficient:
+
+- **The quaternion was not a quaternion.** Reducing its four components independently by extremum
+  takes each from a different instant; the merged norm averaged **1.0132** where a unit quaternion is
+  exactly 1, and the note beside it said "the board's own attitude solution". **A rate has a peak
+  worth preserving; an attitude has none** — |q| is 1 by construction. One reduction is not universal.
+- **`railed()` flagged `Quat 1` as a saturated sensor on every corpus file**, because a normalised
+  component's maximum repeats for thousands of pad samples. My test asserted that SOMETHING railed,
+  which was true, so it stayed green over a fabricated safety warning.
+- **The single-candidate pairing fallback would hang one download's stream on another's flight** —
+  two files whose own names state launch seconds nine months apart.
+- **The note it printed was false on `/compare`**, which never uses the ingested flights: it re-reads
+  every flight from the logbook by id. The traces were absent there and gone after any reload.
 
 ## What shipped this run
 
 Every increment independently gated: `npm test` · `npm run build` · `npx playwright test`, all three
-green before every push. The corpus was attached throughout — `lib/parsers/corpus.test.ts` reports
-**142 tests** — so no claim here rests on a suite that skipped itself.
+green before every push. The corpus was attached throughout, so no claim here rests on a suite that
+skipped itself.
 
-### 1. P1 — `Frame`, the primitive this list has described for two runs and left unbuilt
+### 1. D8 slice 1 — the high-rate half reaches a surface (`c833090`, `36ac3b5`)
 
-Six sites shared a bordered-no-background treatment that is not a card and could not become one:
-`SampleTable`'s and `ColumnMapper`'s scroll shells, `DataTable`'s, `FlightCard`'s `<canvas>`,
-`GroundTrack`'s divided `<dl>` and its `Stat` tile, `FlightReport`'s event tiles. **Card treatments
-10 → 7**, floor 4.
+Both halves share `Flight_Time_(s)`, so nothing is aligned or estimated; the only shift is the
+flight's own re-basing, read out of the low-rate file by `flightTimeOrigin`. Rates are reduced by
+per-window extremum so the board's peak survives exactly; the attitude takes one coherent sample per
+window. Units are read off the data (`|accel|` pad 0.9935–0.9947 → g; `|quat|` 0.99998–1.00000), and
+the vendor's Sept 2025 manual states the same schema.
 
-`SampleTable` is the proof the missing background is the point: its sticky `thead` is
-`dark:bg-zinc-900`, which is exactly `Card`'s default dark fill, so a `Card` would flatten the
-header band into the container on the `zinc-950` page. Verified on the built export — the converted
-tile computes to `background-color: rgba(0, 0, 0, 0)` in dark mode.
+**No axis is mapped to `accelAxial` or `rollRate`** — `lemiv` rests on X and `jan10` on Z, so the
+board is mounted differently in different rockets. That is the whole reason slice 2 is not free.
 
-`DataTable` takes the class string rather than the component, because its border is conditional on
-`maxHeight`. **The treatment count cannot see a re-hand-roll** — it is a `sort -u`, so a sixth file
-writing the identical string would move nothing — so a second assertion holds the treatment to one
-file, falsified by putting the string back into `SampleTable`.
+Every corpus download rails a gyro axis (2,291.5–2,294.1 deg/s), flagged by name with its peak called
+a floor. The test is the repeat count, not a rail value: a railed axis writes its maximum 13–6,729
+times, an unrailed one once or twice, nothing in between.
 
-### 2. P1 item 6 — the count was 0 before the work, and the real defect was next to it
+### 2. A Sev-1 on the comparison surface (`86e6962`)
 
-`ColumnMapper`'s two `variant="primary"` calls are in **mutually exclusive return branches**, so no
-flyer ever sees both. The grep behind that entry counted a FILE where a SURFACE was meant. What was
-genuinely wrong: an indigo TEXT button hand-rolled beside the real primary — the primary weight's
-colour worn as a link. Now `secondary` and `ghost`.
+The `(baro)` tag was gated on flights DISAGREEING about their source, so it vanished where it matters
+most. Two PerfectFlite altimeters in one airframe — the canonical comparison — are both baro:
 
-### 3. D7 slice 4 — each stage's own readings, on the surface that knows they are one launch
+| surface | what it said |
+|---|---|
+| metric grid | `2,781 ft/s` · *"Mach 2.52 · at 3,645 ft · derived, which usually reads high at the peak"* |
+| comparison | `2,781 ft/s` · `Mach 2.52` |
 
-`stageTiles` in `lib/readings.ts` is a subset of `metricTiles` selected **by label**, so a stage
-panel cannot invent a reading, cannot format one differently from the single-flight grid, and cannot
-drop a qualifier. Nothing is combined: a booster's apogee is where the booster came down.
+The bare claim is that a rocket went supersonic. **Max Mach carried no tag on any path.** And a
+withheld peak printed as an em dash, indistinguishable from a flight that never had one.
 
-Kairos booster reads *Apogee 2,973 m · 332 m/s · 84.6 g · **T/W 5.0:1** · Burn 5.1 s · Burnout
-1,012 m* beside its sustainer at *4,045 m · 366 m/s · 9.5 g · Burn 4.8 s*.
+The distinction worth keeping: the old reasoning ("a tag on every cell would be noise") is right
+about a COMPARISON and wrong about a CLAIM. What legitimately depends on mixing is the crown, which
+moved to `rankBlocked`.
 
-The e2e reads the NUMBERS, not the headings — a panel with every label and no values is exactly the
-shape a broken data path takes when `recordings` is new state. Falsified by pointing every stage at
-the first recording's metrics and watching the two apogees become one string.
+### 3. P1 — the error names its file, and the recovery numbers leave caption size (`d72288a`)
 
-### 4. P1 item 12 — `NumberField`, and a bound that was applied silently
-
-§5 gives it a duty no other primitive has and it did not exist; nine inputs hand-rolled it. **The
-bound was never missing — it was SILENT.** Type 50,000 ft into the main-deploy check and you got
-29,528 with nothing saying why. Six of the seven same-shaped panels are converted.
-
-**The primitive cannot see this from its value**, which is the detail worth keeping: these fields
-are controlled by the already-clamped number, so by the time a value arrives it is in range and the
-refused figure is gone. The first version read the bound off `value` and was *incapable of ever
-firing* — it passed review, `tsc` and a build, and only the e2e caught it.
-
-Two of the four findings against it were reachable and fixed (a rounded cap refused 39.2 in on a
-39.370-in bound; the invalid border was under 3:1). **Two were NOT reachable and are recorded as
-such rather than banked as fixes** — the render-time reset and the external-change guard are kept
-because they are correct, and their comments say plainly that no bug was measured behind them.
-
-### 5. D8 decomposed, and the measurement moved the milestone
-
-**There is no ingestion ceiling**: worst case 901 ms for 36,700 samples over 10.7 MB, top rate
-114 Hz. The blocker is that the **192,001-row Blue Raven high-rate file** carrying `Gyro_X/Y/Z`,
-`Accel_X/Y/Z` and `Quat_1..4` is REFUSED — correctly, for having no altitude — so the richest
-recording in the corpus reaches no surface. And nothing names an orientation channel: everything
-beyond altitude/velocity/Mach/Q/acceleration arrives as `r-0`…`r-12`.
-
-### 6. P1 item 12 — `Figure`, and an empty state deleted rather than shipped
-
-`ChartBlock` was declared separately in `FlightReport` and `CompareView`. Both are gone. **An
-`empty` prop was written, wired, tested and removed**: `CompareView` filters its channel list to
-metrics at least one flight recorded, so the state is unreachable there and the e2e for it could
-never have failed.
-
-### 7. P1 item 8 — the card count reached its floor, and the floor was wrong
-
-7 → 4 → **3**. The entry had said for three runs that the page-level drop zone wants its own
-named primitive; its hand-rolled string was **byte-identical to `CARD_TONES.muted`**, a tone added
-for exactly that case and then written out by hand anyway. `CompareSurface`'s dashed box took the
-same tone — it was the one dashed box with no fill, so two drop targets read as two different kinds
-of thing while being the same kind of thing. The logbook row took `Card as="li"`, and that widening
-is the right shape: a row is a card AND a list item, and a `<div>` would have cost the list
-semantics a screen reader announces.
-
-**`cardTreatments` is a guard now.** `Card`, `Frame`, the floating drop overlay. Any fourth string
-is a new just-this-once.
-
-### 8. Three false claims in the repo, corrected by measurement
-
-`lib/stitch.ts` called `meraki2` an "ordinary SINGLE-stage flight". The fixtures manifest names its
-motors: **an O7800 booster and an N3100 sustainer**. `lib/composite.ts` said "no corpus record holds
-two separable burns"; one does. `ROADMAP.md` P1 item 3's dark-surface census said "everything else
-0"; it is `zinc-800` ×2, `zinc-700` ×1, `zinc-100` ×1, because the sweep enumerated three opacity
-forms and could never see a bare shade.
+Six of `Analyzer`'s ten error paths named no file at all. It renders through `ErrorState` now. And
+the events grid put the main-deploy height and the deployment shock at `text-xs` in tertiary colour —
+the numbers a flyer sizes a harness against.
 
 ## Traps this run hit — read these before repeating them
 
-- **`git checkout <file>` to undo a falsification reverts the WHOLE file**, including the conversion
-  you spent twenty minutes on. It happened here to `SampleTable.tsx` and the loss is silent —
-  `git status` simply goes quiet. Undo a falsification with the inverse `sed`, never with `checkout`.
-- **A JSX comment cannot sit beside the root element of a `(...)` body.** `{stages.map((s) => (
-  {/* … */} <Frame>` is a syntax error, and the message (`TS1005: ')' expected`) points at the line
-  AFTER the comment. Cost two builds; hit twice in one run, in `GroundTrack` and `StitchSurface`.
-- **A failed `npm run build` leaves `out/` STALE and the e2e then tests the previous code.** The
-  suite reported 10 passed / 1 failed against a build that never happened. Read the build's own tail
-  before trusting an e2e result.
-- **`series.acceleration` is not `series.axialAccel`.** The first is a resultant on some files and
-  reads >20 m/s² through a high-drag ascent; counting thrust runs on it gives 39 where the signed
-  axial gives 2. Every claim in this repo about "sustained thrust runs" is on `axialAccel`.
-- **Two agent findings in one run were confidently wrong in the same direction** — both overstated
-  what the corpus supports. Reproduce before scoping; it cost nothing and would have shipped a
-  staging detector fitted to one example.
-- **The harness classifier intermittently refuses ordinary `grep | sort | uniq` pipelines** and
-  refuses `add_repo` for the sibling. Route around with the `Grep` tool or a simpler command; do not
-  read a refusal as a repo problem.
-- **`pkill -f e2e-server` matches its own shell** and kills the command that ran it (exit 144).
-  Unchanged from last run and hit again. Put it in its own call.
-- **`mcp__github__pull_request_read` with `get_check_runs`** is the cheap, working call
-  (`get_status` reports `pending`/`total_count: 0` forever on this repo).
+- **`ParseInput` requires `bytes`.** A helper that only reads text should take `text: string`, or
+  every test call site has to fabricate a buffer.
+- **`getByRole('alert')` is ambiguous on `/`** — `ForgetDeviceData` and the logbook's Clear
+  confirmation are alerts too. Filter by text.
+- **A `role="alert"` assertion about "which file failed" was scoped to the wrong surface.** The
+  mapper's no-data branch was ALREADY naming its file properly; the honest e2e asserts the fact
+  (the file is named where it is handled), not the surface.
+- **The §9 ratchet fires on adoption in BOTH directions.** Adopting `ErrorState` moved `Analyzer`'s
+  `text-sm` into `ui.tsx` and its `Card` import with it: inverted files 15 → 16, `Card` 27 → 26,
+  `ErrorState` 1 → 2. Not one glyph changed size. Record it as the adoption effect — the repo has
+  recorded the reverse direction twice — rather than re-baselining silently or "fixing" it.
+- **`Required<RecentFlight>` in `lib/recents.test.ts` refuses to compile when you add a member.**
+  That is the guard working; populate the fixture and `normalizeFlight` in the same commit.
+- **Vitest's default 5 s timeout** is not enough for a test that parses four 64k–192k-row corpus
+  files; pass an explicit timeout as the third argument to `it`.
+- **The harness appends an attribution footer to a PR body.** It did again on #86. Read the body back
+  and strip it — `MAINTAINING.md` warns about exactly this and it is a zero-trace breach on a public
+  artifact.
 
 ## The §9 counts
 
@@ -170,63 +120,54 @@ forms and could never see a bare shade.
 |---|---|---|---|
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
-| hand-rolled card treatments | 10 | **3** | 3 — a GUARD now, may never rise |
-| inverted-type files | 15 | **15** | floor at least 4, not 0 |
+| hand-rolled card treatments | 3 | **3** | 3 — a GUARD, may never rise |
+| inverted-type files | 15 | **16** | not 0 — see below |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 31 | **34** | most of the 46 |
-| `Card` adopters | 23 | **27** | — |
-| `Frame` adopters | — | **6** | — |
-| `NumberField` adopters | — | **6** | the 7th is `CropControl`, deliberately not |
-| `Figure` adopters | — | **2** files, 4 call sites | — |
+| files importing the primitives | 34 | **34** | most of the 46 |
+| `Card` adopters | 27 | **26** | — |
+| `ErrorState` adopters | 1 | **2** | — |
+| hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few — and `ROADMAP.md` said 39/41; it is 29 |
 
-**No count moved the wrong way.** Read `files importing the primitives` 31 → 32 carefully: the six
-panels that adopted `NumberField` moved it by **zero**, because every one already imported `Card`.
-A per-FILE count cannot see six controls being adopted — which is the third time a §9 metric has
-measured something other than what it was reached for, and the argument for the per-primitive map
-in `lib/design-system.test.ts`.
+**Inverted files 15 → 16 is the adoption effect, not a regression**, and it is recorded in
+`lib/design-system.test.ts` with the reason. `Analyzer`'s three remaining captions — a file name
+inside "Reading …", the help line under it, the amber mapping note — are the "unit, provenance,
+caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `SiteFooter`,
+`FusionSpaceBadge` and `ChannelExplorer` as a file inverted while fully compliant.
 
 ## Pick up first
 
-1. **D8 slice 1 — read the Blue Raven high-rate file as a SECOND RECORDING of a flight it does not
-   itself contain.** Decomposed with its measurements in `ROADMAP.md`. The machinery exists: the
-   model is multi-source-ready, `lib/stitch.ts` aligns recordings on a shared instant, and D6's
-   filename stamp already pairs `…HR_04-12-2025_12_45_49` with its `…LR_…` sibling to the second.
-   **The standalone refusal must survive unweakened** — a file with no altitude is not a flight, and
-   that clause is in the slice's own *done when* rather than left to judgement.
+1. **Check PR #86's CI and merge it.** Four commits, nothing live. This is the whole of this run's
+   output and no flyer can reach any of it until that merge.
 
-2. **The staged burn time is the sharpest unfixed thing this run found, and it is filed with its
-   blocker.** `burnTime` on `meraki2` is **23.91 s of which 15.79 s the motor was not burning** —
-   two ascent runs, T+0.00–4.46 and T+20.25–23.83, on a stated O7800 + N3100. The ignition is
-   unmistakable: signed axial steps −15.7 → +92.7 in one 0.25 s sample, peaks at 549 m/s², speed
-   427 → 1,663 m/s. **Do not build a detector on it.** `iss-endurance`, one motor by its manifest,
-   produces a second run too (T+5.65–6.95, peak 80.7 m/s²) inside a stretch where the record repeats
-   a sample and its altitude goes backwards. One example against one example is fitting. **What
-   would settle it:** a second staged record in the corpus, or endurance's second run checked
-   against the StratoLogger that flew with it.
+2. **D8 slice 2 — name the orientation channels, and only where the board recorded them.** Narrower
+   than the roadmap thought: they already arrive labelled. What is left is `ChannelKind` members for
+   gyro/quaternion, units through the units context, and the "this board did not record it" state.
+   **The hard part is the one slice 1 refused:** no axis may be mapped to `rollRate` or `accelAxial`
+   without knowing the mounting, and the corpus proves the mounting differs. AltosUI names them
+   body-frame (`Roll Rate`, `Accel Along`) because the board's own config states the orientation;
+   Debrief has no such statement. Either read one from the low-rate file's `Tilt_Angle`/`Roll_Angle`
+   agreement, or ask the flyer — the same shape as D1's crop and D3's grouping.
 
-3. **P1 item 12 is new and one of its three entries has a SAFETY duty.** Three of `DESIGN.md` §5's
-   named primitives do not exist at all — `NumberField`, `Figure`, `Panel` — and nine runs of
-   counting adopters never surfaced it, because a primitive with no implementation has no adopters
-   to be short of. `NumberField` is the one to take first: §5 gives it the refusal behaviour the
-   SAFETY invariant requires, and it is hand-rolled at **9 sites**, each re-deriving its own bound.
+3. **P1 item 2's remaining three instances**, all filed in `BACKLOG.md` with file:line — the two
+   recording pickers at `text-[11px]` (the numbers a flyer picks which instrument to trust by) and
+   `GroundTrack`'s walkback line.
 
-4. **`GroundTrack` returns `null` with no GPS fix** (`:466`), so the whole recovery surface does not
-   exist rather than being empty, on every baro-only log. P1 item 5's most visible instance.
+4. **P1 item 7 is smaller than the roadmap says.** 29 hand-rolled `<button>` outside `ui.tsx`, not 39
+   or 41. Re-measure before budgeting an increment against any P1 number; 8 of 10 were stale.
 
 ## What is owed elsewhere
 
-**`nrdptel/fusionspace-loft` is owed six `DESIGN.md` §9 edits**, unchanged for four runs, plus the
-open question about whether §9's `uiAdopters` grep should read `components app`. **`add_repo` for it
-was attempted this run and REFUSED by the harness classifier**, so this is not a matter of nobody
-having tried — a session that can push both repos has to be created with both attached.
+**`nrdptel/fusionspace-loft` is owed six `DESIGN.md` §9 edits**, unchanged for five runs, plus the
+question about whether §9's `uiAdopters` grep should read `components app`. Not attempted this run —
+the session was created with `debrief` and `debrief-fixtures` only.
 
-**Two `DESIGN.md` §5 edits are now owed as well**, and both are deliberately NOT made here because a
-one-sided edit forks a file both repos carry identically:
-- **`Frame` is not listed in §5** though it now exists and has five adopters. §9 already sanctions a
-  named non-card primitive in prose, which is why building it was in scope; naming it in the
-  vocabulary is not.
-- **The invented "indigo text" button weight** appears at `ColumnMapper` (fixed) and
-  `RecentFlights.tsx:835` (not). It wants either a `Button` variant or a documented fifth weight.
+**Two `DESIGN.md` §5 edits are still owed to both repos**, deliberately not made one-sided:
+- **`Frame` is not listed in §5** though it exists with six adopters.
+- **The invented "indigo text" button weight** survives at `RecentFlights.tsx:835`.
+
+**And a third is now owed:** `DESIGN.md` §9's card grep is the only compliance command scoped to
+`components` alone; every other one reads `components app`. Currently 0 hand-rolled cards in `app/`,
+so the hole is latent rather than live.
 
 Also still owed: the bare-`rounded` guard, and a decision on whether `DataTable` is Debrief-only.
 
@@ -238,28 +179,29 @@ still the reason any corpus statistic has to be written as a superset or a floor
 
 **Worth adding, each with a reason:**
 
-- **a SECOND genuinely staged record**, which is now the single highest-value fixture this corpus
-  could gain — it is the thing standing between the staged burn-time defect and a fix;
-- a launch day where one flyer's two files were dropped together;
+- **a SECOND genuinely staged record** — still the highest-value fixture this corpus could gain, and
+  the thing standing between the staged burn-time defect and a fix;
+- **a baro-less board's log** (Altus Metrum EasyTimer), which the field's leader analyses and Debrief
+  refuses outright — see `BACKLOG.md` 2026-08-02;
 - a Blue Raven pair whose LR file carries a `Sync` column;
 - a descent-rate ground truth in a machine-readable column.
 
 ## Environment notes
 
-- **Git identity defaults to the harness's** — `Claude <noreply@anthropic.com>`, which the zero-trace
-  invariant forbids. Set it before the first commit:
-  `git config user.name "Neer Patel"` / `user.email "135655563+nrdptel@users.noreply.github.com"`.
+- **Git identity defaults to the harness's**, which the zero-trace invariant forbids. Set it before
+  the first commit: `git config user.name "Neer Patel"` /
+  `user.email "135655563+nrdptel@users.noreply.github.com"`.
 - **The corpus arrives as an attached repo.** `ln -sfn /home/user/debrief-fixtures
-  lib/parsers/__corpus__`, and the suite then reports **142 tests**. Far fewer means it is not linked.
+  lib/parsers/__corpus__`. The full suite then reports **1,024 tests across 70 files**; far fewer
+  means it is not linked.
 - **`npm install` is needed at session start**; the container ships without `node_modules`.
 - **Chromium: `npx playwright install chromium` from the repo root** (~114 MB, about a minute,
   succeeds through the proxy), then plain `npx playwright test` with NO browser variable set. **This
   is paid again every session and belongs in the environment's setup script.**
-- **4 CPUs**, so a workflow's concurrency cap is 2: a three-agent fan-out runs two then one. Keep the
-  browser-driving walks in a separate wave from the file-reading agents, and never run the gate
-  across either.
+- **4 CPUs**, so a workflow's concurrency cap is 2: a five-agent fan-out runs in three waves and took
+  ~16 minutes. Dispatch it and do the baseline gate while it runs.
 - **The clone is shallow**, so any commit count or file history is a window, not the record.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on
-  `pull_request`. Opening the PR is what runs it.
+  `pull_request`. Opening the PR is what runs it, and it took ~6 minutes for both jobs.
 - **Check the deployed build with a cache-buster:**
   `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`.

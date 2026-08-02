@@ -14,6 +14,57 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — a "best" cell in the comparison wears the ACCENT colour, which §2 reserves for
+  interactive.** `components/CompareView.tsx:931` renders the row's highest value
+  `font-semibold text-indigo-600 dark:text-indigo-400`; §2's table gives `indigo` one meaning —
+  "interactive, selected, the focus ring" — and a table cell is none of those. Reproduce: open
+  `/compare` with any two flights and look at one cell per row. **Not a safety issue and NOT the
+  "never colour a number by whether it is large" clause** — the ranking is legitimate, computed as
+  `row.best`, blocked where methods differ, and already announced `sr-only` as "(highest)". It is a
+  token misuse: `font-semibold` alone already marks it, and §3 gives that weight exactly this job.
+  One line, deliberately not taken this run because it is churn beside the item-2 work above it.
+
+- **2026-08-02 — a leaderboard is painted in the CAVEAT colour.** `components/RecentFlights.tsx:647`
+  and `:658` mark the fastest and highest flights with a `text-amber-500` star. §2 reserves amber
+  for `warn` — "an estimate outside its envelope, an extrapolation, a caveat" — and `KofiButton`'s
+  own docblock cites that rule. Spending the caveat colour on a leaderboard is what makes a real
+  caveat stop reading as one. Reproduce: scroll the logbook with three or more flights.
+
+- **2026-08-02 — three more decision-grade numbers are still at a size §3 reserves for axis ticks.**
+  `components/RecordingPicker.tsx:81` and `components/FlightPicker.tsx:71` render each recording's
+  apogee and max velocity at `text-[11px]` — these are the numbers a flyer picks WHICH INSTRUMENT TO
+  TRUST by — and `components/GroundTrack.tsx:542` puts the walkback distance and bearing at
+  `text-xs`. Same class as the events grid fixed 2026-08-02 under P1 item 2, and the next instances
+  of it. Reproduce: open a flight with two recordings, then tap the ground track.
+
+- **2026-08-02 — three label/value tile treatments exist for one thing.** `GroundTrack.tsx:724`'s
+  `Stat` and `LogDetails.tsx:36` each hand-roll what `Readout` is (§5), both at `text-[11px]` label
+  size and neither with `tabular-nums`, one scroll apart from `MetricGrid`'s tiles on the same
+  report. Reproduce: open a GPS flight's report and compare the map's stat tiles, the metric grid
+  and "Log details".
+
+- **2026-08-02 — REFUTED, recorded so it is not re-filed: `DataTable`'s empty state.** Its default
+  string is "Nothing to show yet.", which the prop's own doc forbids by §5, and no call site passes
+  `empty`. But the state is UNREACHABLE at both call sites: `DeviceSummary` is rendered only inside
+  `flight.reported && flight.reported.length > 0` (`FlightReport.tsx:1044`) and `GpsApogee` returns
+  null without a GPS fix and passes a literal one-row array. `Figure` already settled this shape —
+  a guard that fires on nothing is worse than none. Do not build it without a call site that reaches
+  it; the honest fix if one ever appears is to make `empty` required.
+
+- **2026-08-02 — the serial `@ LOG_HIR` high-rate capture is still refused, deliberately.**
+  `blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-High.txt` is the fifth
+  high-rate file in the corpus and the one D8 slice 1 does not read: its columns are unlabelled
+  positional tokens, and reading them would be a guess at the vendor's field order. The Sept 2025
+  manual documents the field order for the phone-app export; if it also documents the serial
+  stream's, this becomes readable and the entry can close.
+
+- **2026-08-02 — Altus Metrum's EasyTimer has no barometer at all, and AltosUI analyses its logs.**
+  `lib/analyze/index.ts:1162` throws "This file has no altitude or pressure data to analyze", so
+  Debrief treats altitude as mandatory where the field's leader treats it as optional
+  (<https://altusmetrum.org/AltOS/doc/altusmetrum.html>). Not a defect today — no corpus fixture is
+  a baro-less board — but it is the assumption D8 slice 1 had to work around, and the reason the
+  high-rate stream can never be a logbook row of its own. Worth a fixture before it is worth a fix.
+
 - **2026-08-01 — "Burn time" on the corpus's staged flight is 23.9 s, of which 15.8 s the motor was
   not burning.** `lib/analyze/index.ts:2666` defines `burnTime` as `time[burnoutIdx] − liftoffTime`,
   which is the span from liftoff to the end of powered flight — the same number as the burn

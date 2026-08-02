@@ -1124,7 +1124,11 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ## D8 — Orientation and high-rate data
 
-**Status:** DECOMPOSED 2026-08-02, from measurement, after D7 shipped and left the D-track dry.
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-02.** Decomposed the same day, from
+measurement, after D7 shipped and left the D-track dry. Slices 2 and 3 remain, and slice 1's
+measurements narrow both: the channels arrive on the flight already LABELLED (`Gyro X`, `Accel Z`,
+`Quat 1`) rather than as `r-N`, so slice 2's remaining work is `ChannelKind` members, units in the
+units context, and the "this board did not record it" state — not the naming itself.
 `COMPETITION.md` rows 3 and 4. North Star 1's third bullet, on the boards flyers increasingly own.
 
 **The after-list said "verify the ingestion ceiling against a real high-rate log first; that
@@ -1157,14 +1161,50 @@ column a flyer has to recognise by its numbers.
 
 ### The slices, ranked by what a flyer can check
 
-1. **Read the high-rate file as a SECOND RECORDING of a flight it does not itself contain.** The
-   model is already multi-source-ready and `lib/stitch.ts` already aligns recordings on a shared
-   instant, which is the machinery this needs — and the Featherweight naming stamp D6 shipped
-   already pairs `…HR_04-12-2025_12_45_49` with `…LR_04-12-2025_12_45_49` to the second. *Done
-   when* dropping a Blue Raven HR file beside its LR sibling reads the HR channels onto the LR
-   flight's clock, and dropping the HR file ALONE still gives today's refusal with today's wording,
-   pinned over both corpus HR files. **Do not weaken the standalone refusal to get this** — a file
-   with no altitude is not a flight, and the whole slice is about it being a second view of one.
+1. ~~**Read the high-rate file as a SECOND RECORDING of a flight it does not itself contain.**~~
+   **SHIPPED 2026-08-02**, pinned by `lib/highRate.test.ts` (9 tests) and by
+   `e2e/audit-compare.spec.ts` → *"a drop of all three Blue Raven files reads all three, and says
+   what each contributed"*, which reads the channels off the running app by name.
+
+   **Two clauses of this slice were FALSE PREMISES, and both were found by executing them.**
+
+   - **`lib/stitch.ts` is not the machinery this needs, and reaching for it would have imported
+     an estimate where an exact value exists.** Stitch aligns DIFFERENT boards and returns
+     `verified: false` on every path because nothing in the records establishes the offset. One
+     board writes both halves off ONE flight clock — measured, all four corpus pairs open within
+     **0.062–0.108 s**, which is the sample phase of 500 Hz against 50 Hz. The only shift applied
+     is the flight's own re-basing (`buildFlight` zeroes each flight on its first sample), read
+     out of the low-rate file by `flightTimeOrigin`.
+   - **"Both corpus HR files" is five**, and one of them is a shape this slice deliberately does
+     not read: `…SG1.2-Sustainer-November-BlueRaven-High.txt` is the serial `@ LOG_HIR` capture,
+     whose columns are unlabelled positional tokens. Reading them would be a guess at the vendor's
+     field order, so its refusal stands as the whole answer for that shape.
+
+   **The obvious implementation was a Sev-1 and the measurement caught it before it shipped.**
+   Resampling 500 Hz onto the 50 Hz flight clock — what `multiTimebase` already offers — loses
+   **69.0%** of `jan18`'s `Accel_Z` peak (264 g read as 82 g), 61.6% of `lemiv`'s, 50.2% of
+   `meraki`'s and 42.1% of `jan10`'s `Gyro_X`. Each point kept is instead the largest-magnitude
+   sample the board recorded in that window, so every plotted value is a real sample and the peak
+   survives by construction.
+
+   **And the reduction that is right for a RATE is meaningless for an ATTITUDE** — found by review
+   after the first version was written. Reducing the four quaternion components independently takes
+   each from a different instant; the merged norm averaged **1.0132** on `jan10` against an exact 1,
+   which is not a rotation and not an attitude the board ever solved. Attitude channels take one
+   whole sample per instant, shared by all four. The same mistake had `railed()` flagging `Quat 1`
+   as a saturated sensor on every corpus file, because a normalised component's maximum repeats for
+   thousands of pad samples — a fabricated saturation warning, which breaches the safety invariant
+   exactly as a missing one does.
+
+   The standalone refusal survives unweakened, pinned byte for byte over all five HR files. Units
+   are read off the data rather than asserted (`|accel|` on the pad 0.9935–0.9947 → g; `|quat|`
+   0.99998–1.00000 → normalised), and the vendor's Sept 2025 manual states the same schema. **No
+   axis is mapped to `accelAxial` or `rollRate`**: `lemiv` rests on X and `jan10` on Z, so the
+   board is mounted differently in different rockets and guessing would publish a lateral reading
+   as an axial one.
+
+   **What this slice deliberately did NOT do**, and the next one starts here: no reading is
+   computed off the reduced stream. A number read off an envelope needs its own validation.
 2. **Name the orientation channels, and only where the board recorded them.** `Gyro_X/Y/Z`,
    `Accel_X/Y/Z` and `Quat_1..4` become named channels with units and provenance rather than
    `r-7`. *Done when* a corpus file carrying them plots them by name, and a file that does not says
@@ -1281,6 +1321,18 @@ the artifact rather than the tree.
    rule is what needs changing — this is the third §9 metric to turn out to measure something
    other than what it was reached for, after the suite-wide type ratio and the two blind greps.
 
+   **Done 2026-08-02 on `FlightReport`'s events grid, which was the sharpest instance left.** The
+   height the main actually fired at — against what the flyer set on the altimeter — and the shock
+   the airframe took when it did were `text-xs` in §2's TERTIARY colour. These are what a flyer
+   sizes a harness and checks a recovery against. Now `text-sm tabular-nums` in the primary colour,
+   read down a column event against event; the provenance label beside them moved `text-[11px]` →
+   `text-xs`, since §3 reserves the smallest size for axis ticks and diagram annotations.
+
+   **Still open on this item, measured 2026-08-02 and ranked:** `RecordingPicker.tsx:81` and
+   `FlightPicker.tsx:71` render each recording's apogee and max velocity at `text-[11px]` — the
+   numbers a flyer picks WHICH INSTRUMENT TO TRUST by, at a size §3 reserves for axis ticks;
+   `GroundTrack.tsx:542` puts the walkback distance and bearing at `text-xs`.
+
    **Already done on this file (2026-07-31):** the two decision-grade values — apogee and max
    velocity, the numbers the logbook exists to be scanned down — were `text-xs` in §2's TERTIARY
    colour with proportional digits. They are now `text-sm tabular-nums` in the primary text colour,
@@ -1385,9 +1437,32 @@ the artifact rather than the tree.
    column addressed by a `col < 0` sentinel, the `view`→`[from,to]` window scan, `ROW_H`-based
    virtualisation with spacer rows, and the event jump strip. None of it generalises to a four-row
    cross-check table.
-5. **The five required states.** 0 of 13 data surfaces implement all five, and none has an offline
-   state — in a PWA whose headline promise is working at the range with no signal. `EmptyState` and
-   `ErrorState` exist and have one adopter each.
+5. **The five required states.** Re-measured 2026-08-02: the denominator is **15** data surfaces,
+   not 13, and `StitchSurface` is the only one implementing more than one state.
+
+   **STARTED 2026-08-02 on the surface that mattered most.** `Analyzer`'s error phase — where every
+   unreadable file dropped on `/` lands, the app's most-hit error surface — hand-rolled the danger
+   card §5 gives `ErrorState`, and **six of its ten error paths named no file at all** ("That file
+   is empty.", "Could not read this file."). On a launch day's folder that is one of eight files.
+   The state carries the file now and renders through the primitive; `ErrorState` adopters 1 → 2.
+   Pinned by `e2e/analyze.spec.ts` → *"an unreadable file is named in the error, not described in
+   the abstract"* and by a per-case assertion in `e2e/mapper.spec.ts`.
+
+   Worth keeping: the mapper's no-data branch was **already** naming its file properly, so the
+   e2e asserts the FACT (the file is named where it is handled) rather than the surface — two
+   surfaces answer this differently and both are right.
+
+   *(2026-07-31: `navigator.onLine` is read NOWHERE in `components` or `app` — measured, 0 hits — so
+   the offline state is undelivered suite-wide rather than missing on some surfaces. That is either
+   20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
+   change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
+
+   **And one instance of this item was REFUTED before it was built, 2026-08-02.** `DataTable`'s
+   default empty string is "Nothing to show yet.", which its own prop doc forbids by §5 — but the
+   state is unreachable at both call sites: `DeviceSummary` is rendered only when
+   `flight.reported.length > 0`, and `GpsApogee` returns null without GPS and passes a literal
+   one-row array. `Figure` already settled this shape — *a guard that fires on nothing is worse
+   than none* — so nothing was built. Do not re-open it without a call site that can reach it.
 
    *(2026-07-31: `navigator.onLine` is read NOWHERE in `components` or `app` — measured, 0 hits — so
    the offline state is undelivered suite-wide rather than missing on some surfaces. That is either
