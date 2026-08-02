@@ -58,6 +58,7 @@ export default function GroundTrack({
   padOrigin,
   time,
   altitude,
+  hasGpsAltitude = false,
   descentFromIndex,
   apogeeIndex,
   apogeeAltitude,
@@ -82,6 +83,10 @@ export default function GroundTrack({
   time?: Float64Array;
   /** Altitude (m AGL), aligned with lat/lon — needed for the wind-by-altitude profile. */
   altitude?: Float64Array;
+  /** Whether this flight ALSO carries the receiver's own altitude. The KML's height comes from
+   *  the barometer either way; this is what decides whether the exported file has to say that a
+   *  second, independent altitude exists and was not the one drawn. */
+  hasGpsAltitude?: boolean;
   /** Index the descent starts at (apogee or main deploy), for the wind reading. */
   descentFromIndex?: number;
   /** Apogee sample index and altitude (m AGL), for the off-vertical reading. */
@@ -112,6 +117,19 @@ export default function GroundTrack({
   // reading below is measured from it, so taking it from the crop's first fixes would put the
   // pad wherever the rocket happened to be when the flyer's selection starts.
   const track = useMemo(() => groundTrack(lat, lon, 16, padOrigin ?? undefined), [lat, lon, padOrigin]);
+  /** What the exported trajectory is made of, said in the file itself. Two instruments drew it —
+   *  the receiver put every fix on the map, the barometer put it at a height — and a KML that
+   *  shows a 3D track without saying which is a number with its provenance stripped off. The
+   *  second sentence appears only where the flight really does carry a receiver altitude, so a
+   *  file that has one instrument is not told about a disagreement it cannot have. */
+  const kmlAltitudeNote = useMemo(() => {
+    if (!altitude) return 'Ground track only: this recording carried no height to draw the fixes at.';
+    const base =
+      'Positions are the GPS receiver’s. Heights are the barometer’s, measured above the pad — two instruments, not one.';
+    return hasGpsAltitude
+      ? `${base} This recording also carries the receiver’s own altitude, which is NOT what is drawn here: it is measured above the ellipsoid rather than above the pad, so the two are different quantities and differ by hundreds of metres on real flights. The barometer is the better vertical measurement and the one “relative to ground” means.`
+      : base;
+  }, [altitude, hasGpsAltitude]);
   const stats = useMemo(() => (track ? recoveryStats(track) : null), [track]);
   const wind = useMemo(
     () =>
@@ -574,7 +592,7 @@ export default function GroundTrack({
         {/* What a screen reader hears, and only when a fix was chosen deliberately — a key
             press or a tap, never a hover. Hovering is a pointer user's gesture and produces
             no announcement at all; the visible line above still follows the pointer. */}
-        <p className="sr-only" role="status" aria-live="polite">
+        <p id="ground-track-spoken" className="sr-only" role="status" aria-live="polite">
           {announced}
         </p>
 
@@ -655,7 +673,7 @@ export default function GroundTrack({
           size="sm"
           onClick={() =>
             download(
-              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed)], {
+              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed, kmlAltitudeNote)], {
                 type: 'application/vnd.google-earth.kml+xml',
               }),
               `${stem}-track.kml`,

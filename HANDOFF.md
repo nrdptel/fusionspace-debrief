@@ -6,12 +6,19 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D8 slice 2 STARTED.** Looking for the milestone's own subject (the high-rate gyro/quaternion columns) meant reading the LOW-rate headers, which turned up a roll angle the Blue Raven had already solved and Debrief parsed straight past — and, on the generic importer's path, `Roll_Angle_(deg)` being auto-detected as a roll **RATE**, with a test asserting that was correct. `rollAngle` is its own kind now. **The rest of slice 2 remains**: `ChannelKind` members, units and provenance for the HR `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind: 'other'`. |
-| **P — product & craft** | **P1: two more §5 primitives are doing their job.** `useReturnFocus` exists (§5 named it; nothing implemented it) and the two destructive confirms share it. `Readout` went **2 → 9 adopters** — the seven derived-reading panels were hand-rolling a byte-identical hero value. Items **7** (29 hand-rolled `<button>`), item 4's keyboard clause, and the design-system audit's other 30-odd rows remain. |
+| **D — capability** | **D8 slice 2 SHIPPED.** The roll angle the Blue Raven had already solved was being parsed past — and on the generic importer's path `Roll_Angle_(deg)` was auto-detected as a roll **RATE**, with a test asserting that was correct. Then the slice's own subject: the HR `Gyro_*` / `Accel_*` / `Quat_*` channels now carry real `ChannelKind`s, and **Debrief measures which sensor axis is the airframe's long one** off the gravity the board felt on the rail — so a flyer can tell which of six traces is the roll. **Slice 3 is MEASURED and deliberately NOT SHIPPED** — read its ROADMAP entry before touching it. |
+| **defects** | **Two `BACKLOG.md` entries closed, and reproducing each changed what the fix was.** A wrong number was reaching the report — a StratoLogger temperature stated `58.7F` per cell, preselected as Celsius by a CASE MISMATCH, printing 138 °F. And the geospatial exports drew one trajectory from two instruments and said nothing. **Reproduce before scoping; both filings had the cause wrong.** |
+| **P — product & craft** | **P1: three more §5 primitives are doing their job, and the chart now answers a keyboard.** `useReturnFocus` exists (§5 named it; nothing implemented it); `Readout` went **2 → 9 adopters**; `Chart.tsx` had `role="img"` but no `tabIndex` and no key handling, where `GroundTrack` beside it has had arrow keys since it was built. Items **7** (29 hand-rolled `<button>`) and the design-system audit's other 30-odd rows remain. |
 
-**Five increments are MERGED AND LIVE**; four more are on the branch in pull request #92. Pull request #91 merged on green (`frontend` and `e2e` both succeeded) and production was
-verified serving exactly `c86695c` at 13:07Z. The branch was restarted from `main` after the merge,
-as the harness requires.
+**Ten increments are MERGED AND LIVE** across pull requests #91 and #92; **four more are on the
+branch in pull request #93**. #92 merged on green as `5b737b2`, and the branch was restarted from
+`main` after it, as the harness requires. #91 merged as `c86695c` and production was verified
+serving exactly that at 13:07Z.
+
+**Both merged pull requests had the harness's attribution footer appended to the body on posting,
+and both were stripped after a read-back.** That is a zero-trace breach on a public artifact and it
+recurs on every `create_pull_request` call — but NOT on `update_pull_request`, verified three times.
+Read the body back every time regardless.
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
 `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
@@ -117,7 +124,77 @@ primitive gained exactly two things, each a real case: `label` optional (all sev
 inside a `<dl>` and `Readout` renders `<div>`s, so adopting it would strip list semantics. Its two
 genuine §3 breaches were fixed in place instead.
 
+### 6. Which way is up the rocket, measured off the gravity on the rail (`a0c292a`)
+
+A Blue Raven's high-rate file gives six traces named for the board's own axes, and which one is the
+ROLL depends on the mounting — two corpus flights rest on `X`, two on `Z`. **The vendor's stated
+method was measured and rejected**: "the direction of the initial motion", reduced to which axis
+carries the largest excursion, separates winner from runner-up by only **1.1×–2.4×** and picks the
+WRONG axis on two of four, because at 500 Hz the lateral axes see shock that rivals the boost.
+
+Gravity does it instead, on the stretch before the record moved: the long axis sits **0.26°–1.72°**
+off the at-rest vector and outweighs the runner-up by **33.2×–216.4×**. The window is the LAST still
+stretch, not the first and not the longest — a rocket is often horizontal while prepared, for longer
+than it stands on the rail. `Gyro_*`/`Accel_*`/`Quat_*` also stop being `kind: 'other'`.
+
+The kinds deliberately do NOT become `rollRate`/`accelAxial`: those are what the analysis reads, and
+the stream arrives reduced to an envelope. Naming a trace is not reading a number off it.
+
+### 7. A keyboard can read the chart (`fd4c990`)
+
+`Chart.tsx` carried `role="img"` and an `aria-label` but no `tabIndex` and no key handling, so it
+could not be focused. `GroundTrack` beside it has had arrow keys, Home/End, PageUp/PageDown and
+Escape since it was built — an inconsistency inside one report as much as a gap against a
+spreadsheet. **`COMPETITION.md` row 26, which I wrote earlier this run, overstated it** ("no `role`,
+`tabindex` or focusable element"); the role was there, and the row is corrected in place.
+
+Arrows walk the samples in the VISIBLE window, so a zoom changes what they traverse. It drives
+uPlot's own cursor, so the live legend is the same element for mouse, finger and key. Only
+deliberate presses write to the `aria-live` region — a pointer would queue one per pixel.
+
+### 8. The exported track says which instrument drew it (`326244b`)
+
+Filed in `BACKLOG.md` as "the KML draws the GPS track at BAROMETRIC height", **unreproduced** —
+and reproducing it changed the fix. The height is not wrong: `relativeToGround` means height above
+the ground, which is what a barometric AGL series measures. A receiver's altitude is above the
+ELLIPSOID, a different quantity — the **nine** corpus flights carrying both disagree by
+**197–1,771 m on average**, up to 2,949 m. Swapping to `altitudeGps` would have been a regression
+dressed as a fix.
+
+The real defect was the provenance: geometry drawn by two instruments, with the file silent. The
+KML now says so, and says it differently where a receiver altitude exists and was not drawn. The
+GPX stays without `<ele>` for a **stated** reason — GPX elevation means above the ellipsoid — and
+carries a `<desc>` so two exports of one flight no longer disagree in silence.
+
+### 9. A wrong number on the report, and it was a case mismatch (`7110307`)
+
+Walk B's **GROUND TEMP 138 °F** on a PerfectFlite StratoLogger. The file says `58.7F` in every
+cell; 58.7 read as Celsius is 137.66 °F. `unitFromCells` had been reading that `F` **correctly all
+along** and resolving it to canonical `'f'`; `ColumnMapper.rowFor` then asked whether
+`['C','F','K']` includes `'f'`, got false, and fell through to `options[0]`.
+
+Temperature is the only role whose options are not already in canonical spelling, which is why
+nothing else ever showed it — and why the fix is a shared `prefillUnit` rather than a re-spelling
+of that one list. It also closes the compounding half (a saved template replays through the same
+path), and fixing it turned up `setRole`, which threw the file's own unit away whenever a flyer
+corrected a role by hand.
+
 ## Traps this run hit — read these before repeating them
+
+- **Falsify by MUTATION, not by reading the code — it found a guard of mine that no test could
+  reach.** Deleting the at-rest magnitude check from `longAxisFromRest` changed nothing: the
+  per-sample run detection already rejects a window that is not at 1 g, and the case I had written
+  to cover it was actually being caught by the 15° refusal. The guard's real job is a window rocking
+  **symmetrically** about an axis — every sample a full 1 g, the average pointing straight but short.
+  Four guards, four mutations, one hole.
+- **A `p.sr-only[role="status"]` locator in an unrelated e2e was unique only by accident.** Giving
+  every chart its own live region made it match five elements and turned a ground-track test red for
+  no reason of its own. When you add a shared shape, grep the e2e suite for locators that select on
+  that shape rather than on the surface.
+- **The measured LONG AXIS is what makes the board's quaternion agree with its own tilt column.**
+  Using the wrong axis gives 43°–89° mean error and looks like the whole approach is broken — which
+  is what I concluded for half an hour. Two entirely separate channels pick the same axis; if a
+  quaternion reading ever disagrees, suspect the axis before the quaternion.
 
 - **The Bash working directory persists across calls, and a `cd` into the fixtures repo silently
   followed the next command.** `npx playwright test` then reported **"No tests found"**, which reads
@@ -178,14 +255,16 @@ conclusion.
 
 ## Pick up first
 
-1. **The rest of D8 slice 2**, and a verified fact reopens the question slice 1 closed. The HR
-   channels arrive labelled (`Gyro X`, `Accel Z`, `Quat 1`) but as `kind: 'other'`, so they are
-   invisible to `getChannel`, to the analysis and to every kind-keyed surface. Slice 1 refused to
-   map any axis to `accelAxial`/`rollRate` because the mounting is unknowable. **For this board it
-   is knowable and the board has already done it**: the vendor manual states *"The Blue Raven can be
-   mounted in any orientation, and so it measures which direction, relative to its sensors, is the
-   rocket axis by measuring the direction of the initial motion while the rocket is on the rail."*
-   See `COMPETITION.md` row 25.
+1. **D8 slice 3 is measured and NOT shipped — read its ROADMAP entry before doing anything.** The
+   arithmetic works: the Blue Raven's `Quat_1..4` is `(w, x, y, z)`, all four records open at
+   quaternion identity with their tilt column at 0.00°, and tilt taken as the angle between the
+   MEASURED long axis rotated by the quaternion and where it sat at rest reproduces the board's own
+   `Tilt_Angle_(deg)` over the ascent to **0.64°, 1.28° and 1.96°** on three files. **`jan10` sits at
+   22.72° and nothing explains it** — the obvious guard is refuted, since its gyros rail but so do
+   all three of meraki's and meraki is the best of the four. Do not ship a tilt on three files out of
+   four. What would unblock it: a fifth high-rate fixture, or an account of what `jan10`'s attitude
+   solution was doing. **Scope any future attempt to the ASCENT**: over the whole record the two
+   tumbling machbuster flights alias badly (54°–61°) while the stable two stay under 1.6°.
 
 2. **The design-system audit ran for the first time and returned 40 rows.** `MAINTAINING.md` calls
    it "the audit that has never been run". Three are fixed; the rest are in `BACKLOG.md` with

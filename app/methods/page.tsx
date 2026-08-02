@@ -703,6 +703,44 @@ export default function MethodsPage() {
             tilt is heading, used for its own tilt lockout — not a recording of anything that
             happened. Debrief reports flights that were flown.
           </Method>
+          <Method id="long-axis" title="Which way is up the rocket">
+            A board&apos;s high-rate file gives three gyro traces and three accelerometer traces
+            named for the board&apos;s own axes — <span className="font-mono">X</span>,{' '}
+            <span className="font-mono">Y</span>, <span className="font-mono">Z</span>. Which of them
+            is the rocket&apos;s <em>roll</em> rate depends on how the board was mounted, and the
+            same board sits differently in different airframes: across our test corpus one flight
+            rests on <span className="font-mono">X</span> and another on{' '}
+            <span className="font-mono">Z</span>. Debrief works it out from the recording rather than
+            assuming it, and says nothing where the recording cannot settle it.
+          {' '}
+            <strong>Gravity is what answers it.</strong> A rocket on the rail stands within a degree
+            or two of vertical, so the 1&nbsp;g an accelerometer feels while it waits lies along the
+            airframe. Debrief takes the last stretch the record sat still before it moved, averages
+            the three axes over it, and the axis carrying that gravity is the long one. Across the
+            four high-rate files in our corpus it lands <strong>0.26°–1.72°</strong> off, and
+            outweighs the next axis by <strong>33× to 216×</strong>.
+          {' '}
+            The board maker describes a different method — working the axis out from the direction of
+            initial motion on the rail — and we measured that before choosing. Reduced to which axis
+            carries the largest excursion, it separates the winner from the runner-up by only
+            1.1×&ndash;2.4× and picks the <strong>wrong</strong> axis on two of the four files,
+            because at 500&nbsp;Hz the sideways axes see shock and vibration that rival the boost.
+            The board has its own solution and more to go on than its log; Debrief has the log, so it
+            uses the part of it that is unambiguous.
+          {' '}
+            <strong>It is the last still stretch, not the first.</strong> A rocket often lies
+            horizontal while it is prepared, frequently for longer than it then stands on the rail,
+            and gravity lying across the airframe would name a sideways axis as the long one. The
+            answer is withheld altogether when the record never left the ground, when there is no
+            still moment before it did, when the board was turning or rocking through that moment
+            rather than resting, or when no axis is within 15° of the gravity it felt.
+          {' '}
+            Naming is all this does. The traces are labelled — <em>roll rate</em>, <em>lateral
+            rate</em>, <em>along</em> and <em>across the airframe</em> — so you can tell which is
+            which on the chart. No reading is computed from them: a high-rate stream is drawn as an
+            envelope of the board&apos;s peaks rather than the full stream, and a figure taken off
+            that would need its own checking first.
+          </Method>
           <Method id="battery" title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the
             lowest it sagged to. A pack that droops under the current a deployment charge draws can

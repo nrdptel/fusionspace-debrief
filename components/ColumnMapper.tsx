@@ -5,7 +5,7 @@ import type { AnalyzedTable } from '@/lib/flight/columns';
 import { hasMappableColumns, isDateRole, type ColumnRole } from '@/lib/flight/columns';
 import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/flight/flownAt';
 import type { ColumnMapping } from '@/lib/flight/build';
-import { ROLE_GROUPS, ROLE_OPTIONS, unitOptionsFor } from '@/lib/flight/mappingOptions';
+import { ROLE_GROUPS, ROLE_OPTIONS, prefillUnit, unitOptionsFor } from '@/lib/flight/mappingOptions';
 import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
 import { Button, Card, Disclosure, Frame } from './ui';
 
@@ -37,11 +37,13 @@ export default function ColumnMapper({
 
   const initial = useMemo<Row[]>(() => {
     const validRole = (r: string): r is ColumnRole => ROLE_OPTIONS.some((o) => o.value === r);
-    const rowFor = (role: ColumnRole, wantUnit: string | null | undefined): Row => {
-      const units = unitOptionsFor(role);
-      const unit = wantUnit && units.includes(wantUnit) ? wantUnit : (units[0] ?? '');
-      return { role, unit };
-    };
+    // `prefillUnit` rather than a membership test: the unit read off the file is canonical
+    // (`'f'`) and the options are spelled for a reader (`'F'`), so comparing them raw silently
+    // fell through to the first option. See its doc comment for the wrong number that caused.
+    const rowFor = (role: ColumnRole, wantUnit: string | null | undefined): Row => ({
+      role,
+      unit: prefillUnit(role, wantUnit),
+    });
     // A remembered mapping for this exact layout wins over the fresh guess.
     if (appliedSaved) {
       return table.headers.map((_, i) => {
@@ -63,8 +65,10 @@ export default function ColumnMapper({
     setRemembered(false);
     setRows((prev) => {
       const next = prev.slice();
-      const units = unitOptionsFor(role);
-      next[i] = { role, unit: units[0] ?? '' };
+      // Prefilled from what THIS column's cells or header actually said, where the file said
+      // anything the new role can use — so a flyer correcting a role does not have to correct the
+      // unit behind it too. Falls back to the first option, which is what it always did.
+      next[i] = { role, unit: prefillUnit(role, table.columns[i]?.unit) };
       return next;
     });
   };

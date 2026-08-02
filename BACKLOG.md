@@ -103,11 +103,28 @@ wild, ideas too big for one pass. One line each, newest first.
   — the `Pos:` tokens on those same lines span −3143..9, −13..5405 and −308..3495, so the height is
   in the file somewhere the parser is not reading.
 
-- **2026-08-02 — a StratoLogger column whose every cell reads `58.7F` gets the temperature unit
-  prefilled as C, and "Remember these columns" saves the mistake.** Walk B measured GROUND TEMP
-  138 °F on `perfectflite__…StratoLogger1.txt`. The saved template then re-applies the wrong unit
-  to every later StratoLogger file in the folder, so one wrong guess compounds across a launch
-  day. Same root as the mapper's unit default filed above.
+- **DONE 2026-08-02 — a StratoLogger column whose every cell reads `58.7F` was prefilled as C, and
+  it was a CASE MISMATCH, not a missing inference.** Walk B measured GROUND TEMP **138 °F** on
+  `perfectflite__…StratoLogger1.txt`; 58.7 read as Celsius is 137.66 °F, so the walk's number is
+  exactly this defect. Reproduced before scoping, and reproducing it moved the fix: `unitFromCells`
+  was reading the in-cell `F` **correctly** all along and resolving it to the canonical `'f'`.
+  `ColumnMapper.rowFor` then tested `unitOptionsFor('temperature').includes('f')` against
+  `['C','F','K']` — spelled for a reader — which is false, so it fell through to `options[0]`.
+  Temperature is the only role it could bite, being the only one whose options are not already in
+  canonical spelling, which is why nothing else showed it.
+
+  Fixed in `lib/flight/mappingOptions.ts` as `prefillUnit`, matching case-insensitively and
+  returning the option list's OWN spelling, so what is stored is always a string the `<select>`
+  offers and `build.ts` can look up. The fix is there rather than in a re-spelling of that one
+  list, because the next role added with a capital in it would do the same thing silently.
+
+  **The compounding half is closed by the same change** — a saved template replays its stored unit
+  through the same path — **and one more site was found while fixing it**: `setRole` reset to
+  `options[0]` whenever a flyer corrected a role by hand, throwing the file's own unit away one
+  interaction later. It now prefills from what that column actually said. Pinned by five cases in
+  `lib/flight/mappingOptions.test.ts` and by `e2e/mapper.spec.ts` → *"a temperature the file states
+  in Fahrenheit is not preselected as Celsius"*, which also re-picks the role. Two mutations run;
+  restoring the case-sensitive test turns three unit cases and the e2e red.
 
 - **2026-08-02 — a launch day cannot be fed in one pass.** The drop zone takes 6 files and
   **discards the rest outright** — drop 14 and it reads "Showing 6 of 14 files" with the other 8
@@ -269,13 +286,26 @@ wild, ideas too big for one pass. One line each, newest first.
   header twice, or `Accel` twice) silently restores the wrong trace — a wrong-trace bug, not a
   missing-trace one.
 
-- **2026-08-02 — the KML export draws the GPS track at BAROMETRIC height.** `GroundTrack.tsx:654`
-  passes `altitude` — bound at `FlightReport.tsx:1409` to `series.altitude`, the barometric AGL
-  series — as the elevation of every GPS fix, while an `altitudeGps` channel may sit unused. The
-  exported geometry mixes two independent altitude recordings and the file says nothing about
-  which sensor drew it. `lib/gps.ts:139`'s GPX writes no `<ele>` at all, so the two geospatial
-  exports of one flight disagree about whether the track has a height. **Unreproduced** — filed
-  from a read of the code, not from opening a KML.
+- **DONE 2026-08-02 — the KML export drew the GPS track at BAROMETRIC height and said nothing.
+  Reproduced first, and reproducing it changed what the fix was.** The filing assumed the height
+  was WRONG. It is not: KML's `relativeToGround` means height above the ground, which is exactly
+  what a barometric AGL series measures, and the barometer is the better vertical instrument. A
+  receiver's altitude is measured above the ELLIPSOID and is a different quantity — measured over
+  the corpus, the **nine** flights carrying both disagree by **197–1,771 m on average** and by up
+  to **2,949 m**. Swapping to `altitudeGps` would have been a regression dressed as a fix.
+
+  The real defect is the one the invariant names: a document that shows a trajectory drawn by two
+  independent instruments — the receiver put each fix on the map, the barometer put it at a height
+  — with the provenance stripped off. The KML now carries a `<description>` saying so, and says it
+  differently where the flight also holds a receiver altitude that was NOT the one drawn, so a
+  single-instrument file is not told about a disagreement it cannot have.
+
+  The GPX's silence was the same defect in the other direction, and it stays silent for a stated
+  reason: GPX elevation is defined as height above the ellipsoid, so writing Debrief's above-the-pad
+  height into an `<ele>` would put a correct number under a label meaning something else. It now
+  carries a `<desc>` saying it is a ground track and pointing at the KML — so the two exports of one
+  flight no longer disagree in silence about whether the track has a height. Pinned by four cases in
+  `lib/gps.test.ts`, three mutations run against them.
 
 - **2026-08-02 — the design-system audit ran for the first time and returned 40 divergences.**
   `MAINTAINING.md` calls this "the audit that has never been run". The full ranked list is in the

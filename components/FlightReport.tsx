@@ -1413,6 +1413,7 @@ export default function FlightReport({
           padOrigin={filePad}
           time={series.time}
           altitude={series.altitude}
+          hasGpsAltitude={getChannel(flight, 'altitudeGps') != null}
           // The descent (for the measured wind) starts at the main deploy when one
           // was found, else at apogee — the low, wind-coupled part of the fall.
           descentFromIndex={(events.find((e) => e.type === 'main') ?? events.find((e) => e.type === 'apogee'))?.index}
