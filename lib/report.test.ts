@@ -215,6 +215,69 @@ describe('report exports', () => {
     expect(JSON.stringify(settled).includes('(at least)')).toBe(false);
   });
 
+  it('tags a derived peak speed and Mach on the comparison, even when every flight derived it', () => {
+    // The Sev-1 this test exists for, reproduced before it was fixed: two PerfectFlite altimeters
+    // in one airframe — the canonical comparison — are BOTH baro, so the old `velMixed` gate
+    // suppressed the tag and the comparison published `2,781 ft/s · Mach 2.52` bare, while each
+    // flight's own metric grid said the same number with "derived, which usually reads high at
+    // the peak" attached. A caveat on one surface and a confident claim on another is worse than
+    // either alone, and the claim is that a rocket went supersonic.
+    const flight = tinyFlight();
+    const analysis = analyzeFlight(flight);
+    const inputs = (metricsList: (typeof analysis.metrics)[]): CompareInput[] =>
+      metricsList.map((m, i) => ({ id: `f${i}`, name: `flight ${i}`, flight, analysis: { ...analysis, metrics: m } })) as unknown as CompareInput[];
+    const rowsFor = (metricsList: (typeof analysis.metrics)[]) =>
+      compareMetricRows(buildComparison(inputs(metricsList)).flights, 'metric');
+    const cellsOf = (rows: ReturnType<typeof compareMetricRows>, label: string) => rows.find((r) => r.label === label)!.cells;
+
+    const baro = { ...analysis.metrics, maxVelocity: 847, maxVelocitySource: 'baro' as const, mach: 2.52, maxVelocityWithheld: null };
+    const device = { ...baro, maxVelocitySource: 'device' as const };
+
+    // Every flight derived its peak: the tag must still be there, on the speed AND on the Mach.
+    const allBaro = rowsFor([baro, baro]);
+    for (const cell of cellsOf(allBaro, 'Max velocity')) expect(cell, 'a derived peak speed says so').toContain('(baro)');
+    for (const cell of cellsOf(allBaro, 'Max Mach')) expect(cell, 'Mach rides on that peak, so it inherits the caveat').toContain('(baro)');
+
+    // A device-logged peak is NOT tagged — the tag has to mean something.
+    expect(cellsOf(rowsFor([device, device]), 'Max velocity').join(' ')).not.toContain('(baro)');
+
+    // Mixing the two still withholds the crown: ranking a derived peak against a logged one ranks
+    // two definitions, not two flights.
+    const mixed = rowsFor([device, { ...baro, maxVelocity: 900, mach: 2.7 }]);
+    expect(mixed.find((r) => r.label === 'Max velocity')!.best, 'no crown across two methods').toBe(-1);
+    expect(mixed.find((r) => r.label === 'Max Mach')!.best).toBe(-1);
+  });
+
+  it('tells a withheld peak speed apart from a flight that never had one, on the comparison', () => {
+    // `fmtSpeed(NaN)` is `—`, which is also what a flight with no speed channel prints — so the
+    // comparison could not tell a refusal from an absence, while `compareJson` carried the
+    // distinction all along. The single-flight report settled this already: "a saved report that
+    // simply omits the row says the flight had no peak speed. It had one; Debrief declined."
+    const flight = tinyFlight();
+    const analysis = analyzeFlight(flight);
+    const inputs = (metricsList: (typeof analysis.metrics)[]): CompareInput[] =>
+      metricsList.map((m, i) => ({ id: `f${i}`, name: `flight ${i}`, flight, analysis: { ...analysis, metrics: m } })) as unknown as CompareInput[];
+    const rowsFor = (metricsList: (typeof analysis.metrics)[]) =>
+      compareMetricRows(buildComparison(inputs(metricsList)).flights, 'metric');
+    const cells = (rows: ReturnType<typeof compareMetricRows>, label: string) => rows.find((r) => r.label === label)!.cells;
+
+    const ok = { ...analysis.metrics, maxVelocity: 300, mach: 0.88, maxVelocityWithheld: null };
+    const refused = { ...ok, maxVelocity: NaN, mach: null, maxVelocityWithheld: 'implausible' as const };
+    const absent = { ...ok, maxVelocity: NaN, mach: null, maxVelocityWithheld: null };
+
+    const withRefusal = rowsFor([refused, ok]);
+    expect(cells(withRefusal, 'Max velocity')[0]).toContain('withheld');
+    expect(cells(withRefusal, 'Max velocity')[0], 'and says WHY it was withheld').toContain('not physically possible');
+    expect(cells(withRefusal, 'Max Mach')[0], 'Mach is withheld with the speed it rides on').toContain('withheld');
+
+    // A flight that genuinely carries no speed still reads as an em dash — the two must differ.
+    expect(cells(rowsFor([absent, ok]), 'Max velocity')[0]).not.toContain('withheld');
+
+    // The gap reason is its own sentence, not the implausible one wearing a different label.
+    const gap = rowsFor([{ ...refused, maxVelocityWithheld: 'gap' as const }, ok]);
+    expect(cells(gap, 'Max velocity')[0]).toContain('doesn’t cover');
+  });
+
   it('withholds the event speeds in every export when the velocity was judged unusable', () => {
     // The headline already withholds an unusable velocity; the event tables read the same
     // trace sample by sample, so they have to withhold it too — an export that prints the

@@ -37,7 +37,7 @@ import {
   type CompareFlight,
 } from './compare';
 import { derivedPeakCaveat } from './derivedPeak';
-import { apogeeSub, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent } from './readings';
+import { apogeeSub, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -788,8 +788,21 @@ export function compareMetricRows(
 ): CompareMetricRow[] {
   const velMixed = new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1;
   const accMixed = new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1;
-  const baroTag = (mixed: boolean, source: 'device' | 'baro', finite: boolean) =>
-    mixed && source === 'baro' && finite ? ' (baro)' : '';
+  /** A reading differentiated out of the altitude rather than logged, tagged wherever it appears.
+   *
+   *  **This used to be gated on the set MIXING device and baro sources, and that suppressed the
+   *  caveat in exactly the case that needs it most.** Two PerfectFlite altimeters in one airframe
+   *  — the canonical comparison — are both baro, so `velMixed` was false and the comparison
+   *  published `2,781 ft/s · Mach 2.52` bare while each flight's own metric grid, print card and
+   *  .txt/.md/.html report said the same number with *"derived, which usually reads high at the
+   *  peak"* attached. A caveat on one surface and a confident claim on another is worse than
+   *  either alone, and the claim here is that a rocket went supersonic.
+   *
+   *  The old reasoning — "where every flight was located the same way, the tag on every cell
+   *  would be noise" — is right about a COMPARISON (which is higher?) and wrong about a CLAIM
+   *  (is this number soft?). The tag answers the second, so it does not depend on what the other
+   *  flights did. What legitimately depends on mixing is the crown, handled by `rankBlocked`. */
+  const baroTag = (source: 'device' | 'baro', finite: boolean) => (source === 'baro' && finite ? ' (baro)' : '');
   // Same idea for the burnout readings: a burn time or burnout altitude read off an
   // accelerometer crossing and one taken at the speed peak are two different instants, so
   // lining them up in a column without saying which is which reads as a like-for-like
@@ -806,6 +819,23 @@ export function compareMetricRows(
   // highest cannot be settled from these numbers, and crowning one says it can.
   const anyFloor = flights.some((f) => f.metrics.apogeeIsFloor && Number.isFinite(f.metrics.apogeeAltitude));
   const clipTag = (m: FlightMetrics) => (m.accelClipped && Number.isFinite(m.maxAcceleration) ? ' (clipped)' : '');
+  /** A peak speed Debrief DECLINED to report, said as such rather than as an em dash.
+   *
+   *  `fmtSpeed(NaN)` is `—`, which is also what a flight carrying no speed channel prints, so the
+   *  comparison could not tell a refusal from an absence. `lib/report.ts` already ruled on this
+   *  for the single-flight report — *"a saved report that simply omits the row says the flight had
+   *  no peak speed. It had one; Debrief declined to report it"* — and the comparison is the
+   *  surface that still conflated them. `compareJson` carries `maxVelocityWithheld`, so the same
+   *  comparison exported the distinction as JSON and dropped it everywhere else.
+   *
+   *  The reason strings are `withheldReason` in `lib/readings.ts`, imported rather than restated,
+   *  so the grid and the comparison cannot drift into two accounts of one refusal. */
+  const withheldSpeed = (m: FlightMetrics) =>
+    !Number.isFinite(m.maxVelocity) && m.maxVelocityWithheld != null ? `withheld — ${withheldReason(m.maxVelocityWithheld)}` : null;
+  // Mach and max-Q are withheld together with the speed they ride on (`lib/analyze`), so the
+  // Mach cell has the same two meanings to tell apart and takes the same treatment.
+  const withheldMach = (m: FlightMetrics) =>
+    m.mach == null && m.maxVelocityWithheld != null ? `withheld — ${withheldReason(m.maxVelocityWithheld)}` : null;
   // A descent rate off a record that stops in the air is a short leg, not a landing — the
   // grid and the saved report say so on the flight's own page, and this table is the one
   // surface that still printed the figure bare. Tagged per cell rather than per row, because
@@ -827,14 +857,26 @@ export function compareMetricRows(
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee), value: (m) => m.timeToApogee },
     {
       label: 'Max velocity',
-      get: (m) => fmtSpeed(m.maxVelocity, sys) + baroTag(velMixed, m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
+      get: (m) => withheldSpeed(m) ?? fmtSpeed(m.maxVelocity, sys) + baroTag(m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
       value: (m) => m.maxVelocity,
       rank: true,
+      // Crowning a baro-derived peak over a device-logged one ranks two definitions, not two
+      // flights — the same argument `anyClipped` makes one row down. A derived peak reads high,
+      // so "highest" would go to whichever flight happened to be measured the softer way.
+      rankBlocked: velMixed,
     },
-    { label: 'Max Mach', get: (m) => fmtMach(m.mach), value: (m) => m.mach ?? NaN, rank: true },
+    {
+      label: 'Max Mach',
+      // Mach rides on the peak speed, so it inherits the peak's provenance — and it carried NO
+      // tag at all, in the mixed case too. This is the "went supersonic" number.
+      get: (m) => withheldMach(m) ?? fmtMach(m.mach) + baroTag(m.maxVelocitySource, m.mach != null),
+      value: (m) => m.mach ?? NaN,
+      rank: true,
+      rankBlocked: velMixed,
+    },
     {
       label: 'Max acceleration',
-      get: (m) => fmtAccel(m.maxAcceleration, sys) + baroTag(accMixed, m.accelerationSource, Number.isFinite(m.maxAcceleration)) + clipTag(m),
+      get: (m) => fmtAccel(m.maxAcceleration, sys) + baroTag(m.accelerationSource, Number.isFinite(m.maxAcceleration)) + clipTag(m),
       value: (m) => m.maxAcceleration,
       rank: true,
       rankBlocked: anyClipped,
@@ -922,13 +964,15 @@ export function compareMetricRows(
   return orderRows(visibleRows(built, (r) => r.label, hidden), (r) => r.label, order);
 }
 
-/** Whether any compared flight tags a metric "(baro)" — i.e. the flights mix a
- *  device-logged and a baro-derived source, so a footnote is warranted. */
+/** Whether any compared flight tags a metric "(baro)", so the footnote explaining the tag is
+ *  warranted.
+ *
+ *  **This asked whether the flights MIXED sources, which left the tag unexplained in every
+ *  all-baro comparison** — and after the tag stopped being gated on mixing, that would have been
+ *  a `(baro)` on every cell with nothing on the page saying what it meant. It now asks the
+ *  question the footnote actually answers: is this tag anywhere on this table? */
 export function compareHasBaroMix(flights: CompareFlight[]): boolean {
-  return (
-    new Set(flights.map((f) => f.metrics.maxVelocitySource)).size > 1 ||
-    new Set(flights.map((f) => f.metrics.accelerationSource)).size > 1
-  );
+  return flights.some((f) => f.metrics.maxVelocitySource === 'baro' || f.metrics.accelerationSource === 'baro');
 }
 
 /** Whether any compared flight tags its max acceleration "(clipped)" — a saturated
