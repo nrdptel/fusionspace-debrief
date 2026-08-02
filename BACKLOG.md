@@ -14,6 +14,20 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — 20 controls are under §8's 44 px floor at a 390 px TOUCH viewport, and they are all
+  the elements the CSS floor deliberately does not reach.** Measured on the built export of
+  `66144e8` with a Blue Raven flight open: `<a>` and `<label>` elements at **16–18 px** — "Compare"
+  in the logbook, the "Label" and "Notes" fields on the report, and five `?` method links. §8 says
+  the count is zero or the surface is not done, and this is the honest number.
+
+  **Measure this with `hasTouch: true` or it lies by 6×.** The same walk under Playwright's default
+  `pointer: fine` context reports **119**, because `app/globals.css`'s `@media (pointer: coarse)`
+  block — which floors every `button`, `select`, `[role="button"]` and `input` — does not apply.
+  Under a coarse pointer the channel picker measures 217×**44**; under a fine one, 217×34. The 119
+  is an artifact; the 20 is the defect. `ROADMAP.md` P1's opening-audit note already records that
+  `TOUCH_TARGET` exists precisely for `<label>`, `<summary>` and a plain `<a>` — it has simply never
+  been applied to them. That is the fix, and it is one increment.
+
 - **2026-08-02 — a "best" cell in the comparison wears the ACCENT colour, which §2 reserves for
   interactive.** `components/CompareView.tsx:931` renders the row's highest value
   `font-semibold text-indigo-600 dark:text-indigo-400`; §2's table gives `indigo` one meaning —
