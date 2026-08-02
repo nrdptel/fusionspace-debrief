@@ -66,7 +66,30 @@ const UNITS: UnitDef[] = [
   // rotation rate (canonical degrees/second) — for a roll/spin-rate channel
   { quantity: 'rotation', scale: 1, aliases: ['deg/s', 'dps', 'degs', 'degreespersecond', '°/s'] },
   { quantity: 'rotation', scale: 180 / Math.PI, aliases: ['rad/s', 'radianspersecond'] },
-  { quantity: 'rotation', scale: 360, aliases: ['rev/s', 'rps', 'revs', 'revolutionspersecond'] },
+  // `hz` is here because a real logger writes a roll rate in it and the arithmetic settles what it
+  // means. The Blue Raven's low-rate export has a column headed `Roll Rate (HZ)`; measured over
+  // `blueraven__reddit-meraki2-121km__BlueRaven-LR.csv`, it holds at exactly ±6.38889 for 46 of its
+  // 36,700 samples, and 6.38889 × 360 = 2300.0 deg/s — a whole number and a plausible gyro limit,
+  // which one revolution per second being 360 degrees per second is the only reading that
+  // produces. **`HZ` is what the file states; revolutions per second is Debrief's inference from
+  // that arithmetic**, and the two should not be run together.
+  //
+  // **What it prevents, stated as the mechanism actually is** — an earlier version of this comment
+  // named the wrong one, and in a repo whose comments are measurements that matters. Without the
+  // alias `unitFromHeader` cannot resolve `(HZ)` and returns null; the column mapper then does NOT
+  // leave it unstated but positively fills it, because `rowFor` in `components/ColumnMapper.tsx`
+  // takes `unitOptionsFor(role)[0]` when there is no remembered unit, and for a roll rate that
+  // first option is `deg/s`. So the UI asserts a unit the file never stated, `buildFlight` converts
+  // faithfully at scale 1, and **6.4 rev/s would print as 6.4 deg/s — 360× low**, with no
+  // "unrecognized unit" note because from the builder's side nothing was unrecognised.
+  //
+  // That path is the GENERIC mapper, for a file Debrief does not recognise. The meraki file above
+  // is claimed by `lib/parsers/blueraven.ts`, which maps no Hz column, so this was never a shipped
+  // wrong number on that file — it is the header shape that makes the case measurable.
+  //
+  // Safe on a non-rotation column: `buildFlight` only converts when the resolved quantity matches
+  // the channel's own, and otherwise says the unit was not recognised and keeps the values as-is.
+  { quantity: 'rotation', scale: 360, aliases: ['rev/s', 'rps', 'revs', 'revolutionspersecond', 'hz'] },
   { quantity: 'rotation', scale: 6, aliases: ['rpm', 'rev/min', 'revolutionsperminute'] },
 ];
 

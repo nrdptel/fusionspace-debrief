@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { parachuteCd, chuteDiameterToM, CHUTE_LEN_TO_M, MAX_REASONABLE_CHUTE_M } from '@/lib/parachute';
-import { Card, NumberField } from './ui';
+import { Card, NumberField, Readout } from './ui';
 
 const DROGUE_KEY = 'debrief.drogue.m';
 
@@ -105,16 +105,16 @@ export default function DrogueCd({
         </div>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
-          {cd != null ? cd.toFixed(2) : '—'}
-        </span>
-        {cd != null && descentRate != null && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            at {fmtSpeed(descentRate, sys)} down · in the thinner air aloft
-          </span>
-        )}
-      </div>
+      <Readout
+        size="hero"
+        layout="inline"
+        className="mt-3"
+        value={cd != null ? cd.toFixed(2) : '—'}
+        sub={
+          cd != null &&
+          descentRate != null && <>at {fmtSpeed(descentRate, sys)} down · in the thinner air aloft</>
+        }
+      />
 
       {descentRate == null ? (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">

@@ -6,133 +6,137 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **D — capability** | **D8 slice 1 SHIPPED.** A Blue Raven's 500 Hz high-rate half is now read onto the flight its low-rate half recorded — gyro, accelerometer and the board's attitude, peak-preserving, with the standalone refusal untouched. **Slices 2 and 3 remain**, and slice 1 narrowed slice 2: the channels already arrive LABELLED (`Gyro X`, `Accel Z`, `Quat 1`), so what is left there is `ChannelKind` members, the units context, and the "this board did not record it" state. |
-| **P — product & craft** | **P1 still in progress, and item 2 is DONE.** Item 5 started on the app's most-hit error surface. Item 2 closed the events grid and then the last three decision-grade numbers, taking inverted files to **13**. Items **7** (hand-rolled buttons, **29** not 39/41), item 4's keyboard clause and item 12's `Panel` remain. |
+| **D — capability** | **D8 slice 2 STARTED.** Looking for the milestone's own subject (the high-rate gyro/quaternion columns) meant reading the LOW-rate headers, which turned up a roll angle the Blue Raven had already solved and Debrief parsed straight past — and, on the generic importer's path, `Roll_Angle_(deg)` being auto-detected as a roll **RATE**, with a test asserting that was correct. `rollAngle` is its own kind now. **The rest of slice 2 remains**: `ChannelKind` members, units and provenance for the HR `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind: 'other'`. |
+| **P — product & craft** | **P1: two more §5 primitives are doing their job.** `useReturnFocus` exists (§5 named it; nothing implemented it) and the two destructive confirms share it. `Readout` went **2 → 9 adopters** — the seven derived-reading panels were hand-rolling a byte-identical hero value. Items **7** (29 hand-rolled `<button>`), item 4's keyboard clause, and the design-system audit's other 30-odd rows remain. |
 
-**Everything this run shipped is MERGED AND LIVE.** Four pull requests — #86, #87, #88, #89 — each
-merged on green with `frontend` and `e2e` succeeding, and production verified with a cache-buster
-after each. `main` is **`748090f`** and production served exactly that at 06:32:04Z. The branch was
-restarted from `main` after every merge.
-**Re-measure before believing this**: `git fetch --prune origin` then
+**Everything this run shipped is on the working branch and NOT yet in production.** Push the branch,
+open one pull request against `main`, merge on green. Under SHIPPED-MEANS-REACHABLE this counts as
+**pending**, not shipped.
+
+**Re-measure before believing any of this**: `git fetch --prune origin`, then
 `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
+At the time of writing `main` was `9da7e7d` and production served exactly that.
 
 ## The one thing to read before anything else
 
-**Two clauses of D8 slice 1 were false premises, and both were found by executing them rather than
-reading them.** This is the third run in a row where that has been true, so treat it as the rule:
+**The opening fan-out's job is to find things you would not have looked for, and this run it found a
+Sev-1-shaped defect inside the milestone rather than beside it.**
 
-1. *"`lib/stitch.ts` already aligns recordings on a shared instant, which is the machinery this
-   needs."* It is not. Stitch aligns DIFFERENT boards and returns `verified: false` because nothing
-   establishes the offset. One board writes both halves off ONE flight clock — all four corpus pairs
-   open within **0.062–0.108 s**, the sample phase of 500 Hz against 50 Hz. Reaching for stitch would
-   have imported an estimate where an exact value was sitting in the file.
-2. *"pinned over both corpus HR files."* There are **five**, and one is a different shape entirely.
+D8 slice 2 is written as "name the orientation channels". The premise is the high-rate file. Reading
+the LOW-rate file's headers instead — all four app-CSV corpus exports — found three angle columns
+side by side (`Tilt_Angle_(deg)`, `Future_Angle_(deg)`, `Roll_Angle_(deg)`) with only the first
+mapped. And the third was not merely unread:
 
-**And the obvious implementation was a Sev-1 that a measurement caught before it shipped.**
-Resampling 500 Hz onto the 50 Hz clock — what `multiTimebase` already offers, and what a subagent
-recommended — loses **69.0%** of `jan18`'s `Accel_Z` peak: 264 g read as 82 g. Measure the reduction
-before choosing it.
+- `normalize` turns `Roll_Angle_(deg)` into `roll angle deg`, so the generic importer's `\broll\b`
+  **rate** test matched. A column of degrees was arriving as a channel of degrees per second.
+- It is the identical defect `releaseAttitudeRoll` exists to stop, in the one shape that guard
+  cannot see: it fires only where `pitch` AND `yaw` siblings prove an attitude solution, and a board
+  writing tilt/future/roll has neither.
+- **`lib/flight/columns.test.ts` was ASSERTING it** — `expect(by('Roll_Angle_(deg)').role)
+  .toBe('rollRate')`, with a comment explaining why that was correct. That is how it survived. A
+  golden assert only guards the number somebody thought to assert, and it can pin the wrong one.
+
+**And the first version of this section overstated it, which the pre-push review caught.** That
+path is the column mapper, for an UNRECOGNISED file. `blueraven.ts` mapped no roll column at all
+beforehand — `git show HEAD~2:lib/parsers/blueraven.ts | grep mappings.push` has six lines and none
+is a roll — so no named-parser file ever published a wrong roll figure. The defect was reachable and
+latent, not observed. Overstating a defect's blast radius is its own wrong claim.
+
+The Blue Raven's roll angle is **cumulative and unwrapped** — peaks of 26,099° on meraki, 24,240° on
+jan18, −4,969° on jan10 — which is why such a column read as a rate gives a figure no flyer could
+sanity-check. **On meraki it is also a FLOOR**: that file's board-measured `Roll Rate (HZ)` column
+holds at exactly ±6.38889 rev/s (2,300 °/s) for **46 of its 36,700 samples**, which is a sensor at
+its limit. Integrating that rate reproduces the board's own stated angle exactly — **25,333° either
+way** — which confirms the vendor's stated method and makes the total a lower bound.
 
 ## The other thing to read before anything else
 
-**The pre-push agent review found four real bugs in my own work, and the tests I had written could
-not see three of them.** Do not skip that step, and do not treat your own falsification as
-sufficient:
+**The pre-push agent review found four real problems in the focus-return commit, and the most useful
+one was about the check I had just written, not the code.** Do not skip that step.
 
-- **The quaternion was not a quaternion.** Reducing its four components independently by extremum
-  takes each from a different instant; the merged norm averaged **1.0132** where a unit quaternion is
-  exactly 1, and the note beside it said "the board's own attitude solution". **A rate has a peak
-  worth preserving; an attitude has none** — |q| is 1 by construction. One reduction is not universal.
-- **`railed()` flagged `Quat 1` as a saturated sensor on every corpus file**, because a normalised
-  component's maximum repeats for thousands of pad samples. My test asserted that SOMETHING railed,
-  which was true, so it stayed green over a fabricated safety warning.
-- **The single-candidate pairing fallback would hang one download's stream on another's flight** —
-  two files whose own names state launch seconds nine months apart.
-- **The note it printed was false on `/compare`**, which never uses the ingested flights: it re-reads
-  every flight from the logbook by id. The traces were absent there and gone after any reload.
+- My new §9 assertion matched `\.focus\(\)` — the ZERO-ARG form only. `el.focus({ preventScroll:
+  true })` is the commonest real variant, so a third hand-rolled confirm could pass the guard by
+  adding one argument. Now `\.focus\s*\(`.
+- The same assertion was comment-blind, so a component that merely DESCRIBED focus handling would
+  fail it — failing for a reason other than the one it gives. Comments are stripped now, and only
+  there: the suite-wide counts above it are §9's own greps and must stay literally that.
+- `useReturnFocus` documents "the trigger stays MOUNTED" as its central contract and enforces
+  nothing. Stated in the primitive rather than left implied.
+- The logbook's confirm changed colour, border and body size in that commit and **nothing audited
+  it**, while its identical twin on the privacy page has had an armed-panel axe run in both schemes
+  since a hand-run audit caught that control's first contrast failure. Now both are guarded.
 
 ## What shipped this run
 
 Every increment independently gated: `npm test` · `npm run build` · `npx playwright test`, all three
-green before every push. The corpus was attached throughout, so no claim here rests on a suite that
-skipped itself.
+green before every push. **The corpus was attached throughout** — verified, not assumed: the sweep
+reports **61 fixtures, 41 analysed, 0 mapped-but-unanalysable, 9 parse-only, 11 rejected**.
 
-### 1. D8 slice 1 — the high-rate half reaches a surface (`c833090`, `36ac3b5`)
+### 1. `useReturnFocus`, the §5 primitive nothing had implemented (`2845c54`)
 
-Both halves share `Flight_Time_(s)`, so nothing is aligned or estimated; the only shift is the
-flight's own re-basing, read out of the low-rate file by `flightTimeOrigin`. Rates are reduced by
-per-window extremum so the board's peak survives exactly; the attitude takes one coherent sample per
-window. Units are read off the data (`|accel|` pad 0.9935–0.9947 → g; `|quat|` 0.99998–1.00000), and
-the vendor's Sept 2025 manual states the same schema.
+Two surfaces hand-rolled all three of its parts and are the same control written twice — the
+logbook's Clear confirm and the privacy page's Forget-these-settings confirm. Measured before: **6
+imperative focus calls across 2 files.** After: **2, both in `components/ui.tsx`.**
 
-**No axis is mapped to `accelAxial` or `rollRate`** — `lemiv` rests on X and `jan10` on Z, so the
-board is mounted differently in different rockets. That is the whole reason slice 2 is not free.
+**`Panel` itself is deliberately still not built, and that is a measurement refuting this
+milestone's own entry.** `ROADMAP.md` named `UnitsControl` and `FigureChooser` as the two surfaces
+hand-rolling it. Both are wrong: `UnitsControl` is a native `<details>`/`<summary>` where the
+browser owns dismissal, and `FigureChooser` is an inline row of toggle chips with no dismiss at all.
+Nothing in the app has the shape §5 draws.
 
-Every corpus download rails a gyro axis (2,291.5–2,294.1 deg/s), flagged by name with its peak called
-a floor. The test is the repeat count, not a rail value: a railed axis writes its maximum 13–6,729
-times, an unrailed one once or twice, nothing in between.
+The logbook's confirm also stopped hand-rolling its container — the control radius on a container,
+and its whole body at caption size, on the app's only irreversible action.
 
-### 2. A Sev-1 on the comparison surface (`86e6962`)
+### 2. D8 slice 2 — the roll angle the board already solved (`0f6da49`)
 
-The `(baro)` tag was gated on flights DISAGREEING about their source, so it vanished where it matters
-most. Two PerfectFlite altimeters in one airframe — the canonical comparison — are both baro:
+See above for the defect. `rollAngle` is a `ChannelKind` and `ColumnRole` in degrees, offered in the
+mapper beside the rate. The board's own limit travels with the channel — the vendor states the angle
+is an integration of the measured roll rate that ignores motion in the other two axes, so it drifts
+— and **no size is put on that drift**, because nothing in the corpus measures roll orientation
+independently and a percentage would be invented.
 
-| surface | what it said |
-|---|---|
-| metric grid | `2,781 ft/s` · *"Mach 2.52 · at 3,645 ft · derived, which usually reads high at the peak"* |
-| comparison | `2,781 ft/s` · `Mach 2.52` |
+**`Future_Angle_(deg)` is refused, and the refusal is now pinned.** It is the board's projection of
+where its tilt is heading, not a recording. Debrief reports flights that were flown.
 
-The bare claim is that a rocket went supersonic. **Max Mach carried no tag on any path.** And a
-withheld peak printed as an em dash, indistinguishable from a flight that never had one.
+**A wrong number this nearly introduced, caught by reading the conversion path rather than assuming
+it:** the first draft offered `['deg','rad']` as the mapper's unit choice for the new kind. There is
+no `angle` quantity in `lib/units.ts` — only `rotation`, which is a RATE — so an angle kind resolves
+no converter and is passed through untouched. Picking radians would have stored radians labelled
+`°`. No unit choice is offered, exactly as for `tilt`.
 
-The distinction worth keeping: the old reasoning ("a tag on every cell would be noise") is right
-about a COMPARISON and wrong about a CLAIM. What legitimately depends on mixing is the crown, which
-moved to `rankBlocked`.
+### 3. `Readout` takes the seven panels that were copying it (increment 3)
 
-### 3. P1 — the error names its file, and four surfaces leave caption size (`d72288a`, #89)
+Seven byte-identical hero values — deploy altitude, drag Cd, drogue Cd, ejection delay, landing
+energy, parachute Cd, rail exit — the `ACTION_BTN`-in-six-files shape, restarted for readings. The
+primitive gained exactly two things, each a real case: `label` optional (all seven carry their own
+`<h3>` above the value) and `layout="inline"` (the number and its qualifier read as one sentence).
+`Readout` adopters **2 → 9**.
 
-Six of `Analyzer`'s ten error paths named no file at all. It renders through `ErrorState` now.
-
-Then item 2 took every decision-grade number still below §3's floor: the events grid's main-deploy
-height and deployment shock (the numbers a flyer sizes a harness against), `RecordingPicker`'s and
-`FlightPicker`'s apogees and speeds (how a flyer decides WHICH recording to trust), and
-`GroundTrack`'s walkback distance and bearing (read standing in a field deciding where to walk).
-**Item 2 is done** — inverted files 13, and its target of 0 remains unreachable for the reason
-`ROADMAP.md` states: a chip-built component is inverted while fully compliant.
-
-### 4. §8's touch floor, and a number of my own I had to correct (#87)
-
-The done-check walk filed "20 controls under 44 px" and it was wrong by 4x — see the traps section.
-The honest figure is 3, one of which is fixed; the other two are §10-shared and owed to both repos.
+`GroundTrack`'s `Stat` is an eighth site and is deliberately NOT converted: it is `<dt>`/`<dd>`
+inside a `<dl>` and `Readout` renders `<div>`s, so adopting it would strip list semantics. Its two
+genuine §3 breaches were fixed in place instead.
 
 ## Traps this run hit — read these before repeating them
 
-- **`ParseInput` requires `bytes`.** A helper that only reads text should take `text: string`, or
-  every test call site has to fabricate a buffer.
-- **`getByRole('alert')` is ambiguous on `/`** — `ForgetDeviceData` and the logbook's Clear
-  confirmation are alerts too. Filter by text.
-- **A `role="alert"` assertion about "which file failed" was scoped to the wrong surface.** The
-  mapper's no-data branch was ALREADY naming its file properly; the honest e2e asserts the fact
-  (the file is named where it is handled), not the surface.
-- **The §9 ratchet fires on adoption in BOTH directions.** Adopting `ErrorState` moved `Analyzer`'s
-  `text-sm` into `ui.tsx` and its `Card` import with it: inverted files 15 → 16, `Card` 27 → 26,
-  `ErrorState` 1 → 2. Not one glyph changed size. Record it as the adoption effect — the repo has
-  recorded the reverse direction twice — rather than re-baselining silently or "fixing" it.
-- **`Required<RecentFlight>` in `lib/recents.test.ts` refuses to compile when you add a member.**
-  That is the guard working; populate the fixture and `normalizeFlight` in the same commit.
-- **Vitest's default 5 s timeout** is not enough for a test that parses four 64k–192k-row corpus
-  files; pass an explicit timeout as the third argument to `it`.
-- **A touch-target sweep has TWO traps, and hitting both reports 119 where the answer is 3.**
-  Playwright's default context is `pointer: fine`, so `app/globals.css`'s `@media (pointer: coarse)`
-  floor over `button`/`select`/`[role="button"]`/`input` does not apply — 119 becomes **20** with
-  `test.use({ hasTouch: true })`. Then `getBoundingClientRect()` is not the tap area:
-  `.touch-area` centres a 44×44 `::after` on a control so the target is 44 px while the ink is not,
-  and **15 of those 20 are compliant that way** — 20 becomes **5**, of which two are captions above
-  inputs that are already floored. **I filed the 20 before catching the second trap, and it merged.**
-  `BACKLOG.md` carries the correction; read `::after` as well as the box.
-- **The harness appends an attribution footer to a PR body.** It did again on #86. Read the body back
-  and strip it — `MAINTAINING.md` warns about exactly this and it is a zero-trace breach on a public
-  artifact.
+- **The Bash working directory persists across calls, and a `cd` into the fixtures repo silently
+  followed the next command.** `npx playwright test` then reported **"No tests found"**, which reads
+  like a broken config and is a wrong cwd. Prefix or check `pwd`.
+- **A comment that quotes the class it is removing puts the §9 count straight back.** Rewording a
+  conversion's own explanation from `text-xs` to "caption size" moved `RecentFlights` from a
+  reported 17/8 to the true 16/7. §9's greps read source, including prose — the repo already
+  records `rounded` matching inside "G**rounded**".
+- **`text-[11px]` → `text-xs` moves the inverted-file count the WRONG way while every glyph gets
+  BIGGER.** `GroundTrack` went 4/4 → 7/4 that way. This is a fourth distinct mode for that metric,
+  recorded in `lib/design-system.test.ts` beside the other three. Do not "fix" it by pushing
+  captions to `text-sm`; they are what §3 says the caption size is FOR.
+- **`ps -eo cmd` dumps the entire system prompt into context**, because the harness process carries
+  it. Use `pgrep -af` with a narrow pattern, and note that `pgrep -f playwright` matches that
+  process too.
+- **The methods page has a compile-checked anchor list.** A new `<Method id="…">` fails
+  `tsc --noEmit` until the id is added to `lib/methodIds.ts` — the guard working, not a build break.
+- **A synthetic parser fixture is only proof that the parser agrees with the fixture.** Both
+  roll-angle assertions run over the real corpus and compare the channel's extremes against the
+  column read straight out of the file.
 
 ## The §9 counts
 
@@ -141,72 +145,61 @@ The honest figure is 3, one of which is fixed; the other two are §10-shared and
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
 | hand-rolled card treatments | 3 | **3** | 3 — a GUARD, may never rise |
-| inverted-type files | 15 | **13** | not 0 — see below |
+| inverted-type files | 13 | **14** | not 0 — and see the trap above; this rise is three glyphs getting BIGGER |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
 | files importing the primitives | 34 | **34** | most of the 46 |
-| `Card` adopters | 27 | **26** | — |
-| `ErrorState` adopters | 1 | **2** | — |
-| hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few — and `ROADMAP.md` said 39/41; it is 29 |
-
-**Inverted files went 15 → 16 → 13, and the two moves are different things** — both recorded in
-`lib/design-system.test.ts` with their reasons. The rise was the ADOPTION EFFECT: `ErrorState` took
-`Analyzer`'s `text-sm` into `ui.tsx` and not one glyph changed size. The fall was REAL: three
-surfaces stopped rendering a decision-grade number below §3's floor and glyphs did change size.
-A count that cannot tell those apart is the trap §9 documents for the suite-wide ratio. `Analyzer`'s three remaining captions — a file name
-inside "Reading …", the help line under it, the amber mapping note — are the "unit, provenance,
-caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `SiteFooter`,
-`FusionSpaceBadge` and `ChannelExplorer` as a file inverted while fully compliant.
+| `Readout` adopters | 2 | **9** | — |
+| `ErrorState` adopters | 2 | **2** | — |
+| hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few |
+| imperative focus moves outside `ui.tsx` | 6 | **0** | 0 — new assertion this run |
 
 ## Pick up first
 
-1. **D8 slice 2 — name the orientation channels, and only where the board recorded them.** Narrower
-   than the roadmap thought: they already arrive labelled. What is left is `ChannelKind` members for
-   gyro/quaternion, units through the units context, and the "this board did not record it" state.
-   **The hard part is the one slice 1 refused:** no axis may be mapped to `rollRate` or `accelAxial`
-   without knowing the mounting, and the corpus proves the mounting differs. AltosUI names them
-   body-frame (`Roll Rate`, `Accel Along`) because the board's own config states the orientation;
-   Debrief has no such statement. Either read one from the low-rate file's `Tilt_Angle`/`Roll_Angle`
-   agreement, or ask the flyer — the same shape as D1's crop and D3's grouping.
+1. **The rest of D8 slice 2**, and a verified fact reopens the question slice 1 closed. The HR
+   channels arrive labelled (`Gyro X`, `Accel Z`, `Quat 1`) but as `kind: 'other'`, so they are
+   invisible to `getChannel`, to the analysis and to every kind-keyed surface. Slice 1 refused to
+   map any axis to `accelAxial`/`rollRate` because the mounting is unknowable. **For this board it
+   is knowable and the board has already done it**: the vendor manual states *"The Blue Raven can be
+   mounted in any orientation, and so it measures which direction, relative to its sensors, is the
+   rocket axis by measuring the direction of the initial motion while the rocket is on the rail."*
+   See `COMPETITION.md` row 25.
 
-2. **§8's touch floor: two plain `<a>`s remain, and both are owed to BOTH repos.**
-   `SiteHeader.tsx:14`'s "Compare" nav link (18 px) and `SiteFooter.tsx:91`'s observance link
-   (16 px). §10 makes the header/footer/nav pattern shared and non-negotiable, so fixing them here
-   alone forks the suite — this needs a session created with Loft attached. `MethodsPointer`, the
-   one that is Debrief's own, is fixed.
+2. **The design-system audit ran for the first time and returned 40 rows.** `MAINTAINING.md` calls
+   it "the audit that has never been run". Three are fixed; the rest are in `BACKLOG.md` with
+   file:line. The two worth reading first are §2's colour-by-magnitude clause on `RecentFlights`
+   (an **amber** ★ against an apogee, where §2 gives amber the meaning "caveat") and
+   `CompareView`'s indigo crown — **and the audit overstated the second one**: it is only rows
+   marked `rank: true`, with `rankBlocked` withholding the crown on a clipped peak, a floor apogee
+   or a mixed source. The basis §2 asks for is there; the HUE is what is off.
 
-3. **P1 item 7 is smaller than the roadmap says.** 29 hand-rolled `<button>` outside `ui.tsx`, not 39
-   or 41. Re-measure before budgeting an increment against any P1 number; 8 of 10 were stale.
+3. **`Segmented`'s selected pill is `dark:bg-zinc-700`** (`ui.tsx`), off §2's three-surface ramp,
+   and every adopter inherits it — the one place a drift cannot be contained.
 
 ## What is owed elsewhere
 
-**`nrdptel/fusionspace-loft` is owed six `DESIGN.md` §9 edits**, unchanged for five runs, plus the
-question about whether §9's `uiAdopters` grep should read `components app`. Not attempted this run —
-the session was created with `debrief` and `debrief-fixtures` only.
+**`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for six runs. Not
+attempted — the session was created with `debrief` and `debrief-fixtures` only.
 
-**Two `DESIGN.md` §5 edits are still owed to both repos**, deliberately not made one-sided:
-- **`Frame` is not listed in §5** though it exists with six adopters.
-- **The invented "indigo text" button weight** survives at `RecentFlights.tsx:835`.
-
-**And a third is now owed:** `DESIGN.md` §9's card grep is the only compliance command scoped to
-`components` alone; every other one reads `components app`. Currently 0 hand-rolled cards in `app/`,
-so the hole is latent rather than live.
-
-Also still owed: the bare-`rounded` guard, and a decision on whether `DataTable` is Debrief-only.
+**Two `DESIGN.md` §5 edits still owed to both repos:** `Frame` is not listed in §5 though it has six
+adopters, and the invented "indigo text" button weight survives at `RecentFlights.tsx:835`. A third:
+§9's card grep is the only compliance command scoped to `components` alone.
 
 ## The fixtures repo
 
-Nothing shipped there this run. **`VERSION` says `v1.0.0` while `corpus.lock.json` pins `v1.1.0`**,
-so the attached checkout and the corpus that gates CI are not provably the same — unchanged, and
-still the reason any corpus statistic has to be written as a superset or a floor.
+Nothing shipped there this run, and the situation is sharper than the last handoff recorded.
+**`v1.0.0` and `v1.1.0` are the SAME COMMIT** (`c0cdd23`); `VERSION` reads `v1.0.0` at both tags and
+at `HEAD`; and the attached checkout (`0e90bfd`) is **3 commits ahead** of the tag
+`corpus.lock.json` pins. The diff is `.gitignore` plus **162 lines of `expected.json`** —
+`maxVelocity` and `maxAccel` assertions that do not exist in the pinned release.
 
-**Worth adding, each with a reason:**
+So the local corpus is a **strict superset** of the one gating CI: same files, more asserted. Cutting
+a `v1.2.0` release and re-pinning is an **owner action** — the session's GitHub tools are read-only
+for releases.
 
-- **a SECOND genuinely staged record** — still the highest-value fixture this corpus could gain, and
-  the thing standing between the staged burn-time defect and a fix;
-- **a baro-less board's log** (Altus Metrum EasyTimer), which the field's leader analyses and Debrief
-  refuses outright — see `BACKLOG.md` 2026-08-02;
-- a Blue Raven pair whose LR file carries a `Sync` column;
-- a descent-rate ground truth in a machine-readable column.
+**Worth adding, each with a reason:** a SECOND genuinely staged record (still the highest-value
+fixture this corpus could gain); a baro-less board's log (Altus Metrum EasyTimer — the field's
+leader analyses these and Debrief refuses outright); a Blue Raven pair whose LR file carries a `Sync`
+column; a descent-rate ground truth in a machine-readable column.
 
 ## Environment notes
 
@@ -214,16 +207,19 @@ still the reason any corpus statistic has to be written as a superset or a floor
   the first commit: `git config user.name "Neer Patel"` /
   `user.email "135655563+nrdptel@users.noreply.github.com"`.
 - **The corpus arrives as an attached repo.** `ln -sfn /home/user/debrief-fixtures
-  lib/parsers/__corpus__`. The full suite then reports **1,024 tests across 70 files**; far fewer
+  lib/parsers/__corpus__`. The full suite then reports **1,024+ tests across 70 files**; far fewer
   means it is not linked.
 - **`npm install` is needed at session start**; the container ships without `node_modules`.
 - **Chromium: `npx playwright install chromium` from the repo root** (~114 MB, about a minute,
   succeeds through the proxy), then plain `npx playwright test` with NO browser variable set. **This
   is paid again every session and belongs in the environment's setup script.**
-- **4 CPUs**, so a workflow's concurrency cap is 2: a five-agent fan-out runs in three waves and took
-  ~16 minutes. Dispatch it and do the baseline gate while it runs.
-- **The clone is shallow**, so any commit count or file history is a window, not the record.
+- **4 CPUs**, so a workflow's concurrency cap is 2: a four-agent fan-out ran in two waves and took
+  **~15 minutes**. Dispatch it and do the baseline gate while it runs.
+- **The app clone is shallow**; the fixtures clone is NOT. Commit counts and history are a window in
+  one and the record in the other.
 - **CI does not run on a working branch** — `test.yml` fires on push to `main` and on
-  `pull_request`. Opening the PR is what runs it, and it took ~6 minutes for both jobs.
+  `pull_request`. Opening the PR is what runs it.
+- **The full e2e suite is 250 tests and takes ~4 minutes.** The unit suite with the corpus linked is
+  ~85 s. One gate at a time: a second `npm run build` deletes `out/` from under a running suite.
 - **Check the deployed build with a cache-buster:**
   `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`.

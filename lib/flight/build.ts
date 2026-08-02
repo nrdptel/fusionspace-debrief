@@ -26,6 +26,7 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore' | DateRole>, Ch
   accelTotal: 'accelTotal',
   velocity: 'velocity',
   rollRate: 'rollRate',
+  rollAngle: 'rollAngle',
   tilt: 'tilt',
   voltage: 'voltage',
   latitude: 'latitude',
@@ -33,6 +34,18 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore' | DateRole>, Ch
   altitudeGps: 'altitudeGps',
   satellites: 'satellites',
 };
+
+/** Kinds whose canonical unit is DEGREES, and which therefore never go through the unit
+ *  converter — an angle reads the same in either system.
+ *
+ *  Written as a set rather than as another arm of the ternary below because the failure mode
+ *  is silent and wide: a kind that appears in neither this set nor `KIND_QUANTITY` gets the
+ *  EMPTY STRING for its unit, and `display('')` passes it through, so the channel renders as
+ *  a bare number on the chip, the axis caption, the window-stats table, the sample-table
+ *  header and the CSV header at once. Five surfaces stating a number with no unit is exactly
+ *  what `DESIGN.md` §6 forbids ("a value never appears without its unit"), and nothing fails
+ *  when it happens. */
+const DEGREE_KINDS = new Set<ChannelKind>(['latitude', 'longitude', 'tilt', 'rollAngle']);
 
 // Voltage is intentionally absent: it's stored as-is in volts, not converted.
 const KIND_QUANTITY: Partial<Record<ChannelKind, keyof typeof CANONICAL>> = {
@@ -133,9 +146,9 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     return {
       kind,
       label: opts.headers[m.index] ?? kind,
-      // Voltage stays in volts, and lat/lon and tilt in degrees; none of these go
-      // through the unit converter (tilt has no KIND_QUANTITY, so it's kept as-is).
-      unit: kind === 'voltage' ? 'V' : kind === 'latitude' || kind === 'longitude' || kind === 'tilt' ? '°' : expected ? CANONICAL[expected] : '',
+      // Voltage stays in volts and the angle kinds in degrees; none of these go through the
+      // unit converter (none has a `KIND_QUANTITY`, so each is kept as-is).
+      unit: kind === 'voltage' ? 'V' : DEGREE_KINDS.has(kind) ? '°' : expected ? CANONICAL[expected] : '',
       values,
       ...(m.gravityRemoved ? { gravityRemoved: true } : {}),
     };

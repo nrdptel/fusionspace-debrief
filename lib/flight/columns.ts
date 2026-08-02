@@ -35,6 +35,7 @@ export type ColumnRole =
   | 'accelTotal'
   | 'velocity'
   | 'rollRate'
+  | 'rollAngle'
   | 'tilt'
   | 'voltage'
   | 'latitude'
@@ -93,9 +94,26 @@ const ROLE_TESTS: { role: ColumnRole; test: (h: string) => boolean }[] = [
   { role: 'velocity', test: (h) => /\b(velocity|speed|veloc|vel)\b/.test(h) },
   // Roll/spin rate about the long axis. A bare "gyro" is left alone — that's three
   // axes and which one is roll is logger-specific — so it keys off "roll"/"spin".
+  // A roll ANGLE, before the rate test below, because the rate test would take it.
+  //
+  // **This was a live wrong number, measured 2026-08-02.** `normalize` turns
+  // `Roll_Angle_(deg)` into `roll angle deg`, so `\broll\b` matched and the column became a
+  // roll RATE — degrees reported as deg/s, on a ±180° column, which peaks at a perfectly
+  // plausible 179.99 deg/s. That is the identical defect `releaseAttitudeRoll` below was
+  // written to fix, surviving in a shape that guard cannot see: it fires only when `pitch`
+  // AND `yaw` siblings prove the file solves an attitude, and a logger that writes
+  // `Tilt_Angle` / `Future_Angle` / `Roll_Angle` has neither. The comment on the rate test
+  // claimed it "never steals a roll-angle"; it did.
+  //
+  // Keyed on the two words together rather than on `angle` alone, because a bare "angle"
+  // column is not necessarily a roll one and `tilt` below owns the off-vertical case.
+  //
+  // A header naming BOTH an angle and a rate is refused rather than guessed — see `ambiguousRoll`
+  // below, which runs after these tests and demotes it to `ignore`.
+  { role: 'rollAngle', test: (h) => /\b(roll|spin)\b/.test(h) && /\bangle\b/.test(h) },
   { role: 'rollRate', test: (h) => /\b(roll|spin)\b/.test(h) || /rollrate/.test(h) },
   // Tilt / angle-off-vertical, when the logger computes an attitude. Keys off
-  // "tilt" so it never steals a roll-angle (handled above) or a bare "angle".
+  // "tilt" so it never steals a roll angle (handled above) or a bare "angle".
   { role: 'tilt', test: (h) => /\btilt\b/.test(h) },
   // GPS — guarded against acceleration headers so "lat. x accel." isn't mistaken
   // for latitude.
@@ -376,6 +394,38 @@ function inferDateRoles(dataRows: string[][], columns: ColumnGuess[]): void {
  * reported for such a file — which axis of a three-axis gyro is roll is logger-specific, and
  * saying nothing is the honest answer.
  */
+/**
+ * A header that names an angle AND a rate says which quantity it is twice, and disagrees.
+ *
+ * `Roll angle rate (deg/s)` is a rate. `Roll Angle (integrated rate)` is an angle — and it is not
+ * contrived: the Blue Raven's own manual describes that board's roll angle as an integration of
+ * its measured roll rate, so a logger or a flyer re-exporting a column is liable to spell it that
+ * way. Word order does not settle it either, since "angle" precedes "rate" in both.
+ *
+ * **Neither default is safe, which is why this refuses instead of picking one.** Call it a rate
+ * when it is an angle and degrees get published as degrees per second — the defect this whole pair
+ * of tests exists to stop. Call it an angle when it is a rate and deg/s gets relabelled as degrees,
+ * because an angle kind has no unit quantity and the stated unit is dropped. Both are a wrong
+ * number wearing a plausible one's clothes.
+ *
+ * So the column becomes `ignore` and the flyer picks the role in the mapper, where both are
+ * offered by name. That is the same answer `releaseAttitudeRoll` below gives to a bare `roll`
+ * beside `pitch` and `yaw`, for the same reason: saying nothing is the honest answer when the file
+ * does not settle it. A named parser is unaffected — those map explicitly and never consult these
+ * tests.
+ */
+function ambiguousRoll(columns: ColumnGuess[]): void {
+  for (const c of columns) {
+    if (c.role !== 'rollAngle' && c.role !== 'rollRate') continue;
+    const h = normalize(c.header);
+    if (/\bangle\b/.test(h) && /\brate\b/.test(h)) {
+      c.role = 'ignore';
+      c.unit = null;
+      c.unitFromHeader = false;
+    }
+  }
+}
+
 function releaseAttitudeRoll(columns: ColumnGuess[]): void {
   const named = new Set(columns.map((c) => normalize(c.header)));
   if (!named.has('pitch') || !named.has('yaw')) return;
@@ -564,6 +614,9 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
 
   // A `roll` that is an attitude angle, not a rate — see `releaseAttitudeRoll`.
   releaseAttitudeRoll(columns);
+
+  // …and a header that claims to be both, which no default can resolve safely.
+  ambiguousRoll(columns);
 
   // The columns that state a launch date, read from what the cells hold. Runs after the
   // channel pass so it can only take columns that pass gave up on.

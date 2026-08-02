@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
 import { importFlight } from './index';
 import { analyzeFlight } from '../analyze';
 import { getChannel } from '../flight/types';
@@ -92,10 +93,17 @@ function blueRavenAppLow(): string {
   // (intentionally drifted-high) inertial altitude, so the test proves the parser
   // picks the barometric AGL column over the ASL and inertial ones.
   const padAsl = 1000; // ft
+  // `Future_Angle_(deg)` and `Roll_Angle_(deg)` sit between the tilt and the boolean flag in
+  // every real low-rate export, and the two are here so the fixture exercises the shape that
+  // actually arrives: one column Debrief reads, one it deliberately refuses, and a boolean it
+  // has always had to step around — all three matching on the word "angle" or "tilt".
+  //
+  // The column indices before `Tilt_Angle_(deg)` are unchanged on purpose: `withInertial` and
+  // `rawInertialAt` address `Inertial_Altitude` positionally at 12.
   const header =
     'Year,Month,Day,Time,Flight_Time_(s),Sync,Temperature_(F),Baro_Press_(atm),' +
     'Baro_Altitude_ASL_(feet),Baro_Altitude_AGL_(feet),Batt_Volts,Velocity_Up,Inertial_Altitude,' +
-    'Tilt_Angle_(deg),Tilt Exceeded 90deg';
+    'Tilt_Angle_(deg),Future_Angle_(deg),Roll_Angle_(deg),Tilt Exceeded 90deg';
   const lines = [header];
   let prev = 0;
   let sync = 0;
@@ -113,8 +121,10 @@ function blueRavenAppLow(): string {
     sync = (sync + 20) % 250;
     const aglFt = h / 0.3048;
     const tilt = ft <= 0 ? 0 : Math.min(85, 3 + ft * 2); // grows off vertical toward apogee
+    // Cumulative and unwrapped, the way the board writes it — the corpus reaches 26,099°.
+    const roll = ft <= 0 ? 0 : ft * 140;
     lines.push(
-      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},70,0.95,${(padAsl + aglFt).toFixed(1)},${aglFt.toFixed(1)},9.3,${(v / 0.3048).toFixed(1)},${(aglFt * 1.1).toFixed(1)},${tilt.toFixed(1)},0`,
+      `2025,5,24,08:29:54,${t.toFixed(2)},${sync},70,0.95,${(padAsl + aglFt).toFixed(1)},${aglFt.toFixed(1)},9.3,${(v / 0.3048).toFixed(1)},${(aglFt * 1.1).toFixed(1)},${tilt.toFixed(1)},${(tilt * 1.3).toFixed(1)},${roll.toFixed(1)},0`,
     );
   }
   return lines.join('\n');
@@ -144,6 +154,54 @@ describe('Blue Raven phone-app export', () => {
     expect(tilt!.unit).toBe('°');
     expect(tilt!.label.toLowerCase()).toContain('tilt_angle');
     expect(tilt!.values.some((v) => v > 1 && v <= 85)).toBe(true);
+  });
+
+  it('surfaces the onboard ROLL angle too, as an angle and never as a rate', () => {
+    const result = importFlight({ name: 'tcf_TTV_018 LR.csv', text: blueRavenAppLow() });
+    if (result.kind !== 'flight') throw new Error('expected a flight');
+    const roll = getChannel(result.flight, 'rollAngle');
+    expect(roll, 'roll-angle channel present').toBeTruthy();
+    expect(roll!.unit).toBe('°');
+    expect(roll!.label.toLowerCase()).toContain('roll_angle');
+    // Cumulative: it passes a full turn rather than wrapping, which is what makes reading it
+    // as deg/s produce a number no flyer could sanity-check.
+    expect(Math.max(...roll!.values), 'rolls past 360°').toBeGreaterThan(360);
+    // And it is NOT a rate. This is the assertion that would have caught the defect: the
+    // column used to arrive as `rollRate`, so a rate channel existed where no rate was logged.
+    expect(getChannel(result.flight, 'rollRate'), 'no rate is invented from an angle').toBeUndefined();
+  });
+
+  it('refuses the board’s FUTURE angle, which is a projection and not a recording', () => {
+    const result = importFlight({ name: 'tcf_TTV_018 LR.csv', text: blueRavenAppLow() });
+    if (result.kind !== 'flight') throw new Error('expected a flight');
+    // The file carries it beside the two Debrief does read. It is what the board expects its
+    // tilt to become — used for its own lockout — so presenting it would put another
+    // instrument's forward estimate on a surface that reports what was flown.
+    expect(
+      result.flight.channels.some((c) => c.label.toLowerCase().includes('future')),
+      'no channel is built from the projection',
+    ).toBe(false);
+  });
+
+  it('carries the board’s own limit on the roll angle, and only when the channel is there', () => {
+    const withRoll = importFlight({ name: 'tcf_TTV_018 LR.csv', text: blueRavenAppLow() });
+    if (withRoll.kind !== 'flight') throw new Error('expected a flight');
+    expect(withRoll.flight.notes.some((n) => n.includes('integrates its measured roll rate'))).toBe(true);
+
+    // A low-rate export without the column must not carry a sentence about a channel it does
+    // not have — a standing caveat on every other Blue Raven file is noise, and noise is how a
+    // real caveat stops being read.
+    const text = blueRavenAppLow();
+    const lines = text.split('\n');
+    const head = lines[0].split(',');
+    const drop = head.indexOf('Roll_Angle_(deg)');
+    const stripped = lines
+      .map((l) => l.split(',').filter((_, i) => i !== drop).join(','))
+      .join('\n');
+    const without = importFlight({ name: 'tcf_TTV_018 LR.csv', text: stripped });
+    if (without.kind !== 'flight') throw new Error('expected a flight');
+    expect(getChannel(without.flight, 'rollAngle'), 'this board did not record it').toBeUndefined();
+    expect(without.flight.notes.some((n) => n.includes('integrates its measured roll rate'))).toBe(false);
   });
 
   it('points the user to the low-rate file for a high-rate app CSV', () => {
@@ -337,4 +395,106 @@ describe('Blue Raven inertial altitude — stopped where it stops being an altit
     expect(res.flight.notes.some((n) => n.includes('stops being readable'))).toBe(false);
   });
 
+});
+
+/** The real files, because a synthetic fixture only proves the parser agrees with the fixture.
+ *
+ *  Skipped rather than failed where the corpus is absent, the way every corpus-backed suite here
+ *  is — but the skip is visible in the count, so a run that examined nothing cannot read like a
+ *  run that passed. */
+const CORPUS_DIR = 'lib/parsers/__corpus__/blueraven/';
+/** The four app-CSV low-rate exports. Each carries `Tilt_Angle_(deg)`, `Future_Angle_(deg)` and
+ *  `Roll_Angle_(deg)`; verified by reading the headers, not assumed from the vendor's manual. */
+const LR_FILES = [
+  'blueraven__trf-lemiv-l3__BlRv_SN1537_LR_04-12-2025_12_45_49.csv',
+  'blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv',
+  'blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv',
+  'blueraven__reddit-meraki2-121km__BlueRaven-LR.csv',
+];
+/** The serial `@ LOG_LOW` capture. It carries no angle columns at all, which makes it the
+ *  "this board did not record it" half of the milestone's own done-when. */
+const LR_SERIAL = 'blueraven__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-BlueRaven-Low.txt';
+
+const corpusPresent = existsSync(CORPUS_DIR + LR_FILES[0]);
+
+/** The roll-angle column's own extremes, read straight out of the file with no parsing in
+ *  between, so the assertion compares against the FILE rather than against another copy of the
+ *  code under test. */
+function rawRollExtremes(text: string): { min: number; max: number; n: number } {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
+  const head = lines[0].split(',').map((c) => c.trim().toLowerCase());
+  const ci = head.findIndex((h) => h.includes('roll') && h.includes('angle'));
+  let min = Infinity;
+  let max = -Infinity;
+  let n = 0;
+  for (const line of lines.slice(1)) {
+    const v = Number(line.split(',')[ci]);
+    if (!Number.isFinite(v)) continue;
+    n++;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  return { min, max, n };
+}
+
+describe('Blue Raven roll angle, over the real corpus', () => {
+  it.skipIf(!corpusPresent)('every app-CSV low-rate export yields the board’s roll angle, matching its own column', () => {
+    for (const name of LR_FILES) {
+      const text = readFileSync(CORPUS_DIR + name, 'utf8');
+      const res = importFlight({ name, text });
+      if (res.kind !== 'flight') throw new Error(`${name} did not parse as a flight`);
+      const roll = getChannel(res.flight, 'rollAngle');
+      expect(roll, `${name}: roll angle present`).toBeTruthy();
+      expect(roll!.unit, `${name}: degrees`).toBe('°');
+
+      // Degrees are stored as-is — there is no angle quantity in the unit converter — so the
+      // channel's extremes must be the column's extremes exactly. A conversion sneaking in
+      // (or a wrong column being picked up) fails here rather than being noticed later on a
+      // chart nobody is checking.
+      const raw = rawRollExtremes(text);
+      const finite = Array.from(roll!.values).filter(Number.isFinite);
+      expect(finite.length, `${name}: every stated sample survives`).toBe(raw.n);
+      expect(Math.min(...finite), `${name}: min matches the file`).toBeCloseTo(raw.min, 6);
+      expect(Math.max(...finite), `${name}: max matches the file`).toBeCloseTo(raw.max, 6);
+
+      // No rate is INVENTED from an angle — a forward guard, not proof of a past fix, and the
+      // difference is worth stating because the first version of this comment got it wrong. It
+      // claimed "every one of these files reported a roll RATE"; they did not. **Measured across
+      // all 17 parser source files at the commit this branch started from: not one pushed a
+      // mapping with a `roll` role.** (Stated as a fact rather than as a `HEAD~n` command, because
+      // the first draft of this correction cited a relative ref that was already off by one and
+      // would drift another commit every time anyone touched this file.) So on these files there
+      // was nothing to misreport. The misdetection was on the GENERIC importer's path, where a
+      // `Roll_Angle`
+      // header with no pitch/yaw siblings took the rate role — reachable by any unrecognised
+      // spreadsheet, and pinned in `lib/flight/columns.test.ts` rather than here.
+      //
+      // What this assertion is FOR: a later change that mapped the angle column to `rollRate` in
+      // this parser would publish degrees as degrees per second on four real files, and it fails.
+      //
+      // **It is not a claim that these flights have no roll rate.** `…reddit-meraki2-121km…LR.csv`
+      // carries a real, board-MEASURED `Roll Rate (HZ)` column over all 36,700 samples that this
+      // parser does not read yet — `BACKLOG.md` carries it. Reading it must not be blocked by
+      // mistaking this line for a decision that it should not be.
+      expect(getChannel(res.flight, 'rollRate'), `${name}: no rate invented from the angle`).toBeUndefined();
+
+      // The board's own limit travels with the channel.
+      expect(res.flight.notes.some((n) => n.includes('integrates its measured roll rate')), `${name}: caveat carried`).toBe(true);
+
+      // And the projection stays refused on every one of them.
+      expect(
+        res.flight.channels.some((c) => c.label.toLowerCase().includes('future')),
+        `${name}: the future angle is not a channel`,
+      ).toBe(false);
+    }
+  });
+
+  it.skipIf(!existsSync(CORPUS_DIR + LR_SERIAL))('a board that recorded no angle says nothing about one', () => {
+    const text = readFileSync(CORPUS_DIR + LR_SERIAL, 'utf8');
+    const res = importFlight({ name: LR_SERIAL, text });
+    if (res.kind !== 'flight') throw new Error('expected a flight');
+    expect(getChannel(res.flight, 'rollAngle'), 'no roll angle in a serial capture').toBeUndefined();
+    expect(getChannel(res.flight, 'tilt'), 'no tilt either').toBeUndefined();
+    expect(res.flight.notes.some((n) => n.includes('integrates its measured roll rate')), 'and no caveat about one').toBe(false);
+  });
 });

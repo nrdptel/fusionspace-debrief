@@ -44,6 +44,85 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
 }
 
+/** Focus return for a dismissible surface — `DESIGN.md` §5, which names this hook and nothing else
+ *  implemented it. Two surfaces hand-rolled all three of its parts: the logbook's Clear confirm
+ *  (`RecentFlights`) and the privacy page's Forget-these-settings confirm (`ForgetDeviceData`).
+ *  They are the same control written twice — an armed destructive confirm — and `ForgetDeviceData`'s
+ *  own comment says so ("the same shape the logbook's Clear confirm settled on, down to the Escape
+ *  handler living on the panel"). A resemblance recorded in a comment is what §1 calls a
+ *  just-this-once.
+ *
+ *  **§5 attaches this hook to `Panel`, and `Panel` is deliberately still not built.** §5 describes
+ *  it as "a `Card` with a header row and a close affordance", and `ROADMAP.md` named `UnitsControl`
+ *  and `FigureChooser` as the two surfaces hand-rolling it. Measured 2026-08-02, both are wrong:
+ *  `UnitsControl` is a native `<details>`/`<summary>`, where the browser owns dismissal and focus
+ *  never leaves the summary, and `FigureChooser` is an inline row of toggle chips with no dismiss
+ *  at all. Nothing in the app has the shape §5 draws, so a `Panel` built today would be a primitive
+ *  with no call site — which `Figure`'s own comment already settled: a guard that fires on nothing
+ *  is worse than none. What DOES exist twice is the focus behaviour, so that is what is lifted.
+ *
+ *  The three parts, and why each is here rather than at the call site:
+ *  - **`safeRef` is focused when the surface opens**, so a keyboard or screen-reader flyer lands
+ *    inside the thing that just appeared — and lands on the SAFE control, never on the destructive
+ *    one.
+ *  - **`dismiss()` closes and puts focus back on `triggerRef`.** The trigger must stay MOUNTED
+ *    behind the surface: a control that unmounts itself has already nulled its own ref, so
+ *    restoring focus to it silently does nothing and drops the flyer to the body, from where the
+ *    next Tab can land on the destructive button. Both call sites carry that comment; neither
+ *    could enforce it.
+ *  - **`onKeyDown` is Escape.** It works only because focus is genuinely inside the surface, which
+ *    is the first bullet — the two are one mechanism and separating them is how one of them gets
+ *    left out.
+ *
+ *  `close` is read through a ref so `dismiss` keeps one identity across renders and a call site can
+ *  pass an inline arrow without re-arming anything that depends on it.
+ *
+ *  **Two limits, stated because a primitive that hides them is worse than a hand-roll.**
+ *  - **The mounted-trigger contract is not ENFORCED, only documented.** `dismiss()` on an
+ *    unmounted trigger no-ops silently and focus lands on the body — the exact bug this exists to
+ *    prevent, now wearing a primitive's name. There is no cheap runtime check that is not itself
+ *    noise, so the guarantee is the review, and `lib/design-system.test.ts` holds the narrower one:
+ *    focus is moved from this file and nowhere else.
+ *  - **The open effect fires on any false→true transition**, so a future call site whose surface
+ *    starts open would steal focus on first paint. Both of today's start closed. */
+export function useReturnFocus(
+  open: boolean,
+  close: () => void,
+): {
+  /** The control that opens the surface. Must stay mounted while the surface is open. */
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  /** The safe way out INSIDE the surface — "Keep them", never "Delete". */
+  safeRef: React.RefObject<HTMLButtonElement | null>;
+  dismiss: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+} {
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const safeRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (open) safeRef.current?.focus();
+  }, [open]);
+
+  const closeRef = React.useRef(close);
+  React.useEffect(() => {
+    closeRef.current = close;
+  });
+
+  const dismiss = React.useCallback(() => {
+    closeRef.current();
+    triggerRef.current?.focus();
+  }, []);
+
+  const onKeyDown = React.useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss();
+    },
+    [dismiss],
+  );
+
+  return { triggerRef, safeRef, dismiss, onKeyDown };
+}
+
 /** The tones a container is allowed to take — `DESIGN.md` §2. Each says something; none is decoration. */
 const CARD_TONES = {
   /** The default raised container. */
@@ -710,29 +789,47 @@ export function Readout({
   value,
   sub,
   size = 'md',
+  layout = 'stacked',
   className,
   ...rest
 }: {
-  label: React.ReactNode;
+  /** Optional, and the omission is a real case rather than laxness: the seven derived-reading
+   *  panels each carry their own `<h3>` immediately above the value, so a label here would say it
+   *  twice. Where a readout sits in a grid of readouts — the metric tiles, the per-stage panels —
+   *  it names itself and this is required in practice. */
+  label?: React.ReactNode;
   /** Already formatted, unit included — see above. */
   value: React.ReactNode;
   /** Provenance, a caveat, or where the reading came from. */
   sub?: React.ReactNode;
   /** `hero` for the readings a surface exists to show; `md` for the rest. */
   size?: 'hero' | 'md';
+  /** Where `sub` sits. `stacked` puts it under the value, which is right in a grid of tiles
+   *  where the columns have to line up. `inline` puts it on the value's baseline, which is what
+   *  the seven derived-reading panels were hand-rolling: there the number and its qualifier read
+   *  as one sentence — "1,247 ft · main fired · 800 ft of drogue descent first" — inside a card
+   *  wide enough to hold it. Kept as a prop rather than converted to one layout because changing
+   *  seven panels' appearance is a product decision, and this change is about where the
+   *  treatment LIVES. */
+  layout?: 'stacked' | 'inline';
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={className} {...rest}>
-      <div className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{label}</div>
+    <div className={cx(layout === 'inline' && 'flex items-baseline gap-3', className)} {...rest}>
+      {label != null && (
+        <div className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">{label}</div>
+      )}
       <div
         className={cx(
-          'mt-1 font-mono font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100',
+          'font-mono font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100',
           size === 'hero' ? 'text-xl' : 'text-base',
+          layout === 'stacked' && label != null && 'mt-1',
         )}
       >
         {value}
       </div>
-      {sub && <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{sub}</div>}
+      {sub && (
+        <div className={cx('text-xs text-zinc-500 dark:text-zinc-400', layout === 'stacked' && 'mt-0.5')}>{sub}</div>
+      )}
     </div>
   );
 }

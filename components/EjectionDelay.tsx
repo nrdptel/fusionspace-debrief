@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { delayCheck, MAX_REASONABLE_DELAY_S, APOGEE_SLOP_S } from '@/lib/ejection';
 import { fmtTime } from '@/lib/display';
-import { Card, NumberField } from './ui';
+import { Card, NumberField, Readout } from './ui';
 
 /**
  * Ejection-delay check — for a motor-ejection flight, the ideal motor delay is
@@ -66,12 +66,13 @@ export default function EjectionDelay({
         />
       </div>
 
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
-          {fmtTime(coastTimeS)}
-        </span>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">ideal delay (coast to apogee)</span>
-      </div>
+      <Readout
+        size="hero"
+        layout="inline"
+        className="mt-3"
+        value={fmtTime(coastTimeS)}
+        sub="ideal delay (coast to apogee)"
+      />
 
       {check != null ? (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">

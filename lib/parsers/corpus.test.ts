@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './index';
 import { summaryFigures } from './deviceSummary';
+import { renderCaveat } from '../caveatUnits';
 import { analyzeFlight } from '../analyze';
 import { buildFlight } from '../flight/build';
 import { sliceFlight } from '../flight/slice';
@@ -1462,7 +1463,17 @@ describe('a log that did not start on the pad says how far out its heights might
 
     const note = a.warnings.find((w) => /doesn't start on the pad, and its last sample sits/.test(w));
     expect(note, 'the offset is stated').toBeTruthy();
-    expect(note, 'with the metres and the direction').toMatch(/\d+ m above where the record begins/);
+    // **Asserted on what the FLYER sees, not on the stored sentence, and that is the correction.**
+    // This line used to read `toMatch(/\d+ m above where the record begins/)` — it was pinning the
+    // metre leak as correct. The caveat carries a token now, so the height is stated in whichever
+    // units the flyer is working in; a cold walk found a report in feet telling its reader to take
+    // "93 m" off a 9,322 ft apogee.
+    expect(renderCaveat(note!, 'imperial'), 'in feet for a flyer working in feet').toMatch(
+      /[\d,]+ ft above where the record begins/,
+    );
+    expect(renderCaveat(note!, 'metric'), 'and in metres for one working in metres').toMatch(
+      /[\d,]+ m above where the record begins/,
+    );
     // Both readings, and neither asserted. The old wording asserted the first one.
     expect(note, 'the at-rest reading').toMatch(/If the rocket was at rest there/);
     expect(note, 'and the still-descending reading, which is the one that made it wrong').toMatch(
@@ -1593,7 +1604,12 @@ describe('a record that ends at rest above the pad is not a landing', () => {
       // baselines and sample rates that explain something else, is not an explanation.
       const why = loaded!.analysis.warnings.find((w) => /never reaches the ground/.test(w));
       expect(why, `${short}: says why the landing is withheld`).toBeTruthy();
-      expect(why, `${short}: names the height it stopped at`).toMatch(/\d+ m above the pad/);
+      // Again on the rendered form: the stored sentence carries a token so it can be read in
+      // either system, and asserting the stored one would re-pin the leak this run removed.
+      expect(renderCaveat(why!, 'imperial'), `${short}: names the height it stopped at, in feet`).toMatch(
+        /[\d,]+ ft above the pad/,
+      );
+      expect(renderCaveat(why!, 'metric'), `${short}: and in metres`).toMatch(/[\d,]+ m above the pad/);
     });
   }
 });

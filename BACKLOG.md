@@ -14,6 +14,189 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — meraki logs a board-MEASURED roll rate that Debrief still ignores while
+  publishing the integrated angle beside it.**
+  `blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` column 99 is `Roll Rate (HZ)`, 36,700
+  samples. `lib/parsers/blueraven.ts` maps no rate column, so Debrief now shows the drift-prone
+  DERIVED quantity from that file and drops the direct measurement in it. The unit path is ready —
+  `hz` resolves to `rev/s` as of this run — so this is a mapping and a `railed()` flag away.
+  **When it lands it must carry the saturation**: the column holds at exactly ±6.38889 rev/s
+  (2,300 °/s) for 46 of its 36,700 samples, so the rate is a floor and so is the angle built from
+  it. The other three Blue Raven LR files have no rate column, which is why the corpus assertion
+  in `blueraven.test.ts` says "no rate INVENTED from the angle" rather than "these flights have no
+  roll rate" — do not read that line as a decision against this.
+
+- **2026-08-02 — a header unit Debrief cannot resolve becomes the mapper's FIRST unit option, and
+  the flyer is never told.** This entry's first version blamed `unitFromHeader` returning null and
+  called the column "assumed canonical"; a review corrected it and the real mechanism is worse.
+  `rowFor` in `components/ColumnMapper.tsx` does `wantUnit && units.includes(wantUnit) ? wantUnit :
+  (units[0] ?? '')`, so when the header's unit does not resolve the UI **positively selects** the
+  first option and submits it. `buildFlight` then converts faithfully against a unit the file never
+  stated, and no "unrecognized unit" note fires because from the builder's side nothing was
+  unrecognised.
+
+  Found via `Roll Rate (HZ)`, where the first option is `deg/s` and 6.4 rev/s would print as
+  6.4 deg/s — 360× low. Fixed for Hz by adding the alias; **the shape is general and the blast
+  radius is every mapped role**: an unresolvable header unit silently becomes `ft` for altitude,
+  `m/s` for velocity, `Pa` for pressure, `C` for temperature. The honest fix is for the mapper to
+  distinguish "the header stated no unit" from "the header stated one I could not resolve" and to
+  say so at the field rather than choosing for the flyer.
+
+- **2026-08-02 — `lib/flight/build.ts:87` resolves the TIME column's unit with no quantity check.**
+  `resolveUnit(timeMap.unit ?? 's')` is not guarded the way the channel branch below it is, so a
+  time column carrying a rotation unit would scale the whole clock by 360. Unreachable from the
+  mapper, whose time options are `s`/`ms`/`min` — but `lib/reopen.ts:37` replays a STORED unit
+  unvalidated, so a hand-edited or future-version mapping can reach it. Pre-existing; newly worth
+  naming because adding the `hz` alias put a 360× factor within reach of it.
+
+- **2026-08-02 — a saved mapping template or a remembered flight replays a stored role, so a
+  correction to role DETECTION never reaches the flyers who already hit the bug.**
+  `components/ColumnMapper.tsx:46` prefers a saved template over the fresh guess and
+  `lib/mappingTemplates.ts` did not bump `debrief.mappings.v1`; `lib/reopen.ts:37` replays a stored
+  mapping with `m.role as ColumnRole`, unvalidated. So a column remembered as `rollRate` stays
+  `rollRate` — degrees published as deg/s indefinitely — for exactly the flyer the fix was for.
+  Needs a storage version bump plus a re-guess-on-mismatch path; not attempted this run because it
+  is a migration with its own failure modes.
+
+- **2026-08-02 — `tilt` and `rollAngle` share one `°` axis bucket in the channel explorer.**
+  `lib/explore.ts:75`'s `planAxes` groups by DISPLAY UNIT, so plotting both puts a 0–90° tilt and a
+  cumulative roll that reaches 26,099° on the same scale and flattens the tilt to a line. Two
+  channels in the same unit are not necessarily on the same scale.
+
+- **2026-08-02 — the roll-angle caveat is emitted when the COLUMN exists, not when the channel has
+  data.** `lib/parsers/blueraven.ts` pushes the note off `rollAngleIdx >= 0`, but
+  `lib/explore.ts:239` drops an all-NaN channel, so a blank `Roll_Angle` column produces a sentence
+  in "How this file was read" about a channel the flyer cannot see. The test covers column-absent,
+  not column-present-but-empty.
+
+- **2026-08-02 — nothing READS `rollAngle`, so no reading is grounded on it.** The channel is
+  plotted and exported and that is all; `lib/analyze` computes no figure from it, although
+  revolutions falls straight out (25,333° / 360 = 70.4 turns on meraki). The natural first reading
+  is total revolutions, and it must be labelled a floor wherever the rate it came from saturated.
+
+- **2026-08-02 — the corpus release CI fetches is three merged pull requests behind the fixtures
+  repo, and `VERSION` cannot tell you so.** Measured in the attached checkout: `v1.0.0` and
+  `v1.1.0` are **the same commit** (`c0cdd23`), `VERSION` reads `v1.0.0` at both tags AND at
+  `HEAD`, and `HEAD` (`0e90bfd`) is 3 commits ahead of the tag `corpus.lock.json` pins. The diff
+  is `.gitignore` plus **162 lines of `expected.json`** — `maxVelocity` and `maxAccel`
+  assertions added by fixtures#3, none of which exist in the pinned release.
+
+  So the local corpus is a **strict superset** of the one that gates CI: same files, more
+  asserted. A local green is the stronger signal on those files, and CI cannot catch a
+  regression the new asserts catch. The previous handoff read this as "not provably the same",
+  which is true but understates it — the direction is knowable and it is this one.
+
+  **Fixing it is an owner action**: cutting a `v1.2.0` corpus release and re-pinning
+  `corpus.lock.json`. The MCP GitHub tools in this session are read-only for releases
+  (`list_releases`/`get_latest_release` exist, no create), so a session cannot do it.
+
+- **2026-08-02 — `useReturnFocus` names a contract it does not enforce, and one close path
+  still drops focus to the body.** Both from the pre-push review of the commit that added it.
+  - `dismiss()` no-ops silently when the trigger has unmounted. The hook's doc makes "the
+    trigger stays MOUNTED" its central contract and nothing checks it, so the next call site
+    that gets it wrong reproduces the exact bug the hook exists to prevent, now wearing a
+    primitive's name.
+  - `RecentFlights.tsx:159`'s `presentKey` disarm closes the panel without returning focus:
+    open Clear on 3 flights, then press a row's ✕. The panel and the ✕ both unmount and focus
+    lands on `<body>`. **Deliberately NOT routed through `dismiss()`**, and the reason is worth
+    keeping: the effect also runs on mount, so an unconditional `dismiss()` there would steal
+    focus on page load, and a conditional one would send focus to **Clear** — putting a
+    delete-everything confirm one Enter away from a flyer whose last action was "remove one
+    row". Dropping to body is bad; arming the irreversible control is worse. The right fix is
+    for the row list to take focus after a removal, which is its own change.
+  - The open-effect fires on any false→true transition and has no guard for a call site whose
+    surface starts open; harmless at today's two, but it is a primitive now.
+
+- **2026-08-02 — a recorded channel's label carries its unit, and the axis then prints the unit
+  twice.** `lib/flight/build.ts` labels every mapped channel with the raw header, so the Blue
+  Raven's angles reach the explorer as `Tilt_Angle_(deg)` and `Roll_Angle_(deg)` while ALSO
+  carrying `unit: '°'` — the axis caption reads `Roll_Angle_(deg) (°)`. `DESIGN.md` §6 is
+  explicit that the unit is never baked into the label string. Pre-existing on tilt and every
+  other recorded channel; a `label` override on `ColumnMapping` would fix the whole class.
+
+- **2026-08-02 — `lib/explore.ts:28`'s `display()` converts four units and passes every other
+  through raw.** Only `m`, `m/s`, `m/s2` and `c`/`°c` follow the flyer's unit system; the
+  default arm returns the canonical string unchanged. So a channel in any other unit is shown
+  in the file's unit while the header, the report and the CSV beside it are in the flyer's.
+  Degrees are correct by accident (an angle is an angle in both systems); a `rad`-valued
+  column would not be.
+
+- **2026-08-02 — three `ChannelKind`s can never be chosen in the column mapper, and a fourth
+  class of them has no unit list.** `lib/flight/mappingOptions.ts:7`'s `ROLE_GROUPS` offers 12
+  roles while `ColumnRole`/`ROLE_TO_KIND` support 15: `altitudeInertial`, `altitudeGps` and
+  `satellites` exist as kinds and are unreachable by hand. Separately `UNIT_OPTIONS` has no
+  entry for `tilt`, `rollAngle`, `latitude`, `longitude`, `altitudeGps`, `altitudeInertial` or
+  `satellites`, so `unitOptionsFor` returns `[]`. For the angle kinds that is CORRECT and
+  deliberate — there is no `angle` quantity in `lib/units.ts`, only `rotation`, which is a
+  rate, so offering `rad` would store radians labelled `°`. Supporting radians means adding an
+  angle quantity to the converter first.
+
+- **2026-08-02 — one channel, two kinds: `Satellites` is `'other'` in
+  `lib/parsers/featherweightGps.ts:102` and `'satellites'` in `lib/parsers/altosEeprom.ts:543`.**
+  Any surface gating on `getChannel(flight, 'satellites')` is therefore right for one logger and
+  wrong for the other.
+
+- **2026-08-02 — a saved chart view can restore a DIFFERENT channel than the one it saved.**
+  `lib/plotView.ts:51` keys a recorded channel by its LABEL (`l:${label}`) and `resolveView`'s
+  Map at :58 keeps the LAST channel per id. A file with two identically-named columns (an empty
+  header twice, or `Accel` twice) silently restores the wrong trace — a wrong-trace bug, not a
+  missing-trace one.
+
+- **2026-08-02 — the KML export draws the GPS track at BAROMETRIC height.** `GroundTrack.tsx:654`
+  passes `altitude` — bound at `FlightReport.tsx:1409` to `series.altitude`, the barometric AGL
+  series — as the elevation of every GPS fix, while an `altitudeGps` channel may sit unused. The
+  exported geometry mixes two independent altitude recordings and the file says nothing about
+  which sensor drew it. `lib/gps.ts:139`'s GPX writes no `<ele>` at all, so the two geospatial
+  exports of one flight disagree about whether the track has a height. **Unreproduced** — filed
+  from a read of the code, not from opening a KML.
+
+- **2026-08-02 — the design-system audit ran for the first time and returned 40 divergences.**
+  `MAINTAINING.md` calls this "the audit that has never been run". The full ranked list is in the
+  run's report; the ones worth naming here, none yet fixed:
+  - **§2's colour-by-magnitude clause, twice.** `RecentFlights.tsx:647,658` paints an
+    **amber** ★ immediately left of the apogee and max-speed values to mark a personal best —
+    and §2 gives amber one meaning, "an estimate outside its envelope, an extrapolation, a
+    caveat", so the glyph reads as a caveat on the number it is praising. `CompareView.tsx:931`
+    recolours the winning cell `font-semibold text-indigo-600`, and indigo is §2's
+    interactive/selected. **The audit's wording overstated the second one and the correction
+    matters**: it said "every comparison row", and it is only rows marked `rank: true` in
+    `lib/report.ts` — apogee, velocity, Mach, acceleration, max-Q — with `rankBlocked`
+    withholding the crown on a clipped peak, a floor apogee or a mixed source. Descent rates,
+    burn time and flight time carry no crown at all. So the basis §2 asks for is there; what is
+    off is the HUE, on both surfaces.
+  - **Seven byte-identical hero readouts** (`DeployAltitude:84`, `DragCoefficient:147`,
+    `DrogueCd:109`, `EjectionDelay:70`, `LandingEnergy:114`, `ParachuteCd:107`, `RailExit:110`)
+    where `Readout size="hero"` renders the identical string. They differ from the primitive
+    only in laying the sub BESIDE the value instead of under it, and in having no label — the
+    card's own title is the label. `GroundTrack.tsx:731`'s `Stat` is an eighth, stacked, and it
+    is missing `tabular-nums` on the walkback figures and uses `text-[11px]` for a label where
+    `Readout` uses the caption size.
+  - **`Disclosure` is hand-rolled twice** — `LogDetails.tsx:28` and `app/page.tsx:21`, the
+    second on the app's first screen, both byte-identical to the primitive.
+  - **`Segmented`'s selected pill is `dark:bg-zinc-700`** (`ui.tsx:391`), off the three-surface
+    ramp, and every adopter inherits it — the one place a drift cannot be contained.
+  - **16 panel headings hand-rolled** as `text-sm font-semibold` while `Card`'s own `title` slot
+    renders `text-base font-medium`; the report shows both on one scroll.
+  - **`ChannelExplorer.tsx:248` and `GroundTrack.tsx:466` return `null`** with no empty or error
+    state — §5's "a surface with no empty state is not finished".
+  - **`ChannelExplorer.tsx:452` sets `focus:outline-none` with no replacement ring**, unlike
+    every other input in the app.
+
+- **2026-08-02 — the competitive probe verified the fact D8 slice 1 assumed away, and it is good
+  news.** Slice 1 refused to map any axis to `accelAxial`/`rollRate` because "the board is
+  mounted differently in different rockets". The Blue Raven's own manual states the board
+  resolves this itself: *"The Blue Raven can be mounted in any orientation, and so it measures
+  which direction, relative to its sensors, is the rocket axis by measuring the direction of the
+  initial motion while the rocket is on the rail."* AltosUI names its axes in the BODY frame
+  (`Roll Rate`, `Accel Along`, `Accel Across`, `Accel Through`) because Pad Orientation is a
+  required board config it can read. Debrief has neither input wired — but for Blue Raven the
+  mounting is knowable, which is a route out that slice 1 believed did not exist.
+
+  Also verified and unbuilt: **Debrief is the only tool holding both a board-reported tilt and an
+  independent quaternion series on one clock**, so it is the only one positioned to cross-check a
+  derived attitude against the board's own. AltosUI derives tilt with nothing to check it
+  against; the Blue Raven reports tilt and exposes no derivation.
+
 - **2026-08-02 — §8's touch floor: 3 plain `<a>` elements are genuinely under 44 px, not 20.**
   **This entry CORRECTS its own first version, which said 20 and was wrong by 4x** — it is left
   standing rather than deleted because the way it was wrong is the reusable part.

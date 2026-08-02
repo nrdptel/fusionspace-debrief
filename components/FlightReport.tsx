@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { renderCaveats } from '@/lib/caveatUnits';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
@@ -105,8 +106,13 @@ export default function FlightReport({
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
-  const { series, events, metrics, warnings } = analysis;
-  const notes = flight.notes;
+  const { series, events, metrics } = analysis;
+  // Caveats carry their lengths as tokens so the ANALYSIS can stay unit-agnostic; they are
+  // substituted here, where the flyer's units are known — and re-substituted on every unit switch,
+  // which is why this is a memo on `sys` rather than a one-off at parse time. See
+  // `lib/caveatTokens.ts` for the wrong number this closes.
+  const warnings = useMemo(() => renderCaveats(analysis.warnings, sys), [analysis.warnings, sys]);
+  const notes = useMemo(() => renderCaveats(flight.notes, sys), [flight.notes, sys]);
 
   // The descending mass is one quantity used by two recovery panels (landing
   // energy and parachute Cd), so the report owns it and feeds both — one input,

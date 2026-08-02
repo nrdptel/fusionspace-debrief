@@ -24,6 +24,21 @@ const ATM_PA = 101325;
 const HR_HINT =
   'This is the Blue Raven high-rate file (gyro, acceleration and attitude only). Drop the low-rate file instead for altitude and the flight profile.';
 
+/** What the board's roll angle IS, in the board maker's own terms, carried beside the channel.
+ *
+ *  The vendor's September 2025 manual states the method and its limit: the roll angle is an
+ *  integration over time of the measured roll rate about the long axis, and it does not account
+ *  for how motion in the other axes affects the airframe's orientation. So the error grows with
+ *  the flight rather than staying put, and it grows fastest exactly where the other axes are
+ *  busiest — under thrust and through deployment.
+ *
+ *  Said as a direction and a mechanism rather than as "approximate", which `MAINTAINING.md`
+ *  names as the caveat that tells a flyer nothing. A size is deliberately NOT quoted: nothing in
+ *  the corpus independently measures roll orientation, so any percentage here would be invented.
+ *  If a second instrument's roll ever lands in the corpus, that is the number to put here. */
+const ROLL_ANGLE_NOTE =
+  'Roll angle is the board’s own, not Debrief’s: the Blue Raven integrates its measured roll rate over time and does not correct for motion in the other two axes, so the angle drifts further from true the longer the flight goes on. Read it as how far it has rolled, not as an exact heading.';
+
 function tokenValueAfter(tokens: string[], label: string, offset: number): number {
   const i = tokens.indexOf(label);
   if (i < 0) return NaN;
@@ -118,6 +133,22 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   // The onboard tilt (angle off vertical) — "Tilt_Angle_(deg)", not the boolean
   // "Tilt Exceeded 90deg" flag — so a flyer can see how vertical the flight was.
   const tiltIdx = where((h) => h.includes('tilt') && h.includes('angle'));
+  // The onboard roll angle. All four low-rate files in the corpus carry
+  // "Roll_Angle_(deg)" beside the tilt and Debrief parsed straight past it, so an
+  // orientation the board had already solved reached no surface at all.
+  //
+  // It is the board's own measurement, read and presented as such — never Debrief's
+  // estimate. The vendor states how it is obtained and what that costs, and the caveat
+  // travels with the channel below rather than being left for a flyer to know: it is a
+  // plain time-integration of the measured roll rate about the long axis and takes no
+  // account of motion in the other two, so it accumulates error through a flight.
+  //
+  // "Future_Angle_(deg)" sits between them in every one of those files and is deliberately
+  // NOT read. It is the board's PROJECTION of where its tilt is heading, which it uses for
+  // its own tilt lockout — not a recording of anything that happened. Debrief reports what
+  // was flown; surfacing another instrument's forward estimate as a reading is the one
+  // thing the measurement-not-simulation invariant rules out, and it stays `ignore`.
+  const rollAngleIdx = where((h) => h.includes('roll') && h.includes('angle'));
 
   if (altIdx < 0) throw new ParseGuidanceError(HR_HINT);
   if (timeIdx < 0) throw new Error('No flight-time column was found in this Blue Raven file.');
@@ -144,6 +175,7 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
   if (battIdx >= 0) mappings.push({ index: battIdx, role: 'voltage', unit: 'V' });
   if (tempIdx >= 0) mappings.push({ index: tempIdx, role: 'temperature', unit: 'F' });
   if (tiltIdx >= 0) mappings.push({ index: tiltIdx, role: 'tilt', unit: null });
+  if (rollAngleIdx >= 0) mappings.push({ index: rollAngleIdx, role: 'rollAngle', unit: null });
 
   const inertial = altIdx === inertAltIdx && aglIdx < 0 && baroAltIdx < 0;
   const note = inertial
@@ -159,7 +191,10 @@ function parseAppCsv(input: ParseInput, rows: string[][], headerIdx: number): Ra
     mappings,
     meta: { device: 'Featherweight Blue Raven' },
     flownAt: flownAtWithClock ?? undefined,
-    notes: [note],
+    // The roll-angle caveat is the board's own, stated in its manual, and it is emitted only
+    // when the channel is actually present — a standing sentence about a channel this file
+    // does not carry is noise on every other Blue Raven export.
+    notes: rollAngleIdx >= 0 ? [note, ROLL_ANGLE_NOTE] : [note],
   });
   const cut = truncateInertial(flight);
   if (cut) flight.notes.push(cut);

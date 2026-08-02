@@ -11,7 +11,7 @@ import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSprea
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
-import { Button, Card, Segmented } from './ui';
+import { Button, Card, Segmented, useReturnFocus } from './ui';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -95,8 +95,6 @@ export default function RecentFlights({
    *  so this is empty for nearly every logbook. */
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
-  const clearRef = useRef<HTMLButtonElement>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const onImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -162,12 +160,13 @@ export default function RecentFlights({
     setExportMsg('');
   }, [presentKey]);
 
-  // Focus the panel's SAFE control when it opens, so a keyboard or screen-reader flyer lands
-  // inside the thing that just appeared rather than being left on the trigger — and lands on
-  // "Keep them", never on the destructive one.
-  useEffect(() => {
-    if (confirming) cancelRef.current?.focus();
-  }, [confirming]);
+  // Opening, dismissing and Escape all live in `useReturnFocus` now — `DESIGN.md` §5's own hook.
+  // This surface and the privacy page's Forget-these-settings confirm are the same control written
+  // twice, and each carried its own copy of all three behaviours.
+  const { triggerRef: clearRef, safeRef: cancelRef, dismiss, onKeyDown } = useReturnFocus(
+    confirming,
+    () => setConfirming(false),
+  );
 
   if (recents.length === 0) {
     return (
@@ -462,16 +461,22 @@ export default function RecentFlights({
           it and focus goes back to the trigger, because a Cancel button that unmounts itself
           drops focus to the body and costs a keyboard flyer twenty tab stops. */}
       {confirming && (
-        <div
+        // On `Card tone="danger"`, which is `DESIGN.md` §2's refusal container and what the
+        // privacy page's identical confirm was already using. This one hand-rolled its own: the
+        // CONTROL radius where §2 gives a container the larger one, and its whole body at caption
+        // size where §3 makes the body default the floor for anything a flyer reads to make a
+        // decision. The decision here is whether to delete every flight on the device, which is
+        // the only irreversible one in the app.
+        //
+        // The class names are named by ROLE and not written out, because §9's greps read this
+        // file as source: a comment that quotes the size it is removing puts the count straight
+        // back and reports a fix that did land as a fix that did not.
+        <Card
           id="logbook-clear-confirm"
+          tone="danger"
           role="alert"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setConfirming(false);
-              clearRef.current?.focus();
-            }
-          }}
-          className="mt-3 rounded-md border border-red-300/70 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-200"
+          onKeyDown={onKeyDown}
+          className="mt-3 text-sm"
         >
           <p>
             <strong className="font-medium">
@@ -492,13 +497,7 @@ export default function RecentFlights({
           </p>
           {exportMsg && <p className="mt-1 font-medium">{exportMsg}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button
-              ref={cancelRef}
-              onClick={() => {
-                setConfirming(false);
-                clearRef.current?.focus();
-              }}
-                          >
+            <Button ref={cancelRef} onClick={dismiss}>
               Keep them
             </Button>
             <Button
@@ -528,7 +527,7 @@ export default function RecentFlights({
               Delete {flights.length === 1 ? 'it' : `all ${flights.length}`}
             </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {searchable && (

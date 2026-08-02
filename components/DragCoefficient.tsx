@@ -6,7 +6,7 @@ import { systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { dragCoefficient, diameterToM, LEN_TO_M, MAX_REASONABLE_DIAMETER_M } from '@/lib/drag';
 import { massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
-import { Card, NumberField } from './ui';
+import { Card, NumberField, Readout } from './ui';
 
 const MASS_KEY = 'debrief.dragmass.kg';
 const DIAM_KEY = 'debrief.diameter.m';
@@ -143,20 +143,23 @@ export default function DragCoefficient({
         </div>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
-          {result != null ? round(result.cd, 2) : '—'}
-        </span>
-        {result != null && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            C<sub>d</sub>·A {round(result.cdA * 1e4, 1)} cm²
-            {result.machLow != null && result.machHigh != null
-              ? ` · over Mach ${round(result.machLow, 2)}–${round(result.machHigh, 2)}`
-              : ''}
-            {result.approximate ? ' · approximate (derived velocity)' : ''}
-          </span>
-        )}
-      </div>
+      <Readout
+        size="hero"
+        layout="inline"
+        className="mt-3"
+        value={result != null ? round(result.cd, 2) : '—'}
+        sub={
+          result != null && (
+            <>
+              C<sub>d</sub>·A {round(result.cdA * 1e4, 1)} cm²
+              {result.machLow != null && result.machHigh != null
+                ? ` · over Mach ${round(result.machLow, 2)}–${round(result.machHigh, 2)}`
+                : ''}
+              {result.approximate ? ' · approximate (derived velocity)' : ''}
+            </>
+          )
+        }
+      />
 
       {!haveInputs ? (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">

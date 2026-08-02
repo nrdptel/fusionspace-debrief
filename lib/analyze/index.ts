@@ -9,6 +9,7 @@ import type { RawFlight, Channel } from '../flight/types';
 import { getChannel } from '../flight/types';
 import { sliceFlight } from '../flight/slice';
 import { G0 } from '../units';
+import { lenTok, spdTok } from '../caveatTokens';
 import { derivedPeakList } from '../derivedPeak';
 import type {
   AnalyzeOptions,
@@ -890,7 +891,7 @@ function descentFromSecondCopy(
     warning:
       `The first copy stops before the rocket lands, so the descent CLOCK is read from the second copy of the same flight in this file — ` +
       `measured against the file's own pad baseline it reaches apogee within ${((Math.abs(m.apogeeAltitude - apo) / apo) * 100).toFixed(1)}% of the first copy's ` +
-      `${Math.round(apo)} m. Descent time and flight time come from that second copy; the climb, the apogee and every reading above them come from the first.`,
+      `${lenTok(apo)}. Descent time and flight time come from that second copy; the climb, the apogee and every reading above them come from the first.`,
   };
 }
 
@@ -1030,7 +1031,7 @@ function othersAt(segments: FlightSegment[]): string {
   const rest = segments.filter((s) => !s.read);
   const listed = rest.slice(0, 6);
   const parts = listed.map(
-    (s) => `flight ${s.index} at ${formatSeconds(s.startTime - segments[0].startTime)}${Number.isFinite(s.apogeeM) ? ` (${Math.round(s.apogeeM)} m)` : ''}`,
+    (s) => `flight ${s.index} at ${formatSeconds(s.startTime - segments[0].startTime)}${Number.isFinite(s.apogeeM) ? ` (${lenTok(s.apogeeM)})` : ''}`,
   );
   const more = rest.length - listed.length;
   return `The rest of the file holds ${parts.join(', ')}${more > 0 ? ` and ${more} more` : ''}.`;
@@ -2129,7 +2130,7 @@ function analyzeWhole(
   const landingFound = (landingIdx < n - 1 || altClean[n - 1] < 5) && descentRecorded;
   if (!descentRecorded && apogeeIdx < n - 2) {
     warnings.push(
-      `The record stops ${formatSeconds(time[n - 1] - time[apogeeIdx])} after apogee, sooner than this flight could have fallen from ${Math.round(altClean[apogeeIdx])} m even in a vacuum (${formatSeconds(Math.sqrt((2 * altClean[apogeeIdx]) / G0))}). So it holds the climb but not the descent: no landing, no flight time, and no descent rate are read from it.`,
+      `The record stops ${formatSeconds(time[n - 1] - time[apogeeIdx])} after apogee, sooner than this flight could have fallen from ${lenTok(altClean[apogeeIdx])} even in a vacuum (${formatSeconds(Math.sqrt((2 * altClean[apogeeIdx]) / G0))}). So it holds the climb but not the descent: no landing, no flight time, and no descent rate are read from it.`,
     );
   }
   const apogeeIsFloor = apogeeIdx >= n - 2;
@@ -2148,7 +2149,7 @@ function analyzeWhole(
     for (let i = apogeeIdx; i < n; i++) if (Number.isFinite(altClean[i]) && altClean[i] < lowest) lowest = altClean[i];
     if (Number.isFinite(lowest) && apogeeAlt > 0) {
       warnings.push(
-        `The record covers the descent but never reaches the ground — the lowest it gets after apogee is ${Math.round(lowest)} m above the pad, ${((lowest / apogeeAlt) * 100).toFixed(1)}% of this flight's own apogee. That may be the log stopping early or the barometer's zero having drifted over a long descent, and the record doesn't settle which, so no landing is marked and flight time and descent time are left unread rather than measured to wherever it happens to stop.`,
+        `The record covers the descent but never reaches the ground — the lowest it gets after apogee is ${lenTok(lowest)} above the pad, ${((lowest / apogeeAlt) * 100).toFixed(1)}% of this flight's own apogee. That may be the log stopping early or the barometer's zero having drifted over a long descent, and the record doesn't settle which, so no landing is marked and flight time and descent time are left unread rather than measured to wherever it happens to stop.`,
       );
     }
   }
@@ -2184,7 +2185,7 @@ function analyzeWhole(
       const m = Math.abs(Math.round(rest));
       const dir = rest > 0 ? 'high' : 'low';
       warnings.push(
-        `This log doesn't start on the pad, and its last sample sits ${m} m ${rest > 0 ? 'above' : 'below'} where the record begins — ${Math.abs((rest / apogeeAlt) * 100).toFixed(1)}% of the apogee. If the rocket was at rest there, that is where the ground is, and every altitude here (apogee included) reads about ${m} m too ${dir}. If the log instead stopped while the rocket was still coming down, they read correctly and nothing should be taken off them. Nothing in the record settles which, so Debrief neither shifts these heights nor tells you to — check the apogee against your altimeter's own summary before taking ${m} m off it.`,
+        `This log doesn't start on the pad, and its last sample sits ${lenTok(Math.abs(rest))} ${rest > 0 ? 'above' : 'below'} where the record begins — ${Math.abs((rest / apogeeAlt) * 100).toFixed(1)}% of the apogee. If the rocket was at rest there, that is where the ground is, and every altitude here (apogee included) reads about ${lenTok(Math.abs(rest))} too ${dir}. If the log instead stopped while the rocket was still coming down, they read correctly and nothing should be taken off them. Nothing in the record settles which, so Debrief neither shifts these heights nor tells you to — check the apogee against your altimeter's own summary before taking ${lenTok(Math.abs(rest))} off it.`,
       );
     }
   }
@@ -2302,8 +2303,8 @@ function analyzeWhole(
   }
   if (descentAboveFreeFall) {
     warnings.push(
-      `A descent rate read faster than this flight could fall from ${Math.round(apogeeAlt)} m in a vacuum ` +
-        `(${Math.round(freeFallLimit)} m/s), so it isn’t a rate the rocket can have had — something in the ` +
+      `A descent rate read faster than this flight could fall from ${lenTok(apogeeAlt)} in a vacuum ` +
+        `(${spdTok(freeFallLimit)}), so it isn’t a rate the rocket can have had — something in the ` +
         `altitude record jumps. That leg is left unread rather than shown.`,
     );
   }
@@ -2803,7 +2804,7 @@ function analyzeWhole(
     );
   } else if (velocityOutclimbsItself) {
     warnings.push(
-      `The barometric speed contradicts this flight's own climb. From the point it peaks, a drag-free coast at that speed would gain about ${Math.round(vacuumFromPeak)} m — the flight gained ${Math.round(climbFromPeak)} m from there, which is ${(100 * (climbFromPeak / vacuumFromPeak)).toFixed(1)}% of it, where a real flight loses somewhere between a fifth and nineteen twentieths of that climb to drag (6.3–81.7% across this corpus). A speed that would have carried the rocket a hundred times higher than it went is the slope of a trace that jumped, not a speed. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.`,
+      `The barometric speed contradicts this flight's own climb. From the point it peaks, a drag-free coast at that speed would gain about ${lenTok(vacuumFromPeak)} — the flight gained ${lenTok(climbFromPeak)} from there, which is ${(100 * (climbFromPeak / vacuumFromPeak)).toFixed(1)}% of it, where a real flight loses somewhere between a fifth and nineteen twentieths of that climb to drag (6.3–81.7% across this corpus). A speed that would have carried the rocket a hundred times higher than it went is the slope of a trace that jumped, not a speed. Max velocity, Mach, max-Q and every figure derived from the velocity (burnout velocity, coast efficiency) are withheld rather than reported off it; apogee, timings and the descent still read normally.`,
     );
   } else if (velocityImplausible) {
     warnings.push(

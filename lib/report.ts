@@ -3,6 +3,7 @@
 
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
+import { renderCaveats } from './caveatUnits';
 import {
   accelIn,
   accelInG,
@@ -396,9 +397,9 @@ export function extentNote(analysis: FlightAnalysis): string | null {
 
 /** The provenance list a document prints under "How this file was read": what the parser
  *  wanted the reader to know, with the stretch that was read at the head of it. */
-function howRead(flight: RawFlight, analysis: FlightAnalysis): string[] {
+function howRead(flight: RawFlight, analysis: FlightAnalysis, sys: UnitChoice): string[] {
   const note = extentNote(analysis);
-  return note ? [note, ...flight.notes] : flight.notes;
+  return renderCaveats(note ? [note, ...flight.notes] : flight.notes, sys);
 }
 
 export function summaryText(
@@ -461,14 +462,14 @@ export function summaryText(
   if (analysis.warnings.length) {
     lines.push('');
     lines.push('Worth knowing');
-    for (const w of analysis.warnings) lines.push(`  - ${w}`);
+    for (const w of renderCaveats(analysis.warnings, sys)) lines.push(`  - ${w}`);
   }
 
   // How the FILE was read, which is a different list from the caveats above and was in none of
   // the exports. These say which channel the altitude came from, that rows were dropped, that a
   // telemetry capture is lossy — the provenance the screen shows under this heading. A cert
   // package quoting a record that silently discarded 1,135 of its 15,938 rows should say so.
-  const read = howRead(flight, analysis);
+  const read = howRead(flight, analysis, sys);
   if (read.length) {
     lines.push('');
     lines.push('How this file was read');
@@ -544,10 +545,10 @@ export function summaryMarkdown(
 
   if (analysis.warnings.length) {
     out.push('', '## Worth knowing', '');
-    for (const w of analysis.warnings) out.push(`- ${w}`);
+    for (const w of renderCaveats(analysis.warnings, sys)) out.push(`- ${w}`);
   }
 
-  const read = howRead(flight, analysis);
+  const read = howRead(flight, analysis, sys);
   if (read.length) {
     out.push('', '## How this file was read', '');
     for (const n of read) out.push(`- ${n}`);
@@ -667,12 +668,12 @@ export function summaryHtml(
     : '';
 
   const notesHtml = notes ? `<blockquote>${esc(notes).replace(/\n/g, '<br>')}</blockquote>` : '';
-  const readList = howRead(flight, analysis);
+  const readList = howRead(flight, analysis, sys);
   const readHtml = readList.length
     ? `<section><h2>How this file was read</h2><ul class="notes">${readList.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>`
     : '';
   const warnHtml = analysis.warnings.length
-    ? `<section><h2>Worth knowing</h2><ul class="notes">${analysis.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></section>`
+    ? `<section><h2>Worth knowing</h2><ul class="notes">${renderCaveats(analysis.warnings, sys).map((w) => `<li>${esc(w)}</li>`).join('')}</ul></section>`
     : '';
 
   const inner = `  <header>
@@ -1335,11 +1336,11 @@ export function analysisJson(
       provenance: e.provenance,
       ...(e.peakAccel != null ? { peakAcceleration: acc(e.peakAccel) } : {}),
     })),
-    warnings,
+    warnings: renderCaveats(warnings, sys),
     // How the file was read, beside the caveats about the analysis — the same split the screen
     // and the written reports make. A consumer that wants to know whether rows were dropped, or
     // which channel the altitude is, could not tell from this document before.
-    ...(howRead(flight, analysis).length ? { howThisFileWasRead: howRead(flight, analysis) } : {}),
+    ...(howRead(flight, analysis, sys).length ? { howThisFileWasRead: howRead(flight, analysis, sys) } : {}),
     // …and which RECORDING of the flight this is, as data for the same reason: two Debrief
     // documents of one launch are not two launches, and a consumer should not have to read
     // English to tell.
