@@ -9,10 +9,12 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D8 slice 1 SHIPPED.** A Blue Raven's 500 Hz high-rate half is now read onto the flight its low-rate half recorded — gyro, accelerometer and the board's attitude, peak-preserving, with the standalone refusal untouched. **Slices 2 and 3 remain**, and slice 1 narrowed slice 2: the channels already arrive LABELLED (`Gyro X`, `Accel Z`, `Quat 1`), so what is left there is `ChannelKind` members, the units context, and the "this board did not record it" state. |
 | **P — product & craft** | **P1 still in progress.** Item 5 started on the app's most-hit error surface; item 2 took the events grid. Items **7** (hand-rolled buttons, **29** not 39/41), item 4's keyboard clause and item 12's `Panel` remain. |
 
-**PR #86 is open with four commits, CI green on the first three** (`frontend` and `e2e` both
-succeeded; the fourth pushed after and should be checked). **Nothing has reached production** —
-`main` was still `ea84b41` at last measurement. Merging on green is pre-authorised.
-**Run `git log --oneline origin/main..HEAD` before believing anything below reached a flyer.**
+**Everything this run shipped is MERGED AND LIVE.** PR #86 (six commits) and PR #87 (the
+correction below) both merged on green — `frontend` and `e2e` succeeded on each — and production was
+verified with a cache-buster serving **`e071c84`** at 05:38:27Z. `main` is **`24c0ba2`** at last
+measurement, and the branch was restarted from it after each merge.
+**Re-measure before believing this**: `git fetch --prune origin` then
+`curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
 
 ## The one thing to read before anything else
 
@@ -144,10 +146,7 @@ caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `
 
 ## Pick up first
 
-1. **Check PR #86's CI and merge it.** Four commits, nothing live. This is the whole of this run's
-   output and no flyer can reach any of it until that merge.
-
-2. **D8 slice 2 — name the orientation channels, and only where the board recorded them.** Narrower
+1. **D8 slice 2 — name the orientation channels, and only where the board recorded them.** Narrower
    than the roadmap thought: they already arrive labelled. What is left is `ChannelKind` members for
    gyro/quaternion, units through the units context, and the "this board did not record it" state.
    **The hard part is the one slice 1 refused:** no axis may be mapped to `rollRate` or `accelAxial`
@@ -156,17 +155,17 @@ caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `
    Debrief has no such statement. Either read one from the low-rate file's `Tilt_Angle`/`Roll_Angle`
    agreement, or ask the flyer — the same shape as D1's crop and D3's grouping.
 
-3. **§8's touch floor: two plain `<a>`s remain, and both are owed to BOTH repos.**
+2. **§8's touch floor: two plain `<a>`s remain, and both are owed to BOTH repos.**
    `SiteHeader.tsx:14`'s "Compare" nav link (18 px) and `SiteFooter.tsx:91`'s observance link
    (16 px). §10 makes the header/footer/nav pattern shared and non-negotiable, so fixing them here
    alone forks the suite — this needs a session created with Loft attached. `MethodsPointer`, the
    one that is Debrief's own, is fixed.
 
-4. **P1 item 2's remaining three instances**, all filed in `BACKLOG.md` with file:line — the two
+3. **P1 item 2's remaining three instances**, all filed in `BACKLOG.md` with file:line — the two
    recording pickers at `text-[11px]` (the numbers a flyer picks which instrument to trust by) and
    `GroundTrack`'s walkback line.
 
-5. **P1 item 7 is smaller than the roadmap says.** 29 hand-rolled `<button>` outside `ui.tsx`, not 39
+4. **P1 item 7 is smaller than the roadmap says.** 29 hand-rolled `<button>` outside `ui.tsx`, not 39
    or 41. Re-measure before budgeting an increment against any P1 number; 8 of 10 were stale.
 
 ## What is owed elsewhere
