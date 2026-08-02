@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight, ParseGuidanceError } from '@/lib/parsers';
 import { importRecent } from '@/lib/reopen';
-import { ingestFiles, unreadNote, MAX_BYTES } from '@/lib/ingest';
+import { ingestFiles, highRateNote, unreadNote, MAX_BYTES } from '@/lib/ingest';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import { flightFromMapping } from '@/lib/mapped';
@@ -412,7 +412,7 @@ export default function Analyzer() {
       // One set of rules for what a launch day's folder holds — including which summary
       // belongs to which log — shared with the comparison surface so the two can't disagree
       // about it (see lib/ingest.ts).
-      const { results, skipped, mappable, paired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable, paired, highRatePaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
 
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
@@ -427,6 +427,7 @@ export default function Analyzer() {
         const notRead = unreadNote(unread, results.map((r) => r.name), MAX_COMPARE).trim();
         if (notRead) notes.push(`Showing ${results.length} of ${list.length} files. ${notRead}`);
         if (paired.length > 0) notes.push(pairedNote(paired));
+        if (highRatePaired.length > 0) notes.push(highRateNote(highRatePaired));
         if (skipped.length > 0) notes.push(skippedNote(skipped));
         // Every dropped flight went into the logbook, so this comparison HAS an address —
         // offer it rather than leaving a view that vanishes on reload.
@@ -478,6 +479,9 @@ export default function Analyzer() {
                   )
                 : null,
               paired.length > 0 ? pairedNote(paired) : null,
+              // Same reason as the summary beside it: a flyer who dropped both halves is told the
+              // second one was READ, rather than being told it was left out.
+              highRatePaired.length > 0 ? highRateNote(highRatePaired) : null,
             ]
               .filter(Boolean)
               .join(' ') || undefined,

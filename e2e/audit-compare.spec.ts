@@ -243,12 +243,16 @@ test('a log dropped with its device summary reads as one flight plus a cross-che
 
 // The ordinary Blue Raven drop. Featherweight's own software writes the summary, the low-rate
 // log and the high-rate log out side by side, so a flyer who selects the folder drops all
-// three at once — and the high-rate half is refused by design. Two things are then true: one
-// file was left out, and one file WAS read and put four figures in the report. The note used
-// to pick whichever branch fired first and discard the other, so this drop said the high-rate
-// file was left out and never mentioned the summary, while the summary's figures sat in the
-// cross-check panel further down the same page.
-test('a drop of all three Blue Raven files says what was left out AND what was read', async ({ page }) => {
+// three at once.
+//
+// **This test used to assert that the high-rate half was LEFT OUT, and that is no longer true.**
+// D8 slice 1 reads it as what it is — the other half of one board's record of one flight, on the
+// same flight clock — so all three files now contribute and nothing in the drop is discarded. The
+// assertions below are the stronger claim, not a relaxed one: the summary's figures reach the
+// cross-check, the stream's traces reach the channel explorer, and the note says both happened.
+// Dropping the high-rate file ALONE is still refused in the same words; `lib/highRate.test.ts`
+// pins that over all five corpus high-rate files.
+test('a drop of all three Blue Raven files reads all three, and says what each contributed', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles([
     { name: 'BlRv_SN0829_LR_05-11-2024.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app-lr.csv')) },
@@ -257,23 +261,29 @@ test('a drop of all three Blue Raven files says what was left out AND what was r
   ]);
 
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
-  // Filtered on wording BOTH the old and new notes share, so a failure names the missing
-  // content rather than a missing element.
-  const note = page.getByRole('status').filter({ hasText: /single report rather than a comparison/ });
+  const note = page.getByRole('status').filter({ hasText: /Read the device's own summary alongside the flight/ });
 
-  // What was left out, and the logger's own guidance for why — kept, not flattened.
-  await expect(note).toContainText('BlRv_SN0829_HR_05-11-2024.csv');
-  await expect(note).toContainText('high-rate file');
-  // …and what was read. This is the half that was being discarded.
+  // Both non-flight files were READ, and the note says so for each in its own words — they
+  // contributed different things and one sentence covering both would be false about one of them.
   await expect(note).toContainText(/Read the device's own summary alongside the flight/);
+  await expect(note).toContainText('BlRv_SN0829_HR_05-11-2024.csv');
+  await expect(note).toContainText(/Read the high-rate half of this flight alongside it/);
+  // The reduction is stated rather than glossed: a flyer must not think all 192,001 rows of a
+  // real stream are on the chart, nor that a peak has been smoothed away.
+  await expect(note).toContainText(/largest sample the board recorded/);
+  // Nothing was left out, so the sentence that says something was must not appear.
+  await expect(note).not.toContainText(/single report rather than a comparison/);
 
-  // "Could be read as a flight" is the wrong verb once a non-flight file has contributed:
-  // the summary WAS read. It is a flight RECORD that the other files are not.
-  await expect(note).toContainText('Only one of those 3 files is a flight record');
-
-  // And the figures it contributed are really there.
+  // The summary's figures are really in the cross-check…
   const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Logger' }) });
   await expect(table.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Apogee', exact: true }) })).toContainText('4,035 ft');
+
+  // …and the stream's traces are really reachable, by name rather than as an r-N passthrough.
+  // This is the assertion that makes the slice REACHABLE rather than merely correct in the model.
+  const add = page.getByLabel('Add a channel to the plot');
+  await expect(add.locator('option', { hasText: 'Gyro X' })).toHaveCount(1);
+  await expect(add.locator('option', { hasText: 'Accel Z' })).toHaveCount(1);
+  await expect(add.locator('option', { hasText: 'Quat 1' })).toHaveCount(1);
 });
 
 // Ranking by a metric answers "which went highest". A launch day also has orders no metric
