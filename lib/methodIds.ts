@@ -17,6 +17,7 @@ export const METHOD_IDS = [
   'several-flights-in-a-file',
   'same-flight-written-twice',
   'apogee',
+  'not-a-flight',
   'velocity-max-velocity',
   'gps-speed-supersonic',
   'accelerometer-settles-mach',

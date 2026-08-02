@@ -178,6 +178,24 @@ export default function MethodsPage() {
             carried across: a time needs two instants both copies agree on, a rate needs the
             deployment structure between them.
           </Method>
+          <Method id="not-a-flight" title="When a record isn&apos;t a flight at all">
+            Every reading on the page rests on the altitude channel, so Debrief checks that the
+            channel actually holds a flight before trusting it. The test is the climb against
+            gravity: a throw that just reaches height <em>h</em> passes it{' '}
+            <span className="font-mono">&radic;(2h/g)</span> seconds in, and a real rocket does most
+            of its climbing under thrust and gets there sooner still. If a record takes more than
+            four times that long to reach its highest point, it is not a climb — the altitude
+            column is a stuck sensor, a disconnected barometer, or a column that is not a height.
+          {' '}
+            Debrief says so rather than silently correcting anything, because it cannot know the
+            true height from a channel that did not record it. One log in our test corpus does this:
+            it reports a peak of 9 m reached 30.9 s after liftoff, an ascent 22 times slower than
+            gravity allows, while a second altimeter in the same airframe recorded 2,115 m. The
+            limit is four rather than something tighter because real flights do sometimes climb
+            slowly — the slowest in the corpus, a 75 km flight with a long burn in thin air, takes
+            1.5 times the throw — so the check discriminates on a fourteen-fold gap rather than a
+            fine judgement.
+          </Method>
           <Method id="apogee" title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
             two-sample jump an ejection charge punches into a baro trace — what makes a naïve

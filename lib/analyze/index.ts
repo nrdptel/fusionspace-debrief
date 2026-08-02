@@ -2137,6 +2137,53 @@ function analyzeWhole(
   if (apogeeIsFloor) {
     warnings.push('The log appears to end at or before apogee — descent numbers may be missing.');
   }
+
+  /**
+   * The mirror of the check above, pointing at the CLIMB: a record whose ascent takes far longer
+   * than a vertical throw to the same height is not describing a free flight at all.
+   *
+   * **This is a wrong number a flyer would act on, and it is live on a real corpus file.** The raw
+   * `@ LOG_LOW` serial capture of a Blue Raven reports **apogee 9 m reached 30.9 s after liftoff**
+   * — an average climb of 0.3 m/s — while a second altimeter in the same airframe recorded
+   * 2,115 m. Debrief printed the 9 m as an unqualified reading, and the comparison surface then
+   * headlined a 177% disagreement against the board that was right. Measured: that file's `Bo:`
+   * pressure token spans 48821–48897 of 50000 across the whole record, flat to 0.15%, so the 9 m
+   * is a faithful read of a barometric channel that does not contain the flight. The corpus has
+   * carried this as a `knownIssue` — the gap was documented where a maintainer could see it and
+   * nowhere a flyer could.
+   *
+   * **The bound is scale-free and was measured rather than tuned.** `sqrt(2h/g)` is how long a
+   * vertical throw takes to coast to height `h`; a real rocket does most of its climb under thrust
+   * and reaches apogee SOONER than that, so the ratio sits below 1 for a boosted flight. Across
+   * the 37 corpus flights that produce both figures, the highest legitimate ratio is **1.52** —
+   * the 75 km flight, whose long burn and thin air genuinely stretch the ascent — and the next is
+   * **1.10**. The misparse sits at **22.2**. A limit of 4 is 2.6x above anything real in the
+   * corpus and 5.5x below the defect, so it discriminates on a gap of more than fourteen-fold
+   * rather than on a threshold anyone had to choose carefully.
+   *
+   * It WARNS rather than withholding, deliberately. Where a peak speed is contradicted there is a
+   * separate altitude reading to fall back on, so withholding the speed still leaves a report;
+   * here the altitude channel is the report, and blanking it would leave nothing to look at and
+   * nothing to compare against the second altimeter that disagrees. Naming the contradiction with
+   * both numbers is what lets the flyer see which board to believe.
+   */
+  const ASCENT_VS_VACUUM_LIMIT = 4;
+  if (liftoffFound && Number.isFinite(apogeeAlt) && apogeeAlt > 0) {
+    const climbTime = apogeeTime - liftoffTime;
+    const vacuumClimb = Math.sqrt((2 * apogeeAlt) / G0);
+    if (climbTime > 0 && vacuumClimb > 0 && climbTime > ASCENT_VS_VACUUM_LIMIT * vacuumClimb) {
+      warnings.push(
+        `This record does not describe a rocket flight. It reaches its highest point, ${lenTok(apogeeAlt)}, ` +
+          `${formatSeconds(climbTime)} after liftoff — but a rocket that only ever got that high would be back on the ` +
+          `ground in about ${formatSeconds(2 * vacuumClimb)}, and would pass that height ${formatSeconds(vacuumClimb)} ` +
+          `into the flight. An ascent ${(climbTime / vacuumClimb).toFixed(0)}x slower than that is not a climb, so the ` +
+          `altitude channel here almost certainly is not the one that recorded the flight — a stuck or disconnected ` +
+          `barometer, or a column read as a height that is not one. Every reading on this page rests on that channel ` +
+          `and should be treated as unproven until a second recording of the same flight, or the altimeter's own ` +
+          `summary, agrees with it.`,
+      );
+    }
+  }
   // The other way a landing goes unread: the record holds the whole fall — long enough that
   // the vacuum test above is satisfied — and then stops with the rocket still well up. Four
   // corpus records do this, ending between 2.0% and 7.5% of their own apogee above the pad,
