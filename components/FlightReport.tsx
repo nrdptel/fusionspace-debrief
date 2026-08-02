@@ -1320,10 +1320,19 @@ export default function FlightReport({
                 />
                 <span className="font-medium text-zinc-700 dark:text-zinc-300">{e.label}</span>
                 {e.provenance !== 'measured' && (
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{e.provenance}</span>
+                  // §3 keeps `text-[11px]` for axis ticks and diagram annotations. A provenance
+                  // label is a caption on a value, which is `text-xs`.
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{e.provenance}</span>
                 )}
               </span>
-              <span className="text-right font-mono text-xs text-zinc-500 dark:text-zinc-400">
+              {/* P1 item 2, on the surface that most needed it. These read at `text-xs` in §2's
+                  TERTIARY colour, and they are the numbers a flyer checks their recovery against:
+                  the height the main actually fired at, against what they set on the altimeter,
+                  and the shock the airframe took when it did. §3 is explicit that `text-sm` is the
+                  floor for anything read to make a decision and that `text-xs` is for the text
+                  AROUND such a value — its unit, its provenance, its caveat — never the value.
+                  `tabular-nums` because these are read down a column, event against event. */}
+              <span className="text-right font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
                 <span className="block">
                   {fmtTime(e.time)} · {fmtLength(e.altitude, sys)}
                 </span>

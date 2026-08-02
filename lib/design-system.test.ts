@@ -255,7 +255,20 @@ const BUDGET = {
    *  is `text-xs`; the class left the two files and went into `ui.tsx`. Not one glyph changed size.
    *  §9 documents exactly this effect for the suite-wide ratio, and it reaches the per-file count
    *  too whenever a converted file was small enough that its buttons were most of its type. */
-  invertedTypeFiles: 15,
+  /** 15 → 16 on 2026-08-02, and it is the SAME adoption effect running the other way — recorded
+   *  in the same detail, because a ratchet that explains its improvements and waves through its
+   *  regressions is not a ratchet. `Analyzer` adopted `ErrorState` for the app's most-hit error
+   *  surface; the hand-rolled `<Card tone="danger" className="text-sm">` it replaced carried that
+   *  `text-sm` in the FILE, and the primitive carries it in `ui.tsx` instead. Not one glyph changed
+   *  size, and the file went 3/2.
+   *
+   *  All three of its captions are sanctioned by §3's own wording — a file name inside "Reading …",
+   *  the help line under it, and the amber note about a mapping in progress are the "text AROUND
+   *  such a value — its unit, its provenance, its caveat" that `text-xs` is FOR. `Analyzer` joins
+   *  `EventChips`, `RecognizedFormats`, `SiteFooter`, `FusionSpaceBadge` and `ChannelExplorer` as a
+   *  file that is inverted while fully compliant, which is why item 2's target of 0 is not
+   *  reachable and `ROADMAP.md` says so. */
+  invertedTypeFiles: 16,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
@@ -317,7 +330,11 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  hand-rolled cards outside the logbook row. Two of them took `tone="muted"`, which existed
    *  already and which both had written out by hand. 26 → 27 is the logbook row itself, which took
    *  `as="li"`. */
-  Card: 27,
+  /** 27 → 26 on 2026-08-02, and it is a MOVE rather than a loss: `Analyzer`'s only `Card` was the
+   *  hand-rolled `tone="danger"` error box, which is now `ErrorState` — the §5 primitive whose job
+   *  that is. A generic container giving way to the specific one is the direction this milestone
+   *  exists to push, so the two numbers have to be read together: `ErrorState` 1 → 2. */
+  Card: 26,
   Button: 18,
   Chip: 3,
   Readout: 2,
@@ -338,7 +355,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   IconButton: 2,
   Extrapolated: 1,
   EmptyState: 1,
-  ErrorState: 1,
+  ErrorState: 2,
   Section: 2,
   /** 3 → 4 on 2026-08-01: the sample table's channel scope, which is 2 mutually exclusive
    *  options with both visible — §5's own definition of when to reach for this. */

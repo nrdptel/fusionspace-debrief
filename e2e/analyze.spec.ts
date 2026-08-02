@@ -1296,7 +1296,31 @@ test('a folder with no flight logs in it says so, instead of blaming the folder'
   expect(cancelled).toBe(true);
 
   await expect(page.getByText(/Nothing in “holiday-photos” looked like a flight log/)).toBeVisible();
-  await expect(page.getByText('Could not read this file.'), 'the folder is not blamed for not being a flight').toHaveCount(0);
+  await expect(page.getByText('It could not be read.'), 'the folder is not blamed for not being a flight').toHaveCount(0);
+});
+
+// P1 item 5, on the app's most-hit error surface: every unreadable file dropped on `/` lands here.
+// `DESIGN.md` §5 requires an error to name "the file or field that failed", and `MAINTAINING.md`
+// lists a failure that names something not on the page as a tell. Six of this surface's ten error
+// paths named nothing at all — "That file is empty.", "Could not read this file." — which on a
+// launch day's drop leaves the flyer to work out WHICH of eight files it meant.
+test('an unreadable file is named in the error, not described in the abstract', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    { name: 'shopping-list.csv', mimeType: 'text/csv', buffer: Buffer.from('') },
+  ]);
+
+  // Scoped to the danger card rather than `getByRole('alert')` alone: `ForgetDeviceData` and
+  // `RecentFlights`'s Clear confirmation are alerts too, and both are on this page.
+  const err = page.getByRole('alert').filter({ hasText: /Couldn’t read/ });
+  await expect(err).toBeVisible();
+  // The file, by name — the whole point of the change.
+  await expect(err).toContainText('shopping-list.csv');
+  // …and what was expected of it, so the message teaches rather than reports.
+  await expect(err).toContainText(/no contents at all/i);
+  // The old wording said "That file is empty." and named nothing. If it comes back, so does the
+  // defect: a flyer holding eight files cannot act on it.
+  await expect(err).not.toContainText('That file is empty.');
 });
 
 // Every reading in the grid is a term of art — "Coast efficiency", "Max Q",

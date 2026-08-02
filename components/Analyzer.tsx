@@ -45,7 +45,7 @@ import { decodeBytes } from '@/lib/encoding';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
-import { Card } from './ui';
+import { ErrorState } from './ui';
 
 type State =
   | { phase: 'idle' }
@@ -84,7 +84,14 @@ type State =
    *  batch can't run the mapper, but the flyer can, one at a time, and each one rejoins
    *  this comparison when they do. */
   | { phase: 'compare'; comparison: Comparison; note?: string; ids?: string[]; mappable?: { name: string; text: string }[] }
-  | { phase: 'error'; message: string };
+  /** `file` is the name of the file that failed, when one file did.
+   *
+   *  `DESIGN.md` §5 requires an error to name "the file or field that failed", and
+   *  `MAINTAINING.md` lists "a control … whose failure names something that isn't on the page"
+   *  as a tell. Six of these ten messages named nothing at all — "That file is empty.", "Could
+   *  not read this file." — which on a launch day's drop leaves the flyer to work out WHICH of
+   *  eight files it meant. Absent where no single file is at fault (a whole folder, the sample). */
+  | { phase: 'error'; message: string; file?: string };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
 
@@ -239,7 +246,7 @@ export default function Analyzer() {
       const set = beginLoad();
       try {
         if (text.trim().length === 0) {
-          set({ phase: 'error', message: 'That file is empty.' });
+          set({ phase: 'error', message: 'It has no contents at all — nothing was read from it.', file: name });
           return;
         }
         const result = importRecent({
@@ -289,13 +296,14 @@ export default function Analyzer() {
         } else if (result.table.dataRows.length === 0) {
           set({
             phase: 'error',
-            message: 'Debrief couldn’t find any data rows in this file. Is it a flight log export?',
+            message: 'Debrief found no rows of data in it. Is it a flight log export?',
+            file: name,
           });
         } else {
           set({ phase: 'mapping', fileName: name, text, table: result.table, suggested: result.suggested });
         }
       } catch (err) {
-        set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not read this file.' });
+        set({ phase: 'error', message: err instanceof Error ? err.message : 'It could not be read.', file: name });
       }
     },
     [logbook.refresh, logbook.reportForgotten, beginLoad],
@@ -362,7 +370,8 @@ export default function Analyzer() {
       if (file.size > MAX_BYTES) {
         setState({
           phase: 'error',
-          message: `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB — larger than Debrief reads in the browser (64 MB). If it's really a single flight, trim it first.`,
+          message: `It is ${(file.size / 1024 / 1024).toFixed(0)} MB — larger than Debrief reads in the browser (64 MB). If it's really a single flight, trim it first.`,
+          file: file.name,
         });
         return;
       }
@@ -380,7 +389,8 @@ export default function Analyzer() {
         // unzipped) should reach the flyer, not be hidden behind a generic line.
         setState({
           phase: 'error',
-          message: err instanceof ParseGuidanceError ? err.message : 'Could not read this file.',
+          message: err instanceof ParseGuidanceError ? err.message : 'It could not be read.',
+          file: file.name,
         });
       }
     },
@@ -505,7 +515,7 @@ export default function Analyzer() {
       await tick();
       await ingest('sample-altusmetrum.csv', text);
     } catch {
-      setState({ phase: 'error', message: 'Could not load the sample flight.' });
+      setState({ phase: 'error', message: 'The sample flight could not be loaded — it is fetched from this site, so a lost connection is the usual cause.' });
     }
   }, [ingest]);
 
@@ -543,7 +553,7 @@ export default function Analyzer() {
             logbook.refresh();
           });
       } catch (err) {
-        set({ phase: 'error', message: err instanceof Error ? err.message : 'Could not analyze this file.' });
+        set({ phase: 'error', message: err instanceof Error ? err.message : 'It could not be analyzed.', file: state.phase === 'mapping' ? state.fileName : undefined });
       }
     },
     [state, logbook.refresh, beginLoad, sys],
@@ -598,7 +608,7 @@ export default function Analyzer() {
       try {
         const result = importFlight({ name: file.name, text: file.text });
         if (result.kind !== 'mapping') {
-          setState({ phase: 'error', message: `${file.name} could not be opened for mapping.` });
+          setState({ phase: 'error', message: 'It could not be opened for mapping.', file: file.name });
           return;
         }
         setState({
@@ -769,12 +779,25 @@ export default function Analyzer() {
       <DropZone onFiles={onFiles} onSample={onSample} busy={state.phase === 'loading'} />
       {state.phase === 'loading' && <ReadingNote what={state.what} />}
       {state.phase === 'error' && (
-        // `alert`, not a bare div: this is the only account of what went wrong with a file, and
-        // it replaces a status line a screen reader had been following ("Reading …"), so
-        // arriving silently means the wait simply stops with nothing said.
-        <Card tone="danger" role="alert" className="text-sm">
-          {state.message}
-        </Card>
+        // `ErrorState`, not a hand-rolled danger card: §5 gives this primitive the duty of naming
+        // what failed and what was expected of it, and this is the app's most-hit error surface —
+        // every unreadable file on `/` lands here. It keeps `role="alert"`, which the primitive
+        // carries: this is the only account of what went wrong, and it REPLACES a status line a
+        // screen reader had been following ("Reading …"), so arriving silently means the wait
+        // simply stops with nothing said.
+        //
+        // No action is passed. §5 allows one and there genuinely is one — but it is the drop
+        // zone's own "Choose a flight log file" button, rendered immediately above this card, and
+        // a second copy of it one element down is the padding §4 warns against rather than a way
+        // forward the flyer lacked.
+        // Where no single file is at fault — a shared link, the sample, a whole folder — the
+        // message IS what failed, and it stands alone. An earlier version always put a generic
+        // "That file couldn't be read" in `what` and pushed the real sentence into `expected`,
+        // which read as two errors and called a share link a file.
+        <ErrorState
+          what={state.file ? <>Couldn’t read <span className="font-mono">{state.file}</span></> : state.message}
+          expected={state.file ? state.message : undefined}
+        />
       )}
       {state.phase !== 'loading' && <RecognizedFormats />}
       {state.phase !== 'loading' && (

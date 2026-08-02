@@ -108,7 +108,7 @@ test('a file with no columns of numbers says so instead of asking for a mapping'
 // rather than fail silently or throw — and none of them may take the page down.
 test('every unreadable file says what is wrong, and nothing throws', async ({ page }) => {
   const cases: [string, Buffer, RegExp][] = [
-    ['empty.csv', Buffer.from(''), /That file is empty/],
+    ['empty.csv', Buffer.from(''), /no contents at all/],
     ['header-only.csv', Buffer.from('time,altitude\n'), /no flight data in this file/i],
     ['binary.csv', Buffer.from([0x00, 0xff, 0x10, 0x42, 0x00, 0x99, 0x7f]), /no flight data in this file/i],
     ['prose.txt', Buffer.from('Dear log,\n\nIt flew nicely.\n'), /no flight data in this file/i],
@@ -123,6 +123,14 @@ test('every unreadable file says what is wrong, and nothing throws', async ({ pa
       .getByLabel('Choose a flight log file')
       .setInputFiles({ name, mimeType: name.endsWith('.txt') ? 'text/plain' : 'text/csv', buffer });
     await expect(page.getByText(expected), `${name} must say what is wrong`).toBeVisible();
+    // …and WHICH file it was. §5 requires an error to name the file that failed; on a launch
+    // day's drop "that file" is one of eight and the flyer cannot act on it.
+    // …and WHICH file it was, wherever the file is handled. §5 requires an error to name what
+    // failed; on a launch day's drop "that file" is one of eight and cannot be acted on. The two
+    // surfaces answer differently and both are right: an unreadable file gets `ErrorState` on the
+    // analyze page, and one with no columns of numbers gets the mapper's own "Debrief read
+    // <name> but found no columns of numbers in it". This asserts the fact, not the surface.
+    await expect(page.getByText(name).first(), `${name} must be named where it is handled`).toBeVisible();
   }
 
   // A single row of numbers is readable — it just can't be auto-detected, so it goes to the

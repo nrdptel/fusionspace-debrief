@@ -148,5 +148,7 @@ test('an unreadable share link reports an error on a cold load', async ({ page }
   // Must be a fresh document load (a fragment-only navigation wouldn't re-run the
   // decode effect), which is exactly how a recipient opens a share link.
   await page.goto('/#f=not-a-real-payload');
-  await expect(page.getByText(/couldn.?t be read/i)).toBeVisible();
+  // A share link is not a file, so the error names the link rather than blaming an unnamed
+  // one — the message stands alone as `ErrorState`'s `what`.
+  await expect(page.getByText(/This shared link couldn.?t be read/i)).toBeVisible();
 });
