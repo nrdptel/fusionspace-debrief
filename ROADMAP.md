@@ -1455,13 +1455,19 @@ the artifact rather than the tree.
    that genuinely will not fold in, because it is `border-2 border-dashed … shadow-lg` and needs
    elevation that `Card` has no prop for by design.
 
-   **The fourth remaining string is `RecentFlights.tsx:584`**, the logbook row: a raised card that
-   is also a click target, with a conditional left border for a note. Left deliberately, because
-   `Card`'s `as` union has no `li` and widening a primitive's element list is worth doing with the
-   conversion that needs it rather than ahead of it. That is one increment, and it takes this count
-   to its floor.
+   **DONE — 4 → 3, AT THE FLOOR, 2026-08-02.** The last string was `RecentFlights.tsx:584`, the
+   logbook row, and `Card`'s `as` union gained `'li'` for it. That widening is the right shape
+   rather than a concession: the row is a card AND a list item — a flight in a list of flights —
+   and rendering it as a `<div>` to fit the primitive would have taken it out of the list semantics
+   a screen reader announces, which is the exact trade `as` exists to refuse. `Card`'s default tone
+   IS that row's treatment, written out by hand; what stayed in `className` is only the hover and
+   the indigo left edge marking an annotated flight.
 
-   Card adopters 23 → 26; components importing the primitives 31 → 34.
+   **`cardTreatments` is a GUARD now, like `rounded-lg` and off-scale spacing, and may never rise.**
+   The three are `Card`, `Frame` and the floating drop overlay — three distinct kinds of container,
+   not hand-rolls waiting to be converted. Any fourth string is a new just-this-once.
+
+   Card adopters 23 → 27; components importing the primitives 31 → 34.
    *(Re-measured 2026-08-01: **12**, not 17. Like item 3 this number had drifted downward as other
    slices landed. Of the 12, one is `<Card>`'s own string and two are the drop zone and the drop
    overlay, which §9 already records as wanting their own named primitives rather than folding into

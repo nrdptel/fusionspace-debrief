@@ -7,7 +7,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **D — capability** | **D7 SHIPPED — all four slices.** Slice 4 landed 2026-08-01: each recording of a staged launch now reports **its own** apogee, peak speed, peak acceleration, thrust-to-weight and burn on `/stitch`, side by side, combined with nothing. **9 recordings across the three staged corpus groups** report figures. `COMPETITION.md` row 23 records that no shipped tool in the field does this from flight logs. **Next: D8 — orientation and high-rate data**, which is NOT YET DECOMPOSED. |
-| **P — product & craft** | **P1 IN PROGRESS.** Three §5 primitives that did not exist now do — `Frame`, `NumberField`, `Figure` — and hand-rolled card treatments are **10 → 7** against an honest floor of 4. Items **2**, **5**, **7** and **8** (3 sites left) remain, plus item 4's keyboard clause and item 12's `Panel`. Item **6** is DONE and was already at 0 before the work. |
+| **P — product & craft** | **P1 IN PROGRESS, and its biggest count is CLOSED.** Three §5 primitives that did not exist now do — `Frame`, `NumberField`, `Figure` — and hand-rolled card treatments went **10 → 3, the floor**, which is a guard now and may never rise. Items **2**, **5** and **7** remain, plus item 4's keyboard clause and item 12's `Panel`. Items **6** and **8** are DONE. |
 
 **Three pull requests, #81 and #82 MERGED AND LIVE, #83 open.** Production was verified serving
 **`60d7346`** with a cache-buster. #83 carries the `Figure` conversion and two corrections; its CI
@@ -118,7 +118,20 @@ beyond altitude/velocity/Mach/Q/acceleration arrives as `r-0`…`r-12`.
 metrics at least one flight recorded, so the state is unreachable there and the e2e for it could
 never have failed.
 
-### 7. Three false claims in the repo, corrected by measurement
+### 7. P1 item 8 — the card count reached its floor, and the floor was wrong
+
+7 → 4 → **3**. The entry had said for three runs that the page-level drop zone wants its own
+named primitive; its hand-rolled string was **byte-identical to `CARD_TONES.muted`**, a tone added
+for exactly that case and then written out by hand anyway. `CompareSurface`'s dashed box took the
+same tone — it was the one dashed box with no fill, so two drop targets read as two different kinds
+of thing while being the same kind of thing. The logbook row took `Card as="li"`, and that widening
+is the right shape: a row is a card AND a list item, and a `<div>` would have cost the list
+semantics a screen reader announces.
+
+**`cardTreatments` is a guard now.** `Card`, `Frame`, the floating drop overlay. Any fourth string
+is a new just-this-once.
+
+### 8. Three false claims in the repo, corrected by measurement
 
 `lib/stitch.ts` called `meraki2` an "ordinary SINGLE-stage flight". The fixtures manifest names its
 motors: **an O7800 booster and an N3100 sustainer**. `lib/composite.ts` said "no corpus record holds
@@ -157,10 +170,11 @@ forms and could never see a bare shade.
 |---|---|---|---|
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
-| hand-rolled card treatments | 10 | **7** | floor 4, not 1 |
+| hand-rolled card treatments | 10 | **3** | 3 — a GUARD now, may never rise |
 | inverted-type files | 15 | **15** | floor at least 4, not 0 |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 31 | **32** | most of the 46 |
+| files importing the primitives | 31 | **34** | most of the 46 |
+| `Card` adopters | 23 | **27** | — |
 | `Frame` adopters | — | **6** | — |
 | `NumberField` adopters | — | **6** | the 7th is `CropControl`, deliberately not |
 | `Figure` adopters | — | **2** files, 4 call sites | — |

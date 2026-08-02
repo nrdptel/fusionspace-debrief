@@ -89,7 +89,11 @@ export function Card({
   ref,
   ...rest
 }: {
-  as?: 'div' | 'section' | 'aside' | 'details';
+  /** `'li'` is here for the logbook row, which is a card AND a list item: a flight in a list of
+   *  flights. Rendering it as a `<div>` to fit the primitive would take the row out of the list
+   *  semantics a screen reader announces ("3 of 12"), which is the exact trade `as` exists to
+   *  refuse — a container's element is not a style choice. */
+  as?: 'div' | 'section' | 'aside' | 'details' | 'li';
   tone?: CardTone;
   /** Forwarded to the element. React 19 passes `ref` as an ordinary prop, so this needs no
    *  `forwardRef` — but it does need declaring, because `HTMLAttributes` does not carry it and
