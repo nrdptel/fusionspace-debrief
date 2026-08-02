@@ -12,6 +12,7 @@
 // on screen, and turning them all off leaves a report of numbers, which is a legitimate answer
 // for a table-only write-up.
 
+import { TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
 import { Chip, IconButton } from './ui';
 
 export default function FigureChooser({
@@ -54,16 +55,25 @@ export default function FigureChooser({
         return (
           <span key={`${t}-group`} className="inline-flex items-center gap-1">
             {colorOf && onColor && onClearColor && (
-              <input
-                type="color"
-                value={colorOf(t)}
-                onChange={(e) => onColor(t, e.target.value)}
-                onDoubleClick={() => onClearColor(t)}
-                aria-label={`Colour for the ${t.toLowerCase()} figure — double-click to reset`}
-                title={`Colour for the ${t.toLowerCase()} figure — double-click to reset`}
-                className="h-3 w-3 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
-                style={{ backgroundColor: colorOf(t) }}
-              />
+              // **The hit area lives on the LABEL, because it cannot live on the input.** A colour
+              // input is a REPLACED element and generates no `::after`, so the `.touch-area` helper
+              // every other small control here relies on is powerless on it — measured 0×0 at a
+              // 390 px touch viewport. Only the stylesheet's coarse-pointer `min-height` landed,
+              // which left the swatch 44 px tall and **12 px wide**. An implicit label forwards a
+              // tap to the control it wraps, so the target reaches the touch floor while the ink
+              // stays the small round swatch the row is built around.
+              <label className={`${TOUCH_TARGET_SQUARE} inline-flex shrink-0 cursor-pointer items-center justify-center`}>
+                <input
+                  type="color"
+                  value={colorOf(t)}
+                  onChange={(e) => onColor(t, e.target.value)}
+                  onDoubleClick={() => onClearColor(t)}
+                  aria-label={`Colour for the ${t.toLowerCase()} figure — double-click to reset`}
+                  title={`Colour for the ${t.toLowerCase()} figure — double-click to reset`}
+                  className="h-3 w-3 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                  style={{ backgroundColor: colorOf(t) }}
+                />
+              </label>
             )}
           <button
             key={t}

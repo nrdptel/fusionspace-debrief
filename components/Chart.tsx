@@ -299,7 +299,41 @@ export default function Chart({
     let lastTapAt = 0;
     const fracOf = (clientX: number, rect: DOMRect) => (clientX - rect.left) / rect.width;
 
+    /** One finger reads a value at a time — the thing a flight chart is FOR.
+     *
+     *  uPlot drives its cursor, and therefore its live legend, off MOUSE events. Every touch
+     *  handler here returned unless exactly two fingers were down, so on a phone the legend
+     *  rendered `time — altitude —` and never filled in: measured at 390 px with `hasTouch`, a
+     *  one-finger drag left it empty while the identical drag through a synthetic mouse gave
+     *  `time 47.14 s / altitude 6,402`. `DESIGN.md` §8 forbids a hover-only state, and an empty
+     *  legend advertising a reading the surface cannot give is worse than not offering one.
+     *
+     *  Setting the cursor directly is what a touch has to do instead, because there is no hover:
+     *  the reading STAYS where the finger left it rather than clearing on lift, so a flyer can
+     *  read the number after moving their thumb out of the way. */
+    const readAt = (clientX: number, clientY: number) => {
+      const rect = over.getBoundingClientRect();
+      plot.setCursor({ left: clientX - rect.left, top: clientY - rect.top });
+    };
+
+    /** A single finger that has committed to a horizontal drag. Tracked because two other
+     *  gestures share these handlers: a horizontal drag must claim the event so the page does not
+     *  scroll out from under the reading, while a VERTICAL drag must not — the chart is wide and
+     *  short, and swallowing vertical movement would trap the page scroll on the tallest surface
+     *  in the app. And a finger that moved is not a tap, so it must not feed the double-tap reset
+     *  below and silently zoom out mid-read. */
+    let read: { x: number; y: number; moved: boolean } | null = null;
+    /** Enough movement to be a deliberate drag rather than the wobble of a tap. */
+    const DRAG_SLOP_PX = 6;
+
     const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        read = { x: t.clientX, y: t.clientY, moved: false };
+        readAt(t.clientX, t.clientY);
+        return;
+      }
+      read = null;
       if (e.touches.length !== 2) return;
       const { min, max } = plot.scales.x;
       if (min == null || max == null) return;
@@ -310,6 +344,20 @@ export default function Chart({
       pinched = true;
     };
     const onTouchMove = (e: TouchEvent) => {
+      if (read && e.touches.length === 1) {
+        const t = e.touches[0];
+        if (!read.moved) {
+          const dx = Math.abs(t.clientX - read.x);
+          const dy = Math.abs(t.clientY - read.y);
+          // Claim the gesture only once it is clearly a sideways read. Until then let the browser
+          // have it, so a flick down the page still scrolls when it starts over a chart.
+          if (dx < DRAG_SLOP_PX || dx <= dy) return;
+          read.moved = true;
+        }
+        e.preventDefault();
+        readAt(t.clientX, t.clientY);
+        return;
+      }
       if (!pinch || e.touches.length !== 2) return;
       e.preventDefault(); // we own the two-finger gesture — suppress page pinch-zoom
       const rect = over.getBoundingClientRect();
@@ -324,8 +372,17 @@ export default function Chart({
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) pinch = null;
       if (e.touches.length > 0) return;
+      const dragged = read?.moved === true;
+      read = null;
       if (pinched) {
         pinched = false; // a pinch ending isn't a tap
+        return;
+      }
+      // …and neither is a drag along the trace. Without this, reading two values in quick
+      // succession would land inside the double-tap window and zoom the chart back out under a
+      // flyer who was in the middle of reading it.
+      if (dragged) {
+        lastTapAt = 0;
         return;
       }
       // Double-tap (two quick single-finger taps) resets to the full range.

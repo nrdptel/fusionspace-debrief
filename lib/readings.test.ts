@@ -9,6 +9,7 @@ import type { FlightMetrics } from './analyze/types';
 // that no optional metric is null, so both lists are asked for everything they have.
 const EVERYTHING: FlightMetrics = {
   apogeeIsFloor: false,
+  altitudeUnproven: false,
   apogeeAltitude: 2841,
   timeToApogee: 24.6,
   maxVelocity: 341,

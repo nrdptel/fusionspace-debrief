@@ -25,6 +25,7 @@ import { formatFlownAt } from '@/lib/flight/flownAt';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
+import { TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
 import { Button, Card, Disclosure, Figure, Segmented } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
@@ -850,16 +851,22 @@ export default function CompareView({
                         flyer's, and a certification package or a club thread often needs one
                         specific flight in one specific colour. Double-click returns it to the
                         palette's own choice — a way back out of the change. */}
-                    <input
-                      type="color"
-                      value={f.color}
-                      onChange={(e) => setFlightColor(f.id, e.target.value)}
-                      onDoubleClick={() => clearFlightColor(f.id)}
-                      aria-label={`Colour for ${stem(f.name)} — double-click to reset`}
-                      title={`Colour for ${stem(f.name)} — double-click to reset`}
-                      className="h-2.5 w-2.5 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
-                      style={{ backgroundColor: f.color }}
-                    />
+                    {/* The hit area is on the LABEL — see `FigureChooser` for the measurement. A
+                        colour input is a replaced element, so it can carry no `::after` and the
+                        `.touch-area` helper cannot reach it; wrapping forwards the tap while the
+                        ink stays a 10 px dot in a dense legend. */}
+                    <label className={`${TOUCH_TARGET_SQUARE} inline-flex shrink-0 cursor-pointer items-center justify-center`}>
+                      <input
+                        type="color"
+                        value={f.color}
+                        onChange={(e) => setFlightColor(f.id, e.target.value)}
+                        onDoubleClick={() => clearFlightColor(f.id)}
+                        aria-label={`Colour for ${stem(f.name)} — double-click to reset`}
+                        title={`Colour for ${stem(f.name)} — double-click to reset`}
+                        className="h-2.5 w-2.5 shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                        style={{ backgroundColor: f.color }}
+                      />
+                    </label>
                     <span
                       title={stem(f.name)}
                       // Wrapped to two lines rather than truncated: at the phone clamp of 80 px a
@@ -919,7 +926,18 @@ export default function CompareView({
                     }`}
                   >
                     {row.label}
-                    <span aria-hidden="true" className={sort?.label === row.label ? '' : 'opacity-0 group-hover:opacity-40'}>
+                    {/* The sort cue was `opacity-0 group-hover:opacity-40`, and `(hover: hover)` is
+                        false on a phone — so measured at 390 px every column that was not already
+                        the active sort rendered its arrow at computed opacity 0, and **nothing on
+                        this surface said the table sorted at all**. `DESIGN.md` §8: "No hover-only
+                        state." A pointer keeps the quiet reveal; a coarse pointer, which has no
+                        hover to reveal it with, gets it standing. */}
+                    <span
+                      aria-hidden="true"
+                      className={
+                        sort?.label === row.label ? '' : 'opacity-0 group-hover:opacity-40 pointer-coarse:opacity-40'
+                      }
+                    >
                       {sort?.label === row.label && sort.dir === 'asc' ? '▲' : '▼'}
                     </span>
                   </button>

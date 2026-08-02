@@ -302,3 +302,97 @@ test('a grouping offer with long file names does not push the page sideways', as
     expect(r.height, 'a "Reported by" option').toBeGreaterThanOrEqual(44);
   }
 });
+
+// A chart exists to answer "what was it doing at this moment", and on a phone that has to be a
+// finger. uPlot drives its cursor — and therefore its LIVE LEGEND — off mouse events, and every
+// touch handler in `Chart.tsx` returned unless exactly two fingers were down. So the legend
+// rendered "time — altitude —" on every chart and never filled in: the feature was advertised on
+// screen and reachable only with a mouse, which is the hover-only state `DESIGN.md` §8 forbids.
+//
+// Measured before the fix at this viewport: a one-finger drag left the legend at "time—altitude—"
+// while the identical drag through page.mouse produced "time 47.14 s / altitude 6,402".
+test('one finger reads a value off the chart, and the reading stays put', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+
+  const legend = page.locator('.u-legend').last();
+  const before = (await legend.innerText()).replace(/\s+/g, ' ').trim();
+
+  // One finger, dragged sideways along the trace — the gesture a flyer actually makes.
+  const filled = await page.evaluate(() => {
+    const overs = document.querySelectorAll('.u-over');
+    const el = overs[overs.length - 1] as HTMLElement;
+    const r = el.getBoundingClientRect();
+    const y = r.top + r.height / 2;
+    const at = (x: number) => [new Touch({ identifier: 0, target: el, clientX: x, clientY: y })];
+    const fire = (type: string, touches: Touch[]) =>
+      el.dispatchEvent(new TouchEvent(type, { touches, changedTouches: touches, bubbles: true, cancelable: true }));
+    fire('touchstart', at(r.left + r.width * 0.2));
+    // Past the drag slop and clearly horizontal, so the handler claims it.
+    fire('touchmove', at(r.left + r.width * 0.45));
+    fire('touchmove', at(r.left + r.width * 0.6));
+    fire('touchend', []);
+    return (document.querySelectorAll('.u-legend')[document.querySelectorAll('.u-legend').length - 1] as HTMLElement).innerText;
+  });
+
+  const after = filled.replace(/\s+/g, ' ').trim();
+  // A real reading: at least one number with a decimal point, which the empty legend's em dashes
+  // cannot produce. Asserted as "it changed AND it holds a value", because a legend that merely
+  // changed could still be showing nothing.
+  expect(after, 'the legend filled in from a one-finger drag').not.toBe(before);
+  expect(after, 'and it holds an actual reading').toMatch(/\d+\.\d/);
+
+  // The reading SURVIVES the finger lifting — there is no hover on a phone, so a value that
+  // cleared on release could never be read at all.
+  const settled = (await legend.innerText()).replace(/\s+/g, ' ').trim();
+  expect(settled, 'the reading stays after the finger leaves').toMatch(/\d+\.\d/);
+
+  // …and the drag did not count as a tap: the chart must not have zoomed back out under it.
+  await expect(page.getByRole('heading', { name: 'Across the whole flight' })).toBeVisible();
+});
+
+// A phone has no hover, so an affordance revealed by hover does not exist there. Both of these
+// were measured at this viewport before they were fixed.
+test('the comparison says it sorts, and its colour swatches are thumb-sized', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-gps.csv')]);
+  await expect(page.getByRole('heading', { name: /Comparing 2 flights/ })).toBeVisible({ timeout: 25000 });
+
+  // The sort cue on a column that is NOT the active sort. It was `opacity-0 group-hover:…`, and
+  // `(hover: hover)` is false here — so every inactive header rendered its arrow at opacity 0 and
+  // nothing on the surface said the table sorted at all.
+  const arrows = await page.evaluate(() => {
+    const out: number[] = [];
+    for (const th of Array.from(document.querySelectorAll('th'))) {
+      const span = th.querySelector('button > span[aria-hidden="true"]');
+      if (span) out.push(Number(getComputedStyle(span).opacity));
+    }
+    return out;
+  });
+  expect(arrows.length, 'there are sortable row headers to check').toBeGreaterThan(2);
+  expect(
+    arrows.filter((o) => o > 0).length,
+    'every sort cue is visible without a hover, not just the active one',
+  ).toBe(arrows.length);
+
+  // A colour input is a REPLACED element: it can carry no `::after`, so `.touch-area` cannot reach
+  // it and only a coarse-pointer min-height applied — 44 px tall and 12 px wide. The tap target is
+  // the wrapping label now, so measure THAT.
+  const swatches = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('input[type="color"]')).map((i) => {
+      const label = i.closest('label');
+      const r = (label ?? i).getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), wrapped: label != null };
+    }),
+  );
+  expect(swatches.length, 'the comparison offers a colour per flight').toBeGreaterThan(0);
+  for (const s of swatches) {
+    expect(s.wrapped, 'the swatch is wrapped in a label that can carry the target').toBe(true);
+    expect(s.w, `swatch width ${s.w}`).toBeGreaterThanOrEqual(44);
+    expect(s.h, `swatch height ${s.h}`).toBeGreaterThanOrEqual(44);
+  }
+});

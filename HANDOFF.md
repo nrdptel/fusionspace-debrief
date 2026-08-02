@@ -9,13 +9,13 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **D — capability** | **D8 slice 2 STARTED.** Looking for the milestone's own subject (the high-rate gyro/quaternion columns) meant reading the LOW-rate headers, which turned up a roll angle the Blue Raven had already solved and Debrief parsed straight past — and, on the generic importer's path, `Roll_Angle_(deg)` being auto-detected as a roll **RATE**, with a test asserting that was correct. `rollAngle` is its own kind now. **The rest of slice 2 remains**: `ChannelKind` members, units and provenance for the HR `Gyro_*` / `Accel_*` / `Quat_*` channels, which arrive labelled but as `kind: 'other'`. |
 | **P — product & craft** | **P1: two more §5 primitives are doing their job.** `useReturnFocus` exists (§5 named it; nothing implemented it) and the two destructive confirms share it. `Readout` went **2 → 9 adopters** — the seven derived-reading panels were hand-rolling a byte-identical hero value. Items **7** (29 hand-rolled `<button>`), item 4's keyboard clause, and the design-system audit's other 30-odd rows remain. |
 
-**Everything this run shipped is on the working branch and NOT yet in production.** Push the branch,
-open one pull request against `main`, merge on green. Under SHIPPED-MEANS-REACHABLE this counts as
-**pending**, not shipped.
+**Five increments are MERGED AND LIVE**; four more are on the branch in pull request #92. Pull request #91 merged on green (`frontend` and `e2e` both succeeded) and production was
+verified serving exactly `c86695c` at 13:07Z. The branch was restarted from `main` after the merge,
+as the harness requires.
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
 `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
-At the time of writing `main` was `9da7e7d` and production served exactly that.
+It moved twice during this run.
 
 ## The one thing to read before anything else
 
@@ -38,8 +38,9 @@ mapped. And the third was not merely unread:
 
 **And the first version of this section overstated it, which the pre-push review caught.** That
 path is the column mapper, for an UNRECOGNISED file. `blueraven.ts` mapped no roll column at all
-beforehand — `git show HEAD~2:lib/parsers/blueraven.ts | grep mappings.push` has six lines and none
-is a roll — so no named-parser file ever published a wrong roll figure. The defect was reachable and
+beforehand — measured across all 17 parser source files at the commit this branch started from,
+not one pushed a mapping with a `roll` role — so no named-parser file ever published a wrong roll
+figure. The defect was reachable and
 latent, not observed. Overstating a defect's blast radius is its own wrong claim.
 
 The Blue Raven's roll angle is **cumulative and unwrapped** — peaks of 26,099° on meraki, 24,240° on
@@ -104,7 +105,7 @@ no `angle` quantity in `lib/units.ts` — only `rotation`, which is a RATE — s
 no converter and is passed through untouched. Picking radians would have stored radians labelled
 `°`. No unit choice is offered, exactly as for `tilt`.
 
-### 3. `Readout` takes the seven panels that were copying it (increment 3)
+### 3. `Readout` takes the seven panels that were copying it (`de149cf`)
 
 Seven byte-identical hero values — deploy altitude, drag Cd, drogue Cd, ejection delay, landing
 energy, parachute Cd, rail exit — the `ACTION_BTN`-in-six-files shape, restarted for readings. The
@@ -152,6 +153,28 @@ genuine §3 breaches were fixed in place instead.
 | `ErrorState` adopters | 2 | **2** | — |
 | hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few |
 | imperative focus moves outside `ui.tsx` | 6 | **0** | 0 — new assertion this run |
+
+## A CI note worth having before you push
+
+**`get_check_runs` on a pull request can report `in_progress` long after the run has finished, and
+it did so for 40 minutes on 2026-08-02.** Pull request #92's `e2e` check read `in_progress` on
+every poll while the run had in fact **completed successfully at 13:54:26, 5m36s after it
+started** — normal, and the same duration as #91's. `list_workflow_runs` showed the truth
+immediately; the per-PR check-run view was stale.
+
+**This nearly became a wrong diagnosis in this very file.** The first version of this note said the
+runner had stuck, and that was false. If a check seems hung, confirm against
+`list_workflow_runs` (or the run's own `jobs` endpoint, which carries per-STEP timestamps) before
+concluding anything — and before re-pushing to "supersede" a run that already passed. The local
+reproduction that made the stall look impossible was itself sound and is worth keeping: `CI=1`
+forces the same one worker and one retry CI uses, and the suite ran in **7.6 s for one spec and
+3.8 min for all 254**.
+
+**And check what the corpus step actually did.** `Fetch private fixtures corpus` reports success in
+about 2 seconds, which is fast for a 26 MB release asset — the evidence that the corpus really ran
+is the `Test` step's duration (1m56s on that run, against a corpus-less suite that is far quicker),
+not the fetch step's exit code. If you need certainty, read the step's log rather than its
+conclusion.
 
 ## Pick up first
 

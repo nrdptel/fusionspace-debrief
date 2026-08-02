@@ -159,6 +159,7 @@ describe('crossCheck', () => {
 
 const metrics = (apogee: number): FlightMetrics => ({
   apogeeIsFloor: false,
+  altitudeUnproven: false,
   apogeeAltitude: apogee,
   timeToApogee: 1,
   maxVelocity: 100,

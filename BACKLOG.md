@@ -14,6 +14,133 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-02 — the three cold walks ran (desktop first use, desktop tenth use, phone), and the
+  phone one measured rather than eyeballed.** Ranked by what a flyer loses. Fixed this run: the
+  metre-in-a-feet-report caveat (its own commit). Everything below is filed, not fixed.
+
+  **FIXED 2026-08-02, later the same day: the chart's one-finger reading, the comparison's sort
+  cue and the colour swatches' tap target. The rest below stands.**
+
+  **~~The one worth taking first — a chart is mouse-only, and the legend advertises otherwise.~~
+  FIXED.**
+  All six charts (five on `/`, one on `/compare`) render a live legend reading `time — altitude —`
+  that NEVER fills in under touch: `Chart.tsx`'s touch handlers `return` unless
+  `e.touches.length === 2`, so a single finger is pinch-zoom or nothing, and the uPlot cursor is
+  bound to mouse events. Measured at 390 px with `hasTouch`: one-finger drag leaves the legend at
+  `time—altitude—`; the identical drag through `page.mouse` fills it with `time 47.14 s /
+  altitude 6,402`. **Reading a value at a time is what a chart is FOR at the range**, `DESIGN.md`
+  §8 forbids a hover-only state outright, and an empty legend sitting there advertising the
+  feature is worse than not offering it. The same walk found no keyboard path to a chart readout
+  either — no `role`, `tabindex` or focusable element inside any plot on either surface, while the
+  ground-track canvas beside them has `role="img"` and `tabindex="0"`.
+
+  **Touch targets that are genuinely under 44 px — 11, not the 22 a naive sweep reports.** The
+  walk measured `::after` as well as the box and checked occlusion (0 of 124 controls had their
+  centre stolen by a neighbour), so these are the honest survivors:
+  - ~~**`input[type=color]` ×3 at 12×44** in the figures panel.~~ **FIXED** — the tap target moved
+    to a wrapping `<label>`, which is the only place it could go. A colour input is a REPLACED
+    element, so it cannot generate an `::after` at all (measured 0×0) — `.touch-area` could not
+    rescue these even if applied, and only `globals.css`'s coarse `min-height` lands. The
+    documented gesture on them is double-click-to-reset. This one needs a different control, not
+    a bigger box.
+  - the footer's observance link at **92×16**, because `globals.css:92`'s `footer p a
+    { padding-block: 0 }` explicitly cancels the floor for footer prose — and this one is a live
+    external helpline, not decoration;
+  - `← Back to Debrief` on the three docs routes at **102×16**. `globals.css:85` justifies the
+    small in-prose links on the grounds that each has a nav-sized twin; this is a navigation
+    control and has none;
+  - the footer's `Privacy` link at **42×44** — the one footer link that is site navigation, two
+    pixels short on one axis.
+
+  **Hover-gated affordances that do not exist on a phone. ~~The sort arrow~~ FIXED; the new-tab
+  cues stand.** `CompareView.tsx:922`'s sort arrow was `opacity-0 group-hover:opacity-40`, and
+  `(hover: hover)` is false at 390 — so every non-active column header rendered its arrow at
+  computed opacity 0 and **nothing on a phone said the table sorted at all**. It now carries
+  `pointer-coarse:opacity-40`, pinned in `e2e/touch.spec.ts`. `SiteFooter.tsx:66` and `FusionSpaceBadge.tsx:27` hide their `↗` new-tab cue the
+  same way; cosmetic, but it is the whole cue.
+
+  **The docs routes have no way to navigate them.** `/methods` is **30,707 px — 36.4 screens —
+  with 48 `h2` sections and `querySelectorAll('a[href^="#"]').length === 0`**: no contents list,
+  no jump links, no back-to-top. `/validation` is 17.0 screens and `/privacy` 5.1, both the same.
+  The report's `?` deep links do land correctly (`#apogee` at y=5074), so the anchors exist and
+  nothing surfaces them.
+
+  **The answer is below the fold, behind the things you do after reading it.** At 390 px with a
+  flight loaded: header 279 px, then 15 Copy/Print/Save controls from y=663, and **Apogee only at
+  y=1380** — 1.64 screens down; the first chart is 4.9 screens down against 2.7 at 1440. The
+  desktop walk measured the same shape independently: 22 export controls above the first number,
+  APOGEE at y=919 and below the fold at 1440×900. AltosUI puts apogee and max speed on screen
+  immediately.
+
+  **Measured CLEAN, and worth keeping so a later run does not re-derive it:** zero controls that
+  render at 1440 and not at 390 (161 vs 161 on the report with every disclosure forced open, 120
+  vs 120 on `/compare` with four corpus flights — `/compare` paginates columns with a sticky first
+  column rather than dropping anything); zero horizontal body scroll on all six routes, including
+  `/methods` at 36 screens; and **offline is better than the promise** — after visiting only `/`,
+  `debrief-runtime-v1` holds 39 entries and all six routes return 200 with full content offline,
+  the sample flight parses and renders with no network, and there were zero failed requests or
+  console errors.
+
+- **2026-08-02 — a real Blue Raven serial log publishes a 31 ft apogee for a 6,939 ft flight, and
+  says nothing.** `blueraven__issuiuc-sg1.2-20231118__…BlueRaven-Low.txt`. The corpus already
+  carries this as a `knownIssue` ("raw ISSUIUC @LOG_LOW space-delimited log misparses to ~31 ft …
+  true apogee ~6939 ft (TeleMega)", noted `PARSER BUG CANDIDATE`), so the gap is documented — but
+  the documentation is in the corpus and the **31 ft reaches the flyer as an unqualified reading**,
+  and `/compare` then headlines "differ by 177% on apogee" against the TeleMega on the same
+  airframe.
+
+  Measured this run, and it sharpens the diagnosis: the `Bo:` pressure token spans only
+  **48821–48897 of 50000 (0.9764–0.9779 atm) across the entire record** — flat to 0.15%, worth a
+  few tens of feet. So the 31 ft is a *faithful* read of a barometric channel that does not
+  contain the flight. Meanwhile the same lines' `Pos:` tokens span −3143..9, −13..5405 and
+  −308..3495, so the file plainly holds thousands of feet somewhere the parser is not reading.
+  Two candidate fixes, and they are not the same work: read the serial format's inertial position
+  properly (a parser fix, D-track), or refuse to publish an apogee whose own record cannot support
+  it. **The second SHIPPED 2026-08-02** — a record whose climb takes more than four times a
+  vertical throw to the same height now says so, bound measured across the corpus (worst real
+  flight 1.52, this file 22.2), pinned by `lib/analyze/ascent.test.ts` which asserts the tripped
+  set BY NAME. **The parser half is still open and is the one that would recover the real 2,115 m**
+  — the `Pos:` tokens on those same lines span −3143..9, −13..5405 and −308..3495, so the height is
+  in the file somewhere the parser is not reading.
+
+- **2026-08-02 — a StratoLogger column whose every cell reads `58.7F` gets the temperature unit
+  prefilled as C, and "Remember these columns" saves the mistake.** Walk B measured GROUND TEMP
+  138 °F on `perfectflite__…StratoLogger1.txt`. The saved template then re-applies the wrong unit
+  to every later StratoLogger file in the folder, so one wrong guess compounds across a launch
+  day. Same root as the mapper's unit default filed above.
+
+- **2026-08-02 — a launch day cannot be fed in one pass.** The drop zone takes 6 files and
+  **discards the rest outright** — drop 14 and it reads "Showing 6 of 14 files" with the other 8
+  neither parsed nor kept nor logged. And a multi-drop where only one file parses names the
+  unmapped ones in prose with **no Map button anywhere**, though `/compare` renders those buttons
+  on the same condition; the only exit is to go back and feed each file alone.
+
+- **2026-08-02 — a comparison is destroyed by a reload, and a single report is not.** `/compare`
+  only gains an address if the flyer notices and presses "Give this comparison an address →";
+  a report gets its `?open=` automatically. Reload or Back and the whole reconciliation is gone.
+  "← Back to a single flight" is the same trap: it wipes every parsed flight and returns to the
+  drop zone rather than to a flight.
+
+- **2026-08-02 — the summary exports paste as text, never as numbers.** "Copy table" on the report
+  yields `Apogee\t6,933 ft`; on `/compare`, `Apogee\t31 ft\t6,933 ft\t10,086 ft\t177`; the logbook
+  copy heads a column `Apogee (ft)` and still puts `10,086 ft` in the cell. Every value carries a
+  thousands separator and a unit suffix, so a six-flight table needs ~30 cells cleaned before it
+  computes. **`compare-data.csv` inside the bundle IS clean numeric**, so the summary copies are
+  the outlier rather than the rule. Worse, a withheld value's PROSE lands in a numeric column:
+  `Max velocity\twithheld — the speed this trace gives is not physically possible`.
+
+- **2026-08-02 — smaller things the walks measured, each with its site.** The logbook's sort order
+  is the one control that forgets (no `localStorage` key, where units, chart channel, report
+  label, comparison label and column order all persist). The report gives two clocks for one event
+  with nothing labelling either — metric grid "19.3 s to apogee" against event chip "Apogee
+  21.3 s", burn time 6 s against a burnout chip at 8 s. The flight-timeline strip is captioned
+  "19.3 s liftoff to the end of the record" on a record that runs to 32 s, and spans only
+  Boost+Coast while the descent is analysed below it. "Too big to link" is an enabled control that
+  no-ops for every real log. A typed export label never reaches the filename. `Δ` is used as a
+  stats-table column head and defined nowhere. Max-Q is shown in psi where every sim a flyer
+  cross-checks against reports psf. Rail exit reports a speed off a silently defaulted 8 ft rail
+  in the same voice as the measured readings.
+
 - **2026-08-02 — meraki logs a board-MEASURED roll rate that Debrief still ignores while
   publishing the integrated angle beside it.**
   `blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` column 99 is `Roll Rate (HZ)`, 36,700
