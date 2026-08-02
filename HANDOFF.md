@@ -10,10 +10,12 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **defects** | **Two `BACKLOG.md` entries closed, and reproducing each changed what the fix was.** A wrong number was reaching the report — a StratoLogger temperature stated `58.7F` per cell, preselected as Celsius by a CASE MISMATCH, printing 138 °F. And the geospatial exports drew one trajectory from two instruments and said nothing. **Reproduce before scoping; both filings had the cause wrong.** |
 | **P — product & craft** | **P1: three more §5 primitives are doing their job, and the chart now answers a keyboard.** `useReturnFocus` exists (§5 named it; nothing implemented it); `Readout` went **2 → 9 adopters**; `Chart.tsx` had `role="img"` but no `tabIndex` and no key handling, where `GroundTrack` beside it has had arrow keys since it was built. Items **7** (29 hand-rolled `<button>`) and the design-system audit's other 30-odd rows remain. |
 
-**Ten increments are MERGED AND LIVE** across pull requests #91 and #92; **four more are on the
-branch in pull request #93**. #92 merged on green as `5b737b2`, and the branch was restarted from
-`main` after it, as the harness requires. #91 merged as `c86695c` and production was verified
-serving exactly that at 13:07Z.
+**All fourteen increments are MERGED AND LIVE**, across pull requests #91, #92 and #93. Each PR
+merged on green and the branch was restarted from `main` after each, as the harness requires.
+Production was verified serving each merge in turn — `c86695c`, then `5b737b2`, and finally
+**`bba3648`**, confirmed not just by `version.json` but by fetching the live methods page (it
+carries the new **Which way is up the rocket** section) and the live JS bundle (it carries the
+chart's keyboard contract). The branch is restarted on `bba3648` and clean.
 
 **Both merged pull requests had the harness's attribution footer appended to the body on posting,
 and both were stripped after a read-back.** That is a zero-trace breach on a public artifact and it
