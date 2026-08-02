@@ -5,6 +5,8 @@
 // "before uploading", this said. Nobody uploads anything to Debrief; that is the headline
 // promise, and the word does not describe something a flyer does here even in a comment.
 
+import { Card } from './ui';
+
 const FORMATS = [
   'Altus Metrum (AltOS)',
   'PerfectFlite (StratoLogger / Pnut)',
@@ -17,10 +19,7 @@ const FORMATS = [
 
 export default function RecognizedFormats() {
   return (
-    <section
-      aria-labelledby="formats-heading"
-      className="rounded-xl border border-zinc-200 bg-white px-4 py-3.5 dark:border-zinc-800 dark:bg-zinc-900"
-    >
+    <Card as="section" aria-labelledby="formats-heading">
       <h2 id="formats-heading" className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Recognized loggers
       </h2>
@@ -40,6 +39,6 @@ export default function RecognizedFormats() {
         — no CSV export needed first. Anything else — any logger that exports a CSV or an Excel spreadsheet —
         works through a quick column mapper.
       </p>
-    </section>
+    </Card>
   );
 }
