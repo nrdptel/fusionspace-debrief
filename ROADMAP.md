@@ -1122,6 +1122,68 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ---
 
+## D8 — Orientation and high-rate data
+
+**Status:** DECOMPOSED 2026-08-02, from measurement, after D7 shipped and left the D-track dry.
+`COMPETITION.md` rows 3 and 4. North Star 1's third bullet, on the boards flyers increasingly own.
+
+**The after-list said "verify the ingestion ceiling against a real high-rate log first; that
+measurement is the first increment." It has been taken, and it moved the milestone.**
+
+### What the measurement found, 2026-08-02, over all 48 analysable corpus files
+
+**The ingestion ceiling is not the problem, and the row that assumed it was is wrong.** Every
+analysable file parses AND analyses end to end in under a second: the worst is
+`blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` at **901 ms for 36,700 samples over 10.7 MB**,
+and the next is 895 ms. The highest sample rate the analyzer sees is **114 Hz** (an AltimeterCloud
+flight, 7,799 samples). Nothing chokes, nothing is decimated, and there is no performance slice
+here worth an increment.
+
+**The problem is that the file carrying the data is REFUSED.** The corpus holds
+`blueraven__reddit-meraki2-121km__BlueRaven-HighRate.csv` — **192,001 rows, 15 MB**, columns
+`Flight_Time_(s), Sync, Gyro_X, Gyro_Y, Gyro_Z, Accel_X, Accel_Y, Accel_Z, Quat_1..Quat_4,
+Aux_Volts, Current`. That is precisely the three-axis orientation and high-rate content rows 3 and
+4 are about, and `lib/parsers/blueraven.ts` throws a `ParseGuidanceError` on it — *"This is the Blue
+Raven high-rate file (gyro, acceleration and attitude only). Drop the low-rate file instead for
+altitude and the flight profile."* The refusal is CORRECT as far as it goes: the file has no
+altitude, so it is not a flight on its own and nothing in the current model could hold it. But the
+consequence is that **the richest recording in the corpus reaches no surface at all.**
+
+**And no orientation channel is named anywhere.** Of the channels `buildPlotChannels` offers across
+48 files, the named ones are `d-altitude` (48), `d-altitude-raw` (48), `d-velocity` (48),
+`d-mach` (33), `d-q` (33) and `d-acceleration` (26). Everything else is a raw passthrough — `r-0`
+(48) through `r-12` (1) — so a gyro trace that IS present in a low-rate file arrives as an unnamed
+column a flyer has to recognise by its numbers.
+
+### The slices, ranked by what a flyer can check
+
+1. **Read the high-rate file as a SECOND RECORDING of a flight it does not itself contain.** The
+   model is already multi-source-ready and `lib/stitch.ts` already aligns recordings on a shared
+   instant, which is the machinery this needs — and the Featherweight naming stamp D6 shipped
+   already pairs `…HR_04-12-2025_12_45_49` with `…LR_04-12-2025_12_45_49` to the second. *Done
+   when* dropping a Blue Raven HR file beside its LR sibling reads the HR channels onto the LR
+   flight's clock, and dropping the HR file ALONE still gives today's refusal with today's wording,
+   pinned over both corpus HR files. **Do not weaken the standalone refusal to get this** — a file
+   with no altitude is not a flight, and the whole slice is about it being a second view of one.
+2. **Name the orientation channels, and only where the board recorded them.** `Gyro_X/Y/Z`,
+   `Accel_X/Y/Z` and `Quat_1..4` become named channels with units and provenance rather than
+   `r-7`. *Done when* a corpus file carrying them plots them by name, and a file that does not says
+   "this board did not record it" rather than showing an empty axis.
+3. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
+   from a logger's own solved attitude; a quaternion series can give the same quantity through the
+   flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and
+   is withheld where the quaternions are absent or unnormalised.
+
+**What this milestone must NOT do.** No estimated attitude — the invariant is explicit that where a
+sensor cannot resolve a quantity the number is withheld, and integrating a gyro to an angle without
+a reference is exactly the drift-prone estimate it forbids. No decimation that could move a reported
+peak. And no reading off the high-rate file that the low-rate file already reports better.
+
+**Size.** 3–5 increments. Slice 1 is the one that unblocks the others, and it is also the one with a
+real risk attached: the standalone refusal must survive it.
+
+---
+
 ## P1 — One design system, adopted
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
@@ -1697,10 +1759,12 @@ on any flight whose file carries a summary, and **row 6 was itself marked `HAVE`
 2026-07-31** — the same day this pointer was written. Checked before building, which is the whole
 reason to check.
 
-**D8 — Orientation and high-rate data.** `COMPETITION.md` rows 3 and 4: the boards flyers increasingly
-own record far more than a baro trace, and the vendor tool shows it. Only honest where the log carries
-the channels — degrade to "this board did not record it", never estimate. Verify the ingestion ceiling
-against a real high-rate log first; that measurement is the first increment.
+**D8 — Orientation and high-rate data. DECOMPOSED 2026-08-02 — it has its own section above; take it
+from there, not from this line.** The measurement this line asked for was taken and it changed the
+milestone: the ingestion ceiling is a non-issue (worst case 901 ms for 36,700 samples over 10.7 MB,
+top rate 114 Hz), and the real blocker is that the 192,001-row Blue Raven high-rate file carrying the
+gyro, accelerometer and quaternion channels is REFUSED by the parser, correctly, because it holds no
+altitude and so is not a flight on its own.
 
 **D9 — Predicted versus flown.** `COMPETITION.md` row 12: the most valuable capability neither half of
 the suite has. Debrief holds the flight, the sibling holds the prediction, and a flyer wants the
