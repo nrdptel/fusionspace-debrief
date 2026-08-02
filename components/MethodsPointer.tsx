@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TOUCH_TARGET } from '@/lib/ui-tokens';
 
 /**
  * What Debrief is, and what it isn't, at the foot of every surface that shows numbers —
@@ -22,9 +23,13 @@ export default function MethodsPointer() {
         wrong.
       </p>
       <p className="mt-3">
+        {/* `inline-flex` as well as the token, because `min-h` does nothing to an inline box —
+            the link measured 18 px at a 390 px touch viewport. §8's floor, on one of the three
+            plain `<a>`s that `app/globals.css`'s `@media (pointer: coarse)` block does not reach;
+            `TOUCH_TARGET` documents itself as being for exactly these. */}
         <Link
           href="/methods"
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+          className={`inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 ${TOUCH_TARGET}`}
         >
           Read the methods &rarr;
         </Link>

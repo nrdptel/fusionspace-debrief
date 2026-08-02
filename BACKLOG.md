@@ -14,19 +14,32 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-- **2026-08-02 — 20 controls are under §8's 44 px floor at a 390 px TOUCH viewport, and they are all
-  the elements the CSS floor deliberately does not reach.** Measured on the built export of
-  `66144e8` with a Blue Raven flight open: `<a>` and `<label>` elements at **16–18 px** — "Compare"
-  in the logbook, the "Label" and "Notes" fields on the report, and five `?` method links. §8 says
-  the count is zero or the surface is not done, and this is the honest number.
+- **2026-08-02 — §8's touch floor: 3 plain `<a>` elements are genuinely under 44 px, not 20.**
+  **This entry CORRECTS its own first version, which said 20 and was wrong by 4x** — it is left
+  standing rather than deleted because the way it was wrong is the reusable part.
 
-  **Measure this with `hasTouch: true` or it lies by 6×.** The same walk under Playwright's default
-  `pointer: fine` context reports **119**, because `app/globals.css`'s `@media (pointer: coarse)`
-  block — which floors every `button`, `select`, `[role="button"]` and `input` — does not apply.
-  Under a coarse pointer the channel picker measures 217×**44**; under a fine one, 217×34. The 119
-  is an artifact; the 20 is the defect. `ROADMAP.md` P1's opening-audit note already records that
-  `TOUCH_TARGET` exists precisely for `<label>`, `<summary>` and a plain `<a>` — it has simply never
-  been applied to them. That is the fix, and it is one increment.
+  Measured on the built export at a 390 px viewport with a flight open, counting the EFFECTIVE tap
+  target rather than the element's box: **15 of the 20 are already compliant** through
+  `app/globals.css`'s `.touch-area`, which centres a 44x44 `::after` on a control "so the target is
+  44 px while the ink is not — the standard way to do this without moving anything". A
+  `getBoundingClientRect()` sweep cannot see that, and counted every one of them as a defect.
+
+  **Two measurement traps, and a run that hits both reports 119 where the answer is 3:**
+  Playwright's default context is `pointer: fine`, so the coarse-pointer floor over `button`,
+  `select`, `[role="button"]` and `input` does not apply at all (119 -> 20 with
+  `test.use({ hasTouch: true })`); and the element box is not the tap area (20 -> 5 once `::after`
+  is read).
+
+  **What genuinely remains, all plain `<a>` — the elements the CSS block deliberately does not
+  reach, and what `TOUCH_TARGET` exists for:** `components/MethodsPointer.tsx` at 18 px (**fixed
+  2026-08-02**); `components/SiteHeader.tsx:14`'s "Compare" nav link at 18 px; and
+  `components/SiteFooter.tsx:91`'s observance link at 16 px. **The last two are NOT fixed here on
+  purpose** — §10 makes the header/footer/nav pattern shared and non-negotiable across both repos,
+  so a one-sided edit forks it. Owed to a run that can push Loft as well.
+
+  Not defects, checked rather than assumed: the report's "Label" and "Notes" `<label>`s measure
+  16 px, but each captions an `<input>` sitting directly below it that the coarse-pointer floor
+  already takes to 44 px. Growing the caption would add 28 px of dead space above every field.
 
 - **2026-08-02 — a "best" cell in the comparison wears the ACCENT colour, which §2 reserves for
   interactive.** `components/CompareView.tsx:931` renders the row's highest value

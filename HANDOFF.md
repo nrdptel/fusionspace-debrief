@@ -110,11 +110,14 @@ the numbers a flyer sizes a harness against.
   That is the guard working; populate the fixture and `normalizeFlight` in the same commit.
 - **Vitest's default 5 s timeout** is not enough for a test that parses four 64k–192k-row corpus
   files; pass an explicit timeout as the third argument to `it`.
-- **A touch-target sweep measured under `pointer: fine` lies by 6×.** Playwright's default context
-  is not coarse, so `app/globals.css`'s `@media (pointer: coarse)` floor does not apply and the
-  cold walk reported **119** controls under 44 px. With `hasTouch: true` it is **20**, and the
-  channel picker measures 217×44 rather than 217×34. Use `test.use({ hasTouch: true })` for any §8
-  measurement, or file a finding that is mostly artifact.
+- **A touch-target sweep has TWO traps, and hitting both reports 119 where the answer is 3.**
+  Playwright's default context is `pointer: fine`, so `app/globals.css`'s `@media (pointer: coarse)`
+  floor over `button`/`select`/`[role="button"]`/`input` does not apply — 119 becomes **20** with
+  `test.use({ hasTouch: true })`. Then `getBoundingClientRect()` is not the tap area:
+  `.touch-area` centres a 44×44 `::after` on a control so the target is 44 px while the ink is not,
+  and **15 of those 20 are compliant that way** — 20 becomes **5**, of which two are captions above
+  inputs that are already floored. **I filed the 20 before catching the second trap, and it merged.**
+  `BACKLOG.md` carries the correction; read `::after` as well as the box.
 - **The harness appends an attribution footer to a PR body.** It did again on #86. Read the body back
   and strip it — `MAINTAINING.md` warns about exactly this and it is a zero-trace breach on a public
   artifact.
@@ -153,10 +156,11 @@ caveat" §3 says `text-xs` is FOR. It joins `EventChips`, `RecognizedFormats`, `
    Debrief has no such statement. Either read one from the low-rate file's `Tilt_Angle`/`Roll_Angle`
    agreement, or ask the flyer — the same shape as D1's crop and D3's grouping.
 
-3. **§8's touch floor: 20 controls under 44 px at a 390 px touch viewport**, all `<a>` and
-   `<label>` — the elements `globals.css`'s coarse-pointer block deliberately does not reach, and
-   exactly what `TOUCH_TARGET` exists for. §8 says the count is zero or the surface is not done.
-   One increment, measured and filed in `BACKLOG.md` with the artifact warning above.
+3. **§8's touch floor: two plain `<a>`s remain, and both are owed to BOTH repos.**
+   `SiteHeader.tsx:14`'s "Compare" nav link (18 px) and `SiteFooter.tsx:91`'s observance link
+   (16 px). §10 makes the header/footer/nav pattern shared and non-negotiable, so fixing them here
+   alone forks the suite — this needs a session created with Loft attached. `MethodsPointer`, the
+   one that is Debrief's own, is fixed.
 
 4. **P1 item 2's remaining three instances**, all filed in `BACKLOG.md` with file:line — the two
    recording pickers at `text-[11px]` (the numbers a flyer picks which instrument to trust by) and
