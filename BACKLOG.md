@@ -49,6 +49,23 @@ wild, ideas too big for one pass. One line each, newest first.
   `DESIGN.md` §5: "a surface with no empty state is not finished; it is the state a flyer sees
   first." Reproduce by opening any StratoLogger or Eggtimer corpus file and searching the report
   for "Ground track". P1 item 5's most visible instance.
+- **2026-08-02 — the site header's nav links are 58×18 px on a phone**, measured at a 390 px
+  viewport with `hasTouch: true` on the built export. `components/SiteHeader.tsx:14` renders them as
+  plain `<a>`s, and `app/globals.css`'s `@media (pointer: coarse)` floor covers `button`, `select`,
+  `[role="button"]` and `input` — **not a bare `<a>`**, which is exactly the gap `components/ui.tsx`
+  records as the reason `TOUCH_TARGET` exists on the primitives. So the one control present on
+  EVERY route is the one furthest under §8's 44 px minimum, and it is 18 px tall against a 44 px
+  contract. Reproduce: serve `out/`, open any route at 390×844 with touch, measure `header a`.
+  Distinct from the 27 `<label>`s the previous run filed — a label wrapping a 44 px control is still
+  tappable through the control; a nav link has nothing inside it. P4's first real finding, and it
+  is a `SiteHeader` change owed to both repos under §10.
+- **FIXED 2026-08-02 — `NumberField` exists, and the defect was not the missing bound.** Every
+  panel already clamped; the clamp was SILENT. A typed 50,000 ft became 29,528 with nothing saying
+  why. Six of the seven same-shaped inputs are on the primitive, which states the bound where the
+  flyer is typing and announces it when they cross it. **The implementation detail that cost a
+  build:** these fields are controlled by the already-clamped value, so a bound read off `value` can
+  never fire — the primitive has to keep what was typed. Caught by the e2e, not by review or the
+  type-checker. `Figure` and `Panel` from the entry below are still absent.
 - **2026-08-01 — three of `DESIGN.md` §5's named primitives do not exist at all**, and each has a
   duty the section assigns it. `NumberField` — "every numeric input in either app is this", and it
   owns the SAFETY refusal — is hand-rolled at **9 sites** (`grep -rn 'type="number"' components`),

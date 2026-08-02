@@ -5,7 +5,7 @@ import { convert } from '@/lib/units';
 import { fmtLength, lengthIn, systemOf, unitsOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { deployCheck, DEPLOY_SLOP_M, MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
-import { Card } from './ui';
+import { Card, NumberField } from './ui';
 
 function plain(v: number, places: number): string {
   const f = Math.pow(10, places);
@@ -62,23 +62,22 @@ export default function DeployAltitude({
             Where the main actually fired, read from the flight. Enter the altitude you set on the altimeter to check it.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          <span>Set altitude</span>
-          <span className="flex items-center gap-1">
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={systemOf(sys) === 'imperial' ? 50 : 10}
-              value={setField}
-              onChange={(e) => onSet(e.target.value)}
-              aria-label={`Set main deploy altitude (${unit})`}
-              placeholder={unit}
-              className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-            />
-            <span className="font-mono">{unit}</span>
-          </span>
-        </label>
+        {/* The cap is `MAX_REASONABLE_DEPLOY_M`, expressed in whatever unit the flyer is typing in.
+            It has always been applied — `onSet` clamps — and until now it was applied SILENTLY: a
+            typed 50,000 ft became 29,527 with nothing saying so, on the one panel a flyer uses to
+            check what they set on the altimeter against what actually fired. */}
+        <NumberField
+          label="Set altitude"
+          unit={unit}
+          ariaLabel={`Set main deploy altitude (${unit})`}
+          value={setField}
+          onChange={onSet}
+          min={0}
+          max={convert(MAX_REASONABLE_DEPLOY_M, 'm', unit)}
+          step={systemOf(sys) === 'imperial' ? 50 : 10}
+          placeholder={unit}
+          width="w-24"
+        />
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">

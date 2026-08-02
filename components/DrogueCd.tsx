@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { parachuteCd, chuteDiameterToM, CHUTE_LEN_TO_M, MAX_REASONABLE_CHUTE_M } from '@/lib/parachute';
-import { Card } from './ui';
+import { Card, NumberField } from './ui';
 
 const DROGUE_KEY = 'debrief.drogue.m';
 
@@ -91,23 +91,17 @@ export default function DrogueCd({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span>Drogue diameter</span>
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={1}
-                value={field}
-                onChange={(e) => onDiameter(e.target.value)}
-                aria-label={`Drogue diameter (${unit === 'in' ? 'inches' : 'centimetres'})`}
-                placeholder={unit}
-                className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-              />
-              <span className="font-mono">{unit}</span>
-            </span>
-          </label>
+          <NumberField
+            label="Drogue diameter"
+            unit={unit}
+            ariaLabel={`Drogue diameter (${unit === 'in' ? 'inches' : 'centimetres'})`}
+            value={field}
+            onChange={onDiameter}
+            min={0}
+            max={MAX_REASONABLE_CHUTE_M / CHUTE_LEN_TO_M[unit]}
+            step={1}
+            placeholder={unit}
+          />
         </div>
       </div>
 

@@ -1122,11 +1122,84 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ---
 
+## D8 — Orientation and high-rate data
+
+**Status:** DECOMPOSED 2026-08-02, from measurement, after D7 shipped and left the D-track dry.
+`COMPETITION.md` rows 3 and 4. North Star 1's third bullet, on the boards flyers increasingly own.
+
+**The after-list said "verify the ingestion ceiling against a real high-rate log first; that
+measurement is the first increment." It has been taken, and it moved the milestone.**
+
+### What the measurement found, 2026-08-02, over all 48 analysable corpus files
+
+**The ingestion ceiling is not the problem, and the row that assumed it was is wrong.** Every
+analysable file parses AND analyses end to end in under a second: the worst is
+`blueraven__reddit-meraki2-121km__BlueRaven-LR.csv` at **901 ms for 36,700 samples over 10.7 MB**,
+and the next is 895 ms. The highest sample rate the analyzer sees is **114 Hz** (an AltimeterCloud
+flight, 7,799 samples). Nothing chokes, nothing is decimated, and there is no performance slice
+here worth an increment.
+
+**The problem is that the file carrying the data is REFUSED.** The corpus holds
+`blueraven__reddit-meraki2-121km__BlueRaven-HighRate.csv` — **192,001 rows, 15 MB**, columns
+`Flight_Time_(s), Sync, Gyro_X, Gyro_Y, Gyro_Z, Accel_X, Accel_Y, Accel_Z, Quat_1..Quat_4,
+Aux_Volts, Current`. That is precisely the three-axis orientation and high-rate content rows 3 and
+4 are about, and `lib/parsers/blueraven.ts` throws a `ParseGuidanceError` on it — *"This is the Blue
+Raven high-rate file (gyro, acceleration and attitude only). Drop the low-rate file instead for
+altitude and the flight profile."* The refusal is CORRECT as far as it goes: the file has no
+altitude, so it is not a flight on its own and nothing in the current model could hold it. But the
+consequence is that **the richest recording in the corpus reaches no surface at all.**
+
+**And no orientation channel is named anywhere.** Of the channels `buildPlotChannels` offers across
+48 files, the named ones are `d-altitude` (48), `d-altitude-raw` (48), `d-velocity` (48),
+`d-mach` (33), `d-q` (33) and `d-acceleration` (26). Everything else is a raw passthrough — `r-0`
+(48) through `r-12` (1) — so a gyro trace that IS present in a low-rate file arrives as an unnamed
+column a flyer has to recognise by its numbers.
+
+### The slices, ranked by what a flyer can check
+
+1. **Read the high-rate file as a SECOND RECORDING of a flight it does not itself contain.** The
+   model is already multi-source-ready and `lib/stitch.ts` already aligns recordings on a shared
+   instant, which is the machinery this needs — and the Featherweight naming stamp D6 shipped
+   already pairs `…HR_04-12-2025_12_45_49` with `…LR_04-12-2025_12_45_49` to the second. *Done
+   when* dropping a Blue Raven HR file beside its LR sibling reads the HR channels onto the LR
+   flight's clock, and dropping the HR file ALONE still gives today's refusal with today's wording,
+   pinned over both corpus HR files. **Do not weaken the standalone refusal to get this** — a file
+   with no altitude is not a flight, and the whole slice is about it being a second view of one.
+2. **Name the orientation channels, and only where the board recorded them.** `Gyro_X/Y/Z`,
+   `Accel_X/Y/Z` and `Quat_1..4` become named channels with units and provenance rather than
+   `r-7`. *Done when* a corpus file carrying them plots them by name, and a file that does not says
+   "this board did not record it" rather than showing an empty axis.
+3. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
+   from a logger's own solved attitude; a quaternion series can give the same quantity through the
+   flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and
+   is withheld where the quaternions are absent or unnormalised.
+
+**What this milestone must NOT do.** No estimated attitude — the invariant is explicit that where a
+sensor cannot resolve a quantity the number is withheld, and integrating a gyro to an angle without
+a reference is exactly the drift-prone estimate it forbids. No decimation that could move a reported
+peak. And no reading off the high-rate file that the low-rate file already reports better.
+
+**Size.** 3–5 increments. Slice 1 is the one that unblocks the others, and it is also the one with a
+real risk attached: the standalone refusal must survive it.
+
+---
+
 ## P1 — One design system, adopted
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**2026-08-02: `Frame` and `NumberField` both exist now** (items 8 and 12), card treatments are
+**10 → 7** against an honest floor of 4, and the milestone's remaining shape is clearer than the
+list below suggests. What is left is three genuine card hand-rolls, `Figure` and `Panel`, the five
+states (item 5), the caption-size numbers (item 2), and the hand-rolled buttons (item 7).
+
+**And a caution the last two increments both earned.** Two of the counts in this list were stale by
+the time they were spent against — item 3's dark-surface census, and `BACKLOG.md`'s half-step
+figures, which read 21 and were 11. **Re-measure a number in this file before building against it**;
+these are records of what was true on the day, not live values, and the ratchet only guards the six
+counts it actually holds.
 
 **Measured 2026-08-01 at the end of that run, from §9's own shell block:** `rounded-lg` **0** ·
 card treatments **10** · off-scale spacing **0** · off-scale type **1** · inverted files **15** ·
@@ -1429,17 +1502,43 @@ the artifact rather than the tree.
     with no implementation has no adopters to be short of, so every count it should have moved was
     silent.
 
-    - **`NumberField`** — §5: "**Every** numeric input in either app is this", and it "owns the
-      refusal behaviour the SAFETY invariant requires: a value that cannot mean anything physically
-      is bounded or refused at the field". It is hand-rolled at **9 sites**, each re-deriving its
-      own bound: `DeployAltitude.tsx:68` silently clamps to `MAX_REASONABLE_DEPLOY_M`,
-      `DragCoefficient.tsx:125` only sets `min={0}`. So the behaviour a flyer's Cd and landing
-      energy depend on is per-file and has no shared test. **This is the one with a safety duty
-      attached and it should be the next slice of P1.**
+    - ~~**`NumberField`**~~ **DONE 2026-08-02, and the interesting part is what "bounded at the
+      field" turned out to require.** §5: "**Every** numeric input in either app is this", and it
+      "owns the refusal behaviour the SAFETY invariant requires: a value that cannot mean anything
+      physically is bounded or refused at the field". It was hand-rolled at 9 sites, seven of them
+      with a byte-identical class string, each re-deriving its own bound.
+
+      **The bound was never missing — it was SILENT, and that is a different defect.** Every panel
+      already does `Math.min(x, MAX_REASONABLE_…)`. Type 50,000 ft into the main-deploy check and
+      you got 29,528 with nothing on the page saying why the number you typed was not the number
+      used: `MAINTAINING.md`'s "a control that is always enabled and fails only when pressed"
+      wearing different clothes, on the panel a flyer uses to check what they set on the altimeter
+      against what actually fired.
+
+      **And the primitive cannot see it from the value, which is the finding worth keeping.** These
+      fields are CONTROLLED by the already-clamped number, so by the time a value reaches
+      `NumberField` it is always in range and the refused figure is gone. The first implementation
+      read the bound off `value` and was therefore incapable of ever firing — it passed a review, a
+      type-check and a build, and only the e2e caught it. `NumberField` keeps what was typed, which
+      is the only place that fact survives, and clears it on any change to the unit or the bound so
+      a message about the old unit cannot linger.
+
+      Six of the seven same-shaped panels are on it. `CropControl` is deliberately not: its two
+      inputs are a different shape (stacked label, `h-11 w-28`, `font-mono`) and bound each other,
+      so folding them in would add layout config for one caller — the same call `ColumnMapper`'s
+      table and `CompareView`'s transposed one already got. Pinned by `e2e/audit3.spec.ts` →
+      *"a deploy altitude beyond what the physics allows is bounded at the field, and says so"*,
+      which reads the bound off the control rather than hard-coding it, so a unit change or a
+      change to `MAX_REASONABLE_DEPLOY_M` cannot leave it passing against a stale number. Falsified
+      by disabling the announcement.
     - **`Figure`** — §5: a chart with its title, legend, axis units, "and its own empty and
       extrapolated states". `Chart.tsx` renders a bare uPlot; `grep -n 'empty\|error\|loading'` over
       it returns 0. The chart is the surface a flight-log analyzer exists to show, and a short or
-      failed series draws a blank canvas that says nothing.
+      failed series draws a blank canvas that says nothing. **Half of it already exists twice**,
+      which is the shape that says a primitive is owed: `ChartBlock` is declared separately in
+      `FlightReport.tsx:1426` and `CompareView.tsx:1101` — title, frame and chart host — the same
+      `ACTION_BTN`-in-six-files pattern P1's opening audit killed once. Lift that, then add the two
+      states §5 names. **The next slice of P1 after this list's item 5.**
     - **`Panel`** — §5: a dismissible `Card` that "owns focus return (see `useReturnFocus`)".
       `grep -rn 'Panel|useReturnFocus' components app` → **0**, while `UnitsControl` and
       `FigureChooser` each hand-roll a dismissible surface and each manage their own focus return.
@@ -1660,10 +1759,12 @@ on any flight whose file carries a summary, and **row 6 was itself marked `HAVE`
 2026-07-31** — the same day this pointer was written. Checked before building, which is the whole
 reason to check.
 
-**D8 — Orientation and high-rate data.** `COMPETITION.md` rows 3 and 4: the boards flyers increasingly
-own record far more than a baro trace, and the vendor tool shows it. Only honest where the log carries
-the channels — degrade to "this board did not record it", never estimate. Verify the ingestion ceiling
-against a real high-rate log first; that measurement is the first increment.
+**D8 — Orientation and high-rate data. DECOMPOSED 2026-08-02 — it has its own section above; take it
+from there, not from this line.** The measurement this line asked for was taken and it changed the
+milestone: the ingestion ceiling is a non-issue (worst case 901 ms for 36,700 samples over 10.7 MB,
+top rate 114 Hz), and the real blocker is that the 192,001-row Blue Raven high-rate file carrying the
+gyro, accelerometer and quaternion channels is REFUSED by the parser, correctly, because it holds no
+altitude and so is not a flight on its own.
 
 **D9 — Predicted versus flown.** `COMPETITION.md` row 12: the most valuable capability neither half of
 the suite has. Debrief holds the flight, the sibling holds the prediction, and a flyer wants the

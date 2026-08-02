@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { delayCheck, MAX_REASONABLE_DELAY_S, APOGEE_SLOP_S } from '@/lib/ejection';
 import { fmtTime } from '@/lib/display';
-import { Card } from './ui';
+import { Card, NumberField } from './ui';
 
 /**
  * Ejection-delay check — for a motor-ejection flight, the ideal motor delay is
@@ -53,23 +53,17 @@ export default function EjectionDelay({
             delay you flew to see how close it landed to apogee.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          <span>Delay flown</span>
-          <span className="flex items-center gap-1">
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={1}
-              value={delayField}
-              onChange={(e) => onDelay(e.target.value)}
-              aria-label="Motor delay flown (seconds)"
-              placeholder="s"
-              className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-            />
-            <span className="font-mono">s</span>
-          </span>
-        </label>
+        <NumberField
+          label="Delay flown"
+          unit="s"
+          ariaLabel="Motor delay flown (seconds)"
+          value={delayField}
+          onChange={onDelay}
+          min={0}
+          max={MAX_REASONABLE_DELAY_S}
+          step={1}
+          placeholder="s"
+        />
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">

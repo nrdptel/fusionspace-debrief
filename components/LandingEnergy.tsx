@@ -6,7 +6,7 @@ import { fmtLength, fmtSpeed, systemOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { descentStoppedAloft, landingRate, landingRateIsWholeDescent } from '@/lib/readings';
 import { landingEnergyJoules, joulesToFtLbf, dropHeightM, massToKg, MASS_TO_KG, MAX_REASONABLE_MASS_KG } from '@/lib/landing';
-import { Card } from './ui';
+import { Card, NumberField } from './ui';
 
 /** Mass unit to enter the descending mass in — grams (metric) or ounces (imperial). */
 function massUnit(sys: UnitChoice): 'g' | 'oz' {
@@ -97,23 +97,17 @@ export default function LandingEnergy({
             How hard it came in — ½·m·v² from your measured landing descent rate. Enter the descending mass.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-          <span>Descending mass</span>
-          <span className="flex items-center gap-1">
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={unit === 'oz' ? 0.1 : 1}
-              value={massField}
-              onChange={(e) => onMass(e.target.value)}
-              aria-label={`Descending mass (${unit === 'oz' ? 'ounces' : 'grams'})`}
-              placeholder={unit === 'oz' ? 'oz' : 'g'}
-              className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-            />
-            <span className="font-mono">{unit}</span>
-          </span>
-        </label>
+        <NumberField
+          label="Descending mass"
+          unit={unit}
+          ariaLabel={`Descending mass (${unit === 'oz' ? 'ounces' : 'grams'})`}
+          value={massField}
+          onChange={onMass}
+          min={0}
+          max={MAX_REASONABLE_MASS_KG / MASS_TO_KG[unit]}
+          step={unit === 'oz' ? 0.1 : 1}
+          placeholder={unit === 'oz' ? 'oz' : 'g'}
+        />
       </div>
 
       <div className="mt-3 flex items-baseline gap-3">
