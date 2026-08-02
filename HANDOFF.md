@@ -156,11 +156,19 @@ genuine §3 breaches were fixed in place instead.
 
 ## A CI note worth having before you push
 
-**The `e2e` job can stick.** On 2026-08-02 pull request #92's `e2e` job sat in its test step for
-**40+ minutes with no step progress** while `frontend` finished in 2m56s, and the same suite under
-CI's own settings (`CI=1`, which forces one worker and one retry) ran locally in **7.6 s for the
-spec in question and 3.8 min for all 254**. It was the runner, not the code. Re-pushing to the
-branch supersedes a stuck run with a fresh one; do that rather than reading a stall as a red gate.
+**`get_check_runs` on a pull request can report `in_progress` long after the run has finished, and
+it did so for 40 minutes on 2026-08-02.** Pull request #92's `e2e` check read `in_progress` on
+every poll while the run had in fact **completed successfully at 13:54:26, 5m36s after it
+started** — normal, and the same duration as #91's. `list_workflow_runs` showed the truth
+immediately; the per-PR check-run view was stale.
+
+**This nearly became a wrong diagnosis in this very file.** The first version of this note said the
+runner had stuck, and that was false. If a check seems hung, confirm against
+`list_workflow_runs` (or the run's own `jobs` endpoint, which carries per-STEP timestamps) before
+concluding anything — and before re-pushing to "supersede" a run that already passed. The local
+reproduction that made the stall look impossible was itself sound and is worth keeping: `CI=1`
+forces the same one worker and one retry CI uses, and the suite ran in **7.6 s for one spec and
+3.8 min for all 254**.
 
 **And check what the corpus step actually did.** `Fetch private fixtures corpus` reports success in
 about 2 seconds, which is fast for a 26 MB release asset — the evidence that the corpus really ran
