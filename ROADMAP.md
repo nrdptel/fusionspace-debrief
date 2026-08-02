@@ -1321,6 +1321,46 @@ column a flyer has to recognise by its numbers.
    flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and
    is withheld where the quaternions are absent or unnormalised.
 
+   **MEASURED 2026-08-02 and NOT SHIPPED. The arithmetic works and the validation does not hold on
+   the whole corpus, so no number is published.** Recorded here in full so the next run starts from
+   the measurement rather than repeating it.
+
+   **What is established.** The Blue Raven's `Quat_1..4` is `(w, x, y, z)`: the other ordering is
+   43°–68° wrong on every file. All four records open at quaternion identity with their own tilt
+   column reading 0.00°, so the board initialises its attitude on the pad — which fixes the
+   reference: tilt is the angle between the long axis rotated by the quaternion and where that axis
+   sat at rest. Compared against the board's own `Tilt_Angle_(deg)` over the ASCENT:
+
+   | | body axis | mean error | worst |
+   |---|---|---|---|
+   | meraki | `X` | **0.64°** | 1.39° |
+   | lemiv | `X` | **1.96°** | 3.27° |
+   | jan18 | `Z` | **1.28°** | 3.62° |
+   | jan10 | `Z` | **22.72°** | 96.49° |
+
+   **This independently corroborates slice 2's axis determination**, which is the most useful thing
+   it produced. The body axis that reproduces the board's tilt is exactly the one `longAxisFromRest`
+   measures off gravity, on all four files; either wrong axis gives 43°–89° mean error. Two entirely
+   separate channels — the accelerometer at rest, and the board's solved attitude against its own
+   tilt column — pick the same axis.
+
+   **What blocks it, and it is one file.** `jan10` sits at 22.72° mean where the other three are
+   inside 2°. The obvious explanation is refuted rather than merely untested: its gyros rail, but so
+   do **all three** of meraki's, and meraki is the best of the four at 0.64°. So saturation does not
+   separate them and no other guard tried does either. Publishing a tilt with a refusal that cannot
+   tell jan10 from jan18 would be a number right three times in four, which is exactly the
+   plausible-but-wrong reading the measurement invariant exists to stop.
+
+   **Also measured, and worth not re-deriving:** over the WHOLE record the agreement falls apart on
+   the two tumbling machbuster flights (54°–61° mean) while the two stable flights stay at
+   0.79°/1.58°. That IS aliasing — a coherent 500 Hz attitude sample against a 50 Hz column, on an
+   airframe spinning under drogue — and it is why any future version of this must be scoped to the
+   ascent, not to the record. The first pass at this concluded aliasing had been refuted; that was
+   wrong, and only because the wrong body axis was in use at the time.
+
+   **What would unblock it:** a fifth high-rate corpus file, or an account of what `jan10`'s attitude
+   solution was doing that the other three were not. Do not ship this on three files.
+
 **What this milestone must NOT do.** No estimated attitude — the invariant is explicit that where a
 sensor cannot resolve a quantity the number is withheld, and integrating a gyro to an angle without
 a reference is exactly the drift-prone estimate it forbids. No decimation that could move a reported
