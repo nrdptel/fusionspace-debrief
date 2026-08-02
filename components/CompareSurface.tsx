@@ -21,6 +21,7 @@ import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { emptyFolderMessage } from './Analyzer';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
+import { Card } from './ui';
 
 /**
  * The comparison surface: a launch day's flights lined up side by side, as its own route.
@@ -390,9 +391,10 @@ export default function CompareSurface() {
           margin beside it — and a local handler here would have ingested the same files a
           second time as the event bubbled. The box stays as the visible affordance and the
           file picker. */}
-      <div
-        className="rounded-xl border border-dashed border-zinc-300 px-4 py-4 text-center transition dark:border-zinc-700"
-      >
+      {/* The same `muted` tone as the page-level drop zone. It was the one dashed box in the app
+          with no fill, which made two drop targets on two surfaces read as two different kinds of
+          thing; they are the same kind of thing. */}
+      <Card tone="muted" className="text-center transition">
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {logbook.recents.length === 0
             ? 'Your logbook is empty — drop a launch day’s files, or its folder, here to start'
@@ -427,7 +429,7 @@ export default function CompareSurface() {
           </Link>
           .
         </p>
-      </div>
+      </Card>
 
       {/* The logbook itself, with its own search, sort and per-flight notes: ticking two or
           more is how a comparison starts here. Same component and same state as the analyze

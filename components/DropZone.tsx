@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
-import { Button } from './ui';
+import { Button, Card } from './ui';
 
 export default function DropZone({
   onFiles,
@@ -27,10 +27,11 @@ export default function DropZone({
           released one in the margin, or on a report, where this box isn't rendered at all.
           A local handler here would also have ingested the same files twice as the drop
           bubbled up to the window. This stays as the visible affordance and the picker. */}
-      <div
-        aria-label="Flight log drop zone"
-        className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-12 text-center transition dark:border-zinc-700 dark:bg-zinc-900/50"
-      >
+      {/* `tone="muted"` is `DESIGN.md` §2's "sunken and dashed: a slot with nothing in it yet",
+          and this box's hand-rolled string was byte-identical to it — the tone had been added for
+          exactly this and written out here anyway. `p-12` rather than the default `p-4`, because a
+          page-level drop target is a target before it is a container. */}
+      <Card tone="muted" pad={false} aria-label="Flight log drop zone" className="p-12 text-center transition">
         <p className="text-base font-medium text-zinc-800 dark:text-zinc-200">
           Drop a flight log here
         </p>
@@ -56,7 +57,7 @@ export default function DropZone({
           className="sr-only"
           onChange={(e) => pick(e.target.files)}
         />
-      </div>
+      </Card>
       <p className="mt-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
         Your file is read in this browser and never uploaded — parsing and analysis happen entirely
         on your device.

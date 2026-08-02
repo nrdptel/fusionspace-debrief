@@ -1443,12 +1443,25 @@ the artifact rather than the tree.
    assertion holds the treatment to exactly one file, falsified by putting the string back into
    `SampleTable` and watching it name that file.
 
-   **The 3 left above the floor of 4**, each a genuine hand-roll and each a different job:
-   `RecognizedFormats.tsx:22` (a raised card written out by hand, with an off-scale `py-3.5`),
-   `RecentFlights.tsx:584` (a raised card that is also a click target), and
-   `CompareSurface.tsx:394` (a SECOND drop-target treatment beside `DropZone`'s — the two want one
-   named primitive between them, which would take the floor to 4 with `Card`, `Frame`, the drop
-   target and the floating drop overlay).
+   **DONE 2026-08-02 — 7 → 4, and the floor this entry has quoted for three runs was wrong.** It
+   said the page-level drop zone wants its own named primitive. It does not: its hand-rolled string
+   was **byte-identical to `CARD_TONES.muted`** — §2's "sunken and dashed: a slot with nothing in it
+   yet" — a tone that had been added for exactly this case and then written out by hand anyway.
+   `CompareSurface`'s dashed box took the same tone; it was the one dashed box in the app with **no
+   fill**, so two drop targets on two surfaces read as two different kinds of thing while being the
+   same kind of thing. `RecognizedFormats` was a plain raised card, off-scale `py-3.5` and all.
+
+   **So the honest floor is 3, not 4:** `Card`, `Frame`, and the floating drop OVERLAY — the one
+   that genuinely will not fold in, because it is `border-2 border-dashed … shadow-lg` and needs
+   elevation that `Card` has no prop for by design.
+
+   **The fourth remaining string is `RecentFlights.tsx:584`**, the logbook row: a raised card that
+   is also a click target, with a conditional left border for a note. Left deliberately, because
+   `Card`'s `as` union has no `li` and widening a primitive's element list is worth doing with the
+   conversion that needs it rather than ahead of it. That is one increment, and it takes this count
+   to its floor.
+
+   Card adopters 23 → 26; components importing the primitives 31 → 34.
    *(Re-measured 2026-08-01: **12**, not 17. Like item 3 this number had drifted downward as other
    slices landed. Of the 12, one is `<Card>`'s own string and two are the drop zone and the drop
    overlay, which §9 already records as wanting their own named primitives rather than folding into

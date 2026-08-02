@@ -157,13 +157,24 @@ const BUDGET = {
    *  shell and a `<canvas>`; fixing it would have forced a cast at each call site instead of one
    *  inside the primitive.
    *
-   *  **The remaining 7 against the honest floor of 4.** `Card` and `Frame` are two of the four. The
-   *  other two are the page-level drop zone and the floating drop overlay, which still want their own
-   *  named primitives. The three genuine hand-rolls left are `RecognizedFormats` (a raised card
-   *  written out by hand, with an off-scale `py-3.5`), `RecentFlights`'s list row (a raised card that
-   *  is also a click target), and `CompareSurface`'s dashed box (a SECOND drop-target treatment
-   *  beside `DropZone`'s). */
-  cardTreatments: 7,
+   *  **7 → 4 on 2026-08-02, and the honest floor turns out to be 3 rather than 4.** This comment
+   *  said the page-level drop zone "wants its own named primitive". It does not: its hand-rolled
+   *  string was **byte-identical to `CARD_TONES.muted`** — "sunken and dashed: a slot with nothing
+   *  in it yet" — which had been added for exactly this case and then written out by hand anyway.
+   *  `CompareSurface`'s dashed box folded into the same tone; it was the one dashed box in the app
+   *  with no fill, so two drop targets on two surfaces read as two different kinds of thing while
+   *  being the same kind of thing. `RecognizedFormats` was a plain raised card, off-scale `py-3.5`
+   *  and all.
+   *
+   *  **So the floor is `Card` + `Frame` + the drop OVERLAY, which is 3.** The overlay is the one
+   *  that genuinely will not fold in: `border-2 border-dashed … shadow-lg`, a floating element that
+   *  needs elevation, and `Card` has no shadow by design.
+   *
+   *  The fourth remaining string is `RecentFlights`'s logbook row — a raised card that is also a
+   *  click target, with a conditional left border for a note. It is a real hand-roll and it is left
+   *  because `Card`'s `as` union has no `li`, and widening a primitive's element list is a change
+   *  worth making with the conversion that needs it rather than ahead of it. */
+  cardTreatments: 4,
   /** Spacing values off the `1 2 3 4 6 8 12` scale. **At the target, so this is a guard rather than
    *  a ratchet** — it may never go up again. Each of the 25 was mapped to its nearest scale value in
    *  the direction that keeps the rhythm: `5 → 4` between related things, `10 → 12` for a section
@@ -262,12 +273,13 @@ const BUDGET = {
   offScaleType: 1,
   /** Components importing the shared primitives. Target: most of the 44. This one only goes UP.
    *  29 → 31 on 2026-08-01: the two cross-check tables moved onto `DataTable`. 31 → 36 on
-   *  31 → 32 on 2026-08-02: `SampleTable`, which had imported nothing at all, onto `Frame`. **The six panels
+   *  31 → 34 on 2026-08-02: `SampleTable` onto `Frame`, then `RecognizedFormats`, `DropZone` and
+   *  `CompareSurface` onto `Card` (`DropZone` already imported `Button`, so it moved this by zero). **The six panels
    *  that moved onto `NumberField` in the same commit moved this by ZERO** — every one already
    *  imported `Card`, so a per-FILE count cannot see six controls being adopted. That is the
    *  argument for the per-primitive map below, and it is the third time a §9 metric has turned out
    *  to measure something other than what it was reached for. */
-  uiAdopters: 32,
+  uiAdopters: 34,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -293,7 +305,10 @@ const BUDGET = {
  *  after the two blind greps and the suite-wide type ratio. The pattern is the same every time: a
  *  measurement scoped to where the drift was FIRST noticed, then read as covering the class. */
 const PRIMITIVE_ADOPTERS: Record<string, number> = {
-  Card: 23,
+  /** 23 → 26 on 2026-08-02: `RecognizedFormats`, `DropZone` and `CompareSurface`, the last three
+   *  hand-rolled cards outside the logbook row. Two of them took `tone="muted"`, which existed
+   *  already and which both had written out by hand. */
+  Card: 26,
   Button: 18,
   Chip: 3,
   Readout: 2,
