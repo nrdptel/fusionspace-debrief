@@ -53,15 +53,22 @@ wild, ideas too big for one pass. One line each, newest first.
   own blocked paragraph renders on every `/`, so a page-level locator passed with the deep-link
   defect fully restored — found by review, and the test now fails on exactly that mutation).
 
-  **What is NOT fixed, and it is a family rather than a wording problem: the WRITE path cannot
+  ~~**What is NOT fixed, and it is a family rather than a wording problem: the WRITE path cannot
   report failure at all.** `saveRecent` assigns its id immediately after `store.put` without
-  awaiting the transaction, and `onerror`/`onabort` are `preventDefault()`ed — so a
-  QuotaExceeded abort **returns a non-null id with nothing stored**. Everything built on "a failed
-  save has a null `savedId`" is therefore true only for the case where IndexedDB is absent
-  entirely, which is the one an `addInitScript` stub simulates and the rarest one in the wild;
-  mobile Safari's ITP eviction and a full quota are the common ones. A first attempt to make
-  `/compare` stop announcing "Added … to your logbook" was written against that false invariant and
-  reverted the same day.
+  awaiting the transaction…~~ **FIXED 2026-08-03, and it was the ROOT of the whole family.**
+  `saveRecent` awaits its transaction and returns `{ id: null, forgotten: [] }` on an abort, so
+  **`savedId` means "the logbook took it"** — which is what every surface above it already read it
+  as. Until now that was true only where IndexedDB was absent entirely, which is the case an
+  `addInitScript` stub simulates and the rarest one in the wild; mobile Safari's ITP eviction and a
+  full quota are the common ones, and both returned a perfectly good-looking id with nothing
+  stored. The `/compare` half that was written against the false invariant and reverted the same
+  day is restored with it, and now means what it reads as. Pinned by `e2e/logbook.spec.ts` → *"a
+  save the browser refuses is not announced as a flight added"*.
+
+  **The prune went atomic with it, and that is load-bearing for a second claim.** `forgotten` names
+  flights the logbook dropped to make room; the deletes ride the same transaction as the `put`, so
+  an abort drops neither and `forgotten: []` is the honest answer. Reporting "3 flights were
+  forgotten" for a save that never landed would have been the same class of lie one layer over.
 
   ~~**The worst instance, and it should be fixed first:** `importLogbook` resolves on
   `transaction.onabort` and returns `flights.length` regardless…~~ **FIXED 2026-08-03.**
@@ -78,17 +85,43 @@ wild, ideas too big for one pass. One line each, newest first.
   would prove nothing about the outcome path). Falsified by restoring the old resolve-and-count.
 
   **Reproduce what remains:** DevTools → Application → Storage → clamp the quota to ~1 MB, then
-  (a) drop a large log on `/compare` and read the note, and (b) analyse a file on `/` and look for
-  any signal that it was not kept. (The import case that used to be here is fixed and has its own
-  regression test.)
+  analyse a file on `/` and look for any signal that it was not kept. (The import and `/compare`
+  cases that used to be here are fixed and each has its own regression test.)
 
-  **Two more wordings of the same condition live on `CompareSurface`** (`:294` a file that would not
-  store, `:422` the drop box's own line), neither routed through `STORAGE_REFUSED`. They are not
-  folded in because the honest sentence for them depends on the SAVE path reporting truthfully, and
-  it still does not. **Count, kept honest:** eight wordings once the import path's own is added —
-  and its own is right to be separate, because it has something specific to say that a string which
-  must be true everywhere cannot (*keep the file*). Two share the constant; the import path is
-  fixed with its own; five remain, all of them downstream of `saveRecent`.
+  **What is left is ONE surface, and it is now a plumbing job rather than a truth problem.** The
+  analyze page still says nothing when a save is refused: `Analyzer.tsx:293`'s `if (saved.id)` is a
+  *correct* condition now and simply has no else — see the separate entry below, which is the same
+  defect from the other end and is the one to work. `FlightReport.tsx` does carry the sentence, but
+  inside a disclosure that defaults closed and is titled for something else.
+
+  **Count, kept honest:** the constant SPLIT IN TWO on 2026-08-03, and that was a correction found
+  by review rather than a tidy-up. `STORAGE_REFUSED` says *"read or keep"*, which is only true where
+  `indexedDB` is absent entirely; a full quota and an ITP eviction read perfectly and refuse only
+  the write. The first version of the `/compare` fix used the read-or-keep sentence on the write
+  path, so a drop would have told the flyer their browser could not READ a logbook directly above a
+  logbook list rendering their flights — the same two-surfaces-one-viewport contradiction it was
+  written to end, pointing the other way. `STORAGE_WRITE_REFUSED` is the write half.
+  So: two shared constants across three surfaces (`compareFromLogbook` and the `?open=<id>` deep
+  link read; the `/compare` drop note writes), two bespoke sentences that are RIGHT to be bespoke —
+  the import path (*keep the file*) and the `/compare` drop box (*this surface cannot assemble a
+  comparison at all*) — and one still unwritten: the analyze page's.
+
+- **2026-08-03 — the report's caption panel promises durability it cannot deliver when writes are
+  refused and the flight was already in the logbook.** `FlightReport.tsx:1001` says *"Kept with this
+  flight on this device, so it is still here when you come back to it"* whenever `onCaption` is
+  passed, which follows `state.savedId`. On a quota-full device reopening a stored flight,
+  `saveRecent` correctly returns the pre-existing id (the row survives the rollback, so the address
+  is real) — but `saveCaption` writes through the same refused path, so a caption typed there is
+  lost on reload while the copy says it is kept.
+
+  **Pre-existing, not introduced 2026-08-03** — the old `saveRecent` returned a non-null id on
+  every abort, so this exact wording rendered in this exact case already; the fix narrowed the case
+  rather than creating it. Filed rather than fixed because the honest repair is a real one:
+  `SaveResult` needs to separate *"this flight has an address"* from *"this write landed"* (an
+  `id` and a `stored` flag), and then `onCaption` gates on the second while `rememberOpenId` keeps
+  using the first. That also gives `Analyzer.tsx:293`'s missing `else` — the entry below — the
+  signal it needs, so the two should be done together. **Reproduce:** analyse a file, clamp the
+  quota, reopen the flight from the logbook, type a label, reload.
 - **2026-08-03 — the storage-refused message takes §2's `warn` (amber), and §2's own word for a
   refusal is `danger`.** Recorded as a decision rather than left to be re-derived: `ErrorState` is a
   `Card tone="danger"` with `role="alert"`, which fits an operation the flyer just attempted and
@@ -106,9 +139,17 @@ wild, ideas too big for one pass. One line each, newest first.
   storage-refused states are closed (see `ROADMAP.md`); the rest of the item still wants a real
   census, and the standing question of whether `DESIGN.md` should assert an offline state per
   surface at all is unchanged and owed to both repos.
-- **2026-08-02 — `components/Analyzer.tsx:292` silently swallows a failed save.** `if (saved.id)
+- **2026-08-02 — `components/Analyzer.tsx:293` silently swallows a failed save.** `if (saved.id)
   set(...)` — `lib/recents.ts` catches the storage failure and returns `{ id: null }`, and no caller
   reports it, so `state.savedId` stays unset and nothing on screen says the flight was not kept.
+
+  **Worth MORE as of 2026-08-03, not less, and the fix got cheaper.** This condition used to be
+  nearly unreachable — `saveRecent` returned a non-null id on a quota abort, so the only case that
+  reached the `else` was IndexedDB missing entirely. It reports its transaction's outcome now, so
+  `saved.id === null` is the *common* refusal (a full quota, ITP eviction) and this branch is where
+  a flyer's flight quietly fails to be kept. `STORAGE_REFUSED` and the three-way shape are both
+  written; this is one `else` and one live region away from done. **It is the last surface in the
+  family** — see the count in the entry above.
   `FlightReport.tsx:1009` does say it in that case, but inside a disclosure `ui.tsx:749` defaults
   CLOSED and titles "Label this report (optional)" — so the one sentence that tells a flyer their
   flight was not remembered is behind a collapsed panel named for something else. Reproduce: block

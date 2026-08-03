@@ -7,6 +7,7 @@ import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogb
 import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
+import { STORAGE_WRITE_REFUSED } from '@/lib/recents';
 import { ingestFiles, highRateNote, unreadNote } from '@/lib/ingest';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
@@ -207,15 +208,45 @@ export default function CompareSurface() {
           ? ` Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`
           : '';
 
+      // **Only claim they were ADDED if the logbook actually took them, and name the ones it did
+      // not.** This was written once before against a false invariant and reverted the same day:
+      // `savedId` was assigned the moment the `put` was queued, so it was non-null even when a
+      // quota abort stored nothing. `saveRecent` reports its transaction's outcome now, so the
+      // filter means what it reads as.
+      //
+      // **It is built ABOVE the early return, and that is the correction that matters.** A first
+      // version of this put the whole accounting in the `setNote` below, which only runs when
+      // fewer than two flights are on screen — so it fired only when the drop lost EVERYTHING.
+      // Drop six logs on a quota-full browser, three commit and three abort: `merged` is three,
+      // the comparison assembles, and the three that never landed were named nowhere. That is the
+      // commonest shape of the failure and the silent-loss class this whole change exists to end,
+      // and it was the one case still silent. The sentence rides `load`'s note now, so it is said
+      // on every drop rather than only on the ones that fail completely.
+      //
+      // **`STORAGE_WRITE_REFUSED`, not `STORAGE_REFUSED`.** A write that aborts is a browser
+      // whose READS are working — `ingestFiles` just read the logbook to dedupe against it, and
+      // the list below this note is rendering those flights. Saying "won't let Debrief read or
+      // keep a logbook" over a logbook the flyer can see is the same two-surfaces-one-viewport
+      // contradiction in the other direction.
+      const kept = results.filter((r) => r.savedId);
+      const notKept = results.filter((r) => !r.savedId);
+      const names = (rs: typeof results) => rs.map((r) => r.name).join(', ');
+      const notKeptNote =
+        notKept.length === 0
+          ? ''
+          : ` ${names(notKept)} ${notKept.length === 1 ? 'was' : 'were'} read but could not be kept: ${STORAGE_WRITE_REFUSED}.`;
+
       if (merged.length >= 2) {
-        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${overflowNote}${notRead}`.trim() || undefined);
+        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
         return;
       }
       setState('picking');
       setNote(
         results.length === 0
           ? `Nothing in that drop could be read as a flight.${leftNote}${notRead}`
-          : `Added ${results.map((r) => r.name).join(', ')} to your logbook — tick ${results.length === 1 ? 'it' : 'them'} with another flight to compare.${leftNote}${pairedNote}${hrNote}${notRead}`,
+          : kept.length === 0
+            ? `Read ${names(results)} — but ${STORAGE_WRITE_REFUSED}, so ${results.length === 1 ? 'it was' : 'they were'} not kept, and a comparison here is assembled from the logbook. Read ${results.length === 1 ? 'it on the analyze page' : 'them one at a time on the analyze page'} instead.${leftNote}${pairedNote}${hrNote}${notRead}`
+            : `Added ${names(kept)} to your logbook — tick ${kept.length === 1 ? 'it' : 'them'} with another flight to compare.${notKeptNote}${leftNote}${pairedNote}${hrNote}${notRead}`,
       );
     },
     [load, logbook],
