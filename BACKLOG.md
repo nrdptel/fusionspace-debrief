@@ -799,6 +799,19 @@ wild, ideas too big for one pass. One line each, newest first.
   five adopters, which makes the off-system surface the most-rendered one in the app. Item 3's
   claim is corrected in `ROADMAP.md` in the same commit as this entry. Not reproduced beyond the
   grep.
+
+  **Re-measured 2026-08-03 and the total is unchanged at ×2, but one of the two MOVED and that is
+  the interesting half.** `DeviceSummary.tsx:115`'s "consistent" chip no longer carries
+  `dark:bg-zinc-800` — it took §5's `Chip`, and the shade went INTO `CHIP_TONES.default`
+  (`ui.tsx:765`). So the census now reads `zinc-800` ×2 (`FlightReport.tsx:783`'s section-nav active
+  chip, and the primitive), `zinc-900` ×38, `zinc-900/50` ×8, `zinc-950` ×6, `zinc-700` ×1, and
+  `zinc-100` ×1. **The off-system shade is now MORE rendered, not less**, since every `default` chip
+  inherits it — the same "inherited by all five adopters" shape this entry already names for
+  `Segmented`. It is also now deliberate and documented: a `default` chip must NOT share a fill with
+  any `CARD_TONES` entry or it renders as a bare outline against its own container, which is pinned
+  by a test asserting that relationship. **So the open question this entry raises has an answer for
+  the chip and not for the others**: if §2 wants a sanctioned raised-on-sunken fill, `zinc-800` is
+  what two independent surfaces picked, and naming it as a token would close both remaining uses.
 - **CORRECTED 2026-08-02, hours after being filed — neither "vanishing surface" is what it was
   filed as, and both were written from reading the code rather than driving it.** This is the
   failure `MAINTAINING.md` warns about ("a finding is a claim until you have seen it yourself"),
@@ -865,10 +878,22 @@ wild, ideas too big for one pass. One line each, newest first.
   `FlightTimeline.tsx:93` (phase descent rates, compared row to row), and `FlightPicker.tsx:71` /
   `RecordingPicker.tsx:81`, where the apogee is at `text-[11px]` — two sizes below the floor, in
   the two controls whose entire job is choosing which recording to trust.
-- **2026-08-01 — `Chip` has 3 adopters against ~31 chip-shaped hand-rolls** (`rounded-md border`
+- ~~**2026-08-01 — `Chip` has 3 adopters against ~31 chip-shaped hand-rolls**~~ (`rounded-md border`
   with `text-xs` or `text-[11px]`, outside `ui.tsx`), so §5's chip is effectively unadopted;
   `RecentFlights.tsx:629`'s format label at `text-[11px] px-1.5 py-0.5` is the worked example
-  against §5's `text-xs rounded-md px-2 py-1`. Related: `text-[11px]` has **12 non-chart uses
+  against §5's `text-xs rounded-md px-2 py-1`.
+
+  **MOSTLY DONE 2026-08-03 — `Chip` 3 → 7 adopters, and the ~31 was measuring something looser than
+  it sounds.** A scanner requiring all four of `rounded-*` + `border` + `px-*` + caption size, over
+  `<span|li|div>` opening tags, found **12** hand-rolled chip-shaped elements, not ~31 — the older
+  figure counted class-string occurrences rather than elements, and matched partial shapes. Seven
+  converted. **Five remain and each is named with a reason** in `lib/design-system.test.ts`'s
+  `DELIBERATE` list, so this is now an allowance rather than a backlog: two are inline notices
+  holding a paragraph (not tokens), two are `text-[11px]` dense-list tokens whose conversion is a
+  product decision about logbook row density, and one wants `Chip` to take an `as` prop — filed
+  separately under *Craft & product feel*. The worked example this entry names,
+  `RecentFlights`'s format label, is one of the two dense-list ones and is deliberately still
+  hand-rolled. Related, and still open: `text-[11px]` has **12 non-chart uses
   across 8 files**, where §3 restricts it to axis ticks and diagram annotations — the smallest size
   in the system is being normalised as a general caption size, which is how a seventh size arrives.
 - **2026-08-01 — two controls reach past the primitive that covers them.** `RailExit.tsx:94` uses a
@@ -1175,12 +1200,16 @@ wild, ideas too big for one pass. One line each, newest first.
   "keyboard-navigable" is only partly delivered.** Every affordance is on the Tab path; cell-to-cell
   movement is not. Either build it or amend §5 — and amending §5 is a change owed to the sibling
   repo in the same run, which is why it is filed rather than done.
-- **The agreement badge is hand-rolled identically in `DeviceSummary` and `GpsApogee`** — the same
-  emerald/amber `inline-flex … rounded-md border … px-1.5 py-0.5 text-xs` pair in both, 4 variants
-  over 2 files. `Chip` is the primitive it wants, but `Chip` has only `default | accent` tones and
-  adding `ok`/`warn` changes a signature `DESIGN.md` §5 shares with the sibling repo. Filed rather
-  than diverged. The *text* is already shared (`agreementText`), so the two can no longer disagree
-  about what they say — only about how they look.
+- ~~**The agreement badge is hand-rolled identically in `DeviceSummary` and `GpsApogee`**~~ —
+  **DONE 2026-08-03.** The same emerald/amber `inline-flex … rounded-md border … px-1.5 py-0.5
+  text-xs` pair in both, 4 variants over 2 files. This entry said `Chip` was the primitive it wanted
+  but that adding `ok`/`warn` changes a signature `DESIGN.md` §5 shares with the sibling repo, and
+  filed it rather than diverging. **That was the right call and the resolution is the one it
+  implied**: §5 itself gained `good` · `warn` · `danger`, so the signature changed in the shared
+  document first and both repos get the same word. Both files now take `<Chip tone=…>`; the debt to
+  `nrdptel/fusionspace-loft` is recorded in `HANDOFF.md`. The *text* was already shared
+  (`agreementText`), so the two could never disagree about what they said — only about how they
+  looked, and now not that either.
 - **`debrief-fixtures` `VERSION` says `v1.0.0` while `corpus.lock.json` pins `v1.1.0`.** Local runs
   read the attached checkout and CI fetches the release, so the two are not provably the same
   corpus. Measured 2026-08-01; the fixtures repo carries no tags to reconcile it against. CI passing

@@ -1135,7 +1135,7 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ## D8 — Orientation and high-rate data
 
-**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED; the tilt slice (4) is MEASURED AND BLOCKED, and its blocking number was measured over spliced data — which slice 3 now makes it possible to remove.**
+**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED; the tilt slice (4) is MEASURED AND BLOCKED, and the block now STANDS on a re-measurement rather than on a suspicion.** The previous status line said slice 4's blocking number had been taken over spliced data and that slice 3 made de-splicing possible. **That re-run was done 2026-08-03 and it changed the reasoning without changing the verdict** — see the slice-4 body below. Removing the repeated samples makes jan10 *worse* (21.67°/96.67° → 24.05°); only reading less of the file repairs it (4.07°/7.34° truncated at its first seam). And the sharper reason to refuse: on WORST single sample jan10 is not the outlier at all — **jan18 reaches 10.80° against jan10's de-spliced 7.34°** — so a refusal would have to separate them on mean while ignoring that the other is worse on peak, and nothing in the corpus supplies that rule. **Updating this line in the same commit as the work is what the paragraph below exists to demand; it is being obeyed here rather than quoted.**
 Decomposed the same day, from measurement, after D7 shipped and left the D-track dry.
 
 **This line said "slices 2 and 3 remain" for a run after slice 2 had shipped, and correcting it is
@@ -1531,6 +1531,161 @@ peak. And no reading off the high-rate file that the low-rate file already repor
 
 **Size.** 3–5 increments. Slice 1 is the one that unblocks the others, and it is also the one with a
 real risk attached: the standalone refusal must survive it.
+
+---
+
+## D9 — Predicted versus flown
+
+**Status:** DECOMPOSED 2026-08-03, from measurement, because D8's remaining slice is blocked and the
+D-track would otherwise be dry. Nothing built. `COMPETITION.md` row 12 — **not** the oldest open
+`GAP`, which this line first claimed: rows 3 and 4 are both `GAP` and both older, and rows are
+numbered in order added.
+
+**The product assumption, stated loudly because this one is not mine to make quietly.**
+`MAINTAINING.md` says keep the tools distinct, so this is an **import of a prediction file, never a
+shared runtime and never a network call to the sibling**. A flyer exports a prediction from whatever
+they simulate in, drops it on Debrief like any other file, and Debrief says how the flight compared.
+Debrief does not simulate, does not fit, and does not correct a prediction — it reports the gap.
+Recorded under *Decisions taken without the owner*.
+
+### What the measurement found, 2026-08-03 — and it inverted the obvious plan
+
+**Three of the four tracked tools cannot do this, and the fourth is the one already on the ledger.**
+OpenRocket has one open feature request (#2356, no milestone, no assignee) whose asker wants exactly
+this; RockSim cannot overlay two of its own sims (Apogee's own *Peak of Flight* #544: *"One
+limitation with RockSim is that it can't graph out data from two simulations (or more) so that they
+can be compared"*); AltosUI reads `.telem`/`.eeprom` and mentions no prediction format anywhere in
+its manual. **The fourth is Featherweight, and it must not be skipped here.** `COMPETITION.md` row
+16 records wFIP 2.0 as loading OpenRocket simulation files and overlaying them on flown traces —
+which would make it the closest competitor D9 has. It stays `UNVERIFIED`: its sole source 403s
+through this proxy and the vendor's own page says nothing about OpenRocket. **So the honest framing
+is "unverified, possibly already beaten", not "nobody ships this"** — an earlier draft of this line
+said the latter and it was wrong twice over, since it also contradicted a row this repo already
+carries.
+
+**But a tool OUTSIDE the tracked set ships the mirror image, on Debrief's own input format.**
+Project APEX (`apexrocketsim.com`, free, browser-based) states it imports Blue Raven altimeter CSV
+and overlays real flight data on simulated results. That is a *simulator that imports the log*;
+D9 is an *analyzer that imports the prediction*. Same flyer, same question, opposite direction.
+Added to `COMPETITION.md` as row 29 — this is a deficit with a live competitor, not an opening, and
+it is why D9 was decomposed this run rather than left in the after-list. Its licence is not stated
+on its page and it was read rather than run, so everything about it is a published claim.
+
+**The obvious first slice — read the OpenRocket CSV export — is wrong, and this is the measurement
+that says so.** Checked against the two primary sources rather than against the plan:
+
+- **The CSV export is time-series only, and it carries FIVE of the ten — not none.** OpenRocket's
+  user guide: *"you can export any or all of over 50 values"* — the plot variables, per timestep.
+  `maxaltitude`, `maxvelocity`, `maxacceleration`, `maxmach` and `flighttime` are all **recoverable**
+  from `Altitude` / `Total velocity` / `Total acceleration` / `Mach number` / `Time` columns, and the
+  export's optional comments block names flight events, apogee among them, which is `timetoapogee` —
+  a behaviour **`COMPETITION.md` row 22 already records**. What genuinely has no column is
+  `optimumdelay`, `groundhitvelocity`, `launchrodvelocity` and `deploymentvelocity`. *An earlier
+  draft of this bullet said the CSV carries "none of the ten", which is both wrong and contradicted
+  by this repo's own ledger — the sort of claim a later session reads instead of checking.*
+- **The CSV has no stable schema, and that is the real disqualifier.** Columns are user-selected;
+  the separator, the comment character and the decimal precision are all user-set. An importer could
+  only ever detect it heuristically, and would then have to *derive* five of the ten scalars from a
+  column set the exporting flyer chose — deriving a maximum from a decimated user-chosen series is
+  not reading a stated figure, and Debrief would be publishing a number the prediction never made.
+  **`UNVERIFIED`, and flagged rather than asserted:** that a fresh install selects no columns, and
+  that the column-name line is comment-prefixed and conditional. Both were stated flatly in a first
+  draft; neither could be confirmed from a primary source. The stable-schema argument does not need
+  them.
+- **The `.ork` carries all ten as stated figures, and its format is published.** `<simulation>`
+  holds `<flightdata maxaltitude maxvelocity maxacceleration maxmach timetoapogee flighttime
+  groundhitvelocity launchrodvelocity deploymentvelocity optimumdelay>` on OpenRocket's own
+  file-specification page. **Two hedges this entry originally dropped, both restored:**
+  - **The page states no units.** SI is *inferable* from the example's internal consistency
+    (`maxvelocity="29.249"` ÷ 343 ≈ `maxmach="0.086"`) and from the dev guide's "OpenRocket always
+    uses internally pure SI units", but the spec page itself defines no attribute and names no unit.
+    Slice 2's *done when* has to prove SI against a real file, not assume it off this page.
+  - **The clean-room question was NOT disproved, only two bad quotations were.** A first pass
+    claimed the page says the format is "not documented other than as the reference implementation"
+    and points at GPL-3 Java. Neither phrase is on the page, and its one XSD sentence is about
+    **`.orc`**, a different format — both checked by fetching it. **But the page does say:** *"Not
+    every parameter in the XML file is explained here. Please refer to the
+    `core/src/main/java/info/openrocket/core/file/openrocket` package in the source code."* That is
+    the substance of the concern, and calling it "manufactured" would stop the next session
+    checking. **What follows is narrower and still enough:** the ten attributes ARE named on the
+    page, so the summary parser slice 2 describes can be written from it. Anything beyond them —
+    the `<databranch>` series, the `status` vocabulary — is where the page defers to GPL-3 source,
+    and that is a clean-room boundary to respect, not to cross. This is a *weaker* footing than
+    `lib/parsers/xlsx.ts`, which cites two complete formal specifications (PKWARE APPNOTE.TXT and
+    ECMA-376 / ISO/IEC 29500) with defined semantics and units; an earlier draft called the two
+    equivalent and they are not.
+- **The time series inside a `.ork` is OPTIONAL and off by default** (`StorageOptions
+  .saveSimulationData = false`), so the summary is the only thing that can be relied on — which is
+  the same reason the summary slice comes first, arrived at from the other direction.
+
+**The repo is one keystroke from the right shape, and that is not a coincidence.**
+`lib/flight/types.ts:91` declares `ReportedValue.source: 'device'` — a **single-member union**.
+`RawFlight.reported?: ReportedValue[]` already carries a non-measured series through the entire
+stack, `lib/flight/reported.ts` already holds the agree/differ logic once (`compareReported`,
+`REPORTED_QUANTITY` as a `Record` over the metric union, so a new metric fails to compile until it is
+classified), and the cross-check renders at **three** call sites — the on-screen panel
+(`DeviceSummary.tsx:51`), the formatted report (`lib/report.ts:338`, feeding the .txt and .md) and
+the JSON (`lib/report.ts:1417`). *Three, not four: `analyzedDataCsv` is a real export that does not
+carry it, and `lib/flight/reported.ts:59`'s own comment says three.* `lib/parsers/deviceSummary.ts`
+is the exact structural precedent for a registered parser that is not a flight. **A prediction is a
+second `source`, not a second architecture.**
+
+**What does NOT support it, and must not be bent to.** `lib/compare.ts`'s `CompareInput` demands a
+full `FlightAnalysis` per flight, and `buildComparison` aligns on a **detected liftoff** and
+resamples measured series. A prediction has no detected events and no `FlightMetrics`; feeding one in
+would fabricate a measurement, which **MEASUREMENT, not simulation — the safety spine** forbids
+outright. (`MAX_COMPARE` is 6, so "a seventh entry" is literal.) A predicted trace on a chart needs
+its own series type beside `CompareFlight`, never a seventh entry in it.
+
+**Zero corpus coverage, and that is slice 1.** 61 manifest files, extensions `csv`/`txt`/`eeprom`/
+`pf2`/`xtra`/`rff`/`bin` — **no `.ork`, no `.rkt`, and `grep -Eic 'simulat|predict'` over the
+manifest returns 0**. *Note the `-E`: this was first filed as `grep -ic "simulat|predict"`, which is
+a BRE matching the literal string `simulat|predict` and would return 0 on a manifest that did
+contain those words — a command filed as evidence has to be able to fail.* Every slice below is
+unbuildable until a real prediction file is sourced. Do not synthesise one and call it a fixture:
+the whole milestone is about reading what a real tool actually writes.
+
+### The slices, ranked by what a flyer can check
+
+1. **A prediction file in the corpus, or a written refusal.** Source one real `.ork` with saved
+   simulation data under `LICENSING.md`'s redistribution and privacy rules — *which are a different
+   rule from the clean-room one governing parsers; an earlier draft merged the two into one phrase*
+   — and record its provenance in `SOURCES.md` like every other fixture. **If none can be licensed, that is a legitimate outcome and
+   it gets written down** — D9 then blocks on a fixture the way D8 slice 4 blocks on a measurement,
+   rather than being quietly dropped. *Done when:* `manifest.csv` carries a prediction row, or this
+   slice records why it cannot and the milestone's status says BLOCKED.
+
+2. **Read `<flightdata>` and nothing else.** A registered parser that opens the `.ork` zip (the
+   `lib/parsers/xlsx.ts` central-directory + `DecompressionStream` route, with `lib/fileText.ts` as
+   the async pre-step that exists because `Parser.parse` is synchronous), reads `rocket.ork`, and
+   returns the ten scalars as `ReportedValue[]` with `source: 'predicted'`. **Not a flight** — it
+   must be refused as a standalone the way a device summary is, for the same reason.
+   *Done when:* the fixture's ten values are shown to BE SI (proved against the file, not assumed off
+   the spec page, which states no units) and a `.ork` dropped alone is refused with
+   a sentence saying what it is and what it needs.
+
+   **Two hazards to design against, both found by measurement.** `<flightdata>` sits inside
+   `<simulation status="…">`, so a `.ork` can carry a summary that is stale or from a superseded
+   design — and **the spec page shows one example value and defines none**, so a trust rule keyed on
+   `status` is unverified and must be confirmed against real files before it is written. And in
+   shipped 24.12 the `<databranch types="…">` attribute holds *localized* names; only unstable
+   (26.xx) uses stable save keys. That is a slice-4 problem, but it is why slice 2 reads attributes
+   and not the series.
+
+3. **The cross-check table grows a third column.** `DeviceSummary` already puts the board's own
+   figures beside Debrief's read with an agree/differ verdict. Predicted is a third source in the
+   same table, on the same `compareReported` logic, at the same three surfaces it already reaches.
+   *Done when:* a flight with a prediction shows `PREDICTED | LOGGER | DEBRIEF | AGREEMENT`, and the
+   verdict language distinguishes **"these two measured the same flight and disagree"** from
+   **"the flight did not do what was predicted"** — which is not a discrepancy, it is the answer.
+
+4. **The predicted trace on the chart, if and only if the file carries one.** A new series type
+   beside `CompareFlight`, drawn dashed, never resampled onto a detected liftoff, and stated as
+   predicted wherever it appears. *Done when:* a prediction with no saved time series says so and
+   draws nothing, rather than drawing a line through its own summary scalars.
+
+**Size.** 3–5 increments, and slice 1 gates all of them. Slice 2 is the one with real risk: the
+standalone refusal must survive it, exactly as it had to for the device summary.
 
 ---
 
@@ -2501,10 +2656,16 @@ top rate 114 Hz), and the real blocker is that the 192,001-row Blue Raven high-r
 gyro, accelerometer and quaternion channels is REFUSED by the parser, correctly, because it holds no
 altitude and so is not a flight on its own.
 
-**D9 — Predicted versus flown.** `COMPETITION.md` row 12: the most valuable capability neither half of
-the suite has. Debrief holds the flight, the sibling holds the prediction, and a flyer wants the
-overlay. It is an *import of a prediction*, never a shared runtime — the tools stay distinct. This one
-touches product direction, so state the assumption loudly and record it below.
+**D9 — Predicted versus flown. DECOMPOSED 2026-08-03 — it has its own section above `P1`; take it
+from there, not from this line.** The measurement changed it twice over, and both are worth reading
+before scoping anything. **The obvious first slice is wrong:** OpenRocket's CSV export is
+time-series only, over user-selected columns with no stable schema, and carries **none** of the ten
+summary scalars the milestone wants — those live only in `<flightdata>` inside a `.ork`, whose
+format is published and safe to read clean-room. A first pass recommended the CSV *because* it
+believed the `.ork` was a licensing hazard, and that hazard turned out not to exist on the page it
+was attributed to. **And the milestone cannot start at all until a real prediction file is in the
+corpus** — there is not one, which is why the decomposition's slice 1 is sourcing one or writing
+down why it cannot be sourced.
 
 ### P-track, after P5
 
@@ -2526,6 +2687,27 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-03 — D9's product shape was decided rather than asked, and it is the biggest product
+  call taken unattended so far.** "Predicted versus flown" could reasonably have meant several
+  things, and the decomposition above commits to one: **Debrief imports a prediction FILE, and does
+  nothing else with it.** Rejected, each for a stated reason rather than by taste:
+  - *A shared runtime or an API call to the sibling* — `MAINTAINING.md` says keep the tools
+    distinct, and **EVERYTHING client-side / static** forbids the network call outright.
+  - *Debrief simulating, even a little, to fill a gap in a prediction* — **MEASUREMENT, not
+    simulation — the safety spine**.
+    Debrief reports the gap between a prediction and a flight; it never improves either.
+  - *Fitting or correcting a prediction against the flown data* (back-calculating Cd from the coast
+    phase, which the competitor named in row 29 does) — the same invariant, and it is the thing that
+    would make Debrief a simulator wearing an analyzer's name.
+  - *Feeding a prediction into `lib/compare.ts` as a seventh flight* — `CompareInput` demands a full
+    `FlightAnalysis`, so this would fabricate detected events and metrics for a curve that has none.
+    The refusal is structural, not stylistic.
+
+  **The owner can reverse any of this cheaply**, because the decomposition puts the whole product
+  claim in slice 3's *done when*: predicted-versus-flown is a THIRD COLUMN in a cross-check table
+  that already exists, not a new surface. If the answer is "no, it should be a chart first", slices
+  3 and 4 swap and nothing else changes.
 
 - **2026-08-01 — a record that genuinely holds two burns was found, and NO detector was built on
   it.** `meraki2` — a stated O7800 booster under an N3100 sustainer — shows two ascent thrust runs
