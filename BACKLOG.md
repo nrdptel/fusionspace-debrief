@@ -3464,9 +3464,16 @@ refuted. They are written down rather than fixed because each needs its own gate
   rest. Widening first would light up 124 sites with no rule to judge them by.
   **§4 and §9 are carried identically by `nrdptel/fusionspace-loft`**, so both steps are owed to
   both repos — which is why this is filed rather than done.
-  *This is the THIRD §9 grep found blind in one run, after the chip census that scanned `<span>`
-  only and the card census that matches `rounded-xl` only. The pattern is always the same: a
-  measurement scoped to the form the drift was first noticed in, then read as covering the class.*
+  *This is the third census found blind in one run — and the only one of the three that is §9's
+  own.* The other two are in `lib/design-system.test.ts`, not in §9's shell block: the **chip**
+  census scanned `<span>` only and missed a chip written as an `<li>`, and the **notice** census
+  enumerated `div|section|aside|li|ul` and missed half its population, written as `<p>`. *(A first
+  version of this line said "the card census that matches `rounded-xl` only" — that blindness is
+  real and documented, but it was found on 2026-07-31, two runs before this one, so citing it here
+  put a stale finding inside a claim about this run. The card census IS one of §9's six commands;
+  the chip and notice ones are not commands at all.)* The pattern is the same every time and it is
+  the reason to state it: **a measurement scoped to the form the drift was first noticed in, then
+  read as covering the class.**
 - **Is the `500/30` border ramp heavy enough on PAPER?** §5's hued chips and cards border at
   `<hue>-500/30`, which over white resolves near `#d0d1fb` for indigo — visibly lighter than the
   `border-indigo-300` (`#a5b4fc`) that `FlightReport`'s format chip hand-rolled before it converted

@@ -261,7 +261,7 @@ hand-rolls it instead is not done.
   + `-50` fill ramp that is deliberately its own — a notice needs more presence than a `Chip`'s
   `500/10` wash and a flatter, lighter field than a `Card`'s tinted one. (`CARD_TONES`' hued
   entries are `500/x` washes too, not flat fills; an earlier wording of this line said flat and was
-  wrong about its own neighbour.) Takes `as` (`div` · `p` · `section` · `aside`)
+  wrong about its own neighbour.) Takes `as` (`div` · `p` · `section` — only the tags with a call site)
   and **passes `role` through rather than owning one**: `role="status"` implies `aria-atomic`, so a
   notice that contains a control must put the live region on the message, not the box, or every
   press re-announces the whole panel. **That rule has cost two surfaces already** —

@@ -736,7 +736,11 @@ grep (names `GpsApogee.tsx:71` when its conversion is reverted), the one-ramp ch
 neutral-chip-visibility check that asserts the RELATIONSHIP — the neutral fill differs from every
 `CARD_TONES` fill — rather than a string, so restyling `Card` cannot silently make it vacuous.
 
-`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 11, all moved in the same commit.
+`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` **14 → 12**, all moved in the same
+commit. *(12 → 11 is increment 17 below, not this one. A blunt find-and-replace during the
+correction pass rewrote this line to 14 → 11 and gave the chip commit credit for a move the notice
+commit made — the hazard of fixing a number globally when the same number means different things in
+different paragraphs.)*
 
 ### 17. §5 gains `Notice` — the third missing word in one run (pending push)
 
@@ -775,7 +779,7 @@ that is a real improvement rather than adoption.
 - **`py-1.5` was nearly filed as an off-scale breach and is not one.** §4's table names
   `px-3 py-1.5` explicitly, as the padding *inside a control*. What IS true, and is now filed: §9's
   spacing grep is `…-[0-9]+\b`, which matches `py-1` inside `py-1.5` — so **124 half-step values
-  repo-wide are invisible to a count that reports 0**. The third §9 grep found blind in one run.
+  repo-wide are invisible to a count that reports 0**. The third grep found blind in one run — and the only one of the three that is §9's own.
   `BACKLOG.md` carries it with the two-step fix (settle §4's rule, then widen the grep) and the
   reason it must not be done in one step.
 
@@ -805,6 +809,34 @@ look like the primitive.** It is a `Notice tone="warn"` now; verified in both th
   message reading *"this file's name was used for the export"*; nothing in `lib/` or `components/`
   says that. Invented from memory three paragraphs below this block's own warning that a ratchet
   comment is a claim like any other. Quote or do not quote; do not paraphrase inside quotation marks.
+
+**A second, adversarial verification pass then ran over the CORRECTED branch** — four independent
+lenses (accessibility, rendered output, every factual claim, can-these-tests-fail), each finding
+attacked by three skeptics with instructions to refute. **33 findings raised, 27 killed, 6 confirmed
+— four distinct issues, and every one of them was in prose rather than in code.** The code came
+through clean; the documents did not. Worth knowing which way that asymmetry runs before the next
+session budgets its review effort.
+
+- **`DESIGN.md` documented `as="aside"` after the code removed it — caught by THREE lenses
+  independently.** The correction commit narrowed the union to `div | p | section` (a member with no
+  caller is config nobody asked for) and rewrote the §5 bullet, including the sentence immediately
+  before the `as` list, and left the list saying `aside`. `DESIGN.md` is binding and is what
+  `AGENTS.md` tells a session to read before writing a component, so a call site written to the
+  document fails `tsc`. **Doc and code corrected in opposite directions inside one change** — the
+  sharpest single lesson of the run.
+- **A blunt find-and-replace gave the wrong commit credit.** Fixing `invertedTypeFiles` 14 → 12 to
+  14 → 11 globally rewrote increment 16's own scoreboard, which correctly described the CHIP commit.
+  The same number means different things in different paragraphs; replacing it globally is how a
+  ledger starts disagreeing with itself two lines apart.
+- **The P-track answer still claimed "chip-shaped elements 12 → 5, all five carry a written
+  reason"** while the census had dropped to 3 — because the `Notice` increment dissolved two
+  allowances by giving them a real primitive. The ratchet table on the same page had been updated;
+  the run summary a next session reads FIRST had not.
+- **"the THIRD §9 grep found blind in one run" was wrong twice**, and the refutation pass is what
+  separated the true part from the false. Three censuses WERE found blind this run — but the third
+  named was the card census, whose `rounded-xl` blindness was found on 2026-07-31, two runs earlier;
+  the correct third is the notice census. And only the spacing grep is one of §9's six commands at
+  all; the chip and notice censuses live in `lib/design-system.test.ts`.
 
 **And the §3 argument was stated too strongly.** §3 lists "its caveat" under `text-xs`, and a
 standing paragraph five lines above the new entry said in terms that `Analyzer`'s amber note is
@@ -928,9 +960,13 @@ now detected and stated). What stopped D9 going further is a **missing fixture**
 there is no prediction file in the corpus to build against, which is slice 1.
 
 **P-track — what is measurably better?** Five counts moved and one of them a flyer can see.
-`Chip` adopters **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 11**, hand-rolled
-chip-shaped elements **12 → 5** (and all five now carry a written reason rather than being
-unexamined). The one that is not a count: **a neutral chip was invisible against its own container**
+`Chip` adopters **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 11** (12 at the
+chip increment, 11 after the notice one), hand-rolled chip-shaped elements **12 → 3** — and all
+three carry a written reason rather than being unexamined. *It reads 3 rather than the 5 this
+line first claimed because the `Notice` increment dissolved two of the allowances: `CompareView`'s
+mapping prompt and `RecentFlights`'s forgotten-flights banner were exempted as "inline notices,
+not tokens", and they are `Notice`s now. An allowance that disappears when the right primitive
+arrives is the good kind.* Hand-rolled inline notices **6 → 0**, `Notice` adopters **0 → 5**. The one that is not a count: **a neutral chip was invisible against its own container**
 — identical fill to §2's sunken card in light and its default card in dark — so `/stitch`'s burn
 provenance had been a bare outline in dark mode since it was written, and two more surfaces were
 about to join it. It is a visible token in both themes now, verified in pixels on the deployed
