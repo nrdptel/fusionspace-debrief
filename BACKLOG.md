@@ -14,6 +14,14 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — `components/StitchSurface.tsx:100`'s fallback names the wrong cause.** When
+  `compareFromLogbook` returns fewer inputs than ids but no `skipped` entries, the composite says
+  *"one of those flights is no longer in this logbook"*. That branch is unreachable for a missing or
+  unreadable flight (each pushes a `skipped` entry, and those now carry the shared refusal wording),
+  so the one way in is an id list longer than `MAX_COMPARE` — where nothing is missing and the real
+  answer is that the surface only reads the first N. Small, and worth a line because the sentence
+  asserts a deletion. Found by sweeping for a fifth surface with the storage conflation; there is
+  not one, and this is what the sweep turned up instead.
 - **2026-08-03 — one condition, four wordings: the storage refusal is still conflated everywhere
   except the logbook list.** The logbook now tells "browser refused storage" apart from "empty" and
   "still loading", but the same refusal reaches three other surfaces still wearing the old
@@ -27,10 +35,40 @@ wild, ideas too big for one pass. One line each, newest first.
     to your logbook — tick them with another flight to compare"** while the list directly below
     says the browser won't keep a logbook. Nothing was added and there is nothing to tick.
 
-  The fix is the same shape as the one already made: `getRecent` and `saveRecent` need to report a
-  refusal rather than return `null`, and the surfaces need to say it in one voice. **Found by the
-  pre-push review of the logbook change**, which is why the logbook half shipped and this half is
-  filed rather than half-done.
+  **HALF FIXED 2026-08-03, and the half that is not is the more dangerous one.** `readRecent(id)`
+  reports `{ rec, blocked }` beside `readRecents`, and the two surfaces that ACCUSED the flyer's
+  device of deleting a flight — `compareFromLogbook` and the `?open=<id>` deep link — now say the
+  shared `STORAGE_REFUSED` sentence instead. Pinned by `e2e/logbook.spec.ts` → *"a storage refusal
+  is not reported as a deletion"*, asserted on the error card rather than on the page (the logbook's
+  own blocked paragraph renders on every `/`, so a page-level locator passed with the deep-link
+  defect fully restored — found by review, and the test now fails on exactly that mutation).
+
+  **What is NOT fixed, and it is a family rather than a wording problem: the WRITE path cannot
+  report failure at all.** `saveRecent` assigns its id immediately after `store.put` without
+  awaiting the transaction, and `onerror`/`onabort` are `preventDefault()`ed — so a
+  QuotaExceeded abort **returns a non-null id with nothing stored**. Everything built on "a failed
+  save has a null `savedId`" is therefore true only for the case where IndexedDB is absent
+  entirely, which is the one an `addInitScript` stub simulates and the rarest one in the wild;
+  mobile Safari's ITP eviction and a full quota are the common ones. A first attempt to make
+  `/compare` stop announcing "Added … to your logbook" was written against that false invariant and
+  reverted the same day.
+
+  **The worst instance, and it should be fixed first:** `importLogbook` resolves on
+  `transaction.onabort` and returns `flights.length` regardless, so a restore the browser refused
+  reports **"Restored 12 flights."** — and the logbook's Clear confirm offers exactly that export as
+  the safe way out before the app's only irreversible action. It tells a flyer their backup landed
+  when it did not. Its sibling path is nearly as bad: the `catch → 0` renders *"No flights found in
+  that file — is it a Debrief logbook export?"* for a valid backup the browser refused to write,
+  blaming the flyer's file.
+
+  **Reproduce all three in one go:** DevTools → Application → Storage → clamp the quota to ~1 MB,
+  then (a) drop a large log on `/compare` and read the note, (b) Import a real
+  `debrief-logbook.json` and reload, (c) analyse a file and look for any signal it was not kept.
+
+  **Two more wordings of the same condition live on `CompareSurface`** (`:294` a file that would not
+  store, `:422` the drop box's own line), neither routed through `STORAGE_REFUSED`. They are not
+  folded in because the honest sentence for them depends on the write path reporting truthfully.
+  Seven wordings in total; two now share one.
 - **2026-08-03 — the storage-refused message takes §2's `warn` (amber), and §2's own word for a
   refusal is `danger`.** Recorded as a decision rather than left to be re-derived: `ErrorState` is a
   `Card tone="danger"` with `role="alert"`, which fits an operation the flyer just attempted and

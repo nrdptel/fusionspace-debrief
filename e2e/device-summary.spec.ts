@@ -163,7 +163,12 @@ test('the comparison surface pairs a device summary too', async ({ page }) => {
     { name: 'BlRv_SN0829_summary_05-11-2024_.csv', mimeType: 'text/csv', buffer: readFileSync(fx('blueraven-app.summary.csv')) },
   ]);
 
-  const note = page.getByRole('status').filter({ hasText: /logbook/ });
+  // Filtered on the sentence this test is ABOUT, not on the word "logbook". The bare filter matched
+  // two elements intermittently once the logbook list gained its own live region — its empty state
+  // says "Got a logbook backup from another machine?" — so the test failed in the full suite and
+  // passed alone, which reads as a flake and is not one. Third time this shape has bitten: when you
+  // add a shared role, grep the suite for locators that select on the SHAPE rather than the surface.
+  const note = page.getByRole('status').filter({ hasText: /to your logbook|not kept|Nothing in that drop/ });
   await expect(note).toBeVisible();
   // It says the summary was read…
   await expect(note).toContainText(/Read the device's own summary alongside the flight/);

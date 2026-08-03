@@ -30,7 +30,8 @@ import {
   saveCaption,
   saveReadWindow,
   listRecents,
-  getRecent,
+  readRecent,
+  STORAGE_REFUSED,
   removeRecent,
   clearRecents,
   updateNote,
@@ -638,9 +639,16 @@ export default function Analyzer() {
       // names the flight once it is. The generic fallback is what this path used to show for
       // the whole wait.
       setState({ phase: 'loading', what: { name: 'your saved flight' } });
-      const rec = await getRecent(id);
+      const { rec, blocked } = await readRecent(id);
       if (!rec) {
-        setState({ phase: 'error', message: 'That saved flight could no longer be read.' });
+        // Same condition, same words as every other surface — see `STORAGE_REFUSED`. "Could no
+        // longer be read" reads as "your flight is gone" when nothing was ever asked for.
+        setState({
+          phase: 'error',
+          message: blocked
+            ? `That link points at a saved flight, but ${STORAGE_REFUSED} — so it can’t be opened here. Drop the file again to read it.`
+            : 'That saved flight is no longer in this logbook.',
+        });
         return;
       }
       setState({ phase: 'loading', what: { name: rec.name, bytes: rec.bytes?.length ?? rec.text.length } });
