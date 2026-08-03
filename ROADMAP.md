@@ -1577,13 +1577,25 @@ leaves nothing in its place — is the one to watch for on every remaining P1 sl
   the lines instead of blanking them — inside a commit whose ledger entry is about one defect filed
   three times at three wrong line numbers.
 
-**What this did NOT close, stated because the first version of this entry claimed it had.**
-`rankBlocked` withholds the comparison's crown on a clipped peak, a floor apogee or a mixed source —
-but **the logbook has no equivalent.** `personalBests` (`lib/logbook.ts:93`) crowns a raw
-`max(apogeeM)` off `RecentMeta`, which carries no floor, clipped or mixed-source flag at all. So a
-flight whose apogee the report prints as *"(at least)"* and the comparison refuses to crown is still
-starred **"Highest of your remembered flights"** in the logbook. Filed in `BACKLOG.md`; it wants a
-schema field on the persisted store, which is why it is not folded in here.
+~~**What this did NOT close…** the logbook has no equivalent of `rankBlocked`…~~ **CLOSED
+2026-08-03.** `RecentMeta` gains `apogeeCaveats` — the reasons, not a bare boolean, so a row can say
+which one — written at all three save sites from `apogeeCaveatFlags`, carried through the list
+projection and the backup importer, and read by `personalBests`. A flight whose apogee the report
+prints as *"(at least)"* or *"unproven"* and the comparison refuses to crown can no longer be
+starred **"Highest of your remembered flights"**, and the three logbook cells wear the same short
+tags the comparison cell uses, from the same constants.
+
+**Two decisions worth not re-deriving.** The star is withheld from the WHOLE SET rather than from
+the caveated flight, because handing it to the runner-up is a stronger claim than the data supports —
+the disowned flight may well have gone higher. And **absent means qualified**: every row written
+before this field keeps exactly its old behaviour, because a migration that silently withheld every
+star would be a worse regression than the defect. A re-save re-reads the file and fills it in.
+
+The SPEED star is untouched: a caveated altitude says nothing about the speed ranking. Pinned by
+`lib/logbookStar.test.ts` (7 cases), falsified by restoring the unqualified star and by dropping the
+field from the list projection. `lib/recents.test.ts`'s `Required<RecentFlight>` fixtures caught both
+projections that would otherwise have dropped it — an exhaustiveness check that cannot be satisfied
+by accident, and it earned its keep here.
 
 **And a caution the last two increments both earned.** Two of the counts in this list were stale by
 the time they were spent against — item 3's dark-surface census, and `BACKLOG.md`'s half-step

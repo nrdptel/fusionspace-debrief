@@ -92,8 +92,19 @@ function uniqueMaxId(recents: RecentMeta[], get: (r: RecentMeta) => number | nul
  */
 export function personalBests(recents: RecentMeta[]): { apogeeId: string | null; speedId: string | null } {
   const flights = groupRecordings(recents).map((g) => g.primary);
+  // **A star is a ranking, and a ranking needs a number the app is willing to stand behind.** The
+  // report prints a caveated apogee as "(at least)" or "unproven"; the comparison refuses its
+  // crown outright (`rankBlocked`). The logbook was the last surface still ranking on the bare
+  // figure, so a flight whose height Debrief has disowned could wear "Highest of your remembered
+  // flights". Mirrors the comparison's rule rather than inventing one: if any flight in the set
+  // carries an apogee caveat, the set cannot settle which went highest.
+  //
+  // Whole-set, not per-flight, and that is deliberate: withholding the star only from the
+  // caveated flight would hand it to the runner-up, which is a stronger claim than the data
+  // supports — the disowned one may well have gone higher.
+  const apogeeUnrankable = flights.some((r) => r.apogeeCaveats && r.apogeeM != null);
   return {
-    apogeeId: uniqueMaxId(flights, (r) => r.apogeeM),
+    apogeeId: apogeeUnrankable ? null : uniqueMaxId(flights, (r) => r.apogeeM),
     speedId: uniqueMaxId(flights, (r) => r.maxVelocityMs),
   };
 }

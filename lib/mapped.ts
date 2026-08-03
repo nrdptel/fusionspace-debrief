@@ -15,6 +15,7 @@ import { analyzeAsync } from './analyze/runner';
 import { saveRecent } from './recents';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
+import { apogeeCaveatFlags } from './readings';
 
 /** What a mapped file is called wherever it is shown, and stored under. */
 export const MAPPED_FORMAT_LABEL = 'Generic CSV';
@@ -57,6 +58,7 @@ export async function flightFromMapping(
     formatLabel: MAPPED_FORMAT_LABEL,
     apogeeM: analysis.metrics.apogeeAltitude ?? null,
     maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+    ...(apogeeCaveatFlags(analysis.metrics) ? { apogeeCaveats: apogeeCaveatFlags(analysis.metrics)! } : {}),
     ...(flight.flownAt ? { flownAt: flight.flownAt } : {}),
     // The answer, kept with the file. This is what lets the flight be reopened, and joined
     // to a comparison by id, without asking for the mapping again.

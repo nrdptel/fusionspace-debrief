@@ -205,6 +205,13 @@ export function apogeeCaveat(m: FlightMetrics): string | undefined {
 
 /** Whether the apogee carries any caveat at all — what a comparison tests before crowning a
  *  "highest", and what an export tests before deciding there is nothing to qualify. */
+/** The caveats in the shape the logbook persists — `undefined` where there are none, so a row
+ *  for an ordinary flight costs no stored member and old rows keep their behaviour. */
+export function apogeeCaveatFlags(m: FlightMetrics): { floor?: boolean; unproven?: boolean } | undefined {
+  if (!apogeeIsQualified(m)) return undefined;
+  return { ...(m.apogeeIsFloor ? { floor: true } : {}), ...(m.altitudeUnproven ? { unproven: true } : {}) };
+}
+
 export function apogeeIsQualified(m: FlightMetrics): boolean {
   return !!m.altitudeUnproven || !!m.apogeeIsFloor;
 }

@@ -669,6 +669,38 @@ deleting-copies-makes-it-worse finding, and the reason no angle is computed — 
 **The only thing that would still settle it is a fifth high-rate corpus file, and that is an owner
 action on the fixtures repo rather than an engineering one.**
 
+### 15. The logbook stops starring an apogee Debrief has disowned (pending push)
+
+**The last surface still ranking on a number every other surface had already qualified.** The report
+prints a caveated apogee as *"(at least)"* or *"unproven"*; the comparison refuses its crown
+outright; the logbook went on awarding ★ *"Highest of your remembered flights"* off a bare
+`apogeeM`. `ROADMAP.md`'s P1 item named this as what its own last increment did not close, and said
+exactly why it was not folded in: **it wants a field on the persisted store.**
+
+`RecentMeta` gains `apogeeCaveats` — the reasons rather than a bare boolean, so a row can say which
+one. Written at all three save sites from one helper, carried through `toMeta` and the backup
+importer, read by `personalBests`, and rendered as the same short tags the comparison cell uses from
+the same constants.
+
+**Two decisions worth not re-deriving:**
+
+- **Whole-set, not per-flight.** Withholding the star only from the caveated flight hands it to the
+  runner-up, which is a stronger claim than the data supports — the disowned flight may well have
+  gone higher.
+- **Absent means qualified.** Every row written before this field keeps exactly its old behaviour. A
+  migration that silently withheld every star would be a worse regression than the defect; a re-save
+  re-reads the file and fills it in.
+
+The SPEED star is untouched — a caveated altitude says nothing about the speed ranking.
+
+**`lib/recents.test.ts`'s `Required<RecentFlight>` fixtures earned their keep.** Adding one optional
+member turned them red immediately and named both projections that would otherwise have silently
+dropped it: the backup importer and `toMeta`. That is an exhaustiveness check that cannot be
+satisfied by accident, and it is the pattern to copy the next time a stored shape grows.
+
+Pinned by `lib/logbookStar.test.ts` (7 cases), falsified by restoring the unqualified star and by
+dropping the field from the list projection.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe

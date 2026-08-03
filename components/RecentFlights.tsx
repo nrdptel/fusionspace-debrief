@@ -6,6 +6,7 @@ import { fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { CROSS_CHECK_WIDE, MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX, STORAGE_WRITE_REFUSED } from '@/lib/recents';
+import { APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR } from '@/lib/readings';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import GroupProposalBanner from './GroupProposalBanner';
@@ -41,6 +42,16 @@ function relativeTime(ts: number): string {
   const h = m / 60;
   if (h < 24) return `${Math.floor(h)}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+
+/** The short tag a logbook apogee wears where Debrief has qualified it — the same two words the
+ *  comparison cell uses, from the same place, so the two surfaces that rank flights cannot drift
+ *  into two accounts of one caveat. A row is narrow, so it is the tag rather than the sentence;
+ *  the report is where the sentence lives. */
+function apogeeTag(r: { apogeeCaveats?: { floor?: boolean; unproven?: boolean } }): string {
+  if (!r.apogeeCaveats) return '';
+  return `${r.apogeeCaveats.unproven ? APOGEE_TAG_UNPROVEN : ''}${r.apogeeCaveats.floor ? APOGEE_TAG_FLOOR : ''}`;
 }
 
 export default function RecentFlights({
@@ -390,7 +401,7 @@ export default function RecentFlights({
       r.name,
       r.formatLabel,
       r.flownAt ? formatFlownAt(r.flownAt) : `opened ${relativeTime(r.addedAt)}`,
-      r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—',
+      r.apogeeM != null ? fmtLength(r.apogeeM, sys) + apogeeTag(r) : '—',
       r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—',
       ...(anyGrouped ? [String(groupOfRow(r).recordings.length), groupOfRow(r).recordings.slice(1).map((x) => x.name).join('; ')] : []),
       r.note,
@@ -782,7 +793,7 @@ export default function RecentFlights({
                         ★<span className="sr-only">highest, </span>
                       </span>
                     )}
-                    {r.apogeeM != null ? fmtLength(r.apogeeM, sys) : '—'}
+                    {r.apogeeM != null ? fmtLength(r.apogeeM, sys) + apogeeTag(r) : '—'}
                   </span>
                   {/* The launch day where the file states it — that's what a logbook entry
                       is about. Only when the file says nothing does the row fall back to
@@ -935,7 +946,7 @@ export default function RecentFlights({
                               {rec.name}
                             </button>
                             <span className="shrink-0 font-mono text-zinc-500 dark:text-zinc-400" title="What this recording read">
-                              {rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—'}
+                              {rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) + apogeeTag(rec) : '—'}
                               {' · '}
                               {rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—'}
                             </span>

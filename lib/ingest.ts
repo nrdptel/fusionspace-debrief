@@ -20,6 +20,7 @@ import { attachHighRateText, attachSummaryText, saveRecent } from './recents';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
+import { apogeeCaveatFlags } from './readings';
 
 /** Far above any real flight log; a bigger file is a mistake, not a flight. */
 export const MAX_BYTES = 64 * 1024 * 1024;
@@ -228,6 +229,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         formatLabel: result.flight.formatLabel,
         apogeeM: analysis.metrics.apogeeAltitude ?? null,
         maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+        ...(apogeeCaveatFlags(analysis.metrics) ? { apogeeCaveats: apogeeCaveatFlags(analysis.metrics)! } : {}),
         ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
         text,
         // A raw binary download does not survive as text — keep the file itself, or the
