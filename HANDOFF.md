@@ -8,7 +8,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 |---|---|
 | **A Sev-1 that WASN'T** | A "main descent rate published off a record that never landed" was found, fixed, gated green, verified in the running app — and then **refuted before it was pushed**. The fix was reverted. **Read *The one thing to read before anything else* before touching `lib/analyze/index.ts`.** |
 | **P — product & craft** | **P1: §2's colour-by-magnitude clause is closed on both surfaces that broke it**, and two stale roadmap pointers that would each have cost a session an increment are corrected. |
-| **D — capability** | **D8 slice 3's blocker is SOLVED but NOT SHIPPED.** The question its ROADMAP entry said would unblock it — *what is jan10's attitude solution doing that the other three are not* — is answered: **its high-rate file contains a verbatim replayed block.** See *Pick up first*. |
+| **D — capability** | **D8 slice 3 is SHIPPED** — a replayed block in a high-rate download is detected and stated, and the statement is about the stretch the flyer is actually shown. Slice 4 (tilt) stays blocked, but its blocking number was measured over spliced data and slice 3 is what makes de-splicing it possible. |
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
 `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
@@ -230,7 +230,7 @@ Everything measured is written into `ROADMAP.md`'s D8 section and `COMPETITION.m
 the requirement the next attempt has to meet (the statement must be extent-aware, and the extent is
 decided long after the parser that finds the repeat). Nothing was pushed.
 
-### 6. A storage refusal stops being reported as a deletion (pending push)
+### 6. A storage refusal stops being reported as a deletion (`f3751f2`, MERGED)
 
 Two surfaces accused the flyer's own device of losing a flight nobody had asked for:
 `lib/compareFromLogbook.ts` reported every id as *"no longer in this logbook"*, and the
@@ -254,7 +254,7 @@ out before the app's only irreversible action. It tells a flyer their backup lan
 where the logbook's own blocked paragraph — which renders on every `/` — satisfied it on its own.
 It asserts on the ERROR CARD now, and fails on exactly the mutation that restores the old message.
 
-### 7. One chart export instead of three (pending push)
+### 7. One chart export instead of three (`0285985`, MERGED)
 
 `savePng` / `saveChartPng` existed **three times, byte for byte** across `FlightReport`,
 `CompareView` and `ChannelExplorer` — differing only in which ref they read and the output
@@ -280,7 +280,7 @@ inspection. What it exposed is filed: the figure light/dark toggle governs the e
 the PNG. The PNG is right to take the page theme (it composites the live canvas), but two buttons an
 inch apart behave differently and nothing says so.
 
-### 8. A refused restore stops telling a flyer their backup landed (pending push)
+### 8. A refused restore stops telling a flyer their backup landed (`6e1a050`, MERGED)
 
 The worst member of the storage-refusal family, and the one filed as "fix this first" an hour
 earlier in the same run. `importLogbook` resolved on the transaction's `onabort` and then returned
@@ -318,7 +318,7 @@ test also checks the second half of its own name: that the logbook really did st
 `savedId` is non-null on a quota abort. That is why the `/compare` "Added … to your logbook" half
 was reverted earlier today rather than shipped, and it is the next thing to fix here.
 
-### 9. The save reports what the browser did, not what it was asked to do (pending push)
+### 9. The save reports what the browser did, not what it was asked to do (`a294fc5`, MERGED)
 
 The **root** of the storage-refusal family, taken last because everything above it was a wording and
 this is an invariant. `saveRecent` assigned `savedId` the moment the `put` was *queued*, and its
@@ -384,7 +384,7 @@ pre-existing (the old code returned an id on every abort, so it rendered there a
 honest repair is to split `SaveResult` into an address and a `stored` flag, which is also what
 `Analyzer.tsx:293`'s missing `else` needs. `BACKLOG.md` carries both, together.
 
-### 10. The logbook stops promising to remember once a save has been refused (pending push)
+### 10. The logbook stops promising to remember once a save has been refused (`4bedd32`, MERGED)
 
 **Found by the done-check's cold walk of the built export, not by a test — and it is the best
 argument for that step in the whole run.** With increment 9 shipped and live, walking `/compare` on
@@ -446,6 +446,74 @@ the offer stays, with the size reasoning said out loud.
 Pinned by *"the logbook stops promising to remember once a save has been refused"*, which covers both
 routes in (`/compare`'s drop and the analyze page's own save path across a round trip to the report
 and back). Falsified by reverting the hook's status upgrade to a plain `status`.
+
+### 11. A replayed block is not a recording — D8 slice 3, on the second attempt (pending push)
+
+**The D-track increment this run, and the milestone's own account is what made it buildable.** A Blue
+Raven *backup* download can write part of the flight twice: the sensor rows repeat an earlier stretch
+byte for byte. The LOW-rate half has been caught for a long time — the analysis sees a record that
+returns to the ground and climbs again and says *"holds the same flight written twice"* — but the
+high-rate half has no altitude, so none of that machinery can see it, and Debrief drew every replayed
+sample as though it were a fresh instant of the flight.
+
+**This was built and REVERTED earlier the same day.** What shipped is what the revert's account
+demanded, and it differs in exactly three ways:
+
+- **Detection and STATEMENT are separate, which is the whole design.** `findRepeatedSpans` is pure
+  and knows nothing about extents; the spans ride the flight as `RawFlight.repeatedSpans`; and
+  `repeatedSpanNote(spans, extent)` turns them into a claim only where both halves are in hand. That
+  seam exists because **the extent is decided by the analysis long after the parser that can see the
+  repeat** — `lib/report.ts`'s `howRead` is the first place holding both, so every export inherits the
+  note, and `FlightReport` calls the same builder for the screen.
+- **The copies are UNIONED.** jan10's four blocks overlap and sum to 41,463 rows; the union of what
+  they mark as a copy is **27,261**. A row replayed twice is still one row that is not its own
+  instant. The first attempt reported a per-block number — that is where "wrong about how many" came
+  from — and the corpus assertion now fails on exactly that mutation.
+- **A still board is not a replay.** Identical rows repeat trivially while nothing is moving. Measured:
+  this removes nothing from the corpus, so it guards a file the corpus does not hold rather than
+  filtering one it does — kept because the alternative is telling a flyer their download is corrupt
+  because their rocket was on the pad.
+
+**Extent-awareness is the clause that mattered, and it is worth restating.** Debrief already truncates
+jan10 — its low-rate half is doubled too — so the report draws `0 – 20.22 s`. jan10's largest block
+(20,160 samples) sits at flight clock ≈40 s, **outside what the flyer sees**, while a 7,101-sample
+block lands at ≈14.1 s, inside it. The first version named the big one. The note now names only what
+is drawn, clips the span to the extent, and says how many more lie outside it.
+
+**Re-measured before rebuilding, and the roadmap's numbers reproduce exactly** — 27,261 / 44,793 / 0 /
+0 — but only with the payload taken from the `Sync` column onward. **A first pass at re-deriving them
+reported ZERO repeats on every file**, because the row also carries `Year,Month,Day,Time`, a wall
+clock that makes every row unique. That looks exactly like "the roadmap was wrong" and is not; it cost
+ten minutes and is recorded in `ROADMAP.md` so it is not made a third time.
+
+Pinned by `lib/highRateRepeats.test.ts` — 17 tests, 7 of which drive the real read path over every
+corpus high-rate pair. Falsified by two mutations: dropping the extent filter (3 fail, including the
+jan10 case) and dropping the union (the two corpus counts fail).
+
+**And then the pre-push review found the same class of error one layer down — read this part.** The
+rebuild consulted the extent for *which* repeat to name and for the *range*, and not for the *count*:
+jan10 read *"14.1–20.2 s … 7,101 of them"* for a 6.13 s window holding about 3,065 samples. **A 2.3×
+over-claim, checkable by a flyer from two numbers in one paragraph** — the same "wrong about how many"
+that got the first attempt reverted, surviving into the version written to fix it. The note now
+derives nothing: the span's range and count are facts about the file, where the read ends is a fact
+about the analysis, and all three are stated separately.
+
+Three more, all real, all fixed before pushing:
+
+- **"Nothing has been removed: every sample the file holds is still drawn" was false by ~64×.** The
+  high-rate trace is an ENVELOPE — one sample per flight instant — so at most 1,012 of jan10's 64,290
+  samples reach it. The roadmap's own slice-3 account already recorded that, and the note sitting
+  beside mine in the same list said "an envelope rather than the stream itself". I wrote a sentence
+  that contradicted its own neighbour. Deleted.
+- **An unconditional claim about the low-rate half** that `repeatedSpanNote` had no access to check.
+  True for the two corpus files, false on any board where `recordedTwice` refuses. Deleted.
+- **130 MB of transient strings on the main thread**, on a 192,000-row file with no repeats at all.
+  Now a 32-bit hash into an `Int32Array` used only to bucket, with every match confirmed by exact
+  comparison — so a collision costs a comparison, never a wrong answer. Faster too: 1,030 → 641 ms.
+
+**The lesson, and it is the same one as last run's:** the review is not ceremony. Two of the three
+things it caught were claims I had written *while explicitly reasoning about honesty* in the same
+file, and one of them contradicted a sentence rendered six inches away on the same screen.
 
 ## Traps this run hit — read these before repeating them
 

@@ -1124,7 +1124,7 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ## D8 — Orientation and high-rate data
 
-**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED; the repeat-detection slice is MEASURED, BUILT AND REVERTED (read it before rebuilding); the tilt slice is MEASURED AND BLOCKED, and its blocking number was measured over spliced data.**
+**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED; the tilt slice (4) is MEASURED AND BLOCKED, and its blocking number was measured over spliced data — which slice 3 now makes it possible to remove.**
 Decomposed the same day, from measurement, after D7 shipped and left the D-track dry.
 
 **This line said "slices 2 and 3 remain" for a run after slice 2 had shipped, and correcting it is
@@ -1322,11 +1322,23 @@ column a flyer has to recognise by its numbers.
    analysis read a number off it"*, and six refusal cases including *"takes the wait on the RAIL,
    not the longer stretch lying on its side"*. Said on the methods page under **Which way is up
    the rocket**.
-3. **A high-rate download written more than once — MEASURED 2026-08-03, BUILT, and NOT SHIPPED.**
-   Written, gated green over 1,077 tests, verified on the running app, and then reverted, because
-   the pre-push review showed the note it put on screen was wrong about which repeat, wrong about
-   how many, and wrong about whether a flyer could see it at all. Everything below is measured, so
-   the next attempt starts here instead of rediscovering it.
+3. **A high-rate download written more than once — SHIPPED 2026-08-03**, pinned by
+   `lib/highRateRepeats.test.ts` (12 tests, of which 6 run the real read path over every corpus
+   high-rate pair). *Done when* a replayed block is stated to the flyer and a clean download says
+   nothing: both hold, on all four pairs.
+
+   **It was BUILT AND REVERTED once before this**, on the same day, because the pre-push review
+   showed the note it put on screen was wrong about which repeat, wrong about how many, and wrong
+   about whether a flyer could see it at all. The account below is the measurement that survived
+   that revert; what shipped is what the account demanded, and the three things the second attempt
+   did differently are named at the end.
+
+   **Re-measured 2026-08-03 before the rebuild, and the corpus numbers reproduce exactly** — but
+   only once the payload is taken from the `Sync` column onward. A first pass at re-deriving them
+   excluded `Flight_Time_(s)` alone and reported **zero repeats on every file**, because the row
+   also carries `Year,Month,Day,Time` — a wall clock that makes every row unique. That is a
+   two-minute mistake that looks exactly like "the roadmap was wrong", and it is recorded here so
+   the next session does not make it a third time.
 
    **The gap is real.** A Blue Raven backup download can write the same samples more than once. The
    LOW-rate half of such a download is already reported as *"holds the same flight written twice"*;
@@ -1361,8 +1373,50 @@ column a flyer has to recognise by its numbers.
    minutes, at ingest, on the main thread. And any count put in front of a flyer needs
    `toLocaleString('en-US')` like every other number in `lib/`, or a de-DE browser renders `20.160`.
 
-   **What this milestone can still claim, and it is only this:** the repeats are real and measured,
-   and Debrief is silent about them. That is a `GAP` in `COMPETITION.md`, not a shipped capability.
+   **What the second attempt did differently, and it is exactly three things.**
+
+   - **Detection and STATEMENT are separate.** `findRepeatedSpans` is pure and knows nothing about
+     extents; the spans travel on the flight as `RawFlight.repeatedSpans`, and
+     `repeatedSpanNote(spans, extent)` turns them into a claim only where both halves are in hand.
+     That seam is what makes it extent-aware without the parser needing to know an extent it cannot
+     have. `lib/report.ts`'s `howRead` is the first place that holds both, so every export inherits
+     the note; `FlightReport` calls the same builder for the screen.
+   - **The copies are UNIONED.** jan10's four blocks overlap and sum to 41,463 rows; the union of
+     what they mark as a copy is 27,261. A row replayed twice is still one row that is not its own
+     instant. The first attempt reported a per-block number, which is where "wrong about how many"
+     came from. Pinned, and the assertion fails on exactly that mutation.
+   - **A still board is not a replay.** Identical rows repeat trivially while nothing is moving, so
+     a block only counts where the stretch it copies actually varies. Measured: this removes
+     nothing from the corpus — every jan10 and jan18 block varies — so it guards a file the corpus
+     does not hold rather than filtering one it does. It is kept because the alternative is telling
+     a flyer their download is corrupt because their rocket was on the pad.
+
+   **The pre-push review then found the SAME class of error one layer down, and it is the most
+   useful thing in this entry.** The rebuild consulted the extent for *which* repeat to name and
+   for the *range* — and not for the *count*, nor for a reassurance it had no basis for:
+
+   - **A clipped range kept an unclipped count.** jan10 read *"14.1–20.2 s … 7,101 of them"* for a
+     6.13 s window that holds about 3,065 samples at 500 Hz — a **2.3× over-claim a flyer could
+     catch from two numbers in one paragraph**, and precisely the "wrong about how many" that got
+     the first attempt reverted. Fixed by deriving nothing: the span's own range and own count are
+     facts about the FILE, where the read ends is a fact about the ANALYSIS, and all three are
+     stated separately.
+   - **"Nothing has been removed: every sample the file holds is still drawn" was false by ~64×.**
+     The high-rate trace is an ENVELOPE — one sample per flight instant — so at most 1,012 of
+     jan10's 64,290 samples reach it, and 10,119 fall outside every window the reduction builds.
+     This file's own slice-3 account already records that number. The sentence also contradicted
+     the note beside it in the same list. Deleted; the envelope note is where that is explained.
+   - **An unconditional claim about the low-rate half** — *"is read separately and says so on its
+     own account"* — was never checked against `analysis.warnings` and is false on any board whose
+     high-rate half repeats while `recordedTwice` refuses the low-rate one. Deleted.
+   - **130 MB of transient strings on the main thread.** One concatenated key per sample cost that
+     on meraki's 192,000 rows, beside the 15 MB file text, for a file with no repeats at all. Now a
+     32-bit numeric hash into an `Int32Array` (768 KB) used only to BUCKET, with every proposed
+     match confirmed by an exact elementwise comparison — so a collision costs a comparison and
+     never a wrong answer. The scan also got faster: meraki 1,030 ms → 641 ms.
+   - **A test that fails on timing is a test that will one day fail for no reason and be believed.**
+     The two clean pairs shared one `it` at ~3.1 s against vitest's 5 s default and the review
+     measured it over the line on a colder machine. Split; the slowest case is now 1.78 s.
 
 4. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
    from a logger's own solved attitude; a quaternion series can give the same quantity through the
@@ -1422,8 +1476,12 @@ column a flyer has to recognise by its numbers.
    includes a replay. Then decide. A fifth high-rate corpus file would still settle it faster than
    any of this.
 
-   The splice itself is now detected and stated to the flyer — see slice 3 above — so the raw
-   material for a de-spliced comparison exists rather than needing to be rediscovered.
+   **The splice is detected and stated to the flyer as of 2026-08-03** — see slice 3 above — so the
+   raw material for a de-spliced comparison exists rather than needing to be rediscovered. *(This
+   sentence claimed that while slice 3 stood REVERTED, which made it false for a day. It is true
+   now. A pointer written against work that was then pulled is the same stale-baton failure the
+   `Status:` discipline at the top of this file exists to prevent, and it is worth noticing that it
+   happened inside the very section that records the lesson.)*
 
 **What this milestone must NOT do.** No estimated attitude — the invariant is explicit that where a
 sensor cannot resolve a quantity the number is withheld, and integrating a gyro to an angle without
