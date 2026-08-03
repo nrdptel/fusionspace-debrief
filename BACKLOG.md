@@ -73,6 +73,22 @@ wild, ideas too big for one pass. One line each, newest first.
   time**, which is the signature of a bound collapse rather than of missing samples, and it is the
   claim this entry rests on. A finding is a claim until reproduced; this one now is.
 
+  **The fix is TWO lines, and the obvious version of it is wrong — sized 2026-08-03 so the next
+  session does not discover this the expensive way.** The tempting change is to compute `maxVelIdx`
+  unconditionally and let the gap withhold only the VALUE. **Do not.** `maxVelIdx` has **13 uses**
+  in `lib/analyze/index.ts` (`:1853`, `:1889`, `:1909`, `:1964`, `:2057`, `:2397`, `:2433`, `:2725`
+  among them), and every one currently reads `>= 0` as "there is a peak this analysis stands
+  behind". Widening it publishes Mach at peak, peak altitude, the coast climb and
+  `burnoutAtVelocityPeak` off a peak the report has already refused — turning one wrong number into
+  eight. **The safe shape is a SEPARATE index used only for the bound**: compute the ascent argMax
+  into its own `const` regardless of `ascentGapBreaksPeak`, feed `velTurnoverIdx` from it, and
+  leave `maxVelIdx` byte-for-byte alone. Two lines, no other call site touched.
+  *(`:1995` is the same pattern already solved once for the OTHER withholding reason — its comment
+  says throwing the index away with the value "left the burnout crossing search running all the way
+  to apogee on 4 of the corpus's 14 signed-axial flights". The gap reason simply never got the same
+  treatment, and `peakVelIdxBeforeJudgement` at `:1973` cannot supply it because it is captured
+  AFTER `:1758` has already left the index at `-1`.)*
+
   **Filed rather than fixed, deliberately, and the reason is this repo's own rule.** No shipping
   corpus file combines the exposed shape (baro velocity + signed axial accelerometer, no velocity
   column — seven files) with an ascent dropout (two files, both Featherweight GPS logs that find no
