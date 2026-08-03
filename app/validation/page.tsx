@@ -168,6 +168,49 @@ export default function ValidationPage() {
           </p>
         </Section>
 
+        <Section title="What the readings cannot settle: a tilt angle off the board's own attitude">
+          <p>
+            A Blue Raven writes a 500&nbsp;Hz quaternion attitude solution beside its flight log, and
+            it also writes its own <strong>Tilt_Angle</strong> column. That makes a rare thing
+            possible: Debrief can compute a tilt from the quaternions and check it against the number
+            the board itself computed, on the same flight. It does not publish one, and this is why.
+          </p>
+          <p className="mt-2">
+            Measured over the ascent of all four corpus high-rate pairs, against each board&apos;s own
+            tilt column — mean error, and worst:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6">
+            <li>
+              <strong>0.62°</strong> mean, 1.80° worst · <strong>1.81°</strong> mean, 3.84° worst —
+              the two clean downloads
+            </li>
+            <li>
+              <strong>1.76°</strong> mean, but <strong>10.80°</strong> worst — a third
+            </li>
+            <li>
+              <strong>21.67°</strong> mean, 96.67° worst — a fourth, whose download{' '}
+              <em>writes part of the flight twice</em>
+            </li>
+          </ul>
+          <p className="mt-2">
+            The fourth file&apos;s figure is mostly bookkeeping: read only up to the point where its
+            replay begins, it settles to <strong>4.07°</strong> mean and 7.34° worst. Worth stating
+            because it is the kind of thing that looks like a fix and is not:{' '}
+            <strong>deleting the repeated samples makes it worse, not better</strong>{' '}
+            (21.67°&nbsp;→&nbsp;24.05°). A download that repeats itself has lost the correspondence
+            between its two halves from the first seam onward, and no amount of dropping rows
+            restores it — only reading less of the file does.
+          </p>
+          <p className="mt-2">
+            Even at 4.07° that file agrees two to six times less closely than the clean pair, and on
+            the worst single sample the third file is further out than it is. So a refusal would have
+            to tell those two apart, and nothing in the corpus does. A tilt right three times in four,
+            with no way to say which time is the fourth, is exactly the plausible-but-wrong reading
+            Debrief withholds by policy. The channels are named and drawn; no angle is computed off
+            them.
+          </p>
+        </Section>
+
         <Section title="Grounded in published sources">
           <p>
             The methods are implemented from published formulas and cited, not copied from another

@@ -637,6 +637,38 @@ dropping the card's branch, and restoring the old `anyFloor` crown gate. It also
 is still in the state the file exists for, so a corpus re-cut that changes it fails loudly rather
 than passing green over nothing.
 
+### 14. D8 slice 4's blocking measurement, taken — and "de-spliced" had two meanings (pending push)
+
+**The roadmap named this as the next step and slice 3 made it possible.** Every number in slice 4's
+tilt table was computed over data containing a verbatim replay; `findRepeatedSpans` can now identify
+those stretches. The re-run:
+
+| file | whole ascent | copies removed | read only to the first seam |
+|---|---|---|---|
+| meraki | **0.62° / 1.80°** | *no replay* | — |
+| lemiv | **1.81° / 3.84°** | *no replay* | — |
+| jan18 | **1.76° / 10.80°** | identical — its replays are all past apogee | identical |
+| jan10 | **21.67° / 96.67°** | **24.05° — WORSE** | **4.07° / 7.34°** |
+
+**Deleting the repeated samples makes it worse, and that is the finding worth keeping.** A download
+that repeats itself has lost the correspondence between its two halves from the first seam onward.
+The surviving rows either side of a seam still describe different instants than the low-rate half
+does at the same clock time, so dropping rows cannot restore the alignment — only reading LESS of
+the file can. Truncated at its first seam jan10 reads 4.07°, reproducing the 4.71° already on record
+by an independent route.
+
+**The block stands, and its reason is sharper than "jan10 is the odd one".** On MEAN error jan10 is
+still 2.2× lemiv and 6.6× meraki. On the WORST single sample it is not the outlier at all — **jan18
+reaches 10.80°**, further out than jan10's de-spliced 7.34°. So a refusal would have to separate
+them on mean while ignoring that the other is worse on peak, and nothing in the corpus supplies
+that.
+
+**Shipped as a refusal that says why.** `/validation` carries the four numbers, the
+deleting-copies-makes-it-worse finding, and the reason no angle is computed — which is what
+"a withheld number says why it is withheld" looks like when the withholding is the deliverable.
+**The only thing that would still settle it is a fifth high-rate corpus file, and that is an owner
+action on the fixtures repo rather than an engineering one.**
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe
