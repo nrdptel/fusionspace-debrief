@@ -1479,13 +1479,43 @@ column a flyer has to recognise by its numbers.
    pre-seam (t ≤ 12.17 s), `jan10` reads **4.71° mean / 7.29° worst** against meraki 0.21/1.08,
    lemiv 1.83/3.25 and jan18 1.32/3.62 on the identical window.
 
-   **The block STANDS, with a corrected magnitude and a corrected next step.** 4.71° is still 2.6×
-   the worst of the other three, and `jan10`'s worst error exceeds all three of theirs, so this is
-   not a file that agrees once the corruption is removed — it is a file that agrees less. Do not
-   ship a tilt on this. **The next step is not a guard hunt**: re-run the whole slice-3 comparison on
-   de-spliced streams first, because every number in the table above was computed over data that
-   includes a replay. Then decide. A fifth high-rate corpus file would still settle it faster than
-   any of this.
+   **The block STANDS, with a corrected magnitude.** Do not ship a tilt on this.
+
+   **THE DE-SPLICED RE-RUN IS DONE — 2026-08-03, and it changed the reasoning rather than the
+   verdict.** This entry said the next step was to re-run the comparison on de-spliced streams,
+   because every number above was computed over data containing a replay. `findRepeatedSpans`
+   (slice 3) makes that possible, and the measurement is:
+
+   | file | whole ascent | copies removed | read only up to the first seam |
+   |---|---|---|---|
+   | meraki | **0.62° / 1.80°** | *no replay* | — |
+   | lemiv | **1.81° / 3.84°** | *no replay* | — |
+   | jan18 | **1.76° / 10.80°** | identical — its replays are all past apogee | identical |
+   | jan10 | **21.67° / 96.67°** | **24.05° / 96.67° — WORSE** | **4.07° / 7.34°** |
+
+   **"De-spliced" had two readings and only one of them is an operation that can work.** Deleting
+   the repeated samples makes jan10 *worse*. A download that repeats itself has lost the
+   correspondence between its two halves from the first seam onward — dropping rows does not restore
+   it, because the surviving rows on either side of the seam still describe different instants than
+   the low-rate half does at the same clock time. Only reading LESS of the file repairs it.
+   Truncated at its first seam, jan10 reads **4.07° / 7.34°**, reproducing the 4.71°/7.29° recorded
+   above by an independent route (that cut at 12.17 s, the pre-seam window of both halves; this cuts
+   at the high-rate seam at 14.09 s).
+
+   **So the block stands, and its reason is sharper than "jan10 is the odd one".** On MEAN error
+   jan10 at 4.07° is still 2.2× lemiv and 6.6× meraki. But on the WORST single sample it is not the
+   outlier at all: **jan18 reaches 10.80°**, further out than jan10's de-spliced 7.34°. A refusal
+   would therefore have to separate jan10 from jan18 on mean while ignoring that jan18 is worse on
+   peak — and nothing in the corpus supplies that. A tilt right three times in four with no way to
+   say which time is the fourth is the plausible-but-wrong reading the MEASUREMENT invariant exists
+   to stop.
+
+   **Published rather than left in this file:** `/validation` now carries the four numbers, the
+   deleting-the-copies-makes-it-worse finding, and why no angle is computed. A withheld number that
+   says why it is withheld is the shippable form of this slice.
+
+   **A fifth high-rate corpus file would still settle it faster than any of this**, and that is now
+   the only thing that would — it is an owner action (the fixtures repo), not an engineering one.
 
    **The splice is detected and stated to the flyer as of 2026-08-03** — see slice 3 above — so the
    raw material for a de-spliced comparison exists rather than needing to be rediscovered. *(This
