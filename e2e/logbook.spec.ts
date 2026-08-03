@@ -952,3 +952,148 @@ test('a restore the browser refuses does not report flights it did not keep', as
   // to restore a backup, which is the empty state, not a list.
   await expect(page.getByRole('button', { name: 'Restore it' })).toBeVisible();
 });
+
+test('a save the browser refuses is not announced as a flight added', async ({ page }) => {
+  // The root of the storage-refusal family. `saveRecent` assigned its id the moment the `put` was
+  // QUEUED and preventDefault()ed the error away, so a quota abort returned a perfectly good id
+  // with nothing stored — and `/compare` announced the files were "added to your logbook, tick
+  // them" over a list that had nothing to tick. Written against that false invariant once and
+  // reverted; it reports its transaction's outcome now.
+  //
+  // Aborts the readwrite TRANSACTION rather than removing indexedDB, for the same reason as the
+  // restore case: a missing indexedDB is caught before the write and proves nothing about the
+  // outcome path.
+  await page.addInitScript(() => {
+    const realOpen = indexedDB.open.bind(indexedDB);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (indexedDB as any).open = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req: any = (realOpen as any)(...args);
+      req.addEventListener('success', () => {
+        const db = req.result;
+        const realTx = db.transaction.bind(db);
+        db.transaction = (names: unknown, mode?: string) => {
+          const t = realTx(names, mode);
+          if (mode === 'readwrite') queueMicrotask(() => { try { t.abort(); } catch { /* done */ } });
+          return t;
+        };
+      });
+      return req;
+    };
+  });
+
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles({ name: 'cert.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+
+  // Positive first — the negatives below are toHaveCount(0) and would pass while the surface is
+  // still working.
+  await expect(page.getByText(/were not kept|was not kept/)).toBeVisible();
+  await expect(page.getByText(/Added .* to your logbook/)).toHaveCount(0);
+
+  // And it must not claim the READS failed. They did not: the logbook was read to dedupe against
+  // seconds ago. `STORAGE_REFUSED` ("read or keep") is for a browser with no indexedDB at all.
+  await expect(page.getByText(/let Debrief read or keep/)).toHaveCount(0);
+});
+
+test('a drop that keeps some flights and loses others names the ones it lost', async ({ page }) => {
+  // **The case a first version of this left silent, and the commonest shape of the failure.** The
+  // kept/not-kept accounting was written inside the `setNote` that only runs when fewer than two
+  // flights end up on screen — so it fired only when the drop lost EVERYTHING. A drop where some
+  // files commit and the rest abort takes the `merged.length >= 2` early return instead: the
+  // comparison assembles from the survivors and the ones that never landed are named nowhere.
+  // Silent loss, on exactly the surface built to end silent loss.
+  //
+  // Aborts every readwrite transaction from the third onward, so the first two saves commit and
+  // the third does not — which is what a quota filling up mid-drop actually does.
+  await page.addInitScript(() => {
+    let writes = 0;
+    const realOpen = indexedDB.open.bind(indexedDB);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (indexedDB as any).open = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req: any = (realOpen as any)(...args);
+      req.addEventListener('success', () => {
+        const db = req.result;
+        const realTx = db.transaction.bind(db);
+        db.transaction = (names: unknown, mode?: string) => {
+          const t = realTx(names, mode);
+          if (mode === 'readwrite' && ++writes > 2) queueMicrotask(() => { try { t.abort(); } catch { /* done */ } });
+          return t;
+        };
+      });
+      return req;
+    };
+  });
+
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles(
+    ['kept-one.csv', 'kept-two.csv', 'lost.csv'].map((name, i) => ({
+      name,
+      mimeType: 'text/csv',
+      // Distinct peaks so they are three flights rather than three copies of one — a duplicate
+      // would be replaced in place and never reach a third write.
+      buffer: Buffer.from(eggtimerCsv(300 + i * 50)),
+    })),
+  );
+
+  // The comparison really did assemble — this is the path that skipped the accounting, so the
+  // test is worthless if the surface fell back to the picker instead.
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
+  // …and the file that never landed is named, as not kept rather than as anything else.
+  await expect(page.getByText(/lost\.csv (was|were) read but could not be kept/)).toBeVisible();
+});
+
+test('a refused write does not take away the address of a flight already in the logbook', async ({ page }) => {
+  // **An abort means this WRITE did not land — not that there is no flight here.** Reopening a
+  // logbook flight re-saves it, and an aborted transaction rolls back, so the earlier copy
+  // survives at exactly that id. Reporting `id: null` for it would have been a fresh lie in the
+  // opposite direction, and a live one: `Analyzer` hands this straight to `rememberOpenId`, which
+  // DELETES `?open=` when it is null. On a quota-full device a flyer would click a logbook row,
+  // watch the flight open and read perfectly, and then find Back and reload landing on the empty
+  // drop zone — the address quietly removed from under them by a save they never asked for.
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'already-here.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('open')).not.toBeNull();
+  const id = new URL(page.url()).searchParams.get('open') as string;
+
+  // Writes stop working AFTER the flight is in the logbook — a quota filling up between visits,
+  // which is the only way this case can arise. Reads keep working, as they do in the wild.
+  await page.addInitScript(() => {
+    const realOpen = indexedDB.open.bind(indexedDB);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (indexedDB as any).open = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req: any = (realOpen as any)(...args);
+      req.addEventListener('success', () => {
+        const db = req.result;
+        const realTx = db.transaction.bind(db);
+        db.transaction = (names: unknown, mode?: string) => {
+          const t = realTx(names, mode);
+          if (mode === 'readwrite') queueMicrotask(() => { try { t.abort(); } catch { /* done */ } });
+          return t;
+        };
+      });
+      return req;
+    };
+  });
+
+  await page.goto(`/?open=${id}`);
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+
+  // A SYNC POINT, not a claim about captions: this copy renders only once the re-save has
+  // resolved with a non-null id and `savedId` has reached report state — which is the step
+  // immediately after `rememberOpenId`. Without it the assertion below can read the URL before
+  // the save has had a chance to remove it, and pass whether or not the bug is present.
+  await page.getByRole('group').filter({ hasText: 'Label this report' }).locator('summary').click();
+  await expect(page.getByText(/Kept with this flight on this device/)).toBeVisible();
+
+  expect(new URL(page.url()).searchParams.get('open'), 'a refused re-save must not drop the address').toBe(id);
+  // The consequence itself, rather than the URL string: the address still opens the flight.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible({ timeout: 20_000 });
+});

@@ -303,10 +303,6 @@ export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
     const isDup = (r: RecentFlight) => isSameStoredFlight(r, rec);
     const store = tx(db, 'readwrite');
-    // Swallow a quota/abort failure (e.g. a very large file text) instead of
-    // letting it surface as an uncaught transaction error.
-    store.transaction.onerror = (e) => e.preventDefault();
-    store.transaction.onabort = (e) => e.preventDefault();
 
     // Replace any earlier copy of the same file, carrying everything the FLYER decided about
     // it forward — the note, the summary it was paired with, the report caption, the stretch
@@ -322,14 +318,18 @@ export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
     // in place, so the address it replaces is the address it should keep.
     const existing = all.find(isDup);
     const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    for (const r of all) if (isDup(r) && r.id !== id) store.delete(r.id);
     store.put({
       ...replaceInPlace(rec, dups),
       id,
       addedAt: Date.now(),
     });
-    savedId = id;
-
+    // AFTER the put, and that ordering is the whole point. Within one transaction the order of
+    // operations on different keys does not matter to IndexedDB — but it matters to what is
+    // already QUEUED if `put` throws synchronously (a value that will not structured-clone).
+    // Queued first, these deletes would ride a transaction that then commits with nothing put:
+    // the older copy of the flight gone and the new one never stored. Queued second, a throw
+    // from `put` leaves the transaction empty.
+    for (const r of all) if (isDup(r) && r.id !== id) store.delete(r.id);
     // Deleted by recording; NAMED by flight. A two-altimeter flight leaving the window is one
     // flight forgotten, and saying "2 flights were forgotten" while naming two files is the
     // same conflation `planPrune` exists to end, one layer up. The flight is named by the
@@ -337,6 +337,35 @@ export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
     const dropped = planPrune(all.filter((r) => !isDup(r)));
     const droppedIds = new Set(dropped.map((r) => r.id));
     for (const r of dropped) store.delete(r.id);
+
+    // **The transaction's OUTCOME decides what this reports, and it used to be its intent.**
+    // `savedId` was assigned the moment the `put` was QUEUED, and an error or abort was
+    // `preventDefault()`ed away — so a QuotaExceeded abort (a very large file text, a full
+    // origin, Safari's ITP eviction) returned a perfectly good-looking id with nothing stored.
+    // Everything downstream believed it: `/compare` announced the files were "added to your
+    // logbook — tick them", the analyze page kept no signal that the flight was not saved, and a
+    // reload lost it. A save that cannot report failure makes every surface above it a liar.
+    //
+    // The error is deliberately not prevented, for the same reason `importLogbook` stopped
+    // preventing it: preventing the default is exactly what stops the transaction aborting, so
+    // keeping it would let a partial write commit while this reported nothing saved. Atomic —
+    // the flight and the prune it triggered land together or neither does — is the only version
+    // where `forgotten` is also true, since nothing was pruned if nothing committed.
+    const complete = await new Promise<boolean>((resolve) => {
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onabort = () => resolve(false);
+    });
+    // **An abort does not mean there is no flight here — it means this WRITE did not land.** An
+    // aborted transaction rolls back, so where this save was a replace-in-place the earlier copy
+    // survives at exactly this id, and that id is still the flight's address: `/?open=<id>` opens
+    // it, a comparison can name it, the caption editor has a row to write to. Returning null for
+    // it would have been a second lie in the opposite direction — and a live one, because
+    // `Analyzer` passes this straight to `rememberOpenId`, which DELETES `?open=` when it is
+    // null. Re-opening a logbook flight on a quota-full device would have read fine and then
+    // silently dropped its own address out of the URL, so Back and reload landed on the empty
+    // drop zone. Null is right only for a flight that was never in the logbook to begin with.
+    if (!complete) return { id: existing ? id : null, forgotten: [] };
+    savedId = id;
     for (const g of groupRecordings(dropped)) if (droppedIds.has(g.primary.id)) forgotten.push(g.primary.name);
   } catch {
     /* storage unavailable — just don't remember */
@@ -517,16 +546,32 @@ export function toMeta(rec: RecentFlight): RecentMeta {
  * sentence rather than this constant because it has something extra and specific to say — keep the
  * file — and a shared string that has to be true everywhere cannot say that.
  *
- * **What still has its own wording, and why:** `CompareSurface` has two (a file that would not
- * store, and the drop box's own line). Both need the SAVE path to report failure and it does not —
- * `saveRecent` assigns its id straight after `store.put` without awaiting the transaction, so a
- * quota abort returns a non-null id with nothing stored. That is the next thing to fix here;
- * `BACKLOG.md` carries it with the repro.
+ * **This one says READ OR KEEP, so only say it where reads really are refused.** That is the
+ * `indexedDB`-is-absent shape — a locked-down browser, some private windows — where `idb()` throws
+ * and nothing can be answered. It is NOT the shape a full quota or an eviction takes: there the
+ * reads work perfectly and only the write rolls back, so this sentence would be half false, and it
+ * would sit directly under a logbook list happily showing the flights it claims cannot be read.
+ * Use `STORAGE_WRITE_REFUSED` for that. One condition with two genuinely different truths is two
+ * strings, not one; the mistake to avoid is the *third* wording, not the second.
  *
  * A storage refusal is not a deletion and must never be reported as one.
  */
 export const STORAGE_REFUSED =
   'this browser won’t let Debrief read or keep a logbook on this device';
+
+/**
+ * What Debrief says when the browser reads fine and refuses to WRITE.
+ *
+ * A full origin quota and Safari's ITP eviction both take this shape, and between them they are
+ * the common refusal in the wild — `indexedDB` missing entirely is the rare one. `saveRecent` and
+ * `importLogbook` both report their transaction's outcome (2026-08-03), so a caller can finally
+ * tell this apart from a read failure and say the half that is true.
+ *
+ * The import path still carries its own longer sentence rather than this constant, because it has
+ * something extra and specific to say — *keep the file* — and a shared string that has to be true
+ * everywhere cannot say that.
+ */
+export const STORAGE_WRITE_REFUSED = 'this browser won’t let Debrief keep a logbook on this device';
 
 /**
  * The logbook, and whether it could be read at all.

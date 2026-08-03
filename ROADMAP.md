@@ -1778,10 +1778,27 @@ the artifact rather than the tree.
    refuses storage says so, instead of promising to remember"* removes `indexedDB` and checks the
    surface says so and that analysis still works. Both falsified by mutation.
 
-   **Two things this deliberately did NOT do.** The `status` prop defaults to `'ready'`, so a caller
-   holding rows in hand need not thread it — and both real call sites do thread it. And the offline
-   state is still undelivered suite-wide (see the note above); this closes loading and error on one
-   surface, not the fifth state everywhere.
+   **Two things this deliberately did NOT do.** ~~The `status` prop defaults to `'ready'`~~ —
+   **corrected the same day: it is REQUIRED.** Defaulting it made the *defect* value the one a new
+   caller gets for free, on a prop whose entire reason for existing is that "I have no rows" and
+   "I could not read any" had been the same value. A convenience default that reinstates the bug it
+   was added to fix is not a convenience. Both call sites already threaded it, so the cost was zero.
+   And the offline state is still undelivered suite-wide (see the note above); this closes loading
+   and error on one surface, not the fifth state everywhere.
+
+   **DONE 2026-08-03 — the whole family, root last.** The three increments above closed the READ
+   path; the write path could not report failure at all. `saveRecent` and `importLogbook` both
+   assigned their result the moment a `put` was queued and `preventDefault()`ed the abort away, so a
+   full quota or an ITP eviction returned a good-looking id and a *"Restored 12 flights."* over an
+   empty logbook. Both await their transaction now. **`savedId` means "the logbook took it"** — the
+   thing every surface above already read it as — and the saves are atomic, so `forgotten` cannot
+   name a flight dropped to make room for a save that never landed. **The constant split in two on
+   the way**: `STORAGE_REFUSED` says *"read or keep"* and is only true where `indexedDB` is absent,
+   while a quota abort reads perfectly — so `STORAGE_WRITE_REFUSED` carries the write half rather
+   than telling a flyer their logbook cannot be read directly above a list rendering it. Five
+   surfaces, three on the two shared constants and two bespoke because they each have something
+   specific to say. The analyze page is the one left, and it is now a plumbing job rather than a
+   truth problem (`BACKLOG.md`, where it is paired with the caption panel's matching gap).
 
 6. ~~**Two primaries on one surface** — `ColumnMapper` only now.~~ **DONE 2026-08-01, and the
    remaining count was 0 before the work started.** `ColumnMapper`'s two `variant="primary"` calls

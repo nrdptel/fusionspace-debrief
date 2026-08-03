@@ -318,6 +318,72 @@ test also checks the second half of its own name: that the logbook really did st
 `savedId` is non-null on a quota abort. That is why the `/compare` "Added … to your logbook" half
 was reverted earlier today rather than shipped, and it is the next thing to fix here.
 
+### 9. The save reports what the browser did, not what it was asked to do (pending push)
+
+The **root** of the storage-refusal family, taken last because everything above it was a wording and
+this is an invariant. `saveRecent` assigned `savedId` the moment the `put` was *queued*, and its
+`onerror`/`onabort` both called `preventDefault()` — so a QuotaExceeded abort returned a perfectly
+good-looking id with nothing stored. Every surface above it reads `savedId` as *"the logbook took
+it"*, and that reading was true only where IndexedDB is absent entirely: the case an `addInitScript`
+stub simulates, and the rarest one in the wild. **Mobile Safari's ITP eviction and a full quota are
+the common ones, and both returned an id.**
+
+It awaits its transaction now and returns `{ id: null, forgotten: [] }` on an abort.
+
+**Why the `preventDefault()`s had to go rather than stay, which is the third time this run that
+reasoning ran backwards.** Preventing the default on an IDB error is precisely what *stops* the
+transaction aborting. Keeping them while reporting failure would let the write commit while this
+said nothing was saved — strictly worse than the bug being fixed, because the flyer would then be
+told to re-drop a file that is already in their logbook. Letting the error abort is what makes
+`id: null` true when it says so.
+
+**The prune goes atomic with it, and that is a second claim made honest.** `forgotten` names flights
+the logbook dropped to make room. Those deletes ride the same transaction as the `put`, so an abort
+drops neither — and `forgotten: []` is then the only correct answer. The old shape could have
+reported *"Rocket 4 was forgotten to make room"* for a save that never landed, which is the same lie
+one layer up and would have sent a flyer looking for a flight that is still there.
+
+**An abort is not "there is no flight here" — it is "this write did not land", and getting that
+wrong would have shipped a fresh bug.** An aborted transaction rolls back, so where the save was a
+replace-in-place the earlier copy survives at exactly that id, and that id is still the flight's
+address. The first version returned a flat `null`, and `Analyzer` hands this straight to
+`rememberOpenId`, which **deletes `?open=` when it is null** — so reopening a logbook flight on a
+quota-full device would have read perfectly and then silently dropped its own address out of the
+URL, leaving Back and reload on the empty drop zone. `existing ? id : null` is the honest answer,
+and it also means the case is a *narrowing* of the old behaviour rather than a change to it: the old
+code returned the id here too. Pinned by *"a refused write does not take away the address of a
+flight already in the logbook"*.
+
+**The `/compare` half that was reverted this morning is restored with it — and rewritten twice more
+before it was right.** A drop on a browser refusing storage used to announce *"Added a.csv, b.csv to
+your logbook — tick them"* while the list below said the browser would not keep a logbook. Two
+corrections, both found by the pre-push review and both worth more than the original fix:
+
+- **The accounting was below the `merged.length >= 2` early return, so it only fired when the drop
+  lost EVERYTHING.** Drop six logs on a quota-full browser, three commit and three abort: `merged`
+  is three, the comparison assembles, and the three that never landed are named nowhere. That is the
+  *commonest* shape of the failure, and it was the one case still silent — inside the change written
+  to end silent loss. The sentence rides `load`'s note now, so it is said on every drop.
+- **`STORAGE_REFUSED` says "read or keep", and a refused write reads fine.** Using it here would
+  have told the flyer their browser could not READ a logbook directly above a logbook list showing
+  their flights — the same two-surfaces-one-viewport contradiction, pointing the other way.
+  `STORAGE_WRITE_REFUSED` is the write half; the shared string is now two shared strings because the
+  condition genuinely has two truths.
+
+**Pinned by three tests**, each falsified by mutation: *"a save the browser refuses is not announced
+as a flight added"* (restoring `savedId = id` ahead of the await puts "Added cert.csv" back over a
+logbook with nothing to tick), *"a drop that keeps some flights and loses others names the ones it
+lost"* (dropping `notKeptNote` from the `load` call — the exact defect the review found), and the
+address test above. All abort the readwrite **transaction** the way a full quota does rather than
+removing `indexedDB`, which is caught before the write and proves nothing about the outcome path.
+Assertion order is positive-first for the reason recorded under increment 8.
+
+**Filed, not fixed:** the report's caption panel says *"Kept with this flight on this device"*
+whenever it has an id — true of the flight, false of a caption typed while writes are refused. It is
+pre-existing (the old code returned an id on every abort, so it rendered there already) and the
+honest repair is to split `SaveResult` into an address and a `stored` flag, which is also what
+`Analyzer.tsx:293`'s missing `else` needs. `BACKLOG.md` carries both, together.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe
