@@ -896,6 +896,49 @@ landing energy, ejection delay, rail exit, and the GPS and device-summary cross-
 **So D7 is not "add the obvious readings".** They are shipped. What is missing is depth of a
 different kind, and each slice below names the ground truth that would settle it.
 
+### What slice 1 found, 2026-08-03 — three corrections to the decomposition above
+
+**The fixture is OpenRocket's own shipped example design, written by OpenRocket 24.12**, and it is
+the most clearly-licensed file in the corpus: GPL-3.0-or-later, where most of the corpus is
+"publicly posted, all rights reserved" with no grant at all. Held for private regression testing,
+which the GPL does not restrict. **`LICENSE.TXT`'s section-7 additional permission is NOT the basis
+and must not be cited as one** — it permits packaging *the Program* alongside non-compilable data
+files such as thrust curves, which is a different act from redistributing an example design. An
+earlier note in this section leaned on that clause; it is the wrong clause.
+
+**Slice 2's *done when* is already half-satisfied, by measurement rather than assumption.** The
+decomposition says SI must be proved against a real file because the spec page states no units. It
+is: `maxvelocity / maxmach = 29.249 / 0.086 = **340.1 m/s**`, the speed of sound, so the velocity is
+metres per second. All ten documented attributes are present on all five of the file's simulations.
+
+**Three things the decomposition had open, now answered — and two of them change slice 2 and 4:**
+
+1. **A `.ork` really can carry a saved time series.** This one holds **2,580 `<datapoint>` rows
+   across five `<databranch>` elements**, despite `StorageOptions.saveSimulationData` defaulting to
+   `false`. So "the summary is the only thing that can be relied on" is right as a *floor* and wrong
+   as a *description* — an importer must handle both presence and absence, and slice 4 has a real
+   fixture rather than a hypothetical.
+2. **`<simulation status>` takes `"uptodate"` here**, a second observed value beside the spec page's
+   `"loaded"` example. The page still defines none, so the trust rule stays `UNVERIFIED` — but the
+   vocabulary now has two known members instead of one.
+3. **`types=` holds LOCALIZED names** (`Time,Altitude,Altitude above sea level,Vertical velocity,…`)
+   because 24.12 writes `getName()`. The decomposition says only `unstable` writes stable save keys,
+   which is correct — but the sharper point is that **the encoding follows the version that WROTE
+   the file, not the branch it is fetched from.** This file was fetched from `unstable` and is
+   localized. 24.12 is the shipped stable release, so **localized is what a flyer's own file will
+   have**, and slice 4 must read it as the normal case rather than the legacy one.
+
+**One thing the fixture is NOT, stated so slice 3 is not scoped against it:** it corresponds to no
+flown log. It is a 50–320 m model rocket with five simulations and no altimeter recording anywhere
+in the corpus. That is fine for slices 1, 2 and 4 — parse it, refuse it standalone, read its series
+— but slice 3's cross-check table needs a prediction and a flight *of the same rocket*, which only a
+flyer can supply. Slice 3's *done when* should be tested with a hand-paired set, not with this file.
+
+**And a question the decomposition never raised, because nothing had been read:** this single file
+carries **five** simulations. An importer has to decide which one a flyer means — the last? the
+one matching the flown motor? all of them? — and "the `.ork` holds a prediction" is therefore wrong
+in the singular. That is a slice 2 design question and it is not answered here.
+
 ### The slices, ranked by what a flyer can check
 
 1. ~~**Every recorded channel readable as numbers, not just six.**~~ **DONE 2026-08-01.**
@@ -1536,8 +1579,10 @@ real risk attached: the standalone refusal must survive it.
 
 ## D9 — Predicted versus flown
 
-**Status:** DECOMPOSED 2026-08-03, from measurement, because D8's remaining slice is blocked and the
-D-track would otherwise be dry. Nothing built. `COMPETITION.md` row 12 — **not** the oldest open
+**Status:** DECOMPOSED 2026-08-03, and **SLICE 1 IS DONE the same day — the corpus has its first
+prediction.** `openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork` in
+`nrdptel/debrief-fixtures` (manifest row 62, full provenance in `SOURCES.md`). Slice 2 is unblocked
+and is the next D increment. Nothing built in this repo yet. `COMPETITION.md` row 12 — **not** the oldest open
 `GAP`, which this line first claimed: rows 3 and 4 are both `GAP` and both older, and rows are
 numbered in order added.
 
@@ -1647,7 +1692,8 @@ the whole milestone is about reading what a real tool actually writes.
 
 ### The slices, ranked by what a flyer can check
 
-1. **A prediction file in the corpus, or a written refusal.** Source one real `.ork` with saved
+1. ~~**A prediction file in the corpus, or a written refusal.**~~ **DONE 2026-08-03 — see the
+   section immediately above.** Source one real `.ork` with saved
    simulation data under `LICENSING.md`'s redistribution and privacy rules — *which are a different
    rule from the clean-room one governing parsers; an earlier draft merged the two into one phrase*
    — and record its provenance in `SOURCES.md` like every other fixture. **If none can be licensed, that is a legitimate outcome and
