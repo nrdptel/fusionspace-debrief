@@ -220,7 +220,22 @@ hand-rolls it instead is not done.
   either app is this.** It owns the refusal behaviour the SAFETY invariant requires: a value that
   cannot mean anything physically is bounded or refused at the field, not flown into a confident
   number downstream.
-- **`Chip`** — a compact key/value or filter token. `text-xs`, `rounded-md`, `px-2 py-1`.
+- **`Chip`** — a compact key/value or filter token. `text-xs`, `rounded-md`, `px-2 py-1`. Tones are
+  §2's: `default` · `accent` · `good` · `warn` · `danger`. **The four HUED tones share one `500/30`
+  border + `500/10` fill ramp and all carry `font-medium`**, because a chip wearing a §2 hue is
+  making a claim. `default` is the neutral and does neither: it is a raised zinc tile
+  (`zinc-100`/`zinc-800`, deliberately not on the ramp — a zinc at `500/10` is a wash, not a tile)
+  and it carries no weight. **A `default` chip's fill must differ from every `Card` fill**, or it
+  renders as a bare outline against its own container; `lib/design-system.test.ts` asserts the
+  relationship rather than the value.
+
+  **The three semantic tones were added 2026-08-03.** Twelve chip-shaped elements were hand-rolled
+  across THREE padding combinations — `px-1.5 py-0.5` ×7, `px-2 py-0.5` ×3, `px-3 py-2` ×2 — and
+  **not one of them was the `px-2 py-1` above**. Seven converted; four of those seven were reaching
+  for a tone this primitive could not say (they hold five tone strings — one site picks between
+  emerald and amber in a ternary). Sites converging on the right colour and the wrong geometry is
+  the vocabulary being short a word, which is the same shape as the `link` button weight two
+  entries up. `danger` ships with no adopter, on §2's symmetry rather than on measurement.
 
 ### Data
 - **`DataTable`** — sortable by any column, keyboard-navigable, copyable, with a sticky header. Every

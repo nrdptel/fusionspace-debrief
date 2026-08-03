@@ -2120,6 +2120,67 @@ the artifact rather than the tree.
    something other than what it was reached for, after the two blind greps and the suite-wide type
    ratio.
 
+    **DONE 2026-08-03 — §5's chip gained §2's semantic tones, and the same shape as the `link`
+    weight one item up.** `DeviceSummary` renders four cross-check verdicts (the board's own summary
+    against Debrief's read) and `GpsApogee` renders the same verdict again (GPS against barometer),
+    byte for byte, in emerald and amber. **Neither could be said through the primitive**, whose only
+    tones were `default` and `accent` — so they were hand-rolled, on the primitive's OWN `500/30`
+    border + `500/10` fill ramp. Converging on the right colour and the wrong geometry is the
+    vocabulary being short a word. `Chip` now takes `good` · `warn` · `danger`; `Chip` adopters
+    **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 12**.
+
+    **Read `invertedTypeFiles` as ADOPTION, not improvement.** `DeviceSummary` (4/2) and `GpsApogee`
+    (3/2) left the inverted list because six `text-xs` moved INTO the primitive. Nothing a flyer
+    reads changed size. That is the first of the four ways this metric moves, and it has now moved
+    that way twice.
+
+    **The count in this entry was wrong three times before it was right, and every wrong version was
+    written from eyeballing while the scanner that settles it sat in the same commit.** It said "ten
+    spans across four padding combinations, six converted, three semantic"; the scanner says
+    **twelve chip-shaped elements across three** — `px-1.5 py-0.5` ×7, `px-2 py-0.5` ×3, `px-3 py-2`
+    ×2, **none of them §5's `px-2 py-1`** — **seven converted, four of them semantic**. Those four
+    hold five tone STRINGS because `GpsApogee` picks emerald-or-amber in one ternary, and a count
+    that starts in elements must not finish in strings. `GpsApogee` was missed entirely until the
+    scanner ran. This sits one entry from a paragraph telling the next session that a ratchet
+    comment is a claim like any other — the lesson did not transfer by being written down.
+
+    **The pre-push review found a rendering defect the whole gate was blind to, for the second run
+    running.** `CHIP_TONES.default` was `bg-zinc-50 dark:bg-zinc-900` — byte-identical to §2's
+    SUNKEN card in light and to §2's DEFAULT card in dark. A chip whose fill equals its container's
+    is a hairline outline, not a token. `StitchSurface`'s "from · accelerometer" had been rendering
+    that way in dark mode since it was written, unnoticed, and converting `DeviceSummary` and
+    `LogDetails` onto that tone would have spread it to two more surfaces — including the one
+    unfilled cell in a column of four verdicts. Fixed at the primitive to `zinc-100`/`zinc-800`,
+    which is **exactly the value `DeviceSummary` had hand-rolled**: the hand-roll was right and the
+    primitive was the weak one. Pinned by a test that asserts the RELATIONSHIP — a neutral chip's
+    fill differs from every `CARD_TONES` fill — rather than the string, because pinning the string
+    goes green again the moment someone restyles `Card` instead.
+
+    **Two more the same review corrected.** `accent` was excluded from the weight rule, so
+    `FlightReport`'s format chip lost the `font-medium` it had hand-rolled — and `globals.css` sets
+    `print-color-adjust: exact` naming "the format/event chips", on a strip that is not
+    `print:hidden`, so that landed on the printed certification package. The rule is now "every
+    §2 HUE carries weight; only the neutral does not". And the hand-rolled-chip grep scanned
+    `<span>` only, which hid `RecognizedFormats.tsx:28` — a real chip written as an `<li>` because
+    it lives in a `<ul>`, and so the form the next one is most likely to take. Widened to
+    `span|li|div`; enumerating the tag in front of you is the mistake this file has now corrected
+    seven times.
+
+    **Five hand-rolled chips remain and every one of them says why**, in
+    `lib/design-system.test.ts`'s `DELIBERATE` list: two are inline notices holding a `<p>`, not
+    tokens; two are `text-[11px]` dense-list tokens whose conversion is a decision about logbook row
+    density, which is a product change; one wants `Chip` to take an `as` prop the way `Card` does,
+    filed in `BACKLOG.md`, because converting an `<li>` to a `<span>` today would strip the list
+    semantics a screen reader announces.
+
+    **Verified in pixels, not only in the suite.** All three gates were green on the revision whose
+    neutral chip was invisible, exactly as they were green on last run's `text-inherit` defect —
+    both times the e2e assertions are on roles and accessible names, which do not change when a
+    colour does. Both themes were screenshotted at the four converted surfaces before push.
+
+    **Owed to the sibling.** §5's chip entry is carried identically by `nrdptel/fusionspace-loft`;
+    recorded in `HANDOFF.md` with the `link` weight debt.
+
 10. ~~**A sixth radius nobody counts:** bare `rounded` (0.25rem) at 11 sites.~~ **DONE 2026-08-01 —
     and the count was wrong in both directions before it was measured properly.** The entry said 11;
     a sweep this run first said 15. Both were counting prose. `rounded` sits inside the word

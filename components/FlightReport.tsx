@@ -50,7 +50,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card, Disclosure, Figure, Frame } from './ui';
+import { Button, Card, Chip, Disclosure, Figure, Frame } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -835,9 +835,10 @@ export default function FlightReport({
           <span className="min-w-0 max-w-full truncate font-mono text-zinc-700 dark:text-zinc-300">
             {flight.source}
           </span>
-          <span className="inline-flex shrink-0 items-center rounded-md border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:text-indigo-300">
-            {flight.formatLabel}
-          </span>
+          {/* §5's `Chip` at its accent tone. Hand-rolled on a different indigo ramp
+              (`indigo-300` / `indigo-50`) at `px-2 py-0.5`, so the one chip on the report header
+              and the chips two panels down were three shapes of the same thing. */}
+          <Chip tone="accent" mono={false} className="shrink-0" value={flight.formatLabel} />
           <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">read locally — never uploaded</span>
           {/* On PAPER this is the only place the recording can be named: the strip above is
               `print:hidden`, and printing is how a certification package is actually produced.

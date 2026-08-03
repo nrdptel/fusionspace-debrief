@@ -731,6 +731,50 @@ export function NumberField({
   );
 }
 
+/**
+ * §2's hues, on §5's chip. `default` and `accent` are the two this primitive shipped with.
+ *
+ * **The three semantic tones were added 2026-08-03. Seven elements converted; FOUR of them were
+ * reaching for a tone this primitive could not say** — `DeviceSummary`'s three cross-check
+ * verdicts and `GpsApogee`'s one, which is the same verdict written twice, byte for byte. Those
+ * four hold FIVE tone strings, because `GpsApogee` picks between emerald and amber in a single
+ * ternary `className`; four is the count of elements, five the count of strings, and a sentence
+ * that starts in one unit must not finish in the other. The other three converted elements wanted
+ * geometry the primitive already had.
+ *
+ * `danger` has NO adopter yet and is here on §2's symmetry, not on measurement — the first surface
+ * that needs to say "refused" in a chip should take it rather than reach for red by hand.
+ *
+ * The three semantic tones and `accent` are on one `500/30` border + `500/10` fill ramp, which is
+ * what the hand-rolled ones had independently converged on: the gap was the vocabulary, not the
+ * palette. **`default` is deliberately NOT on that ramp** — it is §2's neutral, and a zinc at
+ * `500/10` is a grey wash rather than a tile. §2's meanings are unchanged: `good` agrees, `warn`
+ * is a caveat or an estimate outside its envelope, `danger` is a refusal or a value that cannot
+ * be computed.
+ *
+ * **`default` is a RAISED tile, and it was not.** It was `bg-zinc-50` / `dark:bg-zinc-900`, which
+ * is byte-identical to the fill of the containers these chips actually sit in — §2's sunken card
+ * is `bg-zinc-50 dark:bg-zinc-900/50`, and the default card is `dark:bg-zinc-900`. A chip whose
+ * fill equals its container's is a hairline outline, not a token: `StitchSurface`'s "from ·
+ * accelerometer" has been rendering that way in dark mode since it was written, and converting
+ * `DeviceSummary` and `LogDetails` onto the same tone would have spread it to two more surfaces.
+ * The value below is the one `DeviceSummary` had hand-rolled, which is the tell that the
+ * hand-roll was right and the primitive was the weak one.
+ */
+const CHIP_TONES = {
+  default: 'border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800',
+  accent: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:text-indigo-300',
+  good: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-400',
+  warn: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-500/40 dark:text-amber-400',
+  /** `dark:text-red-400`, matching `good` and `warn` rather than `CARD_TONES.danger`'s `-200`.
+   *  A card's danger text sits on a tinted PANEL and can go lighter; a chip's sits on a `500/10`
+   *  wash the same depth as the other two tones, so it takes their step. Written down because a
+   *  tone with no adopter has nothing to catch it being wrong. */
+  danger: 'border-red-500/30 bg-red-500/10 text-red-700 dark:border-red-500/40 dark:text-red-400',
+} as const;
+
+export type ChipTone = keyof typeof CHIP_TONES;
+
 export function Chip({
   label,
   value,
@@ -741,7 +785,7 @@ export function Chip({
 }: {
   label?: React.ReactNode;
   value: React.ReactNode;
-  tone?: 'default' | 'accent';
+  tone?: ChipTone;
   mono?: boolean;
   title?: string;
   className?: string;
@@ -751,9 +795,20 @@ export function Chip({
       title={title}
       className={cx(
         'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs',
-        tone === 'accent'
-          ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:text-indigo-300'
-          : 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900',
+        CHIP_TONES[tone],
+        // **A chip carrying a §2 HUE is making a claim — "agrees within 2%", "Blue Raven" — so it
+        // carries weight; only the neutral does not.** `accent` was excluded from this rule for
+        // one revision and that was wrong twice over: §2 lists `accent` among the meaning-carrying
+        // hues beside `good`/`warn`/`danger`, and `FlightReport`'s format chip had hand-rolled
+        // `font-medium` before it converted. Losing it there lands on PAPER — `globals.css` sets
+        // `print-color-adjust: exact` naming "the format/event chips", that strip is not
+        // `print:hidden`, and printing is how a certification package is produced.
+        //
+        // The border is a real remaining delta and is not being papered over: the hand-rolled
+        // chip was `border-indigo-300`, and `accent`'s `indigo-500/30` resolves lighter over
+        // white. It stays on the ramp — one chip is not a reason to break the family — and the
+        // print weight of the whole `500/30` ramp is filed in `BACKLOG.md` as its own question.
+        tone !== 'default' && 'font-medium',
         className,
       )}
     >

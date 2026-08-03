@@ -8,7 +8,7 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, type UnitChoice } from '@/lib/display';
 import { peakAgreement, peakTimeTolerance } from '@/lib/crossPeak';
-import { Card, DataTable } from './ui';
+import { Card, Chip, DataTable } from './ui';
 
 /** The verdict as words, so the clipboard carries the judgement and not just two numbers a
  *  spreadsheet would leave the reader to compare. */
@@ -68,20 +68,21 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
             key: 'agreement',
             header: 'Agreement',
             cell: (r) => (
-              <span
-                className={
-                  r.verdict === 'agree'
-                    ? 'inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400'
-                    : 'inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400'
-                }
+              // The SAME cross-check verdict as `DeviceSummary`'s, byte-identical down to the
+              // `px-1.5 py-0.5` that is off §5's scale — GPS against barometer here, the board's
+              // own summary against ours there. Two files independently writing one treatment is
+              // the shape P1 exists to close, and these two are half the measurement that put
+              // `good` and `warn` in §5's chip.
+              <Chip
+                tone={r.verdict === 'agree' ? 'good' : 'warn'}
+                mono={false}
                 title={
                   r.verdict === 'different-peak'
                     ? 'The two recordings put the peak too far apart in time to be the same instant, so how close the heights are says nothing about whether they corroborate each other.'
                     : undefined
                 }
-              >
-                {agreementText(r.verdict, r.deltaPct)}
-              </span>
+                value={agreementText(r.verdict, r.deltaPct)}
+              />
             ),
             text: (r) => agreementText(r.verdict, r.deltaPct),
           },

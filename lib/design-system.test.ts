@@ -299,8 +299,18 @@ const BUDGET = {
    *  real improvement (a decision-grade number leaving caption size), real regression, and this —
    *  a sub-caption string being brought ONTO the scale. Anyone reading a single delta here without
    *  the entry beside it will draw the wrong conclusion. The map legend at `GroundTrack.tsx:587`
-   *  keeps `text-[11px]` and is the one that genuinely is a diagram annotation. */
-  invertedTypeFiles: 14,
+   *  keeps `text-[11px]` and is the one that genuinely is a diagram annotation.
+   *
+   *  **14 → 12 on 2026-08-03, and it is the FIRST of those four ways — adoption.** `DeviceSummary`
+   *  (four hand-rolled verdict chips) and `GpsApogee` (two) took §5's `Chip`, so six `text-xs`
+   *  moved INTO the primitive rather than off the screen. Both files sat just over the line — 4/2
+   *  and 3/2 — and both are now 1/2. **Nothing a flyer reads changed size.**
+   *
+   *  This entry first said `LogDetails`, and both halves of that were wrong: `LogDetails` was
+   *  1/1 on `main`, which is not inverted, so it was never on the list to fall off — and the
+   *  number was 13. Recomputing the two lists and diffing them named the real files in one step.
+   *  A ratchet comment asserting WHICH file moved is a claim like any other; check it. */
+  invertedTypeFiles: 12,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
@@ -331,8 +341,15 @@ const BUDGET = {
    *  that moved onto `NumberField` in the same commit moved this by ZERO** — every one already
    *  imported `Card`, so a per-FILE count cannot see six controls being adopted. That is the
    *  argument for the per-primitive map below, and it is the third time a §9 metric has turned out
-   *  to measure something other than what it was reached for. */
-  uiAdopters: 34,
+   *  to measure something other than what it was reached for.
+   *
+   *  **34 → 35 on 2026-08-03: `LogDetails` imports `./ui` for the first time**, taking `Chip` for
+   *  its channel tokens. The pre-push review had to find this, because the assertion below is
+   *  `toBeGreaterThanOrEqual` — a stale number here goes green and stays invisible, which is the
+   *  opposite of how the exact ratchets behave. The `>=` is right (this one only goes up), so the
+   *  discipline has to be: when a commit adds an import of `./ui` to a file that had none, this
+   *  number moves in that commit. */
+  uiAdopters: 35,
 } as const;
 
 /** How many components import EACH primitive by name.
@@ -373,7 +390,26 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  other three already imported `Button` for something else, so the count moves by one while
    *  eight sites converted — read the two numbers together. */
   Button: 19,
-  Chip: 3,
+  /** 3 → 7 on 2026-08-03 with §5's semantic chip tones. `DeviceSummary`, `GpsApogee`,
+   *  `FlightReport` and `LogDetails` were hand-rolling a chip, and **the grep below counted 12
+   *  hand-rolled chip-shaped elements on `main` over THREE padding combinations** —
+   *  `px-1.5 py-0.5` ×7, `px-2 py-0.5` ×3, `px-3 py-2` ×2 — **not one of which is §5's
+   *  `px-2 py-1`**. They had independently converged on the primitive's own `500/30` + `500/10`
+   *  colour ramp, which is the tell that the gap was the vocabulary (no `good`/`warn`/`danger`
+   *  tone) rather than four files being careless.
+   *
+   *  **Seven elements convert; FOUR of them are why the enum grew** — `DeviceSummary`'s three
+   *  verdicts and `GpsApogee`'s one. Those four hold five tone STRINGS, because `GpsApogee` picks
+   *  between emerald and amber in one ternary `className`. Four elements, five strings: a count
+   *  has to name its unit and keep it.
+   *
+   *  **Every number in this entry is the second one written.** The first said "four padding
+   *  combinations", "ten spans" and "five sites reaching for a tone" — three claims, none of them
+   *  what the repo held, all from eyeballing rather than from the scanner sitting in the same
+   *  commit. `GpsApogee` was missed entirely until that scanner ran. It is one entry below the
+   *  paragraph telling the next session that a ratchet comment is a claim like any other; the
+   *  lesson is cheaper to take from here than to re-learn. */
+  Chip: 7,
   /** 2 → 9 on 2026-08-02. The seven derived-reading panels — deploy altitude, drag coefficient,
    *  drogue Cd, ejection delay, landing energy, parachute Cd and rail exit — each hand-rolled a
    *  BYTE-IDENTICAL hero value (`font-mono text-xl font-semibold tracking-tight tabular-nums
@@ -903,3 +939,140 @@ describe('DESIGN.md §5 — the fifth button weight', () => {
     expect(variant, 'underline is the hover affordance').toMatch(/hover:underline/);
   });
 });
+
+describe("DESIGN.md §5 — the chip's semantic tones", () => {
+  /** Every hand-rolled chip in the repo, so the ones left are left ON PURPOSE and say why.
+   *  A chip-shaped element is bordered, rounded, horizontally padded, at caption size.
+   *
+   *  **`span|li|div`, and the first version of this scanned only `<span>`.** That blind spot was
+   *  not hypothetical — it hid `RecognizedFormats.tsx:28`, a real hand-rolled chip written as an
+   *  `<li>` because it lives in a `<ul>`, which is the natural form for a token list and so the
+   *  form a future one is most likely to take. Enumerating the tag in front of you is the mistake
+   *  this file has now corrected seven times. */
+  const handRolledChips = (): string[] => {
+    const out: string[] = [];
+    for (const f of uiSources(['components', 'app'], ['.tsx'])) {
+      if (f.path.endsWith('components/ui.tsx')) continue;
+      for (const m of f.text.matchAll(/<(?:span|li|div)\b/g)) {
+        // Same brace-depth scan the button grep above uses, and for the same reason: `[^>]*?>`
+        // stops at the `>` of an arrow function inside a `{…}` prop and truncates the tag.
+        let i = (m.index ?? 0) + m[0].length;
+        let depth = 0;
+        while (i < f.text.length) {
+          const c = f.text[i];
+          if (c === '{') depth++;
+          else if (c === '}') depth--;
+          else if (c === '>' && depth === 0 && f.text[i - 1] !== '=') break;
+          i++;
+        }
+        const tag = f.text.slice(m.index ?? 0, i);
+        const chipish =
+          /rounded-(md|lg|full)/.test(tag) &&
+          /\bborder\b/.test(tag) &&
+          /\bpx-[\d.]+/.test(tag) &&
+          /text-xs|text-\[11px\]/.test(tag);
+        if (chipish) out.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length}`);
+      }
+    }
+    return out;
+  };
+
+  /**
+   * **Twelve on `main`, seven converted, five left — and every one of the five says why here.**
+   * An unexplained allowance is how a ratchet quietly stops ratcheting, so each gets a reason a
+   * later session can disagree with rather than a silence it has to reverse-engineer.
+   *
+   * Three reasons, and only the last is a maybe-later:
+   *
+   * - **Two are not chips.** `CompareView:614` and `RecentFlights:452` are inline notices at
+   *   `px-3 py-2`, full width, holding a `<p>` — one of them `role="status"`. They match on
+   *   border-plus-radius-plus-padding because that is what a bordered box looks like. §5 asks a
+   *   different question about a notice than about a token, and answering it here would be
+   *   converting a paragraph into a chip.
+   * - **Two are dense-list tokens.** `RecentFlights:754` (the format label) and `:954` ("reports
+   *   this flight") sit at `text-[11px]` in the densest list in the app, in rows that are scanned
+   *   rather than read. `Chip` would move them to `text-xs` at `px-2 py-1` — larger type and
+   *   double the padding, on every logbook row. That is a decision about LIST DENSITY, which is a
+   *   product change and not this increment's adoption.
+   * - **One wants a primitive that does not exist yet.** `RecognizedFormats:28` is a genuine chip
+   *   and the only one of the five that should convert — but it is an `<li>` inside a `<ul>`, and
+   *   `Chip` renders a `<span>`. Adopting it would strip the list semantics a screen reader
+   *   announces, which is exactly the trade `Readout`'s comment above records refusing for
+   *   `GroundTrack`'s `Stat`. It converts the day `Chip` takes an `as`, the way `Card` did.
+   *   Filed in `BACKLOG.md`.
+   */
+  const DELIBERATE = [
+    'components/CompareView.tsx:614',
+    'components/RecentFlights.tsx:452',
+    'components/RecentFlights.tsx:754',
+    'components/RecentFlights.tsx:954',
+    'components/RecognizedFormats.tsx:28',
+  ];
+
+  it('is not re-invented by hand outside the five named above', () => {
+    expect(
+      handRolledChips(),
+      'hand-rolled chips — use <Chip tone=…>, DESIGN.md §5:',
+    ).toEqual(DELIBERATE);
+  });
+
+  /** The hued tones exist so a verdict can be SAID rather than drawn, and they only read as one
+   *  family while they share a ramp. A tone added later on `bg-emerald-100` would look like a
+   *  different component beside the two it sits next to in `DeviceSummary`. */
+  it('keeps every hued tone on the one border/fill ramp', () => {
+    const block = chipTones();
+    expect(Object.keys(block)).toEqual(['default', 'accent', 'good', 'warn', 'danger']);
+    for (const tone of ['accent', 'good', 'warn', 'danger']) {
+      expect(block[tone], `${tone} borders at 500/30`).toMatch(/border-\w+-500\/30/);
+      expect(block[tone], `${tone} fills at 500/10`).toMatch(/bg-\w+-500\/10/);
+    }
+  });
+
+  /**
+   * **A chip has to be visible against the container it sits in, and for one revision `default`
+   * was not.** It was `bg-zinc-50 dark:bg-zinc-900` — byte-identical to §2's sunken card in light
+   * (`bg-zinc-50`) and to §2's default card in dark (`dark:bg-zinc-900`) — so a `default` chip
+   * rendered as a bare hairline with the same fill as whatever was behind it. `StitchSurface`'s
+   * "from · accelerometer" had been doing that in dark mode unnoticed, and converting
+   * `DeviceSummary` and `LogDetails` would have taken it to two more surfaces.
+   *
+   * The assertion is deliberately "differs from every card fill", not a hardcoded value: the
+   * failure mode is a RELATIONSHIP between two tokens, and pinning the string would go green
+   * again the moment someone restyled `Card` instead.
+   */
+  it('keeps the neutral chip distinguishable from every card it can sit on', () => {
+    const ui = readFileSync(join(ROOT, 'components/ui.tsx'), 'utf8');
+    const cards = ui.match(/const CARD_TONES = \{([\s\S]*?)\n\} as const;/)?.[1] ?? '';
+    expect(cards, 'CARD_TONES must exist').not.toBe('');
+    // `\b` matches straight after the `:` of a variant, so a naive `\bbg-` counts
+    // `dark:bg-zinc-800` as a LIGHT fill. The light pattern has to reject any variant prefix
+    // explicitly. Opacity suffixes are stripped: `zinc-900/50` over the page and `zinc-900` flat
+    // are the same colour family, and a chip is not distinguishable by being the same hue at a
+    // different alpha.
+    const fills = (s: string, prefix: string) =>
+      new Set(
+        (s.match(new RegExp(prefix ? `${prefix}bg-[\\w/-]+` : `(?<![\\w:-])bg-[\\w/-]+`, 'g')) ?? []).map((c) =>
+          c.replace(/^dark:/, '').replace(/\/\d+$/, ''),
+        ),
+      );
+    const chip = chipTones().default;
+    for (const prefix of ['', 'dark:']) {
+      const mine = [...fills(chip, prefix)];
+      expect(mine, `the neutral chip declares a ${prefix || 'light'} fill`).toHaveLength(1);
+      expect(
+        [...fills(cards, prefix)],
+        `the neutral chip's ${prefix || 'light'} fill ${mine[0]} is also a CARD fill — it would vanish into its own container`,
+      ).not.toContain(mine[0]);
+    }
+  });
+});
+
+/** `CHIP_TONES` read off the source, as a map. Two tests want it and neither should re-parse it. */
+function chipTones(): Record<string, string> {
+  const ui = readFileSync(join(ROOT, 'components/ui.tsx'), 'utf8');
+  const block = ui.match(/const CHIP_TONES = \{([\s\S]*?)\n\} as const;/)?.[1] ?? '';
+  expect(block, 'CHIP_TONES must exist').not.toBe('');
+  return Object.fromEntries(
+    [...block.matchAll(/^\s{2}(\w+): '([^']*)'/gm)].map((m) => [m[1], m[2]]),
+  );
+}

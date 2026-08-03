@@ -1,5 +1,6 @@
 import type { RawFlight } from '@/lib/flight/types';
 import { describeLog } from '@/lib/logInfo';
+import { Chip } from './ui';
 
 function fmtDuration(s: number): string {
   if (!Number.isFinite(s) || s <= 0) return '—';
@@ -47,13 +48,21 @@ export default function LogDetails({ flight }: { flight: RawFlight }) {
             </div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {info.channels.map((c, i) => (
-                <span
+                // §5's `Chip`, for the geometry: this hand-rolled the same token at `px-2 py-0.5`.
+                // **The unit goes in `value`, not in `label`.** `Chip`'s `label` slot renders
+                // BEFORE the value as a dim leading key — `StitchSurface.tsx:397` reads
+                // "from · accelerometer" — so `label={c.unit}` would print "ft Altitude", with the
+                // unit both first and bolder than the channel it qualifies. A unit trails.
+                <Chip
                   key={`${c.label}-${i}`}
-                  className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-                >
-                  {c.label}
-                  {c.unit && <span className="ml-1 text-zinc-500 dark:text-zinc-400">{c.unit}</span>}
-                </span>
+                  mono={false}
+                  value={
+                    <>
+                      {c.label}
+                      {c.unit && <span className="ml-1 text-zinc-500 dark:text-zinc-400">{c.unit}</span>}
+                    </>
+                  }
+                />
               ))}
             </div>
           </div>
