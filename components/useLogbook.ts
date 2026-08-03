@@ -1,7 +1,7 @@
 'use client';
 
 import { clearCaptions } from '@/lib/compareMemory';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   readRecents,
   removeRecent,
@@ -67,8 +67,19 @@ export function useLogbook(): Logbook {
   const [forgotten, setForgotten] = useState<string[]>([]);
   const [arrived, setArrived] = useState<string[]>([]);
 
+  // **A failed READ is only "this browser won't keep a logbook" while we have never had one.**
+  // `refresh` runs after every remove, note, group, clear and import, so treating any rejection as
+  // `blocked` meant one transient failure mid-session replaced a flyer's fifty rows — and their
+  // search, notes, export, import and clear along with them — with a confident and probably false
+  // diagnosis. Worse than the defect this whole change exists to fix. Once a read has succeeded,
+  // the storage is demonstrably not refusing, so a later failure keeps the rows already in hand
+  // and leaves the status alone; only a refusal on a logbook we have never successfully read is
+  // reported as one.
+  const everRead = useRef(false);
   const refresh = useCallback(() => {
     readRecents().then(({ recents: rows, blocked }) => {
+      if (blocked && everRead.current) return;
+      if (!blocked) everRead.current = true;
       setRecents(rows);
       setStatus(blocked ? 'blocked' : 'ready');
     });

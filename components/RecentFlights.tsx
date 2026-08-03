@@ -45,7 +45,7 @@ function relativeTime(ts: number): string {
 
 export default function RecentFlights({
   recents,
-  status = 'ready',
+  status,
   sys,
   onOpen,
   onRemove,
@@ -61,9 +61,14 @@ export default function RecentFlights({
   onDismissProposal,
 }: {
   recents: RecentMeta[];
-  /** Which of the list's three empty-looking states this is — see the block below. Defaults to
-   *  `ready` so a caller that genuinely has its rows in hand need not say so. */
-  status?: 'loading' | 'ready' | 'blocked';
+  /** Which of the list's three empty-looking states this is — see the block below.
+   *
+   *  **Required, and it defaulted to `'ready'` for exactly one commit.** That default is the
+   *  DEFECT value: a third call site that forgot the prop would silently reprint the prerendered
+   *  "flights you open are remembered here" to a flyer who has some, and nothing — not the type
+   *  check, not a test — would have failed. A prop whose default reintroduces the bug it was added
+   *  to fix has to be required. */
+  status: 'loading' | 'ready' | 'blocked';
   sys: UnitChoice;
   onOpen: (id: string) => void;
   onRemove: (id: string) => void;
@@ -204,8 +209,9 @@ export default function RecentFlights({
             is polite information on arrival, not an interruption. */}
         <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
           This browser won&apos;t let Debrief read or keep a logbook on this device, so flights you
-          open here won&apos;t be remembered. A private window or blocked site storage will do that.
-          Analysis still works — export anything you want to keep before you leave the page.
+          open here won&apos;t be remembered between visits. A private window or blocked site storage
+          usually does it. Analysing a file still works, and every report has its own export — save
+          anything you want to keep from the report itself, because this list cannot hold it.
         </p>
       </div>
     );
@@ -214,7 +220,11 @@ export default function RecentFlights({
     return (
       <div className="mt-8">
         {filePicker}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {/* `role="status"` here as well as on the loading line, because the loading line
+            UNMOUNTS at the transition: a screen reader heard "Looking for flights remembered on
+            this device…" and then, on the state it was waiting for, nothing at all. Announcing the
+            answer is the whole point of having announced the question. */}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
           Flights you open are remembered here on this device — never uploaded. Got a logbook backup
           from another machine?{' '}
           <button

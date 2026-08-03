@@ -156,6 +156,42 @@ empty"* fetches `/` and `/compare/` as raw HTML, before a line of JS runs. Besid
 that refuses storage says so"* removes `indexedDB` and checks the surface says so and that analysis
 still works. Both falsified by mutation.
 
+### 4. The logbook-states change, corrected after review (pending push)
+
+**I pushed increment 3 before its review came back, and the review then found six real defects in
+it — one worse than the bug it fixed.** Nothing reached production, because the work was on a branch
+behind an unmerged pull request; that is exactly what `MAINTAINING.md` says the pull request is for.
+Fixed forward in this commit:
+
+- **A transient read failure would have wiped the logbook.** `refresh()` runs after every remove,
+  note, group, clear and import, and any rejection set `blocked` — so one flaky read mid-session
+  replaced a flyer's fifty rows, and their search, notes, export, import and clear with them, with a
+  confident and probably false diagnosis. `blocked` is now only reported on a logbook that has
+  **never** been read successfully.
+- **`status` defaulted to `'ready'` — the DEFECT value.** A third call site forgetting the prop
+  would silently reprint the prerendered promise with nothing failing. Required now.
+- **A screen reader heard "Looking for flights…" and then silence**: the loading live region
+  unmounts at the transition and the empty state had none. It has one.
+- **The blocked copy told the flyer to "export anything you want to keep"** from a branch that
+  renders no export control. It now points at the report's own export.
+- **`/compare`'s blocked copy directed them into the one action that surface cannot complete** — a
+  comparison there is built from logbook ids, so with storage refused there is nothing to build
+  from. It says that instead.
+- **Two "checking…" lines rendered on `/compare` for one wait.** The drop zone says what it is for;
+  the list reports its own state.
+
+And the two pins were weaker than they looked. The negatives matched exact prose that is also
+written out in the component and five comment blocks, so adding a full stop would have turned them
+green with the defect restored — they assert on the empty state's **control** now. Neither pinned
+the loading→ready transition at all (`setStatus('loading')` unconditionally passed both); a third
+test does, falsified by exactly that mutation.
+
+**Adding the empty state's live region broke an unrelated e2e**, which is the trap `HANDOFF.md`
+already recorded once for a ground-track locator: `compare-page.spec.ts`'s bare
+`getByRole('status')` was unique only by accident and went to two elements. Scoped to the region it
+asserts about. **When you add a shared shape, grep the suite for locators that select on the shape
+rather than on the surface** — that is twice now.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe

@@ -70,7 +70,13 @@ test('the compare page explains an empty logbook and a stale link', async ({ pag
   // A link to flights this device no longer has says so, by name, and offers the picker
   // instead of a blank page or a spinner that never ends.
   await page.goto('/compare?ids=gone-1,gone-2');
-  await expect(page.getByRole('status')).toContainText('no longer in this logbook');
+  // Scoped to the region it is asserting about. A bare `getByRole('status')` was unique here only
+  // by accident: the logbook list below gained its own live region on 2026-08-02 (so a screen
+  // reader that hears "looking for flights…" also hears the answer), and this locator then matched
+  // two elements and failed in strict mode — for a reason that had nothing to do with stale links.
+  // `HANDOFF.md` records the same trap on a ground-track locator; when a shared shape is added,
+  // grep the suite for locators that select on the shape rather than on the surface.
+  await expect(page.getByRole('status').filter({ hasText: 'no longer in this logbook' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
 });
 

@@ -403,10 +403,14 @@ export default function CompareSurface() {
               has not come back, and a browser refusing storage all reach `length === 0`. This
               surface is a STATIC EXPORT too, so "your logbook is empty" was prerendered into
               `out/compare/index.html` and shown to every returning flyer until hydration. */}
+          {/* While the logbook is still loading this box says what it is FOR, not what the list
+              below it is doing. Both surfaces reporting the same wait put two "checking…" lines on
+              one page for one wait — and the drop zone does not depend on the logbook at all: a
+              file dropped here is read whatever the list turns out to hold. */}
           {logbook.status === 'loading'
-            ? 'Looking for flights remembered on this device…'
+            ? 'Drop a launch day’s files, or its folder, here to start'
             : logbook.status === 'blocked'
-              ? 'This browser won’t let Debrief keep a logbook, so nothing is remembered between visits — drop the flights you want to compare here'
+              ? 'This browser won’t let Debrief keep a logbook, and a comparison here is built from the logbook — so this surface can’t assemble one. Read flights one at a time on the analyze page instead.'
               : logbook.recents.length === 0
                 ? 'Your logbook is empty — drop a launch day’s files, or its folder, here to start'
                 : !enough

@@ -804,24 +804,54 @@ for (const scheme of ['light', 'dark'] as const) {
   });
 }
 
-// `DESIGN.md` §5's loading and error states on the logbook, and the reason they are checked HERE
-// rather than in a unit test: the defect only exists in the built artifact. Every route is a
-// static export, so whatever the logbook renders with an empty `recents` is baked into
-// `out/index.html` — and until the bundle hydrates and IndexedDB answers, that is what a flyer
-// with a full logbook sees. Reading the source could never have shown it.
+// `DESIGN.md` §5's loading and error states on the logbook. Checked against the BUILT ARTIFACT
+// because that is where the consequence lives: every route is a static export, so whatever the
+// logbook renders with an empty `recents` is baked into `out/index.html`, and until the bundle
+// hydrates and IndexedDB answers that is what a flyer with a full logbook sees. The source shows
+// the race plainly enough (`useState<RecentMeta[]>([])` with an async effect); what the static
+// export adds is that it is on EVERY cold load rather than a flicker.
 test('the prerendered page does not tell a returning flyer their logbook is empty', async ({ request }) => {
   // Fetched, not visited: this is the HTML before a single line of JS has run, which is exactly
   // what a cold load paints first.
   for (const route of ['/', '/compare/']) {
-    const html = await (await request.get(route)).text();
-    expect(html, `${route} must not promise to remember flights before it has looked`).not.toContain(
-      'Flights you open are remembered here on this device',
+    const res = await request.get(route);
+    expect(res.ok(), `${route} served`).toBe(true);
+    const html = await res.text();
+    // Asserted on the empty state's CONTROL, not on its prose. The first version of this test
+    // matched two exact sentences that are also written out in the component and in five comment
+    // blocks, so adding a full stop to one of them would have turned it green with the defect
+    // fully restored. A control is what the flyer can act on and what the state is FOR.
+    expect(html, `${route} must not offer to restore a backup before it has looked`).not.toContain(
+      '>Restore it<',
     );
-    expect(html, `${route} must not claim the logbook is empty before it has looked`).not.toContain(
-      'Your logbook is empty',
+    expect(html, `${route} says it is looking, exactly once`).toMatch(
+      /Looking for flights remembered on this device|Checking this device for remembered flights/,
     );
-    expect(html, `${route} says it is looking`).toContain('Looking for flights remembered on this device');
+    const marks =
+      (html.match(/Looking for flights remembered on this device/g) ?? []).length +
+      (html.match(/Checking this device for remembered flights/g) ?? []).length;
+    expect(marks, `${route} says it once, not once per surface`).toBe(1);
   }
+});
+
+test('the logbook resolves out of loading into the flights it actually holds', async ({ page }) => {
+  // The transition the change is named for. Without this, `setStatus('loading')` unconditionally
+  // would pass every other assertion here — the prerendered page would look right and the app
+  // would simply never show a logbook again.
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'cert.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  // The flight is listed, and nothing is still claiming to be looking for it.
+  await expect(page.getByText('cert.csv').first()).toBeVisible();
+  await expect(page.getByText(/Looking for flights remembered on this device/)).toHaveCount(0);
+  // …and a reload, which is where the prerendered empty state used to be shown to this flyer,
+  // lands on their flight rather than on an offer to restore a backup.
+  await page.reload();
+  await expect(page.getByText('cert.csv').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore it' })).toHaveCount(0);
 });
 
 test('a browser that refuses storage says so, instead of promising to remember', async ({ page }) => {
@@ -834,7 +864,7 @@ test('a browser that refuses storage says so, instead of promising to remember',
   });
   await page.goto('/');
   await expect(page.getByText(/won.t let Debrief read or keep a logbook/)).toBeVisible();
-  await expect(page.getByText('Flights you open are remembered here on this device')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Restore it' })).toHaveCount(0);
   // And the analysis still works — the refusal is about keeping, not about reading a file.
   await page
     .getByLabel('Choose a flight log file')

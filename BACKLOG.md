@@ -14,6 +14,32 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — one condition, four wordings: the storage refusal is still conflated everywhere
+  except the logbook list.** The logbook now tells "browser refused storage" apart from "empty" and
+  "still loading", but the same refusal reaches three other surfaces still wearing the old
+  disguise, and two of them accuse the flyer's own device of losing data:
+  - `lib/compareFromLogbook.ts:45` — `getRecent` swallows the refusal, so every id is skipped with
+    **"no longer in this logbook"**. Reproduce: stub `indexedDB` undefined and open
+    `/compare/?ids=a,b`. It asserts the flights were deleted.
+  - `components/Analyzer.tsx:643` — the `/?open=<id>` deep link the logbook rows navigate to says
+    **"That saved flight could no longer be read."** Third wording, same cause.
+  - `components/CompareSurface.tsx:218` — a drop with storage blocked reports **"Added a.csv, b.csv
+    to your logbook — tick them with another flight to compare"** while the list directly below
+    says the browser won't keep a logbook. Nothing was added and there is nothing to tick.
+
+  The fix is the same shape as the one already made: `getRecent` and `saveRecent` need to report a
+  refusal rather than return `null`, and the surfaces need to say it in one voice. **Found by the
+  pre-push review of the logbook change**, which is why the logbook half shipped and this half is
+  filed rather than half-done.
+- **2026-08-03 — the storage-refused message takes §2's `warn` (amber), and §2's own word for a
+  refusal is `danger`.** Recorded as a decision rather than left to be re-derived: `ErrorState` is a
+  `Card tone="danger"` with `role="alert"`, which fits an operation the flyer just attempted and
+  that failed — a file that would not parse. Nothing here failed on their command, the analysis
+  still works, and the in-app precedent for a caveat about the logbook's own capability is amber
+  (`RecentFlights.tsx`'s nearly-full warning). **The counter-argument is real** — §2 lists "a
+  refusal" under `danger` in as many words, and a reviewer read the amber choice as straining that.
+  If a future run decides §2 means it literally, this is one class change and one comment; do not
+  re-derive the argument from scratch.
 - **2026-08-02 — P1 item 5's headline numbers count the wrong thing, and the entry should be
   re-measured before it is spent against.** It reads "the denominator is 15 data surfaces … and
   `StitchSurface` is the only one implementing more than one state". An audit found that number is
