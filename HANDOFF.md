@@ -254,6 +254,32 @@ out before the app's only irreversible action. It tells a flyer their backup lan
 where the logbook's own blocked paragraph — which renders on every `/` — satisfied it on its own.
 It asserts on the ERROR CARD now, and fails on exactly the mutation that restores the old message.
 
+### 7. One chart export instead of three (pending push)
+
+`savePng` / `saveChartPng` existed **three times, byte for byte** across `FlightReport`,
+`CompareView` and `ChannelExplorer` — differing only in which ref they read and the output
+filename (and in whether they were declared `function` or `const`). That is the `ACTION_BTN`-in-six-files shape P1's opening audit removed once already,
+restarted for chart export. `lib/plotPng.ts` is now the one implementation, written as
+`lib/copyTable.ts`'s sibling for the same reason that file exists.
+
+Pinned by *"composites a plot to an image from exactly one place"* — the frame/focus shape, not a
+§9 grep, since a §9 addition is owed to the sibling repo. Matched on `.drawImage(` — member and bracket form —
+rather than `toBlob`, because `FlightCard` calls `toBlob` correctly on its own canvas.
+
+**The guard's own source list was the thing review caught, and it is the useful part.** §9's list is
+`['components', 'app']` over `['.tsx', '.css']`, which never walks `lib/` — the one directory the
+failure message names — and cannot see a `.ts` under `components/`. So a second composite in `lib/`,
+or in the `components/usePlotExport.ts` hook that is the most natural home for this code, would have
+kept it green while the message insisted otherwise. A guard whose message names a file it never
+reads is worse than none. Falsified both ways after widening.
+
+**Checked before shipping, and worth not re-deriving:** `dark` resolves to the same
+`useIsDark()` at all three call sites, so the collapse changed no behaviour — and the four PNG
+export e2e cases already covered the paths, so the refactor is proven end to end rather than by
+inspection. What it exposed is filed: the figure light/dark toggle governs the exported SVG and not
+the PNG. The PNG is right to take the page theme (it composites the live canvas), but two buttons an
+inch apart behave differently and nothing says so.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe

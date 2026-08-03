@@ -29,6 +29,7 @@ import FlightPicker from './FlightPicker';
 import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
+import { savePlotPng } from '@/lib/plotPng';
 import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
@@ -460,17 +461,7 @@ export default function FlightReport({
   }
 
   function saveChartPng() {
-    const canvas = altChartRef.current?.querySelector('canvas');
-    if (!canvas) return;
-    const out = document.createElement('canvas');
-    out.width = canvas.width;
-    out.height = canvas.height;
-    const ctx = out.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = dark ? '#09090b' : '#ffffff'; // solid background, not transparent
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(canvas, 0, 0);
-    out.toBlob((blob) => blob && download(blob, `${stem}-altitude.png`));
+    savePlotPng(altChartRef.current, { dark, filename: `${stem}-altitude.png` });
   }
 
   // One-click zoom presets that frame all three charts to a flight phase — and the

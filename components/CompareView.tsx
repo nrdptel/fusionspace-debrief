@@ -9,6 +9,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
+import { savePlotPng } from '@/lib/plotPng';
 import { derivedPeakCaveat } from '@/lib/derivedPeak';
 import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
 import { loadCompareChannel, saveCompareChannel, loadHiddenEvents, saveHiddenEvents } from '@/lib/plotView';
@@ -479,17 +480,7 @@ export default function CompareView({
     download(new Blob([metricsCsv()], { type: 'text/csv' }), 'compare-metrics.csv');
   };
   const savePng = () => {
-    const canvas = chartRef.current?.querySelector('canvas');
-    if (!canvas) return;
-    const out = document.createElement('canvas');
-    out.width = canvas.width;
-    out.height = canvas.height;
-    const ctx = out.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = dark ? '#09090b' : '#ffffff'; // solid background, not transparent
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(canvas, 0, 0);
-    out.toBlob((blob) => blob && download(blob, `compare-${metric}.png`));
+    savePlotPng(chartRef.current, { dark, filename: `compare-${metric}.png` });
   };
   // Vector version of an overlay — every flight's curve for one channel on the
   // liftoff-aligned grid, crisp at any size for a report (and recolourable there).

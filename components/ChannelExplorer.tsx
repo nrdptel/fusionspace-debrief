@@ -20,6 +20,7 @@ import {
 import { COMPARE_PALETTE } from '@/lib/compare';
 import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
+import { savePlotPng } from '@/lib/plotPng';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitChoice } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
@@ -281,17 +282,7 @@ export default function ChannelExplorer({
     download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `${stem}-explore.csv`);
   };
   const savePng = () => {
-    const canvas = chartRef.current?.querySelector('canvas');
-    if (!canvas) return;
-    const out = document.createElement('canvas');
-    out.width = canvas.width;
-    out.height = canvas.height;
-    const ctx = out.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = dark ? '#09090b' : '#ffffff'; // solid background, not transparent
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(canvas, 0, 0);
-    out.toBlob((blob) => blob && download(blob, `${stem}-explore.png`));
+    savePlotPng(chartRef.current, { dark, filename: `${stem}-explore.png` });
   };
   // A vector version of the same plot — crisp at any size for a report or slide.
   const saveSvg = () => {

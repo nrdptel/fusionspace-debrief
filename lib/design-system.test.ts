@@ -751,6 +751,50 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     expect(sites, `a superlative wearing a colour that makes a claim:\n${sites.join('\n')}`).toEqual([]);
   });
 
+  it('composites a plot to an image from exactly one place', () => {
+    // Not a `DESIGN.md` §9 grep — §9 is carried identically by the sibling repo, so adding a command
+    // to it is a change owed to both. This is the same shape as the frame and focus assertions
+    // above: one implementation, one place, guarded because no adopter COUNT can see the failure.
+    //
+    // `savePlotPng` collapsed three byte-identical copies — `FlightReport`, `CompareView` and
+    // `ChannelExplorer` each carried the same twelve lines, differing only in which ref they read
+    // and what they named the file. That is the `ACTION_BTN`-in-six-files shape P1's opening audit
+    // removed once already, restarted for chart export, and three copies of a canvas composite is
+    // three places for a transparent-background or device-pixel-ratio bug to be fixed in two of.
+    //
+    // Matched on `drawImage`, which is the specific job: compositing a LIVE plot canvas onto an
+    // opaque one. `FlightCard` also calls `toBlob`, and correctly — it draws its own canvas and
+    // encodes it, which is a different thing — so a `toBlob` match would fail naming a file that is
+    // not doing this at all, i.e. fail for a reason other than the one it gives.
+    //
+    // **Its own source list is widened here, and that correction is most of the value.** The `ui`
+    // list above is `['components', 'app']` with extensions `['.tsx', '.css']` — right for §9's
+    // greps, wrong for this: it would not have scanned `lib/`, which is the one directory whose
+    // name appears in the failure message, and it cannot see a `.ts` under `components/` either. So
+    // a second composite in `lib/`, or in the `components/usePlotExport.ts` hook that is the most
+    // natural React home for this code, would both have kept it green while the message insisted
+    // only `lib/plotPng.ts` may carry one. A guard whose message names a file it never reads is
+    // worse than none.
+    //
+    // Bracket access is matched too. `ctx['drawImage'](canvas, 0, 0)` is legal, not contrived, and
+    // a member-only pattern is the same "enumerate the form in front of you" mistake this file has
+    // now corrected six times.
+    const scanned = uiSources(['components', 'app', 'lib'], ['.tsx', '.ts']);
+    const ALLOWED = 'lib/plotPng.ts';
+    const sites: string[] = [];
+    for (const f of scanned) {
+      if (f.path === ALLOWED) continue;
+      const code = f.text.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, (m) => m.replace(/[^\n]/g, ' '));
+      code.split('\n').forEach((line, i) => {
+        if (/\.drawImage\s*\(|\[['"`]drawImage['"`]\]\s*\(/.test(line)) sites.push(`${f.path}:${i + 1}`);
+      });
+    }
+    expect(
+      sites,
+      `plot-to-image composites outside ${ALLOWED}, by site:\n${sites.join('\n')}`,
+    ).toEqual([]);
+  });
+
   it('keeps the primitives themselves inside the system', () => {
     // The file everything else is converted ONTO cannot itself be off-system. A primitive that
     // breaks the rule teaches that the rule is optional.
