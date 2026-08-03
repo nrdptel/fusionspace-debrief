@@ -220,7 +220,12 @@ export function Card({
  * is caveated, where a notice is a sentence about content that is otherwise fine and still there.
  *
  * The ramp is `-300/70` border + `-50` fill in light and `-500/30` + `-950/30` in dark, which is
- * what all six hand-rolled notices had independently converged on, byte for byte. It is a THIRD
+ * what the hand-rolled notices had independently converged on — **five of the six byte for byte,
+ * and the sixth is worth naming rather than rounding off.** `CompareView`'s mapping prompt was
+ * `dark:text-indigo-200` where `GroupProposalBanner` was `dark:text-indigo-100`; adopting the tone
+ * moves it one step lighter in dark mode, which raises contrast against `indigo-950/30` and is the
+ * only unclaimed visual change in the conversion. "Byte for byte" across all six was an
+ * over-claim, caught in review. It is a THIRD
  * ramp beside `CARD_TONES` and `CHIP_TONES`, and it earns that: a notice needs more presence than
  * a chip's `500/10` wash (it is competing with the content it sits above) and less than a card's
  * flat fill (it must not read as the container).
@@ -273,9 +278,11 @@ export type NoticeTone = keyof typeof NOTICE_TONES;
  *
  * *(The grep observation is true and stands on its own — `\b((p|m)[xytblr]?|…)-[0-9]+\b` matches
  * `py-1` inside `py-1.5` and passes it as on-scale, so §9's off-scale-spacing count of 0 cannot
- * see any half-step. Repo-wide that is 60 of them. It just is not a defect HERE, because this one
- * is sanctioned. Filed in `BACKLOG.md`, since `py-2.5` — which §4 does not name anywhere — hides
- * behind the same hole.)*
+ * see any half-step. Repo-wide that is **124** of them — this said 60 for one revision, from a
+ * partial count taken before the grep was written, which is the same believe-then-measure order
+ * the paragraph is about. It just is not a defect HERE, because this one
+ * is sanctioned. Filed in `BACKLOG.md` with the full breakdown, since `py-2.5` — which §4 does not
+ * name anywhere — hides behind the same hole.)*
  */
 export function Notice({
   as: Tag = 'div',
@@ -284,7 +291,11 @@ export function Notice({
   children,
   ...rest
 }: {
-  as?: 'div' | 'p' | 'section' | 'aside';
+  /** Only the tags with a call site, the rule `FrameElements` sets above: `<p>` where the notice
+   *  IS one sentence, `<div>` where controls sit beside it, `<section>` for a named region. A
+   *  union member with no caller is config surface nobody asked for — `aside` shipped in the
+   *  first draft and had none. */
+  as?: 'div' | 'p' | 'section';
   tone?: NoticeTone;
   className?: string;
   children?: React.ReactNode;

@@ -7,7 +7,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **A Sev-1 that WASN'T** | A "main descent rate published off a record that never landed" was found, fixed, gated green, verified in the running app — and then **refuted before it was pushed**. The fix was reverted. **Read *The one thing to read before anything else* before touching `lib/analyze/index.ts`.** |
-| **P — product & craft** | **P1 shipped five increments and §5 gained THREE words**: `Button variant="link"`, `Chip`'s `good`/`warn`/`danger`, and `Notice` — the inline primitive that also answers §5's open degraded-capability question. §2's colour-by-magnitude clause is closed on both surfaces that broke it, and the logbook stops starring an apogee Debrief has disowned. `Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 12. |
+| **P — product & craft** | **P1 shipped five increments and §5 gained THREE words**: `Button variant="link"`, `Chip`'s `good`/`warn`/`danger`, and `Notice` — the inline primitive that also answers §5's open degraded-capability question. §2's colour-by-magnitude clause is closed on both surfaces that broke it, and the logbook stops starring an apogee Debrief has disowned. `Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 11. |
 | **D — capability** | **D8 slice 3 is SHIPPED** — a replayed block in a high-rate download is detected and stated, and the statement is about the stretch the flyer is actually shown. Slice 4 (tilt) stays blocked. **D9 is DECOMPOSED** and its first slice is a FILE, not code — the corpus holds no prediction at all. |
 | **The recurring lesson, now twice in two runs** | **A green gate says nothing about pixels.** `text-inherit` last run, an invisible neutral chip this run — both passed `npm test`, `npm run build` and all 267 e2e, because the assertions are on roles and accessible names and neither changes when a colour does. **If a change's whole effect is visual, screenshot it in both themes before pushing.** |
 
@@ -736,7 +736,7 @@ grep (names `GpsApogee.tsx:71` when its conversion is reverted), the one-ramp ch
 neutral-chip-visibility check that asserts the RELATIONSHIP — the neutral fill differs from every
 `CARD_TONES` fill — rather than a string, so restyling `Card` cannot silently make it vacuous.
 
-`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 12, all moved in the same commit.
+`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 11, all moved in the same commit.
 
 ### 17. §5 gains `Notice` — the third missing word in one run (pending push)
 
@@ -778,6 +778,41 @@ that is a real improvement rather than adoption.
   repo-wide are invisible to a count that reports 0**. The third §9 grep found blind in one run.
   `BACKLOG.md` carries it with the two-step fix (settle §4's rule, then widen the grep) and the
   reason it must not be done in one step.
+
+**The pre-push review found NINE things, and the first was an accessibility bug this commit had
+itself just made into a stated rule.** `RecentFlights`'s forgotten-flights banner is a live region
+wrapping a "Got it" button — the exact shape §5 forbids, in the same commit that wrote the
+prohibition. The conversion had carried it over verbatim from the hand-roll. **And the e2e suite was
+pinning the defect**: `notice.getByRole('button', {name: 'Got it'})` only resolves while the region
+contains the control, so the assertion encoded the wrong structure and correcting the markup is what
+surfaced it. It now asserts the region does NOT contain the button, falsified by putting the role
+back — `Received: 1`.
+
+**§5 named a primitive for degraded capability and shipped it with no degraded-capability adopter.**
+`RecentFlights`'s `write-blocked` caveat — the surface that motivated the whole question — was a
+bare amber `<p>` at `text-xs`, and the notice census could not see it because that predicate keys on
+the primitive's own `-300/70` + `-50` ramp. **A census that can only find hand-rolls which already
+look like the primitive.** It is a `Notice tone="warn"` now; verified in both themes.
+
+**Three of my own claims were wrong and are corrected in place rather than quietly dropped:**
+- *"byte for byte"* across all six notices — five were; `CompareView`'s was `dark:text-indigo-200`
+  against the tone's `-100`, so adopting it moves one step lighter in dark mode. The only unclaimed
+  visual change in the conversion.
+- *"Repo-wide that is 60 of them"* in `ui.tsx` while `BACKLOG.md`, same commit, published the grep
+  and **124** with a full breakdown. The 60 was a partial count taken before the grep existed —
+  believe-then-measure, in a paragraph whose whole subject is that order being wrong.
+- **A quoted string that does not exist in the app.** The ratchet entry justified itself with a
+  message reading *"this file's name was used for the export"*; nothing in `lib/` or `components/`
+  says that. Invented from memory three paragraphs below this block's own warning that a ratchet
+  comment is a claim like any other. Quote or do not quote; do not paraphrase inside quotation marks.
+
+**And the §3 argument was stated too strongly.** §3 lists "its caveat" under `text-xs`, and a
+standing paragraph five lines above the new entry said in terms that `Analyzer`'s amber note is
+sanctioned `text-xs` and the file is "inverted while fully compliant". Two paragraphs in one comment
+asserting opposite things about the same element. Resolved by amending the older one and saying why
+it is a **judgement**: §3's clause sits inside "text AROUND such a VALUE", meaning annotation
+attached to a number, and these notices are attached to none — they are messages about what happened
+to a flyer's files. Defensible, not forced by the wording, and now recorded as such.
 
 `Notice` adopters **0 → 5**. The chip census dropped two allowances by being right — both were
 notices all along — and moved from `file:line` strings to a file → count map, because every one of
@@ -893,7 +928,7 @@ now detected and stated). What stopped D9 going further is a **missing fixture**
 there is no prediction file in the corpus to build against, which is slice 1.
 
 **P-track — what is measurably better?** Five counts moved and one of them a flyer can see.
-`Chip` adopters **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 12**, hand-rolled
+`Chip` adopters **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 11**, hand-rolled
 chip-shaped elements **12 → 5** (and all five now carry a written reason rather than being
 unexamined). The one that is not a count: **a neutral chip was invisible against its own container**
 — identical fill to §2's sunken card in light and its default card in dark — so `/stitch`'s burn

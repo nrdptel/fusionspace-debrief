@@ -251,11 +251,19 @@ export default function RecentFlights({
       // its typography identical to the `/compare` note a flyer may be reading in the same
       // viewport — the first draft hand-wrote the same words with `&apos;`, and a straight quote
       // against the constant's curly one is exactly the drift a shared string exists to prevent.
-      <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+      // **This is THE degraded surface, and §5 names `Notice` for exactly it** — reads working,
+      // writes refused, which is none of the five states because the surface is not empty, not
+      // loading, not errored and not offline; it is working with one thing qualified. It was a
+      // bare amber `<p>` and the primitive shipped without it, so §5 named a case that had no
+      // adopter. Found by the pre-push review, and it could not have been found by the
+      // hand-rolled-notice census: that predicate keys on the primitive's own `-300/70` + `-50`
+      // ramp, so it can only ever see hand-rolls that already LOOK like a notice. A census
+      // scoped to the form the drift was first noticed in, again.
+      <Notice as="p" tone="warn" role="status">
         Nothing more will be kept here: {STORAGE_WRITE_REFUSED} — a full quota or blocked site
         storage usually does it. Analysing a file still works, and every report has its own export,
         so save anything you want to keep from the report itself.
-      </p>
+      </Notice>
     ) : null;
 
   if (recents.length === 0) {
@@ -447,10 +455,19 @@ export default function RecentFlights({
         onDismiss={onDismissProposal}
       />
       {/* What the last drop cost, named. The prune has always run; saying nothing about it
-          meant a flyer found out by counting, days later, with nothing to do about it. */}
+          meant a flyer found out by counting, days later, with nothing to do about it.
+
+          **The live region is the MESSAGE, not the box** — §5's rule for `Notice`, and this panel
+          is the reason the rule exists in those words. `role="status"` implies `aria-atomic`, so a
+          region wrapping the "Got it" button below re-announces the whole banner — the count,
+          every file name, the full "keeps the last N un-noted flights" sentence — whenever
+          `forgotten` changes under it. That is exactly what `GroupProposalBanner` found and fixed;
+          this one carried the same shape and the conversion to `Notice` moved it verbatim rather
+          than noticing. Caught by the pre-push review, which pointed out that the commit had
+          written the rule and shipped the breach. */}
       {forgotten.length > 0 && (
-        <Notice role="status" className="mb-3">
-          <p>
+        <Notice className="mb-3">
+          <p role="status">
             <strong className="font-medium">
               {forgotten.length === 1 ? 'One flight was' : `${forgotten.length} flights were`} forgotten
             </strong>{' '}

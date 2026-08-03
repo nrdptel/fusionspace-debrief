@@ -267,7 +267,23 @@ const BUDGET = {
    *  such a value — its unit, its provenance, its caveat" that `text-xs` is FOR. `Analyzer` joins
    *  `EventChips`, `RecognizedFormats`, `SiteFooter`, `FusionSpaceBadge` and `ChannelExplorer` as a
    *  file that is inverted while fully compliant, which is why item 2's target of 0 is not
-   *  reachable and `ROADMAP.md` says so. */
+   *  reachable and `ROADMAP.md` says so.
+   *
+   *  **AMENDED 2026-08-03 — the amber note was misclassified here, and the correction is a
+   *  judgement rather than a rule.** The pre-push review for §5's `Notice` caught this paragraph
+   *  and the entry below asserting opposite things about the same element. §3's `text-xs` line
+   *  does say "its caveat", so this reading was not unreasonable — but that clause sits inside
+   *  "text AROUND such a VALUE", meaning annotation ATTACHED to a number: a unit, a provenance, a
+   *  qualifier riding beside a figure. `Analyzer`'s note is attached to no value. It is four
+   *  sentences about what happened to the flyer's FILES — which was read as a flight, which was
+   *  read as a cross-check, which was left out and why — and a flyer acts on it. That is a message,
+   *  and §3's body default covers messages.
+   *
+   *  **Stated as the judgement it is, because §3's literal wording can be read either way and a
+   *  future session deserves the argument rather than the verdict.** The other two captions here
+   *  are unchanged and genuinely are annotation, so `Analyzer` was a 3/2 file whose third caption
+   *  was the misfiled one; it is 2/2 now. The five other files named above keep their standing —
+   *  none of them was re-examined, and none should be assumed to have moved. */
   /** 16 → 13 on 2026-08-02, and this one IS an improvement rather than an adoption effect — the
    *  distinction matters and the two entries above it are the reason to state it. Glyphs actually
    *  changed size: `RecordingPicker`, `FlightPicker` and `GroundTrack` each rendered a
@@ -313,10 +329,19 @@ const BUDGET = {
    *
    *  **12 → 11 the same day, and this one is NOT adoption — it is the real thing.** `Analyzer`
    *  left the list because its hand-rolled notice took `Notice`, and §5's notice is `text-sm`
-   *  where the hand-roll was `text-xs`. A message a flyer reads and acts on ("this file's name was
-   *  used for the export") got BIGGER, on five surfaces. That is the direction this metric was
+   *  where the hand-roll was `text-xs`. A message a flyer reads and acts on got BIGGER, on five
+   *  surfaces — `Analyzer`'s is built by `loneFlightNote`/`skippedNote`/`pairedNote` and reads
+   *  like *"Read the device's own summary alongside the flight (…) — its figures are shown beside
+   *  Debrief's read as a cross-check, not merged into it."* That is the direction this metric was
    *  reached for, and the first time in four moves it has gone that way. Say which kind a move is
-   *  every time; a number that means two things means neither. */
+   *  every time; a number that means two things means neither.
+   *
+   *  *A first version of this entry quoted that message as "this file's name was used for the
+   *  export" — **a string that exists nowhere in the app**, invented from memory three paragraphs
+   *  below this block's own warning that a ratchet comment is a claim like any other. The wording
+   *  above is copied from the built page. Quote or do not quote; do not paraphrase in quotation
+   *  marks.* See the amendment above for why this move is defensible at all — it rests on a
+   *  judgement about §3, not on §3 being unambiguous. */
   invertedTypeFiles: 11,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
@@ -996,7 +1021,10 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
   };
 
   /**
-   * **Twelve on `main`; nine converted, three left — and each of the three says why here.**
+   * **Twelve on `main`; SEVEN converted to `Chip`, two reclassified as notices, three left.**
+   * *An earlier version of this line said "nine converted", which is `12 − 3` — arithmetic about
+   * the census population dressed as a count of conversions, and the exact over-claim the rest of
+   * this comment keeps warning about. `DESIGN.md` says seven and is right.*
    * An unexplained allowance is how a ratchet quietly stops ratcheting, so each gets a reason a
    * later session can disagree with rather than a silence it has to reverse-engineer.
    *
@@ -1024,6 +1052,13 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
    * failed for a reason that had nothing to do with chips. A count per file still fails when a new
    * file hand-rolls one, or when a listed file grows another; it just does not fail on a diff that
    * moved some lines.
+   *
+   * **The tradeoff, recorded rather than left to be discovered:** per-file counts cannot say WHICH
+   * element is allowed. Converting one of `RecentFlights`'s two dense-list tokens while
+   * hand-rolling a new chip elsewhere in the same file passes this pin. That is a real hole, and
+   * it is accepted because the alternative failed on every unrelated edit — a pin that cries wolf
+   * gets its expected value updated without being read, which is a worse failure than a narrow
+   * blind spot that is written down.
    */
   const DELIBERATE: Record<string, number> = {
     'components/RecentFlights.tsx': 2,
@@ -1084,8 +1119,16 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
    * control re-announces the ENTIRE panel — every file name, the whole reason sentence — over the
    * flyer's own action each time they press it. `GroupProposalBanner` hit that and fixed it by
    * moving the region onto the inner message; a primitive that hard-coded `role="status"` would
-   * put the bug straight back. Four of the six converted call sites DO pass `role="status"`, and
-   * they are right to — the difference is that it is their decision.
+   * put the bug straight back.
+   *
+   * **Three of the converted call sites pass `role="status"` on the box and are right to, because
+   * each holds a message and nothing else.** An earlier version of this comment said FOUR and
+   * added "and they are right to" — while `RecentFlights`'s forgotten-flights banner wrapped a
+   * "Got it" button inside its region, which is the shape §5 forbids in the same commit that wrote
+   * the rule. The conversion had carried it over verbatim from the hand-roll. The region is on the
+   * message there now. **This pin cannot see that class of mistake** — it asserts the PRIMITIVE
+   * owns no role, and the rule is about call sites — so it is written down here instead of being
+   * assumed covered.
    */
   it('leaves the live region to the call site', () => {
     const ui = readFileSync(join(ROOT, 'components/ui.tsx'), 'utf8');
