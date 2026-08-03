@@ -280,6 +280,44 @@ inspection. What it exposed is filed: the figure light/dark toggle governs the e
 the PNG. The PNG is right to take the page theme (it composites the live canvas), but two buttons an
 inch apart behave differently and nothing says so.
 
+### 8. A refused restore stops telling a flyer their backup landed (pending push)
+
+The worst member of the storage-refusal family, and the one filed as "fix this first" an hour
+earlier in the same run. `importLogbook` resolved on the transaction's `onabort` and then returned
+`flights.length` regardless, so a restore the browser refused reported **"Restored 12 flights."**
+over an empty logbook. What makes it the worst is what a flyer does next: the obvious move after a
+successful restore is to delete the file it came from.
+
+Its sibling failure blamed them too — the `catch → 0` rendered *"No flights found in that file — is
+it a Debrief logbook export?"* over a perfectly good backup.
+
+`importLogbook` reports its transaction's OUTCOME now, as `{ restored, blocked }`. Three outcomes,
+and `{ restored: 0, blocked: false }` — a file with genuinely nothing in it — is the only one that
+says anything about the flyer's file.
+
+**The test aborts the readwrite TRANSACTION rather than removing `indexedDB`**, and that distinction
+is the whole reason it proves anything: a missing `indexedDB` is caught long before the write, so a
+stub-based test would have passed against the old code too. This is the shape a full quota, a
+private window and Safari's ITP eviction actually take. Falsified by restoring the
+resolve-and-count, which puts "Restored 1 flight." straight back over an empty logbook.
+
+**The first version of this fix got the atomicity backwards, and review caught it.** I kept
+`preventDefault()` on the transaction's error while reporting `blocked` — but preventing the default
+on an IDB error is exactly what stops the transaction aborting, so one oversized record would have
+resolved *"nothing was restored, keep the file"* while the transaction went on to commit every other
+flight, invisible until a reload. That is a regression on that path: the old "Restored N" was nearer
+true. The restore is atomic now — either the whole backup lands or none of it does — which is the
+shape `setFlightIds` already used, and it is what makes `blocked` true when it says so.
+
+**And the pin's assertion ORDER was load-bearing.** The two negatives are `toHaveCount(0)`, which
+passes on its first poll while the message still reads "Restoring…" — so putting them first made
+them pass regardless and left only one assertion falsifying. The positive goes first now, and the
+test also checks the second half of its own name: that the logbook really did stay empty.
+
+**What is still open in that family:** `saveRecent` has the same never-awaited transaction, so
+`savedId` is non-null on a quota abort. That is why the `/compare` "Added … to your logbook" half
+was reverted earlier today rather than shipped, and it is the next thing to fix here.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe
