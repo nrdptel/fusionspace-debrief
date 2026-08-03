@@ -579,6 +579,64 @@ Three more the same review corrected, two in the binding file:
 every legitimate survivor has an interpolation, so the clause was doing all the work while a
 hand-rolled link written with a template literal passed silently.
 
+### 13. SEV-1: an apogee Debrief disowns, published bare (pending push)
+
+**Found by the opening fan-out's Sev-1 screen, survived adversarial verification, and reproduced
+end-to-end before a line was changed.** `lib/analyze` can flag an altitude channel
+`altitudeUnproven` — *"this record's climb is too slow to be a flight, so its altitude channel is in
+doubt"*. One corpus flight is in that state: `issuiuc-sg1.2` reads **31 ft**, while a second
+altimeter in the same airframe recorded **2,115 m**.
+
+`lib/report.ts` built the apogee row as `m.apogeeIsFloor ? apogeeSub(m) : undefined` — gating the
+caveat on the OTHER of its two flags. `apogeeSub`'s own docstring had promised the opposite in as
+many words: *"onto the tile, into every export, onto the shareable card."*
+
+**What each artifact actually did, measured — and my first draft of this note overstated it.**
+
+| artifact | before |
+|---|---|
+| metric tile | the full sentence |
+| clipboard table · JSON · share card | **nothing at all** |
+| `.txt` · `.md` · `.html` | apogee row bare — but a separate warning elsewhere in the document said the record does not describe a rocket flight |
+| comparison `.md` / `.html` / on screen | nothing — and `CompareFlight` carries no `warnings` at all |
+
+So "every artifact published it as flat fact" was too strong. The accurate claim is narrower and
+still Sev-1: **the caveat did not ride with the value on any of them**, and four carried no
+qualification whatsoever. A number quoted out of a cert document travels without the paragraph three
+sections below it.
+
+**The fix is one source of words for six surfaces.** `lib/readings.ts` gains `apogeeCaveat` (the
+caveats alone — `apogeeSub` still composes them with "N s to apogee", which the tables print as their
+own row) and `apogeeIsQualified`. The comparison also withholds its "highest" crown for an unproven
+apogee, which it did only for a floor: **an unproven altitude needs that more, not less** — a floor is
+a true reading that is a lower bound, while an unproven one is a channel the app has said it does not
+trust.
+
+**Three things the pre-push review caught, and two of them were tests that could not fail:**
+
+- **The crown assertion was vacuous.** Both compare flights were built from one metrics object, and
+  `compareMetricRows` zeroes the crown on a TIE regardless of `rankBlocked` — so it passed
+  identically under the old gate, leaving the widening completely unpinned. The two flights have
+  different apogees now, `best` is read directly rather than by an index regex that missed position
+  ≥ 2, and a second case asserts a crown IS awarded where the set can settle it.
+- **The `(unproven)` tag reached the comparison exports with no legend** — against a rule written
+  thirty lines away in the same file, and worse here than for the other tags because a comparison
+  export has no document-level text at all. `compareHasUnprovenApogee` + `LEGEND_UNPROVEN` now feed
+  the Markdown footer, the HTML notes and the on-screen legend from one string.
+- **The share card hand-rolled a third copy of the words**, six lines below a comment explaining that
+  the max-velocity line had been moved off hand-rolled words for exactly that reason.
+
+**One deliberate change to a shipped artifact, named because the ledgers should not hide it:** a
+FLOOR record's apogee row loses its "N s to apogee" clause, because the exports now take
+`apogeeCaveat` rather than the full sub. Two corpus flights read
+`3,268 ft — at least this high…` instead of `3,268 ft — 3.3 s to apogee · at least this high…`. No
+number moved, no caveat was lost, and `Time to apogee` is its own row directly below.
+
+Pinned by `lib/apogeeCaveat.test.ts` (10 tests), falsified three ways: restoring the wrong gate,
+dropping the card's branch, and restoring the old `anyFloor` crown gate. It also asserts the fixture
+is still in the state the file exists for, so a corpus re-cut that changes it fails loudly rather
+than passing green over nothing.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe

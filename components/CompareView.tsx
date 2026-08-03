@@ -18,7 +18,7 @@ import FigureChooser from './FigureChooser';
 import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, type ReportMeta } from '@/lib/report';
+import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, compareHasUnprovenApogee, type ReportMeta } from '@/lib/report';
 import { captionKey, loadMemory, memoryCarriedForward, rememberCompare, rememberShown, EMPTY, type CompareMemory, type CompareSort } from '@/lib/compareMemory';
 import { plotSvg } from '@/lib/svgChart';
 import { loadSeriesColors, saveSeriesColors, withSeriesColors } from '@/lib/seriesColor';
@@ -323,6 +323,7 @@ export default function CompareView({
   const baroMix = compareHasBaroMix(flights);
   const clippedAccel = compareHasClippedAccel(flights);
   const partialDescent = compareHasPartialDescent(flights);
+  const unprovenApogee = compareHasUnprovenApogee(flights);
 
   // Which events are called out, from the same stored answer the single-flight explorer uses —
   // a flyer who turned landing off there does not find it back here.
@@ -997,6 +998,14 @@ export default function CompareView({
           <span className="font-mono">(clipped)</span> — the accelerometer saturated at its full-scale
           limit, so its peak is a floor, not the true maximum; the highest-acceleration mark is withheld
           because the comparison can&apos;t settle which flight actually pulled the most g.
+        </p>
+      )}
+
+      {unprovenApogee && (
+        <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-mono">(unproven)</span> — Debrief does not trust that recording&apos;s
+          altitude channel: its climb is too slow to be a flight, so the height it reports is in doubt
+          and no “highest” is crowned.
         </p>
       )}
 

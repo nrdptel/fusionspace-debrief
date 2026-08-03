@@ -173,19 +173,47 @@ export function descentStoppedAloft(m: FlightMetrics): boolean {
  *  or approximate.
  *
  *  Exported so the saved report says the identical thing, like `burnoutSub`. */
+/** A record whose climb is impossible for the height it reaches is not describing a flight, and
+ *  the apogee is the reading that carries that furthest. */
+const UNPROVEN =
+  'unproven — this record’s climb is too slow to be a flight, so its altitude channel is in doubt';
+/** A log that ends at its own peak gives a LOWER BOUND, not a summit. */
+const FLOOR = 'at least this high — the log ends at its own peak, so the rocket was still going up';
+
+/** Short forms, for a comparison cell where a sentence would not fit. */
+export const APOGEE_TAG_UNPROVEN = ' (unproven)';
+export const APOGEE_TAG_FLOOR = ' (at least)';
+
+/**
+ * What makes this apogee less than a plain reading — the CAVEATS alone, no "N s to apogee".
+ *
+ * **Split out of `apogeeSub` on 2026-08-03 because every artifact that leaves the device was
+ * dropping the unproven half.** `lib/report.ts` gated the whole sub on `apogeeIsFloor`, so a
+ * record flagged `altitudeUnproven` and not `apogeeIsFloor` — which is one real corpus flight,
+ * reading 31 ft against a sibling altimeter in the same airframe that recorded 2,115 m — put the
+ * caveat on the metric tile and printed a bare "31 ft" into the .txt, the .md, the clipboard
+ * table, the JSON and the share card. The docstring on `apogeeSub` had promised the opposite in
+ * as many words: *"onto the tile, into every export, onto the shareable card."*
+ *
+ * The reason it needs to be separate from `apogeeSub` rather than just called: a table that
+ * prints "Time to apogee" as its own row must not repeat it inside the apogee cell.
+ */
+export function apogeeCaveat(m: FlightMetrics): string | undefined {
+  const parts = [m.altitudeUnproven ? UNPROVEN : undefined, m.apogeeIsFloor ? FLOOR : undefined].filter(Boolean);
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+/** Whether the apogee carries any caveat at all — what a comparison tests before crowning a
+ *  "highest", and what an export tests before deciding there is nothing to qualify. */
+export function apogeeIsQualified(m: FlightMetrics): boolean {
+  return !!m.altitudeUnproven || !!m.apogeeIsFloor;
+}
+
 export function apogeeSub(m: FlightMetrics): string | undefined {
   const to = Number.isFinite(m.timeToApogee) ? `${fmtTime(m.timeToApogee)} to apogee` : undefined;
-  // A record whose climb is impossible for the height it reaches is not describing a flight, and
-  // the apogee is the reading that carries that furthest — onto the tile, into every export, onto
-  // the shareable card. It leads the sub rather than trailing it, because a flyer who reads three
-  // words of a caption reads the first three.
-  const unproven = m.altitudeUnproven
-    ? 'unproven — this record’s climb is too slow to be a flight, so its altitude channel is in doubt'
-    : undefined;
-  const floor = m.apogeeIsFloor
-    ? 'at least this high — the log ends at its own peak, so the rocket was still going up'
-    : undefined;
-  const parts = [unproven, to, floor].filter(Boolean);
+  // The unproven clause LEADS and the floor clause trails, because a flyer who reads three words
+  // of a caption reads the first three, and "in doubt" is the one that changes what they do next.
+  const parts = [m.altitudeUnproven ? UNPROVEN : undefined, to, m.apogeeIsFloor ? FLOOR : undefined].filter(Boolean);
   return parts.length ? parts.join(' · ') : undefined;
 }
 

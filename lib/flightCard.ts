@@ -4,6 +4,7 @@
 // drawing itself (canvas) lives in the component, since it needs the DOM.
 
 import type { FlightMetrics } from './analyze/types';
+import { apogeeCaveat } from './readings';
 import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from './display';
 import type { UnitChoice } from './display';
 import { visibleRows } from './reportProfile';
@@ -46,7 +47,15 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice, hidden?
       // was the one headline that went out bare. Same argument as the docstring above —
       // this is the artefact that gets posted to a club chat, so it is the worst place to
       // print a lower bound as though it were the number.
-      ...(metrics.apogeeIsFloor ? { sub: 'at least this high' } : {}),
+      // Both caveats, not just the floor. An unproven altitude is the one a club chat most needs
+      // to see beside the number, because the card is the artifact that travels furthest from the
+      // report that explains it.
+      //
+      // From `apogeeCaveat` rather than hand-rolled: a first version wrote its own two strings and
+      // review pointed at the explanation six lines below, where the max-velocity line was moved
+      // off hand-rolled words for exactly this reason. `CARD_MAX` keeps the card readable — it is
+      // a shareable image, not a document — and truncating a shared string is still one string.
+      ...(apogeeCaveat(metrics) ? { sub: shortCaveat(apogeeCaveat(metrics)!) } : {}),
     },
   ];
   if (Number.isFinite(metrics.maxVelocity)) {
@@ -80,4 +89,14 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice, hidden?
   // The flyer's show/hide choice drives the grid and every report; the card honoured none
   // of it, so a reading hidden everywhere else still went out on the shareable image.
   return visibleRows(stats, (s) => s.reading, hidden);
+}
+
+
+/** How much of a caveat a share card can carry. The card is an image posted to a club chat, not a
+ *  document — the full sentence would set five lines under a two-word label. The clause before the
+ *  em dash is the claim; what follows it is the explanation, and the report is where that lives. */
+const CARD_MAX = 44;
+function shortCaveat(full: string): string {
+  const lead = full.split(' — ')[0];
+  return lead.length <= CARD_MAX ? lead : `${lead.slice(0, CARD_MAX - 1).trimEnd()}…`;
 }

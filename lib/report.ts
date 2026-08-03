@@ -39,7 +39,7 @@ import {
   type CompareFlight,
 } from './compare';
 import { derivedPeakCaveat } from './derivedPeak';
-import { apogeeSub, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
+import { apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -196,7 +196,13 @@ export function headlineRows(
   const rows: [string, string][] = [];
   // The document a flyer files has to carry the qualifier the screen shows, or the number
   // that leaves the app is the one without it.
-  const apoSub = m.apogeeIsFloor ? apogeeSub(m) : undefined;
+  // **`apogeeCaveat`, not `apogeeSub` gated on one of its two flags.** This read
+  // `m.apogeeIsFloor ? apogeeSub(m) : undefined`, so a record flagged `altitudeUnproven` and not
+  // `apogeeIsFloor` printed a bare number into every artifact a flyer keeps while the metric tile
+  // said its altitude channel was in doubt — the exact asymmetry the comment above forbids, in the
+  // code the comment is attached to. `apogeeCaveat` also drops "N s to apogee", which this table
+  // prints as its own row directly below.
+  const apoSub = apogeeCaveat(m);
   rows.push(['Apogee', fmtLength(m.apogeeAltitude, sys) + (apoSub ? ` — ${apoSub}` : '')]);
   if (Number.isFinite(m.timeToApogee)) rows.push(['Time to apogee', fmtTime(m.timeToApogee)]);
   if (Number.isFinite(m.maxVelocity)) {
@@ -824,7 +830,13 @@ export function compareMetricRows(
   // The same argument as `anyClipped`, one row up. A floor apogee is a LOWER BOUND — the log
   // ends at its own peak and the rocket was still climbing — so which flight actually went
   // highest cannot be settled from these numbers, and crowning one says it can.
-  const anyFloor = flights.some((f) => f.metrics.apogeeIsFloor && Number.isFinite(f.metrics.apogeeAltitude));
+  // Widened from `apogeeIsFloor` alone on 2026-08-03. An UNPROVEN altitude needs the crown
+  // withheld more than a floor does, not less: a floor is a true reading that is a lower bound,
+  // while an unproven one is a channel Debrief has said it does not trust. Crowning it "highest"
+  // is a ranking built on the number the app just disowned.
+  const anyApogeeQualified = flights.some(
+    (f) => apogeeIsQualified(f.metrics) && Number.isFinite(f.metrics.apogeeAltitude),
+  );
   const clipTag = (m: FlightMetrics) => (m.accelClipped && Number.isFinite(m.maxAcceleration) ? ' (clipped)' : '');
   /** A peak speed Debrief DECLINED to report, said as such rather than as an em dash.
    *
@@ -856,10 +868,16 @@ export function compareMetricRows(
   const specs: { label: string; get: (m: FlightMetrics) => string; value: (m: FlightMetrics) => number; rank?: boolean; rankBlocked?: boolean }[] = [
     {
       label: 'Apogee',
-      get: (m) => fmtLength(m.apogeeAltitude, sys) + (m.apogeeIsFloor ? ' (at least)' : ''),
+      // Short tags rather than the full sentences: a comparison cell is a column of a table and a
+      // clause would break it. The words come from `lib/readings.ts` so the cell and the report
+      // cannot drift into two accounts of one caveat.
+      get: (m) =>
+        fmtLength(m.apogeeAltitude, sys) +
+        (m.altitudeUnproven ? APOGEE_TAG_UNPROVEN : '') +
+        (m.apogeeIsFloor ? APOGEE_TAG_FLOOR : ''),
       value: (m) => m.apogeeAltitude,
       rank: true,
-      rankBlocked: anyFloor,
+      rankBlocked: anyApogeeQualified,
     },
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee), value: (m) => m.timeToApogee },
     {
@@ -992,6 +1010,20 @@ export function compareHasClippedAccel(flights: CompareFlight[]): boolean {
  *  tag in this table earns a legend line on screen, in the Markdown footer and in the HTML
  *  notes; without one, the tag is a bare parenthetical on the one figure a flyer sizes a
  *  parachute against, while the flight's own page spells out what it means. */
+/** The legend line, in one place so the Markdown footer, the HTML notes and the on-screen
+ *  legend cannot drift into three accounts of one tag. */
+export const LEGEND_UNPROVEN =
+  '(unproven) — Debrief does not trust that recording’s altitude channel: its climb is too slow to be a flight, so the height it reports is in doubt and no “highest” is crowned.';
+
+/** Whether any compared flight tags its apogee "(unproven)". The rule stated three functions up
+ *  applies here with more force, not less: `CompareFlight` carries no `warnings`, so a comparison
+ *  export has no document-level text at all — the parenthetical is the ONLY signal that the number
+ *  is disowned, in the artifact most likely to end up in a cert package. Added 2026-08-03 with the
+ *  tag itself; the pre-push review caught that the tag had shipped without it. */
+export function compareHasUnprovenApogee(flights: CompareFlight[]): boolean {
+  return flights.some((f) => f.metrics.altitudeUnproven && Number.isFinite(f.metrics.apogeeAltitude));
+}
+
 export function compareHasPartialDescent(flights: CompareFlight[]): boolean {
   return flights.some(
     (f) => !landedInRecord(f.metrics) && (f.metrics.mainDescentRate ?? f.metrics.wholeDescentRate) != null,
@@ -1070,6 +1102,9 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
       '',
       '_(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor, not the true maximum; the highest-acceleration mark is withheld because which flight pulled the most g can’t be settled._',
     );
+  }
+  if (compareHasUnprovenApogee(flights)) {
+    out.push('', `_${LEGEND_UNPROVEN}_`);
   }
   if (compareHasPartialDescent(flights)) {
     out.push(
@@ -1151,6 +1186,7 @@ export function compareHtml(
     compareHasClippedAccel(flights)
       ? '(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor; the highest-acceleration mark is withheld.'
       : '',
+    compareHasUnprovenApogee(flights) ? LEGEND_UNPROVEN : '',
     compareHasPartialDescent(flights)
       ? '(stops in the air) — that recording’s file ends while the rocket is still under canopy, so the rate is averaged over the descent that WAS recorded and is not a landing speed.'
       : '',
@@ -1223,6 +1259,10 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     // apogee — the log ended at its own peak, so the rocket was still going up — exported
     // as a flat fact, and a document built from this JSON could not tell the difference.
     apogeeIsFloor: m.apogeeIsFloor,
+    /** Rides with its value for the same reason, and was the one flag that did not. A document
+     *  built from this JSON could not tell an apogee Debrief trusts from one whose own altitude
+     *  channel it has disowned — and the tile beside it says so in a sentence. */
+    altitudeUnproven: m.altitudeUnproven,
     timeToApogee: sec(m.timeToApogee),
     maxVelocity: spd(m.maxVelocity),
     /** Rides with its value, like `apogeeIsFloor` and `accelerationClipped`. Without it a
