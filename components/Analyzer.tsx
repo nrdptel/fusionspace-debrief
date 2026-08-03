@@ -291,6 +291,12 @@ export default function Analyzer() {
             // The id arrives after the report is on screen (the save resolves later), so it is
             // folded in rather than waited for — the report should not be held back for it.
             if (saved.id) set((prev) => (prev.phase === 'report' ? { ...prev, savedId: saved.id ?? undefined } : prev));
+            // Only an attempted save can discover that writes are refused — a read cannot — and
+            // the logbook below is the surface that would otherwise promise to remember the next
+            // flight. Note a REOPEN of a flight already stored keeps its id even when the write
+            // aborts (the row survives the rollback), so this fires on a genuinely lost flight
+            // rather than on every re-save.
+            else logbook.reportWriteRefused();
             logbook.reportForgotten(saved.forgotten);
             logbook.refresh();
           });
@@ -307,7 +313,7 @@ export default function Analyzer() {
         set({ phase: 'error', message: err instanceof Error ? err.message : 'It could not be read.', file: name });
       }
     },
-    [logbook.refresh, logbook.reportForgotten, beginLoad],
+    [logbook.refresh, logbook.reportForgotten, logbook.reportWriteRefused, beginLoad],
   );
 
   /**
@@ -427,6 +433,7 @@ export default function Analyzer() {
 
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
+      if (results.some((r) => !r.savedId)) logbook.reportWriteRefused();
       logbook.refresh();
       if (results.length >= 2) {
         const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
@@ -537,6 +544,11 @@ export default function Analyzer() {
         // the flight is shown on its own rather than silently lost.
         if (addToIds) {
           const id = await save;
+          // The mapper's OTHER branch. Review found this one unreported: drop a folder where every
+          // log saves (which is what makes the mapper reachable at all), then map the extra file
+          // into the quota the batch just filled — the save aborts, this falls through to a lone
+          // report, and `reportArrived` has already cleared the flag on the way in.
+          if (!id) logbook.reportWriteRefused();
           void logbook.refresh();
           if (id) {
             window.location.href = `/compare?ids=${[...addToIds, id].map(encodeURIComponent).join(',')}&u=${encodeUnits(sys)}`;
@@ -551,6 +563,7 @@ export default function Analyzer() {
             // hand-mapped flight has no id on screen, and everything kept AGAINST that id —
             // the label, the notes, the stretch the flyer chose — silently stops being kept.
             if (savedId) set((prev) => (prev.phase === 'report' ? { ...prev, savedId } : prev));
+            else logbook.reportWriteRefused();
             logbook.refresh();
           });
       } catch (err) {

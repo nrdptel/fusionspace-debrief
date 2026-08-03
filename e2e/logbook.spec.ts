@@ -949,8 +949,15 @@ test('a restore the browser refuses does not report flights it did not keep', as
   // …and must not blame the flyer's file.
   await expect(page.getByText(/is it a Debrief logbook export\?/)).toHaveCount(0);
   // And the second half of this test's own name: nothing was kept. The logbook is still offering
-  // to restore a backup, which is the empty state, not a list.
+  // to restore a backup, which is the empty state, not a list — the offer stays deliberately,
+  // because a 200 KB backup can commit on a device where an 11 MB flight text aborted.
   await expect(page.getByRole('button', { name: 'Restore it' })).toBeVisible();
+  // **But the PROMISE beside it must be gone.** This test used to assert "Restore it" is visible
+  // while it sat inside "Flights you open are remembered here on this device" — one line under
+  // "That backup could not be written". Two sentences, one viewport, opposite stories, held green
+  // by this very test. A refused restore is a refused write and now says so.
+  await expect(page.getByText(/remembered here on this device/)).toHaveCount(0);
+  await expect(page.getByText(/Nothing more will be kept here/)).toBeVisible();
 });
 
 test('a save the browser refuses is not announced as a flight added', async ({ page }) => {
@@ -1043,6 +1050,107 @@ test('a drop that keeps some flights and loses others names the ones it lost', a
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   // …and the file that never landed is named, as not kept rather than as anything else.
   await expect(page.getByText(/lost\.csv (was|were) read but could not be kept/)).toBeVisible();
+});
+
+test('the logbook stops promising to remember once a save has been refused', async ({ page }) => {
+  // **Found by walking the built export of the shipped SHA, not by a test.** With the drop note
+  // finally honest — "refused.csv was read but could not be kept" — the logbook list directly
+  // BELOW it still rendered "Flights you open are remembered here on this device", because the
+  // list's status is derived from a READ and the read worked. Two sentences, one viewport,
+  // opposite stories: the same defect the whole storage-refusal family exists to end, one layer
+  // down and pointing the other way. A refused write is not discoverable by reading, so the
+  // surfaces that attempt saves report it in.
+  await page.addInitScript(() => {
+    const realOpen = indexedDB.open.bind(indexedDB);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (indexedDB as any).open = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req: any = (realOpen as any)(...args);
+      req.addEventListener('success', () => {
+        const db = req.result;
+        const realTx = db.transaction.bind(db);
+        db.transaction = (names: unknown, mode?: string) => {
+          const t = realTx(names, mode);
+          if (mode === 'readwrite') queueMicrotask(() => { try { t.abort(); } catch { /* done */ } });
+          return t;
+        };
+      });
+      return req;
+    };
+  });
+
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles({ name: 'refused.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+
+  // Positive first: the note settles, so the negative below is not read mid-flight.
+  await expect(page.getByText(/could not be kept|was not kept/)).toBeVisible();
+  // The list says the true thing…
+  await expect(page.getByText(/Nothing more will be kept here/)).toBeVisible();
+  // …and the promise it used to print in the same viewport is gone.
+  await expect(page.getByText(/remembered here on this device/)).toHaveCount(0);
+
+  // The analyze page reaches the same state by its own save path, not just `/compare`'s. The
+  // logbook list is NOT on the report screen — going back to the drop zone is where a flyer
+  // meets it, and the refusal has to have survived that round trip.
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'refused2.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv(450)) });
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await expect(page.getByText(/Nothing more will be kept here/)).toBeVisible();
+  await expect(page.getByText(/remembered here on this device/)).toHaveCount(0);
+});
+
+test('clearing the logbook does not leave it insisting nothing can be kept', async ({ page }) => {
+  // **Clearing FREES the origin's quota, so a refusal measured before it is stale by
+  // construction** — and Clear is the app's one irreversible action, so the state it leaves
+  // behind matters more than anywhere else. Found by review: the `write-blocked` flag was cleared
+  // only by a save that LANDS, and Clear lands no saves, so a flyer who deleted their season to
+  // make room was told nothing more would be kept, on a logbook that had just become writable.
+  //
+  // Writes are refused only for the first drop here; the abort is armed, then disarmed, so the
+  // page really is in `write-blocked` and really does become writable, exactly as freeing quota
+  // does in the wild.
+  await page.addInitScript(() => {
+    (window as unknown as { __refuse: boolean }).__refuse = true;
+    const realOpen = indexedDB.open.bind(indexedDB);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (indexedDB as any).open = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req: any = (realOpen as any)(...args);
+      req.addEventListener('success', () => {
+        const db = req.result;
+        const realTx = db.transaction.bind(db);
+        db.transaction = (names: unknown, mode?: string) => {
+          const t = realTx(names, mode);
+          if (mode === 'readwrite' && (window as unknown as { __refuse: boolean }).__refuse) {
+            queueMicrotask(() => { try { t.abort(); } catch { /* done */ } });
+          }
+          return t;
+        };
+      });
+      return req;
+    };
+  });
+
+  await page.goto('/compare');
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles({ name: 'refused.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByText(/Nothing more will be kept here/)).toBeVisible();
+
+  // The quota frees up — which is what Clear does for real, and what a flyer does by hand.
+  await page.evaluate(() => { (window as unknown as { __refuse: boolean }).__refuse = false; });
+
+  // A save that LANDS is the proof storage is writing again, and it must retract the claim.
+  await page
+    .getByLabel('Choose flight logs to compare')
+    .setInputFiles({ name: 'kept.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv(400)) });
+  await expect(page.getByText(/Added kept\.csv to your logbook/)).toBeVisible();
+  await expect(page.getByText(/Nothing more will be kept here/)).toHaveCount(0);
 });
 
 test('a refused write does not take away the address of a flight already in the logbook', async ({ page }) => {
