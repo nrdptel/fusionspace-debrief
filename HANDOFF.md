@@ -850,6 +850,30 @@ to a flyer's files. Defensible, not forced by the wording, and now recorded as s
 notices all along — and moved from `file:line` strings to a file → count map, because every one of
 those line numbers shifted on an unrelated edit.
 
+### 19. The ascent-gap bound: attempted, unpinnable, reverted (nothing pushed)
+
+**The one increment this run that produced no shipped change, recorded because the reason is
+reusable.** `BACKLOG.md` carries a defect where a dropout in the ascent withholds the max-velocity
+INDEX as well as its value, collapsing the burnout search's bound to `apogeeIdx`. The four-line fix
+is easy and was written. It is reverted.
+
+**The blocker is the fixture, and the specific reason is now written down:**
+`ascentGapBreaksPeak` is gated on `velocitySource === 'baro'` (`lib/analyze/index.ts:1711`), while
+the burnout crossing search needs signed axial acceleration — and every signed-axial flight in this
+corpus also reports a device speed. A dropout punched into `stargazer1`'s coast does not set the
+flag at all; the metric returns `undefined` and the test passes vacuously, which is worse than a
+failing one.
+
+**And a probe written to settle reachability was itself wrong** — it counted `velocitySource` across
+the corpus and reported `{none: 37}`, because that field is not on the metrics object. It measured
+nothing while looking authoritative. **So the honest position is not "0 files reach this"; it is
+"nobody has shown that a file does, and my attempt to show otherwise was unsound."**
+
+Reverted rather than shipped because an unpinnable analysis change is the exact shape of the
+confidently-wrong finding that got within one command of production last run. The next attempt
+starts by BUILDING a synthetic baro-only signed-axial file and proving the flag flips, then touches
+`lib/analyze/index.ts`.
+
 ## Traps this run hit — read these before repeating them
 
 - **A `git checkout <file>` to undo a one-line mutation reverts the WHOLE file.** Falsifying a

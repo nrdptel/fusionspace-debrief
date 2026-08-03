@@ -98,6 +98,28 @@ wild, ideas too big for one pass. One line each, newest first.
   test that fails without it. Not already filed: the two nearby entries scope strictly to
   `velocityImplausible` and never name `ascentGapBreaksPeak`, and `grep velTurnoverIdx|velPeakEnd`
   over the ledgers returns one line that asserts this case was left "identical".
+
+  **ATTEMPTED 2026-08-03 and reverted before pushing — read this before starting, it is a wasted
+  increment otherwise.** The four-line code change is easy and was written: a
+  `const ascentVelPeakIdx = ascentPresent ? argMax(velocity, liftoffRef, apogeeIdx + 1) : -1`
+  hoisted above the withholding block, and a third arm on `velTurnoverIdx` falling back to it when
+  `maxVelIdx < 0`. **The blocker is the FIXTURE, exactly as this entry already said, and the
+  specific reason is worth writing down: `ascentGapBreaksPeak` is gated on
+  `velocitySource === 'baro'` (`lib/analyze/index.ts:1711`).** So the synthetic dropout has to be
+  punched into a flight whose velocity is BARO-DERIVED — and the flights that reach the burnout
+  crossing search are the signed-axial ones, which in this corpus all carry a device-reported
+  speed. A dropout punched into `stargazer1`'s coast does not set the flag at all; the metric comes
+  back `undefined` and the test passes vacuously.
+
+  **Do not trust a quick reachability probe here, and this is the second lesson.** A sweep written
+  to count `velocitySource` across the corpus reported `{none: 37}` — that field is not on the
+  metrics object, so the probe measured nothing while looking authoritative, and its
+  "0 baro-velocity flights with a burn" line was worthless. The honest position remains: **nobody
+  has yet shown a real or synthetic file that reaches this path.** Until one exists the code change
+  is unpinnable, and shipping it would be exactly the confidently-wrong-finding shape
+  `MAINTAINING.md`'s opening section exists to prevent. **The next attempt should start by building
+  the synthetic baro-only signed-axial file and proving the flag flips**, and only then touch
+  `lib/analyze/index.ts`.
 - **2026-08-03 — `burnoutVelocity`, `coastEfficiency` and `dragLossAltitude` gate on
   `!velocityImplausible` alone.** `series.velocityUnusable` (`lib/analyze/index.ts:2001`) is the flag
   covering BOTH withholding reasons, and `lib/analyze/types.ts:196` says in terms that it is "the one
