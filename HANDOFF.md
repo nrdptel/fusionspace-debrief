@@ -192,6 +192,38 @@ already recorded once for a ground-track locator: `compare-page.spec.ts`'s bare
 asserts about. **When you add a shared shape, grep the suite for locators that select on the shape
 rather than on the surface** — that is twice now.
 
+### 5. The D-track increment was built, gated, verified — and reverted (nothing pushed)
+
+**Second revert of the run, same root cause as the first, and that is the finding.** A Blue Raven
+backup download can write the same samples twice; the LOW-rate half is already reported as *"holds
+the same flight written twice"* and the high-rate half says nothing. I built the detector, pinned it
+with exact corpus counts and two mutation-falsified guards, bounded it against a quadratic blowup,
+gated it green over **1,077** tests, and confirmed the note on the running report. The pre-push
+review then showed the note was wrong three ways.
+
+**The one that decided it:** Debrief ALREADY truncates `jan10` to its first copy — its low-rate half
+is doubled too, so the analysis extent is `0 – 20.22 s`. The 20,160-row block I reported sits at
+flight clock ≈40 s, **outside what the flyer is shown**, while a 7,101-row block at ≈14.1 s is inside
+it and was the one my "longest block only" rule discarded. I reported the invisible repeat and hid
+the visible one.
+
+**And the count was wrong anyway:** `jan10` holds **three** row-0-anchored repeats totalling
+**27,261** rows, not 20,160; `jan18` totals **44,793**. Two further comments I had written
+confidently were false — `lemiv` and `meraki` have no repeated run at ANY offset, so the anchor I
+credited was doing no work on this corpus, and my "541 duplicate rows" for `meraki` did not
+reproduce under any measure.
+
+**The lesson, and it is the same one as the Sev-1 earlier in this run.** Both times I checked a
+premise, and both times I checked the wrong boundary. On the Sev-1 I verified the record stopped
+mid-air without asking whether a canopy had opened. Here I verified the repeated rows survive
+`highRateStream`'s strictly-ascending filter — true, and irrelevant — without asking whether they
+survive the ANALYSIS EXTENT, which is the boundary that decides what a flyer sees. **Ask what the
+flyer is shown, not what the parser keeps.**
+
+Everything measured is written into `ROADMAP.md`'s D8 section and `COMPETITION.md` row 27, including
+the requirement the next attempt has to meet (the statement must be extent-aware, and the extent is
+decided long after the parser that finds the repeat). Nothing was pushed.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe

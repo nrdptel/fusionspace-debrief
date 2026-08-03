@@ -1124,7 +1124,7 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ## D8 — Orientation and high-rate data
 
-**Status:** IN PROGRESS — **slices 1 AND 2 SHIPPED 2026-08-02; slice 3 is MEASURED AND BLOCKED.**
+**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED; the repeat-detection slice is MEASURED, BUILT AND REVERTED (read it before rebuilding); the tilt slice is MEASURED AND BLOCKED, and its blocking number was measured over spliced data.**
 Decomposed the same day, from measurement, after D7 shipped and left the D-track dry.
 
 **This line said "slices 2 and 3 remain" for a run after slice 2 had shipped, and correcting it is
@@ -1322,7 +1322,49 @@ column a flyer has to recognise by its numbers.
    analysis read a number off it"*, and six refusal cases including *"takes the wait on the RAIL,
    not the longer stretch lying on its side"*. Said on the methods page under **Which way is up
    the rocket**.
-3. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
+3. **A high-rate download written more than once — MEASURED 2026-08-03, BUILT, and NOT SHIPPED.**
+   Written, gated green over 1,077 tests, verified on the running app, and then reverted, because
+   the pre-push review showed the note it put on screen was wrong about which repeat, wrong about
+   how many, and wrong about whether a flyer could see it at all. Everything below is measured, so
+   the next attempt starts here instead of rediscovering it.
+
+   **The gap is real.** A Blue Raven backup download can write the same samples more than once. The
+   LOW-rate half of such a download is already reported as *"holds the same flight written twice"*;
+   the high-rate half says nothing at all.
+
+   **What the corpus actually holds** — and note the numbers are per-BLOCK, which is where the first
+   attempt went wrong. `jan10`'s high-rate file has **three** row-0-anchored repeats
+   (`lag 7101 × 7101`, `lag 20160 × 20160`, `lag 27261 × 7101`) totalling **27,261 repeated rows**,
+   not the 20,160 of its longest. `jan18` totals **44,793**. `lemiv` and `meraki` have **no repeated
+   run of 50 rows or more at ANY offset** — so a detector anchored on the file's opening row and one
+   scanning every offset agree on this corpus, and neither guard in the first attempt was load-bearing
+   on it.
+
+   **The clause that kills the naive version, and it is not obvious.** Debrief ALREADY truncates
+   `jan10` to its first copy: the low-rate half is doubled too, so the analysis extent is
+   `{from: 0, to: 1012, startTime: 0, endTime: 20.22}` and the report draws **0 – 20.22 s**. The
+   20,160-row block sits at flight clock ≈40 s — **entirely outside what the flyer sees** — while the
+   7,101-row block lands at ≈14.1 s, inside the drawn window, and was the one the first attempt threw
+   away. So the note described an invisible repeat and hid the visible one. A further **10,120** of
+   the file's rows fall outside every window the reduction builds (10,070 of them past the end of the
+   low-rate log), so "all 64,290 reach the trace" was false as well.
+
+   **Therefore the requirement, which the first attempt did not meet:** the statement has to be
+   EXTENT-AWARE. A repeat is only worth telling a flyer about if it falls inside the stretch being
+   drawn — and that stretch is decided by the analysis, long after the parser that finds the repeat
+   has run. Reporting every block rather than the longest is necessary but not sufficient.
+
+   **Three smaller corrections worth not re-deriving.** Anchoring on the opening row cannot see
+   `[A][B][B][C]` — a repeat with a unique lead-in — so a field documented as "the longest run that
+   repeats an earlier run" must either scan every offset or say it means the opening run. The scan
+   needs a `n - lag <= best` ceiling or it is quadratic: on 192,000 identical rows it runs for
+   minutes, at ingest, on the main thread. And any count put in front of a flyer needs
+   `toLocaleString('en-US')` like every other number in `lib/`, or a de-DE browser renders `20.160`.
+
+   **What this milestone can still claim, and it is only this:** the repeats are real and measured,
+   and Debrief is silent about them. That is a `GAP` in `COMPETITION.md`, not a shipped capability.
+
+4. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
    from a logger's own solved attitude; a quaternion series can give the same quantity through the
    flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and
    is withheld where the quaternions are absent or unnormalised.
@@ -1364,8 +1406,24 @@ column a flyer has to recognise by its numbers.
    ascent, not to the record. The first pass at this concluded aliasing had been refuted; that was
    wrong, and only because the wrong body axis was in use at the time.
 
-   **What would unblock it:** a fifth high-rate corpus file, or an account of what `jan10`'s attitude
-   solution was doing that the other three were not. Do not ship this on three files.
+   **What would unblock it: ANSWERED 2026-08-03, and the blocking number was wrong.** The account
+   this asked for is that **`jan10`'s file is spliced.** Its high-rate stream repeats a 20,160-row
+   block verbatim and its low-rate half repeats a 1,012-row / 20.24 s block — at DIFFERENT offsets,
+   so inside the compared window the two files are describing different instants of the flight. The
+   **22.72° above is therefore largely bookkeeping.** Measured on the stretch where both halves are
+   pre-seam (t ≤ 12.17 s), `jan10` reads **4.71° mean / 7.29° worst** against meraki 0.21/1.08,
+   lemiv 1.83/3.25 and jan18 1.32/3.62 on the identical window.
+
+   **The block STANDS, with a corrected magnitude and a corrected next step.** 4.71° is still 2.6×
+   the worst of the other three, and `jan10`'s worst error exceeds all three of theirs, so this is
+   not a file that agrees once the corruption is removed — it is a file that agrees less. Do not
+   ship a tilt on this. **The next step is not a guard hunt**: re-run the whole slice-3 comparison on
+   de-spliced streams first, because every number in the table above was computed over data that
+   includes a replay. Then decide. A fifth high-rate corpus file would still settle it faster than
+   any of this.
+
+   The splice itself is now detected and stated to the flyer — see slice 3 above — so the raw
+   material for a de-spliced comparison exists rather than needing to be rediscovered.
 
 **What this milestone must NOT do.** No estimated attitude — the invariant is explicit that where a
 sensor cannot resolve a quantity the number is withheld, and integrating a gyro to an angle without
