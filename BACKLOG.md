@@ -14,6 +14,38 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — `findRepeatedSpans` caps candidate lags at 16 and says nothing when it hits the
+  cap.** On the corpus the most any file produces is four, so nothing is silently dropped today, and
+  a replay's hit count is its block length (thousands) so it ranks far above any incidental lag. But
+  a file with more than 16 long-run repeat periods would have the excess ignored with no statement.
+  Reproduce: synthesise a stream with 20 distinct repeat lags and compare `repeatedSampleCount`
+  against the construction. **Fix shape:** count the candidates before slicing and, where any were
+  dropped, say "at least" in the note rather than a bare figure.
+- **2026-08-03 — a genuine repeat can fall under `MIN_RUN` when its own rows recur between source
+  and copy.** Candidate lags come from CONSECUTIVE occurrence gaps, so a block whose rows also appear
+  between the two copies contributes fewer than `run` hits to the true lag. Constructed by review:
+  `[blk(120)][blk[0:60]][noise(30)][blk(120)]` yields lags 120/90/210 at 60 hits each — right on the
+  50 floor. A 60–70-sample block with a few interior recurrences would be missed entirely. Not a
+  corpus case, and the fix (count all pairwise gaps, not just consecutive ones) is quadratic in the
+  duplicate count, so it wants thought rather than a one-liner.
+- **2026-08-03 — the union path has no coverage on a checkout without the corpus.**
+  `findRepeatedSpans`'s overlap merge is exercised only by jan10 and jan18, whose four blocks each
+  collapse to two spans; the synthetic tests cannot reach it because consecutive-gap candidates make
+  a second overlapping lag hard to construct minimally. `mergeRepeatedSpans` is unit-tested directly,
+  which covers the same arithmetic but not the path through the detector. Reproduce: run
+  `npx vitest run lib/highRateRepeats.test.ts` with `lib/parsers/__corpus__` unlinked and note the
+  corpus block skips.
+- **2026-08-03 — `analysisJson` emits the repeat as prose but not as data.** The whole argument in
+  `lib/flight/types.ts` for `repeatedSpans` being structured is that a sentence cannot be filtered by
+  an extent; the JSON export then carries only the sentence. A consumer wanting to skip replayed
+  stretches programmatically has to parse English. Reproduce: export a jan10 report as JSON and grep
+  for `repeatedSpans`.
+- **2026-08-03 — the comparison surface carries no flight-level caveat of any kind.** Verified by
+  review: `CompareInput` (`lib/compare.ts:33`) carries `id / name / formatLabel / analysis / flownAt`
+  and no flight, so `repeatedSpans` is dropped at the boundary — and so is the low-rate *"holds the
+  same flight written twice"*. No high-rate sample reaches any comparison trace, so the repeat note
+  specifically has no claim to caveat there; the LOW-rate one does, and that is the pre-existing gap
+  worth closing. Reproduce: build a comparison containing jan10 and look for any warning.
 - **2026-08-03 — the figure light/dark toggle governs the exported SVG and not the exported PNG,
   and they sit next to each other.** `components/FigureTheme.tsx`'s own docblock states the contract
   — *"A light/dark choice for an exported vector (SVG) figure … it only governs the exported

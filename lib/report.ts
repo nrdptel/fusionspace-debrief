@@ -4,6 +4,7 @@
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 import { renderCaveats } from './caveatUnits';
+import { repeatedSpanNote } from './highRateRepeats';
 import {
   accelIn,
   accelInG,
@@ -399,7 +400,12 @@ export function extentNote(analysis: FlightAnalysis): string | null {
  *  wanted the reader to know, with the stretch that was read at the head of it. */
 function howRead(flight: RawFlight, analysis: FlightAnalysis, sys: UnitChoice): string[] {
   const note = extentNote(analysis);
-  return renderCaveats(note ? [note, ...flight.notes] : flight.notes, sys);
+  // The repeat note is built HERE rather than in the parser because it is the first point that
+  // holds both halves of the claim: the spans the recording carries, and the stretch the
+  // analysis decided to read. See `lib/highRateRepeats.ts`. It rides `howRead` so every export
+  // — .txt, .md, .html and the JSON's `howRead` — carries it without each writer remembering to.
+  const repeat = repeatedSpanNote(flight.repeatedSpans, analysis.extent);
+  return renderCaveats([note, repeat, ...flight.notes].filter((n): n is string => !!n), sys);
 }
 
 export function summaryText(

@@ -740,6 +740,17 @@ export default function MethodsPage() {
             which on the chart. No reading is computed from them: a high-rate stream is drawn as an
             envelope of the board&apos;s peaks rather than the full stream, and a figure taken off
             that would need its own checking first.
+          {' '}
+            <strong>A backup download can write part of the flight twice</strong>, and where it
+            does, Debrief says so on the report. Two of the four high-rate files in our corpus
+            repeat an earlier stretch of themselves verbatim &mdash; <strong>27,261</strong> of one
+            file&apos;s 64,290 samples and <strong>44,793</strong> of another&apos;s 93,164 &mdash;
+            with the sensor block byte-identical, so those samples are a replay of an earlier moment
+            rather than a reading of the one they are drawn at. The other two repeat nothing.
+            Nothing is removed on account of the repeat &mdash; those samples are reduced onto the
+            flight&apos;s clock like any other, as the envelope described above &mdash; and the note
+            names only the repeated stretches that fall inside the stretch of the flight being read,
+            since a caution about a moment the chart does not draw is one you cannot check.
           </Method>
           <Method id="battery" title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the

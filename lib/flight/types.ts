@@ -4,6 +4,7 @@
 // touches the analysis.
 
 import type { FlownAt } from './flownAt';
+import type { RepeatedSpan } from '../highRateRepeats';
 
 export type ChannelKind =
   | 'altitude' // height (canonical metres) — AGL once a baseline is set
@@ -112,6 +113,16 @@ export interface RawFlight {
    *  side-by-side cross-check against Debrief's own read. Absent when the file
    *  carries no such summary. */
   reported?: ReportedValue[];
+  /** Stretches of this recording that repeat an earlier stretch of it VERBATIM — a backup
+   *  download that wrote part of the flight twice. Seconds on this flight's own clock.
+   *
+   *  Structured rather than a sentence in `notes`, and that is the whole reason it is here: a
+   *  repeat is only worth telling a flyer about if it falls inside the stretch the analysis
+   *  ends up reading, and the extent is decided long after the parser that can see the repeat.
+   *  `lib/highRateRepeats.ts` finds them; `repeatedSpanNote` turns them into a claim once an
+   *  extent exists. Absent on every recording that does not repeat itself, which is nearly all
+   *  of them. */
+  repeatedSpans?: RepeatedSpan[];
 }
 
 export function getChannel(flight: RawFlight, kind: ChannelKind): Channel | undefined {

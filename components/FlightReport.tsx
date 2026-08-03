@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { renderCaveats } from '@/lib/caveatUnits';
+import { repeatedSpanNote } from '@/lib/highRateRepeats';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
@@ -113,7 +114,19 @@ export default function FlightReport({
   // which is why this is a memo on `sys` rather than a one-off at parse time. See
   // `lib/caveatTokens.ts` for the wrong number this closes.
   const warnings = useMemo(() => renderCaveats(analysis.warnings, sys), [analysis.warnings, sys]);
-  const notes = useMemo(() => renderCaveats(flight.notes, sys), [flight.notes, sys]);
+  // Same claim, same builder as every export — see `lib/highRateRepeats.ts`. It needs the
+  // ANALYSIS as well as the flight, which is why it is assembled here rather than folded into
+  // `flight.notes` where the stream is read: the stretch being drawn is not known until now.
+  const notes = useMemo(
+    () =>
+      renderCaveats(
+        [repeatedSpanNote(flight.repeatedSpans, analysis.extent), ...flight.notes].filter(
+          (n): n is string => !!n,
+        ),
+        sys,
+      ),
+    [flight.repeatedSpans, flight.notes, analysis.extent, sys],
+  );
 
   // The descending mass is one quantity used by two recovery panels (landing
   // energy and parachute Cd), so the report owns it and feeds both — one input,

@@ -75,6 +75,7 @@
 import type { HighRateStream } from './parsers/blueraven';
 import type { Channel, RawFlight } from './flight/types';
 import { LAUNCH_TOLERANCE_S, launchStampFromName } from './proposeGroups';
+import { findRepeatedSpans, mergeRepeatedSpans } from './highRateRepeats';
 
 /** The vendor's own high-rate / low-rate marker in a file name, as a delimiter-bounded token.
  *
@@ -245,6 +246,13 @@ export function readHighRateOnto(flight: RawFlight, stream: HighRateStream, lowR
   const covered = added.some((c) => c.values.some(Number.isFinite));
   if (!covered) return flight;
 
+  // **A replayed block is not a recording.** Found on the STREAM'S OWN samples rather than on
+  // the reduced traces above: the reduction keeps one sample per flight instant, so a 20,160-row
+  // replay at 500 Hz survives into the flight clock as ~2,016 points and a detector run after it
+  // would be measuring Debrief's envelope instead of the board's file. The spans travel on the
+  // flight as data — `lib/highRateRepeats.ts` says why they must not become prose here.
+  const repeats = findRepeatedSpans(stream.channels.map((c) => c.values), onFlightClock);
+
   const notes = [
     `Read the ${stream.rateHz} Hz high-rate stream from this flight's other file onto the ` +
       `${Math.round((flight.time.length - 1) / (flight.time[flight.time.length - 1] - flight.time[0]))} Hz ` +
@@ -281,5 +289,6 @@ export function readHighRateOnto(flight: RawFlight, stream: HighRateStream, lowR
     ...flight,
     channels: [...flight.channels, ...added],
     notes: [...flight.notes, ...notes.filter((n) => !flight.notes.includes(n))],
+    ...(repeats.length > 0 ? { repeatedSpans: mergeRepeatedSpans(flight.repeatedSpans, repeats) } : {}),
   };
 }
