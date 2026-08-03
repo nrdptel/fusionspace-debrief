@@ -1026,9 +1026,16 @@ build's own stylesheet.
    populated, read-refused and write-refused — five states, four of them shipped this run. What is
    still open from that audit: `Analyzer.tsx:293` silently swallows a failed save (and now has the
    `write-blocked` machinery waiting for it — `RecentFlights` does not render on the report screen,
-   so that surface needs its own line, measured not guessed); `ParachuteCd.tsx:107` is missing the
-   extrapolated state the panel beside it already has; and a search with no match is still the same
-   empty state as an empty logbook.
+   so that surface needs its own line, measured not guessed); `ParachuteCd.tsx:107` is missing an
+   extrapolated state — **but "the panel beside it already has" is wrong, checked 2026-08-03 and
+   corrected here rather than left to cost an increment.** `Extrapolated` has exactly ONE adopter
+   in the whole app, `MetricGrid`, which is the metric TILE GRID and not a panel beside anything.
+   `DrogueCd`, the actual sibling Cd panel, does not have it either — both Cd panels caveat in
+   prose. So this is not "copy the neighbour"; it is **an open design question about which
+   condition should raise an extrapolated state on a derived-Cd panel at all**, and it wants a
+   corpus measurement before a component edit. Scope it that way or it will look like a five-minute
+   job and turn into an afternoon. And a search with no match is still the same empty state as an
+   empty logbook.
 
    **The highest-leverage single change in the whole area is now `SaveResult`**, because three filed
    items collapse into it: separate *"this flight has an address"* from *"this write landed"*. That
