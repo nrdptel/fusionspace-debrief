@@ -5,7 +5,7 @@ import type { RecentMeta } from '@/lib/recents';
 import { fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { CROSS_CHECK_WIDE, MAX_COMPARE } from '@/lib/compare';
-import { UNNOTED_MAX } from '@/lib/recents';
+import { UNNOTED_MAX, STORAGE_WRITE_REFUSED } from '@/lib/recents';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import GroupProposalBanner from './GroupProposalBanner';
@@ -61,14 +61,15 @@ export default function RecentFlights({
   onDismissProposal,
 }: {
   recents: RecentMeta[];
-  /** Which of the list's three empty-looking states this is — see the block below.
+  /** Which of the list's four empty-looking states this is — see the block below. `write-blocked`
+   *  is reads-fine-writes-refused, which is what a full quota actually looks like.
    *
    *  **Required, and it defaulted to `'ready'` for exactly one commit.** That default is the
    *  DEFECT value: a third call site that forgot the prop would silently reprint the prerendered
    *  "flights you open are remembered here" to a flyer who has some, and nothing — not the type
    *  check, not a test — would have failed. A prop whose default reintroduces the bug it was added
    *  to fix has to be required. */
-  status: 'loading' | 'ready' | 'blocked';
+  status: 'loading' | 'ready' | 'blocked' | 'write-blocked';
   sys: UnitChoice;
   onOpen: (id: string) => void;
   onRemove: (id: string) => void;
@@ -226,6 +227,26 @@ export default function RecentFlights({
       </div>
     );
   }
+  // Reads working, writes refused — a full quota or an eviction, which is the COMMON refusal.
+  // NOT an early return like `blocked` above: the rows already in the logbook are real and still
+  // readable, so they are still shown; what changes is that nothing here may promise to remember
+  // the next one. Found by walking the built export, where the honest `/compare` drop note
+  // ("could not be kept") sat directly above this list's promise that flights ARE remembered —
+  // the same two-sentences-one-viewport contradiction, one layer down and pointing the other way.
+  const writeCaveat =
+    status === 'write-blocked' ? (
+      // Says it in the app's ONE sentence for this condition rather than a sixth wording of it.
+      // Embedded mid-sentence so the shared constant needs no re-casing, which is also what keeps
+      // its typography identical to the `/compare` note a flyer may be reading in the same
+      // viewport — the first draft hand-wrote the same words with `&apos;`, and a straight quote
+      // against the constant's curly one is exactly the drift a shared string exists to prevent.
+      <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+        Nothing more will be kept here: {STORAGE_WRITE_REFUSED} — a full quota or blocked site
+        storage usually does it. Analysing a file still works, and every report has its own export,
+        so save anything you want to keep from the report itself.
+      </p>
+    ) : null;
+
   if (recents.length === 0) {
     return (
       <div className="mt-8">
@@ -234,6 +255,32 @@ export default function RecentFlights({
             UNMOUNTS at the transition: a screen reader heard "Looking for flights remembered on
             this device…" and then, on the state it was waiting for, nothing at all. Announcing the
             answer is the whole point of having announced the question. */}
+        {writeCaveat ? (
+          // **The PROMISE goes; the restore offer stays.** A first version replaced the whole
+          // paragraph, on the reasoning that a restore is a write and so cannot succeed either.
+          // Review refuted it and the refutation is worth keeping: a quota abort is
+          // per-transaction and size-dependent, so a 200 KB backup can commit on the same device
+          // where an 11 MB flight text aborted — unlike `blocked` above, where `idb()` itself
+          // failed and nothing can run. And this control is the ONLY way to open the file picker
+          // in the empty state (the header Import button lives in the populated branch), so
+          // removing it removed importing from this state entirely and left `importMsg` below as
+          // markup nothing could reach.
+          <>
+            {writeCaveat}
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              Got a logbook backup from another machine?{' '}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+              >
+                Restore it
+              </button>{' '}
+              — a backup is far smaller than a launch day of flight logs, so it may well be kept
+              even where a flight was not.
+            </p>
+          </>
+        ) : (
         <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
           Flights you open are remembered here on this device — never uploaded. Got a logbook backup
           from another machine?{' '}
@@ -246,6 +293,7 @@ export default function RecentFlights({
           </button>
           .
         </p>
+        )}
         {importMsg && (
           <p role="status" className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
             {importMsg}
@@ -384,6 +432,11 @@ export default function RecentFlights({
   return (
     <div className="mt-8">
       {filePicker}
+      {/* Above the list, not instead of it: these rows are real. It is the NEXT flight that
+          won't be kept, which is the thing the list would otherwise let a flyer assume. The
+          margin matches the two banners beside it — without it this sits flush against the
+          `border-b` header row, which is the branch no test renders. */}
+      {writeCaveat && <div className="mb-3">{writeCaveat}</div>}
       <GroupProposalBanner
         recents={recents}
         arrived={arrived}

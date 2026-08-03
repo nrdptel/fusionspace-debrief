@@ -149,6 +149,10 @@ export default function CompareSurface() {
       const { results, skipped, mappable: mappableFiles, paired, highRatePaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
+      // A read cannot discover that writes are refused — only an attempted save can, and this is
+      // one. Without it the list below this note kept answering `ready` with no rows and printing
+      // "flights you open are remembered here on this device" under a note saying they were not.
+      if (results.some((r) => !r.savedId)) logbook.reportWriteRefused();
       logbook.refresh();
 
       const ids = results.map((r) => r.savedId).filter((v): v is string => !!v);
@@ -312,6 +316,12 @@ export default function CompareSurface() {
         setMapping(null);
         setMappable((prev) => prev.filter((m) => m.name !== fileName));
         if (!id) {
+          // Latent today — `comparison` is non-null on this path, so `CompareView` renders and it
+          // carries no logbook list to correct. Reported anyway: the invariant this change rests
+          // on is that EVERY refused save is reported, and a save path that quietly opts out is
+          // how the next surface inherits the same lie. (Its own sentence stays bespoke: it has
+          // something specific to say — that the file cannot join the comparison.)
+          logbook.reportWriteRefused();
           setState(comparison ? 'ready' : 'picking');
           setNote(`${fileName} was read, but this browser wouldn’t store it, so it can’t join the comparison.`);
           return;

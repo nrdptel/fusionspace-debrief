@@ -89,10 +89,16 @@ wild, ideas too big for one pass. One line each, newest first.
   cases that used to be here are fixed and each has its own regression test.)
 
   **What is left is ONE surface, and it is now a plumbing job rather than a truth problem.** The
-  analyze page still says nothing when a save is refused: `Analyzer.tsx:293`'s `if (saved.id)` is a
-  *correct* condition now and simply has no else — see the separate entry below, which is the same
-  defect from the other end and is the one to work. `FlightReport.tsx` does carry the sentence, but
-  inside a disclosure that defaults closed and is titled for something else.
+  analyze page says nothing about a refused save *while the report is up*: `Analyzer.tsx:293`'s
+  `if (saved.id)` is a *correct* condition now and simply has no else — see the separate entry below,
+  which is the same defect from the other end and is the one to work. `FlightReport.tsx` does carry
+  the sentence, but inside a disclosure that defaults closed and is titled for something else.
+
+  **Measured 2026-08-03, and it narrows the entry: `RecentFlights` does not render on the report
+  screen at all.** So the `write-blocked` logbook caveat added the same day cannot cover this case —
+  it reaches the flyer only once they go back to the drop zone. Verified by probing the built export
+  with writes aborting: `main` carries no logbook paragraph in either the working or the refused
+  case while a report is on screen. The report screen genuinely needs its own line.
 
   **Count, kept honest:** the constant SPLIT IN TWO on 2026-08-03, and that was a correction found
   by review rather than a tidy-up. `STORAGE_REFUSED` says *"read or keep"*, which is only true where
@@ -122,6 +128,13 @@ wild, ideas too big for one pass. One line each, newest first.
   using the first. That also gives `Analyzer.tsx:293`'s missing `else` — the entry below — the
   signal it needs, so the two should be done together. **Reproduce:** analyse a file, clamp the
   quota, reopen the flight from the logbook, type a label, reload.
+
+  **A THIRD consumer wants the same flag, added 2026-08-03:** `useLogbook`'s `write-blocked` status
+  is one-way, cleared only by a save that lands, because the obvious per-call-site boolean would
+  clear it on exactly this path — a re-save that aborts still returns an id. So a flyer who frees
+  space and drops a single file on `/` (the one save path that does not call `reportArrived`) keeps
+  the caveat until they navigate. That is the safe direction to fail, and it is still a defect. All
+  three fall out of one change; do them together or not at all.
 - **2026-08-03 — the storage-refused message takes §2's `warn` (amber), and §2's own word for a
   refusal is `danger`.** Recorded as a decision rather than left to be re-derived: `ErrorState` is a
   `Card tone="danger"` with `role="alert"`, which fits an operation the flyer just attempted and

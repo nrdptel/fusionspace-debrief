@@ -384,6 +384,69 @@ pre-existing (the old code returned an id on every abort, so it rendered there a
 honest repair is to split `SaveResult` into an address and a `stored` flag, which is also what
 `Analyzer.tsx:293`'s missing `else` needs. `BACKLOG.md` carries both, together.
 
+### 10. The logbook stops promising to remember once a save has been refused (pending push)
+
+**Found by the done-check's cold walk of the built export, not by a test — and it is the best
+argument for that step in the whole run.** With increment 9 shipped and live, walking `/compare` on
+a write-refusing browser produced a note that was finally honest — *"refused.csv was read but could
+not be kept: this browser won't let Debrief keep a logbook on this device"* — sitting directly above
+a logbook list rendering *"Flights you open are remembered here on this device — never uploaded.
+Got a logbook backup from another machine? Restore it."* Both visible, one viewport, opposite
+stories, with an offer to restore that would also have failed. **The same defect the whole family
+exists to end, one layer down and pointing the other way.** Nine increments of work on this
+condition did not catch it; one walk of the running artifact did.
+
+**Why no test could have caught it.** The list's state comes from a READ, and on a quota-full device
+the read works perfectly. `status` was `ready` with no rows, which is the state whose copy is that
+promise — and it was *correct* about everything it could observe. A refused write is not discoverable
+by reading; only an attempted save knows.
+
+So `useLogbook` gains a fourth status, `write-blocked`, reported IN by all six surfaces that attempt
+saves (two on `/compare` — the drop and the mapper — and four in `Analyzer`). It is cleared by
+evidence that storage is writing again: a save that lands, a restore that lands, or `clear()`. A
+refused READ still outranks it — that is the stronger statement and its copy already covers both
+halves.
+
+**The pre-push review found two serious gaps in the first version, and both were real:**
+
+- **The flag was a one-way latch, and `clear()` was the case that mattered.** Clearing FREES the
+  origin's quota, so a refusal measured before it is stale by construction — and Clear is the app's
+  one irreversible action. Left latched, a flyer who deleted their season to make room was told
+  nothing more would be kept, on a logbook that had just become writable, *and* (see below) was
+  shown no way back to the backup they had just been advised to take. Pinned by *"clearing the
+  logbook does not leave it insisting nothing can be kept"*.
+- **A refused RESTORE still printed the promise, and an existing green test was holding the
+  contradiction in place.** `importAll` resolves `{ restored: 0, blocked: true }` — an unambiguous
+  refused write — and reported nothing, so *"That backup could not be written"* rendered one line
+  above *"Flights you open are remembered here on this device."* The same two-sentences-one-viewport
+  defect this increment exists to end, on the same component, and the existing restore test asserted
+  both were on screen at once. That test now asserts the promise is gone.
+
+**And a third correction, where my own justification comment was wrong on its own terms.** The first
+version replaced the whole empty-state paragraph, taking the "Restore it" control with it, reasoning
+that a restore is a write and so cannot succeed either. It does not follow: a quota abort is
+per-transaction and size-dependent, so a 200 KB backup can commit on the device where an 11 MB
+flight text aborted — unlike a refused *read*, where `idb()` itself failed and nothing can run. And
+that control is the ONLY way to open the file picker in the empty state, so removing it removed
+importing entirely and left the import-result line as markup nothing could reach. The promise goes;
+the offer stays, with the size reasoning said out loud.
+
+**Two things learned while building it, both worth keeping:**
+
+- **The caveat says it in the app's own shared sentence, embedded mid-sentence so no re-casing is
+  needed.** The first draft hand-wrote the same words with `&apos;`, which renders a STRAIGHT quote
+  against the constant's curly one — two spellings of one sentence, potentially in one viewport.
+  That is exactly the drift a shared string exists to prevent, and it cost the first test run.
+- **`RecentFlights` is not on the report screen at all.** The first version of the test asserted the
+  caveat there and failed; the list returns when the flyer goes back to the drop zone, and that is
+  where the test walks now. Which also means the analyze page still says nothing about a refused save
+  *while the report is up* — the open `BACKLOG.md` item, now with a measured reason rather than a
+  guess.
+
+Pinned by *"the logbook stops promising to remember once a save has been refused"*, which covers both
+routes in (`/compare`'s drop and the analyze page's own save path across a round trip to the report
+and back). Falsified by reverting the hook's status upgrade to a plain `status`.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe
@@ -443,10 +506,20 @@ both. The new assertion says so in its own comment, like the frame and focus ass
      so the replay corrupts a **trace**, not a number. It is not a Sev-1.
 2. **P1 item 5's two headline numbers are wrong**, and an audit re-measured them. The entry counts
    `ui.tsx` primitive adopters (`EmptyState`/`ErrorState`), not states — which is why it read 1. At
-   least five surfaces implement two or more. Real gaps found: `RecentFlights.tsx:171` collapses
-   **three distinct states** into one empty state (an empty logbook, a storage refusal, and a search
-   with no match); `Analyzer.tsx:292` silently swallows a failed save; `ParachuteCd.tsx:107` is missing
-   the extrapolated state the panel beside it already has.
+   least five surfaces implement two or more. ~~Real gaps found: `RecentFlights.tsx:171` collapses
+   three distinct states…~~ **That one is CLOSED**: the logbook now implements loading, empty,
+   populated, read-refused and write-refused — five states, four of them shipped this run. What is
+   still open from that audit: `Analyzer.tsx:293` silently swallows a failed save (and now has the
+   `write-blocked` machinery waiting for it — `RecentFlights` does not render on the report screen,
+   so that surface needs its own line, measured not guessed); `ParachuteCd.tsx:107` is missing the
+   extrapolated state the panel beside it already has; and a search with no match is still the same
+   empty state as an empty logbook.
+
+   **The highest-leverage single change in the whole area is now `SaveResult`**, because three filed
+   items collapse into it: separate *"this flight has an address"* from *"this write landed"*. That
+   closes `Analyzer.tsx:293`'s missing `else`, the report caption panel's false *"Kept with this
+   flight on this device"*, and the one remaining `write-blocked` staleness path. `BACKLOG.md`
+   carries all three together with the reason they must be done together.
 3. **`BACKLOG.md` gained a large, verified batch this run** — the design-system audit's fresh rows, the
    refused-main surface gaps, the chart-above-apogee measurement, and the logbook's unbasis'd star.
    Read the head of the file before scoping.
@@ -456,6 +529,17 @@ both. The new assertion says so in its own comment, like the frame and focus ass
 **`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs. Not
 attempted — this session was created with `debrief` and `debrief-fixtures` only, so pushing there was
 impossible rather than skipped.
+
+**A THIRD §5 question, opened 2026-08-03 and owed to both repos: §5's five states have no name for a
+DEGRADED capability.** The logbook shipped `write-blocked` this run — reads fine, writes refused —
+and it is genuinely none of empty, loading, error, populated or offline. It is the surface working
+while one thing it promises does not, which is a shape any repo with local storage will hit; Loft
+will hit it the moment it keeps anything on the device. Debrief solved it privately with a fourth
+status and an amber `role="status"` caveat that sits ABOVE real content rather than replacing it,
+which is a pattern §5 could name in a paragraph. **Do not re-derive the argument:** the reason it is
+not `ErrorState` is recorded in `BACKLOG.md` under the 2026-08-03 amber/danger entry, and the reason
+it is not simply `blocked` is that a full quota reads perfectly, so the shared read-or-keep sentence
+would be half false. Deciding this is a §5 change, and §5 is carried identically by the sibling.
 
 **Two `DESIGN.md` §5 edits still owed to both repos:** `Frame` is not listed in §5 though it has six
 adopters, and the invented "indigo text" button weight survives — and the audit measured it at **7

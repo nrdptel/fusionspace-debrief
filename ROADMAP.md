@@ -1492,12 +1492,26 @@ figures, which read 21 and were 11. **Re-measure a number in this file before bu
 these are records of what was true on the day, not live values, and the ratchet only guards the six
 counts it actually holds.
 
-**Measured 2026-08-01 at the end of that run, from §9's own shell block:** `rounded-lg` **0** ·
-card treatments **10** · off-scale spacing **0** · off-scale type **1** · inverted files **15** ·
-components importing `./ui` **29** · `Button` adopters **18** · `Segmented` adopters **3** · bare
-`rounded` **0** · unsanctioned dark surfaces **0**. No count moved the wrong way; one tried to and
-the ratchet caught it. **Read inverted files 16 → 15 as the adoption effect, not an improvement** —
-the `text-xs` moved out of two converted files and into `ui.tsx`, and no glyph changed size.
+**Measured 2026-08-03 at the end of that run, from §9's own shell block** — and taken TWICE, at the
+run's first commit and its last, because "no count moved the wrong way" is a claim about a
+difference and this file has carried counts that were stale by two sessions:
+
+| grep | 2026-08-02 (run start, `07198a0`) | 2026-08-03 (run end) |
+|---|---|---|
+| `rounded-lg` | 0 | **0** |
+| hand-rolled card treatments | 3 | **3** |
+| off-scale spacing | 0 | **0** |
+| off-scale type | 1 | **1** |
+| inverted-type files | 14 | **14** |
+| components importing `./ui` | 34 of 48 | **34 of 48** |
+
+**Identical at both ends: nothing moved, in either direction.** That is the honest reading and it is
+worth stating rather than dressing up — this run's P-track work was about surfaces telling the truth
+(three storage-refusal states, a superlative off a claim colour, one chart export instead of three),
+none of which any §9 grep can see. The greps measure token drift, not honesty. **The previously
+recorded figures here said card treatments 10, inverted files 15 and `./ui` adopters 29, dated
+2026-08-01; all three were stale** — corrected above from a measurement rather than carried forward,
+which is the failure mode this file's own *Keeping this file honest* section warns about.
 
 **Where the counts stood, measured 2026-07-31 at the end of that run** — the §9 shell block and the
 test agree exactly, which is itself the check that the two have not drifted:
@@ -1799,6 +1813,16 @@ the artifact rather than the tree.
    surfaces, three on the two shared constants and two bespoke because they each have something
    specific to say. The analyze page is the one left, and it is now a plumbing job rather than a
    truth problem (`BACKLOG.md`, where it is paired with the caption panel's matching gap).
+
+   **And a FOURTH state, found by the done-check's cold walk rather than by any test.** With the
+   drop note finally honest, the logbook list directly below it still rendered *"Flights you open
+   are remembered here on this device"* — because the list's state comes from a READ, and on a
+   quota-full device the read works perfectly. `status` was `ready` with no rows and correct about
+   everything it could observe. **A refused write is not discoverable by reading**, so `useLogbook`
+   gains `write-blocked`, reported in by the four surfaces that attempt saves and cleared by the
+   next save that lands. This is the entry's own list-of-states question answered properly: the
+   logbook now implements loading, empty, populated, read-refused and write-refused — five, not the
+   "three empty-looking states" this section was written against.
 
 6. ~~**Two primaries on one surface** — `ColumnMapper` only now.~~ **DONE 2026-08-01, and the
    remaining count was 0 before the work started.** `ColumnMapper`'s two `variant="primary"` calls

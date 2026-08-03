@@ -28,8 +28,35 @@ export interface Logbook {
   recents: RecentMeta[];
   /** Which of `DESIGN.md` §5's states the list is in. `loading` until IndexedDB answers —
    *  which on a static export is every cold load — and `blocked` where it refused outright.
-   *  `ready` with an empty `recents` is the only one that means "you have no flights". */
-  status: 'loading' | 'ready' | 'blocked';
+   *  `ready` with an empty `recents` is the only one that means "you have no flights".
+   *
+   *  **`write-blocked` is the fourth, and it was found by walking the built export.** Reads
+   *  working while writes are refused is what a full quota and Safari's ITP eviction actually
+   *  look like — `blocked` is the rarer no-IndexedDB-at-all case — and it cannot be detected by
+   *  reading, only by attempting a save. Until a surface reported one, the list answered `ready`
+   *  with no rows and rendered *"Flights you open are remembered here on this device"* directly
+   *  under a drop note saying the browser would not keep them. Two sentences, one viewport,
+   *  opposite stories — the same defect this family exists to end, one layer down and pointing
+   *  the other way. A refused read still wins: it is the stronger statement. */
+  status: 'loading' | 'ready' | 'blocked' | 'write-blocked';
+  /** Say that a save came back with nothing stored. The logbook cannot learn this by reading, so
+   *  the surfaces that attempt saves have to tell it.
+   *
+   *  **Set by a refusal; cleared only by evidence that storage is writing again** — a save that
+   *  lands (`reportArrived`), a restore that lands, or `clear()`, which frees the quota outright.
+   *  The obvious alternative, a boolean `reportWriteRefused(!saved.id)` at each call site, would
+   *  clear it on a path where it must not: re-saving a flight already in the logbook returns its
+   *  existing id even when the write aborts (the row survives the rollback), so `!saved.id` is
+   *  false there while writes are still refused. Between a caveat that lingers after storage
+   *  recovers and one that vanishes while it has not, the first is the safe failure.
+   *
+   *  **One lingering case is left, knowingly:** the analyze page's single-file path does not call
+   *  `reportArrived`, so a flyer who frees space by hand and drops ONE file there keeps the caveat
+   *  until they navigate. `clear()` — the case that mattered, because it is the app's one
+   *  irreversible action and it frees the quota itself — is handled. The rest wants the same fix
+   *  as two other filed items: `SaveResult` separating "this flight has an address" from "this
+   *  write landed". `BACKLOG.md` carries all three together. */
+  reportWriteRefused: () => void;
   refresh: () => void;
   /** Flights the most recent drop pushed out of the logbook, so the surface showing the list
    *  can name them. Cleared once the flyer has been told (or acts on it) — this is a report
@@ -67,6 +94,9 @@ export function useLogbook(): Logbook {
   const [status, setStatus] = useState<Logbook['status']>('loading');
   const [forgotten, setForgotten] = useState<string[]>([]);
   const [arrived, setArrived] = useState<string[]>([]);
+  /** Set by a surface whose save came back with nothing stored — see `status` above. Not
+   *  derivable from a read, which is exactly why it has to be reported in. */
+  const [writeRefused, setWriteRefused] = useState(false);
 
   // **A failed READ is only "this browser won't keep a logbook" while we have never had one.**
   // `refresh` runs after every remove, note, group, clear and import, so treating any rejection as
@@ -106,6 +136,12 @@ export function useLogbook(): Logbook {
     // that no longer existed.
     clearCaptions();
     setForgotten([]);
+    // **Clearing FREES the origin's quota, so a refusal measured before it is stale by
+    // construction** — and this is the app's one irreversible action, so the state it leaves
+    // behind matters more than anywhere else. Left latched, a flyer who cleared to make room was
+    // told nothing more would be kept, on a logbook that had just become writable. The next save
+    // re-establishes the refusal in the one case where it is still true.
+    setWriteRefused(false);
     refresh();
   }, [refresh]);
 
@@ -150,7 +186,17 @@ export function useLogbook(): Logbook {
     async (file: File): Promise<{ restored: number; blocked: boolean }> => {
       try {
         const out = await importLogbook(await file.text());
-        if (out.restored > 0) refresh();
+        // **A refused restore IS a refused write, and it was the last path still saying
+        // otherwise.** `importLogbook` reports its transaction's outcome, so this is unambiguous
+        // — and without it the empty state printed "Flights you open are remembered here on this
+        // device" one line under "That backup could not be written", which is the same
+        // two-sentences-one-viewport contradiction on the same component. Found by review reading
+        // the suite: an existing green test asserted BOTH were on screen at once.
+        if (out.blocked) setWriteRefused(true);
+        if (out.restored > 0) {
+          setWriteRefused(false);
+          refresh();
+        }
         return out;
       } catch {
         // Reading the FILE failed, which is not the browser refusing storage.
@@ -166,12 +212,20 @@ export function useLogbook(): Logbook {
    *  no. Transient by design, exactly like `forgotten` beside it. */
   const reportArrived = useCallback((ids: string[]) => {
     setArrived(ids.filter(Boolean));
+    // A save that LANDED is proof the browser is writing, so it clears the refusal. Without
+    // this the state is one-way: a flyer who frees up space and drops again would be told the
+    // browser won't keep a logbook while the flight they just dropped sits in the list.
+    if (ids.filter(Boolean).length > 0) setWriteRefused(false);
   }, []);
   const clearArrived = useCallback(() => setArrived([]), []);
+  const reportWriteRefused = useCallback(() => setWriteRefused(true), []);
 
   return {
     recents,
-    status,
+    // A refused READ outranks a refused write — it is the stronger statement and its copy
+    // already covers both halves. This only ever upgrades `ready`.
+    status: status === 'ready' && writeRefused ? 'write-blocked' : status,
+    reportWriteRefused,
     refresh,
     remove,
     clear,
