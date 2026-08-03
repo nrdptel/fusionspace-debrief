@@ -701,7 +701,48 @@ satisfied by accident, and it is the pattern to copy the next time a stored shap
 Pinned by `lib/logbookStar.test.ts` (7 cases), falsified by restoring the unqualified star and by
 dropping the field from the list projection.
 
+### 16. §5's chip gains §2's semantic tones (pending push)
+
+**The same shape as increment 12, one primitive over.** `DeviceSummary` renders four cross-check
+verdicts — the board's own summary against Debrief's read — and `GpsApogee` renders the same verdict
+again for GPS against barometer, byte for byte, in emerald and amber. **Neither could be said through
+`Chip`**, whose tones were `default` and `accent` only, so both hand-rolled it — on the primitive's
+OWN `500/30` + `500/10` ramp. Sites converging on the right colour and the wrong geometry is the
+vocabulary being short a word, not the files being careless. `Chip` now takes `good` · `warn` ·
+`danger`; seven elements converted across four files.
+
+**Three things from this one are worth carrying forward more than the change itself.**
+
+- **A green gate says nothing about pixels, for the second run running.** All three gates passed on a
+  revision where `CHIP_TONES.default` was `bg-zinc-50 dark:bg-zinc-900` — byte-identical to §2's
+  SUNKEN card in light and its DEFAULT card in dark, so a neutral chip rendered as a bare outline
+  against its own container. `StitchSurface`'s "from · accelerometer" had been doing that in dark
+  mode since it was written and nobody had seen it. The e2e assertions are on roles and accessible
+  names; those do not change when a fill does. Last run it was `text-inherit`. **If a change's whole
+  effect is visual, screenshot it in both themes before pushing** — four surfaces, two themes, eight
+  images, about six minutes.
+- **The fix was the value the call site had already hand-rolled.** `DeviceSummary`'s chip was
+  `bg-zinc-100 border-zinc-300`; the primitive's default was the weak one. When several sites
+  hand-roll the same deviation from a primitive, read it as evidence about the primitive first.
+- **Every number in the entry was wrong until the scanner ran.** "Ten spans, four padding
+  combinations, six converted, three semantic" — the truth is twelve elements, three combinations,
+  seven converted, four semantic (five tone strings; `GpsApogee` picks emerald-or-amber in one
+  ternary). `GpsApogee` was missed entirely. The scanner that settles it was written in the same
+  commit and simply had not been pointed at the question.
+
+Pinned by three tests in `lib/design-system.test.ts`, each falsified by mutation: the hand-rolled
+grep (names `GpsApogee.tsx:71` when its conversion is reverted), the one-ramp check, and a
+neutral-chip-visibility check that asserts the RELATIONSHIP — the neutral fill differs from every
+`CARD_TONES` fill — rather than a string, so restyling `Card` cannot silently make it vacuous.
+
+`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 12, all moved in the same commit.
+
 ## Traps this run hit — read these before repeating them
+
+- **A `git checkout <file>` to undo a one-line mutation reverts the WHOLE file.** Falsifying a
+  design-system pin by editing `ui.tsx` and restoring it that way silently threw away every other
+  edit in that file, and the harness reported the loss as an intentional external change. Use a
+  targeted `sed` to put the mutated value back, or stash only the path you mean.
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe
   reading `body.innerText()` saw 7,616 characters and reported the Descent-rate tile **ABSENT** on a
@@ -726,14 +767,23 @@ dropping the field from the list projection.
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
 | hand-rolled card treatments | 3 | **3** | 3 — a GUARD, may never rise |
-| inverted-type files | 14 | **14** | not 0 — read P1 item 2 first |
+| inverted-type files | 14 | **12** | not 0 — read P1 item 2 first |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
-| files importing the primitives | 34 | **34** | most of the 46 |
+| files importing the primitives | 34 | **35** | most of the 46 |
 | hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few |
+| hand-rolled chip-shaped elements | 12 | **5** | 5 — all five named, with reasons |
 
-No count moved this run. The colour work is a §2 rule, and §2 has no §9 counter — deliberately, since
-§9's block is carried identically by the sibling repo and adding a command to it is a change owed to
-both. The new assertion says so in its own comment, like the frame and focus assertions before it.
+**Two moved, both on the chip conversion, and BOTH read as adoption rather than improvement.**
+`inverted-type files` 14 → 12 because `DeviceSummary` (4/2) and `GpsApogee` (3/2) moved six `text-xs`
+INTO `Chip` — not one glyph changed size on screen. `files importing the primitives` 34 → 35 because
+`LogDetails` imports `./ui` for the first time; that assertion is `toBeGreaterThanOrEqual`, so a stale
+number there goes green invisibly and the pre-push review is what caught it. The per-primitive map
+moved too: `Button` 18 → 19, `Chip` 3 → 7.
+
+The colour work earlier in the run moved nothing. It is a §2 rule, and §2 has no §9 counter —
+deliberately, since §9's block is carried identically by the sibling repo and adding a command to it
+is a change owed to both. That assertion says so in its own comment, like the frame and focus
+assertions before it.
 
 ## Pick up first
 
@@ -789,6 +839,13 @@ in this repo's `DESIGN.md` §5 and `ui.tsx`; `nrdptel/fusionspace-loft` carries 
 session had only this repo attached, so the edit is written to make sense there too and the port is
 outstanding. It is a self-contained addition — one entry in `BUTTON_VARIANTS`, one clause in the
 `Button` class list, one §5 bullet.
+
+**§5's chip tones are owed to the sibling, added 2026-08-03.** `good` · `warn` · `danger` on the
+`500/30` + `500/10` ramp, `font-medium` on every hued tone, and — the part that matters most to port
+— **`default` moved off `bg-zinc-50`/`dark:bg-zinc-900`, which are byte-identical to two `CARD_TONES`
+fills.** If Loft's `Chip` still carries the old neutral, its default chips are invisible against their
+own containers in at least one theme, exactly as Debrief's were. Self-contained: one `CHIP_TONES`
+map, one clause in the class list, one §5 bullet, and the visibility test that pins the relationship.
 
 **A THIRD §5 question, opened 2026-08-03 and owed to both repos: §5's five states have no name for a
 DEGRADED capability.** The logbook shipped `write-blocked` this run — reads fine, writes refused —

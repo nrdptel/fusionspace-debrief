@@ -3383,6 +3383,25 @@ refuted. They are written down rather than fixed because each needs its own gate
 
 ## Craft & product feel
 
+- **Is the `500/30` border ramp heavy enough on PAPER?** §5's hued chips and cards border at
+  `<hue>-500/30`, which over white resolves near `#d0d1fb` for indigo — visibly lighter than the
+  `border-indigo-300` (`#a5b4fc`) that `FlightReport`'s format chip hand-rolled before it converted
+  on 2026-08-03. `globals.css` sets `print-color-adjust: exact` and its comment names "the
+  format/event chips" specifically, and the report strip is not `print:hidden`, so this lands on
+  the artifact a certification package is built from. The conversion recovered the weight
+  (`font-medium` now applies to every hued tone) but not the border. **Not fixed at the call site
+  on purpose** — one chip is not a reason to break a family, and the question is whether the whole
+  ramp wants a `print:` variant one step darker. Wants a printed page looked at, not a number
+  reasoned about: measure it on paper or in a print-preview screenshot before changing a token
+  four components share.
+- **`Chip` cannot render as an `<li>`, so the one remaining real hand-rolled chip stays
+  hand-rolled.** `RecognizedFormats.tsx:28` is a genuine filter token — §5's own words — inside a
+  `<ul>`, and `Chip` renders a `<span>`. Converting it today would strip the list semantics a
+  screen reader announces, which is the exact trade `Readout`'s comment records refusing for
+  `GroundTrack`'s `Stat`. `Card` already solved this with an `as` prop; `Chip` renders two nested
+  spans, so `as` would apply to the outer one only, and that is the whole change. Named in
+  `lib/design-system.test.ts`'s `DELIBERATE` list so it is an allowance with a reason rather than
+  a silence.
 - **Two footer links sit under the touch floor on a phone, and `touch.spec.ts` does not see
   them.** Measured at 390 px with `hasTouch: true` (which is what makes the
   `@media (pointer: coarse)` rule in `globals.css` apply — without it every control measures

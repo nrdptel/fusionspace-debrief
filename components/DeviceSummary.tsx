@@ -8,7 +8,7 @@ import type { ReportedValue } from '@/lib/flight/types';
 import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { compareReported, REPORTED_QUANTITY } from '@/lib/flight/reported';
-import { Card, DataTable } from './ui';
+import { Card, Chip, DataTable } from './ui';
 
 function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
   const q = REPORTED_QUANTITY[metric];
@@ -99,27 +99,38 @@ export default function DeviceSummary({
               x.status == null ? (
                 <span className="text-zinc-500 dark:text-zinc-400">not computed</span>
               ) : x.gravityConvention ? (
-                <span
+                // Four verdicts, three §5 `Chip` tones — `agree` and the gravity-convention case
+                // are both `good`. These were hand-rolled at `px-1.5 py-0.5`
+                // — off §5's `px-2 py-1` — on exactly the `500/30` + `500/10` ramp the primitive
+                // already used for `accent`, which is the tell that the vocabulary was short a
+                // word rather than this file being careless: these three ARE the measurement that
+                // put `good` and `warn` in the enum. `mono={false}`: prose verdicts, not figures.
+                <Chip
+                  tone="good"
+                  mono={false}
                   title="The same reading under two conventions, not a disagreement: an accelerometer at rest reads 1 g, which Debrief reports (the force the airframe felt) and this device subtracts (what the rocket was accelerated by). The two figures are exactly one gravity apart."
-                  className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                >
-                  {agreementText(x)}
-                </span>
+                  value={agreementText(x)}
+                />
               ) : x.status === 'agree' ? (
-                <span className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                  {agreementText(x)}
-                </span>
+                <Chip tone="good" mono={false} value={agreementText(x)} />
               ) : x.status === 'consistent' ? (
-                <span
+                <Chip
+                  tone="default"
+                  mono={false}
+                  // **`font-medium` by hand, and it is not a hand-roll creeping back.** §5 gives
+                  // the weight to the four HUED tones, because a hue is a claim; `default` is the
+                  // neutral and stays unweighted. "Consistent" is a verdict like the other three
+                  // in this column — neutral, not quiet — so without this it would be the one
+                  // unbolded cell in a column of four, reading as a weaker finding rather than a
+                  // different one. The tone is right and the weight is the exception; a `neutral`
+                  // tone that differed from `default` in nothing but weight would be a word in the
+                  // vocabulary earning its place on one call site.
+                  className="font-medium"
                   title="A descent rate is a windowed average of an unsteady descent, not a single instant, so two independent reads are expected to differ by more than a peak would — this is consistent, not a discrepancy."
-                  className="inline-flex items-center rounded-md border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                >
-                  {agreementText(x)}
-                </span>
+                  value={agreementText(x)}
+                />
               ) : (
-                <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                  {agreementText(x)}
-                </span>
+                <Chip tone="warn" mono={false} value={agreementText(x)} />
               ),
             text: agreementText,
           },
