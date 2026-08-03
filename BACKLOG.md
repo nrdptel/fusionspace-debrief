@@ -63,6 +63,16 @@ wild, ideas too big for one pass. One line each, newest first.
   strictly after the true burnout, so it is a bound collapse and not missing data. `readings.ts:287`
   prints `burnoutSub` = `'measured'` beside a Max-velocity tile withheld for `'gap'`.
 
+  **REPRODUCED INDEPENDENTLY 2026-08-03, and every filed number matched.** Re-derived from the
+  fixture without reading the original probe: gap punched at **5.36–8.37 s**, entirely inside the
+  coast and strictly after the true 4.36 s burnout, 1,592 → 1,290 samples. Result: burn
+  **4.36 → 11.29 s**, burnout altitude **240.6 → 542.5 m** against an unchanged 572.7 m apogee
+  (94.7% of it), burnout velocity **128.4 → 46.8 m/s**, coast efficiency **0.395 → 0.270**, drag
+  loss **509 → 81.6 m** — while `maxVelocity` goes correctly to `NaN` with
+  `maxVelocityWithheld='gap'`. **Removing data the burn never used more than doubles the burn
+  time**, which is the signature of a bound collapse rather than of missing samples, and it is the
+  claim this entry rests on. A finding is a claim until reproduced; this one now is.
+
   **Filed rather than fixed, deliberately, and the reason is this repo's own rule.** No shipping
   corpus file combines the exposed shape (baro velocity + signed axial accelerometer, no velocity
   column — seven files) with an ascent dropout (two files, both Featherweight GPS logs that find no
@@ -81,6 +91,15 @@ wild, ideas too big for one pass. One line each, newest first.
   `coastEfficiency` 27% and `dragLossAltitude` 82 m off that identical trace. `coastEfficiency ∝
   1/v²`, so the error is squared. Same latency caveat as the entry above — reachable only with a
   synthesised dropout today — and the same fix shape.
+
+  **Also reproduced 2026-08-03, in the same run as the entry above and from the same trace.** The
+  two are one defect seen from two ends: the bound collapse produces the wrong burnout index, and
+  this gate is what lets four readings derived from it reach a flyer while the fifth
+  (`maxVelocity`) is correctly withheld from the very same analysis. **Fix them together or the
+  first fix makes the second invisible** — bound `velPeakEnd` alone and the numbers become right,
+  so a later session finds no symptom and leaves the gate testing the wrong flag until the next
+  withholding reason arrives. The synthesised dropout that demonstrates both is written down in
+  the entry above, so neither needs re-deriving.
 - **2026-08-03 — `findRepeatedSpans` caps candidate lags at 16 and says nothing when it hits the
   cap.** On the corpus the most any file produces is four, so nothing is silently dropped today, and
   a replay's hit count is its block length (thousands) so it ranks far above any incidental lag. But
