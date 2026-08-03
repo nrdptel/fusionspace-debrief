@@ -63,6 +63,32 @@ wild, ideas too big for one pass. One line each, newest first.
   strictly after the true burnout, so it is a bound collapse and not missing data. `readings.ts:287`
   prints `burnoutSub` = `'measured'` beside a Max-velocity tile withheld for `'gap'`.
 
+  **REPRODUCED INDEPENDENTLY 2026-08-03, and every filed number matched.** Re-derived from the
+  fixture without reading the original probe: gap punched at **5.36–8.37 s**, entirely inside the
+  coast and strictly after the true 4.36 s burnout, 1,592 → 1,290 samples. Result: burn
+  **4.36 → 11.29 s**, burnout altitude **240.6 → 542.5 m** against an unchanged 572.7 m apogee
+  (94.7% of it), burnout velocity **128.4 → 46.8 m/s**, coast efficiency **0.395 → 0.270**, drag
+  loss **509 → 81.6 m** — while `maxVelocity` goes correctly to `NaN` with
+  `maxVelocityWithheld='gap'`. **Removing data the burn never used more than doubles the burn
+  time**, which is the signature of a bound collapse rather than of missing samples, and it is the
+  claim this entry rests on. A finding is a claim until reproduced; this one now is.
+
+  **The fix is TWO lines, and the obvious version of it is wrong — sized 2026-08-03 so the next
+  session does not discover this the expensive way.** The tempting change is to compute `maxVelIdx`
+  unconditionally and let the gap withhold only the VALUE. **Do not.** `maxVelIdx` has **13 uses**
+  in `lib/analyze/index.ts` (`:1853`, `:1889`, `:1909`, `:1964`, `:2057`, `:2397`, `:2433`, `:2725`
+  among them), and every one currently reads `>= 0` as "there is a peak this analysis stands
+  behind". Widening it publishes Mach at peak, peak altitude, the coast climb and
+  `burnoutAtVelocityPeak` off a peak the report has already refused — turning one wrong number into
+  eight. **The safe shape is a SEPARATE index used only for the bound**: compute the ascent argMax
+  into its own `const` regardless of `ascentGapBreaksPeak`, feed `velTurnoverIdx` from it, and
+  leave `maxVelIdx` byte-for-byte alone. Two lines, no other call site touched.
+  *(`:1995` is the same pattern already solved once for the OTHER withholding reason — its comment
+  says throwing the index away with the value "left the burnout crossing search running all the way
+  to apogee on 4 of the corpus's 14 signed-axial flights". The gap reason simply never got the same
+  treatment, and `peakVelIdxBeforeJudgement` at `:1973` cannot supply it because it is captured
+  AFTER `:1758` has already left the index at `-1`.)*
+
   **Filed rather than fixed, deliberately, and the reason is this repo's own rule.** No shipping
   corpus file combines the exposed shape (baro velocity + signed axial accelerometer, no velocity
   column — seven files) with an ascent dropout (two files, both Featherweight GPS logs that find no
@@ -81,6 +107,15 @@ wild, ideas too big for one pass. One line each, newest first.
   `coastEfficiency` 27% and `dragLossAltitude` 82 m off that identical trace. `coastEfficiency ∝
   1/v²`, so the error is squared. Same latency caveat as the entry above — reachable only with a
   synthesised dropout today — and the same fix shape.
+
+  **Also reproduced 2026-08-03, in the same run as the entry above and from the same trace.** The
+  two are one defect seen from two ends: the bound collapse produces the wrong burnout index, and
+  this gate is what lets four readings derived from it reach a flyer while the fifth
+  (`maxVelocity`) is correctly withheld from the very same analysis. **Fix them together or the
+  first fix makes the second invisible** — bound `velPeakEnd` alone and the numbers become right,
+  so a later session finds no symptom and leaves the gate testing the wrong flag until the next
+  withholding reason arrives. The synthesised dropout that demonstrates both is written down in
+  the entry above, so neither needs re-deriving.
 - **2026-08-03 — `findRepeatedSpans` caps candidate lags at 16 and says nothing when it hits the
   cap.** On the corpus the most any file produces is four, so nothing is silently dropped today, and
   a replay's hit count is its block length (thousands) so it ranks far above any incidental lag. But
@@ -3412,6 +3447,33 @@ refuted. They are written down rather than fixed because each needs its own gate
 
 ## Craft & product feel
 
+- **§9's off-scale-spacing count says 0 while 124 half-step values exist, and the grep cannot see
+  one of them.** Measured 2026-08-03 over `components` + `app`:
+  `grep -rohE '\b((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+\.[0-9]+\b'` returns **124** —
+  `py-1.5` ×27, `py-0.5` ×17, `gap-1.5` ×17, `mt-0.5` ×15, `mt-1.5` ×9, `px-1.5` ×8, `px-2.5` ×7,
+  `py-2.5` ×2, `mt-2.5` ×2, `mb-2.5` ×2, and a long tail. **§9's own command is
+  `…-[0-9]+\b`, and `\b` matches before the `.`** — so in `py-1.5` it matches `py-1`, finds `1` on
+  the scale, and passes. Every half-step in the repo is structurally invisible to the count that
+  exists to find off-scale spacing.
+  **This is NOT "124 breaches", and saying so would be the over-claim this ledger keeps catching.**
+  §4's table sanctions `px-3 py-1.5` (inside a control) and `px-2 py-1` (a `text-xs` chip)
+  explicitly, so a large share of the 124 is correct. What §4 names nowhere is the `2.5` family
+  (`py-2.5`, `mt-2.5`, `mb-2.5`, `px-2.5` — 13 between them), and `GroundTrack`'s `Stat` has already
+  been fixed once for exactly that. **The work is two steps and they must not be merged:** decide
+  in §4 which half-steps are sanctioned and say so in the table, THEN widen the grep to catch the
+  rest. Widening first would light up 124 sites with no rule to judge them by.
+  **§4 and §9 are carried identically by `nrdptel/fusionspace-loft`**, so both steps are owed to
+  both repos — which is why this is filed rather than done.
+  *This is the third census found blind in one run — and the only one of the three that is §9's
+  own.* The other two are in `lib/design-system.test.ts`, not in §9's shell block: the **chip**
+  census scanned `<span>` only and missed a chip written as an `<li>`, and the **notice** census
+  enumerated `div|section|aside|li|ul` and missed half its population, written as `<p>`. *(A first
+  version of this line said "the card census that matches `rounded-xl` only" — that blindness is
+  real and documented, but it was found on 2026-07-31, two runs before this one, so citing it here
+  put a stale finding inside a claim about this run. The card census IS one of §9's six commands;
+  the chip and notice ones are not commands at all.)* The pattern is the same every time and it is
+  the reason to state it: **a measurement scoped to the form the drift was first noticed in, then
+  read as covering the class.**
 - **Is the `500/30` border ramp heavy enough on PAPER?** §5's hued chips and cards border at
   `<hue>-500/30`, which over white resolves near `#d0d1fb` for indigo — visibly lighter than the
   `border-indigo-300` (`#a5b4fc`) that `FlightReport`'s format chip hand-rolled before it converted

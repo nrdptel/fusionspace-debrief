@@ -7,7 +7,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **A Sev-1 that WASN'T** | A "main descent rate published off a record that never landed" was found, fixed, gated green, verified in the running app — and then **refuted before it was pushed**. The fix was reverted. **Read *The one thing to read before anything else* before touching `lib/analyze/index.ts`.** |
-| **P — product & craft** | **P1 shipped four increments and §5 gained two words**: `Button variant="link"` and `Chip`'s `good`/`warn`/`danger`. §2's colour-by-magnitude clause is closed on both surfaces that broke it, and the logbook stops starring an apogee Debrief has disowned. `Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 12. |
+| **P — product & craft** | **P1 shipped five increments and §5 gained THREE words**: `Button variant="link"`, `Chip`'s `good`/`warn`/`danger`, and `Notice` — the inline primitive that also answers §5's open degraded-capability question. §2's colour-by-magnitude clause is closed on both surfaces that broke it, and the logbook stops starring an apogee Debrief has disowned. `Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 11. |
 | **D — capability** | **D8 slice 3 is SHIPPED** — a replayed block in a high-rate download is detected and stated, and the statement is about the stretch the flyer is actually shown. Slice 4 (tilt) stays blocked. **D9 is DECOMPOSED** and its first slice is a FILE, not code — the corpus holds no prediction at all. |
 | **The recurring lesson, now twice in two runs** | **A green gate says nothing about pixels.** `text-inherit` last run, an invisible neutral chip this run — both passed `npm test`, `npm run build` and all 267 e2e, because the assertions are on roles and accessible names and neither changes when a colour does. **If a change's whole effect is visual, screenshot it in both themes before pushing.** |
 
@@ -736,7 +736,119 @@ grep (names `GpsApogee.tsx:71` when its conversion is reverted), the one-ramp ch
 neutral-chip-visibility check that asserts the RELATIONSHIP — the neutral fill differs from every
 `CARD_TONES` fill — rather than a string, so restyling `Card` cannot silently make it vacuous.
 
-`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` 14 → 12, all moved in the same commit.
+`Chip` 3 → 7 · `uiAdopters` 34 → 35 · `invertedTypeFiles` **14 → 12**, all moved in the same
+commit. *(12 → 11 is increment 17 below, not this one. A blunt find-and-replace during the
+correction pass rewrote this line to 14 → 11 and gave the chip commit credit for a move the notice
+commit made — the hazard of fixing a number globally when the same number means different things in
+different paragraphs.)*
+
+### 17. §5 gains `Notice` — the third missing word in one run (pending push)
+
+**Six inline notices, hand-rolled across five files, spanning three element types, two hues, two
+paddings and two type sizes while being one byte-identical treatment.** `Analyzer`,
+`CompareSurface`, `CompareView` (×2), `GroupProposalBanner`, `RecentFlights`. Same shape as
+`Button variant="link"` (increment 12) and the chip's semantic tones (increment 16): the vocabulary
+was short a word.
+
+**It answers an open §5 question, which is why it is worth more than a de-duplication.** *"§5's five
+states have no name for a DEGRADED capability"* has been on the owed-elsewhere list since earlier
+today. A surface that reads fine and cannot write is none of the five — it is the surface *working*
+with one thing qualified, which is a notice ABOVE real content, not an `ErrorState` replacing it.
+`Notice` is that name. The question comes off the list; the port to the sibling does not.
+
+**The accessibility decision is the one to carry forward.** `Notice` passes `role` through and owns
+none. Four of the six call sites pass `role="status"` and are right to — but `GroupProposalBanner`
+deliberately does not, because `role="status"` implies `aria-atomic`, so a live region wrapping a
+panel that contains a control re-announces both file names and the whole reason sentence over the
+flyer's own action on every press. **That file had already found and fixed this; a primitive that
+hard-coded the role would have put the bug straight back into it.** Pinned by *"leaves the live
+region to the call site"*, falsified by hard-coding `role="status"` and watching it fail.
+
+**Measured improvement, not just consolidation:** `text-sm`, where five of the six were `text-xs`.
+§3 reserves `text-xs` for "captions, units, footnotes, dense table metadata" and makes `text-sm`
+"the body default". Checked on the built page rather than asserted — the analyze note is **14 px
+now against 12 px before**, on four sentences a flyer reads to learn what was merged and what was
+left out. `invertedTypeFiles` **12 → 11**, and this is the **first** move of that number in four
+that is a real improvement rather than adoption.
+
+**Two measurement lessons, both from getting it wrong first.**
+- **The census enumerated elements and missed half the population.** A scanner over
+  `div|section|aside|li|ul` found three notices; three more were `<p>`. Found by cross-checking a
+  colour grep, not by the scanner. Identical to the chip census's `<span>`-only pass earlier the
+  same day — **twice in one run**. The shipped scanner takes ANY opening tag.
+- **`py-1.5` was nearly filed as an off-scale breach and is not one.** §4's table names
+  `px-3 py-1.5` explicitly, as the padding *inside a control*. What IS true, and is now filed: §9's
+  spacing grep is `…-[0-9]+\b`, which matches `py-1` inside `py-1.5` — so **124 half-step values
+  repo-wide are invisible to a count that reports 0**. The third grep found blind in one run — and the only one of the three that is §9's own.
+  `BACKLOG.md` carries it with the two-step fix (settle §4's rule, then widen the grep) and the
+  reason it must not be done in one step.
+
+**The pre-push review found NINE things, and the first was an accessibility bug this commit had
+itself just made into a stated rule.** `RecentFlights`'s forgotten-flights banner is a live region
+wrapping a "Got it" button — the exact shape §5 forbids, in the same commit that wrote the
+prohibition. The conversion had carried it over verbatim from the hand-roll. **And the e2e suite was
+pinning the defect**: `notice.getByRole('button', {name: 'Got it'})` only resolves while the region
+contains the control, so the assertion encoded the wrong structure and correcting the markup is what
+surfaced it. It now asserts the region does NOT contain the button, falsified by putting the role
+back — `Received: 1`.
+
+**§5 named a primitive for degraded capability and shipped it with no degraded-capability adopter.**
+`RecentFlights`'s `write-blocked` caveat — the surface that motivated the whole question — was a
+bare amber `<p>` at `text-xs`, and the notice census could not see it because that predicate keys on
+the primitive's own `-300/70` + `-50` ramp. **A census that can only find hand-rolls which already
+look like the primitive.** It is a `Notice tone="warn"` now; verified in both themes.
+
+**Three of my own claims were wrong and are corrected in place rather than quietly dropped:**
+- *"byte for byte"* across all six notices — five were; `CompareView`'s was `dark:text-indigo-200`
+  against the tone's `-100`, so adopting it moves one step lighter in dark mode. The only unclaimed
+  visual change in the conversion.
+- *"Repo-wide that is 60 of them"* in `ui.tsx` while `BACKLOG.md`, same commit, published the grep
+  and **124** with a full breakdown. The 60 was a partial count taken before the grep existed —
+  believe-then-measure, in a paragraph whose whole subject is that order being wrong.
+- **A quoted string that does not exist in the app.** The ratchet entry justified itself with a
+  message reading *"this file's name was used for the export"*; nothing in `lib/` or `components/`
+  says that. Invented from memory three paragraphs below this block's own warning that a ratchet
+  comment is a claim like any other. Quote or do not quote; do not paraphrase inside quotation marks.
+
+**A second, adversarial verification pass then ran over the CORRECTED branch** — four independent
+lenses (accessibility, rendered output, every factual claim, can-these-tests-fail), each finding
+attacked by three skeptics with instructions to refute. **33 findings raised, 27 killed, 6 confirmed
+— four distinct issues, and every one of them was in prose rather than in code.** The code came
+through clean; the documents did not. Worth knowing which way that asymmetry runs before the next
+session budgets its review effort.
+
+- **`DESIGN.md` documented `as="aside"` after the code removed it — caught by THREE lenses
+  independently.** The correction commit narrowed the union to `div | p | section` (a member with no
+  caller is config nobody asked for) and rewrote the §5 bullet, including the sentence immediately
+  before the `as` list, and left the list saying `aside`. `DESIGN.md` is binding and is what
+  `AGENTS.md` tells a session to read before writing a component, so a call site written to the
+  document fails `tsc`. **Doc and code corrected in opposite directions inside one change** — the
+  sharpest single lesson of the run.
+- **A blunt find-and-replace gave the wrong commit credit.** Fixing `invertedTypeFiles` 14 → 12 to
+  14 → 11 globally rewrote increment 16's own scoreboard, which correctly described the CHIP commit.
+  The same number means different things in different paragraphs; replacing it globally is how a
+  ledger starts disagreeing with itself two lines apart.
+- **The P-track answer still claimed "chip-shaped elements 12 → 5, all five carry a written
+  reason"** while the census had dropped to 3 — because the `Notice` increment dissolved two
+  allowances by giving them a real primitive. The ratchet table on the same page had been updated;
+  the run summary a next session reads FIRST had not.
+- **"the THIRD §9 grep found blind in one run" was wrong twice**, and the refutation pass is what
+  separated the true part from the false. Three censuses WERE found blind this run — but the third
+  named was the card census, whose `rounded-xl` blindness was found on 2026-07-31, two runs earlier;
+  the correct third is the notice census. And only the spacing grep is one of §9's six commands at
+  all; the chip and notice censuses live in `lib/design-system.test.ts`.
+
+**And the §3 argument was stated too strongly.** §3 lists "its caveat" under `text-xs`, and a
+standing paragraph five lines above the new entry said in terms that `Analyzer`'s amber note is
+sanctioned `text-xs` and the file is "inverted while fully compliant". Two paragraphs in one comment
+asserting opposite things about the same element. Resolved by amending the older one and saying why
+it is a **judgement**: §3's clause sits inside "text AROUND such a VALUE", meaning annotation
+attached to a number, and these notices are attached to none — they are messages about what happened
+to a flyer's files. Defensible, not forced by the wording, and now recorded as such.
+
+`Notice` adopters **0 → 5**. The chip census dropped two allowances by being right — both were
+notices all along — and moved from `file:line` strings to a file → count map, because every one of
+those line numbers shifted on an unrelated edit.
 
 ## Traps this run hit — read these before repeating them
 
@@ -768,26 +880,37 @@ neutral-chip-visibility check that asserts the RELATIONSHIP — the neutral fill
 | `rounded-lg` | 0 | **0** | 0 — a guard, may never rise |
 | off-scale spacing | 0 | **0** | 0 — a guard, may never rise |
 | hand-rolled card treatments | 3 | **3** | 3 — a GUARD, may never rise |
-| inverted-type files | 14 | **12** | not 0 — read P1 item 2 first |
+| inverted-type files | 14 | **11** | not 0 — read P1 item 2 first |
 | off-scale type sizes | 1 | **1** | floor 1 — the shared brand wordmark |
 | files importing the primitives | 34 | **35** | most of the 46 |
 | hand-rolled `<button>` outside `ui.tsx` | 29 | **29** | few |
-| hand-rolled chip-shaped elements | 12 | **5** | 5 — all five named, with reasons |
+| hand-rolled chip-shaped elements | 12 | **3** | 3 — all three named, with reasons |
+| hand-rolled inline notices | 6 | **0** | 0 — a guard, may never rise |
 
-**Two moved, both on the chip conversion, and BOTH read as adoption rather than improvement.**
+**Four moved across two increments, and the KIND differs — say which every time.**
+
+The chip conversion moved two and both are **adoption**:
 `inverted-type files` 14 → 12 because `DeviceSummary` (4/2) and `GpsApogee` (3/2) moved six `text-xs`
 INTO `Chip` — not one glyph changed size on screen. `files importing the primitives` 34 → 35 because
 `LogDetails` imports `./ui` for the first time; that assertion is `toBeGreaterThanOrEqual`, so a stale
 number there goes green invisibly and the pre-push review is what caught it. The per-primitive map
 moved too: `Button` 18 → 19, `Chip` 3 → 7.
 
+The notice conversion moved two more, and one of them is **a real improvement**: `inverted-type
+files` 12 → 11 because `Analyzer`'s note went from `text-xs` to §3's body default — text a flyer
+acts on got BIGGER, which is the direction this metric was reached for and the first time in four
+moves it has gone that way. `hand-rolled inline notices` 6 → 0, a new row and a guard. `Notice`
+adopters 0 → 5. `uiAdopters` did NOT move: all five converting files already imported `./ui`, which
+is the same per-FILE blindness the per-primitive map exists to cover.
+
 The colour work earlier in the run moved nothing. It is a §2 rule, and §2 has no §9 counter —
 deliberately, since §9's block is carried identically by the sibling repo and adding a command to it
 is a change owed to both. That assertion says so in its own comment, like the frame and focus
 assertions before it.
 
-**§9's shell block was run by hand at the end of the run and every number reconciles with the exact
-ratchet** — 0 / 3 / 0 / 1 / 12 / 35, against `lib/design-system.test.ts`'s `roundedLg`,
+**§9's shell block was run by hand after each increment and every number reconciles with the exact
+ratchet** — 0 / 3 / 0 / 1 / **11** / 35 as of the notice conversion (it was 0/3/0/1/12/35 at the chip
+one), against `lib/design-system.test.ts`'s `roundedLg`,
 `cardTreatments`, `offScaleSpacing`, `offScaleType`, `invertedTypeFiles` and `uiAdopters`. Worth
 doing rather than trusting the suite: the two are independent implementations of the same question,
 and the run where they disagree is the run one of them is lying.
@@ -837,9 +960,13 @@ now detected and stated). What stopped D9 going further is a **missing fixture**
 there is no prediction file in the corpus to build against, which is slice 1.
 
 **P-track — what is measurably better?** Five counts moved and one of them a flyer can see.
-`Chip` adopters **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 12**, hand-rolled
-chip-shaped elements **12 → 5** (and all five now carry a written reason rather than being
-unexamined). The one that is not a count: **a neutral chip was invisible against its own container**
+`Chip` adopters **3 → 7**, `uiAdopters` **34 → 35**, `invertedTypeFiles` **14 → 11** (12 at the
+chip increment, 11 after the notice one), hand-rolled chip-shaped elements **12 → 3** — and all
+three carry a written reason rather than being unexamined. *It reads 3 rather than the 5 this
+line first claimed because the `Notice` increment dissolved two of the allowances: `CompareView`'s
+mapping prompt and `RecentFlights`'s forgotten-flights banner were exempted as "inline notices,
+not tokens", and they are `Notice`s now. An allowance that disappears when the right primitive
+arrives is the good kind.* Hand-rolled inline notices **6 → 0**, `Notice` adopters **0 → 5**. The one that is not a count: **a neutral chip was invisible against its own container**
 — identical fill to §2's sunken card in light and its default card in dark — so `/stitch`'s burn
 provenance had been a bare outline in dark mode since it was written, and two more surfaces were
 about to join it. It is a visible token in both themes now, verified in pixels on the deployed
@@ -928,9 +1055,28 @@ build's own stylesheet.
 
 ## What is owed elsewhere
 
-**`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs. Not
-attempted — this session was created with `debrief` and `debrief-fixtures` only, so pushing there was
-impossible rather than skipped.
+**`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs.
+
+**IMPOSSIBLE IS THE WRONG WORD, and it has been for at least seven runs — corrected 2026-08-03.**
+This paragraph has said the port could not be attempted because the session was created with
+`debrief` and `debrief-fixtures` only. **Checked rather than assumed this run:
+`nrdptel/fusionspace-loft` is listed, public, and `can_push: true`** — a session can attach it with
+the harness's add-repo tool and push. So the debt has been *deferred*, not *blocked*, and every run
+that read this line took "impossible" at face value and moved on. That is the cost of an unchecked
+claim in a handoff: seven runs of compounding divergence between two files the design system says
+are identical.
+
+**Not attempted THIS run either, and the reason is different and smaller:** it arrived at the end of
+a long session, behind an outstanding pre-push review, and `loft` had been pushed to 34 minutes
+earlier by something else — opening a front in a second repository whose current state I had not
+read was the wrong risk to take late. **A session with room should attach it and pay the whole debt
+in one pass**, which is now three §5 words plus §9, not one.
+
+**What is owed, as of this run — three words, not one.** `Button variant="link"`, `Chip`'s
+`good`/`warn`/`danger` tones, and `Notice`. Each is self-contained and each is described in its own
+entry above with the census that justified it. **Port `Notice` first if only one fits**: it carries
+the accessibility decision (the primitive must not own `role`), and Loft will hit the degraded-state
+question the moment it keeps anything on the device.
 
 **§5's fifth button weight is owed to the sibling, added 2026-08-03.** `Button variant="link"` is
 in this repo's `DESIGN.md` §5 and `ui.tsx`; `nrdptel/fusionspace-loft` carries the same §5 and this
@@ -945,8 +1091,11 @@ fills.** If Loft's `Chip` still carries the old neutral, its default chips are i
 own containers in at least one theme, exactly as Debrief's were. Self-contained: one `CHIP_TONES`
 map, one clause in the class list, one §5 bullet, and the visibility test that pins the relationship.
 
-**A THIRD §5 question, opened 2026-08-03 and owed to both repos: §5's five states have no name for a
-DEGRADED capability.** The logbook shipped `write-blocked` this run — reads fine, writes refused —
+**~~A THIRD §5 question~~ — ANSWERED 2026-08-03, and only the PORT is still owed. §5's five states
+had no name for a DEGRADED capability**, and now they do: `Notice`, the inline primitive built this
+run on a census of six hand-rolls. Everything below is the argument that produced it, kept because
+it is the reasoning a porting session needs. **What is owed to `nrdptel/fusionspace-loft` is the
+primitive and the §5 bullet, not the decision.** The logbook shipped `write-blocked` this run — reads fine, writes refused —
 and it is genuinely none of empty, loading, error, populated or offline. It is the surface working
 while one thing it promises does not, which is a shape any repo with local storage will hit; Loft
 will hit it the moment it keeps anything on the device. Debrief solved it privately with a fourth

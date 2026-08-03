@@ -2336,6 +2336,64 @@ the artifact rather than the tree.
     **Owed to the sibling.** §5's chip entry is carried identically by `nrdptel/fusionspace-loft`;
     recorded in `HANDOFF.md` with the `link` weight debt.
 
+    **DONE 2026-08-03 — §5 gained `Notice`, the THIRD missing word in one run.** Six inline notices
+    were hand-rolled across five files — `Analyzer`, `CompareSurface`, `CompareView` (×2),
+    `GroupProposalBanner`, `RecentFlights` — spanning **three element types (`p`, `div`,
+    `section`), two hues, two paddings and two type sizes** while being one byte-identical
+    treatment on a `-300/70` border + `-50` fill ramp. Same shape as `Button variant="link"` and the
+    chip's semantic tones: a vocabulary short a word, not five files being careless.
+
+    **It closes an open §5 question rather than only removing a hand-roll.** `HANDOFF.md` had
+    carried "§5's five states have no name for a DEGRADED capability" as owed to both repos — a
+    surface that reads fine and cannot write is none of empty/loading/error/populated/offline; it is
+    the surface *working* with one thing qualified. That is exactly a notice above real content, not
+    an `ErrorState` replacing it. The primitive is the answer, and the question can come off the
+    owed list as a question (the PORT is still owed).
+
+    **Three API decisions the census made and a guessed API would have got wrong:**
+    - **`as`, because three elements are in use and all three are right** — `<p>` for one sentence,
+      `<div>` where controls sit beside it, `<section aria-label>` for a named region.
+    - **No `role` of its own.** Four of the six pass `role="status"`; `GroupProposalBanner`
+      deliberately does not, and its own comment says why — `role="status"` implies `aria-atomic`,
+      so a live region wrapping a panel containing a control re-announces both file names and the
+      whole reason sentence over the flyer's own action on every press. **A primitive that
+      hard-coded the role would have reinstated a bug that file had already fixed.** Pinned.
+    - **`text-sm`.** Five of the six were `text-xs`, which §3 reserves for "captions, units,
+      footnotes, dense table metadata" against `text-sm` as "the body default". Measured on the
+      built page: the analyze note is **14 px now, 12 px before** — four sentences a flyer reads to
+      learn what was merged and what was left out.
+
+    **`invertedTypeFiles` 12 → 11, and this is the FIRST of the four ways that is a real
+    improvement rather than adoption.** `Analyzer` left the list because text a flyer acts on got
+    BIGGER. Every previous move of this number was a `text-xs` migrating INTO a primitive with
+    nothing on screen changing size. Say which kind a move is every time.
+
+    **A measurement mistake made twice in one run, and caught the second time by cross-checking.**
+    The first notice census enumerated `div|section|aside|li|ul`, found three, and missed the three
+    written as `<p>` — the element a one-sentence notice most naturally takes. It was found only by
+    grepping the colour ramp instead. That is the chip census's `<span>`-only pass again, so this
+    scanner takes **any** opening tag and has no element list to be wrong about.
+
+    **`py-1.5` was nearly reported as an off-scale breach and is not one.** A draft of the
+    primitive's comment claimed §4 has no `1.5` and that §9's spacing grep cannot see it. The second
+    half is true — `…-[0-9]+\b` matches `py-1` inside `py-1.5`, so **124 half-steps repo-wide are
+    invisible to a count that reports 0** — but the first half is wrong: §4's table names
+    `px-3 py-1.5` explicitly as the padding *inside a control*. A notice is neither a control nor a
+    card, so §4 gives it no value and `py-2` is a judgement. The grep hole is filed in `BACKLOG.md`
+    with the two-step fix it needs (decide §4's rule first, widen the grep second) — **the third §9
+    grep found blind in one run**, after the chip census and the card census.
+
+    **The chip pin lost two allowances by being right.** `CompareView`'s mapping prompt and
+    `RecentFlights`'s forgotten-flights banner were exempted from the hand-rolled-chip census as
+    "inline notices, not tokens"; they are `Notice`s now and no longer match. The census also moved
+    from five `file:line` strings to a **file → count map**, because every one of those line numbers
+    shifted on an unrelated edit and the pin failed for a reason that had nothing to do with chips.
+
+    Pinned by `lib/design-system.test.ts` → *"has no hand-rolled inline notice left"* and *"leaves
+    the live region to the call site"*, both falsified by mutation (reverting one conversion names
+    `Analyzer.tsx:726`; hard-coding `role="status"` on the primitive fails the second).
+    `Notice` adopters **0 → 5**.
+
 10. ~~**A sixth radius nobody counts:** bare `rounded` (0.25rem) at 11 sites.~~ **DONE 2026-08-01 —
     and the count was wrong in both directions before it was measured properly.** The entry said 11;
     a sweep this run first said 15. Both were counting prose. `rounded` sits inside the word

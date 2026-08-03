@@ -254,6 +254,32 @@ hand-rolls it instead is not done.
   An error that names something not on the page is a named tell.
 - **`Extrapolated`** — the warn treatment plus the reason and the range it left. Required wherever a
   number leaves the envelope its method was validated over.
+- **`Notice`** — **not one of the five, and listed here because this is where a reader looks for
+  it.** A sentence about the content, **above** the content, never instead of it. The five states
+  above each REPLACE a surface or qualify a value; a notice leaves the surface working.
+  `rounded-md border px-3 py-2 text-sm`, tones `warn` (default) and `accent`, on a `-300/70` border
+  + `-50` fill ramp that is deliberately its own — a notice needs more presence than a `Chip`'s
+  `500/10` wash and a flatter, lighter field than a `Card`'s tinted one. (`CARD_TONES`' hued
+  entries are `500/x` washes too, not flat fills; an earlier wording of this line said flat and was
+  wrong about its own neighbour.) Takes `as` (`div` · `p` · `section` — only the tags with a call site)
+  and **passes `role` through rather than owning one**: `role="status"` implies `aria-atomic`, so a
+  notice that contains a control must put the live region on the message, not the box, or every
+  press re-announces the whole panel. **That rule has cost two surfaces already** —
+  `GroupProposalBanner` found it and fixed it; `RecentFlights`'s forgotten-flights banner carried
+  the same shape and the conversion moved it verbatim until a review caught it. The pin can only
+  assert that the primitive owns no role; the call-site half is a review question.
+
+  **This is the answer to "§5 has no name for a DEGRADED capability"**, which had been carried as an
+  open question. A degraded surface — reads fine, writes refused — is none of the five states: it is
+  the surface *working* with one thing qualified. That is a `Notice tone="warn"` above real content,
+  not an `ErrorState` replacing it. **Built 2026-08-03 on a census of six** across five files,
+  spanning three element types, two hues, two paddings and two type sizes while being one
+  treatment. Five of the six were `text-xs` on text a flyer acts on; the primitive is `text-sm`.
+  **That is a judgement, not a reading §3 forces.** §3 lists "its caveat" under `text-xs` — but
+  inside "text AROUND such a VALUE", meaning annotation attached to a number. These notices are
+  attached to no number; they are messages about what happened to a flyer's files or logbook, and
+  §3's body default covers messages. `lib/design-system.test.ts` carries the full argument beside
+  the ratchet it moved.
 
 **A surface with no empty state is not finished.** It is the state a flyer sees first.
 

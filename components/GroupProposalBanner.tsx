@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { RecentMeta } from '@/lib/recents';
 import { distinguishingLabels, proposeGroups } from '@/lib/proposeGroups';
 import { planGrouping } from '@/lib/flightGroups';
-import { Button, Segmented } from './ui';
+import { Button, Notice, Segmented } from './ui';
 
 /** A label long enough to read and short enough not to push the page sideways. `Segmented` lays
  *  its options out in a row, so an unbounded label from a flyer-renamed file is a horizontal
@@ -60,10 +60,7 @@ export default function GroupProposalBanner({
   const labels = distinguishingLabels(names);
 
   return (
-    <section
-      aria-label="Files that may be one flight"
-      className="mb-3 rounded-md border border-indigo-300/70 bg-indigo-50 px-3 py-2 text-sm text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:text-indigo-100"
-    >
+    <Notice as="section" tone="accent" aria-label="Files that may be one flight" className="mb-3">
       {/* The live region is the MESSAGE, not the whole panel. It used to wrap everything, which
           was harmless while nothing inside it changed — and stopped being harmless the moment a
           control moved in: `role="status"` implies `aria-atomic`, so every press of "Reported by"
@@ -114,6 +111,6 @@ export default function GroupProposalBanner({
           No, separate flights
         </Button>
       </div>
-    </section>
+    </Notice>
   );
 }

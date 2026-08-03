@@ -514,17 +514,31 @@ test('the logbook says what it keeps, and names what it forgot', async ({ page }
   await expect(page.getByRole('heading', { name: /Recent flights/ })).toContainText('12/12 un-noted');
 
   // What went is named, with the one action that would have kept it.
-  const notice = page.getByRole('status').filter({ hasText: 'forgotten' }).first();
-  await expect(notice).toBeVisible();
-  await expect(notice).toContainText(/flight-\d\d\.csv/);
-  await expect(notice).toContainText(/add a .*note to a flight and it stays for good/i);
+  const message = page.getByRole('status').filter({ hasText: 'forgotten' }).first();
+  await expect(message).toBeVisible();
+  await expect(message).toContainText(/flight-\d\d\.csv/);
+  await expect(message).toContainText(/add a .*note to a flight and it stays for good/i);
+
+  // **The live region is the MESSAGE, not the panel around it** — `DESIGN.md` §5's rule for
+  // `Notice`. `role="status"` implies `aria-atomic`, so a region that CONTAINS the dismiss
+  // control re-announces the whole banner — the count, every file name, the full keeps-the-last-N
+  // sentence — on every press and on every change underneath it. `GroupProposalBanner` found that
+  // and fixed it; this banner carried the same shape until 2026-08-03.
+  //
+  // **This assertion used to encode the defect.** It read
+  // `notice.getByRole('button', {name: 'Got it'}).click()` — locating the control INSIDE the live
+  // region, which only resolves while the region wraps it. So the e2e suite was pinning the wrong
+  // structure, and correcting the markup is what surfaced that. The design-system pin cannot cover
+  // this: it asserts the PRIMITIVE owns no role, and the rule is about call sites. Here is where
+  // it can actually be observed.
+  await expect(message.getByRole('button', { name: 'Got it' })).toHaveCount(0);
 
   // The noted flight survived all of it — the escape hatch has to actually work, or naming
   // the rule is just a nicer way to lose the same flight.
   await expect(page.getByText('J350 · cert L2')).toBeVisible();
 
   // And the notice is dismissable: it reports one event, it is not a permanent banner.
-  await notice.getByRole('button', { name: 'Got it' }).click();
+  await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'forgotten' })).toHaveCount(0);
 });
 
