@@ -14,6 +14,16 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — the figure light/dark toggle governs the exported SVG and not the exported PNG,
+  and they sit next to each other.** `components/FigureTheme.tsx`'s own docblock states the contract
+  — *"A light/dark choice for an exported vector (SVG) figure … it only governs the exported
+  figure"* — and `plotSvg` honours it (`dark: figureDark`) while the PNG path takes the page theme.
+  **The PNG is not wrong to**: it composites the LIVE canvas, whose pixels uPlot drew in the page's
+  theme, so a light fill under a dark plot would be worse. But a flyer in dark mode who flips the
+  toggle for a cert document gets a light SVG and a dark PNG from two buttons an inch apart, and
+  nothing says why. Either the toggle's label should say it is the vector figure only, or the PNG
+  should re-render off-screen in the chosen scheme — which is a real change, not a swap of `dark`
+  for `figureDark`. Reproduce: dark mode, `/`, toggle the figure theme, save both.
 - **2026-08-03 — `components/StitchSurface.tsx:100`'s fallback names the wrong cause.** When
   `compareFromLogbook` returns fewer inputs than ids but no `skipped` entries, the composite says
   *"one of those flights is no longer in this logbook"*. That branch is unreachable for a missing or
@@ -94,15 +104,22 @@ wild, ideas too big for one pass. One line each, newest first.
   flight was not remembered is behind a collapsed panel named for something else. Reproduce: block
   site storage, analyse a file, look for any visible signal that it was not saved.
 - **2026-08-02 — `Figure` does not forward a `ref`, so two call sites hand-roll a bare div inside
-  it.** `components/FlightReport.tsx:1203` (`altChartRef`, consumed at :463) and
-  `components/CompareView.tsx:1109` each wrap `Figure`'s children in a ref-only `<div>` whose sole
+  it.** `components/FlightReport.tsx:1194` (`altChartRef`, consumed at `:464`) and
+  `components/CompareView.tsx:1100` each wrap `Figure`'s children in a ref-only `<div>` whose sole
   job is `querySelector('canvas')` for the PNG/SVG export — while the `Card` that `Figure` renders
-  already accepts `ref` (`ui.tsx:187`), and `ChannelExplorer.tsx:510` and `GroundTrack.tsx:519`
+  already accepts `ref` (`ui.tsx:187`), and `ChannelExplorer.tsx:501` and `GroundTrack.tsx:519`
   already use exactly that. Forwarding `ref` through `Figure` deletes both divs with no change to
-  what the export finds. **Worth more than the two divs:** the `savePng` bodies at
-  `FlightReport:462-473`, `CompareView:481-492` and `ChannelExplorer:283-294` are byte-identical
-  apart from the output filename — the `ACTION_BTN`-in-six-files shape again, this time for chart
-  export.
+  what the export finds. ~~**Worth more than the two divs:** the `savePng` bodies … are
+  byte-identical apart from the output filename.~~ **That half is DONE 2026-08-03** —
+  `lib/plotPng.ts` is the one implementation, pinned by *"composites a plot to an image from
+  exactly one place"*. The line numbers above are re-pointed after that deletion, which is the
+  other half of striking an entry: a citation that has moved is a citation that sends the next
+  session to the wrong place.
+
+  **A caution for whoever forwards the `ref`:** `savePlotPng` takes the FIRST canvas inside the
+  host it is given. That is unambiguous at today's three call sites, and it is not at
+  `GroundTrack.tsx:519`, whose `Card` holds two canvases (`:521` base, `:548` overlay) — pointing
+  the export there would silently save the base and drop the overlay.
 - **2026-08-02 — two recordings of ONE flight disagree about whether a charge fired, and the one
   that is wrong is the one that landed.** On `iss-irec2023`, sampled in 5 s buckets after apogee,
   **both** `irec_2023_easymega` and `irec_2023_telemega` fall at **34–35 m/s** and **both break to

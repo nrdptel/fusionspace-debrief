@@ -1803,6 +1803,36 @@ the artifact rather than the tree.
    is now secondary. The logbook's one primary is "Compare N flights", the action the surface exists
    to perform. A FIFTH button weight went with it — an indigo-outlined "These N are one flight",
    which §5 does not have.
+   **DONE 2026-08-03 — the chart export was the `ACTION_BTN` shape restarted.** `savePng` /
+   `saveChartPng` existed **three times, byte for byte** — `FlightReport`, `CompareView` and
+   `ChannelExplorer` each carried the same eleven-line body, differing only in which ref they read
+   and what they named the file. `lib/plotPng.ts` is the one implementation, written as
+   `lib/copyTable.ts`'s sibling because it is the same kind of thing: one job the app does from
+   several surfaces, and a table's answer to "get this into my write-up" is copy-paste where a
+   chart's is an image. Three copies of a canvas composite is three places for a
+   transparent-background or device-pixel-ratio bug to be fixed in two of.
+
+   Pinned by `lib/design-system.test.ts` → *"composites a plot to an image from exactly one
+   place"*, which is the frame/focus shape rather than a §9 grep (a §9 addition is owed to the
+   sibling repo). Matched on `.drawImage(` in member AND bracket form, deliberately, not on
+   `toBlob`: `FlightCard` calls `toBlob` correctly on its own canvas, so a `toBlob` guard would fail
+   naming a file that is not doing this job at all. The **four** existing PNG-export e2e cases
+   carried the behaviour unchanged.
+
+   **Its source list had to be widened, and that correction is most of its value.** §9's own list is
+   `['components', 'app']` over `['.tsx', '.css']` — which never walks `lib/`, the one directory the
+   failure message names, and cannot see a `.ts` under `components/` either. So a second composite in
+   `lib/`, or in the `components/usePlotExport.ts` hook that is the most natural React home for this
+   code, would both have kept it green while the message insisted only `lib/plotPng.ts` may carry
+   one. **A guard whose message names a file it never reads is worse than none**, and this is the
+   sixth time this file has had to widen a pattern from the form somebody had in front of them.
+   Falsified BOTH ways after widening: a copy in `lib/`, and a bracket-access copy in `CompareView`.
+
+   **What the collapse exposed rather than caused**, and it is filed: the figure light/dark toggle
+   governs the exported SVG and not the exported PNG. The PNG is not wrong to take the page theme —
+   it composites the live canvas, whose pixels are already in that theme — but two buttons an inch
+   apart now behave differently and nothing says why.
+
 7. **The remaining 41 hand-rolled `<button>` elements** outside `components/ui.tsx` (46 in the
    tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
    there is genuinely not `Button` — the row itself as a click target, the file-name text button,
