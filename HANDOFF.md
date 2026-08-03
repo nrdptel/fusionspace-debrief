@@ -984,9 +984,28 @@ build's own stylesheet.
 
 ## What is owed elsewhere
 
-**`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs. Not
-attempted — this session was created with `debrief` and `debrief-fixtures` only, so pushing there was
-impossible rather than skipped.
+**`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs.
+
+**IMPOSSIBLE IS THE WRONG WORD, and it has been for at least seven runs — corrected 2026-08-03.**
+This paragraph has said the port could not be attempted because the session was created with
+`debrief` and `debrief-fixtures` only. **Checked rather than assumed this run:
+`nrdptel/fusionspace-loft` is listed, public, and `can_push: true`** — a session can attach it with
+the harness's add-repo tool and push. So the debt has been *deferred*, not *blocked*, and every run
+that read this line took "impossible" at face value and moved on. That is the cost of an unchecked
+claim in a handoff: seven runs of compounding divergence between two files the design system says
+are identical.
+
+**Not attempted THIS run either, and the reason is different and smaller:** it arrived at the end of
+a long session, behind an outstanding pre-push review, and `loft` had been pushed to 34 minutes
+earlier by something else — opening a front in a second repository whose current state I had not
+read was the wrong risk to take late. **A session with room should attach it and pay the whole debt
+in one pass**, which is now three §5 words plus §9, not one.
+
+**What is owed, as of this run — three words, not one.** `Button variant="link"`, `Chip`'s
+`good`/`warn`/`danger` tones, and `Notice`. Each is self-contained and each is described in its own
+entry above with the census that justified it. **Port `Notice` first if only one fits**: it carries
+the accessibility decision (the primitive must not own `role`), and Loft will hit the degraded-state
+question the moment it keeps anything on the device.
 
 **§5's fifth button weight is owed to the sibling, added 2026-08-03.** `Button variant="link"` is
 in this repo's `DESIGN.md` §5 and `ui.tsx`; `nrdptel/fusionspace-loft` carries the same §5 and this
