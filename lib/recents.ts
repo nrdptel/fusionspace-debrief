@@ -15,6 +15,20 @@ export interface RecentMeta {
   apogeeM: number | null;
   /** Max velocity (m/s) for the logbook; null when the flight didn't yield one. */
   maxVelocityMs: number | null;
+  /** Why this flight's apogee cannot be crowned "highest", where it cannot.
+   *
+   *  **The logbook could not qualify an apogee at all until this existed**, and that was the last
+   *  surface still ranking on a number every other surface had already qualified: the report
+   *  prints *"(at least)"* or *"unproven"*, the comparison refuses the crown outright, and the
+   *  logbook went on awarding a ★ *"Highest of your remembered flights"* off a bare `apogeeM`.
+   *  `ROADMAP.md`'s P1 item names this as what its own last increment did not close, and says why —
+   *  it wants a field on the persisted store, which is this one.
+   *
+   *  Absent on every row written before 2026-08-03 and on every flight whose apogee carries no
+   *  caveat, which is nearly all of them. **Absent means qualified**: an old row keeps exactly the
+   *  behaviour it had, and a re-save re-reads the file and fills it in. Storing the REASONS rather
+   *  than a bare boolean so the row can say which one, the way every other surface does. */
+  apogeeCaveats?: { floor?: boolean; unproven?: boolean };
   /** When the flight flew, where its file states it (see lib/flight/flownAt.ts). Absent on
    *  entries saved before this was read, and on files that carry no date — the logbook shows
    *  when it was opened in that case rather than inventing a launch day. */
@@ -198,7 +212,7 @@ export type IncomingFlight = Omit<RecentFlight, 'id' | 'addedAt' | 'note'>;
  * value wins — a parser that has learned something since gives a better apogee, and a flight
  * saved months ago should get it.
  */
-type FromTheFile = 'id' | 'addedAt' | 'name' | 'formatLabel' | 'apogeeM' | 'maxVelocityMs' | 'flownAt' | 'text' | 'bytes' | 'mapping';
+type FromTheFile = 'id' | 'addedAt' | 'name' | 'formatLabel' | 'apogeeM' | 'maxVelocityMs' | 'apogeeCaveats' | 'flownAt' | 'text' | 'bytes' | 'mapping';
 
 /**
  * The members that are the FLYER'S — things they decided ABOUT the file rather than things the
@@ -510,7 +524,7 @@ export async function setFlightIds(changes: { id: string; flightId: string | nul
  * against a browser's IndexedDB. Pure and exported so it doesn't.
  */
 export function toMeta(rec: RecentFlight): RecentMeta {
-  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, note, flownAt, flightId, read } = rec;
+  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, apogeeCaveats, note, flownAt, flightId, read } = rec;
   return {
     id,
     name,
@@ -520,6 +534,9 @@ export function toMeta(rec: RecentFlight): RecentMeta {
     // Older records predate these fields — treat them as "unknown"/empty.
     maxVelocityMs: maxVelocityMs ?? null,
     note: note ?? '',
+    // Only where the apogee carries one — the list needs it to decide whether a flight can wear
+    // the "highest" star at all, which is the whole reason it is on the projection.
+    ...(apogeeCaveats ? { apogeeCaveats } : {}),
     // Only where the file stated it; entries saved before this was read have none.
     ...(flownAt ? { flownAt } : {}),
     // Only where the flyer has said this file is one recording of a flight that has several.
@@ -709,6 +726,10 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     addedAt: typeof r.addedAt === 'number' ? r.addedAt : Date.now(),
     apogeeM: typeof r.apogeeM === 'number' ? r.apogeeM : null,
     maxVelocityMs: typeof r.maxVelocityMs === 'number' ? r.maxVelocityMs : null,
+    // Validated rather than trusted, like everything else rebuilt here: a hand-edited backup
+    // must not be able to inject a shape, and an absent one means "no caveat" which is the
+    // behaviour every row written before this field had.
+    ...(apogeeCaveatsOf(r.apogeeCaveats) ? { apogeeCaveats: apogeeCaveatsOf(r.apogeeCaveats)! } : {}),
     note: typeof r.note === 'string' ? r.note : '',
     // A restored backup keeps the launch day, so the logbook doesn't come back dateless.
     // Validated rather than trusted: a hand-edited file shouldn't inject a shape.
@@ -866,4 +887,17 @@ export async function importLogbook(json: string): Promise<{ restored: number; b
   } catch {
     return { restored: 0, blocked: true };
   }
+}
+
+
+/** A stored apogee-caveat set, validated. Anything that is not one of the two known booleans is
+ *  dropped rather than carried, and an empty result is `undefined` so it round-trips as absent. */
+function apogeeCaveatsOf(v: unknown): { floor?: boolean; unproven?: boolean } | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const c = v as { floor?: unknown; unproven?: unknown };
+  const out = {
+    ...(c.floor === true ? { floor: true } : {}),
+    ...(c.unproven === true ? { unproven: true } : {}),
+  };
+  return Object.keys(out).length ? out : undefined;
 }
