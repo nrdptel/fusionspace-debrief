@@ -14,6 +14,46 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — `Button variant="link"` with `href` is the one shape that really is under-sized.**
+  `app/globals.css` floors every bare `button` at 44×44 under `@media (pointer: coarse)`, so a
+  `link` BUTTON keeps its touch target however little the variant declares. The `href` branch
+  (`components/ui.tsx`) renders a `<Link>`/`<a>` instead, and the coarse-pointer rule covers only
+  `a[download]`, `nav a`, `header a` and `footer a` — while `e2e/touch.spec.ts` exempts an `<a>`
+  inside a `p`/`li` from measurement. Nothing uses `variant="link"` with `href` today; the variant
+  makes it a one-word mistake away. Reproduce: add `href="/methods"` to any converted link site and
+  measure its box at a 390 px coarse-pointer viewport. **Fix shape:** either extend the
+  coarse-pointer rule to cover it, or refuse the combination in the type.
+- **2026-08-03 — SEV-1 CANDIDATE, LATENT: a climb dropout lets the burnout search run unbounded,
+  and the result ships labelled `measured`.** `lib/analyze/index.ts:1758` assigns `maxVelIdx` only
+  under `ascentPresent && !ascentGapBreaksPeak`, so a gap leaves it at `-1`; `:1973` captures
+  `peakVelIdxBeforeJudgement` after that, so the `:1995` ternary
+  `velocityImplausible ? peakVelIdxBeforeJudgement : maxVelIdx` is a no-op on this route and both
+  arms are `-1`. `:2045`'s `velPeakEnd` then collapses to `apogeeIdx` — the exact unbounded search
+  the `:2021-2044` comment says produced a 39.85 s burn time. **Measured on a SYNTHESISED dropout**
+  over `altusmetrum__issuiuc-stargazer1-20230507__SG1-May-EasyMega.eeprom`: burn time 4.36 → 11.29 s,
+  burnout altitude 241 → 543 m (95% of its own 573 m apogee), burnout velocity 128.4 → 46.8 m/s,
+  coast 7.53 → 0.60 s — and it reproduces identically with the gap placed entirely in the COAST,
+  strictly after the true burnout, so it is a bound collapse and not missing data. `readings.ts:287`
+  prints `burnoutSub` = `'measured'` beside a Max-velocity tile withheld for `'gap'`.
+
+  **Filed rather than fixed, deliberately, and the reason is this repo's own rule.** No shipping
+  corpus file combines the exposed shape (baro velocity + signed axial accelerometer, no velocity
+  column — seven files) with an ascent dropout (two files, both Featherweight GPS logs that find no
+  burnout at all). So today the fix would be a guard firing on zero real files, which the entry at
+  `BACKLOG.md`'s "a guard that fires on zero real files is worse than nothing until a fixture
+  exists" forbids. **The right shape is a synthetic fixture first**, then the one-line bound, then a
+  test that fails without it. Not already filed: the two nearby entries scope strictly to
+  `velocityImplausible` and never name `ascentGapBreaksPeak`, and `grep velTurnoverIdx|velPeakEnd`
+  over the ledgers returns one line that asserts this case was left "identical".
+- **2026-08-03 — `burnoutVelocity`, `coastEfficiency` and `dragLossAltitude` gate on
+  `!velocityImplausible` alone.** `series.velocityUnusable` (`lib/analyze/index.ts:2001`) is the flag
+  covering BOTH withholding reasons, and `lib/analyze/types.ts:196` says in terms that it is "the one
+  thing a consumer should test" because testing only the first reason already shipped a leak once.
+  These are two more consumers testing only the first reason: with a gap present the analysis reports
+  `maxVelocityWithheld='gap'` and `maxVelocity=NaN` while publishing `burnoutVelocity` 46.8 m/s,
+  `coastEfficiency` 27% and `dragLossAltitude` 82 m off that identical trace. `coastEfficiency ∝
+  1/v²`, so the error is squared. Same latency caveat as the entry above — reachable only with a
+  synthesised dropout today — and the same fix shape.
 - **2026-08-03 — `findRepeatedSpans` caps candidate lags at 16 and says nothing when it hits the
   cap.** On the corpus the most any file produces is four, so nothing is silently dropped today, and
   a replay's hit count is its block length (thousands) so it ranks far above any incidental lag. But

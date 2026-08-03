@@ -515,6 +515,70 @@ Three more, all real, all fixed before pushing:
 things it caught were claims I had written *while explicitly reasoning about honesty* in the same
 file, and one of them contradicted a sentence rendered six inches away on the same screen.
 
+### 12. §5 gains the button weight the code reached for eight times (pending push)
+
+**The P-track increment.** `DESIGN.md` §5's heading read *"three button weights, and only three"*
+and then listed FOUR — and the code had hand-rolled a fifth eight times across four files: a
+`<button>` with indigo text, no border, no fill, sitting inside running prose. *"Got a backup?
+**Restore it**."* · *"← Analyze another flight"* · a **clear sort** beside a column header.
+
+**Eight sites independently reaching for one missing word is the VOCABULARY being wrong**, not four
+files being careless, so §5 gained `Button variant="link"` rather than the sites being converted
+into something they are not.
+
+**`link` is not `ghost`, and that is the variant's definition rather than an exception to it.**
+`ghost` is a button that happens to have no border — it keeps `px-3 py-1.5`, a hover fill and the
+44 px touch floor, because it lives in a toolbar or a table row. `link` takes neither
+`BUTTON_SIZES` nor `TOUCH_TARGET`, because it sits in a sentence at the surrounding size where
+control padding breaks the line and a hover fill looks like a selection. One converted site keeps
+`min-h-11` by hand and says why in a comment: it is in a table row on a phone.
+
+**The count was wrong twice before it was right.** The roadmap entry said **7 across 5 files**; a
+first grep this run said **13**; the honest figure is **8**. Three different things wear indigo on a
+button and only one of them is the missing weight:
+
+| what | example | verdict |
+|---|---|---|
+| resting indigo text, no geometry | "Restore it" | **the missing weight** — 8 sites |
+| a SELECTED state (`sort === row ? 'text-indigo-600' : ''`) | a sorted column header | §2's `accent` doing its job — 5 sites, correct |
+| a HOVER affordance (`hover:text-indigo-600`) | a filename | a hint, not a weight — 2 sites, correct |
+
+The pin has to let the last two through or it fails naming files that are right. Pinned by
+`lib/design-system.test.ts` → *"is not re-invented by hand"* and *"carries no button geometry, which
+is what makes it not a ghost"*, both falsified by mutation. `Button` adopters **18 → 19** — moved in
+the same commit, as the exact ratchet requires; only `Analyzer` is a new adopter because the other
+three already imported `Button` for something else, so read the two numbers together.
+
+**Then the pre-push review found a blocker the entire gate is blind to, and this is the one to
+remember.** The size opt-out was written `text-inherit`. That is Tailwind's **colour** utility, not
+a size one — so the element shipped `text-indigo-600 text-inherit`, adjacent in one
+`@layer utilities` run at equal specificity, and the later one won. **Every `link` rendered in the
+surrounding prose colour in LIGHT mode**; dark mode looked correct because `dark:text-indigo-400` is
+emitted later still. Verified from the built stylesheet: `.text-indigo-600` at byte 25,858,
+`.text-inherit{color:inherit}` at 25,999.
+
+**Nothing in the gate could catch it.** `npm test` passed, `npm run build` passed, all 267 e2e
+passed — because every assertion on those controls is `getByRole('button', { name })`, and neither
+the role nor the name changed. A control that is the right element with the right name and the wrong
+colour is invisible to this suite. The lesson generalises past this variant: **a change whose whole
+effect is visual needs a look at the built CSS or the rendered pixels, not a green suite.**
+
+Three more the same review corrected, two in the binding file:
+
+- **§5's touch-floor claim was false.** `app/globals.css` floors every bare `button` at 44×44 under
+  `@media (pointer: coarse)` with no exemption for one inside a `<p>`, and `e2e/touch.spec.ts`
+  measures exactly that — so dropping `TOUCH_TARGET` is a no-op for the button branch and "a `link`
+  in a toolbar is a 14 px target" was wrong. The shape that IS under-sized is `link` **with `href`**,
+  an `<a>` the coarse rule does not cover. Filed.
+- **§5 named four Debrief components verbatim**, in a file §10 declares shared and identical with
+  the sibling, where that sentence would be false about Loft's codebase.
+- **The one in-row site lost its resting underline** — right in prose, wrong for 11 px of accent text
+  on a device with no hover.
+
+**And the pin was being carried by an amnesty clause**: it skipped any tag containing `${`, and
+every legitimate survivor has an interpolation, so the clause was doing all the work while a
+hand-rolled link written with a template literal passed silently.
+
 ## Traps this run hit — read these before repeating them
 
 - **`innerText` hides collapsed `<details>` content, and this repo's report is full of them.** A probe
@@ -597,6 +661,12 @@ both. The new assertion says so in its own comment, like the frame and focus ass
 **`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs. Not
 attempted — this session was created with `debrief` and `debrief-fixtures` only, so pushing there was
 impossible rather than skipped.
+
+**§5's fifth button weight is owed to the sibling, added 2026-08-03.** `Button variant="link"` is
+in this repo's `DESIGN.md` §5 and `ui.tsx`; `nrdptel/fusionspace-loft` carries the same §5 and this
+session had only this repo attached, so the edit is written to make sense there too and the port is
+outstanding. It is a self-contained addition — one entry in `BUTTON_VARIANTS`, one clause in the
+`Button` class list, one §5 bullet.
 
 **A THIRD §5 question, opened 2026-08-03 and owed to both repos: §5's five states have no name for a
 DEGRADED capability.** The logbook shipped `write-blocked` this run — reads fine, writes refused —
