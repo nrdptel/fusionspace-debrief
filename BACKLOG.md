@@ -14,6 +14,33 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — FIXED (Sev-1): `altitudeUnproven` reached only the metric tile.** `lib/report.ts`
+  gated the apogee caveat on `apogeeIsFloor`, the OTHER of the flag pair, so a record flagged
+  unproven and not a floor published its apogee with no qualifier attached on the clipboard table,
+  the JSON, the share card, all three comparison exports, and the apogee row of the .txt/.md/.html.
+  One real corpus flight is in that state (`issuiuc-sg1.2`, 31 ft against a sibling altimeter's
+  2,115 m). `apogeeCaveat` / `apogeeIsQualified` in `lib/readings.ts` are the one source of those
+  words now. Pinned by `lib/apogeeCaveat.test.ts`; `HANDOFF.md` carries what the review corrected.
+- **2026-08-03 — the LOGBOOK publishes an apogee bare and can crown it with a personal-best ★.**
+  `RecentMeta` (`lib/recents.ts`) stores `apogeeM` with no caveat flag of any kind, so
+  `components/RecentFlights.tsx` (row cell, recording strip, clipboard/CSV export), the `'apogee'`
+  sort and `personalBests` in `lib/logbook.ts` *cannot* qualify it. The comparison now refuses to
+  crown a disowned apogee "highest"; the logbook will still give it a star.
+  `components/GroupProposalBanner.tsx` documents this exact gap for `apogeeIsFloor` and calls it
+  *"the same defect as publishing a Cd off a refused velocity, one surface further on"*. The one
+  corpus case reads LOW (31 ft) so it cannot win a star today — the mode that bites is the other one
+  the analyzer names, a stuck barometer or a column read as a height that is not one, which reads
+  high. **Fix shape:** carry the flags on `RecentMeta` beside `apogeeM`; that is one storage change
+  and then every logbook surface can read them.
+- **2026-08-03 — `altitudeUnproven` doubts far more than the apogee, and the rest still ships bare.**
+  The analyzer's own warning ends *"every reading on this page rests on that channel"*. Verified by
+  flipping the flag on a full metrics set: burnout altitude, Max Q's "at N ft", the transonic
+  crossing altitude, coast efficiency, the drogue descent rate and the max-velocity tile's altitude
+  all render with no qualifier. The `.txt`/`.md`/`.html`/JSON carry the analyzer's warning as a
+  document-level block, but the clipboard table, the share card and all three comparison exports
+  carry no warnings at all — so on those five, every altitude-derived reading except the apogee is
+  published with nothing beside it. Pre-existing and narrowed rather than created by the apogee fix;
+  larger in scope than that Sev-1 and the natural next milestone rather than a slice of it.
 - **2026-08-03 — `Button variant="link"` with `href` is the one shape that really is under-sized.**
   `app/globals.css` floors every bare `button` at 44×44 under `@media (pointer: coarse)`, so a
   `link` BUTTON keeps its touch target however little the variant declares. The `href` branch

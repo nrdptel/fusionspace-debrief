@@ -86,6 +86,17 @@ land here, unlike in a repo that ships none — they land as small affordances o
 whatever order a defect sweep surfaced them, while both North Star ambitions' headline items sit
 still.
 
+### The Sev-1 that preempted a run on 2026-08-03 — an apogee Debrief disowns, published bare
+
+`lib/analyze` flags an altitude channel `altitudeUnproven` where the climb is too slow to be a
+flight. `lib/report.ts` gated the apogee's caveat on `apogeeIsFloor` — the other of the pair — so a
+record in that state put the sentence on the metric tile and on nothing else. One corpus flight is in
+it: `issuiuc-sg1.2` reads 31 ft against a sibling altimeter's 2,115 m. `lib/readings.ts` owns the
+words now (`apogeeCaveat`, `apogeeIsQualified`) and five surfaces read from them, including the
+comparison's "highest" crown, which was withheld for a floor apogee and not for a disowned one.
+Pinned by `lib/apogeeCaveat.test.ts`, and `HANDOFF.md` carries why the first version of that test
+could not fail.
+
 ### The Sev-1 that preempted all of this — fixed 2026-07-30
 
 **`nextFlightStart` mis-read any launch-day file whose flights differ by more than 2× in apogee, and
