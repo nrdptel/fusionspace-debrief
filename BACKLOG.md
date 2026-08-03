@@ -63,22 +63,32 @@ wild, ideas too big for one pass. One line each, newest first.
   `/compare` stop announcing "Added … to your logbook" was written against that false invariant and
   reverted the same day.
 
-  **The worst instance, and it should be fixed first:** `importLogbook` resolves on
-  `transaction.onabort` and returns `flights.length` regardless, so a restore the browser refused
-  reports **"Restored 12 flights."** — and the logbook's Clear confirm offers exactly that export as
-  the safe way out before the app's only irreversible action. It tells a flyer their backup landed
-  when it did not. Its sibling path is nearly as bad: the `catch → 0` renders *"No flights found in
-  that file — is it a Debrief logbook export?"* for a valid backup the browser refused to write,
-  blaming the flyer's file.
+  ~~**The worst instance, and it should be fixed first:** `importLogbook` resolves on
+  `transaction.onabort` and returns `flights.length` regardless…~~ **FIXED 2026-08-03.**
+  `importLogbook` now reports its transaction's OUTCOME as `{ restored, blocked }`, so a refused
+  restore says the backup could not be written and to keep the file, rather than *"Restored 12
+  flights."* over an empty logbook — which is the worst direction this family runs in, because the
+  obvious next thing a flyer does is delete the file it came from. The sibling failure went with it:
+  a `catch → 0` used to render *"No flights found in that file — is it a Debrief logbook export?"*
+  over a perfectly good backup, blaming the flyer's file for the browser's refusal. Three outcomes
+  now, and `{ restored: 0, blocked: false }` — a file with genuinely nothing in it — is the only one
+  that says anything about the file. Pinned by `e2e/logbook.spec.ts` → *"a restore the browser
+  refuses does not report flights it did not keep"*, which aborts the readwrite TRANSACTION the way
+  a full quota does rather than removing `indexedDB` (which is caught long before the write and
+  would prove nothing about the outcome path). Falsified by restoring the old resolve-and-count.
 
-  **Reproduce all three in one go:** DevTools → Application → Storage → clamp the quota to ~1 MB,
-  then (a) drop a large log on `/compare` and read the note, (b) Import a real
-  `debrief-logbook.json` and reload, (c) analyse a file and look for any signal it was not kept.
+  **Reproduce what remains:** DevTools → Application → Storage → clamp the quota to ~1 MB, then
+  (a) drop a large log on `/compare` and read the note, and (b) analyse a file on `/` and look for
+  any signal that it was not kept. (The import case that used to be here is fixed and has its own
+  regression test.)
 
   **Two more wordings of the same condition live on `CompareSurface`** (`:294` a file that would not
   store, `:422` the drop box's own line), neither routed through `STORAGE_REFUSED`. They are not
-  folded in because the honest sentence for them depends on the write path reporting truthfully.
-  Seven wordings in total; two now share one.
+  folded in because the honest sentence for them depends on the SAVE path reporting truthfully, and
+  it still does not. **Count, kept honest:** eight wordings once the import path's own is added —
+  and its own is right to be separate, because it has something specific to say that a string which
+  must be true everywhere cannot (*keep the file*). Two share the constant; the import path is
+  fixed with its own; five remain, all of them downstream of `saveRecent`.
 - **2026-08-03 — the storage-refused message takes §2's `warn` (amber), and §2's own word for a
   refusal is `danger`.** Recorded as a decision rather than left to be re-derived: `ErrorState` is a
   `Card tone="danger"` with `role="alert"`, which fits an operation the flyer just attempted and

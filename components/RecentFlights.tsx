@@ -76,7 +76,9 @@ export default function RecentFlights({
   onCompare: (ids: string[]) => void;
   onNote: (id: string, note: string) => void;
   onExport: () => void | Promise<number>;
-  onImport: (file: File) => Promise<number>;
+  /** Merge a backup back in. `blocked` is the browser refusing to WRITE — distinct from a file
+   *  with nothing in it, which is the flyer's file and says so. */
+  onImport: (file: File) => Promise<{ restored: number; blocked: boolean }>;
   /** Say which flight some rows are recordings of — the flyer's own statement that two files
    *  are one flight flown on two altimeters, or (with `flightId: null`) that they are not. */
   onGroup: (changes: { id: string; flightId: string | null }[]) => void | Promise<void>;
@@ -110,11 +112,19 @@ export default function RecentFlights({
     e.target.value = ''; // let the same file be picked again
     if (!file) return;
     setImportMsg('Restoring…');
-    const n = await onImport(file);
+    const { restored, blocked } = await onImport(file);
+    // **Three outcomes, because two of them used to be one and the wrong one got the blame.**
+    // `importLogbook` resolved on the transaction's `onabort` and returned the flight count
+    // regardless, so a restore the browser refused reported "Restored 12 flights." while the
+    // logbook stayed empty — and the obvious next thing a flyer does is delete the file it came
+    // from. Its sibling failure blamed them too: the catch returned 0, which rendered "is it a
+    // Debrief logbook export?" over a perfectly good backup.
     setImportMsg(
-      n > 0
-        ? `Restored ${n} flight${n === 1 ? '' : 's'}.`
-        : 'No flights found in that file — is it a Debrief logbook export?',
+      restored > 0
+        ? `Restored ${restored} flight${restored === 1 ? '' : 's'}.`
+        : blocked
+          ? 'That backup could not be written — this browser won’t let Debrief keep a logbook on this device, so nothing was restored. Keep the file; a normal window, or allowing site storage, will restore it.'
+          : 'No flights found in that file — is it a Debrief logbook export?',
     );
   };
 
@@ -236,7 +246,11 @@ export default function RecentFlights({
           </button>
           .
         </p>
-        {importMsg && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{importMsg}</p>}
+        {importMsg && (
+          <p role="status" className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+            {importMsg}
+          </p>
+        )}
       </div>
     );
   }
@@ -941,7 +955,13 @@ export default function RecentFlights({
           .
         </p>
       )}
-      {importMsg && <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">{importMsg}</p>}
+      {/* Announced: this line now carries a storage REFUSAL, not just a count, and a flyer
+          using a screen reader has to hear that their backup did not land. */}
+      {importMsg && (
+        <p role="status" className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
+          {importMsg}
+        </p>
+      )}
       {copyMsg && (
         <p role="status" className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
           {copyMsg}

@@ -900,3 +900,55 @@ test('a storage refusal is not reported as a deletion', async ({ page }) => {
   const skipNote = page.getByRole('status').filter({ hasText: /a, b|Couldn|read those flights/ });
   await expect(skipNote.first()).toContainText(/won.t let Debrief read or keep a logbook/);
 });
+
+test('a restore the browser refuses does not report flights it did not keep', async ({ page }) => {
+  // The worst member of the storage-refusal family, because of what a flyer does NEXT.
+  // `importLogbook` used to resolve on the transaction's `onabort` and return the flight count
+  // regardless, so a refused restore said "Restored 1 flight." over an empty logbook — and the
+  // obvious next move is to delete the file it came from. Its sibling failure blamed the flyer's
+  // file instead ("is it a Debrief logbook export?") for a backup that was perfectly good.
+  //
+  // Simulated at the TRANSACTION, not by removing IndexedDB: a missing `indexedDB` is caught long
+  // before the write and would prove nothing about the outcome path. This aborts the readwrite
+  // transaction the way a full quota does, which is the case that actually reaches flyers.
+  await page.addInitScript(() => {
+    const realOpen = indexedDB.open.bind(indexedDB);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (indexedDB as any).open = (...args: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const req: any = (realOpen as any)(...args);
+      req.addEventListener('success', () => {
+        const db = req.result;
+        const realTx = db.transaction.bind(db);
+        db.transaction = (names: unknown, mode?: string) => {
+          const t = realTx(names, mode);
+          if (mode === 'readwrite') queueMicrotask(() => { try { t.abort(); } catch { /* already done */ } });
+          return t;
+        };
+      });
+      return req;
+    };
+  });
+
+  await page.goto('/');
+  const backup = JSON.stringify({
+    v: 1,
+    flights: [{ id: 'x1', name: 'a.csv', formatLabel: 'Eggtimer', addedAt: Date.now(), text: 'T,Alt\n0,0\n', note: '' }],
+  });
+  await page
+    .locator('input[type="file"][accept*="json"]')
+    .setInputFiles({ name: 'debrief-logbook.json', mimeType: 'application/json', buffer: Buffer.from(backup) });
+
+  // **The positive assertion goes FIRST, deliberately.** The negatives below are `toHaveCount(0)`,
+  // which passes on its first poll while the message still reads "Restoring…" — so ordering them
+  // first made them pass no matter what the code did, and only the positive was falsifying.
+  await expect(page.getByText(/could not be written/)).toBeVisible();
+  await expect(page.getByText(/Keep the file/)).toBeVisible();
+  // Now that the outcome has resolved: it must not claim the flights landed…
+  await expect(page.getByText(/Restored \d+ flights?\./)).toHaveCount(0);
+  // …and must not blame the flyer's file.
+  await expect(page.getByText(/is it a Debrief logbook export\?/)).toHaveCount(0);
+  // And the second half of this test's own name: nothing was kept. The logbook is still offering
+  // to restore a backup, which is the empty state, not a list.
+  await expect(page.getByRole('button', { name: 'Restore it' })).toBeVisible();
+});

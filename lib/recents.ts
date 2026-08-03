@@ -511,15 +511,17 @@ export function toMeta(rec: RecentFlight): RecentMeta {
  * (`RecentFlights.tsx`), which is deliberately longer because it is a whole state rather than one
  * line in a note.
  *
- * **What still has its own wording, and why they were not folded in here:** `CompareSurface` has
- * two more (a file that would not store, and the drop box's own line), and `RecentFlights`'s
- * import path has two — one of which reports *"Restored N flights"* on a restore the browser
- * refused, which is the worst direction this family runs in because it tells a flyer their backup
- * is safe to delete. Those three need the WRITE path to report failure at all, and it does not:
- * `saveRecent` assigns its id straight after `store.put` without awaiting the transaction, and
- * `importLogbook` resolves on `onabort`, so a quota refusal returns a non-null id and a cheerful
- * count. Fixing that is a change to the storage layer and its own increment; `BACKLOG.md` carries
- * it with the repro.
+ * **The IMPORT path was the worst of the family and is fixed** (2026-08-03): `importLogbook`
+ * reports its transaction's outcome, so a refused restore says the backup could not be written and
+ * to keep the file, instead of *"Restored N flights"* over an empty logbook. It carries its own
+ * sentence rather than this constant because it has something extra and specific to say — keep the
+ * file — and a shared string that has to be true everywhere cannot say that.
+ *
+ * **What still has its own wording, and why:** `CompareSurface` has two (a file that would not
+ * store, and the drop box's own line). Both need the SAVE path to report failure and it does not —
+ * `saveRecent` assigns its id straight after `store.put` without awaiting the transaction, so a
+ * quota abort returns a non-null id with nothing stored. That is the next thing to fix here;
+ * `BACKLOG.md` carries it with the repro.
  *
  * A storage refusal is not a deletion and must never be reported as one.
  */
@@ -779,26 +781,44 @@ export function parseLogbookFlights(json: string): RecentFlight[] {
 }
 
 /**
- * Merge an exported logbook back into the store, keyed by id so re-importing the
- * same file is idempotent. Storage caps aren't applied — a restore is the user's
- * own data, deliberately brought back. Returns how many flights were merged in
- * (0 on a malformed file).
+ * Merge an exported logbook back into the store, keyed by id so re-importing the same file is
+ * idempotent. Storage caps aren't applied — a restore is the user's own data, deliberately brought
+ * back.
+ *
+ * Reports the transaction's OUTCOME, not its intent: `{ restored: 0, blocked: false }` is a file
+ * with no flights in it, and `{ restored: 0, blocked: true }` is a browser that refused to write
+ * them. A caller that cannot tell those apart has to blame one of them, and the old signature —
+ * a bare count — made it blame the flyer's file.
  */
-export async function importLogbook(json: string): Promise<number> {
+export async function importLogbook(json: string): Promise<{ restored: number; blocked: boolean }> {
   const flights = parseLogbookFlights(json);
-  if (flights.length === 0) return 0;
+  // A file with no flights in it is a file problem, not a storage one. `blocked: false` is the
+  // load-bearing half of that: it is what lets the surface say "is this a Debrief export?" here and
+  // NOT say it when the browser refused a perfectly good backup.
+  if (flights.length === 0) return { restored: 0, blocked: false };
   try {
     const db = await idb();
     const store = tx(db, 'readwrite');
-    store.transaction.onerror = (e) => e.preventDefault();
-    store.transaction.onabort = (e) => e.preventDefault();
     for (const f of flights) store.put(f);
-    await new Promise<void>((resolve) => {
-      store.transaction.oncomplete = () => resolve();
-      store.transaction.onabort = () => resolve();
+    // **The restore is ATOMIC, and reporting its outcome is the whole point.** This used to resolve
+    // on `onabort` and then `return flights.length` regardless, so a restore the browser refused —
+    // a full quota, a private window, Safari's ITP eviction — reported "Restored 12 flights." over
+    // an empty logbook. That is the worst direction this family of defects runs in, because the
+    // obvious next thing a flyer does after a successful restore is delete the file it came from.
+    //
+    // **The error is deliberately NOT `preventDefault()`ed, and the first attempt at this fix got
+    // that backwards.** Preventing the default on an IDB error event is exactly what stops the
+    // transaction aborting — so keeping it while reporting `blocked` meant one oversized record
+    // could resolve "nothing was restored, keep the file" while the transaction went on to commit
+    // every other flight, which are then invisible until a reload. Letting it abort is what makes
+    // `blocked` true when it says so: either the whole backup landed or none of it did, and the
+    // sentence a flyer reads is true either way. This is the shape `setFlightIds` already uses.
+    const complete = await new Promise<boolean>((resolve) => {
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onabort = () => resolve(false);
     });
-    return flights.length;
+    return complete ? { restored: flights.length, blocked: false } : { restored: 0, blocked: true };
   } catch {
-    return 0;
+    return { restored: 0, blocked: true };
   }
 }

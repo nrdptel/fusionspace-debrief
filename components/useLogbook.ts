@@ -46,8 +46,9 @@ export interface Logbook {
   group: (changes: { id: string; flightId: string | null }[]) => Promise<void>;
   /** Download the whole logbook — flights and notes — as a file the flyer keeps. */
   exportAll: () => Promise<number>;
-  /** Merge a backup back in; resolves with how many flights it restored. */
-  importAll: (file: File) => Promise<number>;
+  /** Merge a backup back in. `blocked` is the browser refusing to write, which a bare count
+   *  could not tell from a file with nothing in it — see `importLogbook`. */
+  importAll: (file: File) => Promise<{ restored: number; blocked: boolean }>;
   /** Logbook ids the last drop produced — what a grouping may be offered over. */
   arrived: string[];
   reportArrived: (ids: string[]) => void;
@@ -146,13 +147,14 @@ export function useLogbook(): Logbook {
   }, []);
 
   const importAll = useCallback(
-    async (file: File): Promise<number> => {
+    async (file: File): Promise<{ restored: number; blocked: boolean }> => {
       try {
-        const n = await importLogbook(await file.text());
-        if (n > 0) refresh();
-        return n;
+        const out = await importLogbook(await file.text());
+        if (out.restored > 0) refresh();
+        return out;
       } catch {
-        return 0;
+        // Reading the FILE failed, which is not the browser refusing storage.
+        return { restored: 0, blocked: false };
       }
     },
     [refresh],
