@@ -1049,7 +1049,18 @@ build's own stylesheet.
    `.ork`, zero `.rkt` and zero manifest hits for `simulat|predict`, so nothing was buildable. It
    now has **62**: `openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork`,
    OpenRocket's own shipped example design written by **OpenRocket 24.12**, pushed to
-   `nrdptel/debrief-fixtures` with full provenance in `SOURCES.md`. **GPL-3.0-or-later — the most
+   `nrdptel/debrief-fixtures` with full provenance in `SOURCES.md`.
+
+   **Where it actually IS, because this will bite slice 2 otherwise: on the branch
+   `claude/ultracode-maintenance-setup-7ydtok`, NOT on the fixtures repo's `main`, and NOT in any
+   release.** `corpus.lock.json` pins tag `v1.1.0` / `corpus-v1.1.0.zip`, and CI's only step is
+   `npm run fetch-fixtures`, which downloads that pinned asset — so **CI cannot see this file at
+   all.** A local run reads the attached checkout and sees it fine, which is exactly the asymmetry
+   that makes it confusing: a slice-2 parser test will pass locally and SKIP in CI, looking like a
+   flaky guard rather than a missing fixture. Either merge the fixtures branch and cut a release
+   (then bump `tag`, `asset` and `sha256` in `corpus.lock.json` in the same commit), or write the
+   test with the same `existsSync` skip guard the other corpus tests use and say in its comment
+   that CI skips it and why. **GPL-3.0-or-later — the most
    clearly-licensed file in the corpus**, most of which is "publicly posted, all rights reserved"
    with no grant at all. *Do not cite `LICENSE.TXT`'s section-7 permission as the basis: it covers
    packaging the PROGRAM with data files, which is a different act.*
