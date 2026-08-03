@@ -45,6 +45,7 @@ function relativeTime(ts: number): string {
 
 export default function RecentFlights({
   recents,
+  status,
   sys,
   onOpen,
   onRemove,
@@ -60,6 +61,14 @@ export default function RecentFlights({
   onDismissProposal,
 }: {
   recents: RecentMeta[];
+  /** Which of the list's three empty-looking states this is — see the block below.
+   *
+   *  **Required, and it defaulted to `'ready'` for exactly one commit.** That default is the
+   *  DEFECT value: a third call site that forgot the prop would silently reprint the prerendered
+   *  "flights you open are remembered here" to a flyer who has some, and nothing — not the type
+   *  check, not a test — would have failed. A prop whose default reintroduces the bug it was added
+   *  to fix has to be required. */
+  status: 'loading' | 'ready' | 'blocked';
   sys: UnitChoice;
   onOpen: (id: string) => void;
   onRemove: (id: string) => void;
@@ -168,11 +177,54 @@ export default function RecentFlights({
     () => setConfirming(false),
   );
 
+  // **Three of `DESIGN.md` §5's five states were one `if`.** `recents.length === 0` is true while
+  // the read is still in flight, true when the browser refuses storage, and true when the logbook
+  // is genuinely empty — and only the third of those is what the copy below says. The first is not
+  // a rare race: every route here is a STATIC EXPORT, so this block is prerendered into
+  // `out/index.html`, and a flyer with fifty flights read "flights you open are remembered here on
+  // this device" with an offer to restore a backup on every cold load until the bundle hydrated.
+  if (status === 'loading') {
+    return (
+      <div className="mt-8">
+        {filePicker}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
+          Looking for flights remembered on this device…
+        </p>
+      </div>
+    );
+  }
+  if (status === 'blocked') {
+    return (
+      <div className="mt-8">
+        {filePicker}
+        {/* Says what is true and what to do, not what Debrief would like to be true. The promise
+            in the empty state below — "flights you open are remembered here" — is exactly the
+            sentence a flyer must not be given when the browser has just refused to store one.
+            §2's `warn`, and NOT §5's `ErrorState`, decided rather than defaulted: `ErrorState` is a
+            `Card tone="danger"` with `role="alert"`, which is right for an operation the flyer just
+            attempted and that failed — a file that would not parse. Nothing here failed on their
+            command and the analysis still works; what changed is that one capability is
+            unavailable for this session, which is §2's "a caveat" rather than its "a refusal, a
+            value that cannot be computed, destructive". `role="status"` for the same reason: this
+            is polite information on arrival, not an interruption. */}
+        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+          This browser won&apos;t let Debrief read or keep a logbook on this device, so flights you
+          open here won&apos;t be remembered between visits. A private window or blocked site storage
+          usually does it. Analysing a file still works, and every report has its own export — save
+          anything you want to keep from the report itself, because this list cannot hold it.
+        </p>
+      </div>
+    );
+  }
   if (recents.length === 0) {
     return (
       <div className="mt-8">
         {filePicker}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {/* `role="status"` here as well as on the loading line, because the loading line
+            UNMOUNTS at the transition: a screen reader heard "Looking for flights remembered on
+            this device…" and then, on the state it was waiting for, nothing at all. Announcing the
+            answer is the whole point of having announced the question. */}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
           Flights you open are remembered here on this device — never uploaded. Got a logbook backup
           from another machine?{' '}
           <button
@@ -642,8 +694,18 @@ export default function RecentFlights({
                     className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:ml-auto dark:text-zinc-300"
                     title="Max velocity"
                   >
+                    {/* The mark is a GLYPH, not a colour. §2 gives amber one meaning — "an estimate
+                        outside its envelope, an extrapolation, a caveat" — and this star was wearing
+                        it to say the opposite: that a reading is the best of the set. On a logbook
+                        scanned down a column, amber beside an apogee reads as a warning about that
+                        apogee. §2 also forbids colouring a number by whether it is large, outright.
+                        The basis is real and stays (the title and the screen-reader text both name
+                        it); what goes is the claim the hue was making. */}
                     {isSpeedBest && (
-                      <span className="mr-0.5 text-amber-500" title="Fastest of your remembered flights">
+                      <span
+                        className="mr-0.5 text-zinc-900 dark:text-zinc-100"
+                        title="Fastest of your remembered flights"
+                      >
                         ★<span className="sr-only">fastest, </span>
                       </span>
                     )}
@@ -654,7 +716,10 @@ export default function RecentFlights({
                     title="Apogee"
                   >
                     {isApogeeBest && (
-                      <span className="mr-0.5 text-amber-500" title="Highest of your remembered flights">
+                      <span
+                        className="mr-0.5 text-zinc-900 dark:text-zinc-100"
+                        title="Highest of your remembered flights"
+                      >
                         ★<span className="sr-only">highest, </span>
                       </span>
                     )}
@@ -883,7 +948,8 @@ export default function RecentFlights({
         </p>
       )}
       <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-        Remembered on this device only — never uploaded. <span className="text-amber-500">★</span> marks
+        Remembered on this device only — never uploaded.{' '}
+        <span className="text-zinc-900 dark:text-zinc-100">★</span> marks
         your best; tick two or more to compare them — or, if they are two altimeters&apos; recordings of
         the <em>same</em> flight, to keep them as one flight. Each recording is still read on its own;
         you choose which one the flight is reported by. Add a <span aria-hidden="true">✎</span> note

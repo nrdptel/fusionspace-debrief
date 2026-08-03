@@ -1124,11 +1124,17 @@ simulation, and no number whose method is not on the methods page in the same ch
 
 ## D8 — Orientation and high-rate data
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-02.** Decomposed the same day, from
-measurement, after D7 shipped and left the D-track dry. Slices 2 and 3 remain, and slice 1's
-measurements narrow both: the channels arrive on the flight already LABELLED (`Gyro X`, `Accel Z`,
-`Quat 1`) rather than as `r-N`, so slice 2's remaining work is `ChannelKind` members, units in the
-units context, and the "this board did not record it" state — not the naming itself.
+**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED; the repeat-detection slice is MEASURED, BUILT AND REVERTED (read it before rebuilding); the tilt slice is MEASURED AND BLOCKED, and its blocking number was measured over spliced data.**
+Decomposed the same day, from measurement, after D7 shipped and left the D-track dry.
+
+**This line said "slices 2 and 3 remain" for a run after slice 2 had shipped, and correcting it is
+worth more than it looks.** Slice 2's own body below records it as shipped and names its four
+pinning assertions; only the status line — the baton this file says is what a session reads first —
+still called it open. A status line that disagrees with its own section is exactly the thrash the
+`Status:` vocabulary exists to prevent, and the cost is a whole increment spent rebuilding something
+that is already pinned. **Update the status line in the same commit as the work, not the body
+alone.** Re-verified 2026-08-02 before this edit: `lib/parsers/blueraven.test.ts` carries the "this
+board did not record it" assertion that is slice 2's own *done when*.
 `COMPETITION.md` rows 3 and 4. North Star 1's third bullet, on the boards flyers increasingly own.
 
 **The after-list said "verify the ingestion ceiling against a real high-rate log first; that
@@ -1316,7 +1322,49 @@ column a flyer has to recognise by its numbers.
    analysis read a number off it"*, and six refusal cases including *"takes the wait on the RAIL,
    not the longer stretch lying on its side"*. Said on the methods page under **Which way is up
    the rocket**.
-3. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
+3. **A high-rate download written more than once — MEASURED 2026-08-03, BUILT, and NOT SHIPPED.**
+   Written, gated green over 1,077 tests, verified on the running app, and then reverted, because
+   the pre-push review showed the note it put on screen was wrong about which repeat, wrong about
+   how many, and wrong about whether a flyer could see it at all. Everything below is measured, so
+   the next attempt starts here instead of rediscovering it.
+
+   **The gap is real.** A Blue Raven backup download can write the same samples more than once. The
+   LOW-rate half of such a download is already reported as *"holds the same flight written twice"*;
+   the high-rate half says nothing at all.
+
+   **What the corpus actually holds** — and note the numbers are per-BLOCK, which is where the first
+   attempt went wrong. `jan10`'s high-rate file has **three** row-0-anchored repeats
+   (`lag 7101 × 7101`, `lag 20160 × 20160`, `lag 27261 × 7101`) totalling **27,261 repeated rows**,
+   not the 20,160 of its longest. `jan18` totals **44,793**. `lemiv` and `meraki` have **no repeated
+   run of 50 rows or more at ANY offset** — so a detector anchored on the file's opening row and one
+   scanning every offset agree on this corpus, and neither guard in the first attempt was load-bearing
+   on it.
+
+   **The clause that kills the naive version, and it is not obvious.** Debrief ALREADY truncates
+   `jan10` to its first copy: the low-rate half is doubled too, so the analysis extent is
+   `{from: 0, to: 1012, startTime: 0, endTime: 20.22}` and the report draws **0 – 20.22 s**. The
+   20,160-row block sits at flight clock ≈40 s — **entirely outside what the flyer sees** — while the
+   7,101-row block lands at ≈14.1 s, inside the drawn window, and was the one the first attempt threw
+   away. So the note described an invisible repeat and hid the visible one. A further **10,120** of
+   the file's rows fall outside every window the reduction builds (10,070 of them past the end of the
+   low-rate log), so "all 64,290 reach the trace" was false as well.
+
+   **Therefore the requirement, which the first attempt did not meet:** the statement has to be
+   EXTENT-AWARE. A repeat is only worth telling a flyer about if it falls inside the stretch being
+   drawn — and that stretch is decided by the analysis, long after the parser that finds the repeat
+   has run. Reporting every block rather than the longest is necessary but not sufficient.
+
+   **Three smaller corrections worth not re-deriving.** Anchoring on the opening row cannot see
+   `[A][B][B][C]` — a repeat with a unique lead-in — so a field documented as "the longest run that
+   repeats an earlier run" must either scan every offset or say it means the opening run. The scan
+   needs a `n - lag <= best` ceiling or it is quadratic: on 192,000 identical rows it runs for
+   minutes, at ingest, on the main thread. And any count put in front of a flyer needs
+   `toLocaleString('en-US')` like every other number in `lib/`, or a de-DE browser renders `20.160`.
+
+   **What this milestone can still claim, and it is only this:** the repeats are real and measured,
+   and Debrief is silent about them. That is a `GAP` in `COMPETITION.md`, not a shipped capability.
+
+4. **One honest reading off the orientation solution.** `tiltAtBurnout` already exists and is read
    from a logger's own solved attitude; a quaternion series can give the same quantity through the
    flight. *Done when* it agrees with the existing `tiltAtBurnout` on a file that carries both, and
    is withheld where the quaternions are absent or unnormalised.
@@ -1358,8 +1406,24 @@ column a flyer has to recognise by its numbers.
    ascent, not to the record. The first pass at this concluded aliasing had been refuted; that was
    wrong, and only because the wrong body axis was in use at the time.
 
-   **What would unblock it:** a fifth high-rate corpus file, or an account of what `jan10`'s attitude
-   solution was doing that the other three were not. Do not ship this on three files.
+   **What would unblock it: ANSWERED 2026-08-03, and the blocking number was wrong.** The account
+   this asked for is that **`jan10`'s file is spliced.** Its high-rate stream repeats a 20,160-row
+   block verbatim and its low-rate half repeats a 1,012-row / 20.24 s block — at DIFFERENT offsets,
+   so inside the compared window the two files are describing different instants of the flight. The
+   **22.72° above is therefore largely bookkeeping.** Measured on the stretch where both halves are
+   pre-seam (t ≤ 12.17 s), `jan10` reads **4.71° mean / 7.29° worst** against meraki 0.21/1.08,
+   lemiv 1.83/3.25 and jan18 1.32/3.62 on the identical window.
+
+   **The block STANDS, with a corrected magnitude and a corrected next step.** 4.71° is still 2.6×
+   the worst of the other three, and `jan10`'s worst error exceeds all three of theirs, so this is
+   not a file that agrees once the corruption is removed — it is a file that agrees less. Do not
+   ship a tilt on this. **The next step is not a guard hunt**: re-run the whole slice-3 comparison on
+   de-spliced streams first, because every number in the table above was computed over data that
+   includes a replay. Then decide. A fifth high-rate corpus file would still settle it faster than
+   any of this.
+
+   The splice itself is now detected and stated to the flyer — see slice 3 above — so the raw
+   material for a de-spliced comparison exists rather than needing to be rediscovered.
 
 **What this milestone must NOT do.** No estimated attitude — the invariant is explicit that where a
 sensor cannot resolve a quantity the number is withheld, and integrating a gyro to an angle without
@@ -1377,10 +1441,50 @@ real risk attached: the standalone refusal must survive it.
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
-**2026-08-02: `Frame` and `NumberField` both exist now** (items 8 and 12), card treatments are
-**10 → 7** against an honest floor of 4, and the milestone's remaining shape is clearer than the
-list below suggests. What is left is three genuine card hand-rolls, `Figure` and `Panel`, the five
-states (item 5), the caption-size numbers (item 2), and the hand-rolled buttons (item 7).
+**2026-08-02, re-measured at the end of that day rather than carried forward — and four of the six
+clauses this paragraph used to carry were already false when written.** `Frame`, `NumberField` and
+`Figure` all exist (items 8 and 12); `Panel` is refuted, not pending, because nothing in the app has
+the shape §5 draws for it; card treatments are at **3, which is the floor and now a guard** rather
+than "7 against a floor of 4". **What is genuinely left is three things:** the five states (item 5),
+the caption-size numbers (item 2), and the 29 hand-rolled `<button>`s (item 7) — plus the ~37
+still-open rows the design-system audit filed into `BACKLOG.md`.
+
+**2026-08-02 — §2's colour-by-magnitude clause is closed on both surfaces that broke it.** The
+logbook's ★ marking a personal best was `text-amber-500`, which is §2's *caveat* hue, so on a column
+scanned down for an apogee the mark praising a reading wore the colour that elsewhere warns the
+reading is soft; the comparison table's winning cell was `text-indigo-600`, which is §2's
+*selected*. §2 forbids colouring a number by whether it is large in as many words. Pinned by
+`lib/design-system.test.ts` → *"never carries a superlative in a semantic colour"*, over
+`components` **and** `app`. Falsified against the pre-conversion source, where it names all four
+true sites.
+
+**Three things the pre-push review caught in this change, and each was a real defect in the fix
+rather than a nitpick.** Recorded because the pattern — a conversion that removes a wrong signal and
+leaves nothing in its place — is the one to watch for on every remaining P1 slice.
+
+- **Removing the colour without adding a glyph made the comparison WORSE, not better.** Weight alone
+  left `zinc-900` against `zinc-800`: a **1.19:1** step in light and **1.15:1** in dark, on a
+  `font-mono` column of numerals. The screen-reader text was perfect throughout and a sighted
+  low-vision flyer lost the mark almost entirely. The comparison now carries the **same ★ the
+  logbook uses**, so the two surfaces that rank flights say it the same way. Every cell is §2
+  PRIMARY now, because every one is a number being read — the old `zinc-800/zinc-200` was **not a §2
+  text token at all**, and the first version of this entry cited it as "§2's own primary/secondary
+  step", which does not exist.
+- **The check enumerated the forbidden hues instead of subtracting the allowed ones** — the fifth
+  time this file has had to make that correction. It passed `ring-indigo-500`, `fill-amber-500`,
+  `text-violet-600` and `text-[#f59e0b]`. And `\bbest\b` cannot match `isSpeedBest`, the actual
+  variable guarding one of these marks, so the whole check hung on a prose `title=` string.
+- **It reported line numbers that were wrong by up to 72 lines**, because stripping comments deleted
+  the lines instead of blanking them — inside a commit whose ledger entry is about one defect filed
+  three times at three wrong line numbers.
+
+**What this did NOT close, stated because the first version of this entry claimed it had.**
+`rankBlocked` withholds the comparison's crown on a clipped peak, a floor apogee or a mixed source —
+but **the logbook has no equivalent.** `personalBests` (`lib/logbook.ts:93`) crowns a raw
+`max(apogeeM)` off `RecentMeta`, which carries no floor, clipped or mixed-source flag at all. So a
+flight whose apogee the report prints as *"(at least)"* and the comparison refuses to crown is still
+starred **"Highest of your remembered flights"** in the logbook. Filed in `BACKLOG.md`; it wants a
+schema field on the persisted store, which is why it is not folded in here.
 
 **And a caution the last two increments both earned.** Two of the counts in this list were stale by
 the time they were spent against — item 3's dark-surface census, and `BACKLOG.md`'s half-step
@@ -1652,6 +1756,33 @@ the artifact rather than the tree.
    20+ states to build or a rule `DESIGN.md` should stop asserting, and deciding which is a §5
    change owed to both repos. Do not treat it as a per-surface defect until that is settled.)*
 
+   **DONE 2026-08-02 on the logbook, and this one was visible to EVERY returning flyer on EVERY
+   cold load.** `RecentFlights` used `recents.length === 0` as the sole discriminator for three of
+   the five states — genuinely empty, still loading, and browser-refused-storage — and only the
+   first is what its copy says. That is not a rare race: **every route here is a static export**, so
+   that block is prerendered into `out/index.html` and `out/compare/index.html`, and a flyer with
+   fifty flights read *"Flights you open are remembered here on this device"* with an offer to
+   restore a backup until ~1.4 MB of JS hydrated and IndexedDB answered. `CompareSurface` carried
+   the identical conflation with *"Your logbook is empty"*.
+
+   **The storage refusal could not be told from an empty logbook at all**, one layer down:
+   `listRecents()` caught the failure and returned `[]`, so a private window and a first-ever visit
+   were the same value. `readRecents()` now reports `{ recents, blocked }` and `useLogbook` exposes
+   `status: 'loading' | 'ready' | 'blocked'`; `listRecents` stays as a thin wrapper, so the callers
+   that only want rows are untouched.
+
+   **The pin reads the ARTIFACT, not the source**, because the source could never have shown this:
+   `e2e/logbook.spec.ts` → *"the prerendered page does not tell a returning flyer their logbook is
+   empty"* fetches `/` and `/compare/` as raw HTML — before a line of JS runs — and asserts the
+   promise is absent and the looking-for-flights line is present. Beside it, *"a browser that
+   refuses storage says so, instead of promising to remember"* removes `indexedDB` and checks the
+   surface says so and that analysis still works. Both falsified by mutation.
+
+   **Two things this deliberately did NOT do.** The `status` prop defaults to `'ready'`, so a caller
+   holding rows in hand need not thread it — and both real call sites do thread it. And the offline
+   state is still undelivered suite-wide (see the note above); this closes loading and error on one
+   surface, not the fifth state everywhere.
+
 6. ~~**Two primaries on one surface** — `ColumnMapper` only now.~~ **DONE 2026-08-01, and the
    remaining count was 0 before the work started.** `ColumnMapper`'s two `variant="primary"` calls
    are at `:151` and `:277`, in the two arms of a `if (!mappable) return …` — **mutually exclusive
@@ -1808,14 +1939,27 @@ the artifact rather than the tree.
       which reads the bound off the control rather than hard-coding it, so a unit change or a
       change to `MAX_REASONABLE_DEPLOY_M` cannot leave it passing against a stale number. Falsified
       by disabling the announcement.
-    - **`Figure`** — §5: a chart with its title, legend, axis units, "and its own empty and
-      extrapolated states". `Chart.tsx` renders a bare uPlot; `grep -n 'empty\|error\|loading'` over
-      it returns 0. The chart is the surface a flight-log analyzer exists to show, and a short or
-      failed series draws a blank canvas that says nothing. **Half of it already exists twice**,
-      which is the shape that says a primitive is owed: `ChartBlock` is declared separately in
-      `FlightReport.tsx:1426` and `CompareView.tsx:1101` — title, frame and chart host — the same
-      `ACTION_BTN`-in-six-files pattern P1's opening audit killed once. Lift that, then add the two
-      states §5 names. **The next slice of P1 after this list's item 5.**
+    - ~~**`Figure`**~~ **SHIPPED 2026-08-02 in `9d57303`, and this entry went on calling it "the
+      next slice of P1" for two runs afterwards.** Re-measured 2026-08-02: `Figure` is in
+      `components/ui.tsx` with **four call sites across two files** — three in `FlightReport` and one
+      in `CompareView`; `PRIMITIVE_ADOPTERS` counts the two FILES, so read which unit a count is in
+      before spending against it —
+      and it owns the title string including the unit, which was the real find (both call sites had
+      been interpolating the unit by hand, so two surfaces a flyer reads against each other could
+      disagree about what a charted quantity is called).
+
+      **§5's "empty and extrapolated states" are deliberately NOT in it**, and that is measured
+      rather than skipped: an `empty` prop was written, wired to the comparison, and removed, because
+      `CompareView` filters its channel list to metrics at least one compared flight recorded, so a
+      chart with nothing to draw is unreachable there. `ChannelExplorer` and `GroundTrack` were
+      checked the same way and neither reaches it either. Add `empty` when a call site needs it,
+      **with the case that needs it**.
+
+      **The lesson is about this file, not about charts.** A session that trusted this bullet would
+      have spent an increment rebuilding a primitive that already had four adopters — the exact
+      thrash the `Status:` vocabulary exists to prevent, and the second stale pointer found on one
+      day (see D8's status line). Before spending an increment against any entry here, grep for the
+      thing it says is missing.
     - **`Panel`** — §5: a dismissible `Card` that "owns focus return (see `useReturnFocus`)".
 
       **`useReturnFocus` SHIPPED 2026-08-02; `Panel` is deliberately NOT built, and this entry's

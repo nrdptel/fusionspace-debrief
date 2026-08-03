@@ -14,6 +14,117 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-03 — one condition, four wordings: the storage refusal is still conflated everywhere
+  except the logbook list.** The logbook now tells "browser refused storage" apart from "empty" and
+  "still loading", but the same refusal reaches three other surfaces still wearing the old
+  disguise, and two of them accuse the flyer's own device of losing data:
+  - `lib/compareFromLogbook.ts:45` — `getRecent` swallows the refusal, so every id is skipped with
+    **"no longer in this logbook"**. Reproduce: stub `indexedDB` undefined and open
+    `/compare/?ids=a,b`. It asserts the flights were deleted.
+  - `components/Analyzer.tsx:643` — the `/?open=<id>` deep link the logbook rows navigate to says
+    **"That saved flight could no longer be read."** Third wording, same cause.
+  - `components/CompareSurface.tsx:218` — a drop with storage blocked reports **"Added a.csv, b.csv
+    to your logbook — tick them with another flight to compare"** while the list directly below
+    says the browser won't keep a logbook. Nothing was added and there is nothing to tick.
+
+  The fix is the same shape as the one already made: `getRecent` and `saveRecent` need to report a
+  refusal rather than return `null`, and the surfaces need to say it in one voice. **Found by the
+  pre-push review of the logbook change**, which is why the logbook half shipped and this half is
+  filed rather than half-done.
+- **2026-08-03 — the storage-refused message takes §2's `warn` (amber), and §2's own word for a
+  refusal is `danger`.** Recorded as a decision rather than left to be re-derived: `ErrorState` is a
+  `Card tone="danger"` with `role="alert"`, which fits an operation the flyer just attempted and
+  that failed — a file that would not parse. Nothing here failed on their command, the analysis
+  still works, and the in-app precedent for a caveat about the logbook's own capability is amber
+  (`RecentFlights.tsx`'s nearly-full warning). **The counter-argument is real** — §2 lists "a
+  refusal" under `danger` in as many words, and a reviewer read the amber choice as straining that.
+  If a future run decides §2 means it literally, this is one class change and one comment; do not
+  re-derive the argument from scratch.
+- **2026-08-02 — P1 item 5's headline numbers count the wrong thing, and the entry should be
+  re-measured before it is spent against.** It reads "the denominator is 15 data surfaces … and
+  `StitchSurface` is the only one implementing more than one state". An audit found that number is
+  counting `ui.tsx` PRIMITIVE adopters (`EmptyState` / `ErrorState`), not states — which is why it
+  read 1 — and that at least five surfaces implement two or more. The logbook's loading and
+  storage-refused states are closed (see `ROADMAP.md`); the rest of the item still wants a real
+  census, and the standing question of whether `DESIGN.md` should assert an offline state per
+  surface at all is unchanged and owed to both repos.
+- **2026-08-02 — `components/Analyzer.tsx:292` silently swallows a failed save.** `if (saved.id)
+  set(...)` — `lib/recents.ts` catches the storage failure and returns `{ id: null }`, and no caller
+  reports it, so `state.savedId` stays unset and nothing on screen says the flight was not kept.
+  `FlightReport.tsx:1009` does say it in that case, but inside a disclosure `ui.tsx:749` defaults
+  CLOSED and titles "Label this report (optional)" — so the one sentence that tells a flyer their
+  flight was not remembered is behind a collapsed panel named for something else. Reproduce: block
+  site storage, analyse a file, look for any visible signal that it was not saved.
+- **2026-08-02 — `Figure` does not forward a `ref`, so two call sites hand-roll a bare div inside
+  it.** `components/FlightReport.tsx:1203` (`altChartRef`, consumed at :463) and
+  `components/CompareView.tsx:1109` each wrap `Figure`'s children in a ref-only `<div>` whose sole
+  job is `querySelector('canvas')` for the PNG/SVG export — while the `Card` that `Figure` renders
+  already accepts `ref` (`ui.tsx:187`), and `ChannelExplorer.tsx:510` and `GroundTrack.tsx:519`
+  already use exactly that. Forwarding `ref` through `Figure` deletes both divs with no change to
+  what the export finds. **Worth more than the two divs:** the `savePng` bodies at
+  `FlightReport:462-473`, `CompareView:481-492` and `ChannelExplorer:283-294` are byte-identical
+  apart from the output filename — the `ACTION_BTN`-in-six-files shape again, this time for chart
+  export.
+- **2026-08-02 — two recordings of ONE flight disagree about whether a charge fired, and the one
+  that is wrong is the one that landed.** On `iss-irec2023`, sampled in 5 s buckets after apogee,
+  **both** `irec_2023_easymega` and `irec_2023_telemega` fall at **34–35 m/s** and **both break to
+  10 m/s at t≈60 s and ≈7,72x m** — a 3:1 step at the same second and the same height on two
+  independent altimeters, which is a canopy opening. `easymega` resolves it and reports a main leg
+  of 13.11 m/s; **`telemega` resolves nothing and reports a whole-descent 11.30 m/s**, even though
+  it is the recording that rides that canopy all the way to the ground (13.5 → 6.5 m/s as the air
+  thickens, flat at 170 m from t=796 s). **Cause:** `telemega`'s last ~2 s sit at rest, so the
+  terminal median falls under `lib/analyze/index.ts`'s `mainTerminal > 1` guard and the walk-back
+  aborts. **Reproduce:** analyse both files and print `mainDescentRate` / `wholeDescentRate` and the
+  post-apogee rate profile. **Why it matters:** the comparison's cross-check note then tells the
+  flyer their two boards disagree about a deployment when both traces show the same one — the note's
+  wording is fixed, the detector is not. The honest fix is to stop the at-rest tail defeating the
+  terminal median (take the median over the moving part of the descent), which is an analysis change
+  and wants its own corpus sweep and gate.
+
+  **It happens twice, which makes it a pattern rather than one odd file.** `intrepid3tf2` is the
+  same shape: `AL1 March launch data.pf2` resolves a main at 235.3 s / 584 m and its record ends
+  2.1 s later at 572 m, while its sibling `AL0` — same flight — descends ~16 m/s to 238 s and then
+  **4–8 m/s from ~564 m down to 272 m**, confirming that main independently, and resolves nothing
+  itself because its last 10 s sit flat at 271 m. **In both pairs the recording that is WRONG is the
+  one that reached the ground.** So the guard meant to stop a noise-floor terminal is being tripped
+  by a real one: the rocket is on the ground, the median over the tail is ~0, and the search aborts.
+- **2026-08-02 — a canopy opening at 93% of apogee is labelled "Main deploy".** Same flight: the
+  only deployment `easymega` records fires at **7,717 m AGL — 25,318 ft**, and Debrief calls it
+  *Main deploy* and its leg *Main descent*. It is a real event and 13.11 m/s is a faithful reading
+  of it (the sibling reads ~12.2 m/s over the same window), but "main" means something specific to a
+  flyer — the second, slower canopy — and a single-deploy recovery from 27,000 ft is not it. The
+  label, not the number, is what is wrong. **This entry exists because a fix for the NUMBER was
+  written, gated and very nearly pushed before an adversarial re-check refuted the premise** — see
+  `HANDOFF.md`. Any future attempt starts by reading the 5 s rate profile of BOTH recordings.
+- **2026-08-02 — the chart draws a peak 295 ft ABOVE the Apogee tile beside it, on the same screen.**
+  `lib/analyze/index.ts:1275` cleans the altitude with a Hampel filter over a **0.3 s** window
+  (`windowFor(dt, 0.3)`), which by construction cannot remove an ejection transient wider than the
+  window — and `lib/analyze/types.ts` documents `series.altitude` as *"spike-cleaned — what the
+  report shows"*. **Measured over all 38 corpus records that analyse: 3 draw above their own
+  reported apogee, and only one materially** — `blueraven trf-lemiv-l3 LR` peaks at **3,675.98 m
+  (12,060.9 ft) at t=30.16 s against a reported apogee of 3,586.12 m (11,765.3 ft) at t=26.22 s**,
+  a gap of **89.9 m / 2.51%**. The other two are 6.2 m (0.07%) and 1.2 m (0.06%) — rounding, not
+  visible. **The apogee metric is right**: it matches the Blue Raven's own summary of 11,765.53 ft
+  to four significant figures. What is wrong is that `components/FlightReport.tsx`, `lib/explore.ts`
+  and `lib/compare.ts` all consume `series.altitude`, so the trace, the channel explorer and the
+  multi-recording resample top out above the tile. **Reproduce:** open that corpus file and read the
+  chart's y-extent against the Apogee tile. Not fixed here: widening the filter window is a
+  calculation change that touches every flight, and it needs its own corpus sweep and its own gate.
+- **2026-08-02 — the logbook stars a "best" the comparison refuses to crown and the report caveats:
+  three surfaces, one flight, two different claims.** `lib/logbook.ts:93`'s `personalBests` takes a
+  raw `uniqueMaxId(flights, r => r.apogeeM)` off `RecentMeta` — and `lib/recents.ts:10-45` carries
+  **no** `apogeeIsFloor`, no clipped flag and no source flag, so it cannot know. `lib/report.ts:856`
+  sets `rankBlocked: anyFloor` on the comparison's Apogee row for exactly this reason, and the
+  report renders the same flight as `… (at least)`. **Reproduce in under a minute:** remember a
+  flight whose apogee saturates (any corpus record that prints "(at least)"), remember a lower
+  second flight, and read the three surfaces — the report says the peak is a lower bound, the
+  comparison withholds the crown, the logbook stars it "Highest of your remembered flights".
+  A superlative over a set containing a floor is not settleable, and this is the
+  caveat-here/confident-claim-there shape `MAINTAINING.md` names. **Not folded into the hue fix that
+  found it**: closing it means adding a flag to the PERSISTED store and deciding what an entry saved
+  before that field existed may claim, which is a schema decision and its own increment. Found by
+  the pre-push review agent, not by the author.
+
 - **2026-08-02 — the three cold walks ran (desktop first use, desktop tenth use, phone), and the
   phone one measured rather than eyeballed.** Ranked by what a flyer loses. Fixed this run: the
   metre-in-a-feet-report caveat (its own commit). Everything below is filed, not fixed.
@@ -310,7 +421,14 @@ wild, ideas too big for one pass. One line each, newest first.
 - **2026-08-02 — the design-system audit ran for the first time and returned 40 divergences.**
   `MAINTAINING.md` calls this "the audit that has never been run". The full ranked list is in the
   run's report; the ones worth naming here, none yet fixed:
-  - **§2's colour-by-magnitude clause, twice.** `RecentFlights.tsx:647,658` paints an
+  - **§2's colour-by-magnitude clause, twice.** **FIXED 2026-08-02** — both hues are neutral now and
+    both surfaces carry the same ★, with every title and screen-reader string kept. Pinned by
+    `lib/design-system.test.ts` → *"never carries a superlative in a semantic colour"*, which scans a
+    symmetric window because the logbook's LEGEND writes the class before the word it explains and a
+    forward-only scan called that site clean. The audit filed this defect THREE times over two runs
+    at three different line numbers — `:647,658`, `:630,638` and once unnumbered — which is its own
+    finding about a ledger that is appended to rather than searched.
+    `RecentFlights.tsx:647,658` paints an
     **amber** ★ immediately left of the apogee and max-speed values to mark a personal best —
     and §2 gives amber one meaning, "an estimate outside its envelope, an extrapolation, a
     caveat", so the glyph reads as a caveat on the number it is praising. `CompareView.tsx:931`
@@ -391,7 +509,9 @@ wild, ideas too big for one pass. One line each, newest first.
   token misuse: `font-semibold` alone already marks it, and §3 gives that weight exactly this job.
   One line, deliberately not taken this run because it is churn beside the item-2 work above it.
 
-- **2026-08-02 — a leaderboard is painted in the CAVEAT colour.** `components/RecentFlights.tsx:647`
+- **2026-08-02 — a leaderboard is painted in the CAVEAT colour. FIXED 2026-08-02**, same day, with
+  the comparison table's indigo crown beside it — see the design-system audit entry above for the
+  check and the falsification. `components/RecentFlights.tsx:647`
   and `:658` mark the fastest and highest flights with a `text-amber-500` star. §2 reserves amber
   for `warn` — "an estimate outside its envelope, an extrapolation, a caveat" — and `KofiButton`'s
   own docblock cites that rule. Spending the caveat colour on a leaderboard is what makes a real
@@ -786,7 +906,8 @@ wild, ideas too big for one pass. One line each, newest first.
   **Do not read this as the entry being half-done**: a run that swept the rest without changing §4
   would be removing occurrences of a rule the file has not yet made.
 - **`components/RecentFlights.tsx:630,638` marks the fastest and highest remembered flights with a
-  `text-amber-500` ★.** `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
+  `text-amber-500` ★. FIXED 2026-08-02** — the third filing of one defect, and the line numbers had
+  moved twice by the time it was cleared. `DESIGN.md` §2 reserves amber for "an estimate outside its envelope, an
   extrapolation, a caveat" and says outright never to colour a number by whether it is large. A
   magnitude superlative painted in the warn token reads, next to a figure, as a caveat ON that
   figure. Unreproduced as a user complaint; filed as a system breach with the rule it breaks.

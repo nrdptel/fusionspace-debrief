@@ -668,6 +668,89 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     ).toEqual(['components/ui.tsx']);
   });
 
+  it('never carries a superlative in a semantic colour', () => {
+    // `DESIGN.md` §2 reserves its four semantic hues for meanings — amber is "an estimate outside
+    // its envelope, an extrapolation, a caveat", indigo is "interactive, selected" — and then says
+    // outright: **"Never colour a number by whether it is large. Colour carries a claim; a claim
+    // needs a basis."** Marking the best of a set is exactly colouring by magnitude, and both
+    // surfaces built for comparing flights were doing it in a hue that meant something else.
+    //
+    // The logbook's ★ was `text-amber-500`, so on a column scanned down for an apogee the mark for
+    // "your highest" wore the hue that elsewhere warns a reading is soft — and the legend under the
+    // list wore it too, which is why the window below is symmetric rather than forward-only: there
+    // the class is written BEFORE the word it explains, and a forward scan reported that site clean.
+    // The comparison table's best cell was `text-indigo-600`, which reads as "selected" on a surface
+    // whose columns a flyer really does select.
+    //
+    // **What was wrong was the hue, not the mark.** The basis §2 asks for is present at every site
+    // and stays: each carries a title and screen-reader text naming what the mark means, and
+    // `CompareView`'s `rankBlocked` already withholds it on a clipped peak, a floor apogee or a
+    // mixed source. So the emphasis survives as weight and §2's own primary/secondary text step.
+    //
+    // Matched as a WINDOW rather than per line, because the two live shapes differ: one is a
+    // condition and a class on the same line (`i === row.best ? 'text-indigo-600 …'`), the other a
+    // guard whose class sits two lines below it. Comments are stripped first — the same call the
+    // focus assertion makes and for the same reason, since the conversions this guards both explain
+    // themselves by quoting the class they removed, and an unstripped scan fails naming a comment.
+    // Falsified against the pre-conversion source: 6 sites over both files, 0 after.
+    // **This one is NOT one of §9's greps**, and says so for the same reason the frame and focus
+    // assertions above do: §9's block is carried identically by the sibling repo, so adding a
+    // command to it is a change owed to both, while an assertion about §2's binding meaning is not.
+    // §2 is the rule; this is a check on it.
+    //
+    // **The colour pattern subtracts the allowed set rather than naming the forbidden one**, which
+    // is the correction this file has now had to make five times (both blind greps, off-scale type,
+    // spacing, and the card class). Written as `(amber|indigo|emerald|red)` it passed
+    // `ring-indigo-500`, `fill-amber-500`, `text-violet-600` and `text-[#f59e0b]` — every one of
+    // which is the same defect in a shape nobody had in front of them. Anything that is not the
+    // neutral ramp is a claim.
+    //
+    // **The superlative pattern deliberately has no leading word boundary**, because `\bbest\b`
+    // cannot match `isSpeedBest` — the actual variable guarding one of these marks. So the check
+    // hung entirely on a prose `title=` string, and rewording the title would have turned it green
+    // with the defect still on screen.
+    //
+    // **Comments are stripped line-preservingly** — blanked in place rather than deleted — because
+    // deleting them collapses the line count and every reported line number is then wrong by however
+    // much prose sits above it. Measured: the first version reported `RecentFlights.tsx:574` for a
+    // site truly at `:646`, a 72-line error, in a commit whose own ledger entry is about one defect
+    // filed three times at three wrong line numbers. The line reported is where the SUPERLATIVE
+    // sits; the hue is within three lines either side.
+    //
+    // **What this still cannot see**, stated rather than claimed away: a class string held in a
+    // const declared far from its use is only caught by the name check below, so a hue reached
+    // through a helper function or a lookup table would pass. Falsified against the pre-conversion
+    // source, where it names all four true sites.
+    const SUPERLATIVE = /(best|fastest|highest|largest|greatest|quickest)/i;
+    const NEUTRAL = /^(?:zinc|white|black|transparent|current|inherit|none)$/;
+    const COLOURED =
+      /\b(?:text|bg|border|ring|fill|stroke|decoration|outline|from|via|to|accent|caret|divide|placeholder|shadow)-([a-z]+)-\d{2,3}\b/g;
+    const ARBITRARY = /\b(?:text|bg|border|ring|fill|stroke)-\[#[0-9a-fA-F]{3,8}\]/;
+    const claims = (window: string): string[] => {
+      const found: string[] = [];
+      COLOURED.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = COLOURED.exec(window))) if (!NEUTRAL.test(m[1])) found.push(m[0]);
+      const arb = window.match(ARBITRARY);
+      if (arb) found.push(arb[0]);
+      return [...new Set(found)];
+    };
+    const sites: string[] = [];
+    for (const f of ui) {
+      const lines = f.text.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, (m) => m.replace(/[^\n]/g, ' ')).split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        // A const whose NAME is a superlative and whose VALUE is a hue — the indirection that
+        // would otherwise defeat the window, since `className={BEST_MARK}` carries no colour.
+        const named = /(?:const|let)\s+\w*(?:best|fastest|highest)\w*\s*=/i.test(lines[i]);
+        if (!SUPERLATIVE.test(lines[i])) continue;
+        const window = named ? lines[i] : lines.slice(Math.max(0, i - 3), i + 4).join(' ');
+        const hues = claims(window);
+        if (hues.length) sites.push(`${f.path}:${i + 1} — ${hues.join(',')} beside ${lines[i].trim().slice(0, 60)}`);
+      }
+    }
+    expect(sites, `a superlative wearing a colour that makes a claim:\n${sites.join('\n')}`).toEqual([]);
+  });
+
   it('keeps the primitives themselves inside the system', () => {
     // The file everything else is converted ONTO cannot itself be off-system. A primitive that
     // breaks the rule teaches that the rule is optional.

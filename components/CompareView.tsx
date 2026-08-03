@@ -945,12 +945,29 @@ export default function CompareView({
                 {flights.map((f, i) => (
                   <td
                     key={f.id}
-                    className={`px-1.5 py-2 text-right font-mono tabular-nums sm:px-3 ${
-                      i === row.best
-                        ? 'font-semibold text-indigo-600 dark:text-indigo-400'
-                        : 'text-zinc-800 dark:text-zinc-200'
+                    /* A glyph and weight mark the best of the row, never hue. §2 gives indigo
+                       exactly one meaning — "interactive, selected" — and nothing here is either:
+                       the flyer did not pick this cell and pressing it does nothing. §2 also
+                       forbids colouring a number by whether it is large, outright, which is
+                       precisely what ranking a row does.
+                       **Dropping the colour without adding a glyph would have been the worse
+                       bug**, and review caught it: weight alone left zinc-900 against zinc-800, a
+                       1.19:1 step in light and 1.15:1 in dark, so the mark a sighted low-vision
+                       flyer relies on all but disappeared while the screen-reader text stayed
+                       perfect. The ★ is the logbook's own mark for the same idea, so the two
+                       surfaces that rank flights now say it the same way instead of one using a
+                       glyph and the other a colour.
+                       Every cell is §2's PRIMARY text, because every one of them is a number being
+                       read; the previous `zinc-800/zinc-200` was not a §2 text token at all. */
+                    className={`px-1.5 py-2 text-right font-mono tabular-nums text-zinc-900 sm:px-3 dark:text-zinc-100 ${
+                      i === row.best ? 'font-semibold' : ''
                     }`}
                   >
+                    {i === row.best && (
+                      <span className="mr-0.5" title="Highest of the flights being compared">
+                        ★
+                      </span>
+                    )}
                     {row.cells[i]}
                     {i === row.best && <span className="sr-only"> (highest)</span>}
                   </td>

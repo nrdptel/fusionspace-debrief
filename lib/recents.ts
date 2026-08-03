@@ -500,14 +500,32 @@ export function toMeta(rec: RecentFlight): RecentMeta {
   };
 }
 
-export async function listRecents(): Promise<RecentMeta[]> {
+/**
+ * The logbook, and whether it could be read at all.
+ *
+ * **`listRecents()` cannot answer the second question, and that is the defect this exists for.**
+ * It returns `[]` for a flyer who has never opened a flight AND for one whose browser refuses
+ * storage — a private window, a locked-down profile, an origin the user has blocked. Measured:
+ * `indexedDB` being undefined and `open()` throwing both land in the same `catch` and yield the
+ * same empty array. So the surface said "flights you open are remembered here on this device" to
+ * someone for whom that had just stopped being true, which is a promise rather than a state.
+ *
+ * `blocked` is the storage layer REFUSING, not an empty logbook. Callers that only want the rows
+ * can keep using `listRecents`; a surface that renders one of `DESIGN.md` §5's five states needs
+ * to tell an empty answer from no answer.
+ */
+export async function readRecents(): Promise<{ recents: RecentMeta[]; blocked: boolean }> {
   try {
     const db = await idb();
     const all = await reqToPromise(tx(db, 'readonly').getAll() as IDBRequest<RecentFlight[]>);
-    return all.sort((a, b) => b.addedAt - a.addedAt).map(toMeta);
+    return { recents: all.sort((a, b) => b.addedAt - a.addedAt).map(toMeta), blocked: false };
   } catch {
-    return [];
+    return { recents: [], blocked: true };
   }
+}
+
+export async function listRecents(): Promise<RecentMeta[]> {
+  return (await readRecents()).recents;
 }
 
 export async function getRecent(id: string): Promise<RecentFlight | null> {

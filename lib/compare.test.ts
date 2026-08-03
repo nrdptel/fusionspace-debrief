@@ -579,9 +579,20 @@ describe('recoveryDisagreement', () => {
       f('fwgps', { drogueDescentRate: 22.7, mainDescentRate: 6.2, wholeDescentRate: null }),
     ];
     const note = recoveryDisagreement(flights, []);
-    expect(note, 'the disagreement is stated').toMatch(/disagree about the recovery/);
+    expect(note, 'the difference is stated').toMatch(/differ in what Debrief could resolve/);
     expect(note).toMatch(/resolved a deployment/);
-    expect(note).toMatch(/single descent/);
+    expect(note).toMatch(/single, undivided descent/);
+    // **And it must NOT tell the flyer their charges disagreed.** A whole-descent figure means
+    // Debrief did not RESOLVE a deployment in that record, never that none happened — and the
+    // corpus settles it on the pair this note exists for. On `iss-irec2023`, both recordings of one
+    // flight fall at 34–35 m/s after apogee and both break to 10 m/s at t≈60 s and ≈7,72x m; only
+    // one of them resolves it, because the other runs on to a landing whose at-rest tail drags the
+    // terminal median under the `mainTerminal > 1` guard. The wording this replaced ("with no
+    // deployment change in it", "whether a charge fired") asserted a fact about the ROCKET from a
+    // limit of ours, on a flight where both traces show the same charge firing.
+    expect(note, 'no claim about whether a charge fired').not.toMatch(/charge fired/);
+    expect(note, 'no claim that the record held no deployment change').not.toMatch(/no deployment change/);
+    expect(note, 'the limit is named as ours, not theirs').toMatch(/Debrief could not identify one/);
   });
 
   it('stays quiet when a descent row is already cross-checked', () => {

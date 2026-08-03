@@ -1,9 +1,9 @@
 'use client';
 
 import { clearCaptions } from '@/lib/compareMemory';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  listRecents,
+  readRecents,
   removeRecent,
   clearRecents,
   updateNote,
@@ -26,6 +26,10 @@ import { download } from '@/lib/download';
  */
 export interface Logbook {
   recents: RecentMeta[];
+  /** Which of `DESIGN.md` §5's states the list is in. `loading` until IndexedDB answers —
+   *  which on a static export is every cold load — and `blocked` where it refused outright.
+   *  `ready` with an empty `recents` is the only one that means "you have no flights". */
+  status: 'loading' | 'ready' | 'blocked';
   refresh: () => void;
   /** Flights the most recent drop pushed out of the logbook, so the surface showing the list
    *  can name them. Cleared once the flyer has been told (or acts on it) — this is a report
@@ -52,11 +56,33 @@ export interface Logbook {
 
 export function useLogbook(): Logbook {
   const [recents, setRecents] = useState<RecentMeta[]>([]);
+  // **`recents.length === 0` was answering three different questions with one number** — the
+  // logbook is empty, the read has not come back yet, or the browser refused storage — and the
+  // first of those is the only one the surface was written for. It starts as `loading` because
+  // the read is asynchronous AND because every route here is a static export: the empty state is
+  // PRERENDERED into `out/index.html` and `out/compare/index.html`, so until the bundle hydrates
+  // and IndexedDB answers, a flyer with a full logbook was being shown "flights you open are
+  // remembered here on this device" and an offer to restore a backup. On every cold load.
+  const [status, setStatus] = useState<Logbook['status']>('loading');
   const [forgotten, setForgotten] = useState<string[]>([]);
   const [arrived, setArrived] = useState<string[]>([]);
 
+  // **A failed READ is only "this browser won't keep a logbook" while we have never had one.**
+  // `refresh` runs after every remove, note, group, clear and import, so treating any rejection as
+  // `blocked` meant one transient failure mid-session replaced a flyer's fifty rows — and their
+  // search, notes, export, import and clear along with them — with a confident and probably false
+  // diagnosis. Worse than the defect this whole change exists to fix. Once a read has succeeded,
+  // the storage is demonstrably not refusing, so a later failure keeps the rows already in hand
+  // and leaves the status alone; only a refusal on a logbook we have never successfully read is
+  // reported as one.
+  const everRead = useRef(false);
   const refresh = useCallback(() => {
-    listRecents().then(setRecents);
+    readRecents().then(({ recents: rows, blocked }) => {
+      if (blocked && everRead.current) return;
+      if (!blocked) everRead.current = true;
+      setRecents(rows);
+      setStatus(blocked ? 'blocked' : 'ready');
+    });
   }, []);
 
   useEffect(refresh, [refresh]);
@@ -143,6 +169,7 @@ export function useLogbook(): Logbook {
 
   return {
     recents,
+    status,
     refresh,
     remove,
     clear,
