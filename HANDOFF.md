@@ -1014,13 +1014,28 @@ build's own stylesheet.
 3. **`BACKLOG.md` gained a large, verified batch this run** — the design-system audit's fresh rows, the
    refused-main surface gaps, the chart-above-apogee measurement, and the logbook's unbasis'd star.
    Read the head of the file before scoping.
-4. **D9 is DECOMPOSED and its first slice is not code — it is a FILE.** With D8 slice 4 blocked, the
-   D-track's next milestone is *Predicted versus flown*, decomposed this run in `ROADMAP.md` above
-   `P1`. **Do not start at slice 2.** The corpus holds 61 files, **zero `.ork`, zero `.rkt`, and zero
-   manifest hits for `simulat|predict`** — so every slice is unbuildable until a real prediction file
-   is sourced under the corpus's licensing rules, and slice 1 is sourcing one *or writing down why it
-   cannot be sourced*. A written refusal is a legitimate outcome; quietly synthesising a fixture is
-   not, because the whole milestone is about reading what a real tool actually writes.
+4. **D9 is DECOMPOSED and SLICE 1 IS DONE — start at slice 2.** The corpus had 61 files, zero
+   `.ork`, zero `.rkt` and zero manifest hits for `simulat|predict`, so nothing was buildable. It
+   now has **62**: `openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork`,
+   OpenRocket's own shipped example design written by **OpenRocket 24.12**, pushed to
+   `nrdptel/debrief-fixtures` with full provenance in `SOURCES.md`. **GPL-3.0-or-later — the most
+   clearly-licensed file in the corpus**, most of which is "publicly posted, all rights reserved"
+   with no grant at all. *Do not cite `LICENSE.TXT`'s section-7 permission as the basis: it covers
+   packaging the PROGRAM with data files, which is a different act.*
+
+   **Reading it corrected three things in the decomposition, all recorded in `ROADMAP.md`.** A
+   `.ork` really can carry a saved time series (2,580 `<datapoint>` rows here, despite the
+   `saveSimulationData=false` default). `<simulation status>` takes `"uptodate"`, a second observed
+   value. And `types=` holds **localized** names because the encoding follows the version that
+   WROTE the file, not the branch it is fetched from — 24.12 is shipped stable, so localized is
+   what a flyer's own file will have, which makes it the normal case rather than the legacy one.
+
+   **Slice 2's *done when* is already half-met by measurement**: SI proved from the file rather than
+   assumed off a spec page that states no units — `maxvelocity / maxmach = 29.249 / 0.086 = 340.1
+   m/s`, the speed of sound. **Two cautions before scoping slice 2:** the file carries **five**
+   simulations, so "the `.ork` holds a prediction" is wrong in the singular and an importer must
+   decide which one a flyer means; and the fixture corresponds to **no flown log**, so slice 3's
+   cross-check table cannot be tested against it and needs a hand-paired set.
 
    **Two measurements in that decomposition will save an increment each, and the second one reverses
    the first pass's own recommendation.** The OpenRocket **CSV export cannot carry the ten summary
