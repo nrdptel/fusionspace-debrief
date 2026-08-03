@@ -405,14 +405,16 @@ export default function ChannelExplorer({
             key={p.name}
             className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white py-0.5 pl-1.5 pr-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
           >
-            <button
-              type="button"
+            <Button
+              variant="link"
               onClick={() => applyPreset(p)}
               title={`Plot the “${p.name}” view`}
-              className="min-h-[1.75rem] px-1 font-medium text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400"
+              // Keeps its own min-height: on a FINE pointer nothing floors this, and the saved
+              // view's name sits in a chip row beside 28 px built-in view buttons.
+              className="min-h-[1.75rem] px-1"
             >
               {p.name}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={() => setPresets(deletePreset(p.name))}

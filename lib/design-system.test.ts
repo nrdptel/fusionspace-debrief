@@ -367,7 +367,12 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  that is. A generic container giving way to the specific one is the direction this milestone
    *  exists to push, so the two numbers have to be read together: `ErrorState` 1 → 2. */
   Card: 26,
-  Button: 18,
+  /** 18 → 19 on 2026-08-03 with §5's fifth weight. `Analyzer` is the new adopter: its "← Analyze
+   *  another flight" was one of eight hand-rolled indigo-text controls across four files, which is
+   *  the vocabulary having been short a word rather than four files having been careless. The
+   *  other three already imported `Button` for something else, so the count moves by one while
+   *  eight sites converted — read the two numbers together. */
+  Button: 19,
   Chip: 3,
   /** 2 → 9 on 2026-08-02. The seven derived-reading panels — deploy altitude, drag coefficient,
    *  drogue Cd, ejection delay, landing energy, parachute Cd and rail exit — each hand-rolled a
@@ -812,5 +817,89 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     ).toHaveLength(0);
     const offScale = (uiFile.match(/\btext-(?:xs|sm|base|lg|xl|\dxl)\b/g) ?? []).filter((m) => !ON_SCALE.has(m));
     expect(offScale, 'components/ui.tsx must not use an off-scale type size').toHaveLength(0);
+  });
+});
+
+describe('DESIGN.md §5 — the fifth button weight', () => {
+  /**
+   * Eight `<button>` elements across four files hand-rolled the same treatment — indigo text, no
+   * border, no fill — before `Button variant="link"` existed. Eight sites independently reaching
+   * for one missing word is the VOCABULARY being wrong rather than eight surfaces being
+   * undisciplined, which is why §5 gained the weight instead of the sites being converted into
+   * something they are not.
+   *
+   * **Three uses of indigo on a button are NOT this**, and the pattern has to let them through or
+   * it fails naming files that are doing the right thing:
+   *   - a SELECTED state (`sort === row.label ? 'text-indigo-600' : ''`) — §2's `accent` meaning
+   *     "interactive, selected", which is exactly what a sorted column header is;
+   *   - a HOVER affordance (`hover:text-indigo-600` on a filename) — a hint, not a weight;
+   *   - a bordered indigo chip, which is a `Chip` question rather than a `Button` one.
+   *
+   * A first pass at this count conflated all four and reported 13; the honest figure is 8, and
+   * the roadmap entry it corrects had said 7. Measure before spending a count.
+   */
+  it('is not re-invented by hand', () => {
+    const offenders: string[] = [];
+    for (const f of uiSources(['components', 'app'], ['.tsx'])) {
+      if (f.path.endsWith('components/ui.tsx')) continue;
+      for (const m of f.text.matchAll(/<button\b/g)) {
+        // The opening tag ends at the first `>` at brace depth 0 that is not part of an arrow.
+        let i = (m.index ?? 0) + m[0].length;
+        let depth = 0;
+        while (i < f.text.length) {
+          const c = f.text[i];
+          if (c === '{') depth++;
+          else if (c === '}') depth--;
+          else if (c === '>' && depth === 0 && f.text[i - 1] !== '=') break;
+          i++;
+        }
+        const tag = f.text.slice(m.index ?? 0, i);
+        if (!tag.includes('text-indigo-')) continue;
+        if (/border-indigo|bg-indigo/.test(tag)) continue; // a chip, not a link
+
+        // **Strip the CONDITIONAL parts, then look at what is left.** A first version skipped any
+        // tag containing `${` outright, and the pre-push review showed that clause was carrying
+        // the whole test: every legitimate survivor in the repo has an interpolation somewhere in
+        // its tag, so a hand-rolled link written as
+        // `` className={`font-medium text-indigo-600 hover:text-indigo-500 ${TOUCH_TARGET}`} ``
+        // — the exact form already used elsewhere for this treatment — passed silently. Removing
+        // the interpolations and the ternary branches leaves the RESTING classes, which is what
+        // the weight actually is.
+        let rest = tag;
+        for (;;) {
+          const open = rest.indexOf('${');
+          if (open < 0) break;
+          let j = open + 2;
+          let depth = 1;
+          while (j < rest.length && depth > 0) {
+            if (rest[j] === '{') depth++;
+            else if (rest[j] === '}') depth--;
+            j++;
+          }
+          rest = rest.slice(0, open) + rest.slice(j);
+        }
+        rest = rest
+          .replace(/\?[^:]*:\s*'[^']*'/g, '') // a ternary picking between two class strings
+          .replace(/(hover|focus|focus-visible|group-hover|active|dark):text-indigo-\d+/g, '');
+        if (!rest.includes('text-indigo-')) continue;
+        offenders.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length}`);
+      }
+    }
+    expect(
+      offenders,
+      `hand-rolled link-weight buttons — use <Button variant="link">, DESIGN.md §5:\n  ${offenders.join('\n  ')}`,
+    ).toEqual([]);
+  });
+
+  /** The variant has to stay geometry-free, because that is the only thing separating it from
+   *  `ghost`. A `link` that grew `px-3 py-1.5` would be a ghost button with the wrong colour, and
+   *  §5's distinction — prose versus toolbar — would stop being readable off the file. */
+  it('carries no button geometry, which is what makes it not a ghost', () => {
+    const ui = readFileSync(join(ROOT, 'components/ui.tsx'), 'utf8');
+    const variant = ui.match(/\blink:\s*'([^']*)'/)?.[1] ?? '';
+    expect(variant, 'Button variant="link" must exist').not.toBe('');
+    expect(variant, 'no control padding').not.toMatch(/\bp[xy]?-\d/);
+    expect(variant, 'no fill').not.toMatch(/\bbg-(?!transparent)/);
+    expect(variant, 'underline is the hover affordance').toMatch(/hover:underline/);
   });
 });

@@ -547,13 +547,9 @@ export default function CompareView({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-        >
+        <Button variant="link" onClick={onBack} className="text-sm">
           {backLabel}
-        </button>
+        </Button>
         <span className="flex flex-wrap items-center gap-3">
           {/* The way on to the composite, offered from the surface that already has the set.
               
@@ -790,18 +786,18 @@ export default function CompareView({
               >
                 Metric{' '}
                 {(sort || manual) && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="link"
                     onClick={() => remember(sort ? { sort: null } : { order: null })}
                     title={
                       sort && manual
                         ? 'Drop the ranking, back to the order you put them in'
                         : 'Back to the order the flights loaded in'
                     }
-                    className="ml-2 font-medium normal-case tracking-normal text-indigo-600 hover:underline dark:text-indigo-400"
+                    className="ml-2 normal-case tracking-normal"
                   >
                     {sort ? 'clear sort' : 'clear order'}
-                  </button>
+                  </Button>
                 )}
               </th>
               {flights.map((f, i) => (

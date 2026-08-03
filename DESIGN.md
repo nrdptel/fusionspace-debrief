@@ -169,13 +169,50 @@ hand-rolls it instead is not done.
   what a route is built from.
 - **`Disclosure`** — progressive detail. The label says what is inside, never "More".
 
-### Controls — three button weights, and only three
+### Controls — five button weights, and only five
 - **`Button variant="primary"`** — indigo fill. **At most one per surface**, and only for the action
   the surface exists to perform. Two primaries on one screen means neither is.
 - **`Button variant="secondary"`** — `control` border, transparent fill. The default for everything
   else.
-- **`Button variant="ghost"`** — no border. Toolbar and in-table actions only.
+- **`Button variant="ghost"`** — no border, but button GEOMETRY: padding, a hover fill, a hit target.
+  Toolbar and in-table actions only.
 - **`Button variant="danger"`** — secondary geometry, `danger` text and border. Removal only.
+- **`Button variant="link"`** — `accent` text, no border, no fill, **no control padding**. The one
+  weight that sits INSIDE a sentence: *"Got a backup? **Restore it**."*, *"← Analyze another
+  flight"*, a **clear sort** beside a column header. Underline on hover, never at rest in prose, so
+  it does not compete with a real link in the same paragraph.
+
+  **This heading read "three button weights, and only three" while listing four, and one app had
+  independently hand-rolled a fifth at eight call sites across four components** — measured
+  2026-08-03. Sites reaching for the same missing word are the vocabulary being wrong, not surfaces
+  being undisciplined, so it is named here rather than converted away.
+
+  **`link` is not `ghost`, and the distinction is the whole reason it exists.** `ghost` is a button
+  that happens to have no border: it keeps `px-3 py-1.5` and a hover fill, because it sits in a
+  toolbar or a table row where those are what make it findable. `link` sits in running text at the
+  surrounding size, where control padding would break the line and a hover fill would look like a
+  selection. A control in prose that takes `ghost` reads as a stray button.
+
+  **What `link` does NOT drop is the touch floor, and a first version of this paragraph said it
+  did.** `globals.css` floors every bare `button` at 44×44 under `@media (pointer: coarse)` with no
+  exemption for one inside a `<p>`, and the touch e2e suite measures exactly that — so a `link` in a
+  table row is still a 44 px target and the variant's own class list omitting the floor is a no-op.
+  **The exception is `link` with `href`**, which renders an `<a>` that the coarse-pointer rule does
+  not cover. Two claims that look alike and are not: "the variant carries no floor" (true, and
+  harmless) and "a link is unhittable on a phone" (false for a button, true for an anchor).
+
+  **Where the resting underline belongs.** In prose, hover-only — the sentence supplies the context.
+  In a table row, on a small control, restore it at the call site: 11 px of accent text on a device
+  with no hover, beside other chips, needs a second signal that it is a control.
+
+  **`accent` here is §2's "interactive", not a claim about the value.** Indigo on a *number* still
+  means selected — see §2's standing rule that a reading is never coloured by its magnitude.
+
+  **Implementation caution, learned by shipping it wrong once.** The size opt-out is the absence of
+  a class, not `text-inherit` — that is Tailwind's COLOUR utility, and emitted beside the variant's
+  own `text-indigo-600` at equal specificity it wins, so every `link` renders in the surrounding
+  prose colour in light mode while dark mode looks correct. No test can see it: the roles and
+  accessible names are unchanged.
 - **`Segmented`** — 2–5 mutually exclusive options, all visible. Preferred over a select at that size.
 - **`Tabs`** — switching views over one subject *within* a route. Not for navigation between jobs;
   that is a route (§7).

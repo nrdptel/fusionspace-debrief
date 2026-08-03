@@ -269,13 +269,9 @@ export default function RecentFlights({
             {writeCaveat}
             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
               Got a logbook backup from another machine?{' '}
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-              >
+              <Button variant="link" onClick={() => fileRef.current?.click()}>
                 Restore it
-              </button>{' '}
+              </Button>{' '}
               — a backup is far smaller than a launch day of flight logs, so it may well be kept
               even where a flight was not.
             </p>
@@ -284,13 +280,9 @@ export default function RecentFlights({
         <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
           Flights you open are remembered here on this device — never uploaded. Got a logbook backup
           from another machine?{' '}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-          >
+          <Button variant="link" onClick={() => fileRef.current?.click()}>
             Restore it
-          </button>
+          </Button>
           .
         </p>
         )}
@@ -952,8 +944,8 @@ export default function RecentFlights({
                                 reports this flight
                               </span>
                             ) : (
-                              <button
-                                type="button"
+                              <Button
+                                variant="link"
                                 onClick={async () => {
                                   await onGroup(planGrouping(group.recordings.map((x) => x.id), rec.id));
                                   // The flight's id IS its reporting recording's, so nominating
@@ -967,10 +959,15 @@ export default function RecentFlights({
                                   });
                                 }}
                                 title="Report this flight by this recording — which altimeter's reading a cert document quotes is the flyer's call, not Debrief's"
-                                className="min-h-11 shrink-0 text-[11px] font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-500 sm:min-h-0 dark:text-indigo-400"
+                                // Keeps its RESTING underline. `link`'s underline is `hover:`
+                                // only, which is right in prose — the sentence around it supplies
+                                // the context — and wrong here: this is 11 px, in a recordings
+                                // row, beside a bordered indigo chip, on a device with no hover.
+                                // Without it the only thing marking it as a control is the title.
+                                className="shrink-0 text-[11px] underline underline-offset-2"
                               >
                                 report by this one
-                              </button>
+                              </Button>
                             )}
                           </li>
                         );
@@ -998,13 +995,9 @@ export default function RecentFlights({
         <p className="mt-3 rounded-md border border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           No flight here matches “{query.trim()}”. Names, the logger a flight came off, and your own
           notes are searched.{' '}
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-          >
+          <Button variant="link" onClick={() => setQuery('')}>
             Show all {flights.length}
-          </button>
+          </Button>
           .
         </p>
       )}

@@ -46,7 +46,7 @@ import { decodeBytes } from '@/lib/encoding';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
-import { ErrorState } from './ui';
+import { Button, ErrorState } from './ui';
 
 type State =
   | { phase: 'idle' }
@@ -714,13 +714,9 @@ export default function Analyzer() {
     return (
       <div className="space-y-6">
         <DropOverlay show={dragging} accept={canTakeADrop} reason={MAPPING_BUSY} />
-        <button
-          type="button"
-          onClick={reset}
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 print:hidden"
-        >
+        <Button variant="link" onClick={reset} className="text-sm print:hidden">
           ← Analyze another flight
-        </button>
+        </Button>
         {/* What the drop couldn't read. Not print:hidden — a report a flyer keeps should
             say which of their files it didn't cover. It stays out of the flight's own
             exports, which describe this flight rather than the folder it arrived in. */}

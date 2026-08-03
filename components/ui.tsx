@@ -311,7 +311,7 @@ export function Section({
   );
 }
 
-/** The three button weights, and only three — plus `danger`, which is `secondary`'s geometry in the
+/** The five button weights §5 names — three plain weights, plus `danger`, which is `secondary`'s geometry in the
  *  refusal colour. `DESIGN.md` §5.
  *
  *  **At most one `primary` per surface.** Two primaries on one screen means neither is. */
@@ -324,6 +324,15 @@ const BUTTON_VARIANTS = {
     'border border-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100',
   danger:
     'border border-red-300 bg-white text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10',
+  // `DESIGN.md` §5's fifth weight: a control that sits INSIDE a sentence. No border, no fill and —
+  // uniquely — no control padding, because `px-3 py-1.5` in running text breaks the line and a
+  // hover fill on a word reads as a selection. The underline is the whole hover affordance.
+  //
+  // **A caution, since a first comment here had it backwards:** `Button`'s
+  // `disabled:hover:bg-white` is a positive paint, not a switch-off, so a DISABLED `link` would
+  // paint a white rectangle behind the word on hover. No call site passes `disabled` today; if one
+  // ever does, that rule needs a `link` exemption rather than this comment needing a rewrite.
+  link: 'border border-transparent text-indigo-600 hover:underline dark:text-indigo-400',
 } as const;
 
 export type ButtonVariant = keyof typeof BUTTON_VARIANTS;
@@ -371,8 +380,26 @@ export function Button({
     // with a `disabled` prop had been spelling half of it out by hand.
     'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:disabled:hover:bg-zinc-900',
     BUTTON_VARIANTS[variant],
-    BUTTON_SIZES[size],
-    TOUCH_TARGET,
+    // **`link` takes neither, and that is the variant's definition rather than an exception.**
+    // `BUTTON_SIZES` is control padding; it is right for a control a thumb aims at and wrong for a
+    // word inside a paragraph, which is sized by the text around it. `TOUCH_TARGET` goes with it
+    // for tidiness only — see below, it is not what makes these hittable.
+    //
+    // **The opt-out is an empty string, and the first version wrote `text-inherit`.** That is
+    // Tailwind's COLOUR utility (`color: inherit`), not a size opt-out, and `cx` is a plain join —
+    // so the element shipped `text-indigo-600 text-inherit`, adjacent in one `@layer utilities`
+    // run at equal specificity, and the later one won. Every `link` rendered in the surrounding
+    // prose colour in LIGHT mode while dark mode looked right, because `dark:text-indigo-400` is
+    // emitted later still. Caught by the pre-push review reading the built stylesheet; nothing in
+    // the gate can see it, because the roles and names the e2e suite asserts on never changed.
+    //
+    // **`link` does NOT lose the 44 px floor, whatever §5 used to say.** `app/globals.css` floors
+    // every bare `button` at 44×44 under `@media (pointer: coarse)`, with no exemption for one
+    // inside a `<p>`, and `e2e/touch.spec.ts` measures exactly that. Dropping `TOUCH_TARGET` here
+    // is a no-op for the button branch. It is NOT a no-op for the `href` branch below, which
+    // renders an `<a>` that `globals.css` does not cover — so `variant="link"` with `href` is the
+    // one shape that would genuinely be under-sized. Nothing uses it; `BACKLOG.md` carries it.
+    variant === 'link' ? '' : cx(BUTTON_SIZES[size], TOUCH_TARGET),
     className,
   );
   if (href != null) {

@@ -1889,6 +1889,64 @@ the artifact rather than the tree.
    a file, and a file is not a surface. Say that rather than bank a fix for a defect that was not
    there.
 
+   **DONE 2026-08-03 — §5 gained the weight rather than the sites being converted away.** The
+   heading read *"three button weights, and only three"* while listing FOUR, and the code had
+   hand-rolled a fifth **eight times across four files** (`Analyzer`, `ChannelExplorer`,
+   `CompareView`, `RecentFlights`). Eight sites independently reaching for one missing word is the
+   vocabulary being short, not four files being careless, so `Button variant="link"` is now in
+   `DESIGN.md` §5 and in `ui.tsx`.
+
+   **`link` is not `ghost`, and that distinction is the variant's whole definition.** `ghost` is a
+   button that happens to have no border: it keeps `px-3 py-1.5`, a hover fill and the 44 px touch
+   floor, because it sits in a toolbar or a table row. `link` takes *neither* `BUTTON_SIZES` nor
+   `TOUCH_TARGET` — it sits in running prose at the surrounding size, where control padding breaks
+   the line and a hover fill reads as a selection. One converted site keeps `min-h-11` by hand and
+   says why: it is in a table row on a phone, which is the exception §5 names.
+
+   **The count was wrong twice before it was right, and both errors are worth not repeating.** This
+   entry said **7 across 5 files**; a first grep this run said **13**. The honest figure is **8**,
+   because three different things wear indigo on a button and only one is the missing weight — a
+   SELECTED state (§2's `accent` doing exactly its job on a sorted column header), a HOVER
+   affordance on a filename, and a bordered indigo chip. The pin has to let all three through or it
+   fails naming files that are correct. Pinned by `lib/design-system.test.ts` →
+   *"is not re-invented by hand"* and *"carries no button geometry, which is what makes it not a
+   ghost"*, both falsified by mutation. `Button` adopters **18 → 19** in the same commit.
+
+   **The pre-push review then found the implementation of the opt-out was wrong, and it was
+   invisible to the whole gate.** The size opt-out was written `text-inherit` — which is Tailwind's
+   COLOUR utility, not a size one. Emitted beside the variant's own `text-indigo-600`, adjacent in
+   one `@layer utilities` run at equal specificity, the later class wins: **every `link` rendered in
+   the surrounding prose colour in LIGHT mode**, while dark mode looked right because
+   `dark:text-indigo-400` is emitted later still. Verified from the built stylesheet
+   (`.text-indigo-600` at byte 25,858, `.text-inherit{color:inherit}` at 25,999). Nothing in the
+   gate can see this — the roles and accessible names the e2e suite asserts on never changed — so
+   eight controls would have shipped invisible to half the flyers who use them.
+
+   **Three more the same review corrected, two of them in the binding file itself:**
+
+   - **§5's touch-floor claim was false.** `app/globals.css` floors every bare `button` at 44×44
+     under `@media (pointer: coarse)` with no exemption for one inside a `<p>`, and
+     `e2e/touch.spec.ts` measures exactly that — so dropping `TOUCH_TARGET` from the variant is a
+     no-op for the button branch, and "a `link` in a toolbar is a 14 px target" was wrong. The one
+     shape that IS under-sized is `link` **with `href`**, which renders an `<a>` the coarse-pointer
+     rule does not cover. §5 now separates those two claims; `BACKLOG.md` carries the `href` gap.
+   - **The §5 paragraph named four Debrief components verbatim**, in a file §10 declares shared and
+     identical with the sibling — where that sentence would be a false statement about Loft's
+     codebase. Re-worded to "one app … eight call sites across four components".
+   - **The one converted site in a table row lost its resting underline.** `link`'s underline is
+     `hover:` only, which is right in prose and wrong for 11 px of accent text in a recordings row
+     on a device with no hover. Restored at the call site, and §5 now says where that belongs.
+
+   **And the pin was being carried by an amnesty clause.** It skipped any tag containing `${`
+   outright — and every legitimate survivor in the repo has an interpolation somewhere, so the
+   clause was doing all the work while a hand-rolled link written with a template literal passed
+   silently. It now strips the interpolations and ternary branches and tests what RESTS. Falsified
+   against exactly that form.
+
+   **Owed to the sibling.** §5 is carried identically by `nrdptel/fusionspace-loft`; this session
+   has only this repo, so the edit is written to make sense there too and the debt is recorded in
+   `HANDOFF.md`.
+
    What WAS wrong on that surface, and is fixed: **an indigo TEXT button hand-rolled beside the
    real primary** — `text-indigo-600 hover:text-indigo-500` on "Remember these columns" — which is
    the primary weight's colour worn as a link, on the one surface a flyer has to get right. It now
