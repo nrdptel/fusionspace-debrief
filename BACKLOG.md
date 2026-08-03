@@ -3412,6 +3412,26 @@ refuted. They are written down rather than fixed because each needs its own gate
 
 ## Craft & product feel
 
+- **§9's off-scale-spacing count says 0 while 124 half-step values exist, and the grep cannot see
+  one of them.** Measured 2026-08-03 over `components` + `app`:
+  `grep -rohE '\b((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+\.[0-9]+\b'` returns **124** —
+  `py-1.5` ×27, `py-0.5` ×17, `gap-1.5` ×17, `mt-0.5` ×15, `mt-1.5` ×9, `px-1.5` ×8, `px-2.5` ×7,
+  `py-2.5` ×2, `mt-2.5` ×2, `mb-2.5` ×2, and a long tail. **§9's own command is
+  `…-[0-9]+\b`, and `\b` matches before the `.`** — so in `py-1.5` it matches `py-1`, finds `1` on
+  the scale, and passes. Every half-step in the repo is structurally invisible to the count that
+  exists to find off-scale spacing.
+  **This is NOT "124 breaches", and saying so would be the over-claim this ledger keeps catching.**
+  §4's table sanctions `px-3 py-1.5` (inside a control) and `px-2 py-1` (a `text-xs` chip)
+  explicitly, so a large share of the 124 is correct. What §4 names nowhere is the `2.5` family
+  (`py-2.5`, `mt-2.5`, `mb-2.5`, `px-2.5` — 13 between them), and `GroundTrack`'s `Stat` has already
+  been fixed once for exactly that. **The work is two steps and they must not be merged:** decide
+  in §4 which half-steps are sanctioned and say so in the table, THEN widen the grep to catch the
+  rest. Widening first would light up 124 sites with no rule to judge them by.
+  **§4 and §9 are carried identically by `nrdptel/fusionspace-loft`**, so both steps are owed to
+  both repos — which is why this is filed rather than done.
+  *This is the THIRD §9 grep found blind in one run, after the chip census that scanned `<span>`
+  only and the card census that matches `rounded-xl` only. The pattern is always the same: a
+  measurement scoped to the form the drift was first noticed in, then read as covering the class.*
 - **Is the `500/30` border ramp heavy enough on PAPER?** §5's hued chips and cards border at
   `<hue>-500/30`, which over white resolves near `#d0d1fb` for indigo — visibly lighter than the
   `border-indigo-300` (`#a5b4fc`) that `FlightReport`'s format chip hand-rolled before it converted

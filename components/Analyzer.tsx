@@ -46,7 +46,7 @@ import { decodeBytes } from '@/lib/encoding';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
-import { Button, ErrorState } from './ui';
+import { Button, ErrorState, Notice } from './ui';
 import { apogeeCaveatFlags } from '@/lib/readings';
 
 type State =
@@ -723,12 +723,9 @@ export default function Analyzer() {
             say which of their files it didn't cover. It stays out of the flight's own
             exports, which describe this flight rather than the folder it arrived in. */}
         {state.note && (
-          <p
-            role="status"
-            className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
-          >
+          <Notice as="p" role="status">
             {state.note}
-          </p>
+          </Notice>
         )}
         <FlightReport
           flight={state.flight}

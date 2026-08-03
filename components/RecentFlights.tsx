@@ -12,7 +12,7 @@ import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSprea
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
-import { Button, Card, Segmented, useReturnFocus } from './ui';
+import { Button, Card, Notice, Segmented, useReturnFocus } from './ui';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -449,10 +449,7 @@ export default function RecentFlights({
       {/* What the last drop cost, named. The prune has always run; saying nothing about it
           meant a flyer found out by counting, days later, with nothing to do about it. */}
       {forgotten.length > 0 && (
-        <div
-          role="status"
-          className="mb-3 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
-        >
+        <Notice role="status" className="mb-3">
           <p>
             <strong className="font-medium">
               {forgotten.length === 1 ? 'One flight was' : `${forgotten.length} flights were`} forgotten
@@ -470,7 +467,7 @@ export default function RecentFlights({
               Got it
             </button>
           )}
-        </div>
+        </Notice>
       )}
       <div className="flex items-baseline justify-between gap-4 border-b border-zinc-200 pb-2 dark:border-zinc-800">
         <h2 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">

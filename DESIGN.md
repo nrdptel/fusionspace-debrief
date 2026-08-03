@@ -254,6 +254,21 @@ hand-rolls it instead is not done.
   An error that names something not on the page is a named tell.
 - **`Extrapolated`** — the warn treatment plus the reason and the range it left. Required wherever a
   number leaves the envelope its method was validated over.
+- **`Notice`** — a sentence about the content, **above** the content, never instead of it.
+  `rounded-md border px-3 py-2 text-sm`, tones `warn` (default) and `accent`, on a `-300/70` border
+  + `-50` fill ramp that is deliberately its own — a notice needs more presence than a `Chip`'s
+  `500/10` wash and less than a `Card`'s flat fill. Takes `as` (`div` · `p` · `section` · `aside`)
+  and **passes `role` through rather than owning one**: `role="status"` implies `aria-atomic`, so a
+  notice that contains a control must put the live region on the message, not the box, or every
+  press re-announces the whole panel.
+
+  **This is the answer to "§5 has no name for a DEGRADED capability"**, which had been carried as an
+  open question. A degraded surface — reads fine, writes refused — is none of the five states: it is
+  the surface *working* with one thing qualified. That is a `Notice tone="warn"` above real content,
+  not an `ErrorState` replacing it. **Built 2026-08-03 on a census of six** across five files,
+  spanning three element types, two hues, two paddings and two type sizes while being one
+  treatment. Five of the six were `text-xs` on text a flyer acts on; the primitive is `text-sm`,
+  which is this table's own body default.
 
 **A surface with no empty state is not finished.** It is the state a flyer sees first.
 

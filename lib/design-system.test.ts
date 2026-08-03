@@ -309,8 +309,15 @@ const BUDGET = {
    *  This entry first said `LogDetails`, and both halves of that were wrong: `LogDetails` was
    *  1/1 on `main`, which is not inverted, so it was never on the list to fall off — and the
    *  number was 13. Recomputing the two lists and diffing them named the real files in one step.
-   *  A ratchet comment asserting WHICH file moved is a claim like any other; check it. */
-  invertedTypeFiles: 12,
+   *  A ratchet comment asserting WHICH file moved is a claim like any other; check it.
+   *
+   *  **12 → 11 the same day, and this one is NOT adoption — it is the real thing.** `Analyzer`
+   *  left the list because its hand-rolled notice took `Notice`, and §5's notice is `text-sm`
+   *  where the hand-roll was `text-xs`. A message a flyer reads and acts on ("this file's name was
+   *  used for the export") got BIGGER, on five surfaces. That is the direction this metric was
+   *  reached for, and the first time in four moves it has gone that way. Say which kind a move is
+   *  every time; a number that means two things means neither. */
+  invertedTypeFiles: 11,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
@@ -458,6 +465,17 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  and the other is a virtualised view over `Float64Array` series. See the primitive's own
    *  comment for why folding either in would produce a union rather than a primitive. */
   DataTable: 2,
+  /** §5's inline notice, built 2026-08-03 on a census of SIX hand-rolled ones across five files —
+   *  `Analyzer`, `CompareSurface`, `CompareView` (×2), `GroupProposalBanner` and `RecentFlights`.
+   *  They spanned THREE element types (`p`, `div`, `section`), two hues, two paddings and two type
+   *  sizes while being one treatment, which is the third instance in one run of the vocabulary
+   *  being short a word rather than the files being careless.
+   *
+   *  **The census that found them scanned ANY opening tag, and the first one did not.** A scanner
+   *  enumerating `div|section|aside|li|ul` found three and missed the three written as `<p>` — the
+   *  same mistake as the chip census's `<span>`-only pass, made twice in one run. It was caught by
+   *  cross-checking against a colour grep rather than by trusting the scanner. */
+  Notice: 5,
   /** The bordered-no-background container, lifted 2026-08-01 from the five sites that had written
    *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
    *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical
@@ -978,42 +996,104 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
   };
 
   /**
-   * **Twelve on `main`, seven converted, five left — and every one of the five says why here.**
+   * **Twelve on `main`; nine converted, three left — and each of the three says why here.**
    * An unexplained allowance is how a ratchet quietly stops ratcheting, so each gets a reason a
    * later session can disagree with rather than a silence it has to reverse-engineer.
    *
-   * Three reasons, and only the last is a maybe-later:
-   *
-   * - **Two are not chips.** `CompareView:614` and `RecentFlights:452` are inline notices at
-   *   `px-3 py-2`, full width, holding a `<p>` — one of them `role="status"`. They match on
-   *   border-plus-radius-plus-padding because that is what a bordered box looks like. §5 asks a
-   *   different question about a notice than about a token, and answering it here would be
-   *   converting a paragraph into a chip.
-   * - **Two are dense-list tokens.** `RecentFlights:754` (the format label) and `:954` ("reports
-   *   this flight") sit at `text-[11px]` in the densest list in the app, in rows that are scanned
-   *   rather than read. `Chip` would move them to `text-xs` at `px-2 py-1` — larger type and
-   *   double the padding, on every logbook row. That is a decision about LIST DENSITY, which is a
-   *   product change and not this increment's adoption.
-   * - **One wants a primitive that does not exist yet.** `RecognizedFormats:28` is a genuine chip
-   *   and the only one of the five that should convert — but it is an `<li>` inside a `<ul>`, and
+   * - **Two are dense-list tokens.** `RecentFlights`'s format label and its "reports this flight"
+   *   badge sit at `text-[11px]` in the densest list in the app, in rows that are scanned rather
+   *   than read. `Chip` would move them to `text-xs` at `px-2 py-1` — larger type and double the
+   *   padding, on every logbook row. That is a decision about LIST DENSITY, which is a product
+   *   change and not this increment's adoption.
+   * - **One wants a primitive that does not exist yet.** `RecognizedFormats` is a genuine chip and
+   *   the only one of the three that should convert — but it is an `<li>` inside a `<ul>`, and
    *   `Chip` renders a `<span>`. Adopting it would strip the list semantics a screen reader
    *   announces, which is exactly the trade `Readout`'s comment above records refusing for
    *   `GroundTrack`'s `Stat`. It converts the day `Chip` takes an `as`, the way `Card` did.
    *   Filed in `BACKLOG.md`.
+   *
+   * **Two former entries are gone because they were never chips**, and the increment that removed
+   * them is the proof: `CompareView`'s mapping prompt and `RecentFlights`'s forgotten-flights
+   * banner were inline NOTICES holding a paragraph, matching this predicate only because a
+   * bordered box looks like a bordered box. They took §5's `Notice` and left this census by
+   * becoming what they always were. An allowance that dissolves when the right primitive arrives
+   * is the good kind.
+   *
+   * **Keyed on FILE and COUNT, not on `file:line`.** The first version listed five `path:line`
+   * strings and every one of them shifted the moment an unrelated edit landed above it — the pin
+   * failed for a reason that had nothing to do with chips. A count per file still fails when a new
+   * file hand-rolls one, or when a listed file grows another; it just does not fail on a diff that
+   * moved some lines.
    */
-  const DELIBERATE = [
-    'components/CompareView.tsx:614',
-    'components/RecentFlights.tsx:452',
-    'components/RecentFlights.tsx:754',
-    'components/RecentFlights.tsx:954',
-    'components/RecognizedFormats.tsx:28',
-  ];
+  const DELIBERATE: Record<string, number> = {
+    'components/RecentFlights.tsx': 2,
+    'components/RecognizedFormats.tsx': 1,
+  };
 
-  it('is not re-invented by hand outside the five named above', () => {
+  it('is not re-invented by hand outside the three named above', () => {
+    const byFile: Record<string, number> = {};
+    for (const hit of handRolledChips()) {
+      const file = hit.slice(0, hit.lastIndexOf(':'));
+      byFile[file] = (byFile[file] ?? 0) + 1;
+    }
+    expect(byFile, `hand-rolled chips — use <Chip tone=…>, DESIGN.md §5:`).toEqual(DELIBERATE);
+  });
+
+  /**
+   * **Every hand-rolled inline notice, and the scanner takes ANY opening tag on purpose.**
+   * The first version of this census enumerated `div|section|aside|li|ul`, found three, and missed
+   * the three written as `<p>` — half the population, on the element a one-sentence notice most
+   * naturally uses. It was caught by cross-checking against a colour grep, not by the scanner. That
+   * is the same mistake as the chip census's `<span>`-only pass, made twice in one run, which is
+   * why this one has no element list to be wrong about.
+   */
+  const handRolledNotices = (): string[] => {
+    const out: string[] = [];
+    for (const f of uiSources(['components', 'app'], ['.tsx'])) {
+      if (f.path.endsWith('components/ui.tsx')) continue;
+      for (const m of f.text.matchAll(/<[a-z][a-z0-9]*\b/g)) {
+        let i = (m.index ?? 0) + m[0].length;
+        let depth = 0;
+        while (i < f.text.length) {
+          const c = f.text[i];
+          if (c === '{') depth++;
+          else if (c === '}') depth--;
+          else if (c === '>' && depth === 0 && f.text[i - 1] !== '=') break;
+          i++;
+        }
+        const tag = f.text.slice(m.index ?? 0, i);
+        // The notice treatment: a tinted box on §5's `-300/70` border + `-50` fill ramp.
+        if (/border-\w+-300\/70/.test(tag) && /bg-\w+-50\b/.test(tag)) {
+          out.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length}`);
+        }
+      }
+    }
+    return out;
+  };
+
+  it('has no hand-rolled inline notice left', () => {
     expect(
-      handRolledChips(),
-      'hand-rolled chips — use <Chip tone=…>, DESIGN.md §5:',
-    ).toEqual(DELIBERATE);
+      handRolledNotices(),
+      'hand-rolled notices — use <Notice tone=…>, DESIGN.md §5:',
+    ).toEqual([]);
+  });
+
+  /**
+   * **A notice must not own a `role`, and this is the assertion that keeps it that way.**
+   * `role="status"` implies `aria-atomic`, so a live region wrapping a panel that contains a
+   * control re-announces the ENTIRE panel — every file name, the whole reason sentence — over the
+   * flyer's own action each time they press it. `GroupProposalBanner` hit that and fixed it by
+   * moving the region onto the inner message; a primitive that hard-coded `role="status"` would
+   * put the bug straight back. Four of the six converted call sites DO pass `role="status"`, and
+   * they are right to — the difference is that it is their decision.
+   */
+  it('leaves the live region to the call site', () => {
+    const ui = readFileSync(join(ROOT, 'components/ui.tsx'), 'utf8');
+    const body = ui.slice(ui.indexOf('export function Notice('), ui.indexOf('/** A bordered clip'));
+    expect(body, 'Notice must exist').not.toBe('');
+    expect(body, 'no hard-coded role').not.toMatch(/role=/);
+    expect(body, 'no hard-coded aria-live').not.toMatch(/aria-live/);
+    expect(body, 'props are spread through so a call site can set one').toMatch(/\{\.\.\.rest\}/);
   });
 
   /** The hued tones exist so a verdict can be SAID rather than drawn, and they only read as one

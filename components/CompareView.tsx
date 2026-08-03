@@ -27,7 +27,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import { TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
-import { Button, Card, Disclosure, Figure, Segmented } from './ui';
+import { Button, Card, Disclosure, Figure, Notice, Segmented } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -598,12 +598,9 @@ export default function CompareView({
           resampled onto a shared time base. Read locally — never uploaded.
         </p>
         {note && (
-          <p
-            role="status"
-            className="mt-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
-          >
+          <Notice as="p" role="status" className="mt-2">
             {note}
-          </p>
+          </Notice>
         )}
         {/* Files from the same drop that Debrief doesn't auto-detect. A batch can't run the
             column mapper — it needs an answer per file — but that is a reason to ASK, not a
@@ -611,7 +608,7 @@ export default function CompareView({
             file at a time, and loses the comparison they already have. Mapping one brings it
             straight back here with the others. */}
         {onMapFile && mappable && mappable.length > 0 && (
-          <div className="mt-2 rounded-md border border-indigo-300/70 bg-indigo-50 px-3 py-2 text-xs text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:text-indigo-200">
+          <Notice tone="accent" className="mt-2">
             <p>
               {mappable.length === 1 ? 'One more file from that drop isn’t' : `${mappable.length} more files from that drop aren’t`}{' '}
               a format Debrief recognizes — map the columns and{' '}
@@ -628,7 +625,7 @@ export default function CompareView({
                 </Button>
               ))}
             </div>
-          </div>
+          </Notice>
         )}
         {/* The flyer's own caption for this comparison, once set. */}
         {(reportLabel.trim() || reportNotes.trim()) && (

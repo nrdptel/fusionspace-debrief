@@ -214,6 +214,91 @@ export function Card({
   );
 }
 
+/**
+ * The tones a NOTICE is allowed to take — a tinted box that sits ABOVE real content rather than
+ * replacing it. Deliberately NOT `CARD_TONES`: a card's `warn` is a container whose whole subject
+ * is caveated, where a notice is a sentence about content that is otherwise fine and still there.
+ *
+ * The ramp is `-300/70` border + `-50` fill in light and `-500/30` + `-950/30` in dark, which is
+ * what all six hand-rolled notices had independently converged on, byte for byte. It is a THIRD
+ * ramp beside `CARD_TONES` and `CHIP_TONES`, and it earns that: a notice needs more presence than
+ * a chip's `500/10` wash (it is competing with the content it sits above) and less than a card's
+ * flat fill (it must not read as the container).
+ */
+const NOTICE_TONES = {
+  /** Something the flyer may want to act on — files to map, a grouping to accept. §2's `accent`. */
+  accent:
+    'border-indigo-300/70 bg-indigo-50 text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:text-indigo-100',
+  /** A caveat, a refusal, or a capability running degraded — the surface works, one thing does not. */
+  warn: 'border-amber-300/70 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200',
+} as const;
+
+export type NoticeTone = keyof typeof NOTICE_TONES;
+
+/**
+ * `DESIGN.md` §5's inline notice — **a sentence about the content, above the content, not instead
+ * of it.** That last clause is what separates it from `EmptyState` and `ErrorState`, which REPLACE
+ * a surface; a notice leaves the surface working and says what is qualified about it.
+ *
+ * **Built 2026-08-03 on a census of six**, across five files: `Analyzer`, `CompareSurface`,
+ * `CompareView` (twice), `GroupProposalBanner` and `RecentFlights`. They spanned **three element
+ * types, two hues, two paddings and two type sizes** while being one treatment — the same
+ * vocabulary-is-short-a-word shape as `Button variant="link"` and the chip's semantic tones, and
+ * the third instance of it in one run.
+ *
+ * **Three things the census decided, each of which a guessed API would have got wrong:**
+ *
+ * - **`as`, because there are three elements and all three are right.** `<p>` where the notice IS
+ *   one sentence, `<div>` where it holds a sentence plus controls, `<section aria-label>` where it
+ *   is a named region a screen reader should be able to jump to. Forcing one would have degraded
+ *   two.
+ * - **No `role` of its own — it is passed through, and that is deliberate.** Four of the six put
+ *   `role="status"` on the box; `GroupProposalBanner` deliberately does NOT, and its own comment
+ *   says why: `role="status"` implies `aria-atomic`, so wrapping a panel that contains a control
+ *   re-announces the entire panel — both file names, the whole reason sentence — over the flyer's
+ *   own action every time they press it. A primitive that hard-coded the role would have
+ *   reintroduced a bug that file had already fixed.
+ * - **`text-sm`, not `text-xs`.** Five of the six were `text-xs`, which §3 reserves for "captions,
+ *   units, footnotes, dense table metadata" against `text-sm` as "the body default — every label,
+ *   value, control and table cell". "3 flights were forgotten to make room", "map the columns and
+ *   it joins this comparison" — a flyer reads these and acts. `GroupProposalBanner` was the one
+ *   already at `text-sm`, and it is the one that got it right.
+ *
+ * **`py-2`, and it is a judgement rather than a correction.** Three of the six were `px-3 py-1.5`
+ * and three `px-3 py-2`; the primitive has to pick one. A first version of this comment claimed
+ * `py-1.5` was off §4's scale and invisible to §9's spacing grep — **wrong on the first half.**
+ * §4's table names `px-3 py-1.5` explicitly, as the padding *inside a control*. A notice is not a
+ * control and not a card (`p-4`), so §4 gives it no value and `py-2` is chosen: it is on the bare
+ * scale, and it matches the three that already hold more than one line.
+ *
+ * *(The grep observation is true and stands on its own — `\b((p|m)[xytblr]?|…)-[0-9]+\b` matches
+ * `py-1` inside `py-1.5` and passes it as on-scale, so §9's off-scale-spacing count of 0 cannot
+ * see any half-step. Repo-wide that is 60 of them. It just is not a defect HERE, because this one
+ * is sanctioned. Filed in `BACKLOG.md`, since `py-2.5` — which §4 does not name anywhere — hides
+ * behind the same hole.)*
+ */
+export function Notice({
+  as: Tag = 'div',
+  tone = 'warn',
+  className,
+  children,
+  ...rest
+}: {
+  as?: 'div' | 'p' | 'section' | 'aside';
+  tone?: NoticeTone;
+  className?: string;
+  children?: React.ReactNode;
+} & React.HTMLAttributes<HTMLElement>) {
+  // Same narrowing as `Card` and for the same reason: JSX takes the INTERSECTION of a tag union's
+  // prop types, so typing against one arm is what makes the other three compile.
+  const El = Tag as 'div';
+  return (
+    <El className={cx('rounded-md border px-3 py-2 text-sm', NOTICE_TONES[tone], className)} {...rest}>
+      {children}
+    </El>
+  );
+}
+
 /** A bordered clip around content that owns its own surface, and the ONE thing that separates it
  *  from `Card` is that it has no background.
  *

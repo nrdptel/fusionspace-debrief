@@ -22,7 +22,7 @@ import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { emptyFolderMessage } from './Analyzer';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
-import { Card } from './ui';
+import { Card, Notice } from './ui';
 
 /**
  * The comparison surface: a launch day's flights lined up side by side, as its own route.
@@ -418,12 +418,9 @@ export default function CompareSurface() {
       )}
 
       {note && (
-        <p
-          role="status"
-          className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
-        >
+        <Notice as="p" role="status">
           {note}
-        </p>
+        </Notice>
       )}
 
       {/* Add flights right here. Deliberately compact rather than the analyze page's hero
