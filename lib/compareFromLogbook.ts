@@ -9,7 +9,7 @@
 // flights to one bad file. A file that needed a hand-made column mapping comes back with
 // that mapping, which the logbook now stores beside the text.
 
-import { getRecent } from './recents';
+import { readRecent, STORAGE_REFUSED } from './recents';
 import { importRecent } from './reopen';
 import { analyzeAsync } from './analyze/runner';
 import { buildComparison, MAX_COMPARE, type Comparison, type CompareInput } from './compare';
@@ -40,9 +40,11 @@ export async function compareFromLogbook(ids: string[]): Promise<LogbookComparis
   for (const id of ids.slice(0, MAX_COMPARE)) {
     let name = id;
     try {
-      const rec = await getRecent(id);
+      const { rec, blocked } = await readRecent(id);
       if (!rec) {
-        skipped.push({ name, why: 'no longer in this logbook' });
+        // A refusal is not a deletion. Reporting every id as "no longer in this logbook" told a
+        // flyer with a blocked private window that their flights had been thrown away.
+        skipped.push({ name, why: blocked ? STORAGE_REFUSED : 'no longer in this logbook' });
         continue;
       }
       name = rec.name;

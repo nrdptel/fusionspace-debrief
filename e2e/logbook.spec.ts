@@ -871,3 +871,32 @@ test('a browser that refuses storage says so, instead of promising to remember',
     .setInputFiles({ name: 'cert.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 });
+
+test('a storage refusal is not reported as a deletion', async ({ page }) => {
+  // Two surfaces used to accuse the flyer's own device of losing a flight nobody had asked for:
+  // `compareFromLogbook` reported every id as "no longer in this logbook", and the ?open=<id> deep
+  // link said the flight "could no longer be read". A refusal is not a deletion.
+  //
+  // This does NOT claim the app has one voice for the condition — it does not; `STORAGE_REFUSED`'s
+  // own doc lists what still has its own wording and why. It claims exactly the two fixes made.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', { configurable: true, get: () => undefined });
+  });
+
+  // The deep link. Asserted on the ERROR CARD, not on the page: the logbook list below renders its
+  // own blocked paragraph on every `/`, so a page-level locator was satisfied by that alone and
+  // stayed green with the deep-link defect fully restored.
+  await page.goto('/?open=some-saved-id');
+  // Filtered to the card about the saved flight: the page carries another alert of its own.
+  const errorCard = page.getByRole('alert').filter({ hasText: /saved flight|link points at/ });
+  await expect(errorCard).toBeVisible();
+  await expect(errorCard, 'the error names the refusal, not a deletion').toContainText(
+    /won.t let Debrief read or keep a logbook/,
+  );
+  await expect(errorCard, 'and does not say the flight is gone').not.toContainText(/no longer/);
+
+  // The comparison permalink, which must not report the flights as deleted.
+  await page.goto('/compare?ids=a,b');
+  const skipNote = page.getByRole('status').filter({ hasText: /a, b|Couldn|read those flights/ });
+  await expect(skipNote.first()).toContainText(/won.t let Debrief read or keep a logbook/);
+});

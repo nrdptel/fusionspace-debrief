@@ -91,6 +91,12 @@ hour on a fix that had to be thrown away.
 Every increment independently gated — `npm test` · `npm run build` · `npx playwright test`, all three
 green before every push — **with the corpus attached**.
 
+**All of it is MERGED AND LIVE.** Pull request #96 squashed to `a905949` on `main`; production was
+confirmed serving it, and confirmed by fetching the page rather than trusting `version.json`: the
+prerendered `/` now carries *"Looking for flights remembered on this device"* and **zero**
+occurrences of the promise it replaced, and `/compare/` no longer prerenders "Your logbook is
+empty". Zero assistant trace on the served site.
+
 ### 1. A superlative stops wearing a claim colour (`e5fc04e`)
 
 `DESIGN.md` §2 reserves its hues for meaning and says outright never to colour a number by whether it
@@ -121,7 +127,7 @@ Also corrected two stale roadmap pointers, each of which would have cost a sessi
 of P1", and **D8's status line said slice 2 remained** after its own body recorded it shipped and named
 its pinning assertions.
 
-### 2. The cross-check stops claiming a flyer's charges disagreed (pending push at time of writing)
+### 2. The cross-check stops claiming a flyer's charges disagreed (`3e2e8f1`)
 
 `recoveryDisagreement` fires when some compared recordings resolved a deployment and others carry
 only a whole-descent figure. It said the second group *"read a single descent with no deployment
@@ -135,7 +141,7 @@ not identify one in it*, and it points the flyer at the recordings instead of at
 validation page, the corpus invariant, the synthetic test and the regenerated digests all described
 a rule that is no longer there, so all of them went back.
 
-### 3. The logbook stops promising to remember flights it has not looked for (pending push)
+### 3. The logbook stops promising to remember flights it has not looked for (`38e0217`)
 
 `RecentFlights` used `recents.length === 0` for three of `DESIGN.md` §5's five states — empty,
 loading, and storage-refused — and only the first is what its copy says. **Every route here is a
@@ -156,7 +162,7 @@ empty"* fetches `/` and `/compare/` as raw HTML, before a line of JS runs. Besid
 that refuses storage says so"* removes `indexedDB` and checks the surface says so and that analysis
 still works. Both falsified by mutation.
 
-### 4. The logbook-states change, corrected after review (pending push)
+### 4. The logbook-states change, corrected after review (`9fb45ee`)
 
 **I pushed increment 3 before its review came back, and the review then found six real defects in
 it — one worse than the bug it fixed.** Nothing reached production, because the work was on a branch
@@ -223,6 +229,30 @@ flyer is shown, not what the parser keeps.**
 Everything measured is written into `ROADMAP.md`'s D8 section and `COMPETITION.md` row 27, including
 the requirement the next attempt has to meet (the statement must be extent-aware, and the extent is
 decided long after the parser that finds the repeat). Nothing was pushed.
+
+### 6. A storage refusal stops being reported as a deletion (pending push)
+
+Two surfaces accused the flyer's own device of losing a flight nobody had asked for:
+`lib/compareFromLogbook.ts` reported every id as *"no longer in this logbook"*, and the
+`/?open=<id>` deep link said *"That saved flight could no longer be read"*. `readRecent(id)` now
+reports `{ rec, blocked }` beside `readRecents`, and both say a shared `STORAGE_REFUSED` sentence.
+
+**The claim is narrower than the one I first wrote, and the narrowing is the useful part.** I set out
+to give the condition ONE VOICE and said in a doc comment that it reached four surfaces. Review
+measured **seven**, and showed the invariant the ambitious half rested on is false: `saveRecent`
+assigns its id straight after `store.put` **without awaiting the transaction**, with `onerror` and
+`onabort` `preventDefault()`ed — so a quota abort returns a **non-null id with nothing stored**. A
+`/compare` change built on "a failed save has a null `savedId`" was therefore correct only for the
+case an `addInitScript` stub simulates, and the rarest one in the wild. Reverted the same day.
+
+**The worst member of that family is filed and should be fixed first:** `importLogbook` resolves on
+`transaction.onabort` and returns `flights.length` regardless, so a refused restore reports
+*"Restored 12 flights."* — and the logbook's Clear confirm offers that same export as the safe way
+out before the app's only irreversible action. It tells a flyer their backup landed when it did not.
+
+**And my pin would have passed with the defect present.** The first version asserted at page level,
+where the logbook's own blocked paragraph — which renders on every `/` — satisfied it on its own.
+It asserts on the ERROR CARD now, and fails on exactly the mutation that restores the old message.
 
 ## Traps this run hit — read these before repeating them
 

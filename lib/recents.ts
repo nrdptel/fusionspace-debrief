@@ -501,6 +501,32 @@ export function toMeta(rec: RecentFlight): RecentMeta {
 }
 
 /**
+ * What Debrief says when the browser refuses it storage.
+ *
+ * **Two surfaces say it today, and this is NOT yet the app's single voice — measured, not assumed.**
+ * The condition reaches at least seven places. `compareFromLogbook` used to report each id as
+ * *"no longer in this logbook"* and the `?open=<id>` deep link said *"That saved flight could no
+ * longer be read"*; both accused the flyer's device of deleting a flight nobody had asked for, and
+ * both say this instead. The logbook list has its own wording of the same fact
+ * (`RecentFlights.tsx`), which is deliberately longer because it is a whole state rather than one
+ * line in a note.
+ *
+ * **What still has its own wording, and why they were not folded in here:** `CompareSurface` has
+ * two more (a file that would not store, and the drop box's own line), and `RecentFlights`'s
+ * import path has two — one of which reports *"Restored N flights"* on a restore the browser
+ * refused, which is the worst direction this family runs in because it tells a flyer their backup
+ * is safe to delete. Those three need the WRITE path to report failure at all, and it does not:
+ * `saveRecent` assigns its id straight after `store.put` without awaiting the transaction, and
+ * `importLogbook` resolves on `onabort`, so a quota refusal returns a non-null id and a cheerful
+ * count. Fixing that is a change to the storage layer and its own increment; `BACKLOG.md` carries
+ * it with the repro.
+ *
+ * A storage refusal is not a deletion and must never be reported as one.
+ */
+export const STORAGE_REFUSED =
+  'this browser won’t let Debrief read or keep a logbook on this device';
+
+/**
  * The logbook, and whether it could be read at all.
  *
  * **`listRecents()` cannot answer the second question, and that is the defect this exists for.**
@@ -528,13 +554,21 @@ export async function listRecents(): Promise<RecentMeta[]> {
   return (await readRecents()).recents;
 }
 
-export async function getRecent(id: string): Promise<RecentFlight | null> {
+/** One saved flight, and whether the logbook could be read at all — see `readRecents` for why the
+ *  second half has to be separate. `null` with `blocked: false` means the id is genuinely gone;
+ *  `blocked: true` means nothing was asked, so nothing is known about that id. */
+export async function readRecent(id: string): Promise<{ rec: RecentFlight | null; blocked: boolean }> {
   try {
     const db = await idb();
-    return (await reqToPromise(tx(db, 'readonly').get(id) as IDBRequest<RecentFlight>)) ?? null;
+    const rec = (await reqToPromise(tx(db, 'readonly').get(id) as IDBRequest<RecentFlight>)) ?? null;
+    return { rec, blocked: false };
   } catch {
-    return null;
+    return { rec: null, blocked: true };
   }
+}
+
+export async function getRecent(id: string): Promise<RecentFlight | null> {
+  return (await readRecent(id)).rec;
 }
 
 export async function removeRecent(id: string): Promise<void> {
