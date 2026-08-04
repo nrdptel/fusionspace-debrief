@@ -208,25 +208,24 @@ up in full in `ROADMAP.md`.
 
 ## Pick this up first
 
-Everything the first version of this list named was shipped in the same run — `#124`, `#125` and
-`#126`. What is left:
+Everything the first version of this list named was shipped in the same run — `#124`, `#125`,
+`#126` and `#128`. What is left:
 
 1. **D9 slice 4**, per the scoping above. It is the only queued milestone increment on either track
    that is scoped and not started, and the measurement it needs has been taken.
-2. **A probe script in the repo root fails `npm run build`** — `tsconfig.json` includes root `.ts`
-   files while `.gitignore` only stops them being committed, so the gate goes red for exactly the
-   stretch of work where probes are being leaned on hardest. **This bit twice in one run.** One line
-   in `tsconfig.json`.
-3. **The `.ork` acceleration convention is still unverified** (`BACKLOG.md`). Debrief claims neither
+2. **The `.ork` acceleration convention is still unverified** (`BACKLOG.md`). Debrief claims neither
    convention for a design and says so in the design's own note, which is honest but is a sentence
    standing in for a fact. What closes it: a corpus flight carrying both a design and a log, or
    OpenRocket's own source.
-4. **`FlightPicker` and `RecordingPicker`** are the two chip-census entries whose reason is
+3. **`FlightPicker` and `RecordingPicker`** are the two chip-census entries whose reason is
    "two-line selectable option, a card in a picker rather than a token in a row". That reason is
    sound and it has now survived two censuses; the third time it is worth asking whether the
    vocabulary is short a word rather than re-recording the exception.
 
 ## The done-check, executed — what each step returned
+
+*(Run at six merges; the run went on to nine PRs and 1,155 tests. The counts below are the ones the
+check itself returned at the time, left as measured rather than rewritten upward.)*
 
 1. **Corpus sweep: 0 findings.** `npm test` → **1,151 tests across 77 files**, of which
    `corpus.test.ts` is 143 over the manifest's **62 fixtures** with **50** covered by the digest
