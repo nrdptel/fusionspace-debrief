@@ -21,6 +21,7 @@ import { altimeterCloudParser } from './altimeterCloud';
 import { missileworksRrc3Parser } from './missileworksRrc3';
 import { missileworksRffParser } from './missileworksRff';
 import { deviceSummaryParser } from './deviceSummary';
+import { openRocketParser } from './openrocket';
 import { refuseRawDownload } from './rawDownload';
 
 export type { FileInput, ParseInput, Parser } from './types';
@@ -42,6 +43,10 @@ export const PARSERS: Parser[] = [
   // Not a flight at all — a device's key,value summary export. Registered so it is
   // recognised and explained rather than dropped into the column mapper.
   deviceSummaryParser,
+  // Also not a flight: an OpenRocket design and the simulation results it states.
+  // A PREDICTION, registered for the same reason — so it is recognised and explained
+  // rather than offered to the column mapper as a table of XML.
+  openRocketParser,
 ];
 
 const AUTO_THRESHOLD = 0.6;

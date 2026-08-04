@@ -5,14 +5,22 @@
 
 import type { FlightEvent, FlightMetrics } from '@/lib/analyze/types';
 import type { ReportedValue } from '@/lib/flight/types';
-import { fmtAccel, fmtLength, fmtSpeed } from '@/lib/display';
+import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
-import { compareReported, REPORTED_QUANTITY } from '@/lib/flight/reported';
+import { compareReported, renderReported } from '@/lib/flight/reported';
 import { Card, Chip, DataTable } from './ui';
 
 function fmt(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
-  const q = REPORTED_QUANTITY[metric];
-  return q === 'length' ? fmtLength(si, sys) : q === 'speed' ? fmtSpeed(si, sys) : fmtAccel(si, sys);
+  return renderReported(metric, {
+    length: () => fmtLength(si, sys),
+    speed: () => fmtSpeed(si, sys),
+    accel: () => fmtAccel(si, sys),
+    // Seconds and Mach are the same in both unit systems, so neither is converted —
+    // but both already have a formatter, and every other figure on this surface goes
+    // through one.
+    time: () => fmtTime(si),
+    mach: () => fmtMach(si),
+  });
 }
 
 type Row = {

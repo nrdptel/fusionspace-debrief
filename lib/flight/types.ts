@@ -65,10 +65,11 @@ export interface Channel {
   gravityRemoved?: boolean;
 }
 
-/** A headline figure the logger computed and wrote into the file itself — its own
- *  apogee, max velocity, and so on. Kept as first-class, provenance-labelled data
- *  so it can be shown beside Debrief's independent read as a cross-check, never
- *  blended into it. `metric` names the analysis field it lines up against. */
+/** A headline figure some instrument other than Debrief's own analysis states — the
+ *  logger's own apogee and max velocity, or a simulator's prediction of them. Kept as
+ *  first-class, provenance-labelled data so it can be shown beside Debrief's independent
+ *  read as a cross-check, never blended into it. `metric` names the analysis field it
+ *  lines up against. */
 export interface ReportedValue {
   metric:
     | 'apogeeAltitude'
@@ -83,12 +84,39 @@ export interface ReportedValue {
      *  states them is often the only source there is: on a Blue Raven the board reports the
      *  charge's own channel, which no barometric trace can recover. */
     | 'apogeeShock'
-    | 'mainShock';
+    | 'mainShock'
+    /** Stated by a PREDICTION, and each names a `FlightMetrics` field Debrief already
+     *  measures, so all three cross-check directly. */
+    | 'maxMach'
+    | 'timeToApogee'
+    | 'flightTime'
+    /** Also stated by a prediction, and these four name NOTHING Debrief measures — on
+     *  purpose. The nearest field is not the same quantity: `groundHitVelocity` is the
+     *  speed at impact where `mainDescentRate` is an average over the main leg, and this
+     *  repo has already paid for letting two descent figures share a field (four
+     *  recordings of one flight "disagreed" by 121.6% because three measured a main leg
+     *  and the fourth measured the whole descent). `optimumDelay` is not a measurement at
+     *  all — it is the simulator's recommendation, which Debrief reads and repeats but
+     *  would never compute, since recommending a delay is simulating.
+     *
+     *  `compareReported` yields no verdict for these, which is the honest outcome: a
+     *  stated figure with nothing to check it against. */
+    | 'groundHitVelocity'
+    | 'launchRodVelocity'
+    | 'deploymentVelocity'
+    | 'optimumDelay';
   /** Human label as Debrief presents it, e.g. "Apogee". */
   label: string;
-  /** The value in canonical SI (m, m/s, m/s²), converted from the file's unit. */
+  /** The value in canonical SI (m, m/s, m/s², s, or a dimensionless Mach), converted
+   *  from the file's unit. */
   value: number;
-  source: 'device';
+  /** Which kind of instrument said so. `'device'` is a logger's own computed figure —
+   *  another *measurement* of the flight that was flown. `'predicted'` is a simulator's
+   *  statement about a flight that had not happened yet. The two are never merged and
+   *  never presented as agreeing or disagreeing in the same voice: two devices that
+   *  differ is a discrepancy worth chasing, while a flight that missed its prediction
+   *  is not an error at all — it is the answer. */
+  source: 'device' | 'predicted';
 }
 
 export interface RawFlight {

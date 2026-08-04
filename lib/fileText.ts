@@ -1,14 +1,18 @@
 import { decodeBytes } from './encoding';
 import { toCsv } from './csv';
 import { looksLikeXlsx, xlsxToRows } from './parsers/xlsx';
+import { looksLikeOrk, orkToXml } from './parsers/openrocket';
 
-// Turn a dropped file's raw bytes into the CSV-shaped text the importer reads.
+// Turn a dropped file's raw bytes into the text the importer reads.
 // An .xlsx workbook is unzipped in the browser and its first sheet flattened to
-// CSV, so a spreadsheet drops in like any logger export; every other file is
-// decoded from its bytes with the encoding sniffed (UTF-8 / UTF-16). Async only
-// because inflating the workbook's ZIP members is.
+// CSV, so a spreadsheet drops in like any logger export; an OpenRocket .ork is
+// unzipped to the design XML inside it; every other file is decoded from its bytes
+// with the encoding sniffed (UTF-8 / UTF-16). Async only because inflating a ZIP
+// member is — which is the whole reason this step exists ahead of the parsers,
+// since `Parser.parse` is synchronous.
 export async function fileToText(name: string, bytes: Uint8Array): Promise<string> {
   if (looksLikeXlsx(name, bytes)) return toCsv(await xlsxToRows(bytes));
+  if (looksLikeOrk(name, bytes)) return orkToXml(bytes);
   return decodeBytes(bytes);
 }
 

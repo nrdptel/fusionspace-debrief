@@ -12,96 +12,21 @@
 // back gracefully instead of failing silently.
 
 import { ParseGuidanceError } from './types';
+import { decodeXml, looksLikeZip, readCentralDirectory, readMember, tagAttr, type ZipContext, type ZipMember } from '../zipRead';
 
 /** An .xlsx is a ZIP, which begins with the local-file-header magic "PK\x03\x04". */
 export function looksLikeXlsx(name: string, bytes: Uint8Array): boolean {
-  const zip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
-  return zip && /\.xlsx$/i.test(name);
+  return looksLikeZip(bytes) && /\.xlsx$/i.test(name);
 }
 
-interface ZipEntry {
-  method: number;
-  compressedSize: number;
-  localHeaderOffset: number;
-}
-
-function u16(v: DataView, o: number): number {
-  return v.getUint16(o, true);
-}
-function u32(v: DataView, o: number): number {
-  return v.getUint32(o, true);
-}
-
-/** Parse a ZIP's central directory into a name → entry map. Sizes are read from
- *  the central directory (always authoritative), not the local headers, which may
- *  be zeroed when a streaming writer uses a trailing data descriptor. */
-function readCentralDirectory(bytes: Uint8Array): Map<string, ZipEntry> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  // Find the End Of Central Directory record (0x06054b50) by scanning back from
-  // the end, past the variable-length comment (max 65535 bytes).
-  const min = Math.max(0, bytes.length - (22 + 0xffff));
-  let eocd = -1;
-  for (let i = bytes.length - 22; i >= min; i--) {
-    if (u32(view, i) === 0x06054b50) {
-      eocd = i;
-      break;
-    }
-  }
-  if (eocd < 0) throw new ParseGuidanceError('This .xlsx file is not a readable ZIP archive (no directory found). It may be corrupt.');
-
-  const count = u16(view, eocd + 10);
-  let p = u32(view, eocd + 16); // central directory offset
-  const entries = new Map<string, ZipEntry>();
-  const dec = new TextDecoder('utf-8');
-  for (let i = 0; i < count; i++) {
-    if (u32(view, p) !== 0x02014b50) break; // central file header signature
-    const method = u16(view, p + 10);
-    const compressedSize = u32(view, p + 20);
-    const nameLen = u16(view, p + 28);
-    const extraLen = u16(view, p + 30);
-    const commentLen = u16(view, p + 32);
-    const localHeaderOffset = u32(view, p + 42);
-    const name = dec.decode(bytes.subarray(p + 46, p + 46 + nameLen));
-    entries.set(name, { method, compressedSize, localHeaderOffset });
-    p += 46 + nameLen + extraLen + commentLen;
-  }
-  return entries;
-}
-
-async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
-  const ds = new DecompressionStream('deflate-raw');
-  const writer = ds.writable.getWriter();
-  // Runtime data is always ArrayBuffer-backed; the cast satisfies the stricter
-  // Uint8Array<ArrayBuffer> stream-writer signature in current lib.dom.
-  writer.write(bytes as Uint8Array<ArrayBuffer>);
-  writer.close();
-  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
-}
-
-/** Extract one archive member's bytes, inflating it if it was DEFLATE-compressed. */
-async function readEntry(bytes: Uint8Array, entry: ZipEntry): Promise<Uint8Array> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const o = entry.localHeaderOffset;
-  if (u32(view, o) !== 0x04034b50) throw new ParseGuidanceError('This .xlsx file is damaged (a member could not be located).');
-  const nameLen = u16(view, o + 26);
-  const extraLen = u16(view, o + 28);
-  const start = o + 30 + nameLen + extraLen;
-  const data = bytes.subarray(start, start + entry.compressedSize);
-  if (entry.method === 0) return data.slice(); // stored, no compression
-  if (entry.method === 8) return inflateRaw(data); // DEFLATE
-  throw new ParseGuidanceError('This .xlsx uses an unsupported compression method. Re-save it from your spreadsheet app and try again.');
-}
-
-const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
-function decodeXml(s: string): string {
-  return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (m, code: string) => {
-    if (code[0] === '#') {
-      const cp = code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-      return Number.isFinite(cp) ? String.fromCodePoint(cp) : m;
-    }
-    return XML_ENTITIES[code] ?? m;
-  });
-}
+/** What the shared ZIP reader needs to speak about an .xlsx in the flyer's terms. */
+const ZIP: ZipContext = {
+  what: '.xlsx',
+  resaveAdvice: 'Re-save it from your spreadsheet app and try again.',
+  fail: (message) => {
+    throw new ParseGuidanceError(message);
+  },
+};
 
 /** Concatenate the text of every <t> run inside an XML fragment (a shared-string
  *  <si> or an inline-string <is> can hold several runs across formatting). */
@@ -130,7 +55,7 @@ function colIndex(ref: string): number {
   return n - 1;
 }
 
-const attr = (tag: string, name: string): string | null => tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? null;
+const attr = tagAttr;
 
 /** Read a worksheet's rows into dense arrays of cell text, resolving shared strings. */
 function parseSheet(xml: string, shared: string[]): string[][] {
@@ -170,7 +95,7 @@ function parseSheet(xml: string, shared: string[]): string[][] {
 
 /** Resolve the first worksheet's part name from the workbook, falling back to the
  *  conventional xl/worksheets/sheet1.xml when the relationships can't be followed. */
-function firstSheetPath(entries: Map<string, ZipEntry>, workbookXml: string | null, relsXml: string | null): string {
+function firstSheetPath(entries: Map<string, ZipMember>, workbookXml: string | null, relsXml: string | null): string {
   if (workbookXml && relsXml) {
     const rid = attr(workbookXml.match(/<sheet\b[^>]*>/)?.[0] ?? '', 'r:id');
     if (rid) {
@@ -188,11 +113,11 @@ function firstSheetPath(entries: Map<string, ZipEntry>, workbookXml: string | nu
 
 /** Read the first worksheet of an .xlsx workbook into a table of cell strings. */
 export async function xlsxToRows(bytes: Uint8Array): Promise<string[][]> {
-  const entries = readCentralDirectory(bytes);
+  const entries = readCentralDirectory(bytes, ZIP);
   const textOf = async (name: string): Promise<string | null> => {
     const e = entries.get(name);
     if (!e) return null;
-    return new TextDecoder('utf-8').decode(await readEntry(bytes, e));
+    return new TextDecoder('utf-8').decode(await readMember(bytes, e, ZIP));
   };
 
   const workbookXml = await textOf('xl/workbook.xml');

@@ -25,7 +25,7 @@ import {
   unitsOf,
 } from './display';
 import type { UnitChoice } from './display';
-import { compareReported, REPORTED_QUANTITY } from './flight/reported';
+import { compareReported, renderReported } from './flight/reported';
 import { formatFlownAt } from './flight/flownAt';
 import {
   crossCheck,
@@ -322,8 +322,16 @@ export function reportTable(
 }
 
 function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoice): string {
-  const q = REPORTED_QUANTITY[metric];
-  return q === 'length' ? fmtLength(si, sys) : q === 'speed' ? fmtSpeed(si, sys) : fmtAccel(si, sys);
+  return renderReported(metric, {
+    length: () => fmtLength(si, sys),
+    speed: () => fmtSpeed(si, sys),
+    accel: () => fmtAccel(si, sys),
+    // Seconds and Mach are the same in both unit systems, so neither is converted —
+    // but both already have a formatter, and every other figure in this report goes
+    // through one.
+    time: () => fmtTime(si),
+    mach: () => fmtMach(si),
+  });
 }
 
 /** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
@@ -1348,14 +1356,26 @@ export function analysisJson(
   const { metrics: m, events, warnings, series } = analysis;
   const { round, len, spd, acc, sec } = jsonConv(sys);
   const u = jsonUnits(sys);
-  const reportedNum = (metric: ReportedValue['metric'], si: number) => {
-    const q = REPORTED_QUANTITY[metric];
-    return q === 'length' ? len(si) : q === 'speed' ? spd(si) : acc(si);
-  };
-  const reportedUnit = (metric: ReportedValue['metric']) => {
-    const q = REPORTED_QUANTITY[metric];
-    return q === 'length' ? u.length : q === 'speed' ? u.speed : u.acceleration;
-  };
+  const reportedNum = (metric: ReportedValue['metric'], si: number) =>
+    renderReported(metric, {
+      length: () => len(si),
+      speed: () => spd(si),
+      accel: () => acc(si),
+      // Seconds and Mach are the same in both unit systems, so neither is converted.
+      time: () => sec(si),
+      mach: () => round(si, 3),
+    });
+  const reportedUnit = (metric: ReportedValue['metric']) =>
+    renderReported(metric, {
+      length: () => u.length,
+      speed: () => u.speed,
+      accel: () => u.acceleration,
+      // Read from the document's OWN units block rather than restated here. This field names
+      // which of the document's units the pair is in, so a literal that disagreed with
+      // `units.time` / `units.mach` would make one JSON document contradict itself.
+      time: () => u.time,
+      mach: () => u.mach,
+    });
   const label = clean(meta?.label);
   const notes = clean(meta?.notes);
 

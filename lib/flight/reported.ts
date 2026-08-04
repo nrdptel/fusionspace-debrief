@@ -62,16 +62,46 @@ export function extractReportedSummary(metadataRows: string[][]): ReportedValue[
  *  velocity and descent rate (both speeds, both carried by every AltimeterCloud file) were
  *  divided by g before being printed under `units.speed`. The on-screen panel had the same
  *  chain, and would have done the same to the drogue rate the moment one existed. */
-export const REPORTED_QUANTITY: Record<ReportedValue['metric'], 'length' | 'speed' | 'accel'> = {
+export type ReportedQuantity = 'length' | 'speed' | 'accel' | 'time' | 'mach';
+
+export const REPORTED_QUANTITY: Record<ReportedValue['metric'], ReportedQuantity> = {
   apogeeAltitude: 'length',
   maxVelocity: 'speed',
   burnoutVelocity: 'speed',
   mainDescentRate: 'speed',
   drogueDescentRate: 'speed',
+  groundHitVelocity: 'speed',
+  launchRodVelocity: 'speed',
+  deploymentVelocity: 'speed',
   maxAcceleration: 'accel',
   apogeeShock: 'accel',
   mainShock: 'accel',
+  timeToApogee: 'time',
+  flightTime: 'time',
+  optimumDelay: 'time',
+  // Dimensionless: a Mach number is the same in every unit system, so a renderer must
+  // NOT hand it to a converter. Its own quantity for exactly that reason.
+  maxMach: 'mach',
 };
+
+/**
+ * Render one reported figure by its quantity, with every quantity spelled out.
+ *
+ * The three surfaces that show the cross-check each used to write
+ * `q === 'length' ? … : q === 'speed' ? … : accel`, which is a chain that FALLS THROUGH
+ * to acceleration for anything it does not name. That is not hypothetical: the JSON copy
+ * tested only `maxVelocity`, so a device's own burnout velocity and descent rate — both
+ * speeds, both on every AltimeterCloud file — were divided by g and printed under a speed
+ * unit. Adding `time` and `mach` to the union would have put a flight time through the
+ * same funnel and printed seconds as g.
+ *
+ * So the chain is gone. A caller supplies one renderer per quantity and TypeScript checks
+ * the set is complete, which means the next metric added to `ReportedValue` cannot reach a
+ * surface without someone deciding how it reads there.
+ */
+export function renderReported<T>(metric: ReportedValue['metric'], by: Record<ReportedQuantity, () => T>): T {
+  return by[REPORTED_QUANTITY[metric]]();
+}
 
 /** Within this fraction the device's figure and Debrief's read agree tightly — the
  *  right bar for a well-defined peak (apogee, or a velocity read at one instant). */
@@ -158,8 +188,36 @@ function computedFor(metric: ReportedValue['metric'], metrics: FlightMetrics, ev
     const type = metric === 'apogeeShock' ? 'apogee' : 'main';
     return events?.find((e) => e.type === type)?.peakAccel ?? NaN;
   }
-  return (metrics[metric] as number | null | undefined) ?? NaN;
+  const field = METRIC_FIELD[metric];
+  // Four figures a prediction states have no counterpart Debrief measures, and picking
+  // the nearest field for them would be inventing an agreement. NaN reaches `hasComputed`
+  // as "nothing to compare", which is what is true — see the note on those members in
+  // `ReportedValue`.
+  if (field === null) return NaN;
+  return (metrics[field] as number | null | undefined) ?? NaN;
 }
+
+/** Which `FlightMetrics` field each reported metric is checked against, or null where
+ *  Debrief measures nothing comparable. A total `Record` rather than a chain, so a metric
+ *  added to `ReportedValue` fails to compile until someone answers this for it — the same
+ *  discipline `REPORTED_QUANTITY` applies to units. The two shocks are absent from the
+ *  lookup because `computedFor` resolves them from the event list before reaching it. */
+const METRIC_FIELD: Record<Exclude<ReportedValue['metric'], 'apogeeShock' | 'mainShock'>, keyof FlightMetrics | null> = {
+  apogeeAltitude: 'apogeeAltitude',
+  maxVelocity: 'maxVelocity',
+  maxAcceleration: 'maxAcceleration',
+  burnoutVelocity: 'burnoutVelocity',
+  mainDescentRate: 'mainDescentRate',
+  drogueDescentRate: 'drogueDescentRate',
+  timeToApogee: 'timeToApogee',
+  flightTime: 'flightTime',
+  // `FlightMetrics` calls the peak Mach simply `mach`.
+  maxMach: 'mach',
+  groundHitVelocity: null,
+  launchRodVelocity: null,
+  deploymentVelocity: null,
+  optimumDelay: null,
+};
 
 export function compareReported(
   reported: ReportedValue[],
