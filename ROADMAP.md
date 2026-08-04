@@ -1839,18 +1839,27 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
-**2026-08-04 — NOTHING SHIPPED ON THIS TRACK, and the run says so rather than dressing up what it
-did.** Every §9 count is exactly where it was: `rounded-lg` 0, card treatments 3, off-scale spacing
-0, off-scale type 1, inverted type files 11, `ui.tsx` adopters 35 of 48. What took the run was a
-Sev-1 (a descent rate published 2.4× too fast, which preempts by rule) and D9 slice 2, which ran
-long because the fixture it depended on turned out to be reachable by nobody. **The next run should
-open on the P-track and stay there** — the D-track has now had two consecutive runs.
+**2026-08-04 — `ChipButton` shipped, and §5 gained its sixth word.** The vocabulary was short a name
+for **a chip that DOES something** — a filter you toggle, an action on a row — and the scan that
+was supposed to catch hand-rolls could not see them: it read `<span|li|div>` only, so every
+chip-shaped BUTTON was invisible and the pin read green while four sat on the page. Widened to
+`button|a` it named six at once. Four converted; two are two-line picker options that match the
+predicate only because a bordered box looks like a bordered box, and a third wants `Segmented` —
+each recorded with its reason rather than left as a silence.
 
-Three P-track-adjacent things did land inside the D work, named here so nobody re-finds them: the
+**Counts that moved:** `invertedTypeFiles` **11 → 10** · `uiAdopters` **35 → 36** · three
+hand-rolled `py-0.5` chip treatments gone, the geometry now `Chip`'s own `px-2 py-1` so a static
+chip and an actionable one in the same row are one height. Unchanged: `rounded-lg` 0, card
+treatments 3, off-scale spacing 0, off-scale type 1.
+
+**Item 5 was also re-censused and both previously recorded denominators were wrong** — see below,
+and note that `offline` turned out not to be a debt at all: `DESIGN.md` §5 now records that Debrief
+is offline-complete, measured, rather than carrying a phantom 21-surface gap every run.
+
+Three more P-track-adjacent things landed inside the D work, named here so nobody re-finds them: the
 file picker stopped greying out `.ork`, `.xtra` and `.bin`, all of which the app can read and
 explain; every parser refusal now names the file it is refusing; and one refusal stopped instructing
-flyers to do something that could not help them. Item 5's census below was also re-measured and both
-previously recorded denominators were wrong.
+flyers to do something that could not help them.
 
 **2026-08-02, re-measured at the end of that day rather than carried forward — and four of the six
 clauses this paragraph used to carry were already false when written.** `Frame`, `NumberField` and
@@ -2150,10 +2159,16 @@ the artifact rather than the tree.
    primitive, not a conversion — which is why this item has looked like a sweep and stalled twice.
 
    **Ranked conversions, measured:**
-   - **`FlightReport.tsx` + `Analyzer.tsx:295`** — a full quota or an ITP eviction returns
-     `id: null` with no `else`, so nothing on screen says the flight was not kept. The one sentence
-     that would sits inside a `Disclosure` that defaults closed. `useLogbook`'s `write-blocked`
-     machinery already exists.
+   - **The save-refused path, and read this before scoping it — the census got it wrong and I
+     checked.** The claim filed was that `Analyzer.tsx:295` returns `id: null` "with no `else`,
+     save-failure swallowed". There IS an `else`: `Analyzer.tsx:301` calls
+     `logbook.reportWriteRefused()`, and six call sites across `Analyzer` and `CompareSurface` do
+     the same. The defect is real but it is a DIFFERENT one — the message lands on the **logbook**
+     (`RecentFlights.tsx`), which is not the surface the flyer is looking at when the save fails.
+     They are reading the report they just opened. So this is not a missing state; it is a state
+     announced somewhere else, which is a `Notice` on the report, not new machinery.
+     *Verified 2026-08-04 by reading all six call sites — an absence reported by an agent is a
+     claim like any other, and this one was a subtle affordance rather than a missing one.*
    - **`CompareView.tsx`** — 1,128 lines, the second-most-visited data surface, **zero** of the five.
      A bookmarked `/compare/?ids=…` whose flights were evicted shows nothing at all.
    - **`Chart.tsx`** — on every report; empty, loading and error all absent.

@@ -237,6 +237,30 @@ hand-rolls it instead is not done.
   the vocabulary being short a word, which is the same shape as the `link` button weight two
   entries up. `danger` ships with no adopter, on §2's symmetry rather than on measurement.
 
+- **`ChipButton`** — a chip that DOES something: a filter you toggle, an action on a row, an
+  "apply this view" affordance. Same geometry as `Chip` (`text-xs`, `rounded-md`, `px-2 py-1`), a
+  `focus-visible` ring, and `touch-area` so a token-sized control still meets §8's hit minimum.
+  `pressed` renders `aria-pressed` and mutes the unpressed state to dashed-and-faded; omit it for a
+  plain action, because announcing `aria-pressed="false"` on a button that does not toggle is worse
+  than silence.
+
+  **Added 2026-08-04, from a census of four, and the census is the story.** `Chip`'s hand-rolled
+  count had been driven to three — and the scan that measured it read `<span|li|div>` only, so
+  every chip-shaped BUTTON was invisible to it. It reported green while four sat on the page. Widen
+  it to `button|a` and six appear at once; all four that converted had written
+  `rounded-md border px-2 py-0.5 text-xs font-medium` with `min-h-[1.75rem]`, varying in exactly
+  three things — dashed border, pressed state, hover tint — which is why those are the three props
+  and there are no others. **The geometry moves to `py-1`**: §4 has no `-0.5`, and a static chip
+  beside an actionable one must not be two heights.
+
+  Two of the six are **not** chips and stay hand-rolled with a reason recorded: `FlightPicker` and
+  `RecordingPicker` are two-line selectable options at `min-h-11`, a card in a picker rather than a
+  token in a row. A third, `FlightReport`'s range picker, wants `Segmented` — its unselected state
+  is "not chosen yet", not "muted out", and one-of-N already has a primitive.
+
+  **The lesson is the one §9 keeps recording about its own greps**: a check that enumerates the tag
+  in front of it will read green over the whole class it forgot to name.
+
 ### Data
 - **`DataTable`** — sortable by any column, keyboard-navigable, copyable, with a sticky header. Every
   table is this one. "Tables you cannot sort, filter, or copy out of" is a named tell, and it is only
@@ -248,6 +272,34 @@ hand-rolls it instead is not done.
 
 ### States — every data surface implements all five
 `empty` · `loading` · `error` · `offline` · `extrapolated / out-of-envelope`
+
+**`offline` is required of a surface that CAN FAIL when the network does — and in Debrief today that
+is none of them. Measured 2026-08-04, and written down because the blanket reading of this heading
+was manufacturing a debt that does not exist.**
+
+A census kept reporting *"0 of 21 data surfaces implement offline, in a PWA"*, which sounds damning
+and is the wrong reading. `grep -rn 'fetch(' components app lib` returns **one** runtime network call
+in the whole app: the sample flight, in `Analyzer.tsx`. And that one does not need the network
+either — the service worker **precaches it at install**, so it opens with the radio off. That is not
+an inference; `e2e/pwa.spec.ts` pins all three halves of it: the app comes up offline after a single
+online visit, a dropped flight analyses with the network cut, and *the sample flight works on a first
+offline visit*. Everything else — parsing, analysis, every chart, table and export — runs on bytes
+already on the device, which is the product's headline promise.
+
+So Debrief is **offline-complete**, and a surface that cannot fail when the network does must not be
+given an offline state: it would be decoration that has to be maintained and can never fire. The
+count to keep is not "0 of 21 implement it" but "0 of 21 **need** it", and those are opposite
+findings. What earns this state is a surface that reaches the network *at the moment a flyer uses
+it* — a tile fetching a weather record, a map pulling tiles, a version check. If one ever exists, the
+rule for it is *say so before the flyer presses anything*, because a control that is enabled and
+fails only when pressed is a named tell in `MAINTAINING.md`.
+
+**Re-run the grep before re-measuring this, and check the precache too.** This clause is a statement
+about the code as it stands, not a permanent exemption — the moment a second `fetch` appears, or the
+sample stops being precached, the denominator changes. *A first attempt at this section got exactly
+that wrong: it read the single `fetch` and concluded the sample button was the one place the state
+was real, and shipped a change disabling that button offline. The suite refused it, because the
+button works offline and a test written by an earlier session said so.*
 
 - **`EmptyState`** — says what would fill it *and* the one action that does. Never "No data".
 - **`ErrorState`** — names the file or field that failed, what was expected, and the way forward.

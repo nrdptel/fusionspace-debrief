@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-04 — `FlightReport`'s range picker should be `Segmented`, not a hand-rolled chip.**
+  `components/FlightReport.tsx:1181` is a one-of-N range selector written as
+  `rounded-md border px-2 py-0.5 text-xs font-medium` with an indigo selected state. It is the one
+  chip-shaped control the `ChipButton` census did NOT convert, and the reason is a real distinction
+  rather than a dodge: `ChipButton`'s unpressed state is *muted out* — dashed and faded, correct for
+  a hidden event series — where an unselected RANGE is simply not chosen yet and must stay a normal
+  control. `Segmented` is the primitive for one-of-N and already exists (`ChannelExplorer` and the
+  "Reported by" banner use it). Left out of that increment because it changes the control's shape on
+  a surface the increment was not otherwise touching. Recorded in `lib/design-system.test.ts`'s
+  `DELIBERATE` map with the same reason, so the pin does not read green over it silently.
+
 - **2026-08-04 — "Couldn't read <file>" heads a message that says Debrief read the file perfectly
   well.** `components/Analyzer.tsx:814` uses one `ErrorState` heading for every `ParseGuidanceError`,
   but that class covers two different outcomes: a file Debrief genuinely could not parse, and a file
