@@ -59,6 +59,15 @@ must not run *during* the suite, which deletes `out/` from under the server. The
 a build, applying the `public/_headers` security headers so a local walk sees what production
 sends.
 
+**A whole-suite red that will not reproduce is probably the clock, not the code.** The corpus half
+reads real downloads off disk — up to 15 MB apiece — and under the load of a full 77-file run those
+tests take several times what they take alone. `vitest.config.ts` therefore sets `testTimeout`
+explicitly (30 s) rather than living on vitest's stock 5,000 ms, which 15 declarations had already
+been given a hand-written 60–300 s timeout to escape while 25 more were left on it. Before reading a
+line of the diff, re-run the failing file alone: on 2026-08-04 a whole-suite run failed on
+`blueraven.test.ts`'s roll-angle sweep at exactly 5,000 ms and the very next run passed 1,155/1,155,
+and the test measures 2,433 ms by itself.
+
 Next's own build only type-checks what the app imports, so the **test** files were never checked
 by the gate and their `FlightMetrics` fixtures had quietly drifted four fields behind the real type —
 a fixture that isn't the shape it claims silently stops exercising the readings built from the
