@@ -1077,6 +1077,39 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## SEV-1 — none open
 
+- **FIXED 2026-08-04 (was Sev-1, live in production until PR #121 merges): thrust-to-weight was
+  averaged over a COUNT OF SAMPLES, not over a window of time, so the figure quoted against the
+  5:1 rail rule read up to 25% low and disagreed with itself across two exports of one flight.**
+  `lib/analyze/index.ts` took `round(0.2 / dt)` samples where `dt` is the median interval of the
+  *whole record* — and a flight log's rate is never one number: AltusMetrum writes the pad slowly
+  and the boost fast, and the same board's `.csv` and `.eeprom` are written at different rates
+  again. So "a moment off the pad" was 0.2 s on a uniform record and as little as 0.02 s on the
+  rest, always short, always sampling before the motor was up to pressure.
+
+  Measured over all 18 corpus flights that publish one, every single value moved **up**:
+
+  | flight | published | correct |
+  |---|---|---|
+  | Kairos Booster `.csv` (median dt 0.04 s → 0.050 s window) | 4.98:1 | **6.44:1** |
+  | Kairos Booster `.eeprom` (median dt 0.10 s → 0.020 s window) | 4.83:1 | **6.44:1** |
+  | irec2023 TeleMega (0.05 s → 0.040 s window) | 9.49:1 | **11.95:1** |
+  | irec2023 EasyMega, same airframe (0.01 s → 0.200 s) | 11.23:1 | 11.34:1 |
+  | lilnuke 1785, one of four in one airframe | 14.48:1 | **16.30:1** |
+
+  The Kairos row is the one that names the defect exactly: **one device, one launch, two export
+  formats, two different published thrust-to-weights** — and the truth identical for both. The
+  four-altimeter lilnuke group, the tightest corroboration in the corpus, tightened from a 17%
+  spread to 5.6% as a side effect, which is independent evidence the new reading is the right one.
+  Under a 5:1 rule this is the difference between a flight that passes and one that does not.
+
+  Fixed by taking the window off the clock and time-weighting the mean (an index mean over a
+  stretch whose rate changes weights the densely-sampled part — at liftoff, the part after the
+  motor is already up). Pinned by two corpus invariants that both fail on the old code with the
+  numbers above: two recordings of one launch must agree within 10%, and two exports of one
+  recording within 2%. **The same index-mean-over-a-variable-rate-stretch shape sits on
+  `avgBoostAcceleration` two lines away** — its window is the whole boost, so the window is right
+  and only the weighting is in question; unmeasured, and it is the next thing to measure.
+
 - **FIXED 2026-08-01 (was Sev-1, live in production until PR #72 merges): five corpus flights
   published a drag coefficient and a Mach window off a velocity trace the analysis had refused.**
   `canMeasureDrag` asked about the altitude source and the coast geometry and never about
@@ -3579,6 +3612,16 @@ refuted. They are written down rather than fixed because each needs its own gate
   lat/lon without a Doppler speed, that would be too generous.
 
 ## Craft & product feel
+
+- **A probe script in the repo root fails `npm run build`, which is the one command it must not.**
+  `.gitignore` matches `*-tmp.*` so a stray `git add -A` cannot ship one — that half works. But
+  `tsconfig.json` includes root `.ts` files, so `npm run build` type-checks the probe: three
+  throwaway scripts written while measuring the thrust-to-weight defect turned the gate red on
+  `TS2339` in code that was never going to ship. The workflow the manual prescribes is to write a
+  probe, keep it until the finding is pinned, and delete it after — so the gate is red for exactly
+  the stretch where it is being leaned on hardest, and the failure names a file the flyer will
+  never see. Excluding `*-tmp.*` from `tsconfig.json` costs one line. Sev-3, and pure friction
+  rather than a defect in the product.
 
 - **`FigureChooser` hand-rolls a chip-shaped toggle the census cannot see.**
   `components/FigureChooser.tsx:90` is a `<button>` with `aria-pressed`, `rounded-md border`,
