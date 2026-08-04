@@ -1370,9 +1370,11 @@ export function analysisJson(
       length: () => u.length,
       speed: () => u.speed,
       accel: () => u.acceleration,
-      time: () => 's',
-      // Dimensionless — the JSON says so rather than naming a unit that does not exist.
-      mach: () => '',
+      // Read from the document's OWN units block rather than restated here. This field names
+      // which of the document's units the pair is in, so a literal that disagreed with
+      // `units.time` / `units.mach` would make one JSON document contradict itself.
+      time: () => u.time,
+      mach: () => u.mach,
     });
   const label = clean(meta?.label);
   const notes = clean(meta?.notes);

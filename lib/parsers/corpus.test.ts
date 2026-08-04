@@ -1791,11 +1791,15 @@ describe('the figures a device summary states, and the ones it states badly', ()
     // comparisons ending in `return fmtAccel(...)`, so a NEW speed metric would be divided by
     // g and printed under a speed's unit. That already happened once to burnout velocity and
     // the descent rate in the JSON copy. One Record, read by all three.
-    const metrics: ReportedValue['metric'][] = [
-      'apogeeAltitude', 'maxVelocity', 'maxAcceleration', 'burnoutVelocity', 'mainDescentRate', 'drogueDescentRate',
-    ];
+    // DERIVED from the Record, not a second hand-typed list. It was six names typed out here,
+    // which covered the metrics that existed the day it was written and silently ignored every
+    // one added since — so the eight that arrived with the prediction metrics (a Mach, three
+    // times, four figures with no counterpart) were outside a check whose name says "every".
+    // That is the same stale-enumeration error DESIGN.md §9 keeps correcting in its own greps.
+    const metrics = Object.keys(REPORTED_QUANTITY) as ReportedValue['metric'][];
+    expect(metrics.length, 'the sweep found the Record rather than reading nothing').toBeGreaterThan(6);
     for (const m of metrics) {
-      expect(REPORTED_QUANTITY[m], `${m} is classified`).toMatch(/^(length|speed|accel)$/);
+      expect(REPORTED_QUANTITY[m], `${m} is classified`).toMatch(/^(length|speed|accel|time|mach)$/);
     }
     // …and a speed is never classified as an acceleration, which is the failure mode.
     expect(REPORTED_QUANTITY.drogueDescentRate).toBe('speed');

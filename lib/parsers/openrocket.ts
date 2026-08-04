@@ -13,12 +13,25 @@
 // implementation for. The ten attributes are enough for the cross-check and they are the
 // part that is actually documented.
 //
-// **Units are proved from the file, not assumed off the spec page**, which defines none.
-// `maxvelocity / maxmach` is the speed of sound if and only if the velocity is m/s, and on
-// the corpus fixture the five simulations give 340.1, 338.7, 339.1, 339.1 and 339.1 m/s.
-// `readPrediction` re-checks that on every file it opens and drops the whole prediction
-// when it fails, so a future OpenRocket that writes feet cannot quietly publish a number
-// under a metre's label. See `openrocket.test.ts`.
+// **Units: what is proved, and what is only inferred.** The spec page defines no unit for any
+// of the ten, so this matters and the distinction is worth stating exactly rather than
+// rounding up to "SI is proved".
+//
+//   PROVED, per file, on every file: `maxvelocity / maxmach` is the speed of sound if and
+//   only if the velocity is metres per second. On the corpus fixture the five simulations
+//   give 340.1, 338.7, 339.1, 339.1 and 339.1. `readPrediction` re-runs that check on every
+//   file it opens and drops any run that fails it.
+//
+//   INFERRED for the other nine: OpenRocket's developer guide states the program "always
+//   uses internally pure SI units", and these ten attributes are written from that one
+//   internal model — so a build writing feet for the altitude would be writing feet for the
+//   velocity too, and would fail the check above. That is strong evidence, not proof: a
+//   build that converted ONLY on export, and only for some attributes, would pass. Nothing
+//   in the file can settle it, and claiming otherwise would be the false precision this
+//   project exists not to publish.
+//
+// An earlier version of this comment, and of the README line beside it, said the ten were
+// proved. One is.
 
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { ReportedValue } from '../flight/types';
@@ -97,13 +110,17 @@ export interface Prediction {
   runs: PredictedRun[];
 }
 
-/** Speed of sound used only to CHECK the file's units, never to compute anything. The
- *  test is deliberately loose: OpenRocket's own Mach is taken at the altitude of the peak,
- *  where the atmosphere is colder and the speed of sound lower than at sea level, so the
- *  ratio drifts a few percent down the more altitude a flight gains. Anything in this band
- *  is metres per second; feet per second would land near 1116, three times out. */
+/** Speed of sound used only to CHECK the file's units, never to compute anything.
+ *
+ *  Deliberately loose at both ends, because the launch conditions are the flyer's to set and
+ *  the Mach is taken at the altitude of the peak. Downward: a high flight peaks in colder
+ *  air, and c falls with √T — 280 m/s is about −52 °C, colder than the tropopause. Upward:
+ *  c = 331.3·√(1 + T/273.15) reaches 360 m/s at about 49 °C, which is a real desert launch
+ *  site, so the ceiling is set beyond it rather than at it. The band only has to separate
+ *  metres per second from the alternatives, and it does by a wide margin: feet per second
+ *  would land near 1116, three times outside. */
 const SOUND_MIN = 280;
-const SOUND_MAX = 360;
+const SOUND_MAX = 380;
 
 function num(tag: string, attr: string): number | null {
   const raw = tagAttr(tag, attr);
@@ -112,45 +129,99 @@ function num(tag: string, attr: string): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
-/** Isolate each `<simulation …>` … `</simulation>` block, with the start tag kept. */
+/** Isolate each `<simulation …>` … `</simulation>` block, with the start tag kept.
+ *
+ *  A self-closing `<simulation … />` is skipped rather than sliced from, and that is not a
+ *  hypothetical: OpenRocket writes one for a simulation that has never been run, and taking
+ *  `indexOf('</simulation>')` from it would run past the empty element and swallow the NEXT
+ *  simulation's `flightdata` — reporting one run's figures twice, under two names. */
 function simulationBlocks(xml: string): string[] {
   const out: string[] = [];
-  const re = /<simulation\b[^>]*>/g;
+  const re = /<simulation\b[^>]*?(\/?)>/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml))) {
+    if (m[1] === '/') continue; // <simulation … /> — an element with no content at all
     const end = xml.indexOf('</simulation>', m.index);
+    // An unclosed final element is truncated XML. Read what is there rather than throwing;
+    // an incomplete run fails the ten-attribute test below and is dropped on its own merits.
     out.push(xml.slice(m.index, end < 0 ? xml.length : end));
   }
   return out;
 }
 
+/** The text of the first `<tag>…</tag>` in a fragment, or null. A self-closing `<tag/>`
+ *  counts as PRESENT AND EMPTY rather than absent, so a caller can tell "no name element"
+ *  from "an element holding no name" — the two want different fallbacks. */
 function firstElementText(fragment: string, tag: string): string | null {
-  const m = fragment.match(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}>`));
-  return m ? decodeXml(m[1]).trim() : null;
+  const empty = new RegExp(`<${tag}\\b[^>]*/>`);
+  const full = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}>`);
+  const f = fragment.match(full);
+  const e = fragment.match(empty);
+  // Whichever comes first in the fragment is the one that is actually first.
+  if (f && e) return e.index! < f.index! ? '' : decodeXml(f[1]).trim();
+  if (e) return '';
+  return f ? decodeXml(f[1]).trim() : null;
 }
 
 /**
- * Read every simulation summary a `.ork` design states.
+ * The design's own name.
  *
- * Returns null when the file states no usable prediction at all — a design saved with no
- * simulation run, or one whose figures fail the units check. Null is the honest answer
- * there: a `.ork` really can carry a rocket and no prediction, and inventing one from the
- * geometry would be simulating.
+ * `<rocket>` opens with `<name>`, then `<subcomponents>` holding stages and parts that each
+ * carry a `<name>` of their own. So the search is bounded at `<subcomponents>`: an UNNAMED
+ * design writes `<name/>`, and reading the first `<name>` after `<rocket` would then walk
+ * straight into the first stage and report "Sustainer" as the name of the rocket — which is
+ * the failure the previous version of this function had while its comment claimed the
+ * opposite. An empty name reads as no name, not as the next thing along.
  */
-export function readPrediction(xml: string): Prediction | null {
-  if (!/<openrocket\b/.test(xml)) return null;
+function readRocketName(xml: string): string | null {
+  const open = xml.match(/<rocket\b[^>]*>/);
+  if (!open) return null;
+  const start = open.index! + open[0].length;
+  const sub = xml.indexOf('<subcomponents', start);
+  const head = xml.slice(start, sub < 0 ? Math.min(xml.length, start + 4000) : sub);
+  const name = firstElementText(head, 'name');
+  return name ? name : null;
+}
+
+/** Why a `.ork` yielded no prediction — the three cases need different sentences. */
+export type NoPrediction =
+  /** Not an OpenRocket file at all. */
+  | 'not-openrocket'
+  /** A design whose simulations have never been run: no `flightdata` anywhere. */
+  | 'never-simulated'
+  /** Simulations exist and state figures, but none survived — an incomplete attribute set,
+   *  or figures whose units could not be confirmed. Telling this flyer to go and run a
+   *  simulation would be wrong; they already have. */
+  | 'unusable';
+
+export interface PredictionRead {
+  prediction: Prediction | null;
+  why: NoPrediction | null;
+  /** The design's name, which is readable even when no prediction is. */
+  rocket: string | null;
+}
+
+/**
+ * Read every simulation summary a `.ork` design states, and say why when there is none.
+ *
+ * A `.ork` really can carry a rocket and no prediction — inventing one from the geometry
+ * would be simulating — but "no prediction" has three causes and they want three different
+ * sentences. A flyer whose design has never been simulated should be told to run one; a
+ * flyer whose five simulations were all dropped for an unreadable figure should not, because
+ * they already did and the instruction is a dead end.
+ */
+export function readPredictionDetail(xml: string): PredictionRead {
+  if (!/<openrocket\b/.test(xml)) return { prediction: null, why: 'not-openrocket', rocket: null };
   const root = xml.match(/<openrocket\b[^>]*>/)?.[0] ?? '';
   const creator = tagAttr(root, 'creator');
-  // The design's name is the first <name> in the file, inside <rocket>. Read from the
-  // rocket element rather than the document so a component's name can never stand in
-  // for it on a file whose ordering differs.
-  const rocketEl = xml.match(/<rocket\b[^>]*>[\s\S]*?<name>([\s\S]*?)<\/name>/);
-  const rocket = rocketEl ? decodeXml(rocketEl[1]).trim() : null;
+  const rocket = readRocketName(xml);
 
   const runs: PredictedRun[] = [];
+  let stated = 0;
   for (const block of simulationBlocks(xml)) {
     const tag = block.match(/<flightdata\b[^>]*>/)?.[0];
     if (!tag) continue; // a simulation that was never run states no flightdata at all
+    stated++;
 
     const values: ReportedValue[] = [];
     let complete = true;
@@ -182,8 +253,16 @@ export function readPrediction(xml: string): Prediction | null {
     });
   }
 
-  if (runs.length === 0) return null;
-  return { rocket, creator, runs };
+  if (runs.length === 0) {
+    return { prediction: null, why: stated === 0 ? 'never-simulated' : 'unusable', rocket };
+  }
+  return { prediction: { rocket, creator, runs }, why: null, rocket };
+}
+
+/** The prediction a `.ork` states, or null. The common case; use `readPredictionDetail`
+ *  when the REASON there is none has to be turned into a sentence. */
+export function readPrediction(xml: string): Prediction | null {
+  return readPredictionDetail(xml).prediction;
 }
 
 /**
@@ -206,20 +285,30 @@ export const openRocketParser: Parser = {
   },
 
   parse(input: ParseInput): never {
-    const prediction = readPrediction(input.text);
-    const name = prediction?.rocket ? `“${prediction.rocket}” ` : '';
+    const { prediction, why, rocket } = readPredictionDetail(input.text);
+    // The name is read off the design, so it is available in EVERY branch — including the
+    // ones where no prediction could be. A refusal that cannot name the file it is refusing
+    // is the least useful place to drop it.
+    const name = rocket ? `“${rocket}” ` : '';
+    const lead = `This is an OpenRocket design file ${name}— a rocket and its simulations, not a recording of a flight.`;
+
     if (!prediction) {
-      throw new ParseGuidanceError(
-        `This is an OpenRocket design file ${name}— a rocket and its simulations, not a recording of a flight. ` +
-          'It also states no simulation results, so there is nothing to compare a flight against yet. ' +
-          'Run a simulation in OpenRocket, save the design, then drop it in beside your flight log.',
-      );
+      // Three causes, three sentences. Telling a flyer whose simulations Debrief could not
+      // read to "run a simulation" would be a dead end: they already ran five.
+      const rest =
+        why === 'never-simulated'
+          ? ' It states no simulation results, so there is nothing to compare a flight against yet.' +
+            ' Run a simulation in OpenRocket, save the design, then drop it in beside your flight log.'
+          : ' It does state simulation results, but not in a form Debrief can read — either a figure is' +
+            ' missing from every run, or the units could not be confirmed, and a number Debrief cannot' +
+            ' place is one it will not publish. Re-saving the design from a current OpenRocket is worth a try.';
+      throw new ParseGuidanceError(lead + rest);
     }
+
     const n = prediction.runs.length;
     throw new ParseGuidanceError(
-      `This is an OpenRocket design file ${name}— a prediction, not a recording. ` +
-        `It states ${n === 1 ? 'one simulation' : `${n} simulations`}, which Debrief can show beside the flight you actually flew. ` +
-        'Drop it in together with the flight log from your altimeter.',
+      `${lead} It states ${n === 1 ? 'one simulation' : `${n} simulations`}, which Debrief can show beside the flight ` +
+        'you actually flew. Drop it in together with the flight log from your altimeter.',
     );
   },
 };

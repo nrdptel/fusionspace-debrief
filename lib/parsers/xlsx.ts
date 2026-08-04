@@ -19,11 +19,6 @@ export function looksLikeXlsx(name: string, bytes: Uint8Array): boolean {
   return looksLikeZip(bytes) && /\.xlsx$/i.test(name);
 }
 
-/** Every container failure this reader can hit is a user-facing one. */
-const fail = (message: string): never => {
-  throw new ParseGuidanceError(message);
-};
-
 /** What the shared ZIP reader needs to speak about an .xlsx in the flyer's terms. */
 const ZIP: ZipContext = {
   what: '.xlsx',

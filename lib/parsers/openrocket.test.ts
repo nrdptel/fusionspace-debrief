@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { looksLikeOrk, openRocketParser, orkToXml, readPrediction } from './openrocket';
 import { ParseGuidanceError } from './types';
-import { compareReported, REPORTED_QUANTITY } from '../flight/reported';
+import { compareReported, renderReported, REPORTED_QUANTITY } from '../flight/reported';
 import type { FlightMetrics } from '../analyze/types';
 
 const CORPUS = fileURLToPath(new URL('./__corpus__/', import.meta.url));
@@ -56,11 +56,50 @@ describe('OpenRocket .ork — reading a prediction', () => {
     expect(by.optimumDelay).toBe(2.751);
   });
 
-  it('every figure it reads is classified for units, so none can reach a surface unconverted', () => {
+  it('classifies each figure as the quantity it actually is, not merely as some quantity', () => {
+    // Written as hard-coded expectations rather than a regex over the union, because a regex
+    // built from the type's own members cannot fail: `REPORTED_QUANTITY` is typed
+    // `Record<…, ReportedQuantity>`, so `toMatch(/length|speed|accel|time|mach/)` is true by
+    // construction and would still pass with `maxMach: 'accel'`. These pin the mapping.
+    const expected: Record<string, string> = {
+      apogeeAltitude: 'length',
+      maxVelocity: 'speed',
+      maxAcceleration: 'accel',
+      maxMach: 'mach',
+      timeToApogee: 'time',
+      flightTime: 'time',
+      groundHitVelocity: 'speed',
+      launchRodVelocity: 'speed',
+      deploymentVelocity: 'speed',
+      optimumDelay: 'time',
+    };
+    const p = readPrediction(oneRun())!;
+    expect(p.runs[0].values).toHaveLength(Object.keys(expected).length);
+    for (const v of p.runs[0].values) {
+      expect(REPORTED_QUANTITY[v.metric], `${v.metric} is a ${expected[v.metric]}`).toBe(expected[v.metric]);
+    }
+  });
+
+  it('renders a time as a time and a Mach as a Mach — no quantity falls through to acceleration', () => {
+    // The defect this guards: all three cross-check renderers used to write
+    // `q === 'length' ? … : q === 'speed' ? … : accel`, so any unnamed quantity was divided
+    // by g. `renderReported` is total, and this proves the dispatch rather than the type.
+    const seen: string[] = [];
     const p = readPrediction(oneRun())!;
     for (const v of p.runs[0].values) {
-      expect(REPORTED_QUANTITY[v.metric], `${v.metric} is classified`).toMatch(/^(length|speed|accel|time|mach)$/);
+      seen.push(
+        renderReported(v.metric, {
+          length: () => 'length',
+          speed: () => 'speed',
+          accel: () => 'accel',
+          time: () => 'time',
+          mach: () => 'mach',
+        }),
+      );
     }
+    expect(seen.filter((s) => s === 'time')).toHaveLength(3);
+    expect(seen.filter((s) => s === 'mach')).toHaveLength(1);
+    expect(seen.filter((s) => s === 'accel')).toHaveLength(1);
   });
 
   it('says whether a run carries a saved time series, because most do not', () => {
@@ -111,6 +150,43 @@ describe('OpenRocket .ork — reading a prediction', () => {
     it('reads no prediction from something that is not an OpenRocket file', () => {
       expect(readPrediction('<html><body>not a rocket</body></html>')).toBeNull();
     });
+
+    it('does not let a self-closing simulation swallow the next one', () => {
+      // OpenRocket writes `<simulation … />` for one that has never been run. Scanning to the
+      // next `</simulation>` from it would run past the empty element and take the FOLLOWING
+      // simulation's flightdata — reporting one run's figures twice under two names.
+      const xml = design(
+        `<simulation status="notsimulated"/>` +
+          `<simulation status="uptodate"><name>Sim B</name><flightdata ${TEN}/></simulation>`,
+      );
+      const p = readPrediction(xml)!;
+      expect(p.runs).toHaveLength(1);
+      expect(p.runs[0].name).toBe('Sim B');
+      expect(p.runs[0].status).toBe('uptodate');
+    });
+  });
+
+  describe('whose name it reports', () => {
+    it('reads the design name, not the first component that happens to have one', () => {
+      // `<rocket>` opens with `<name>`, then `<subcomponents>` full of parts that each carry
+      // one. An UNNAMED design writes `<name/>`, and taking the first `<name>` after
+      // `<rocket` walks straight into the first stage.
+      const xml =
+        `<?xml version='1.0' encoding='utf-8'?><openrocket version="1.10" creator="OpenRocket 24.12">` +
+        `<rocket><name/><subcomponents><stage><name>Sustainer</name></stage></subcomponents></rocket>` +
+        `<simulations><simulation status="uptodate"><name>Simulation 1</name><flightdata ${TEN}/></simulation></simulations>` +
+        `</openrocket>`;
+      expect(readPrediction(xml)!.rocket).toBeNull();
+    });
+
+    it('reads a design name that is there', () => {
+      const xml =
+        `<?xml version='1.0' encoding='utf-8'?><openrocket version="1.10" creator="OpenRocket 24.12">` +
+        `<rocket><name>Nike Smoke</name><subcomponents><stage><name>Sustainer</name></stage></subcomponents></rocket>` +
+        `<simulations><simulation status="uptodate"><name>Simulation 1</name><flightdata ${TEN}/></simulation></simulations>` +
+        `</openrocket>`;
+      expect(readPrediction(xml)!.rocket).toBe('Nike Smoke');
+    });
   });
 });
 
@@ -133,24 +209,52 @@ describe('OpenRocket .ork — a prediction is not a flight', () => {
     } catch (e) {
       message = (e as Error).message;
     }
-    expect(message).toContain('prediction, not a recording');
+    expect(message).toContain('not a recording of a flight');
     expect(message).toContain('Test rocket');
     // The way forward has to be on the page, not just the refusal.
     expect(message).toMatch(/flight log/i);
   });
 
+  const messageFor = (text: string): string => {
+    try {
+      openRocketParser.parse(input(text));
+    } catch (e) {
+      return (e as Error).message;
+    }
+    return 'DID NOT REFUSE';
+  };
+
   it('says something different when the design states no simulation at all', () => {
     const bare = design('<simulation status="notsimulated"><name>Simulation 1</name></simulation>');
-    let message = '';
-    try {
-      openRocketParser.parse(input(bare));
-    } catch (e) {
-      message = (e as Error).message;
-    }
+    const message = messageFor(bare);
     // Telling this flyer to drop their altimeter log alongside would be wrong: the file
     // they have states nothing to compare it against yet.
     expect(message).toContain('no simulation results');
     expect(message).toMatch(/Run a simulation/);
+  });
+
+  it('does NOT tell a flyer to run a simulation they have already run', () => {
+    // A design whose simulations exist but could not be read — a missing figure, or units
+    // that would not confirm. "Run a simulation in OpenRocket" is a dead end for this flyer:
+    // they ran one, and doing it again changes nothing.
+    const short = messageFor(oneRun(TEN.replace(' optimumdelay="2.751"', '')));
+    expect(short).not.toMatch(/Run a simulation/);
+    expect(short).toContain('not in a form Debrief can read');
+
+    const imperial = messageFor(oneRun(TEN.replace('maxvelocity="29.249"', 'maxvelocity="95.96"')));
+    expect(imperial).not.toMatch(/Run a simulation/);
+    expect(imperial).toContain('units could not be confirmed');
+  });
+
+  it('names the design in every refusal, including the ones that read no prediction', () => {
+    // The branch that can say least about the file is the one that most needs to identify it.
+    for (const text of [
+      oneRun(),
+      oneRun(TEN.replace(' optimumdelay="2.751"', '')),
+      design('<simulation status="notsimulated"><name>Simulation 1</name></simulation>'),
+    ]) {
+      expect(messageFor(text), 'every refusal names the rocket').toContain('Test rocket');
+    }
   });
 });
 
@@ -222,7 +326,7 @@ describe('OpenRocket .ork — the real file', () => {
     const bytes = new Uint8Array(readFileSync(ORK));
     const text = await orkToXml(bytes);
     expect(() => openRocketParser.parse({ name: 'A simple model rocket.ork', text, bytes })).toThrow(
-      /prediction, not a recording/,
+      /not a recording of a flight/,
     );
   });
 });

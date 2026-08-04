@@ -306,8 +306,12 @@ of parsing and analysis runs locally.
   it needs alongside it, rather than being pushed into the column mapper as a table of
   XML. The ten stated figures — apogee, max velocity, max acceleration, max Mach, time to
   apogee, flight time, ground-hit and launch-rod and deployment velocity, and the optimum
-  delay — are read from the design's `flightdata`, in SI proved from the file itself
-  rather than assumed. Debrief never simulates, fits or corrects a prediction; comparing
+  delay — are read from the design's `flightdata`. The format states no units anywhere, so
+  Debrief checks the one thing the file can settle on its own: a velocity over its Mach
+  number is the speed of sound only if that velocity is in metres per second, and a run
+  that fails it is dropped rather than published. The other nine rest on OpenRocket writing
+  every one of them from a single internal SI model — strong evidence, not proof, and said
+  that way round. Debrief never simulates, fits or corrects a prediction; comparing
   one against the flight you actually flew is what it is for. (Read from OpenRocket's
   published file-format page, no third-party library and no vendored engine.)
 
