@@ -491,7 +491,13 @@ test('a GPS altitude is carried as a second recording and cross-checks apogee', 
   const doc = JSON.parse(jtext);
   expect(doc.metrics.gpsApogee).toBeGreaterThan(9000);
   expect(doc.metrics.gpsApogeeAgreement).toBe('agree');
-  expect(doc.metrics.gpsAscentFixes).toBeGreaterThan(50);
+  // A receiver's worth of fixes, not a logger's worth of rows. This asserted `> 50` while
+  // `gpsAscentFixes` counted SAMPLES — a receiver with no new solution holds its last position
+  // rather than writing nothing, so on this file the count was the repeats. It is 3: three
+  // independent solutions in a 22.4 s climb. Bounded rather than pinned, because the exact number
+  // belongs to `corpus-digests.json` and this is the contract the JSON consumer reads.
+  expect(doc.metrics.gpsAscentFixes).toBeGreaterThan(0);
+  expect(doc.metrics.gpsAscentFixes).toBeLessThan(doc.metrics.timeToApogee * 20);
 });
 
 // A report is written for a purpose — a cert package, a drag study, a club post — so which

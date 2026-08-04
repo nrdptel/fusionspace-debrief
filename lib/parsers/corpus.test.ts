@@ -1310,6 +1310,67 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
    * Not in `RECON_GROUPS` because that list is about independent instruments corroborating each
    * other, and these two are not independent. That is exactly why the bound is tight.
    */
+  /**
+   * **A GPS apogee's evidence is FIXES, and two exports of one recording hold the same fixes.**
+   *
+   * `gpsAscentFixes` counted rows. A receiver with no new solution holds its last position rather
+   * than writing nothing, so a 100 Hz log with a 1–5 Hz receiver repeats each fix dozens of times
+   * and the count was the repeats: `irec2023` published **4,010** behind an apogee resting on 40,
+   * `sg1.1` published 1,232 for 6. The number's whole job is saying how much independent evidence
+   * is behind the GPS apogee, so inflating it is inflating exactly the claim it exists to qualify.
+   *
+   * Two exports of one recording is the check that catches it, for the same reason it caught the
+   * thrust-to-weight below: the Kairos booster read **2,259 from its `.csv` and 24 from its
+   * `.eeprom`**, one flight, 24 true fixes. The `.eeprom` looked right only because it happens to
+   * be written at the receiver's own rate — which is the tell that the figure was a property of
+   * the file's sample rate rather than of the flight.
+   */
+  it('two exports of ONE recording agree on how many GPS fixes are behind the apogee', () => {
+    const pairs: [string, string, string][] = [
+      [
+        'Kairos Booster',
+        'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv',
+        'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-Telemega.eeprom',
+      ],
+      [
+        'SG1.1 Booster',
+        'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.csv',
+        'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.eeprom',
+      ],
+    ];
+    let checked = 0;
+    for (const [name, a, b] of pairs) {
+      const fa = loadForCompare(a)?.analysis.metrics.gpsAscentFixes;
+      const fb = loadForCompare(b)?.analysis.metrics.gpsAscentFixes;
+      if (fa == null || fb == null) continue;
+      checked++;
+      expect(fa, `${name}: ${fa} (.csv) vs ${fb} (.eeprom)`).toBe(fb);
+    }
+    expect(checked, 'at least one export pair states a GPS fix count').toBeGreaterThan(0);
+  });
+
+  /**
+   * …and the count is bounded by what a receiver can physically have produced. A GPS writes at a
+   * few hertz; a log writes at up to 200. So a fix count that approaches the SAMPLE count is the
+   * defect above coming back, and this catches it without pinning any flight's exact number —
+   * which would be a snapshot rather than an invariant, and `corpus-digests.json` already is one.
+   */
+  it('never claims more GPS fixes than a receiver could have produced in the time', () => {
+    const over: string[] = [];
+    for (const r of corpusReads()) {
+      const m = r.metrics;
+      if (!m || m.gpsAscentFixes == null || m.timeToApogee == null || !(m.timeToApogee > 0)) continue;
+      // 20 Hz: comfortably above any receiver in this corpus (they run 1–10 Hz) and far below the
+      // logging rates that produced the inflated counts, so it separates the two without being a
+      // guess at any particular receiver's rate.
+      const ceiling = m.timeToApogee * 20;
+      if (m.gpsAscentFixes > ceiling) {
+        over.push(`${r.file.split('/').pop()}: ${m.gpsAscentFixes} fixes in ${m.timeToApogee.toFixed(1)} s (> ${ceiling.toFixed(0)})`);
+      }
+    }
+    expect(over, `GPS fix counts a receiver could not have produced:\n${over.join('\n')}`).toEqual([]);
+  });
+
   it('two exports of ONE recording read the same thrust-to-weight', () => {
     const csv = loadForCompare('altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv');
     const eeprom = loadForCompare('altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-Telemega.eeprom');
