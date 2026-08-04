@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 
 // The filenames listed in a ZIP's central directory — enough to prove the bundle
 // packs what it should, without a ZIP library. Scans back for the end-of-central-
@@ -2067,4 +2067,27 @@ test('the window stats copy as a real table, with the unit beside each channel',
   expect(Number(cols[3].replace(/,/g, ''))).toBeGreaterThanOrEqual(Number(cols[2].replace(/,/g, '')));
   expect(clip['text/html']).toContain('<th>Channel</th>');
   expect(clip['text/html']).not.toContain('<span');
+});
+
+test('a file Debrief recognises and declines is not called unreadable', async ({ page }) => {
+  // `ParseGuidanceError` covers files Debrief READ and is deliberately not treating as a
+  // flight — an OpenRocket prediction, a device summary, a raw binary download. They used to
+  // be headed "Couldn't read <file>", which sat directly above a sentence explaining that
+  // Debrief had read the design well enough to name the rocket and count its simulations. The
+  // heading contradicted its own body on the one surface whose job is to say what happened.
+  const ork = path.join(
+    __dirname,
+    '../lib/parsers/__corpus__/openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork',
+  );
+  test.skip(!existsSync(ork), 'corpus not fetched — this case needs the real .ork');
+
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(ork);
+
+  // Next renders its own empty role=alert route announcer, so scope to the visible one.
+  const alert = page.getByRole('alert').filter({ visible: true }).first();
+  await expect(alert).toBeVisible({ timeout: 30_000 });
+  await expect(alert).toContainText('Debrief didn’t analyse');
+  await expect(alert).toContainText('not a recording of a flight');
+  await expect(alert).not.toContainText('Couldn’t read');
 });

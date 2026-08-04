@@ -25,7 +25,16 @@ wild, ideas too big for one pass. One line each, newest first.
   a surface the increment was not otherwise touching. Recorded in `lib/design-system.test.ts`'s
   `DELIBERATE` map with the same reason, so the pin does not read green over it silently.
 
-- **2026-08-04 — "Couldn't read <file>" heads a message that says Debrief read the file perfectly
+- **2026-08-04 — FIXED: "Couldn't read <file>" headed a message saying Debrief read the file
+  perfectly well.** The error state carries `recognised` now, set wherever a `ParseGuidanceError` is
+  caught, and a recognised file is headed *"Debrief didn't analyse …"* — a decision, not a failure.
+  Pinned by `a file Debrief recognises and declines is not called unreadable` in
+  `e2e/analyze.spec.ts`, falsified by forcing the flag false. **Two catch sites needed it, not one**,
+  and the first version fixed only `ingest`'s: a file dropped through the picker goes through
+  `onFile`'s catch instead, so the fix passed the test in isolation and failed the full suite. The
+  original entry follows.
+
+- **[FIXED — see above] 2026-08-04 — "Couldn't read <file>" heads a message that says Debrief read the file perfectly
   well.** `components/Analyzer.tsx:814` uses one `ErrorState` heading for every `ParseGuidanceError`,
   but that class covers two different outcomes: a file Debrief genuinely could not parse, and a file
   it parsed, recognised, and is declining to treat as a flight *on purpose*. Walked in the built app

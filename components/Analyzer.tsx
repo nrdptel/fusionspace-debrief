@@ -93,7 +93,17 @@ type State =
    *  as a tell. Six of these ten messages named nothing at all — "That file is empty.", "Could
    *  not read this file." — which on a launch day's drop leaves the flyer to work out WHICH of
    *  eight files it meant. Absent where no single file is at fault (a whole folder, the sample). */
-  | { phase: 'error'; message: string; file?: string };
+  | {
+      phase: 'error';
+      message: string;
+      file?: string;
+      /** Debrief RECOGNISED this file and is declining to analyse it, with a reason — a
+       *  prediction, a device summary, a raw binary download. Distinct from a file it could
+       *  not read, which is what a bare `error` means, and the two must not share a heading:
+       *  "Couldn't read A simple model rocket.ork" sat above a sentence explaining that
+       *  Debrief had read it well enough to name the design and count its five simulations. */
+      recognised?: boolean;
+    };
 
 const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
 
@@ -312,7 +322,12 @@ export default function Analyzer() {
           set({ phase: 'mapping', fileName: name, text, table: result.table, suggested: result.suggested });
         }
       } catch (err) {
-        set({ phase: 'error', message: err instanceof Error ? err.message : 'It could not be read.', file: name });
+        set({
+          phase: 'error',
+          message: err instanceof Error ? err.message : 'It could not be read.',
+          file: name,
+          recognised: err instanceof ParseGuidanceError,
+        });
       }
     },
     [logbook.refresh, logbook.reportForgotten, logbook.reportWriteRefused, beginLoad],
@@ -400,6 +415,7 @@ export default function Analyzer() {
           phase: 'error',
           message: err instanceof ParseGuidanceError ? err.message : 'It could not be read.',
           file: file.name,
+          recognised: err instanceof ParseGuidanceError,
         });
       }
     },
@@ -810,8 +826,23 @@ export default function Analyzer() {
         // message IS what failed, and it stands alone. An earlier version always put a generic
         // "That file couldn't be read" in `what` and pushed the real sentence into `expected`,
         // which read as two errors and called a share link a file.
+        // A RECOGNISED file gets a different heading, because "Couldn't read" is a lie about
+        // it. Debrief read an OpenRocket design well enough to name the rocket and count its
+        // five simulations, and read a device summary well enough to quote its figures back —
+        // it is declining to call either one a flight, which is a decision and not a failure.
+        // The message underneath already explains it; the heading only has to stop
+        // contradicting the message.
         <ErrorState
-          what={state.file ? <>Couldn’t read <span className="font-mono">{state.file}</span></> : state.message}
+          what={
+            state.file ? (
+              <>
+                {state.recognised ? 'Debrief didn’t analyse ' : 'Couldn’t read '}
+                <span className="font-mono">{state.file}</span>
+              </>
+            ) : (
+              state.message
+            )
+          }
           expected={state.file ? state.message : undefined}
         />
       )}
