@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { descentStoppedAloft, metricTiles, stageTiles, STAGE_READINGS } from './readings';
 import { headlineRows, type RecoveryFigures } from './report';
-import { velocityProvenance } from './readings';
+import { maxQProvenance, velocityProvenance } from './readings';
 import type { FlightMetrics } from './analyze/types';
 
 // A flight that has every reading Debrief can produce. Nothing here is a measurement —
@@ -117,6 +117,42 @@ describe('the screen and the saved report agree on which readings exist', () => 
       // never drift into describing one reading two ways.
       expect(tile!.sub ?? '', `${name}: the tile must say the same — got "${tile!.sub}"`).toContain(want);
     }
+  });
+
+  // **Max Q is the same failure one reading over, and it is the worse one.** `q = ½ρv²` is
+  // QUADRATIC in the peak speed, so a derived speed that "usually reads high" carries that
+  // tendency through roughly doubled — and the max-Q tile said only "at 1,204 m" while the speed
+  // tile beside it, and the Mach that rides inside that same sub-line, both carried the caveat.
+  // A max Q is a structures number; an unqualified one on a derived speed is exactly the overclaim
+  // the safety invariant exists to stop.
+  it('carries a derived speed’s provenance onto max Q, which is squared in it', () => {
+    const derived = { ...EVERYTHING, maxVelocitySource: 'baro' as const };
+    const measured = { ...EVERYTHING, maxVelocitySource: 'device' as const };
+
+    const tileOf = (m: FlightMetrics) => metricTiles(m, 'imperial').find((t) => t.label === 'Max Q');
+    const rowOf = (m: FlightMetrics) => headlineRows(m, 'imperial', RECOVERY).find(([l]) => l === 'Max Q');
+    expect(tileOf(derived), 'the max Q tile exists').toBeTruthy();
+
+    const want = maxQProvenance(derived);
+    expect(want, 'a derived speed produces a caveat').toBeTruthy();
+    // It names the MECHANISM, not just the word "derived" — the square is why this reading needs
+    // its own sentence rather than borrowing the speed's.
+    expect(want!).toContain('derived');
+    expect(want!).toContain('q = ½ρv²');
+
+    expect(tileOf(derived)!.sub ?? '', 'the tile says it').toContain(want!);
+    // …and it reaches the saved report, which is the whole reason `velocityProvenance` was
+    // exported: the document a flyer files has to carry the qualifier the screen shows.
+    expect(rowOf(derived), 'the report row exists').toBeTruthy();
+    expect(rowOf(derived)![1], 'the saved row says it too').toContain(want!);
+
+    // A MEASURED speed gets no clause at all — the caveat is about the method, and inventing one
+    // where there is nothing to warn about teaches a flyer to skip the ones that matter.
+    expect(maxQProvenance(measured)).toBeNull();
+    expect(tileOf(measured)!.sub ?? '', 'a measured speed adds nothing').not.toContain('derived');
+    // The altitude the peak happened at survives either way.
+    expect(tileOf(measured)!.sub ?? '').toMatch(/^at /);
+    expect(tileOf(derived)!.sub ?? '').toMatch(/^at /);
   });
 
   // "derived" alone is the vague caveat the safety invariant rejects: it has to name the

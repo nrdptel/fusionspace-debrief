@@ -1754,6 +1754,21 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **FIXED 2026-08-04 (`#125`): Max Q carries the speed's provenance now, in its own words.**
+  `maxQProvenance` sits beside `velocityProvenance` and says what the speed's caveat cannot: not
+  merely that the figure came from a derived speed, but that `q = ½ρv²` squares it, so a peak that
+  "usually reads high" carries that tendency through roughly doubled. A measured speed gets no
+  clause at all — inventing a caveat where there is nothing to warn about teaches a flyer to skip
+  the ones that matter.
+
+  **And the entry's prediction that "the fix is a call, not a mechanism" was half right.** The tile
+  was one call. The SAVED REPORT was a second site that had to be taught separately — `report.ts`
+  builds its Max Q row independently of `metricTiles` — which is precisely the failure this entry's
+  own text describes the peak speed having had once already: *the document a flyer files has to
+  carry the qualifier the screen shows*. The test asserts both, and dropping either one fails it.
+
+  *The original entry follows.*
+
 - **Max Q carries no provenance, and it is the reading that needs it most.** `lib/readings.ts:341`
   gives the tile a `sub` of `at <altitude>` and nothing else. Its neighbour does better: peak speed
   goes through `velocityProvenance`, which says *derived, which usually reads high at the peak* on

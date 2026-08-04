@@ -78,6 +78,19 @@ function maxVelocitySub(m: FlightMetrics, sys: UnitChoice): string | undefined {
  *  carried it for the apogee and not for the peak speed, because this was module-private and there
  *  was nothing to call. So the tile said "derived" while the .txt, .md, .html, the clipboard and
  *  the print card all printed the speed bare. A cert document is exactly where that matters most. */
+/** How max Q was obtained, which is the peak speed's provenance carried through a square.
+ *
+ *  A measured speed needs no clause — the tile already says "at 1,204 m" and that is the whole
+ *  story. A DERIVED one does, and it needs a different sentence from the speed's own: the speed
+ *  tile says the peak "usually reads high", and `q = ½ρv²` takes that tendency through squared, so
+ *  a 10% high speed is a 21% high max Q. Stating the mechanism rather than the multiplier, because
+ *  the tendency is a direction and not a bound — the same reason `velocityProvenance` refuses to
+ *  promise a ceiling. */
+export function maxQProvenance(m: FlightMetrics): string | null {
+  if (m.maxVelocitySource === 'device') return null;
+  return 'from a derived speed, and squared by q = ½ρv², so it inherits that read twice over';
+}
+
 export function velocityProvenance(m: FlightMetrics, form: 'full' | 'short' = 'full'): string {
   if (m.maxVelocitySource === 'device') return 'measured';
   // Two lengths, one claim. The share card is a small image posted to a club chat and cannot carry
@@ -341,7 +354,21 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Max Q', method: 'mach-dynamic-pressure',
       value: fmtPressure(m.maxDynamicPressure, sys),
-      sub: m.maxDynamicPressureAltitude != null ? `at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : undefined,
+      // **It carries the SPEED's provenance, and it is the reading that needs it most.** Max Q is
+      // ½ρv², so it is QUADRATIC in exactly the figure `velocityProvenance` warns about: on a
+      // barometer-only flight the peak speed is differentiated out of an altitude and "usually
+      // reads high at the peak", and squaring it carries that tendency through roughly doubled.
+      // The peak-speed tile has said so for a long time and Mach rides inside that same `sub`, so
+      // Mach was qualified too — max Q was the one derived-speed reading on the page saying
+      // nothing, on the surface where a structures number is read. `sub` reaches the .txt, .md,
+      // .html and the clipboard as well as the tile, which is the whole reason `velocityProvenance`
+      // was exported in the first place.
+      sub: [
+        m.maxDynamicPressureAltitude != null ? `at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : null,
+        maxQProvenance(m),
+      ]
+        .filter(Boolean)
+        .join(' · ') || undefined,
     });
   if (m.drogueDescentRate != null)
     out.push({ label: 'Drogue descent', method: 'deployments-descent-rates', value: fmtSpeed(m.drogueDescentRate, sys) });

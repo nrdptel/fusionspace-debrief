@@ -39,7 +39,7 @@ import {
   type CompareFlight,
 } from './compare';
 import { derivedPeakCaveat } from './derivedPeak';
-import { apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
+import { apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -232,7 +232,12 @@ export function headlineRows(
   if (m.liftoffTWR != null) rows.push(['Thrust-to-weight', `${m.liftoffTWR.toFixed(1)}:1 off the pad`]);
   if (m.maxDynamicPressure != null) {
     const at = m.maxDynamicPressureAltitude != null ? ` at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : '';
-    rows.push(['Max Q', fmtPressure(m.maxDynamicPressure, sys) + at]);
+    // The qualifier travels with the number, which is this function's own stated rule and the one
+    // the peak speed had to be taught once already. Max Q is `½ρv²`, so on a barometer-only flight
+    // it is squared in a speed the report already calls derived — and it was the one derived-speed
+    // reading leaving the app bare, in the document a flyer files.
+    const how = maxQProvenance(m);
+    rows.push(['Max Q', fmtPressure(m.maxDynamicPressure, sys) + at + (how ? ` — ${how}` : '')]);
   }
   if (m.transonicTime != null) {
     const at = m.transonicAltitude != null ? ` at ${fmtLength(m.transonicAltitude, sys)}` : '';
