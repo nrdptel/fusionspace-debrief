@@ -261,6 +261,25 @@ hand-rolls it instead is not done.
   **The lesson is the one §9 keeps recording about its own greps**: a check that enumerates the tag
   in front of it will read green over the whole class it forgot to name.
 
+  **2026-08-04, later the same day: a fifth converted, and the census had a second blind spot of a
+  different kind.** Widening the tag list was necessary and not sufficient. The scan finds the end
+  of an opening tag by walking to the first `>` at brace depth zero — and it was walking through
+  `//` comments and string literals as if they were code. `FigureChooser` explains, in a comment
+  between two attributes, why its control is named `"<title> figure"`; that `>` ended the scan five
+  lines above the `className`, so a hand-rolled chip-shaped toggle at `py-0.5` was invisible to a
+  census that had just been widened specifically to catch chip-shaped toggles. It is now one shared
+  `openingTag` — the three copies of the walk were identical, so the blind spot was in all three —
+  and it skips comments and strings and treats a template's `${…}` as the nesting it is.
+
+  The proof is the falsification, and it is worth stating because "the check now finds one more
+  thing" is not evidence on its own: with the hand-roll present, the OLD scan passes green and the
+  NEW one names the file.
+
+  So the class error §9 records has two members, not one. **Enumerating the tag in front of you**
+  is the first. **Reading a comment as code** is the second, and it is the more dangerous, because
+  the widening that fixes the first is visible in a diff and this one is only visible if you go
+  looking for what the tool cannot see.
+
 ### Data
 - **`DataTable`** — sortable by any column, keyboard-navigable, copyable, with a sticky header. Every
   table is this one. "Tables you cannot sort, filter, or copy out of" is a named tell, and it is only
