@@ -6,10 +6,12 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **A Sev-1, reproduced and shipped** | **Thrust-to-weight was averaged over a count of samples, not a window of time**, so the number quoted against the 5:1 rail rule read up to 25% low — and disagreed with itself across two exports of one flight. Kairos Booster published **4.98:1** from its `.csv` and **4.83:1** from its `.eeprom`, one device, one launch; the truth is **6.44:1** for both. All 18 corpus flights that publish one moved, every one upward. |
+| **A Sev-1, reproduced and shipped — and it turned out to be a FAMILY** | **Thrust-to-weight was averaged over a count of samples, not a window of time**, so the number quoted against the 5:1 rail rule read up to 25% low — and disagreed with itself across two exports of one flight. Kairos Booster published **4.98:1** from its `.csv` and **4.83:1** from its `.eeprom`, one device, one launch; the truth is **6.44:1** for both. Two more readings had the same shape and both shipped: the boost average (`#124`) and the GPS fix count (`#126`, where one flight published **4,010** fixes behind an apogee resting on **40**). |
+| **The pattern behind all three, and the thing to look for next** | **A figure computed per-SAMPLE on a record whose sample rate is not constant is a property of the file, not of the flight** — and the test that exposes it every time is *two exports of one recording must agree*. AltusMetrum writes a `.csv` and an `.eeprom` of the same flight at different rates, which makes that pair a free differential test for this whole class. Three readings were caught by it in one run. Anything else in `lib/analyze` that counts or averages over indices rather than over the clock is a candidate. |
 | **The second-opinion pass earned its keep, again** | A fresh agent given only the finished, green D9-slice-3 diff found **six** defects, five of them the same shape: a sentence written for the case in front of me, then reached by a case that was not. It also found the one that would have failed the gate on arrival. **Read *The one thing to read before anything else*.** |
 | **D — capability** | **D9 slice 3 SHIPPED and merged (`#120`, live).** A design dropped beside a log is compared against it and never called a measurement. **Slice 4 is next, and it is now scoped and measured** — see *What slice 4 turned out to be*. |
 | **P — product & craft** | **The chip census had a second blind spot and it was hiding a real hand-roll** (`#122`). Widening the tag list that morning was necessary and not sufficient: the scan walked through `//` comments as if they were code, so a `>` inside one ended the tag five lines above its `className`. `FigureChooser`'s toggle converted to `ChipButton`. |
+| **P — product & craft** (2) | Max Q, the report's structures number, now says it came from a derived speed **and that `q = ½ρv²` squares it** (`#125`) — it was the one derived-speed reading on the page saying nothing. |
 | **The lesson of this run** | **I reported the gate green from a run that predated my last edit.** It was not a lie when I ran it and it was false when I said it. The type error sat in the tree for the whole review. Re-run the gate *after the last keystroke*, not after the last interesting one. |
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
@@ -73,7 +75,7 @@ true when I measured it and false when I said it. **Re-run after the last keystr
 
 ## What shipped this run
 
-Three merges, all on `nrdptel/fusionspace-debrief`.
+Six merges, all on `nrdptel/fusionspace-debrief`.
 
 ### 1. `#120` — D9 slice 3: a prediction is a third source, and never judged as a second measurement
 
@@ -142,6 +144,53 @@ you* is the first. **Reading a comment as code** is the second, and it is worse:
 fixes the first is visible in a diff, and this one is only visible if you go looking for what the
 tool cannot see.
 
+### 4. `#124` — the other half of the Sev-1: the boost average
+
+`avgBoostAcceleration` averaged over samples too. The window (liftoff → burnout) was always right;
+only the weighting was wrong. **+16.1%** on `issuiuc-intrepid1`, +4.7% on `issuiuc-endurance`, under
+1.3% on 17 of the 25.
+
+**The interesting part is that the obvious evidence was the wrong evidence.** `#121` was settled by
+corroboration — two exports of one recording collapsing onto one number. The same check here does
+NOT tighten (irec2023 2.2% → 2.2%, lilnuke 8.4% → 8.7%, stargazer1 17.2% → 17.2%). Chasing that last
+one found why, and it is a different finding: **`stargazer1`'s two exports detect burnout 0.58 s
+apart** — 4.190 s against 3.910 s — on *identical* peak acceleration, so they average over different
+windows, and `corpus.test.ts` already records that loggers legitimately disagree about where a burn
+ends. Corroboration could never have settled it, and reporting "the spread didn't move" as
+counter-evidence would have been as wrong as reporting it as support.
+
+So it is pinned by a **definition, in closed form**: a boost that ramps linearly, sampled ten times
+finer through its second half, where the time average is the ramp's midpoint exactly and a sample
+mean is dragged toward the top. The test computes both from the trace it built and asserts they are
+far enough apart to tell apart *before* asserting which one Debrief reports — 162.09 against the
+true 129.70 on the old code.
+
+### 5. `#125` — Max Q carries the speed's provenance, in its own words
+
+`q = ½ρv²` is **quadratic** in the peak speed, so a derived speed that "usually reads high" carries
+that through roughly doubled. The speed tile had said so for a long time and Mach rides inside that
+same sub-line; max Q sat between them with only "at 1,936 ft" — the report's structures number, bare.
+
+The backlog entry predicted "the fix is a call, not a mechanism" and was half right: the tile was one
+call, and **the saved report was a second site**, because `report.ts` builds its Max Q row
+independently of `metricTiles`. That is the same failure the entry itself describes the peak speed
+having had once already.
+
+### 6. `#126` — GPS fixes, not the rows a receiver repeated itself across
+
+`gpsAscentFixes` counted rows. **`irec2023` published 4,010 behind an apogee resting on 40**;
+`sg1.1` published 1,232 for 6. And it had the Kairos shape the filing missed: the same booster's two
+exports reported **2,259 and 24** for one flight with 24 true fixes, the `.eeprom` looking nearly
+right only because AltusMetrum happens to write it at the receiver's own rate.
+
+**The `satellites` channel is deliberately not consulted** although it was the obvious lever: a
+sample with none is a held-over value *by definition*, so it cannot differ from what it was held over
+from, and the gate changes not one count anywhere in the corpus.
+
+**Two tests asserted the defect** — `real-files.test.ts` and `e2e/analyze.spec.ts` both required
+`gpsAscentFixes > 50` on a fixture whose true count is 3. A test written against a wrong number
+defends it, and neither would have gone red on any amount of correct work.
+
 ## What slice 4 turned out to be — measured, not started
 
 The roadmap's *done when* for slice 4 reads as though the common case were a design with **no** saved
@@ -159,21 +208,23 @@ up in full in `ROADMAP.md`.
 
 ## Pick this up first
 
-1. **`avgBoostAcceleration` averages the boost over samples, not over time** — the other half of the
-   Sev-1, now measured: **+16.1%** on `issuiuc-intrepid1`, +4.7% on `issuiuc-endurance`, ~+3% on the
-   four `jimheaney` L1 flights, under 1.3% on the other 17. Sev-2, its own increment, digest snapshot
-   regenerated in the same commit. `BACKLOG.md` has the table and **how not to measure it**: a probe
-   that reimplements the channel read misses the gravity-add-back correction and reports one-gravity
-   offsets as errors.
-2. **Max Q publishes no provenance** though it is `½ρv²` — *quadratic* in the speed that does carry
-   one. `velocityProvenance` is exported already, so the fix is a call, not a mechanism. Sev-2.
-3. **`gpsAscentFixes` counts samples, not fixes**, by about 20:1 (irec2023: 15,938 samples, 800
-   distinct value-runs). Its entire job is saying how much receiver evidence is behind a GPS apogee.
-   The parser already reads a satellite-count column for exactly this reason. Sev-2.
-4. **D9 slice 4**, per the scoping above.
-5. **A probe script in the repo root fails `npm run build`** — `tsconfig.json` includes root `.ts`
+Everything the first version of this list named was shipped in the same run — `#124`, `#125` and
+`#126`. What is left:
+
+1. **D9 slice 4**, per the scoping above. It is the only queued milestone increment on either track
+   that is scoped and not started, and the measurement it needs has been taken.
+2. **A probe script in the repo root fails `npm run build`** — `tsconfig.json` includes root `.ts`
    files while `.gitignore` only stops them being committed, so the gate goes red for exactly the
-   stretch of work where probes are being leaned on hardest. One line in `tsconfig.json`.
+   stretch of work where probes are being leaned on hardest. **This bit twice in one run.** One line
+   in `tsconfig.json`.
+3. **The `.ork` acceleration convention is still unverified** (`BACKLOG.md`). Debrief claims neither
+   convention for a design and says so in the design's own note, which is honest but is a sentence
+   standing in for a fact. What closes it: a corpus flight carrying both a design and a log, or
+   OpenRocket's own source.
+4. **`FlightPicker` and `RecordingPicker`** are the two chip-census entries whose reason is
+   "two-line selectable option, a card in a picker rather than a token in a row". That reason is
+   sound and it has now survived two censuses; the third time it is worth asking whether the
+   vocabulary is short a word rather than re-recording the exception.
 
 ## The done-check, executed — what each step returned
 
