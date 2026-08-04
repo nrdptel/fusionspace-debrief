@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { peakAbsInWindow, longestRunNear, medianFilter, finiteDifferenceMatch } from './signal';
+import { peakAbsInTimeBracket, longestRunNear, medianFilter, finiteDifferenceMatch } from './signal';
 
 // medianFilter runs a quickselect under the hood (it dominates the analysis on a
 // big log, and only ever needs the median, not a full sort). Pin it to a simple
@@ -44,26 +44,65 @@ describe('medianFilter (quickselect) matches a sort-based reference', () => {
   });
 });
 
-describe('peakAbsInWindow', () => {
+describe('peakAbsInTimeBracket', () => {
   const f = (xs: number[]) => Float64Array.from(xs);
+  const even = f([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]);
 
-  it('finds the largest magnitude within ±half of the centre', () => {
-    // A spike of -18 at index 5; window ±2 around index 5 should catch it.
+  it('finds the largest magnitude inside the bracket', () => {
+    // A spike of -18 at index 5 (t = 0.5 s).
     const v = f([1, 1, 1, 1, 2, -18, 3, 1, 1, 1]);
-    expect(peakAbsInWindow(v, 5, 2)).toBe(18);
-    // A window that doesn't reach the spike sees only the local values.
-    expect(peakAbsInWindow(v, 1, 1)).toBe(1);
+    expect(peakAbsInTimeBracket(even, v, 5, 0.2, 0.2)).toBe(18);
+    // A bracket that doesn't reach the spike sees only the local values.
+    expect(peakAbsInTimeBracket(even, v, 1, 0.1, 0.1)).toBe(1);
   });
 
-  it('clamps the window to the array bounds', () => {
+  it('reaches back further than forward when asked to, and the asymmetry is real', () => {
+    // The shape a deployment actually has: the charge fires BEFORE the index the deployment is
+    // detected at, so a symmetric bracket reads the quiet stretch beside it and calls that the
+    // shock. This is stargazer1's apogee in miniature — 63 g at −0.7 s, 0.1 g either side.
+    const t = f([0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2]);
+    const v = f([0.1, 0.1, 0.1, 63, 0.1, 0.1, 0.1]);
+    const centre = 6; // t = 1.2 s, the detected event
+    expect(peakAbsInTimeBracket(t, v, centre, 0.3, 0.3)).toBeCloseTo(0.1, 10); // symmetric: misses it
+    expect(peakAbsInTimeBracket(t, v, centre, 1.0, 1.0)).toBe(63); // the apogee bracket: finds it
+  });
+
+  it('clamps the bracket to the array bounds', () => {
+    const t = f([0, 0.1, 0.2, 0.3, 0.4]);
     const v = f([5, 2, 1, 1, 9]);
-    expect(peakAbsInWindow(v, 0, 3)).toBe(5); // left edge
-    expect(peakAbsInWindow(v, 4, 3)).toBe(9); // right edge
+    expect(peakAbsInTimeBracket(t, v, 0, 0.3, 0.3)).toBe(5); // left edge
+    expect(peakAbsInTimeBracket(t, v, 4, 0.3, 0.3)).toBe(9); // right edge
   });
 
-  it('skips NaN and returns NaN when the window has nothing finite', () => {
-    expect(peakAbsInWindow(f([NaN, 4, NaN]), 1, 1)).toBe(4);
-    expect(peakAbsInWindow(f([NaN, NaN, NaN]), 1, 1)).toBeNaN();
+  it('skips NaN and returns NaN when the bracket has nothing finite', () => {
+    const t = f([0, 0.1, 0.2]);
+    expect(peakAbsInTimeBracket(t, f([NaN, 4, NaN]), 1, 0.1, 0.1)).toBe(4);
+    expect(peakAbsInTimeBracket(t, f([NaN, NaN, NaN]), 1, 0.1, 0.1)).toBeNaN();
+  });
+
+  // The defect this replaced a sample-count window to fix, in miniature. The record is dense
+  // through the boost and sparse afterwards, exactly as a real logger writes one, and the event
+  // sits in the sparse half — so a ±3-SAMPLE bracket there spans 9.7 s and reaches a stretch of
+  // flight seconds away, while ±0.3 s of clock stays put.
+  it('a slow stretch of a mixed-cadence record does not reach into a fast one', () => {
+    const t = f([0, 0.1, 0.2, 0.3, 2, 4, 6, 8, 10]);
+    const v = f([1, 1, 40, 1, 1, 7, 1, 1, 1]);
+    // Centre index 8 (t = 10 s). ±3 samples reaches index 5 — t = 4 s, six seconds away — and
+    // returns its 7; ±0.3 s of clock returns the 1 that is actually there.
+    expect(peakAbsInTimeBracket(t, v, 8, 0.3, 0.3)).toBe(1);
+    let sampleBracket = 0;
+    for (let i = 5; i <= 8; i++) sampleBracket = Math.max(sampleBracket, Math.abs(v[i]));
+    expect(sampleBracket).toBe(7);
+    expect(t[8] - t[5]).toBe(6); // the span that ±3 samples really covered
+  });
+
+  it('reads every in-bracket sample even when the clock steps backwards', () => {
+    // One out-of-order timestamp is not hypothetical: altosEeprom.ts bypasses buildFlight's
+    // sort and its own comment says records come back a tick or two out of order at a boundary.
+    // A walk outward from the centre stops at the first out-of-bracket sample and would hide
+    // the 99 behind the 0.6; a scan does not.
+    const t = f([0.9, 0.6, 0.8, 1.0]);
+    expect(peakAbsInTimeBracket(t, f([99, 1, 1, 1]), 3, 0.3, 0.3)).toBe(99);
   });
 });
 

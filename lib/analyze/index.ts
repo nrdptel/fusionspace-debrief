@@ -29,9 +29,31 @@ import {
   finiteDifferenceMatch,
   argMax,
   argMin,
-  peakAbsInWindow,
+  peakAbsInTimeBracket,
   longestRunNear,
 } from './signal';
+
+/** How far around a deployment the accelerometer is read for the snatch shock, as `[back, fwd]`
+ *  SECONDS of clock — and the two events get different brackets because they are DETECTED
+ *  differently, which is the whole reason this is not one number.
+ *
+ *  Apogee is a maximum of the altitude trace, so the index is where the rocket stopped climbing.
+ *  A charge fires at apogee give or take the motor's delay, and it fires BEFORE the peak as often
+ *  as after — measured over the corpus, every apogee charge that a bracket finds sits 0.35–0.78 s
+ *  ahead of the detected index.
+ *
+ *  Main is detected from the CHANGE IN DESCENT RATE, which the charge causes rather than
+ *  coincides with: the canopy has to come out and the rate has to settle before the change is
+ *  detectable at all. So its lag is structurally larger, and it measures 2.0–2.9 s across the
+ *  corpus — an order of magnitude more than apogee's.
+ *
+ *  Both brackets are set past the largest lag measured rather than at it. Exported because the
+ *  corpus invariant that two exports of one recording must publish the same shock has to state
+ *  the bracket it is holding them to. */
+export const SHOCK_BRACKET_S: Record<'apogee' | 'main', readonly [number, number]> = {
+  apogee: [1.0, 1.0],
+  main: [3.5, 1.0],
+};
 
 /** Window (in samples) covering roughly `seconds`, clamped to something sane. */
 function windowFor(dt: number, seconds: number): number {
@@ -2435,17 +2457,42 @@ function analyzeWhole(
   // the apogee charge and the main deploy; only meaningful when the logger
   // recorded acceleration (a coarse sample rate undersamples the spike, so treat
   // it as a floor). Events that aren't deployments don't carry it.
-  const shockHalf = Math.max(2, Math.round(0.3 / (dt || 0.1)));
-  const shockAt = (idx: number | null): number | undefined => {
+  //
+  // Read over a bracket of CLOCK, and an asymmetric one. Two things were wrong here and only
+  // the first is obvious.
+  //
+  // The window used to be ±`round(0.3 / dt)` SAMPLES, with `dt` the median interval of the
+  // whole record — a property of the export rather than of the flight, because a board writes
+  // the pad slowly and the boost fast, and AltusMetrum writes the same recording again at a
+  // different rate as a second format. The span it really covered ran from 0.13 s to 8.24 s,
+  // so ONE Kairos Booster recording published 22.8 g from its `.csv` and 1.5 g from its
+  // `.eeprom`: one board, one launch, one charge, two numbers.
+  //
+  // The second is the reason this is a bracket and not a window, and it is the one that
+  // matters: **a charge does not fire at the index Debrief detects the deployment at.** Apogee
+  // is the altitude maximum, and every apogee charge in the corpus fires 0.35–0.78 s BEFORE
+  // it — stargazer1's is a single 63.2 g sample at −0.70 s, with the barometer visibly
+  // disturbed for the second after. Main is detected from the change in descent rate, which
+  // the charge causes rather than coincides with, so its lag is far larger: 2.0–2.9 s.
+  //
+  // Which means a symmetric ±0.3 s at the detected index is not a tighter read of the same
+  // thing — it reads the quiet coast next to the charge and reports THAT as the shock. It
+  // would have taken stargazer1 from 63.2 g to 0.65 g and SG1.1's main from 26.5 g to 1.9 g,
+  // understating the snatch a flyer sizes a shock cord against by 14x. The old code caught
+  // those two only because its window happened to be seconds wide on those files; on Kairos
+  // it missed the real 84.6 g charge entirely and published 22.8 g of nothing in particular.
+  // Both readings were wrong; only one of them was wrong in a direction that looks safe.
+  const shockAt = (idx: number | null, type: 'apogee' | 'main'): number | undefined => {
     if (idx === null || accelerationSource !== 'device') return undefined;
-    const peak = peakAbsInWindow(acceleration, idx, shockHalf);
+    const [back, fwd] = SHOCK_BRACKET_S[type];
+    const peak = peakAbsInTimeBracket(time, acceleration, idx, back, fwd);
     return Number.isFinite(peak) ? peak : undefined;
   };
 
   const events: FlightEvent[] = [];
   const push = (type: FlightEvent['type'], idx: number | null, label: string, provenance: FlightEvent['provenance']) => {
     if (idx === null || idx < 0 || idx >= n) return;
-    const peakAccel = type === 'apogee' || type === 'main' ? shockAt(idx) : undefined;
+    const peakAccel = type === 'apogee' || type === 'main' ? shockAt(idx, type) : undefined;
     events.push({ type, label, time: time[idx], index: idx, altitude: altAt(idx), provenance, peakAccel });
   };
   if (liftoffFound) push('liftoff', liftoffIdx, 'Liftoff', accelerationSource === 'device' ? 'measured' : 'derived');

@@ -1381,6 +1381,70 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
     expect(Math.abs(a - b) / a, `Kairos Booster: ${a.toFixed(2)} (.csv) vs ${b.toFixed(2)} (.eeprom)`).toBeLessThan(0.02);
   });
 
+  /**
+   * …and the same test on the deployment shock, which is the reading it caught most recently.
+   *
+   * The snatch force at the apogee charge is what a flyer sizes a shock cord and a harness
+   * against, and it was read over a window of SAMPLES converted from the record's median
+   * interval. That is a property of the export, not of the flight: the Kairos Booster's `.csv`
+   * published **22.8 g** and its `.eeprom` **1.5 g** — one board, one launch, one charge, two
+   * files — where a true ±0.3 s window holds 1.5 g in both. Twelve of the twenty-three shocks
+   * the corpus publishes were wrong by more than 10%, the worst by 97x.
+   *
+   * Held to the same 2% as the thrust-to-weight pair above, and for the same reason: between
+   * two exports of ONE recording there is no measurement difference to spend a tolerance on.
+   */
+  it('two exports of ONE recording read the same deployment shock', () => {
+    const pairs: [string, string, string][] = [
+      [
+        'Kairos Booster',
+        'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv',
+        'altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-Telemega.eeprom',
+      ],
+      [
+        'SG1.1 Booster',
+        'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.csv',
+        'altusmetrum/altusmetrum__issuiuc-sg1.1-20231001__SG1.1-Booster-October-TeleMetrum.eeprom',
+      ],
+      [
+        'Stargazer 1 EasyMega',
+        'altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__easymega_data.csv',
+        'altusmetrum/altusmetrum__issuiuc-stargazer1-20230507__SG1-May-EasyMega.eeprom',
+      ],
+    ];
+    const shockOf = (path: string, type: 'apogee' | 'main'): number | null =>
+      loadForCompare(path)?.analysis.events.find((e) => e.type === type)?.peakAccel ?? null;
+
+    const compared: string[] = [];
+    const absent: string[] = [];
+    for (const [name, a, b] of pairs) {
+      for (const type of ['apogee', 'main'] as const) {
+        const sa = shockOf(a, type);
+        const sb = shockOf(b, type);
+        if (sa == null || sb == null) {
+          absent.push(`${name} ${type}`);
+          continue;
+        }
+        compared.push(`${name} ${type}`);
+        const rel = Math.abs(sa - sb) / Math.max(sa, sb);
+        expect(
+          rel,
+          `${name} ${type}: ${(sa / G0).toFixed(2)} g (.csv) vs ${(sb / G0).toFixed(2)} g (.eeprom)`,
+        ).toBeLessThan(0.02);
+      }
+    }
+
+    // A count alone would let this test pass while comparing nothing that matters. The first
+    // version of it did exactly that: it compared three APOGEES and silently dropped every
+    // main, so the one event whose detection lags the charge by seconds — the event the
+    // bracket exists for — was never tested at all, and the suite read as a pass.
+    expect(
+      compared,
+      `compared: ${compared.join(', ') || 'nothing'} · no shock published for: ${absent.join(', ') || 'none'}`,
+    ).toContain('SG1.1 Booster main');
+    expect(compared.filter((c) => c.endsWith('apogee')).length, 'apogee pairs compared').toBeGreaterThan(1);
+  });
+
   // These groups are the sharpest available test of `alignStages`, and they run here rather than
   // in `lib/stitch.test.ts` because only the corpus has the real numbers.
   //

@@ -536,8 +536,28 @@ export default function MethodsPage() {
           <Method id="deployment-shock" title="Deployment shock">
             When the logger recorded acceleration, the peak the airframe felt as the apogee charge
             and the main fired — the snatch force that breaks shock cords and zippers tubes — read
-            straight from the accelerometer at each deployment. A gentle deployment shows none; a
-            coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
+            straight from the accelerometer in a bracket of clock around the deployment —{' '}
+            <strong>1&nbsp;s either side of apogee</strong>, and{' '}
+            <strong>3.5&nbsp;s before to 1&nbsp;s after the main</strong>. A gentle deployment shows
+            none; a coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
+            {' '}
+            The bracket is a span of time rather than a count of samples, and it is deliberately
+            lopsided, because <strong>a charge does not fire at the instant Debrief detects the
+            deployment</strong>. Apogee is the top of the altitude trace, and every apogee charge in
+            the corpus fires 0.35–0.78&nbsp;s <em>before</em> it. The main is detected from the
+            change in descent rate, which the charge causes rather than coincides with — the canopy
+            has to open and the rate has to settle before there is anything to detect — so that lag
+            is far longer, 2.0–2.9&nbsp;s on the flights that can be measured.
+            {' '}
+            Until 2026-08-04 this was ±0.3&nbsp;s converted to a <em>sample count</em> using the
+            record&apos;s median interval, which is a property of the export and not of the flight:
+            the span it really covered ran from 0.13&nbsp;s to 8.24&nbsp;s, and one Kairos Booster
+            recording published <strong>22.8&nbsp;g</strong> from its <code>.csv</code> and{' '}
+            <strong>1.5&nbsp;g</strong> from its <code>.eeprom</code> — one board, one launch, one
+            charge, read two ways. The charge itself was <strong>84.6&nbsp;g</strong>, and neither
+            file reported it. Twelve of the twenty-three shocks in the corpus moved by more than
+            10%, and <strong>eleven of the twelve went up</strong>: the reading a flyer sizes a
+            shock cord and a harness against was being understated, by as much as nine-fold.
           </Method>
           <Method id="main-deploy-altitude" title="Main deploy altitude">
             On a dual-deploy flight the altimeter fires the main at a set altitude. Debrief detects
