@@ -9,7 +9,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **A Sev-1, reproduced and shipped** | **A descent rate published 2.4× too fast.** `legRate` read the rate off a derivative smoothed three times; `timeMean` only telescopes to the chord when handed the bare finite difference. It is the chord between two short **medians** now — and that second half came from the pre-push review, not from me. Over the flights recorded more than once, 7 of 8 groups tightened and none widened. |
 | **The review earned its keep twice** | The first version of the Sev-1 fix was a bare chord, and a fresh agent given only the diff found that (a) it rested a safety number on 2 samples, one of them `argMax` by construction, and (b) my new pinning test had become a **tautology**. Both are fixed. **Read *The pre-push review is not a formality*.** |
 | **D — capability** | **D9 slice 2 SHIPPED and merged (`#114`, live).** Debrief reads an OpenRocket `.ork` prediction and refuses to call it a flight. **Slice 3 is next.** |
-| **P — product & craft** | **Nothing shipped on the P-track this run.** The Sev-1 and D9 slice 2 took it. `P1` item 5 (the five states) is scoped and the census is below — start there. |
+| **P — product & craft** | **`ChipButton` shipped — §5's sixth word — and the scan that was supposed to catch hand-rolls could not see any of them.** It read `<span\|li\|div>`, so every chip-shaped BUTTON was invisible; widened to `button\|a` it named six at once. `invertedTypeFiles` 11 → 10, `uiAdopters` 35 → 36. §5 also **settles `offline`**: Debrief is offline-complete and the "0 of 21 surfaces" debt was phantom. |
 | **The lesson of this run** | **A `BACKLOG.md` entry told me not to make the fix, and it was wrong.** Its arithmetic was right and its premise was not. Engaging with it took twenty minutes and was the most valuable twenty minutes of the run. Read *The one thing to read before anything else*. |
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
@@ -135,6 +135,25 @@ watching one descent have no reason to agree better unless the reading got close
 rate it had been withholding — `euroc-stacarl2` eggtimer, 25.15 m/s, where the old estimator
 produced nothing usable and a flyer saw no descent rate on a record that plainly states one.
 
+### 4. `#116` — §5 gains `ChipButton`, and a scan that had gone blind
+
+`Chip` is a static token rendering a `<span>`. Four surfaces wanted its geometry with a click on it
+and each hand-rolled the same string. **The pin that holds `Chip`'s hand-rolled count could not see
+any of them** — it scanned `<span|li|div>`, so every chip-shaped BUTTON was invisible and it read
+green while four sat on the page. Widened to `button|a`, it named six at once.
+
+`ChipButton` is built from that census, so its three props are exactly what the four sites varied
+in. Geometry moves to §5's own `px-2 py-1` — §4 has no `-0.5`, and a static chip beside an
+actionable one must not be two heights. Two of the six are two-line picker options and a third wants
+`Segmented`; each is recorded in `DELIBERATE` with its reason rather than left as a silence.
+
+**§5 also settles `offline`.** A census kept reporting "0 of 21 data surfaces implement offline, in
+a PWA". One runtime `fetch` exists in the whole app and the service worker precaches it, so even the
+sample flight opens with the radio off — three `e2e/pwa.spec.ts` cases pin it. Debrief is
+offline-complete, and "0 of 21 **need** it" is the opposite finding. **I shipped a change disabling
+that button offline before checking and the suite refused it**, which is why the section now carries
+the grep and the test name.
+
 ## The pre-push review is not a formality
 
 **A fresh agent handed only the diff, with no other context, found two things I had missed, and one
@@ -184,9 +203,8 @@ part to distrust. It was authored by whoever just convinced themselves the fix w
 
 ## The §9 counts
 
-Run at the end of the run, on the tree that shipped. **Nothing moved in either direction** — this
-run touched one component (`DeviceSummary.tsx`) and added no new divergence, but it also converted
-nothing, which is the honest P-track answer below.
+Run at the end of the run, on the tree that shipped. **Two moved the right way and none moved the
+wrong way**, both earned by `#116`'s `ChipButton` conversions.
 
 | check | count | target |
 |---|---|---|
@@ -194,8 +212,8 @@ nothing, which is the honest P-track answer below.
 | card treatments | **3** | 1 (documented floor is 3, and it is a guard) |
 | off-scale spacing | **0** | 0 |
 | off-scale type | **1** | 0 — `components/SiteHeader.tsx:62`, `text-2xl` |
-| inverted type files | **11** | 0 |
-| `ui.tsx` adopters | **35 of 48** | most |
+| inverted type files | **10** | 0 — was 11; `ChannelExplorer` left the list |
+| `ui.tsx` adopters | **36 of 48** | most — was 35 |
 
 `lib/design-system.test.ts` is green at 20 tests, which is the ratchet holding each of these exactly.
 
@@ -222,31 +240,43 @@ what to drop alongside it — where before it fell into the column mapper as a t
 nothing to map and no way out. And, separately: read a descent rate they can size a canopy against,
 on the six corpus flights where it was previously wrong by 5–144%.
 
-**What is measurably better about using the tool after this run? (P-track)** *On the P-track's own
-terms: nothing.* No `DESIGN.md` §9 count moved, no surface was converted, and P1 item 5 is exactly
-where it was. What stopped it was a Sev-1 that was worth the run — a 2.4× wrong canopy-sizing number
-— plus D9 slice 2 coming in larger than a slice usually does because the fixture it depended on
-turned out to be reachable by nobody. Three P-track-adjacent things did land inside the D work and
-are worth naming so the next session does not re-find them: the file picker stopped greying out
-three formats the app can read, every refusal message now names the file it is refusing, and one
-refusal stopped instructing flyers to do something that could not help. **The next run should open
-on the P-track and stay there.**
+**What is measurably better about using the tool after this run? (P-track)** Four hand-rolled
+chip-shaped controls became one primitive, so a filter chip and a static chip in the same row are
+now one height instead of two, and each gained a focus ring and a 44 px hit box.
+`invertedTypeFiles` **11 → 10**, `uiAdopters` **35 → 36**. Separately and worth as much: the
+`offline` state stopped being a phantom 21-surface debt — measured, Debrief is offline-complete, and
+§5 now records that with the grep rather than letting every census re-file it.
+
+Three more P-track-adjacent things landed inside the D work, named so nobody re-finds them: the file
+picker stopped greying out three formats the app can read, every refusal message now names the file
+it is refusing, and one refusal stopped instructing flyers to do something that could not help.
 
 ## Pick up first
 
-1. **P1 item 5 — the five required states. Start here, and correct the denominator on the way in.**
-   `ROADMAP.md` says 15 data surfaces. A census this run counted **21**, and the headline is worse
-   than the roadmap's: **0 of 21 implement all five, and 0 implement `offline` at all** — in a PWA.
-   Two of the five states (`loading`, `offline`) have **no primitive in `ui.tsx` whatsoever**, so the
-   first increment is a primitive, not a conversion.
-   The ranked conversions, highest leverage first:
-   - **`FlightReport.tsx` + `Analyzer.tsx:295`** — a full quota or an ITP eviction returns
-     `id: null` with no `else`, so **nothing on screen says the flight was not kept**. The only
-     sentence that would is inside a `Disclosure` that defaults closed. Every flyer on a full device
-     hits it, and `useLogbook`'s `write-blocked` machinery already exists.
-   - **`CompareView.tsx`** — 1128 lines, the second-most-visited data surface, implements **zero** of
-     the five. A bookmarked `/compare/?ids=…` whose flights were evicted shows nothing at all.
-   - **`Chart.tsx`** — on every report; empty, loading and error all absent.
+1. **P1 item 5 — the five required states, and the census is now trustworthy where it was not.**
+   `ROADMAP.md` said 15 data surfaces; it is **21**, and 0 of 21 implement all five. **But two of
+   the alarming numbers dissolved on inspection this run, and the pattern is the thing to carry:**
+   - **`offline` is not a debt.** Debrief is offline-complete — one runtime `fetch` in the whole
+     app, precached by the service worker, pinned by three `e2e/pwa.spec.ts` cases. §5 records it.
+     **I shipped a change disabling the sample button offline before checking, and the suite
+     refused it.** Do not re-open this without re-running the grep.
+   - **`loading` genuinely has no primitive**, and that half stands.
+   - Several "implements zero of five" claims were **parent-gated surfaces** whose parent handles
+     the states properly. `CompareSurface` in particular handles four distinct cases with careful
+     copy. Check the parent before filing a child.
+   The ranked conversions, highest leverage first — and **verify each before scoping it**, because
+   two of the three I checked were not what the census said:
+   - **The save-refused path — real, but not the defect that was filed.** The claim was that
+     `Analyzer.tsx:295` returns `id: null` "with no `else`, save-failure swallowed". **There is an
+     `else`**: `:301` calls `logbook.reportWriteRefused()`, and six call sites across `Analyzer`
+     and `CompareSurface` do the same. The genuine defect is that the message lands on the
+     **logbook**, not on the report the flyer is looking at when the save fails. That is a
+     `Notice` on the report, not new machinery.
+   - **`Chart.tsx`** — on every report; empty, loading and error all absent. **Not verified by me** —
+     treat it as a claim.
+   - **`CompareView.tsx`** was filed as "1128 lines, implements zero of five". Its parent
+     `CompareSurface` handles empty, loading, storage-blocked and one-flight with four distinct,
+     carefully-written messages. Read the parent before believing the child.
    The seven `Readout`-only reading panels are a *two*-increment job, not one: the shared
    `extrapolated` decision wants a corpus measurement before a component edit.
 
