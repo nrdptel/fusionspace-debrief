@@ -3695,6 +3695,15 @@ refuted. They are written down rather than fixed because each needs its own gate
 
 ## Craft & product feel
 
+- **FIXED 2026-08-04 (`#128`): a probe script in the repo root no longer fails `npm run build`.**
+  `tsconfig.json` excludes `**/*-tmp.*`, the same pattern `.gitignore` already used — so the two
+  halves of the convention now agree, where before one stopped a probe being committed and the other
+  type-checked it anyway. Verified the way it should be: a deliberately broken `-tmp.ts` in the repo
+  root, `npm run build` clean, `git status` still ignoring it. No tracked file matches the pattern.
+
+  *The original entry follows, because its account of when this bites is the part worth keeping —
+  and it bit twice in the run that filed it.*
+
 - **A probe script in the repo root fails `npm run build`, which is the one command it must not.**
   `.gitignore` matches `*-tmp.*` so a stray `git add -A` cannot ship one — that half works. But
   `tsconfig.json` includes root `.ts` files, so `npm run build` type-checks the probe: three
