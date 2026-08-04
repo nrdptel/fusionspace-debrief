@@ -391,6 +391,19 @@ export default function MethodsPage() {
             <strong>(a&#8203;<sub>boost</sub> &minus; a&#8203;<sub>pad</sub>)&nbsp;/&nbsp;g + 1</strong>,
             which is T/W either way. Where a record starts too late to hold a resting stretch the
             ratio is left unread, and says why, rather than published a point out.
+            {' '}
+            <strong>&ldquo;A moment off the pad&rdquo; is 0.2&nbsp;seconds, taken off the clock.</strong>{' '}
+            That sounds like a detail and was worth about a quarter of the answer: the window used to
+            be a count of samples worked out from the whole record&apos;s median interval, and a
+            flight log&apos;s rate is not one number — the pad is written slowly and the boost fast,
+            and the same board&apos;s two export formats are written at different rates again. So the
+            window was 0.2&nbsp;s on a uniform record and as little as 0.02&nbsp;s on the rest,
+            always short, always reading before the motor was up to pressure. One corpus flight —{' '}
+            <em>one device, one launch</em> — published <strong>4.98:1</strong> from its{' '}
+            <code>.csv</code> and <strong>4.83:1</strong> from its <code>.eeprom</code>; the true
+            0.2&nbsp;s window is <strong>6.44:1</strong> for both. On another, two altimeters on one
+            airframe read 9.49:1 and 11.23:1, which by time become 11.95 and 11.34. Under a 5:1 rule
+            that is the difference between a flight that passes and one that does not.
           </Method>
           <Method id="accelerometer-channel-meaning" title="What an accelerometer channel means">
             Debrief reports <strong>specific force</strong> everywhere — what the sensor actually

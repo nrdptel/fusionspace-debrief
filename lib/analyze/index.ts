@@ -147,11 +147,11 @@ function altitudeFromPressure(pressure: Float64Array, padPressure: number): Floa
  *  contributes nothing; an interval where either end is non-finite falls back to the end that is
  *  finite, so one bad sample costs its own two gaps rather than the whole leg.
  *
- *  **NOTHING IN THIS FILE CALLS THIS ANY MORE, and that is deliberate — do not wire it back into
- *  `legRate`.** Everything above is still true and is still the right rule for a rate averaged
- *  over a stretch of a channel; `lib/explore.ts` implements it case for case for the channel
- *  explorer's window statistics, and names this function as its authority, which is why this stays
- *  rather than being deleted. What it is NOT right for is the published descent rate, and the
+ *  **DO NOT WIRE THIS BACK INTO `legRate`.** One caller in this file — the liftoff
+ *  thrust-to-weight, which averages a RAW measured channel over a fixed stretch of clock, which is
+ *  exactly the shape the rule above is right for. `lib/explore.ts` implements it case for case for
+ *  the channel explorer's window statistics and names this function as its authority. What it is
+ *  NOT right for is the published descent rate, and the
  *  reason is in the last paragraph above: it telescopes to the leg's chord **when `values` is the
  *  finite difference of the altitude**, and `descent` is that difference after three index-window
  *  smoothers. Handed a smoothed series it does not telescope, and on a log whose cadence changes
@@ -2591,9 +2591,36 @@ function analyzeWhole(
   // reading understates the true thrust, so it's better to show nothing than a floor.
   let liftoffTWR: number | null = null;
   if (ascentPresent && liftoffFound && accelerationSource === 'device') {
-    const w = Math.max(2, Math.round(0.2 / (dt || 0.1)));
-    const hi = Math.min(n, liftoffRef + w, burnoutIdx ?? n);
-    const m = hi > liftoffRef + 1 ? mean(acceleration, liftoffRef, hi) : NaN;
+    // **The window is 0.2 SECONDS, taken off the clock — not a sample count.** It used to be
+    // `round(0.2 / dt)` samples, where `dt` is the median interval of the WHOLE RECORD, and a
+    // flight log's rate is not one number: AltusMetrum writes the pad slowly and the boost fast,
+    // and the same board's `.eeprom` and `.csv` exports of one flight are written at different
+    // rates again. So the window was 0.2 s only on a record that happened to be uniform, and
+    // somewhere between 0.02 s and 0.2 s on the rest — always short, because a rate that rises
+    // at liftoff makes the median too coarse. Measured over the corpus, against the same window
+    // taken by time:
+    //
+    //   Kairos Booster, ONE device and ONE flight in two formats — `.csv` (median dt 0.04 s, 5
+    //   samples, a 0.050 s window) published 4.98:1 and `.eeprom` (median dt 0.10 s, floored at
+    //   2 samples, a 0.020 s window) published 4.83:1. The true 0.2 s window is 6.44:1 on both.
+    //   The two exports of one flight disagreed with each other and both were a quarter low.
+    //
+    //   irec2023, TeleMega 9.49:1 against the EasyMega beside it on the same airframe at 11.23:1
+    //   — a 15% spread that was the two boards' logging rates, not the rocket. By time they read
+    //   11.95 and 11.34, which agree to 5%.
+    //
+    // This is quoted against a range-safety minimum. A number that reads 20–25% low, and reads
+    // differently depending on which file the flyer exported, is the whole reading being wrong.
+    //
+    // The mean is time-weighted for the same reason: an index mean over a stretch whose rate
+    // changes inside it weights the densely-sampled part, which at liftoff is the part after the
+    // motor is already up to pressure.
+    let hi = liftoffRef + 1;
+    while (hi < n && time[hi] - liftoffTime < 0.2) hi++;
+    // Two samples minimum — an interval to average over at all — and never past burnout, which
+    // is what keeps a very short motor from averaging its own coast into the thrust.
+    hi = Math.min(n, Math.max(hi, liftoffRef + 2), burnoutIdx ?? n);
+    const m = hi > liftoffRef + 1 ? timeMean(acceleration, time, liftoffRef, hi - 1) : NaN;
     // The quiet stretch before the motor lit. Ends a little before liftoff so the
     // ignition transient is outside it.
     let padSum = 0;

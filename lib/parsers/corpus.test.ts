@@ -1264,6 +1264,62 @@ describe('same-flight reconciliation (redundant recordings agree)', () => {
     });
   }
 
+  /**
+   * **Two boards in one airframe must not disagree about thrust-to-weight because of how fast they
+   * logged.** Thrust-to-weight is averaged over a moment off the pad, and "a moment" used to be a
+   * COUNT OF SAMPLES worked out from the record's median interval — which is not a window at all
+   * on a log whose rate changes, and a flight log's rate always changes: AltusMetrum writes the
+   * pad slowly and the boost fast. So the window came out anywhere from 0.02 s to 0.2 s, always
+   * short, and the ratio it produced was a property of the file format rather than of the rocket.
+   *
+   * `iss-irec2023` is the case: the TeleMega's median interval is 0.05 s and the EasyMega's is
+   * 0.01 s, so one averaged over four samples (0.040 s) and the other over twenty (0.200 s), and
+   * they published 9.49:1 and 11.23:1 for one motor lighting under one airframe. Taken by time
+   * they read 11.95 and 11.34. This is quoted against the 5:1 rail rule.
+   *
+   * The tolerance is deliberately loose at 10%: two accelerometers genuinely differ, and the
+   * defect this pins was 15% on this group and 25% against the truth. A tight bound here would be
+   * pinning the noise as well as the reading.
+   */
+  it('two recordings of one launch read the same thrust-to-weight, whatever their logging rates', () => {
+    let checked = 0;
+    for (const g of RECON_GROUPS) {
+      const twrs = g.files
+        .map((f) => loadForCompare(f)?.analysis.metrics.liftoffTWR)
+        .filter((v): v is number => v != null);
+      if (twrs.length < 2) continue;
+      checked++;
+      const lo = Math.min(...twrs);
+      const hi = Math.max(...twrs);
+      expect(
+        (hi - lo) / lo,
+        `${g.name}: thrust-to-weight ${twrs.map((v) => v.toFixed(2)).join(' vs ')}`,
+      ).toBeLessThan(0.1);
+    }
+    // The group that carries the case has to still be in the corpus — a fixture rename would
+    // otherwise turn this into a test that passes by checking nothing.
+    expect(checked, 'at least one group has two recordings that both read a thrust-to-weight').toBeGreaterThan(0);
+  });
+
+  /**
+   * **The same board, the same launch, two export formats.** AltusMetrum writes a `.csv` and an
+   * `.eeprom` of one flight at different rates — 0.04 s and 0.10 s median intervals here — and
+   * they published 4.98:1 and 4.83:1 for one motor. There is no measurement difference between
+   * these two files at all: they are one recording, written out twice.
+   *
+   * Not in `RECON_GROUPS` because that list is about independent instruments corroborating each
+   * other, and these two are not independent. That is exactly why the bound is tight.
+   */
+  it('two exports of ONE recording read the same thrust-to-weight', () => {
+    const csv = loadForCompare('altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv');
+    const eeprom = loadForCompare('altusmetrum/altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-Telemega.eeprom');
+    expect(csv?.analysis.metrics.liftoffTWR, 'the .csv export reads a thrust-to-weight').not.toBeNull();
+    expect(eeprom?.analysis.metrics.liftoffTWR, 'the .eeprom export reads a thrust-to-weight').not.toBeNull();
+    const a = csv!.analysis.metrics.liftoffTWR!;
+    const b = eeprom!.analysis.metrics.liftoffTWR!;
+    expect(Math.abs(a - b) / a, `Kairos Booster: ${a.toFixed(2)} (.csv) vs ${b.toFixed(2)} (.eeprom)`).toBeLessThan(0.02);
+  });
+
   // These groups are the sharpest available test of `alignStages`, and they run here rather than
   // in `lib/stitch.test.ts` because only the corpus has the real numbers.
   //
