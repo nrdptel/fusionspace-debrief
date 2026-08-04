@@ -53,7 +53,20 @@ describe('real files — Altus Metrum TeleMetrum', () => {
     expect(Math.abs(gpsFt - baroFt) / baroFt).toBeLessThan(0.05);
     // The analysis itself is unmoved — the barometric channel is still the one it rides.
     expect(a.series.altitudeSource).toBe('baro');
-    expect(a.metrics.gpsAscentFixes).toBeGreaterThan(50);
+    // **This used to assert `> 50` and that was asserting the defect.** `gpsAscentFixes` counted
+    // ROWS, and a receiver with no new solution holds its last position rather than writing
+    // nothing — so on this 529-sample file the "fix count" was the repeats. It is 3 now: three
+    // independent solutions in the 22.4 s climb, which is what a receiver that had lock for part
+    // of a short flight actually produced, and it is the number that makes the GPS apogee beside
+    // it readable rather than the number that makes it look well-evidenced.
+    //
+    // Asserted as a RANGE rather than pinned at 3, because the exact count is a property of this
+    // file that `corpus-digests.json` already holds. What matters here is that it is a receiver's
+    // worth of fixes and not a logger's worth of rows: at least one (or there is no GPS apogee to
+    // state), and far below what 22.4 s at any real receiver rate could give.
+    expect(a.metrics.gpsAscentFixes!).toBeGreaterThan(0);
+    expect(a.metrics.gpsAscentFixes!).toBeLessThan(a.metrics.timeToApogee! * 20);
+    expect(a.metrics.gpsAscentFixes!).toBeLessThan(r.flight.time.length / 10);
   });
 
   it('puts every reading the screen shows into the written report', () => {

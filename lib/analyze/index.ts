@@ -2757,11 +2757,40 @@ function analyzeWhole(
       let peakIdx = -1;
       let last = NaN;
       let fixes = 0;
+      // **A FIX, not a sample, and the difference is two orders of magnitude.** A receiver that
+      // has no new solution does not write nothing — it holds its last position — so a 100 Hz log
+      // with a 1–5 Hz receiver repeats each fix dozens of times, and counting rows counted the
+      // repeats. `irec2023` published **4,010** ascent fixes behind a GPS apogee that rests on
+      // **40**; `sg1.1` published 1,232 for 6. Worse, it disagreed with itself: the Kairos booster
+      // reads 2,259 from its `.csv` and 24 from its `.eeprom`, one flight, where the truth is 24
+      // for both — the `.eeprom` looked right only because it happens to be written at the
+      // receiver's own rate. This number's entire job is saying how much independent evidence is
+      // behind the GPS apogee, which is precisely the claim the repeats inflated.
+      //
+      // A new solution is one whose POSITION differs from the last — altitude, latitude or
+      // longitude. The `satellites` channel is deliberately not consulted: a sample with none is a
+      // held-over value by definition, so it cannot differ from the one it was held over from, and
+      // measured across every corpus flight that states a GPS apogee the satellite gate changes
+      // not one count. Implied, not ignored.
+      const latCh = getChannel(flight, 'latitude')?.values;
+      const lonCh = getChannel(flight, 'longitude')?.values;
+      let prevG = NaN;
+      let prevLat = NaN;
+      let prevLon = NaN;
       for (let i = 0; i < n; i++) {
         const v = g[i];
         if (!Number.isFinite(v)) continue;
         last = v - base;
-        if (i <= apogeeIdx) fixes++;
+        if (i <= apogeeIdx) {
+          const moved =
+            v !== prevG ||
+            (latCh != null && latCh[i] !== prevLat) ||
+            (lonCh != null && lonCh[i] !== prevLon);
+          if (moved) fixes++;
+          prevG = v;
+          if (latCh != null) prevLat = latCh[i];
+          if (lonCh != null) prevLon = lonCh[i];
+        }
         if (v - base > peak) {
           peak = v - base;
           peakIdx = i;

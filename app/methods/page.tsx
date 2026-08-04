@@ -51,7 +51,17 @@ export default function MethodsPage() {
             (one corpus flight loses lock through the whole boost and writes its pad altitude all the
             way to 2,400&nbsp;m). So a height beside a 2D fix is an assumption the receiver made,
             not something it measured, and it is dropped — while the position beside it is kept,
-            because a 2D fix still walks you to the rocket. And the
+            because a 2D fix still walks you to the rocket.
+            {' '}
+            <strong>The count of fixes is a count of SOLUTIONS, not of rows</strong>, and that
+            distinction is the whole value of the number. A receiver runs at a few hertz and a log
+            can run at two hundred; between solutions the receiver repeats its last position rather
+            than writing nothing. Counting rows counts the repeats, and it did: one corpus flight
+            reported <strong>4,010</strong> ascent fixes behind an apogee that rests on{' '}
+            <strong>40</strong>, and one board&apos;s two export formats of a single launch
+            reported 2,259 and 24 for the same 24 fixes. That figure exists to say how much
+            independent evidence is behind the GPS apogee, so inflating it inflated exactly the
+            claim it is there to qualify. And the
             record has to have come back down from its peak, because a rocket returns to the ground:
             a GPS record whose highest sample is roughly where it stops never saw an apogee, it just
             stopped climbing. Two corpus flights are exactly that, and would otherwise have stated a

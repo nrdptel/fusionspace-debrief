@@ -92,10 +92,13 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
         {metrics.gpsAscentFixes != null && (
           <>
             From {metrics.gpsAscentFixes.toLocaleString()} three-dimensional{' '}
-            {metrics.gpsAscentFixes === 1 ? 'fix' : 'fixes'} on the way up — samples with at least
-            four satellites, which is what it takes to solve for a height at all. Three gives a
-            position on an assumed altitude, and none at all makes the receiver repeat its last
-            one; both are left out rather than read as measurements.{' '}
+            {metrics.gpsAscentFixes === 1 ? 'fix' : 'fixes'} on the way up — separate solutions,
+            not rows. A receiver runs at a few hertz and a log can run at two hundred, and between
+            solutions the receiver repeats its last position rather than writing nothing, so
+            counting rows counts the repeats: this figure used to read {'>'}100× higher on the same
+            flights. A fix needs at least four satellites, which is what it takes to solve for a
+            height at all; three gives a position on an assumed altitude, and none at all is the
+            held-over value. Both are left out rather than read as measurements.{' '}
           </>
         )}
         A GPS altitude is coarse (metres, and worse vertically than horizontally) but owes nothing

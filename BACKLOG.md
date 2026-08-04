@@ -1782,6 +1782,31 @@ wild, ideas too big for one pass. One line each, newest first.
   a max-Q figure is a structures number, and an unqualified one on a derived speed is the exact
   overclaim the safety invariant exists to stop.
 
+- **FIXED 2026-08-04 (`#126`): `gpsAscentFixes` counts solutions now, and the entry UNDERSTATED it
+  by an order of magnitude.** Filed at "about 20:1" from the distinct-value-run ratio on the GPS
+  altitude column. Measured properly against the published metric it is far worse, because the
+  count runs to apogee rather than over the whole record: `irec2023` published **4,010** behind an
+  apogee resting on **40** — 100:1 — and `sg1.1` published 1,232 for 6, which is 205:1.
+
+  **And it had the Kairos shape, which the filing missed entirely.** The same booster's two export
+  formats reported **2,259 (`.csv`) and 24 (`.eeprom`)** for one flight with 24 true fixes; `sg1.1`
+  reported 1,232 and 13 for 6. The `.eeprom` looked nearly right only because AltusMetrum happens
+  to write it at the receiver's own rate — which is the tell that the figure was a property of the
+  file's sample rate rather than of the flight, and it is the same tell as the thrust-to-weight
+  Sev-1 above.
+
+  A new solution is one whose position differs from the last — altitude, latitude or longitude.
+  **The `satellites` channel is deliberately not consulted**, though the entry proposed it: a
+  sample with none is a held-over value *by definition*, so it cannot differ from what it was held
+  over from, and across every corpus flight stating a GPS apogee the satellite gate changes not one
+  count. Implied rather than ignored, and measured rather than assumed.
+
+  **Two tests asserted the defect and had to be rewritten**, which is worth its own line: both
+  `real-files.test.ts` and `e2e/analyze.spec.ts` asserted `gpsAscentFixes > 50` on a fixture whose
+  true count is 3. A test written against a wrong number defends it.
+
+  *The original entry follows.*
+
 - **`gpsAscentFixes` counts SAMPLES, not fixes — by about 20×.** `lib/analyze/index.ts:2736`
   increments `fixes` for every row with a finite GPS altitude before apogee. A receiver that has
   no new fix does not write nothing: it holds its last position, so a 100 Hz log with a ~5 Hz
