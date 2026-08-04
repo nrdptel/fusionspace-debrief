@@ -3058,6 +3058,20 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-08-04 — the deployment-shock bracket is set from corpus measurement, and it is ASYMMETRIC.**
+  `[1.0, 1.0]` s at apogee, `[3.5, 1.0]` s at main. No vendor publishes its own detection lag, so
+  there is no source to cite; the widths come from measuring where the charge actually sits relative
+  to the index Debrief detects the deployment at — apogee charges fire 0.35–0.78 s early, main
+  deploys are detected 2.0–2.9 s late — and are set past the largest lag rather than at it.
+  **Rejected: a symmetric ±0.3 s window**, which is what "convert the sample count to clock" gives
+  you and which reads the quiet coast beside the charge: it took stargazer1 from 63.2 g to 0.65 g
+  and SG1.1's main from 26.5 g to 1.9 g, understating a harness load 14x. **Also rejected: keeping
+  the sample-count window**, which published 22.8 g and 1.5 g for one Kairos charge that was really
+  84.6 g. **Also rejected, for now: requiring the peak to LOOK like a transient** before publishing
+  it — the right answer for `intrepid2`, which reports 30.4 g off a thrust plateau on a record that
+  ends mid-boost, but a second change to the same reading that wants its own corpus validation.
+  Filed in `BACKLOG.md`. The reversal cost is one constant.
+
 - **2026-08-04 — a design stating SEVERAL simulations is refused by name rather than resolved by a
   rule.** A `.ork` accumulates a simulation per motor; the corpus fixture holds five, apogees
   50.59–319.75 m. Nothing in a flight log says which motor flew. **Rejected: "use the last one"**,
