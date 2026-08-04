@@ -1679,6 +1679,44 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **Max Q carries no provenance, and it is the reading that needs it most.** `lib/readings.ts:341`
+  gives the tile a `sub` of `at <altitude>` and nothing else. Its neighbour does better: peak speed
+  goes through `velocityProvenance`, which says *derived, which usually reads high at the peak* on
+  any flight with no measured speed channel — and Mach rides inside that same `sub`, so Mach is
+  qualified too. Max Q is `½ρv²`. It is **quadratic** in exactly the speed that carries the
+  caveat, so on a barometer-only flight the tendency the speed's qualifier warns about is squared
+  before it reaches the tile, and the tile is the one that says nothing. It reaches the .txt, .md,
+  .html and the clipboard the same way. This is the identical failure the peak-speed entry above
+  already fixed once — a qualifier that existed but was not reachable from the reading that needed
+  it — and `velocityProvenance` is exported now, so the fix is a call, not a mechanism. Sev-2:
+  a max-Q figure is a structures number, and an unqualified one on a derived speed is the exact
+  overclaim the safety invariant exists to stop.
+
+- **`gpsAscentFixes` counts SAMPLES, not fixes — by about 20×.** `lib/analyze/index.ts:2736`
+  increments `fixes` for every row with a finite GPS altitude before apogee. A receiver that has
+  no new fix does not write nothing: it holds its last position, so a 100 Hz log with a ~5 Hz
+  receiver repeats each fix around twenty times. Measured over the corpus, counting distinct
+  value-runs against finite samples in the GPS altitude column: `issuiuc-irec2023` 15,938 samples
+  / 800 runs, `issuiuc-endurance` 590 / 29, `issuiuc-sg1.1` 4,118 / 65, `issuiuc-intrepid2`
+  346 / 3. The number is published on screen, in `debrief.flight/1` (`lib/report.ts:1388`) and
+  wherever the GPS apogee is qualified — and its whole job is to say how much receiver evidence is
+  behind that apogee, which is precisely the claim it inflates. `lib/parsers/corpus.test.ts:170`
+  asserts only `> 0`, so nothing catches it. The parser already reads a satellite-count column for
+  this exact reason (`lib/parsers/altusmetrum.ts:181` — "a receiver with none does not report
+  nothing — it holds its last position and altitude"), so the honest count is available; distinct
+  value-runs is the fallback where it is not. Sev-2.
+
+- **Whether OpenRocket's `maxacceleration` counts gravity is unverified, and Debrief now says so
+  rather than guessing.** Debrief reports the specific force an accelerometer measures (1 g on the
+  pad); a device reporting acceleration net of gravity is named as such, on the strength of a
+  measured +1.00 g regularity across every AltimeterCloud file in the corpus. The `.ork` schema
+  states no convention, so `isGravityConvention` is gated to `source === 'device'` and the design's
+  own note carries the caveat instead. **What would close this:** a corpus flight with both a
+  design and a log, or OpenRocket's own source. Until then the acceleration row of a
+  predicted-vs-flown table may be off by a gravity for a reason that is not the flight, and the
+  only thing standing between a flyer and that misreading is a sentence. Sev-3, and it is the one
+  row of the ten where Debrief cannot yet say what it is comparing.
+
 - **`e2e/logbook.spec.ts` → "the label and notes a flyer types stay with the flight" flaked once,
   2026-07-31.** Failed in one full-suite run (238/239) immediately after the logbook's sort control
   moved onto `<Segmented>`, then passed alone and passed a clean full-suite re-run at 239/239. The
@@ -3541,6 +3579,18 @@ refuted. They are written down rather than fixed because each needs its own gate
   lat/lon without a Doppler speed, that would be too generous.
 
 ## Craft & product feel
+
+- **`FigureChooser` hand-rolls a chip-shaped toggle the census cannot see.**
+  `components/FigureChooser.tsx:90` is a `<button>` with `aria-pressed`, `rounded-md border`,
+  `px-2 py-0.5 text-xs font-medium` and an indigo-on-pressed / zinc-with-`line-through`-on-unpressed
+  ramp — which is the `ChipButton` primitive, at DESIGN §5's chip geometry minus one step of
+  vertical padding (`py-0.5` against §5's `py-1`, i.e. off the touch contract as well as off the
+  scale). The reason it survived the widened chip census in `lib/design-system.test.ts` is worth
+  more than the fix: the scanner walks brace depth to find the end of a component, and it stops at
+  a `>` inside a `//` comment — this file has `<title> figure` in the comment directly above the
+  element (line 83), so the scan ends before reaching it. **Any hand-rolled chip under a comment
+  containing an angle bracket is invisible to that test**, so the count it reports is a floor and
+  reads as a total. Fix the scanner first (it is the measurement), then the call site. Sev-3.
 
 - **§9's off-scale-spacing count says 0 while 124 half-step values exist, and the grep cannot see
   one of them.** Measured 2026-08-03 over `components` + `app`:

@@ -581,6 +581,53 @@ export default function MethodsPage() {
             1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
             same flight reads 57. Two feet per second is the end of the record, not a descent.
           </Method>
+          <Method id="predicted-versus-flown" title="A prediction, dropped beside the flight">
+            Drop an <strong>OpenRocket design</strong> (<span className="font-mono">.ork</span>) in
+            with your log and Debrief reads the figures its simulator stated — apogee, top speed,
+            peak acceleration, Mach, time to apogee, flight time and four more — and puts them
+            beside its own read of what actually flew. Debrief does not simulate, fit, or correct a
+            prediction; it reports the gap.
+            {' '}
+            <strong>A prediction is not a second measurement, and the wording keeps them apart.</strong>{' '}
+            Two altimeters that recorded the same flight are two instruments, so they{' '}
+            <em>agree</em>, are <em>consistent</em>, or <em>differ</em> — and a gap between them is
+            worth chasing because one of them is wrong. A simulation is a statement about a flight
+            that had not happened yet. When the flight does not match it, nothing is wrong: the
+            flight is the measurement and the prediction is the thing that missed. So a predicted
+            row reads <em>flew higher · +8%</em> or <em>as predicted · 2%</em>, never{' '}
+            <em>differ</em>, and it is never given the amber of a discrepancy. The direction word
+            belongs to the reading: a time <em>took longer</em>, a speed <em>flew faster</em>, an
+            acceleration <em>pulled more g</em>. Only a height flew higher.
+            {' '}
+            <strong>Max acceleration is the one row to read carefully.</strong> Debrief reports the
+            specific force the airframe felt, which is 1&nbsp;g on the pad; a logger that reports
+            acceleration net of gravity instead is named as such, because the corpus shows that
+            convention holding to two decimals on every file. The{' '}
+            <span className="font-mono">.ork</span> format states no convention at all, so Debrief
+            claims neither for a design and says so beside the figures: a gap of about a gravity on
+            that row may be the two conventions rather than the flight.
+            {' '}
+            <strong>The sign is the flight&apos;s, and it is worth knowing that the field is split
+            on this.</strong> Debrief states the difference as{' '}
+            <span className="font-mono">(flown − predicted) / |predicted|</span>, so positive means
+            the rocket beat its simulation. RASAero II&apos;s published comparison table — 43
+            flights, average error 3.47% — states the same quantity as{' '}
+            <span className="font-mono">(sim − flown) / flown</span>, which is the opposite sign
+            <em>and</em> a different denominator: a flight RASAero prints as{' '}
+            <strong>&minus;4.30%</strong> Debrief prints as <strong>+4.5%</strong>. Neither is
+            wrong; they are answering &ldquo;how far off was the simulator&rdquo; and &ldquo;what
+            did the rocket do against its prediction&rdquo;. Debrief takes the flight as the
+            reference because the flight is the thing it measured.
+            {' '}
+            <strong>Where a design states several simulations, Debrief will not pick one.</strong> A{' '}
+            <span className="font-mono">.ork</span> accumulates a simulation per motor — the
+            reference design shipped with OpenRocket holds five, whose apogees run from 51&nbsp;m to
+            320&nbsp;m — and nothing in a flight log says which motor flew. Choosing one would be
+            Debrief inventing the very claim the comparison exists to test, so it names the
+            simulations it found and asks for the design saved with the one you flew. A prediction
+            also lasts the session rather than being kept with the flight: the design file is
+            roughly a megabyte of XML and the logbook is a shared browser quota.
+          </Method>
           <Method id="barometric-speed-refuted" title="A barometric speed the climb refutes">
             A speed derived from the altitude trace can be checked against that same trace. From
             the point the speed peaks, a drag-free coast would gain{' '}

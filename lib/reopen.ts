@@ -16,6 +16,7 @@ import { flightTimeOrigin, highRateStream } from './parsers/blueraven';
 import { readHighRateOnto } from './highRate';
 import { buildFlight } from './flight/build';
 import type { ColumnRole } from './flight/columns';
+import type { ReportedValue } from './flight/types';
 import type { RecentFlight } from './recents';
 
 /** The stored record re-read as a flight, applying a hand-made mapping when it carries one
@@ -70,8 +71,12 @@ function withSummary(result: ImportResult, summaryText?: string): ImportResult {
   if (!summaryText || result.kind !== 'flight') return result;
   const figures = summaryFigures(summaryText);
   if (!figures) return result;
-  const already = new Set((result.flight.reported ?? []).map((v) => v.metric));
-  const added = figures.reported.filter((v) => !already.has(v.metric));
+  // Keyed on source AND metric, the same rule `lib/ingest.ts` pairs on. A stored summary can
+  // only ever meet `device` figures here — a prediction is not persisted — so the two keys agree
+  // today; they are written the same way so they cannot disagree tomorrow.
+  const key = (v: ReportedValue) => `${v.source}:${v.metric}`;
+  const already = new Set((result.flight.reported ?? []).map(key));
+  const added = figures.reported.filter((v) => !already.has(key(v)));
   const notes = figures.notes.filter((n) => !result.flight.notes.includes(n));
   if (!added.length && !notes.length && !figures.flownAt) return result;
   return {

@@ -12,13 +12,14 @@
 
 import { importFlight, ParseGuidanceError } from './parsers';
 import { summaryFigures } from './parsers/deviceSummary';
+import { predictionFigures } from './parsers/openrocket';
 import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers/blueraven';
 import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
 import { attachHighRateText, attachSummaryText, saveRecent } from './recents';
 import { fileToText, textIsTheFile } from './fileText';
-import type { RawFlight } from './flight/types';
+import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
 import { apogeeCaveatFlags } from './readings';
 
@@ -58,6 +59,13 @@ export interface IngestOutcome {
    *  list would have told a flyer who dropped two Blue Raven halves that Debrief had read a
    *  summary file they do not have. */
   highRatePaired: string[];
+  /** "<design file> → <flight file>", one per OpenRocket design read onto its flight.
+   *
+   *  Its own list for the same reason `highRatePaired` is: the copy differs. A device summary is
+   *  another MEASUREMENT of the flight; a prediction is a statement about a flight that had not
+   *  happened yet, and telling a flyer Debrief "read a summary" for a design file would be wrong
+   *  about what they dropped. */
+  predictionPaired: string[];
   /** Flights this drop pushed out of the logbook. The logbook keeps a bounded window of
    *  un-noted flights (every entry holds the whole file text), and a launch day's folder is
    *  most of that window — so the third day quietly ate the first. Named now, so the flyer
@@ -113,8 +121,19 @@ function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summ
       unpaired.push(s);
       continue;
     }
-    const already = new Set((target.flight.reported ?? []).map((v) => v.metric));
-    const added = s.figures.reported.filter((v) => !already.has(v.metric));
+    // Keyed on SOURCE AND METRIC, not metric alone. "A figure the log already stated for itself
+    // wins" is a rule about two MEASUREMENTS of one flight — the flight record beats a summary
+    // file. A prediction states the same metrics and is not competing for that slot.
+    //
+    // It cannot fire from HERE: `pairSummaries` runs before `pairPredictions`, so nothing on the
+    // flight is `predicted` yet and this behaves exactly as a metric-only key would. It is
+    // source-aware because the rule belongs to the key, not to the call order — the ordering is
+    // an implementation detail of `ingestFiles` and a later change to it must not silently start
+    // dropping a design's apogee. `pairPredictions` uses the same key, where it does fire, and
+    // `lib/reopen.ts` uses it too so the three cannot drift into three different rules.
+    const key = (v: ReportedValue) => `${v.source}:${v.metric}`;
+    const already = new Set((target.flight.reported ?? []).map(key));
+    const added = s.figures.reported.filter((v) => !already.has(key(v)));
     const notes = s.figures.notes.filter((n) => !target.flight.notes.includes(n));
     target.flight = {
       ...target.flight,
@@ -128,6 +147,64 @@ function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summ
     if (target.savedId) remember.push({ id: target.savedId, text: s.text });
   }
   return { paired, unpaired, remember };
+}
+
+/**
+ * Put each OpenRocket design onto the flight it predicts.
+ *
+ * The same shape as `pairSummaries`, and matched the same two ways — the design's own rocket
+ * name against the log's file name, or the one-of-each fallback, which is how a flyer actually
+ * drops this: their log and their `.ork`, together.
+ *
+ * **What it does NOT share with a summary is persistence, and the reason is a measurement.** A
+ * paired summary's TEXT is kept on the logbook row so reopening the flight tomorrow reads the
+ * cross-check again; that text is a few hundred bytes of key/value lines. The equivalent for a
+ * design is the whole `rocket.ork` XML — **996 KB on the corpus fixture**, against a browser
+ * storage quota the logbook already shares between every flight a flyer keeps. Storing a megabyte
+ * per flight to re-derive ten numbers is the wrong trade, and storing the ten numbers instead
+ * needs a place on the logbook row that does not exist yet. So a prediction pairs for the session
+ * and is dropped again next time, which is stated in the note below rather than left to surprise
+ * someone, and filed in `BACKLOG.md`.
+ */
+function pairPredictions(
+  results: IngestedFlight[],
+  predictions: { name: string; figures: NonNullable<ReturnType<typeof predictionFigures>> }[],
+): { paired: string[]; unpaired: { name: string; why: string }[] } {
+  const paired: string[] = [];
+  const unpaired: { name: string; why: string }[] = [];
+  for (const p of predictions) {
+    const target =
+      results.find((r) => sameRocket(r.name, p.figures.rocket)) ??
+      (results.length === 1 && predictions.length === 1 ? results[0] : undefined);
+    if (!target) {
+      unpaired.push({
+        name: p.name,
+        why:
+          results.length === 0
+            ? `is an OpenRocket design for “${p.figures.rocket}” — a prediction, not a recording. Drop it together with the flight log it predicts.`
+            : `is an OpenRocket design for “${p.figures.rocket}”, and Debrief could not tell which of these flights it predicts. Drop it with that log on its own, or name the log after the rocket.`,
+      });
+      continue;
+    }
+    const key = (v: ReportedValue) => `${v.source}:${v.metric}`;
+    const already = new Set((target.flight.reported ?? []).map(key));
+    const added = p.figures.reported.filter((v) => !already.has(key(v)));
+    const notes = p.figures.notes.filter((n) => !target.flight.notes.includes(n));
+    target.flight = {
+      ...target.flight,
+      ...(added.length ? { reported: [...(target.flight.reported ?? []), ...added] } : {}),
+      ...(notes.length ? { notes: [...target.flight.notes, ...notes] } : {}),
+    };
+    // **Named as paired only when it contributed FIGURES.** A design stating several simulations
+    // contributes its refusal note and nothing else — and that note is already on the flight,
+    // naming the design and saying in its own words why Debrief will not pick one. Counting it
+    // here as well put two sentences on one screen contradicting each other: "Read the prediction
+    // for this flight alongside it … it sits beside Debrief's read", directly above "Debrief will
+    // not pick one to compare against", with no prediction column anywhere on the page. The
+    // refusal is the honest account of that drop, so it is the only one made.
+    if (added.length) paired.push(`${p.name} → ${target.name}`);
+  }
+  return { paired, unpaired };
 }
 
 /**
@@ -197,6 +274,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   const summaries: IngestOutcome['summaries'] = [];
   /** Blue Raven high-rate streams, held until every file is read so each can find its flight. */
   const highRate: { name: string; stream: HighRateStream; why: string; text: string }[] = [];
+  const predictions: { name: string; figures: NonNullable<ReturnType<typeof predictionFigures>> }[] = [];
   const unread: string[] = [];
 
   for (const [i, file] of files.entries()) {
@@ -246,6 +324,14 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         summaries.push({ name: file.name, figures, text });
         continue;
       }
+      // An OpenRocket design throws as well, and it is the third file in this drop that is not
+      // rubbish: it states what the flight was PREDICTED to do. Held aside like a summary,
+      // because which flight it belongs to can only be answered once every file has been read.
+      const predicted = text ? predictionFigures(text) : null;
+      if (predicted) {
+        predictions.push({ name: file.name, figures: predicted });
+        continue;
+      }
       // A Blue Raven high-rate file throws too, and it is not rubbish either: it is the other
       // half of one board's record of one flight. Held aside like a summary, because whether its
       // flight is in this drop can only be answered once every file has been read.
@@ -267,6 +353,10 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   // The same for a high-rate stream, which is the other half of a flight rather than a file about
   // one. An unpaired stream keeps the parser's own guidance, so dropping one alone is unchanged.
   const hr = pairHighRate(results, highRate);
+  // …and the same for a prediction. After `pairSummaries`, so a design and a device summary on
+  // one flight both land, and the source-aware dedupe above is what lets them.
+  const pred = pairPredictions(results, predictions);
+  skipped.push(...pred.unpaired);
   skipped.push(...hr.unpaired);
   for (const r of hr.remember) await attachHighRateText(r.id, r.text);
   for (const r of remember) await attachSummaryText(r.id, r.text);
@@ -286,7 +376,17 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
           : `the device's own summary for “${s.figures.rocket}” — no log in this drop is named for that rocket, so Debrief can't tell which flight it belongs to`,
     });
   }
-  return { results, skipped, mappable, summaries: unpaired, paired, highRatePaired: hr.paired, forgotten, unread };
+  return {
+    results,
+    skipped,
+    mappable,
+    summaries: unpaired,
+    paired,
+    highRatePaired: hr.paired,
+    predictionPaired: pred.paired,
+    forgotten,
+    unread,
+  };
 }
 
 /** The sentence a surface shows when a high-rate stream was read onto its flight.
@@ -295,6 +395,35 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
  *  page and the comparison surface both take a drop, and a fact stated in two places drifts into
  *  two facts. It says what was done to the samples, because "read the high-rate file" would let a
  *  flyer believe every one of its 192,001 rows is on the chart. */
+/**
+ * What a flyer is told when a design paired onto their flight. Says the two things they cannot
+ * see for themselves: that the prediction is not a measurement, and that it lasts this session.
+ *
+ * **`shown` is not decoration.** The cross-check panel that renders a prediction lives on the
+ * single-flight report and nowhere else: a drop that assembles a COMPARISON — two or more logs on
+ * the analyze page, or anything at all on `/compare`, which rebuilds each flight from the logbook
+ * — puts the flyer on a surface that carries no reported figures at all, and a prediction is not
+ * persisted, so it is not one reopen away either. Told "it sits beside Debrief's read" there, a
+ * flyer would go looking for a table that does not exist on that page and cannot be reached from
+ * it. The design WAS read, so the sentence still says so; what changes is where it sends them.
+ */
+export function predictionNote(predictionPaired: string[], shown: boolean): string {
+  const which = predictionPaired.join('; ');
+  if (!shown) {
+    return (
+      `Read the design for this flight (${which}) — but a comparison doesn't show a prediction, and ` +
+      `unlike a device summary a prediction isn't kept with the flight. Drop the design beside that ` +
+      `log on its own to read what its simulator expected against what flew.`
+    );
+  }
+  return (
+    `Read the prediction for this flight alongside it (${which}) — an OpenRocket ` +
+    `design states what its simulator expected, and it sits beside Debrief's read of what actually ` +
+    `flew rather than being mixed into it. Drop the design again next time: unlike a device summary, ` +
+    `it is not kept with the flight.`
+  );
+}
+
 export function highRateNote(highRatePaired: string[]): string {
   return (
     `Read the high-rate half of this flight alongside it (${highRatePaired.join('; ')}) — both files ` +
