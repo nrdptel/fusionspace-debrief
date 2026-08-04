@@ -1110,6 +1110,28 @@ wild, ideas too big for one pass. One line each, newest first.
   `avgBoostAcceleration` two lines away** — its window is the whole boost, so the window is right
   and only the weighting is in question.
 
+- **FIXED 2026-08-04 (`#124`): `avgBoostAcceleration` averaged the boost over samples.** The window
+  (liftoff → burnout) was always right and only the weighting was wrong; it is `timeMean` now.
+
+  **The part worth keeping is how it had to be justified, because the obvious evidence was the
+  wrong evidence.** The thrust-to-weight fix above was settled by corroboration — two exports of one
+  recording published two ratios and the fix collapsed them onto one. The same check run here does
+  **not** tighten: irec2023 2.2% → 2.2%, lilnuke 8.4% → 8.7%, stargazer1 17.2% → 17.2%. Chasing that
+  last one found why, and it is a different finding: `stargazer1`'s two exports detect **burnout
+  0.58 s apart** (4.190 s against 3.910 s) on *identical* peak acceleration, so they average over
+  different windows — and `corpus.test.ts` already records that loggers legitimately disagree about
+  where a burn ends. Corroboration could never have settled this.
+
+  So the evidence is the definition. "The average acceleration over the boost" is `∫a dt / T`, the
+  quantity that integrates to the burn's Δv; a mean of the samples answers a different question and
+  coincides only under uniform sampling. Pinned analytically rather than against the corpus: a boost
+  that ramps linearly, sampled ten times finer through its second half, where the time average is
+  the ramp's midpoint exactly and a sample mean is dragged toward the top. The test computes both
+  from the trace it built and asserts they are far enough apart to tell apart before asserting which
+  one Debrief reports — **162.09 against the true 129.70** on the old code.
+
+  *The original entry follows, for its numbers.*
+
 - **`avgBoostAcceleration` averages the boost over SAMPLES, not over time — measured 2026-08-04 at
   up to 16%.** The remaining half of the Sev-1 above. The window (liftoff → burnout) is correct; the
   weighting is not, and the average acceleration over a burn is a TIME average — it is what relates

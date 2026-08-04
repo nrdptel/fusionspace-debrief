@@ -2797,10 +2797,30 @@ function analyzeWhole(
     // Measured trace only — a baro-derived acceleration is too noisy even in the mean
     // to be honest (a real corpus baro flight averages higher over the boost than the
     // same flight's device peak), so it's withheld like the peak and the liftoff TWR.
+    //
+    // **Weighted by TIME, not by sample count**, and that is a question about WHICH QUANTITY is
+    // being reported rather than which estimator is better. "The average acceleration over the
+    // boost" means `∫a dt / T` — the thing that integrates to the burn's Δv. A mean of the samples
+    // answers a different question and coincides with it only when the sampling is uniform, which
+    // no flight log is: the rate changes across a burn, and an index mean then weights the densely
+    // sampled part. The window itself (liftoff → burnout) was always right; only the weighting was
+    // wrong. Measured over the corpus it moves `issuiuc-intrepid1` by **16.1%** and
+    // `issuiuc-endurance` by 4.7%, with 17 of the 25 under 1.3%.
+    //
+    // **This is deliberately NOT justified by same-flight agreement, and the check was run.**
+    // Unlike the liftoff thrust-to-weight beside it — where two exports of one recording published
+    // two different ratios and the fix collapsed them onto one — the recon groups do not tighten
+    // here (irec2023 2.2% → 2.2%, lilnuke 8.4% → 8.7%, stargazer1 17.2% → 17.2%). They do not,
+    // because their spread is not this: `stargazer1`'s two exports detect BURNOUT 0.58 s apart
+    // (4.190 s against 3.910 s) on identical peak acceleration, so they are averaging over
+    // different windows, and `corpus.test.ts` already records that loggers legitimately disagree
+    // about where a burn ends. Corroboration would have been the wrong evidence to look for, and
+    // the definition is the right one — which is why the pinning test computes the answer in
+    // closed form on a deliberately non-uniform trace rather than pointing at a corpus file.
     avgBoostAcceleration:
       ascentPresent && burnoutIdx !== null && accelerationSource === 'device'
         ? (() => {
-            const m = mean(acceleration, liftoffRef, burnoutIdx + 1);
+            const m = timeMean(acceleration, time, liftoffRef, burnoutIdx);
             return Number.isFinite(m) ? m : null;
           })()
         : null,

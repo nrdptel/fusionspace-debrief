@@ -1652,6 +1652,97 @@ describe('thrust-to-weight off the pad', () => {
     expect(analyzeFlight(syntheticBaroFlight().flight).metrics.liftoffTWR).toBeNull();
   });
 
+  /**
+   * **The average boost acceleration is the TIME average, and this proves it in closed form.**
+   *
+   * The corpus cannot settle this one. The liftoff thrust-to-weight beside it was settled by
+   * corroboration — two exports of one recording published two ratios and the fix collapsed them
+   * onto one — and the same check run here does NOT tighten: `stargazer1`'s two exports stay 17.2%
+   * apart because they detect burnout 0.58 s apart on identical peak acceleration, which is a
+   * disagreement about the WINDOW and not about the weighting inside it.
+   *
+   * So the evidence has to be a definition rather than an agreement. "The average acceleration over
+   * the boost" is `∫a dt / T` — the quantity that integrates to the burn's Δv. Take a boost that
+   * ramps linearly and sample it deliberately unevenly: slowly through the first half, ten times
+   * faster through the second. The time average of a linear ramp is its midpoint, exactly, and it
+   * does not care how the trace was sampled. A mean of the SAMPLES does: with 10× the samples in
+   * the upper half it is dragged most of the way to the top of the ramp.
+   *
+   * Both numbers are computed here from the trace the test itself built, so the assertion is
+   * against arithmetic rather than against a recorded figure that could drift with it.
+   */
+  it('averages the boost over time, so an uneven sampling rate cannot move it', () => {
+    const A0 = 40; // m/s² of net acceleration at liftoff…
+    const A1 = 200; // …ramping linearly to this at burnout
+    const tOff = 1;
+    const tBurn = 3; // a 2 s burn
+    const rest = G0; // a specific-force channel: +1 g on the pad
+
+    const time: number[] = [];
+    const acc: number[] = [];
+    const alt: number[] = [];
+    let v = 0;
+    let h = 0;
+    let t = 0;
+    let prev = 0;
+    // Coarse before liftoff and through the first half of the burn, then ten times finer — the
+    // shape a real logger writes when it steps up its rate under boost, exaggerated so the two
+    // averages cannot be confused for one another.
+    const step = (now: number) => (now < tOff + (tBurn - tOff) / 2 ? 0.02 : 0.002);
+    while (t <= 30) {
+      const a = t < tOff ? 0 : t < tBurn ? A0 + ((A1 - A0) * (t - tOff)) / (tBurn - tOff) : t < 18 ? -G0 : 0;
+      const dt = t - prev;
+      if (dt > 0) {
+        v += a * dt;
+        h = Math.max(0, h + v * dt);
+      }
+      time.push(t);
+      // The channel is specific force, so it rests at +1 g and carries `a + g` under thrust.
+      acc.push(t < tBurn && t >= tOff ? a + G0 : t < tOff ? rest : a + G0);
+      alt.push(h);
+      prev = t;
+      t = +(t + step(t)).toFixed(6);
+    }
+
+    const flight: RawFlight = {
+      source: 'synthetic',
+      format: 'test',
+      formatLabel: 'Test',
+      time: Float64Array.from(time),
+      channels: [
+        { kind: 'altitude', label: 'alt', unit: 'm', values: Float64Array.from(alt) },
+        { kind: 'accelAxial', label: 'acc', unit: 'm/s2', values: Float64Array.from(acc) },
+      ],
+      meta: {},
+      notes: [],
+    };
+
+    const a = analyzeFlight(flight);
+    const reported = a.metrics.avgBoostAcceleration;
+    expect(reported).not.toBeNull();
+
+    // The two candidate answers, over the window Debrief actually used, from the trace above.
+    const lo = a.events.find((e) => e.type === 'liftoff')!.index;
+    const hi = a.events.find((e) => e.type === 'burnout')!.index;
+    let sum = 0;
+    let weight = 0;
+    for (let i = lo + 1; i <= hi; i++) {
+      const dt = time[i] - time[i - 1];
+      sum += ((acc[i - 1] + acc[i]) / 2) * dt;
+      weight += dt;
+    }
+    const byTime = sum / weight;
+    let s2 = 0;
+    for (let i = lo; i <= hi; i++) s2 += acc[i];
+    const bySample = s2 / (hi - lo + 1);
+
+    // The two really are far apart on this trace — without which the assertion below proves
+    // nothing, and a future change to the sampling could quietly make it prove nothing.
+    expect(Math.abs(byTime - bySample) / byTime, 'the two averages must differ enough to tell apart').toBeGreaterThan(0.1);
+    expect(reported!).toBeCloseTo(byTime, 6);
+    expect(reported!).not.toBeCloseTo(bySample, 1);
+  });
+
   it('is the same number whether or not the channel has gravity removed', () => {
     // The bug this pins: loggers disagree about what an accelerometer channel means.
     // A true specific-force channel reads +1 g at rest; AltusMetrum's `acceleration`
