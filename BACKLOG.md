@@ -3643,7 +3643,19 @@ refuted. They are written down rather than fixed because each needs its own gate
   never see. Excluding `*-tmp.*` from `tsconfig.json` costs one line. Sev-3, and pure friction
   rather than a defect in the product.
 
-- **`FigureChooser` hand-rolls a chip-shaped toggle the census cannot see.**
+- **FIXED 2026-08-04 (`#122`, live): `FigureChooser` hand-rolled a chip-shaped toggle the census
+  could not see.** Both halves shipped in one increment, the measurement first: the three identical
+  copies of the tag-scanning walk are one `openingTag` that skips `//` comments, block comments and
+  string literals, and treats a template's `${…}` as the nesting it is. Falsified both ways — with
+  the hand-roll present the old scan passes 20/20 green and the fixed one fails naming the file. The
+  toggle then took `ChipButton` with `tone="accent"`, keeping `line-through` on the off state with a
+  reason recorded: the other chip toggles in the app are view settings, and this one says which
+  plots go in a document, so its off state means *left out* rather than *not chosen*. `DESIGN.md` §5
+  now records that the class error has two members — enumerating the tag in front of you, and
+  reading a comment as code — and that the second is the more dangerous, because the widening that
+  fixes the first is visible in a diff.
+
+  *The original entry follows, because its account of the mechanism is the part worth keeping.*
   `components/FigureChooser.tsx:90` is a `<button>` with `aria-pressed`, `rounded-md border`,
   `px-2 py-0.5 text-xs font-medium` and an indigo-on-pressed / zinc-with-`line-through`-on-unpressed
   ramp — which is the `ChipButton` primitive, at DESIGN §5's chip geometry minus one step of

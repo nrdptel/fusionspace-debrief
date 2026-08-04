@@ -1899,6 +1899,35 @@ the whole milestone is about reading what a real tool actually writes.
    predicted wherever it appears. *Done when:* a prediction with no saved time series says so and
    draws nothing, rather than drawing a line through its own summary scalars.
 
+   **Scoped and measured 2026-08-04, not started — and the measurement inverts the emphasis above.**
+   The done-when is written as though the common case were a design with no saved data. It is not.
+   The corpus `.ork` carries **2,580 datapoints across five `<databranch>` elements**, one per
+   simulation, 233–695 points each. A branch declares its columns in a `types=` attribute
+   (`Time,Altitude,Altitude above sea level,Vertical velocity,Total velocity,Vertical
+   acceleration,Total acceleration,…` — 46 of them) and each `<datapoint>` is one comma-separated
+   row against it, with `NaN` for the columns that stage does not have. Everything the chart wants
+   is in there and named. So slice 4 is "there is a real curve to draw", and "says so and draws
+   nothing" is the fallback, not the case.
+
+   **The real cost is not the parse — it is that `uPlot` has ONE x array for every series.**
+   `components/Chart.tsx` takes `time: Float64Array` plus `series[]` all aligned to it, so a
+   prediction on its own time base cannot simply be pushed into `series`. Three ways out, and only
+   one of them is allowed:
+   - *Resample the prediction onto the flight's samples.* This is what the comparison surface
+     already does to overlay several flights, and it says so in its own words ("resampled onto a
+     shared time base"). **Forbidden here** by this slice's own text, and rightly: resampling a
+     simulation onto a measured liftoff makes the prediction look like it was measured.
+   - *A second chart underneath.* Cheap, and it throws away the one thing the overlay is for —
+     seeing where the two curves part company.
+   - **Merge the two time bases into a union x, keeping every original sample of each and NaN
+     elsewhere.** Not a resample: no value is invented and none is moved. Needs `spanGaps` on so
+     each line draws through the other's samples. This is the one to build, and `bracketUnsortedX`
+     in `Chart.tsx` is already the same shape of trick.
+
+   The multi-simulation refusal from slice 3 applies unchanged: five branches means five curves,
+   and a flight log still does not say which motor flew. Session-only persistence applies too —
+   996 KB of XML against a shared browser quota.
+
 **Size.** 3–5 increments, and slice 1 gates all of them. Slice 2 is the one with real risk: the
 standalone refusal must survive it, exactly as it had to for the device summary.
 
