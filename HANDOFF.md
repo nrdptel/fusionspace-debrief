@@ -6,11 +6,11 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **A Sev-1, reproduced and shipped** | **A descent rate published 2.4× too fast.** `legRate` read the rate off a derivative smoothed three times; `timeMean` only telescopes to the chord when handed the bare finite difference. It is the chord between two short **medians** now — and that second half came from the pre-push review, not from me. Over the flights recorded more than once, 7 of 8 groups tightened and none widened. |
-| **The review earned its keep twice** | The first version of the Sev-1 fix was a bare chord, and a fresh agent given only the diff found that (a) it rested a safety number on 2 samples, one of them `argMax` by construction, and (b) my new pinning test had become a **tautology**. Both are fixed. **Read *The pre-push review is not a formality*.** |
-| **D — capability** | **D9 slice 2 SHIPPED and merged (`#114`, live).** Debrief reads an OpenRocket `.ork` prediction and refuses to call it a flight. **Slice 3 is next.** |
-| **P — product & craft** | **`ChipButton` shipped — §5's sixth word — and the scan that was supposed to catch hand-rolls could not see any of them.** It read `<span\|li\|div>`, so every chip-shaped BUTTON was invisible; widened to `button\|a` it named six at once. `invertedTypeFiles` 11 → 10, `uiAdopters` 35 → 36. §5 also **settles `offline`**: Debrief is offline-complete and the "0 of 21 surfaces" debt was phantom. |
-| **The lesson of this run** | **A `BACKLOG.md` entry told me not to make the fix, and it was wrong.** Its arithmetic was right and its premise was not. Engaging with it took twenty minutes and was the most valuable twenty minutes of the run. Read *The one thing to read before anything else*. |
+| **A Sev-1, reproduced and shipped** | **Thrust-to-weight was averaged over a count of samples, not a window of time**, so the number quoted against the 5:1 rail rule read up to 25% low — and disagreed with itself across two exports of one flight. Kairos Booster published **4.98:1** from its `.csv` and **4.83:1** from its `.eeprom`, one device, one launch; the truth is **6.44:1** for both. All 18 corpus flights that publish one moved, every one upward. |
+| **The second-opinion pass earned its keep, again** | A fresh agent given only the finished, green D9-slice-3 diff found **six** defects, five of them the same shape: a sentence written for the case in front of me, then reached by a case that was not. It also found the one that would have failed the gate on arrival. **Read *The one thing to read before anything else*.** |
+| **D — capability** | **D9 slice 3 SHIPPED and merged (`#120`, live).** A design dropped beside a log is compared against it and never called a measurement. **Slice 4 is next, and it is now scoped and measured** — see *What slice 4 turned out to be*. |
+| **P — product & craft** | **The chip census had a second blind spot and it was hiding a real hand-roll** (`#122`). Widening the tag list that morning was necessary and not sufficient: the scan walked through `//` comments as if they were code, so a `>` inside one ended the tag five lines above its `className`. `FigureChooser`'s toggle converted to `ChipButton`. |
+| **The lesson of this run** | **I reported the gate green from a run that predated my last edit.** It was not a lie when I ran it and it was false when I said it. The type error sat in the tree for the whole review. Re-run the gate *after the last keystroke*, not after the last interesting one. |
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
 `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. `main` moves underneath you.
@@ -18,376 +18,221 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 ## Environment, established at session start — none of it assumed
 
 - **The corpus was attached and real throughout**: `nrdptel/debrief-fixtures` on disk, symlinked into
-  `lib/parsers/__corpus__`. `manifest.csv` now carries **62 fixtures** (61 + the new `.ork`); the
-  digest snapshot covers **50**. `FIXTURES_TOKEN` is NOT set, so `npm run fetch-fixtures` is a no-op —
-  the attached checkout is the whole reason there is a corpus.
+  `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the digest snapshot covers **50**.
+  `FIXTURES_TOKEN` is NOT set, so `npm run fetch-fixtures` is a no-op — the attached checkout is the
+  whole reason there is a corpus.
 - **The clone is SHALLOW.** Any commit count or file history quoted from it is a window, not a record.
-- **Playwright needed `npx playwright install chromium`** — the image ships chromium-1194 and this
-  Playwright wants 1228. Documented path, worked, ~1 min. **It is paid for again every session and
-  belongs in the environment's setup script.** Said for at least the third run running.
-- **No open pull requests** on either repo at session start. Two were opened and merged this run.
-- **GitHub MCP tools work; there is NO route to create a release or upload an asset**, and no `gh`.
-  Direct `api.github.com` returns 403 through the proxy even with `GITHUB_TOKEN` set. That is why the
-  corpus release below is an owner action.
-- Production was serving `b8823e5`, identical to `origin/main`, at session start.
+- **Playwright needed `npx playwright install chromium`.** The browser cache empties on container
+  restart. **Paid for again every session; it belongs in the environment's setup script.** Said for
+  at least the fourth run running.
+- **`git config user.name/user.email` were already correct** (`Neer Patel`,
+  `135655563+nrdptel@users.noreply.github.com`) — carried from the previous run in the same session.
+  A fresh container will NOT have them. Set them before the first commit; the harness vendor's
+  default is a zero-trace breach.
+- **GitHub appends an attribution footer to every PR body**, and **eats anything tag-shaped**. PR
+  `#122`'s body was truncated at a literal `<title>` in prose — everything after it silently gone.
+  Read every body back after posting: strip the footer, and rewrite any angle brackets as words.
+- **`npx tsx` is available** and is how the probes in this run were run.
 
 ## The one thing to read before anything else
 
-**A `BACKLOG.md` entry said "Do NOT fix it by using the chord directly." I made the fix anyway, and
-that was right — but only because I checked, and checking is the whole point.**
+**A finished, gate-green diff went to a second-opinion agent and came back with six defects. Five
+were the same failure, and it is worth naming because it is not carelessness — it is a shape.**
 
-The entry was about eight descent legs that disagreed with their own chord by ≥5%. It had done real
-work: it named all eight, measured the median and mean error, identified the 0.6 s smoothing as the
-likely mechanism, and — to its credit — said the mechanism's prediction *held for main legs and did
-not hold for drogue legs*, so it refused to call the cause established. Then it closed with a
-specific instruction not to use the chord, on this evidence: on the `eggtimer euler-explosion` file,
-a 15.3 s leg gives a chord implying **303 m** of descent on a flight whose apogee reads **292 m**.
+Every one of the five was a sentence I wrote correctly for the case in front of me, which was then
+reached by a case I was not looking at:
 
-**That arithmetic is exactly right.** I reproduced it. The trace goes 292.0 m → −10.4 m, below the
-pad.
+- `predictionVerdict` said **"flew higher"** — a sentence about altitude — for all ten figures a
+  design states. A flight that took two and a half times longer to reach apogee than predicted read
+  `Time to apogee — flew higher · +245%`, on the row directly above Apogee.
+- The gravity-convention finding fired on **predictions**. It is a *measured* property of instruments
+  Debrief has read files from (+1.00 g, to two decimals, on every AltimeterCloud file in the corpus);
+  the `.ork` format states no convention at all. On a design it would have printed a confident
+  sentence about "the device" under a figure no device wrote, and flipped a real 5–7%
+  under-prediction to `agree`.
+- A design stating several simulations, which contributes only a refusal, was **also** announced as a
+  prediction that landed — two sentences contradicting each other on one screen.
+- The pairing note promised **a table that surface does not have**: the cross-check panel lives on the
+  single-flight report, and a comparison carries no reported figures at all.
+- A prediction verdict was printed under a column headed **`Agreement`**, the one word the file's own
+  header says a prediction must never be judged in — and on a device-less row, the same chip twice.
 
-**The premise underneath it is wrong, and that is the part to learn from.** The instruction assumes
-the smoothed figure was the sounder of the two on that file. Measure it: **7.31 m/s over that same
-15.3 s leg implies 112 m of descent, contradicting the same trace by 191 m**, where the chord's
-303 m matches it. Both are readings of an unsound trace — the "apogee" arrives at t = 1.0 s, 0.8 s
-after liftoff, because it is a blast pressure spike from a motor that exploded at Mach 2.4. Neither
-number is trustworthy. The smoothed one was merely **more plausible-looking**, which is the worse of
-the two failures and exactly the kind this repo keeps paying for.
+The sixth was arithmetic: the row's Debrief cell was copied off whichever source came first, and
+`hasComputed` on a comparison is false when the stated value is 0, so a device figure of 0 blanked
+Debrief's read for the whole row while the JSON still carried the number.
 
-So the honest split, which the entry had bundled together: **six of the eight were a real estimator
-defect** (proved by the same-flight pairs and by the files' own speed columns), and **two are records
-whose altitude trace is not a flight profile at all**. The second group is not an estimator problem
-and no estimator will fix it. It is filed as its own entry now, with the numbers.
+**The generalisable rule.** When a change adds a second *kind* of thing to a surface that had one,
+every sentence already on that surface is now a claim about both. The five above are all the same
+audit that nobody ran: *list the prose this surface emits, and ask of each line whether the new case
+makes it false.* That audit takes ten minutes and would have found all five.
 
-**The generalisable rule:** a backlog entry that says "do not do X" is a claim like any other. Read
-what it measured, then check whether its conclusion follows. This one's measurements were sound and
-its inference was not, and taking it at face value would have left a 2.4× wrong canopy-sizing number
-in production indefinitely — the entry was, in effect, protecting the defect.
+**And the one that would have failed the gate:** the new methods-page block was not in
+`lib/methodIds.ts`, which is a compile error, because `Method`'s `id` is typed against that list.
+I had reported the gate green — from a run that finished before I wrote the block. The number was
+true when I measured it and false when I said it. **Re-run after the last keystroke.**
 
 ## What shipped this run
 
-Five merges, all live. Two repos.
+Three merges, all on `nrdptel/fusionspace-debrief`.
 
-**`#118` came last and came from walking what `#114` had just shipped.** Dropping the OpenRocket
-design in the built app showed **"Couldn't read `…A-simple-model-rocket.ork`"** directly above a
-sentence saying Debrief had read it well enough to name the rocket and count its five simulations.
-`ParseGuidanceError` marks a file Debrief RECOGNISED and is declining to call a flight — a decision,
-not a failure — and the error state carries `recognised` now, headed *"Debrief didn't analyse …"*.
-**Two catch sites needed it and the first version fixed one**, so it passed its own new test in
-isolation and failed the full suite; a file from the picker goes through `onFile`'s catch, not
-`ingest`'s. The lesson is the cheap one: walk the surface you just shipped, in the built app, before
-calling the increment done.
+### 1. `#120` — D9 slice 3: a prediction is a third source, and never judged as a second measurement
 
-### 1. `nrdptel/debrief-fixtures#4` — the corpus's first prediction, reachable at last
+An OpenRocket design dropped in with a log takes its own column in the cross-check beside the
+logger's figures and Debrief's own read. Two altimeters that recorded one flight *agree*, are
+*consistent*, or *differ*, and a gap is worth chasing because one of them is wrong. A simulation is a
+statement about a flight that had not happened yet: when the flight misses it, nothing is wrong. So a
+predicted row says which way it went, in accent and never in the amber of a discrepancy — and the
+direction word belongs to the reading, so a time *took longer* and an acceleration *pulled more g*.
 
-Slice 1's `.ork` had been pushed to a **branch** by an earlier session and never merged, so a session
-that went looking for it found nothing — which is what happened to this run's own scoping agent. It
-is on that repo's `main` now.
+Four things the decomposition did not have, all plumbing:
 
-And the reason it mattered more than it looked: **`scripts/make-release-zip.sh` listed its ten format
-directories inline.** Adding an eleventh family to the repo did not add it to the release asset. The
-zip would have built clean, the sha would have matched, `fetch-fixtures` would have verified it, and
-`corpus.test.ts` would simply never have seen those fixtures — a skip that prints exactly like a
-pass. The payload is derived from disk now, and the built asset is checked against the manifest
-before it can be published: a named file that is missing makes the script refuse, print it, and
-delete what it built. Falsified by appending a bogus manifest row.
+- **A prediction could not reach a flight at all.** Pairing deduped by metric alone, so a design's
+  apogee would have been dropped behind an altimeter's. Keyed on `source:metric` now, in all three
+  places that dedupe (`pairSummaries`, `pairPredictions`, `reopen.withSummary`).
+- **`compareReported` had no notion of a metric identity** — a 1:1 map, so two sources stating apogee
+  gave two rows both labelled "Apogee" under a duplicate React key. `reportedByMetric` groups them.
+- **`deltaPct` is unsigned**, which is right for two instruments with no reference between them and
+  throws away half the answer for a prediction. `signedPct` rides beside it.
+- **The verdict vocabulary had no third case.**
 
-### 2. `#114` — D9 slice 2: Debrief reads a prediction and refuses to call it a flight
+**The sign convention is a decision and the field is split on it.** Debrief states
+`(flown − predicted) / |predicted|`; RASAero II's published 43-flight table states
+`(sim − flown) / flown` — opposite sign *and* a different denominator, so a flight it prints as
+−4.30% Debrief prints as +4.5%. `COMPETITION.md` row 30.
 
-`lib/parsers/openrocket.ts` opens the `.ork` zip, reads `rocket.ork`, and returns the ten stated
-scalars as `ReportedValue[]` with `source: 'predicted'`. A `.ork` dropped alone is refused with a
-sentence naming the design and what it needs. **Nothing shows a prediction yet — that is slice 3.**
+### 2. `#121` — the Sev-1: thrust-to-weight off a sample count
 
-**Units say only what they can prove**, and the first draft of this did not. `maxvelocity / maxmach`
-is the speed of sound only if the velocity is m/s — 340.1, 338.7, 339.1, 339.1, 339.1 over the
-fixture's five simulations — re-checked per file, and a run that fails is dropped. The other nine
-rest on OpenRocket writing all ten from one internal SI model: **evidence, not proof.** The header
-and the README both claimed proof for all ten until the pre-push review caught it.
+`round(0.2 / dt)` samples, where `dt` is the median interval of the **whole record**. A flight log's
+rate is never one number — AltusMetrum writes the pad slowly and the boost fast, and the same board's
+two export formats are written at different rates again. So the window was 0.2 s on a uniform record
+and as little as 0.02 s on the rest, always short, always reading before the motor was up to pressure.
 
-Three defects in code that already existed, found on the way in:
-
-- **The three cross-check renderers fell through to acceleration.** Each wrote
-  `q === 'length' ? … : q === 'speed' ? … : accel`. `reported.ts` already records that shipping once,
-  dividing a device's own descent rate by g. Adding `time` and `mach` would have printed a flight
-  time as g on all three. `renderReported` is total and fails to compile when incomplete.
-- **The picker greyed out three formats the app can read.** `fileAccept.test.ts` swept for
-  `endsWith('.ext')` only, so an anchored regex was invisible to it. Widened to both forms it
-  immediately named `.xtra` and `.bin` too — a flyer with an Entacore AIM download had it greyed out
-  and so could never reach the message explaining what to do with it.
-- **A classification guard was a hand-typed list of six**, blind to every metric added since.
-
-Six more found by reading the diff back, and one of them was the units over-claim above. Also: a
-refusal that told a flyer to run a simulation they had already run; a refusal that could not name the
-file; a self-closing `simulation` element that swallowed the next one's figures; a rocket name that
-could be a component's; **a test that could not fail** (a regex built from the type's own members);
-and a JSON document that contradicted its own units block.
-
-### 3. The Sev-1 — a descent rate 2.4× too fast
-
-See *Read this first*. `legRate` publishes the leg's own chord, read between a short **median** at
-each end rather than between two single samples.
-
-**What settles it is the same-flight groups**, not an argument about estimators — two instruments
-watching one descent have no reason to agree better unless the reading got closer to the truth:
-
-| flight recorded more than once | leg | spread before | spread after |
-|---|---|---|---|
-| XPRS 2015 (`.rff` + `.txt`) | whole | 40.1% | **1.8%** |
-| Stargazer 1 (EasyMega ×2) | whole | 9.0% | **0.3%** |
-| sg1.1 Booster (`.csv` + `.eeprom`) | drogue | 10.6% | **0.5%** |
-| sg1.1 Booster | main | 11.5% | **0.8%** |
-| lemiv L3 (3 recordings) | main | 19.9% | **4.3%** |
-| lemiv L3 | drogue | 4.9% | **4.0%** |
-| Kairos (3 recordings) | whole | 153.6% | **112.3%** |
-| ac-lilnuke (4 recordings) | whole | 0.2% | 0.1% |
-
-**7 tightened, 1 unchanged, 0 widened.** 42 legs moved; 43 of 50 digests. One record **gained** a
-rate it had been withholding — `euroc-stacarl2` eggtimer, 25.15 m/s, where the old estimator
-produced nothing usable and a flyer saw no descent rate on a record that plainly states one.
-
-### 4. `#116` — §5 gains `ChipButton`, and a scan that had gone blind
-
-`Chip` is a static token rendering a `<span>`. Four surfaces wanted its geometry with a click on it
-and each hand-rolled the same string. **The pin that holds `Chip`'s hand-rolled count could not see
-any of them** — it scanned `<span|li|div>`, so every chip-shaped BUTTON was invisible and it read
-green while four sat on the page. Widened to `button|a`, it named six at once.
-
-`ChipButton` is built from that census, so its three props are exactly what the four sites varied
-in. Geometry moves to §5's own `px-2 py-1` — §4 has no `-0.5`, and a static chip beside an
-actionable one must not be two heights. Two of the six are two-line picker options and a third wants
-`Segmented`; each is recorded in `DELIBERATE` with its reason rather than left as a silence.
-
-**§5 also settles `offline`.** A census kept reporting "0 of 21 data surfaces implement offline, in
-a PWA". One runtime `fetch` exists in the whole app and the service worker precaches it, so even the
-sample flight opens with the radio off — three `e2e/pwa.spec.ts` cases pin it. Debrief is
-offline-complete, and "0 of 21 **need** it" is the opposite finding. **I shipped a change disabling
-that button offline before checking and the suite refused it**, which is why the section now carries
-the grep and the test name.
-
-## The pre-push review is not a formality
-
-**A fresh agent handed only the diff, with no other context, found two things I had missed, and one
-of them was in the fix I had just written to correct a Sev-1.** Both were real. This is the second
-run running that the adversarial pass has caught something the gate could not — last run it refuted
-a wrong finding one command from production; this run it caught a wrong *fix*.
-
-- **The bare chord rested a safety number on two samples**, and one of them is `argMax(altClean)` —
-  the record's most extreme sample by construction, which is exactly where a spike survives. The
-  Hampel filter does not always catch one: `blueraven meraki2-121km` peaks at 75,516 m on two
-  samples sitting between neighbours of 54,233 and 58,509, because at 121 km the whole neighbourhood
-  is that noisy and there is no local consensus to measure an outlier against. The bare chord
-  published **138.85 m/s** off those two samples. Endpoints are short medians now: **107.4**, which
-  is what the superseded estimator read there to 0.01%. It also fixed the one same-flight group the
-  bare chord had made *worse* (lemiv L3 main 19.9% → 25.0% → **4.3%**).
-- **The test I added to pin the fix had become a tautology.** It compared the published rate against
-  a chord it recomputed at the same two indices — the same arithmetic on the same doubles, agreeing
-  to 0.000% because it could not do anything else, in a commit whose own message called it a real
-  ratchet. **Two further attempts were also wrong**, and the pattern is worth keeping: a
-  least-squares fit is biased on a curved leg (it read 81.70 where the device's own column says
-  63.89), and a sensitivity check measured the sensitivity of the test's *own reimplementation* of
-  the endpoint rule, so mutating the estimator changed nothing. What works is a **second
-  instrument**: the device's own speed channel, 11 legs, median error 0.109%, and it fails on a +12%
-  estimator error. The legs it cannot use are counted and named in the message.
-
-**The rule this run would add:** when a fix and its new test are written together, the test is the
-part to distrust. It was authored by whoever just convinced themselves the fix was right.
-
-## Traps this run hit — read these before repeating them
-
-- **A red gate that was not one.** `npm test` reported 5 failures — two of the heaviest corpus
-  fixtures timing out at exactly **5000 ms** — while six investigation agents, an `npm install` and a
-  browser download competed for CPU. Re-run alone: **1126/1126**, same code. **The tell is that the
-  failures were timeouts, not assertions.** `MAINTAINING.md` already warns that a whole suite dying
-  instantly is an environment report; this is the same lesson at a smaller scale. Run the gate alone.
-- **`git checkout <file>` is not an undo for a mutation experiment.** Falsifying asserts by mutating
-  the source is right and I did it; reverting with `git checkout` was not. On an **untracked** file it
-  silently does nothing (so two mutations stayed in the tree), and on a **tracked** file with
-  uncommitted work it discards that work (it wiped a finished edit to `lib/flight/reported.ts`,
-  which I then had to rewrite). Both were caught by re-running the tests, which is the only reason
-  this is a note and not a shipped bug. **Save a patch and `git apply -R` it, or make the inverse
-  edit explicitly.**
-- **GitHub eats angle brackets in a PR body**, even inside backticks. `<flightdata>` posted as an
-  empty code span. Write element names as prose (`the flightdata element`) and **read the body back
-  after posting** — which you are doing anyway to strip the attribution footer the harness appends.
-  It appended one to both PRs this run.
-
-## The §9 counts
-
-Run at the end of the run, on the tree that shipped. **Two moved the right way and none moved the
-wrong way**, both earned by `#116`'s `ChipButton` conversions.
-
-| check | count | target |
+| flight | published | correct |
 |---|---|---|
-| `rounded-lg` | **0** | 0 |
-| card treatments | **3** | 1 (documented floor is 3, and it is a guard) |
-| off-scale spacing | **0** | 0 |
-| off-scale type | **1** | 0 — `components/SiteHeader.tsx:62`, `text-2xl` |
-| inverted type files | **10** | 0 — was 11; `ChannelExplorer` left the list |
-| `ui.tsx` adopters | **36 of 48** | most — was 35 |
+| Kairos Booster `.csv` (median dt 0.04 s → a 0.050 s window) | 4.98:1 | **6.44:1** |
+| Kairos Booster `.eeprom` (median dt 0.10 s → a 0.020 s window) | 4.83:1 | **6.44:1** |
+| irec2023 TeleMega (0.05 s → a 0.040 s window) | 9.49:1 | **11.95:1** |
+| irec2023 EasyMega, *same airframe* | 11.23:1 | 11.34:1 |
+| lilnuke 1785, one of four in one airframe | 14.48:1 | **16.30:1** |
 
-`lib/design-system.test.ts` is green at 20 tests, which is the ratchet holding each of these exactly.
+**The Kairos row is the whole argument**: one device, one launch, two export formats, two different
+published thrust-to-weights, and the truth identical for both. There is no measurement difference
+between those two files — they are one recording, written out twice.
 
-## The corpus sweep, and it is NOT empty
+**The corroboration that was not aimed at.** The four-altimeter lilnuke group is the tightest
+agreement in the corpus and it **tightened from a 17% spread to 5.6%**. Nothing about the fix targeted
+that, which is what makes it evidence.
 
-`npm test` runs **1133 tests across 77 files** with the corpus attached — `manifest.csv` carries
-**62 fixtures**, the digest snapshot covers **50**, and `corpus.test.ts` alone is **143 tests**.
+Pinned by two corpus invariants, both of which fail on the old code with those exact numbers: two
+recordings of one launch agree within 10%, two exports of one recording within 2%.
 
-The sweep that mattered this run was a recomputation: **every reported descent rate against the
-leg's own chord, over the 41 legs the corpus test sweeps.** Eight disagreed by ≥5%. All eight are
-closed — **but by construction**, because the published rate IS the chord now, so that comparison
-stopped being evidence the moment the fix landed and had to be replaced. See *The pre-push review is
-not a formality*. The check compares against the **device's own speed channel** now: 11 legs, median
-error **0.109%**, worst 1.7%, exclusions counted and named, and it fails on a +12% estimator error.
+### 3. `#122` — P1: the census could not see what it was counting
 
-**43 of 50 digests moved**, every one accounted for by the 42 descent legs that changed. Regenerated
-with `CORPUS_DIGESTS=write npx vitest run lib/parsers/corpus.test.ts`.
+The scan finds the end of a JSX opening tag by walking to the first `>` at brace depth zero, and it
+walked through `//` comments and strings as if they were code. `FigureChooser` explains, in a comment
+between two attributes, why its control is named for the title in angle brackets — and that `>` cut
+the tag off above its `className`. **Three copies of that walk existed, character for character**, so
+the blind spot was in all three; they are one `openingTag` now.
 
-## The two track questions, answered
+**The proof is the falsification, not the new finding.** A looser check finds more things. With the
+hand-roll present: the old scan passes **20/20 green**; the fixed one fails, naming the file.
 
-**What can a flyer DO after this run that they could not before? (D-track)** Drop an OpenRocket
-design file on Debrief and be told what it is — a prediction, how many simulations it states, and
-what to drop alongside it — where before it fell into the column mapper as a table of XML with
-nothing to map and no way out. And, separately: read a descent rate they can size a canopy against,
-on the six corpus flights where it was previously wrong by 5–144%.
+So the class error `DESIGN.md` §9 keeps recording has two members. *Enumerating the tag in front of
+you* is the first. **Reading a comment as code** is the second, and it is worse: the widening that
+fixes the first is visible in a diff, and this one is only visible if you go looking for what the
+tool cannot see.
 
-**What is measurably better about using the tool after this run? (P-track)** Four hand-rolled
-chip-shaped controls became one primitive, so a filter chip and a static chip in the same row are
-now one height instead of two, and each gained a focus ring and a 44 px hit box.
-`invertedTypeFiles` **11 → 10**, `uiAdopters` **35 → 36**. Separately and worth as much: the
-`offline` state stopped being a phantom 21-surface debt — measured, Debrief is offline-complete, and
-§5 now records that with the grep rather than letting every census re-file it.
+## What slice 4 turned out to be — measured, not started
 
-Three more P-track-adjacent things landed inside the D work, named so nobody re-finds them: the file
-picker stopped greying out three formats the app can read, every refusal message now names the file
-it is refusing, and one refusal stopped instructing flyers to do something that could not help.
+The roadmap's *done when* for slice 4 reads as though the common case were a design with **no** saved
+simulation data. It is not. The corpus `.ork` carries **2,580 datapoints across five `<databranch>`
+elements** — one per simulation, 233–695 points each — with the columns declared in a `types=`
+attribute and each `<datapoint>` one comma-separated row against it. There is a real curve to draw.
 
-## Pick up first
+**The cost is not the parse. `uPlot` has one x array for every series**, so a prediction on its own
+time base cannot simply be pushed into `Chart`'s `series[]`. Resampling it onto the flight — what the
+comparison surface already does to overlay several flights, and says so — is forbidden by this
+slice's own text, and rightly: it would make a simulation look measured. **Merge the two time bases
+into a union x, every original sample of each kept and NaN elsewhere, with `spanGaps` on.** No value
+invented, none moved. `bracketUnsortedX` in `Chart.tsx` is already the same shape of trick. Written
+up in full in `ROADMAP.md`.
 
-1. **P1 item 5 — the five required states, and the census is now trustworthy where it was not.**
-   `ROADMAP.md` said 15 data surfaces; it is **21**, and 0 of 21 implement all five. **But two of
-   the alarming numbers dissolved on inspection this run, and the pattern is the thing to carry:**
-   - **`offline` is not a debt.** Debrief is offline-complete — one runtime `fetch` in the whole
-     app, precached by the service worker, pinned by three `e2e/pwa.spec.ts` cases. §5 records it.
-     **I shipped a change disabling the sample button offline before checking, and the suite
-     refused it.** Do not re-open this without re-running the grep.
-   - **`loading` genuinely has no primitive**, and that half stands.
-   - Several "implements zero of five" claims were **parent-gated surfaces** whose parent handles
-     the states properly. `CompareSurface` in particular handles four distinct cases with careful
-     copy. Check the parent before filing a child.
-   The ranked conversions, highest leverage first — and **verify each before scoping it**, because
-   two of the three I checked were not what the census said:
-   - **The save-refused path — real, but not the defect that was filed.** The claim was that
-     `Analyzer.tsx:295` returns `id: null` "with no `else`, save-failure swallowed". **There is an
-     `else`**: `:301` calls `logbook.reportWriteRefused()`, and six call sites across `Analyzer`
-     and `CompareSurface` do the same. The genuine defect is that the message lands on the
-     **logbook**, not on the report the flyer is looking at when the save fails. That is a
-     `Notice` on the report, not new machinery.
-   - **`Chart.tsx`** — on every report; empty, loading and error all absent. **Not verified by me** —
-     treat it as a claim.
-   - **`CompareView.tsx`** was filed as "1128 lines, implements zero of five". Its parent
-     `CompareSurface` handles empty, loading, storage-blocked and one-flight with four distinct,
-     carefully-written messages. Read the parent before believing the child.
-   The seven `Readout`-only reading panels are a *two*-increment job, not one: the shared
-   `extrapolated` decision wants a corpus measurement before a component edit.
+## Pick this up first
 
-2. **D9 slice 3 — the cross-check table grows a third column.** Everything it needs is in place:
-   `source: 'device' | 'predicted'` exists, `REPORTED_QUANTITY` covers all fourteen metrics,
-   `renderReported` makes a missed unit a compile error, and `METRIC_FIELD` already records which
-   four figures get no verdict. **The real work is that no renderer reads `source` yet** — both
-   `DeviceSummary.tsx` and `lib/report.ts` are hardcoded to "The logger's own summary" / "The device
-   wrote these figures into the file", so a prediction reaching either would be captioned as a
-   measurement, and `isGravityConvention` would tell a flyer the *simulator* reports acceleration
-   net of gravity. The verdict language has to distinguish "these two measured the same flight and
-   disagree" from "the flight did not do what was predicted", which is not a discrepancy at all.
+1. **`avgBoostAcceleration` averages the boost over samples, not over time** — the other half of the
+   Sev-1, now measured: **+16.1%** on `issuiuc-intrepid1`, +4.7% on `issuiuc-endurance`, ~+3% on the
+   four `jimheaney` L1 flights, under 1.3% on the other 17. Sev-2, its own increment, digest snapshot
+   regenerated in the same commit. `BACKLOG.md` has the table and **how not to measure it**: a probe
+   that reimplements the channel read misses the gravity-add-back correction and reports one-gravity
+   offsets as errors.
+2. **Max Q publishes no provenance** though it is `½ρv²` — *quadratic* in the speed that does carry
+   one. `velocityProvenance` is exported already, so the fix is a call, not a mechanism. Sev-2.
+3. **`gpsAscentFixes` counts samples, not fixes**, by about 20:1 (irec2023: 15,938 samples, 800
+   distinct value-runs). Its entire job is saying how much receiver evidence is behind a GPS apogee.
+   The parser already reads a satellite-count column for exactly this reason. Sev-2.
+4. **D9 slice 4**, per the scoping above.
+5. **A probe script in the repo root fails `npm run build`** — `tsconfig.json` includes root `.ts`
+   files while `.gitignore` only stops them being committed, so the gate goes red for exactly the
+   stretch of work where probes are being leaned on hardest. One line in `tsconfig.json`.
 
-3. **File the descent-rate gate.** Two records publish a rate off a trace that is not a flight
-   profile — `eggtimer euler-explosion` (apogee at t = 1.0 s, a blast spike, leg ending 10.4 m below
-   the pad) and `blueraven meraki2-121km` (121 km, where the barometric model has no validity). Both
-   are in `BACKLOG.md` with the numbers. **No estimator fixes these**; they need a gate, the way
-   `descentAboveFreeFall` already withholds with a reason.
+## The done-check, executed — what each step returned
 
-## What the owner has to do, and nobody else can
+1. **Corpus sweep: 0 findings.** `npm test` → **1,151 tests across 77 files**, of which
+   `corpus.test.ts` is 143 over the manifest's **62 fixtures** with **50** covered by the digest
+   snapshot. Nothing new fell out; the three defects this run filed were found by reading and by
+   probes, not by the sweep.
+2. **Cold walk of `611fefd`, the SHA shipped.** Production was serving `10ee723` when the walk ran
+   — one commit behind, `#122` still deploying — so the gap is one merge and no more. Walked the
+   journey this run changed (a design dropped beside a log) and one not walked this run (the figure
+   chooser). The prediction table renders `READING | PREDICTED | DEBRIEF | VS PREDICTION` with **no
+   `Agreement` column at all** on a prediction-only flight, verdicts reading *flew higher · +1321%*,
+   *flew faster · +359%*, *pulled more g · +35%*, *took longer · +245%* — the per-quantity wording,
+   live — and `not measured` on the four figures Debrief has no counterpart for. **0 console
+   errors.** The figure toggle: ink 62×44, hit target 44×44 under a coarse pointer.
+   **The walk's own first assertion was wrong and that is worth recording**: it measured the toggle
+   at 26 px and read as a touch-contract breach. `.touch-area::after` lives inside
+   `@media (pointer: coarse)`, and pointer type is a browser-CONTEXT property — `setViewportSize`
+   alone does not bring it into play. Any future walk that measures a hit target must run under a
+   device preset, the way `e2e/touch.spec.ts` does.
+3. **`COMPETITION.md` row 31 added** — thrust-to-weight measured from a flight log. The design tools
+   compute it from a motor curve before the rocket flies; the analysis tools do not compute it at
+   all (AltosUI's manual does not mention it, verified 2026-08-04). `LEAD`, and the row is written
+   around the near-miss rather than the win: Debrief was alone in the field on that number and alone
+   in checking it, and what caught the error was not a reviewer but a rule that two exports of one
+   recording must agree. Row 30 (RASAero II) was added earlier in the run with D9 slice 3.
+4. **§9 counts, all green and none moved the wrong way:** `rounded-lg` **0** · hand-rolled card
+   treatments **3** · off-scale spacing **0** · inverted-type files **10** · `ui` importers **≥35**
+   · off-scale type sizes **1** · frame treatment written in **1** place · focus managed from **1**
+   place · plot-to-image composited in **1** place. Hand-rolled chips: **5 files, all named with a
+   reason** — and that census is measuring one more file's worth of the repo than it was this
+   morning.
+5. **`BACKLOG.md` read and corrected.** The `FigureChooser` entry filed this morning was fixed by
+   `#122` the same day and was still sitting open — marked FIXED with its mechanism kept, because
+   the account of *why the census could not see it* is the part worth keeping. The
+   `avgBoostAcceleration` entry was upgraded from "unmeasured" to a table.
+6. **Both track questions, answered plainly.**
+   - **What can a flyer DO that they could not before? (D)** Drop an OpenRocket design in with their
+     log and read what the simulator expected beside what actually flew — per reading, with the
+     direction stated, and without a simulation ever being called a measurement.
+   - **What is measurably better about using the tool? (P)** The thrust-to-weight on the report is
+     correct where it was up to 25% low, and it no longer changes depending on which file the flyer
+     exported. Separately, the chip census now measures a class of control it could not see, and one
+     more toggle sits at the system's geometry and the touch contract instead of a hand-roll —
+     hand-rolled chips **5 files** and every one carrying a written reason.
+7. **`ROADMAP.md` updated** on both tracks — D9 slice 3 marked SHIPPED with its six review findings,
+   slice 4 scoped and measured, P1's second increment of the day recorded with the counts.
 
-**Cut a `v1.2.0` corpus release.** The D9 prediction fixture is on `nrdptel/debrief-fixtures` `main`
-but in **no release asset**, and `npm run fetch-fixtures` downloads the asset pinned in
-`corpus.lock.json`, still `v1.1.0`. So **CI cannot see the fixture**, and three cases in
-`lib/parsers/openrocket.test.ts` carry an `existsSync` guard and skip there — deliberately, with a
-comment saying so. The 24 synthetic cases are what gates CI.
+## Two things this run did that are worth repeating
 
-This session had no route to do it: `api.github.com` returns **403 through the proxy even with
-`GITHUB_TOKEN` set**, there is no `gh`, and the GitHub MCP tools have no release verb. Two commands:
+**Measure the defect before fixing it, with a probe that reproduces the shipped number.** The
+thrust-to-weight probe printed the metric the analysis actually returns beside its own recomputation,
+and only the files where those matched were used as evidence — which is how six AltimeterCloud rows
+were correctly excluded from the argument rather than quoted as if they supported it. The same
+discipline, skipped on the first `avgBoostAcceleration` probe, produced a page of alarming numbers
+that were entirely my own missing gravity correction.
 
-```bash
-scripts/make-release-zip.sh v1.2.0     # in the fixtures repo → corpus-v1.2.0.zip, 26 MB
-                                       # sha256 fc06599b2b9fefb690acebf453474085b38d77e8e6d7ba064a6a85bf8eaeb4ba
-```
-
-then attach it to a `v1.2.0` release and bump tag + asset + sha256 in `corpus.lock.json` in one
-commit. That repo's `#4` already fixed the reason this would otherwise have gone unnoticed.
-
-## What is owed elsewhere
-
-**`nrdptel/fusionspace-loft` is owed the same `DESIGN.md` §9 edits**, unchanged for seven runs.
-
-**IMPOSSIBLE IS THE WRONG WORD, and it has been for at least seven runs — corrected 2026-08-03.**
-This paragraph has said the port could not be attempted because the session was created with
-`debrief` and `debrief-fixtures` only. **Checked rather than assumed this run:
-`nrdptel/fusionspace-loft` is listed, public, and `can_push: true`** — a session can attach it with
-the harness's add-repo tool and push. So the debt has been *deferred*, not *blocked*, and every run
-that read this line took "impossible" at face value and moved on. That is the cost of an unchecked
-claim in a handoff: seven runs of compounding divergence between two files the design system says
-are identical.
-
-**Not attempted THIS run either, and the reason is different and smaller:** it arrived at the end of
-a long session, behind an outstanding pre-push review, and `loft` had been pushed to 34 minutes
-earlier by something else — opening a front in a second repository whose current state I had not
-read was the wrong risk to take late. **A session with room should attach it and pay the whole debt
-in one pass**, which is now three §5 words plus §9, not one.
-
-**What is owed, as of this run — three words, not one.** `Button variant="link"`, `Chip`'s
-`good`/`warn`/`danger` tones, and `Notice`. Each is self-contained and each is described in its own
-entry above with the census that justified it. **Port `Notice` first if only one fits**: it carries
-the accessibility decision (the primitive must not own `role`), and Loft will hit the degraded-state
-question the moment it keeps anything on the device.
-
-**§5's fifth button weight is owed to the sibling, added 2026-08-03.** `Button variant="link"` is
-in this repo's `DESIGN.md` §5 and `ui.tsx`; `nrdptel/fusionspace-loft` carries the same §5 and this
-session had only this repo attached, so the edit is written to make sense there too and the port is
-outstanding. It is a self-contained addition — one entry in `BUTTON_VARIANTS`, one clause in the
-`Button` class list, one §5 bullet.
-
-**§5's chip tones are owed to the sibling, added 2026-08-03.** `good` · `warn` · `danger` on the
-`500/30` + `500/10` ramp, `font-medium` on every hued tone, and — the part that matters most to port
-— **`default` moved off `bg-zinc-50`/`dark:bg-zinc-900`, which are byte-identical to two `CARD_TONES`
-fills.** If Loft's `Chip` still carries the old neutral, its default chips are invisible against their
-own containers in at least one theme, exactly as Debrief's were. Self-contained: one `CHIP_TONES`
-map, one clause in the class list, one §5 bullet, and the visibility test that pins the relationship.
-
-**~~A THIRD §5 question~~ — ANSWERED 2026-08-03, and only the PORT is still owed. §5's five states
-had no name for a DEGRADED capability**, and now they do: `Notice`, the inline primitive built this
-run on a census of six hand-rolls. Everything below is the argument that produced it, kept because
-it is the reasoning a porting session needs. **What is owed to `nrdptel/fusionspace-loft` is the
-primitive and the §5 bullet, not the decision.** The logbook shipped `write-blocked` this run — reads fine, writes refused —
-and it is genuinely none of empty, loading, error, populated or offline. It is the surface working
-while one thing it promises does not, which is a shape any repo with local storage will hit; Loft
-will hit it the moment it keeps anything on the device. Debrief solved it privately with a fourth
-status and an amber `role="status"` caveat that sits ABOVE real content rather than replacing it,
-which is a pattern §5 could name in a paragraph. **Do not re-derive the argument:** the reason it is
-not `ErrorState` is recorded in `BACKLOG.md` under the 2026-08-03 amber/danger entry, and the reason
-it is not simply `blocked` is that a full quota reads perfectly, so the shared read-or-keep sentence
-would be half false. Deciding this is a §5 change, and §5 is carried identically by the sibling.
-
-**Two `DESIGN.md` §5 edits still owed to both repos:** `Frame` is not listed in §5 though it has six
-adopters, and the invented "indigo text" button weight survives — and the audit measured it at **7
-standalone controls across 5 files**, not the 1 the ledger records (`Analyzer.tsx:699`,
-`ChannelExplorer.tsx:421`, `CompareView.tsx:562/587/596`, `MethodsPointer.tsx:32`,
-`RecentFlights.tsx:838`). A session scoping a one-line fix against that entry will find a five-file
-problem.
-
-**An owner action:** the attached fixtures checkout (`0e90bfd`) is **3 commits ahead** of the tag
-`corpus.lock.json` pins, and `v1.0.0` and `v1.1.0` are the same commit. So the local corpus is a strict
-superset of the one gating CI. Cutting a `v1.2.0` and re-pinning is the owner's call.
-
-**And a fixtures-repo finding worth acting on:** `jan10`'s high-rate file carries a 20,160-row verbatim
-replay. Whether that is a bad download or a genuine board artefact changes what it should be used for —
-either way the fixture wants a `knownIssue` note recording it, so no future run re-derives it.
+**Let the digest guard do its job.** `corpus-digests.json` went red on 18 flights, which is the guard
+working. Its own instructions say to name the moved files first and regenerate in the commit that
+moves the analysis — so every one of the 18 was read back before and after, and the two that did not
+appear in the probe turned out to be a defect in the probe's file loader rather than a surprise in
+the change.
