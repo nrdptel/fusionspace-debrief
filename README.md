@@ -332,7 +332,12 @@ The `.json` is Debrief's canonical read, meant to be machine-read:
 - **`debrief.flight/1`** — one flight: `units` (the system every value is expressed in),
   `metrics` (the headline numbers), `events` (each with its `provenance` — `measured`,
   `derived` or `estimated`), `warnings`, and a `loggerSummary` cross-check when the file
-  carried the device's own figures.
+  carried the device's own figures. A `prediction` block appears instead — or as well —
+  when an OpenRocket design was dropped beside the log: the same readings with the
+  simulator's figure, Debrief's read, a **signed** `flewPct` (positive where the flight
+  exceeded the prediction) and the `verdict` in words. It is a separate key because it is a
+  separate kind of claim: `loggerSummary` is a second measurement of this flight, and a
+  prediction is a statement about a flight that had not happened yet.
   The single-flight document also carries `gpsApogee`, `gpsApogeeTime`, `gpsAscentFixes`
   and `gpsApogeeAgreement` where the file holds a GPS altitude — the receiver's own reading
   beside the barometer's, with `agree`, `differ` or `different-peak` saying how to read the

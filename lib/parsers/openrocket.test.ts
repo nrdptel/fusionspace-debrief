@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { looksLikeOrk, openRocketParser, orkToXml, readPrediction } from './openrocket';
+import { looksLikeOrk, openRocketParser, orkToXml, predictionFigures, readPrediction } from './openrocket';
 import { ParseGuidanceError } from './types';
 import { compareReported, renderReported, REPORTED_QUANTITY } from '../flight/reported';
 import type { FlightMetrics } from '../analyze/types';
@@ -328,5 +328,47 @@ describe('OpenRocket .ork — the real file', () => {
     expect(() => openRocketParser.parse({ name: 'A simple model rocket.ork', text, bytes })).toThrow(
       /not a recording of a flight/,
     );
+  });
+});
+
+describe('what a design contributes to the flight it was dropped beside', () => {
+  it('hands over all ten figures when the design states ONE simulation', () => {
+    const f = predictionFigures(oneRun())!;
+    expect(f.rocket).toBe('Test rocket');
+    expect(f.reported).toHaveLength(10);
+    expect(f.reported.every((v) => v.source === 'predicted')).toBe(true);
+    // The note has to say the thing a flyer cannot see: this is not a measurement.
+    expect(f.notes[0]).toMatch(/simulation of a flight that had not happened yet/);
+    expect(f.notes[0]).toContain('Simulation 1');
+  });
+
+  it('REFUSES to pick when a design states several, and names them', () => {
+    // A `.ork` accumulates a simulation per motor — the corpus fixture holds five, whose
+    // apogees run 50.59 m to 319.75 m. Nothing in a flight log says which motor flew, so
+    // choosing one would be Debrief inventing the claim the cross-check exists to test.
+    const two = oneRun().replace(
+      '</simulations>',
+      `<simulation status="uptodate"><name>Simulation 2</name><flightdata ${TEN}/></simulation></simulations>`,
+    );
+    const f = predictionFigures(two)!;
+    expect(f.reported, 'no figures, rather than a guess').toHaveLength(0);
+    expect(f.notes[0]).toContain('2 simulations');
+    expect(f.notes[0]).toContain('Simulation 1');
+    expect(f.notes[0]).toContain('Simulation 2');
+    // A silent nothing would read as "this file has no prediction", which is false.
+    expect(f.notes[0]).toMatch(/will not pick one/);
+  });
+
+  it('is nothing at all for a design that was never simulated', () => {
+    expect(predictionFigures(design('<simulation status="notsimulated"><name>Simulation 1</name></simulation>'))).toBeNull();
+    expect(predictionFigures('<html>not a rocket</html>')).toBeNull();
+  });
+
+  it.skipIf(!existsSync(ORK))('refuses the REAL five-simulation fixture, by name', async () => {
+    const f = predictionFigures(await orkToXml(new Uint8Array(readFileSync(ORK))))!;
+    expect(f.rocket).toBe('A simple model rocket');
+    expect(f.reported).toHaveLength(0);
+    expect(f.notes[0]).toContain('5 simulations');
+    expect(f.notes[0]).toContain('Simulation 3 - too short delay');
   });
 });

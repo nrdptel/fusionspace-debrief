@@ -266,6 +266,69 @@ export function readPrediction(xml: string): Prediction | null {
 }
 
 /**
+ * What a `.ork` contributes to the flight it was dropped beside — the mirror of
+ * `deviceSummary.ts`'s `summaryFigures`, and deliberately the same shape, because
+ * `lib/ingest.ts` pairs both onto a flight by the same route.
+ *
+ * **WHICH SIMULATION, when a design states several — and Debrief refuses to guess.** A `.ork`
+ * accumulates a simulation per motor: the corpus fixture holds five, for an A8-3 through a C6-5,
+ * whose apogees run 50.59 m to 319.75 m. Nothing in a flight log says which motor flew, so
+ * choosing one would be Debrief inventing the very claim the cross-check exists to test — and
+ * picking "the last one" is a guess wearing a rule's clothes. So: exactly one usable simulation
+ * is the prediction; several is a refusal that NAMES them, so the flyer can see what Debrief saw
+ * and why it declined. A silent nothing would read as "this file has no prediction", which is
+ * false and is the worse failure.
+ *
+ * Recorded under *Decisions taken without the owner* in `ROADMAP.md`. The obvious alternative —
+ * let the flyer pick which simulation — is the better product answer and is filed as the next
+ * slice; it is not this one, because a picker is a control with its own state, persistence and
+ * touch contract, and shipping the unambiguous case first is what gets the capability in front of
+ * a flyer this run.
+ */
+export function predictionFigures(
+  xml: string,
+): { rocket: string; reported: ReportedValue[]; notes: string[] } | null {
+  const { prediction } = readPredictionDetail(xml);
+  if (!prediction) return null;
+
+  const rocket = prediction.rocket ?? 'this design';
+  const by = prediction.creator ? ` by ${prediction.creator}` : '';
+
+  if (prediction.runs.length > 1) {
+    const named = prediction.runs.map((r) => r.name ?? 'an unnamed simulation');
+    return {
+      rocket,
+      reported: [],
+      notes: [
+        `“${rocket}” states ${prediction.runs.length} simulations${by} — ${named.join(', ')} — and a flight log does not say which motor flew, ` +
+          `so Debrief will not pick one to compare against. Save the design with only the simulation you flew, or drop it in again once that is the one it holds.`,
+      ],
+    };
+  }
+
+  const run = prediction.runs[0];
+  const which = run.name ? ` (${run.name})` : '';
+  return {
+    rocket,
+    reported: run.values,
+    notes: [
+      `Predicted figures read from “${rocket}”${which}${by}. These are a simulation of a flight that had not happened yet — ` +
+        `where they differ from what was flown, the flight is the measurement and the prediction is what missed it.`,
+      // The one caveat a flyer cannot work out from the table. Debrief reports the SPECIFIC FORCE
+      // an accelerometer measures — 1 g on the pad — and a device that reports acceleration net
+      // of gravity instead is named as such, because the corpus proves that convention on every
+      // file it has read. The `.ork` format states no convention for `maxacceleration` at all, so
+      // there is nothing to prove one way or the other and Debrief claims neither: a predicted
+      // acceleration sitting about a gravity off is reported as what it is. Said once, here,
+      // rather than asserted as a fact about OpenRocket underneath the figure.
+      `Max acceleration is the one row to read carefully: the design file doesn’t say whether its figure counts gravity, ` +
+        `and Debrief reports the force the airframe felt — which is 1 g on the pad. A gap of about a gravity there may be ` +
+        `the two conventions rather than the flight.`,
+    ],
+  };
+}
+
+/**
  * The registered parser.
  *
  * A `.ork` is NOT a flight, so `parse` never returns one — it refuses, the way a device

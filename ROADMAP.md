@@ -1630,7 +1630,13 @@ real risk attached: the standalone refusal must survive it.
 
 ## D9 — Predicted versus flown
 
-**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED; slice 3 is the next D increment.** Slice 2
+**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED. Slice 4 (the predicted trace on the chart)
+is the next D increment, and a new slice 3b sits beside it: let a flyer pick which simulation.**
+A design stating one simulation is now read, paired onto the flight it was dropped beside, and
+shown as a third source in the cross-check with its own verdict wording. A design stating several
+is read and refused by name, which is the honest half — and the reason 3b exists.
+
+Slice 2
 landed 2026-08-04 (`lib/parsers/openrocket.ts`, pinned by `lib/parsers/openrocket.test.ts`), so
 Debrief now reads a prediction and refuses it as a flight. Nothing SHOWS a prediction yet — that is
 slice 3, and until it lands the ten figures are read and dropped.
@@ -1816,7 +1822,72 @@ the whole milestone is about reading what a real tool actually writes.
    (26.xx) uses stable save keys. That is a slice-4 problem, but it is why slice 2 reads attributes
    and not the series.
 
-3. **The cross-check table grows a third column.** `DeviceSummary` already puts the board's own
+3. ~~**The cross-check table grows a third column.**~~ **SHIPPED 2026-08-04**, pinned by
+   `lib/flight/reported.test.ts` (6 cases on the grouping and the vocabulary, each falsified by
+   mutating the source), `lib/parsers/openrocket.test.ts` (4 on what a design contributes) and two
+   e2e cases in `e2e/analyze.spec.ts` that drive the real app — one dropping a single-simulation
+   design beside a log, one dropping the real five-simulation corpus fixture. Both clauses of the
+   *done when* are met.
+
+   **Four things this slice found that the decomposition did not have.**
+   - **A prediction could not reach the flight at all, and the plumbing was the work.**
+     `pairSummaries` deduped by METRIC ALONE, so a design's apogee was silently dropped by an
+     altimeter's apogee — precisely the cross-check this milestone exists to show. Keyed on
+     `source:metric` now. `lib/ingest.ts` grows `pairPredictions` beside the summary and high-rate
+     pairings, matched the same two ways (rocket name, or one-of-each).
+   - **`compareReported` had no notion of a metric identity.** It is a 1:1 map, so two sources
+     stating apogee produced two rows both labelled "Apogee", each showing Debrief's identical
+     read, under a duplicate React key. `reportedByMetric` groups them; `compareReported` stays as
+     it is, because a caller that wants each stated figure once is still right.
+   - **`deltaPct` is unsigned, and for a prediction the direction IS the reading.** Two
+     measurements of one flight have no reference between them; a prediction has one — the flight.
+     `signedPct` is added beside it rather than replacing it.
+   - **The verdict vocabulary had no third case.** `agree`/`consistent`/`differ` is a measurement
+     vocabulary, and `lib/flight/types.ts` already stated the invariant it would break: a flight
+     that missed its prediction "is not an error at all — it is the answer". `predictionVerdict`
+     says *flew higher · +8%* or *as predicted · 2%*, in `accent` and never `warn`.
+
+   **Six defects a second-opinion pass on the finished diff found, all fixed before the push.**
+   Worth recording as a group, because five of the six are the same failure: a sentence written for
+   the case in front of me, then reached by a case that was not.
+   - **"flew higher" was being said about all ten figures.** `Time to apogee — flew higher · +245%`,
+     on the row directly above Apogee. The direction words go through `renderReported` now, which
+     is the funnel that already forces a per-quantity decision for units — so a time *took longer*
+     and an acceleration *pulled more g*, and the next metric added cannot reach a flyer under
+     borrowed words.
+   - **The gravity-convention finding fired on predictions.** It is a MEASURED regularity of
+     instruments Debrief has read files from (+1.00 g, to two decimals, on every AltimeterCloud
+     file in the corpus). The `.ork` format states no acceleration convention at all, so on a
+     design it would have printed a confident sentence about "the device" under a figure no device
+     wrote, and flipped a real 5–7% under-prediction to `agree`. Gated on `source === 'device'`,
+     with the caveat stated once in the design's own note instead.
+   - **A design stating several simulations was announced as a prediction that landed.** It
+     contributes only its refusal, so it is no longer counted as paired — the two sentences were
+     contradicting each other on one screen.
+   - **The pairing note promised a table that surface does not have.** The cross-check panel lives
+     on the single-flight report; a drop that assembles a comparison shows no reported figures at
+     all, and a prediction is not persisted, so it is not one reopen away either.
+   - **A prediction verdict was printed under a column headed `Agreement`** — on screen, where a
+     device-less row also rendered the same chip twice, and in all three documents. One column per
+     question now, each present exactly when its source is.
+   - **The row's Debrief cell was copied off whichever source came first**, and `hasComputed` on a
+     comparison is false when the stated value is 0. A device figure of 0 blanked Debrief's read
+     for the whole row while `analysisJson` still carried the number.
+
+   The pass also caught the one that would have failed the gate on arrival: the new methods-page
+   block was not in `lib/methodIds.ts`, which is a type error, and I had reported the gate green
+   from a run that predated writing it.
+
+   **The sign convention is a decision, and the field is split on it.** Debrief states
+   `(flown − predicted) / |predicted|`. RASAero II's published 43-flight comparison table states
+   the same quantity as `(sim − flown) / flown` — opposite sign AND a different denominator, so a
+   flight it prints as −4.30% Debrief prints as +4.5%. Debrief takes the flight as the reference
+   because the flight is what it measured. Recorded in `COMPETITION.md` and on the methods page.
+
+   **What it deliberately does NOT do, filed as slice 3b:** pick a simulation when a design states
+   several. See *Decisions taken without the owner*.
+
+   *The original slice text follows, because slice 4 still rests on it:* `DeviceSummary` already puts the board's own
    figures beside Debrief's read with an agree/differ verdict. Predicted is a third source in the
    same table, on the same `compareReported` logic, at the same three surfaces it already reaches.
    *Done when:* a flight with a prediction shows `PREDICTED | LOGGER | DEBRIEF | AGREEMENT`, and the
@@ -2945,6 +3016,37 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-04 — a design stating SEVERAL simulations is refused by name rather than resolved by a
+  rule.** A `.ork` accumulates a simulation per motor; the corpus fixture holds five, apogees
+  50.59–319.75 m. Nothing in a flight log says which motor flew. **Rejected: "use the last one"**,
+  which is a guess wearing a rule's clothes and would have Debrief inventing the claim the
+  cross-check exists to test — on a milestone whose whole subject is not doing that. **Also
+  rejected: silence**, which reads as "this file states no prediction" and is false. What ships
+  names the simulations it found and says why it will not pick. The better answer is to let the
+  flyer choose, and that is filed as slice 3b — it is a control with its own state, persistence and
+  touch contract, and shipping the unambiguous case first put the capability in front of a flyer a
+  run earlier.
+
+- **2026-08-04 — the predicted-versus-flown difference is signed from the FLIGHT's side.** Debrief
+  states `(flown − predicted) / |predicted|`, so positive means the rocket beat its simulation.
+  **Rejected: RASAero II's convention**, `(sim − flown) / flown`, which is the only published
+  predicted-versus-flown table in the field (43 flights, average error 3.47%) and is therefore the
+  one a flyer might already know. It is the opposite sign and a different denominator: a flight it
+  prints as −4.30% Debrief prints as +4.5%. Taken the other way because the two are answering
+  different questions — RASAero is grading its own simulator, Debrief is reporting what a rocket
+  did against what was expected of it, and Debrief's reference is always the thing it measured.
+  The divergence is stated on the methods page and in `COMPETITION.md` rather than left to be
+  discovered by someone holding both tables.
+
+- **2026-08-04 — a paired prediction lasts the session and is not kept with the flight.** A device
+  summary's TEXT is stored on the logbook row so the cross-check survives a reopen; that text is a
+  few hundred bytes. The equivalent for a design is the whole `rocket.ork` XML — **996 KB on the
+  corpus fixture** — against a browser quota the logbook shares between every flight a flyer keeps.
+  **Rejected: store the XML** (a megabyte per flight to re-derive ten numbers) and **rejected:
+  store the ten figures instead**, which is right but needs a place on the logbook row that does
+  not exist yet. The note a flyer sees says the design must be dropped again, so nothing is
+  silently lost. Filed in `BACKLOG.md`.
 
 - **2026-08-03 — D9's product shape was decided rather than asked, and it is the biggest product
   call taken unattended so far.** "Predicted versus flown" could reasonably have meant several

@@ -25,7 +25,7 @@ import {
   unitsOf,
 } from './display';
 import type { UnitChoice } from './display';
-import { compareReported, renderReported } from './flight/reported';
+import { compareReported, predictionVerdict, renderReported, reportedByMetric } from './flight/reported';
 import { formatFlownAt } from './flight/flownAt';
 import {
   crossCheck,
@@ -334,6 +334,31 @@ function fmtReported(metric: ReportedValue['metric'], si: number, sys: UnitChoic
   });
 }
 
+/**
+ * What to call the cross-check section, and its stated-figure column, given what actually states
+ * a figure on this flight.
+ *
+ * The three document formats had "Logger's own summary" and a `Logger` column typed into them,
+ * which is right until a design is dropped beside the log and the same table carries a
+ * simulation. Kept SPECIFIC in the common case rather than generalised to "Stated" everywhere: a
+ * flyer filing a cert document with only an altimeter summary in it should still read the word
+ * that names their instrument.
+ */
+function crossCheckNaming(flight: RawFlight): { title: string; stated: string; verdict: string } {
+  const has = (s: ReportedValue['source']) => (flight.reported ?? []).some((r) => r.source === s);
+  const device = has('device');
+  const predicted = has('predicted');
+  // The verdict column is named for the question it answers. `Agreement` is a question about two
+  // MEASUREMENTS, and on a flight whose only other source is a design there are not two: every
+  // cell in that column is a prediction verdict, printed under the one word `lib/flight/types.ts`
+  // says a prediction must never be judged in. Where both sources are present the cell leads with
+  // the device's verdict and carries the prediction as a second clause that names itself, so the
+  // heading keeps naming the lead.
+  if (device && predicted) return { title: 'Predicted, logged, and read (cross-check)', stated: 'Stated', verdict: 'Agreement' };
+  if (predicted) return { title: 'The design’s prediction (cross-check)', stated: 'Predicted', verdict: 'vs prediction' };
+  return { title: 'Logger’s own summary (cross-check)', stated: 'Logger', verdict: 'Agreement' };
+}
+
 /** Rows for the "logger's own summary" cross-check: the device figure, Debrief's
  *  read, and how closely they agree. Empty when the file carried no summary. */
 function crossCheckRows(
@@ -343,23 +368,51 @@ function crossCheckRows(
   events?: FlightAnalysis['events'],
 ): [string, string, string, string][] {
   if (!flight.reported?.length) return [];
-  return compareReported(flight.reported, m, events).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => {
-    const pct = deltaPct == null ? '' : deltaPct < 0.05 ? '≈0' : `${deltaPct.toFixed(deltaPct < 10 ? 1 : 0)}%`;
+  // Whether this table has to carry BOTH sources, which is the only case where a cell has to name
+  // its own source — the heading does it otherwise. Read from the same helper the heading is, so
+  // the two cannot disagree about what the column is called.
+  const both = crossCheckNaming(flight).stated === 'Stated';
+  // Grouped by READING, so a flight carrying both a device summary and a design's prediction
+  // gets one row per figure rather than two rows both labelled "Apogee" — see `reportedByMetric`.
+  return reportedByMetric(flight.reported, m, events).map((g) => {
+    const d = g.device;
+    const pct = d?.deltaPct == null ? '' : d.deltaPct < 0.05 ? '≈0' : `${d.deltaPct.toFixed(d.deltaPct < 10 ? 1 : 0)}%`;
+    // A row with no logger figure is judged on its PREDICTION, in the prediction's own words.
+    // The two vocabularies must not mix in one column: "differ (12%)" about a simulation would
+    // file a flight that beat its own prediction as a fault in the measurement.
     const agreement =
-      status == null
-        ? 'not computed'
-        : // The same reading under two conventions rather than a disagreement — the device
-          // reports acceleration net of gravity, Debrief the specific force the accelerometer
-          // measured. A document that printed the percentage alone would file the difference
-          // as measurement spread, which is exactly what it isn't.
-          gravityConvention
-          ? 'agree — exactly 1 g apart (the device reports acceleration net of gravity; Debrief the force the airframe felt)'
-          : status === 'agree'
-            ? `agree (${pct})`
-            : status === 'consistent'
-              ? `consistent (${pct})`
-              : `differ (${pct})`;
-    return [r.label, fmtReported(r.metric, r.value, sys), hasComputed ? fmtReported(r.metric, computed, sys) : '—', agreement];
+      !d && g.predicted
+        ? predictionVerdict(g.predicted).replace(' · ', ' — ')
+        : d?.status == null
+          ? 'not computed'
+          : // The same reading under two conventions rather than a disagreement — the device
+            // reports acceleration net of gravity, Debrief the specific force the accelerometer
+            // measured. A document that printed the percentage alone would file the difference
+            // as measurement spread, which is exactly what it isn't.
+            d.gravityConvention
+            ? 'agree — exactly 1 g apart (the device reports acceleration net of gravity; Debrief the force the airframe felt)'
+            : d.status === 'agree'
+              ? `agree (${pct})`
+              : d.status === 'consistent'
+                ? `consistent (${pct})`
+                : `differ (${pct})`;
+    // Where BOTH state a reading, the prediction rides in the same cell as a second clause
+    // rather than growing a fifth column on four document formats — a table a flyer pastes into
+    // a cert document stays four columns wide, and the sentence carries the extra reading.
+    const withPrediction = d && g.predicted ? `${agreement}; predicted ${fmtReported(g.metric, g.predicted.reported.value, sys)} — ${predictionVerdict(g.predicted).replace(' · ', ' ')}` : agreement;
+    // "(predicted)" ONLY where the column heading does not already say it. `crossCheckNaming`
+    // heads the column `Predicted` on a flight whose only source is a design, and the suffix
+    // there printed the word twice in one cell — `Apogee | 250 m (predicted) | …` — on all three
+    // document formats, where the screen shows it once. It earns its place in the mixed case,
+    // where the heading has to fall back to `Stated` and the cell is the only thing that says
+    // which source this row's figure came from.
+    const marked = both && !d;
+    const stated = d
+      ? fmtReported(g.metric, d.reported.value, sys)
+      : g.predicted
+        ? `${fmtReported(g.metric, g.predicted.reported.value, sys)}${marked ? ' (predicted)' : ''}`
+        : '—';
+    return [g.label, stated, g.hasComputed ? fmtReported(g.metric, g.computed, sys) : '—', withPrediction];
   });
 }
 
@@ -466,9 +519,10 @@ export function summaryText(
   const xrows = crossCheckRows(flight, analysis.metrics, sys, analysis.events);
   if (xrows.length) {
     lines.push('');
-    lines.push('Logger’s own summary (cross-check)');
+    const naming = crossCheckNaming(flight);
+    lines.push(naming.title);
     for (const [label, device, debrief, agreement] of xrows) {
-      lines.push(`  ${label.padEnd(16)} logger ${device.padStart(10)}   Debrief ${debrief.padStart(10)}   ${agreement}`);
+      lines.push(`  ${label.padEnd(16)} ${naming.stated.toLowerCase().padEnd(9)} ${device.padStart(10)}   Debrief ${debrief.padStart(10)}   ${agreement}`);
     }
   }
 
@@ -551,7 +605,8 @@ export function summaryMarkdown(
 
   const xrows = crossCheckRows(flight, analysis.metrics, sys, analysis.events);
   if (xrows.length) {
-    out.push('', '## Logger’s own summary (cross-check)', '', '| Reading | Logger | Debrief | Agreement |', '| --- | --- | --- | --- |');
+    const naming = crossCheckNaming(flight);
+    out.push('', `## ${naming.title}`, '', `| Reading | ${naming.stated} | Debrief | ${naming.verdict} |`, '| --- | --- | --- | --- |');
     for (const [label, device, debrief, agreement] of xrows) {
       out.push(`| ${cell(label)} | ${cell(device)} | ${cell(debrief)} | ${cell(agreement)} |`);
     }
@@ -682,6 +737,7 @@ export function summaryHtml(
 
   const xrows = crossCheckRows(flight, analysis.metrics, sys, analysis.events);
   const crossRows = xrows.map(([l, d, b, a]) => `<tr><td>${esc(l)}</td><td>${esc(d)}</td><td>${esc(b)}</td><td>${esc(a)}</td></tr>`).join('');
+  const xnaming = crossCheckNaming(flight);
   const gpsRow = gpsCrossRow(analysis.metrics, sys);
   const gpsHtml = gpsRow
     ? `<section><h2>The GPS recording (cross-check)</h2><table><thead><tr><th>Reading</th><th>GPS</th><th>Barometer</th><th>Agreement</th></tr></thead><tbody><tr>${gpsRow.map((c) => `<td>${esc(c)}</td>`).join('')}</tr></tbody></table><p class="src">A second, independent altitude recording — a different sensor from the barometer. Stated beside Debrief's read, never merged into it.</p></section>`
@@ -706,7 +762,7 @@ export function summaryHtml(
   <section><h2>Headline</h2><table class="metrics"><tbody>${metricRows}</tbody></table></section>
   ${figuresSection(figures)}
   ${eventRows ? `<section><h2>Events</h2><table><thead><tr><th>Event</th><th>Time</th><th>Altitude</th><th>Speed</th><th>Shock</th></tr></thead><tbody>${eventRows}</tbody></table></section>` : ''}
-  ${crossRows ? `<section><h2>Logger’s own summary (cross-check)</h2><table><thead><tr><th>Reading</th><th>Logger</th><th>Debrief</th><th>Agreement</th></tr></thead><tbody>${crossRows}</tbody></table></section>` : ''}
+  ${crossRows ? `<section><h2>${xnaming.title}</h2><table><thead><tr><th>Reading</th><th>${xnaming.stated}</th><th>Debrief</th><th>${xnaming.verdict}</th></tr></thead><tbody>${crossRows}</tbody></table></section>` : ''}
   ${gpsHtml}
   ${warnHtml}
   ${readHtml}`;
@@ -1433,8 +1489,17 @@ export function analysisJson(
 
   // The logger's own reported summary and how Debrief's read compares — only when
   // the file carried one.
-  if (flight.reported?.length) {
-    doc.loggerSummary = compareReported(flight.reported, m, analysis.events).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => ({
+  //
+  // **Filtered to `source: 'device'`, and that filter is the point.** `loggerSummary` is a key a
+  // consumer script already reads; letting a PREDICTION into it would file a simulation of an
+  // un-flown flight under a name that promises an instrument measured it — the one thing
+  // `lib/flight/types.ts` says these two sources must never do to each other. A prediction gets
+  // its own key below, so a reader that knows nothing about it cannot be misled by it, and a
+  // reader that wants it asks by name.
+  const deviceReported = (flight.reported ?? []).filter((r) => r.source === 'device');
+  const predictedReported = (flight.reported ?? []).filter((r) => r.source === 'predicted');
+  if (deviceReported.length) {
+    doc.loggerSummary = compareReported(deviceReported, m, analysis.events).map(({ reported: r, computed, hasComputed, deltaPct, status, gravityConvention }) => ({
       label: r.label,
       metric: r.metric,
       logger: reportedNum(r.metric, r.value),
@@ -1449,6 +1514,24 @@ export function analysisJson(
       // offset as measurement spread. Present and false where it doesn't apply, so a reader
       // checks a key it knows.
       gravityConvention: !!gravityConvention,
+    }));
+  }
+
+  // What a design's simulator expected, and which way the flight went against it. Its own key,
+  // its own vocabulary: `flewPct` is SIGNED where `agreementPct` is not, because the direction is
+  // the reading — a flight 8% over its prediction and one 8% under are opposite outcomes, and
+  // there is no "agree / differ" here to collapse them into.
+  if (predictedReported.length) {
+    doc.prediction = compareReported(predictedReported, m, analysis.events).map((c) => ({
+      label: c.reported.label,
+      metric: c.reported.metric,
+      predicted: reportedNum(c.reported.metric, c.reported.value),
+      debrief: c.hasComputed ? reportedNum(c.reported.metric, c.computed) : null,
+      unit: reportedUnit(c.reported.metric),
+      /** Positive where the flight exceeded what was predicted. Null when Debrief measures
+       *  nothing comparable — four of the ten figures a `.ork` states have no counterpart. */
+      flewPct: c.signedPct == null ? null : round(c.signedPct, 1),
+      verdict: predictionVerdict(c),
     }));
   }
 

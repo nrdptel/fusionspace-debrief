@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 
 // The filenames listed in a ZIP's central directory — enough to prove the bundle
 // packs what it should, without a ZIP library. Scans back for the end-of-central-
@@ -2090,4 +2091,184 @@ test('a file Debrief recognises and declines is not called unreadable', async ({
   await expect(alert).toContainText('Debrief didn’t analyse');
   await expect(alert).toContainText('not a recording of a flight');
   await expect(alert).not.toContainText('Couldn’t read');
+});
+
+/**
+ * A minimal STORED (uncompressed) ZIP holding one member. OpenRocket deflates its own files,
+ * but the reader takes method 0 as well, and building one here means this spec can state the
+ * exact design it wants rather than shipping a second fixture that says almost the same thing
+ * as the corpus one. Little-endian throughout, per PKWARE APPNOTE.
+ */
+function storedZip(name: string, contents: string): Buffer {
+  const data = Buffer.from(contents, 'utf8');
+  const nameBuf = Buffer.from(name, 'utf8');
+  // CRC-32, computed the long way so the spec depends on nothing.
+  let crc = 0xffffffff;
+  for (const b of data) {
+    crc ^= b;
+    for (let k = 0; k < 8; k++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  }
+  crc = (crc ^ 0xffffffff) >>> 0;
+
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4);
+  local.writeUInt16LE(0, 8); // stored
+  local.writeUInt32LE(crc, 14);
+  local.writeUInt32LE(data.length, 18);
+  local.writeUInt32LE(data.length, 22);
+  local.writeUInt16LE(nameBuf.length, 26);
+
+  const central = Buffer.alloc(46);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt16LE(0, 10);
+  central.writeUInt32LE(crc, 16);
+  central.writeUInt32LE(data.length, 20);
+  central.writeUInt32LE(data.length, 24);
+  central.writeUInt16LE(nameBuf.length, 28);
+  central.writeUInt32LE(0, 42); // local header offset
+
+  const localSize = local.length + nameBuf.length + data.length;
+  const centralSize = central.length + nameBuf.length;
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(1, 8);
+  eocd.writeUInt16LE(1, 10);
+  eocd.writeUInt32LE(centralSize, 12);
+  eocd.writeUInt32LE(localSize, 16);
+
+  return Buffer.concat([local, nameBuf, data, central, nameBuf, eocd]);
+}
+
+/** One simulation, so Debrief has an unambiguous prediction to compare against. The apogee is
+ *  set well clear of the fixture flight's so the direction of the miss is unmistakable. */
+const ONE_SIM_ORK = storedZip(
+  'rocket.ork',
+  `<?xml version='1.0' encoding='utf-8'?><openrocket version="1.10" creator="OpenRocket 24.12">` +
+    `<rocket><name>Telemetrum</name></rocket><simulations>` +
+    `<simulation status="uptodate"><name>Simulation 1</name>` +
+    `<flightdata maxaltitude="200" maxvelocity="68.6" maxacceleration="143.649" maxmach="0.2" ` +
+    `timetoapogee="6.5" flighttime="60" groundhitvelocity="4.681" launchrodvelocity="15.365" ` +
+    `deploymentvelocity="2.646" optimumdelay="2.751"/></simulation>` +
+    `</simulations></openrocket>`,
+);
+
+test('a design dropped beside a log is compared against it, and never called a measurement', async ({ page }) => {
+  // D9 slice 3. The prediction is a THIRD source in the cross-check — not a second measurement,
+  // and the wording has to keep those apart: a flight that missed its prediction is the answer,
+  // not a discrepancy to chase.
+  await page.goto('/');
+  // Written to disk rather than passed as a buffer: Playwright refuses to mix paths and
+  // buffers in one drop, and the flight has to come from the real fixture.
+  const orkPath = path.join(os.tmpdir(), 'Telemetrum.ork');
+  writeFileSync(orkPath, ONE_SIM_ORK);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), orkPath]);
+
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  // The panel names what it holds, rather than calling a simulation "the logger's own summary".
+  const panel = page.getByRole('region', { name: /Predicted, logged, and read|design’s prediction/ });
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('not a measurement of it');
+
+  // The column exists and carries the design's figure.
+  await expect(panel.getByRole('columnheader', { name: 'Predicted' })).toBeVisible();
+  await expect(panel.getByRole('row', { name: /Apogee/ }).first()).toContainText('656 ft'); // 200 m
+
+  // …and the verdict is in the prediction's own vocabulary, with a direction — and the direction
+  // words belong to the QUANTITY. "flew higher" is a sentence about altitude; said about all ten
+  // figures, a flight that took two and a half times longer to reach apogee than predicted read
+  // `Time to apogee — flew higher · +245%`, on the row directly above Apogee.
+  await expect(panel).toContainText(/flew (higher|lower)/);
+  const timeRow = panel.getByRole('row', { name: /Time to apogee/ }).first();
+  await expect(timeRow).toContainText(/took (longer|less time)/);
+  await expect(timeRow).not.toContainText(/flew (higher|lower)/);
+
+  // This flight carries no device summary, so the panel has no `Agreement` column to put a
+  // prediction under — the one column header a prediction must never appear beneath.
+  await expect(panel.getByRole('columnheader', { name: 'vs prediction' })).toBeVisible();
+  await expect(panel.getByRole('columnheader', { name: 'Agreement' })).toHaveCount(0);
+  // The word appears exactly once per row: the heading says `Predicted`, so the cell does not
+  // repeat it. It did in txt/md/html — `250 m (predicted)` under a column headed "Predicted".
+  await expect(panel.getByRole('table')).not.toContainText('(predicted)');
+  // The discrepancy words belong to two instruments that measured one flight. This flight has
+  // only a prediction, so no VERDICT may use them. Scoped to the table rather than the panel:
+  // the panel's own subhead says "where the flight and the prediction differ, the flight is the
+  // measurement", which is the distinction being drawn rather than a verdict drawing on it.
+  const verdicts = panel.getByRole('table');
+  await expect(verdicts).not.toContainText(/\bdiffer\b/);
+  await expect(verdicts).not.toContainText(/\bconsistent\b/);
+  // Four of the ten have no counterpart Debrief measures, and say so rather than showing 0%.
+  await expect(verdicts).toContainText('not measured');
+});
+
+test('a log, its logger summary and a design make three columns, and one verdict per question', async ({ page }) => {
+  // The three-source table. Two questions are being asked of one row and they are NOT the same
+  // question: how two measurements of this flight line up, and how the flight compared with what
+  // was expected of it. `Agreement` used to fall back to the prediction verdict on any row the
+  // logger didn't state — which put a prediction under the one column header it must never
+  // appear beneath, and on a row like this rendered the identical accent chip twice.
+  await page.goto('/');
+  const orkPath = path.join(os.tmpdir(), 'three-source.ork');
+  writeFileSync(orkPath, ONE_SIM_ORK);
+  await page.getByLabel('Choose a flight log file').setInputFiles([
+    path.join(__dirname, '../lib/parsers/__fixtures__/blueraven-app-lr.csv'),
+    path.join(__dirname, '../lib/parsers/__fixtures__/blueraven-app.summary.csv'),
+    orkPath,
+  ]);
+
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+  const panel = page.getByRole('region', { name: /Predicted, logged, and read/ });
+  await expect(panel).toBeVisible();
+  for (const name of ['Reading', 'Predicted', 'Logger', 'Debrief', 'Agreement', 'vs prediction']) {
+    await expect(panel.getByRole('columnheader', { name, exact: true })).toBeVisible();
+  }
+
+  // A row only the DESIGN states: the logger's cells are blank, including its verdict, and the
+  // prediction's verdict sits under its own header. Blue Raven's summary carries no time to
+  // apogee; Debrief measures one, so there is a real comparison to state here.
+  const only = panel.getByRole('row', { name: /Time to apogee/ }).first();
+  await expect(only.getByRole('cell').nth(2)).toHaveText('—'); // Logger
+  await expect(only.getByRole('cell').nth(4)).toHaveText('—'); // Agreement — not the logger's row
+  await expect(only.getByRole('cell').nth(5)).toContainText(/took (longer|less time)|as predicted/);
+
+  // A row BOTH state: each verdict in its own cell, in its own vocabulary. The logger's may say
+  // `agree`; the design's may never.
+  const both = panel.getByRole('row', { name: /^Apogee/ }).first();
+  await expect(both.getByRole('cell').nth(4)).toContainText(/agree|consistent|differ/);
+  await expect(both.getByRole('cell').nth(5)).toContainText(/flew (higher|lower)|as predicted/);
+  await expect(both.getByRole('cell').nth(5)).not.toContainText(/agree|consistent|differ/);
+});
+
+test('a design that states several simulations is read, and refuses to pick one', async ({ page }) => {
+  // The corpus fixture holds five, for an A8-3 through a C6-5, whose apogees run 50.59 m to
+  // 319.75 m. Nothing in a flight log says which motor flew.
+  const ork = path.join(
+    __dirname,
+    '../lib/parsers/__corpus__/openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork',
+  );
+  test.skip(!existsSync(ork), 'corpus not fetched — this case needs the real .ork');
+
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), ork]);
+
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+  // Read, paired, and declined — all three said out loud. A silent nothing would read as
+  // "this file has no prediction", which is false.
+  await expect(page.getByText(/states 5 simulations/)).toBeVisible();
+  await expect(page.getByText(/Simulation 3 - too short delay/)).toBeVisible();
+  await expect(page.getByText(/will not pick one to compare against/)).toBeVisible();
+
+  // **And it is not ALSO announced as a prediction that landed.** The refusal is the whole
+  // account of this drop; the paired sentence beside it said "Read the prediction for this
+  // flight alongside it … it sits beside Debrief's read of what actually flew" — two sentences
+  // contradicting each other on one screen, with no prediction column anywhere on the page.
+  await expect(page.getByText(/Read the prediction for this flight alongside it/)).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'Predicted' })).toHaveCount(0);
 });

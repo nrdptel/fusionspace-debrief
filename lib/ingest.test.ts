@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { unreadNote, MAX_NAMED_UNREAD } from './ingest';
+import { predictionNote, unreadNote, MAX_NAMED_UNREAD } from './ingest';
 
 // `ingestFiles` itself needs real Files and a real IndexedDB, so it is exercised end to end in
 // e2e/compare.spec.ts. The SENTENCE it hands the surfaces is pure, and it makes claims about a
@@ -66,5 +66,34 @@ describe('what a drop was too full to read', () => {
     const note = N('notes-to-self.txt');
     expect(note).toContain('to read it');
     expect(note).not.toContain('keep');
+  });
+});
+
+// The other sentence this module owns. `pairPredictions` needs real Files, but the words it
+// hands the three surfaces are pure — and they make a claim about what is ON the flyer's screen,
+// which is exactly the kind of claim that goes wrong silently.
+describe('what a flyer is told when a design paired onto their flight', () => {
+  const P = ['rocket.ork → flight.csv'];
+
+  it('sends a flyer to the table when the table is there', () => {
+    const note = predictionNote(P, true);
+    expect(note).toContain('rocket.ork → flight.csv');
+    expect(note).toContain('beside Debrief');
+    // The one thing they cannot see for themselves: it does not survive the session.
+    expect(note).toContain('not kept with the flight');
+  });
+
+  it('does not promise a table on a surface that has none', () => {
+    // The cross-check panel lives on the SINGLE-flight report. A drop that assembles a
+    // comparison — two logs on the analyze page, or anything on `/compare`, which rebuilds each
+    // flight from the logbook — shows no reported figures at all, and a prediction is not
+    // persisted, so it is not one reopen away either. "It sits beside Debrief's read" sent a
+    // flyer looking for a table that does not exist on that page and cannot be reached from it.
+    const note = predictionNote(P, false);
+    expect(note).toContain('rocket.ork → flight.csv');
+    expect(note).not.toContain('sits beside');
+    expect(note).toContain("comparison doesn't show a prediction");
+    // …and says what to do instead, rather than naming a dead end.
+    expect(note).toContain('on its own');
   });
 });

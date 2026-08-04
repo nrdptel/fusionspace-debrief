@@ -417,6 +417,43 @@ describe('report exports', () => {
     expect(summaryMarkdown(flight, analysis, 'metric')).not.toContain('cross-check');
   });
 
+  it('names the source in the heading, and does not then repeat it in every cell', () => {
+    // A design dropped beside the log makes the same table carry a simulation, so the heading
+    // and the stated column are named for what is actually in them. When the DESIGN is the only
+    // source the column header is already "Predicted" — and the cell used to print the word a
+    // second time, `250 m (predicted)`, in all three document formats where the screen shows it
+    // once. It earns its place only in the mixed case, where the heading falls back to "Stated"
+    // and the cell is the one thing saying which source this row's figure came from.
+    const predictedOnly: RawFlight = {
+      ...flight,
+      reported: [{ metric: 'apogeeAltitude', label: 'Apogee', value: 250, source: 'predicted' }],
+    };
+    const md = summaryMarkdown(predictedOnly, analyzeFlight(predictedOnly), 'metric');
+    expect(md).toContain('The design’s prediction (cross-check)');
+    // …and the verdict column is named for the question it answers. Every cell in it here is a
+    // prediction verdict, and `Agreement` is a question about two measurements.
+    expect(md).toContain('| Reading | Predicted | Debrief | vs prediction |');
+    expect(md).not.toContain('(predicted)');
+    // And the verdict is the prediction's own vocabulary, never the discrepancy words.
+    expect(md).toMatch(/\| Apogee \|.*\| flew (higher|lower)/);
+
+    const mixed: RawFlight = {
+      ...flight,
+      reported: [
+        { metric: 'apogeeAltitude', label: 'Apogee', value: 300, source: 'device' },
+        { metric: 'timeToApogee', label: 'Time to apogee', value: 3, source: 'predicted' },
+      ],
+    };
+    const both = summaryMarkdown(mixed, analyzeFlight(mixed), 'metric');
+    expect(both).toContain('Predicted, logged, and read (cross-check)');
+    expect(both).toContain('| Reading | Stated | Debrief | Agreement |');
+    // Here the word IS the only marker of which source the row's figure came from.
+    expect(both).toMatch(/\| Time to apogee \| [^|]*\(predicted\)/);
+    expect(both).not.toMatch(/\| Apogee \| [^|]*\(predicted\)/);
+    // A time is never described as having flown higher.
+    expect(both).toMatch(/\| Time to apogee \|.*\| (took (longer|less time)|as predicted)/);
+  });
+
   it('carries the GPS recording, and how to read it, into the structured document', () => {
     // A cross-check that isn't in the export isn't finished: a consumer archiving the
     // document would otherwise lose the second independent recording entirely, and one

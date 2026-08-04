@@ -138,6 +138,9 @@ export interface ReportedComparison {
   hasComputed: boolean;
   /** |computed − device| / |device|, as a percentage; null when not comparable. */
   deltaPct: number | null;
+  /** The same difference SIGNED — positive where the flight exceeded the stated figure. Null
+   *  when not comparable. What a predicted row is read on; see `predictionVerdict`. */
+  signedPct: number | null;
   /** True only for a tight (≤ AGREE_FRACTION) match — kept for the simple green split. */
   agree: boolean;
   /** Three-way read of the agreement; null when there's nothing to compare. */
@@ -167,7 +170,16 @@ export interface ReportedComparison {
  * Deliberately NOT used to adjust either figure into agreement — both are reported as each
  * instrument states them, and the note explains the gap rather than closing it.
  */
-function isGravityConvention(metric: ReportedValue['metric'], computed: number, device: number): boolean {
+function isGravityConvention(r: ReportedValue, computed: number): boolean {
+  const { metric, source, value: device } = r;
+  // **A DEVICE figure only.** The evidence above is a measured regularity in files written by
+  // instruments Debrief has read: the same device, the same +1.00 g, on every flight. Nothing
+  // like it has been established for a simulation, and the OpenRocket format states no
+  // convention for `maxacceleration` at all — so firing this on a prediction would put a
+  // specific, confident sentence about what "the device" reports underneath a figure that came
+  // from a design file, and flip a real 5–7% under-prediction to `agree` on the strength of it.
+  // A prediction that lands near a gravity away is reported as what it is: near a gravity away.
+  if (source !== 'device') return false;
   if (metric !== 'maxAcceleration') return false;
   const gap = computed - device;
   // Within a twentieth of a g of exactly one g — tight enough that only the convention
@@ -230,11 +242,106 @@ export function compareReported(
     const computed = computedFor(r.metric, metrics, events);
     const hasComputed = Number.isFinite(computed) && Number.isFinite(r.value) && r.value !== 0;
     const deltaPct = hasComputed ? Math.abs((computed - r.value) / r.value) * 100 : null;
+    // SIGNED, and separate from `deltaPct` rather than replacing it. Two measurements of one
+    // flight disagree by a magnitude and the direction is not the point — neither instrument is
+    // the reference. A PREDICTION is different: the flight is the measurement and the prediction
+    // is the thing that missed, so "flew 8% higher than predicted" is the reading and "8%" alone
+    // throws away the half a flyer came for. Positive = the flight exceeded what was stated.
+    const signedPct = hasComputed ? ((computed - r.value) / Math.abs(r.value)) * 100 : null;
     const agree = deltaPct != null && deltaPct <= AGREE_FRACTION * 100;
     const wide = (WIDE_TOLERANCE[r.metric] ?? AGREE_FRACTION) * 100;
     const status: AgreementStatus | null =
       deltaPct == null ? null : agree ? 'agree' : deltaPct <= wide ? 'consistent' : 'differ';
-    const gravityConvention = hasComputed && isGravityConvention(r.metric, computed, r.value);
-    return { reported: r, computed, hasComputed, deltaPct, agree, status, ...(gravityConvention ? { gravityConvention } : {}) };
+    const gravityConvention = hasComputed && isGravityConvention(r, computed);
+    return { reported: r, computed, hasComputed, deltaPct, signedPct, agree, status, ...(gravityConvention ? { gravityConvention } : {}) };
   });
+}
+
+/** One reading, with whatever states it: a logger's own figure, a prediction, or both. */
+export interface CrossCheckRow {
+  metric: ReportedValue['metric'];
+  /** The label to show, taken from whichever source stated it — they agree in practice. */
+  label: string;
+  /** Debrief's own read of this metric, in canonical SI; NaN when it measures nothing. */
+  computed: number;
+  hasComputed: boolean;
+  device?: ReportedComparison;
+  predicted?: ReportedComparison;
+}
+
+/**
+ * The cross-check as ROWS OF READINGS rather than rows of reported values.
+ *
+ * `compareReported` is a 1:1 map, which was right while a flight could only carry one source: one
+ * reported figure, one row. A flight that carries both a device summary and a prediction states
+ * apogee TWICE, and that map emits two rows — two lines both labelled "Apogee", each showing
+ * Debrief's identical read beside a different figure, and on screen a duplicate React key. This
+ * groups by metric so one reading is one row, whatever states it.
+ *
+ * Deliberately NOT a replacement: `compareReported` is still the right shape for a caller that
+ * wants each stated figure once, and it is what this is built from.
+ */
+export function reportedByMetric(
+  reported: ReportedValue[],
+  metrics: FlightMetrics,
+  events?: FlightEvent[],
+): CrossCheckRow[] {
+  const rows = new Map<ReportedValue['metric'], CrossCheckRow>();
+  for (const c of compareReported(reported, metrics, events)) {
+    const m = c.reported.metric;
+    // **The row's own read, resolved from the METRIC — not copied off whichever source happened
+    // to be first.** `ReportedComparison.hasComputed` is a question about a comparison, so it is
+    // false when the stated value is 0 or NaN and there is nothing to take a ratio against. The
+    // Debrief column asks a different question — did Debrief measure this — and the answer
+    // cannot depend on what someone else wrote. Copied from the first source, a device stating
+    // apogee as 0 blanked the Debrief cell for the whole row while `analysisJson` still carried
+    // the number: one reading, two answers.
+    const computed = computedFor(m, metrics, events);
+    const row =
+      rows.get(m) ??
+      ({ metric: m, label: c.reported.label, computed, hasComputed: Number.isFinite(computed) } as CrossCheckRow);
+    // Last one wins per source, which matches `pairSummaries`' own first-wins dedupe reaching
+    // here with at most one of each — stated rather than relied on silently.
+    if (c.reported.source === 'predicted') row.predicted = c;
+    else row.device = c;
+    rows.set(m, row);
+  }
+  return [...rows.values()];
+}
+
+/**
+ * How a prediction reads against the flight, in words — and NOT in the agree/differ vocabulary.
+ *
+ * `lib/flight/types.ts` states the distinction as an invariant: two instruments that measured one
+ * flight and disagree is a discrepancy worth chasing, while a flight that did not do what was
+ * predicted "is not an error at all — it is the answer". So this says what happened rather than
+ * who is wrong: the flight is the measurement, the prediction is what it is being read against,
+ * and the direction is the whole point.
+ *
+ * The tolerance is `AGREE_FRACTION`, the same 5% a well-defined peak is judged on — a prediction
+ * landing inside the band two instruments would is as close as "as predicted" can honestly mean.
+ *
+ * **The direction words are per QUANTITY, not one pair for everything.** The first version said
+ * "flew higher"/"flew lower" for every metric, which is a sentence about ALTITUDE — so a flight
+ * that took two and a half times longer to reach apogee than its design predicted read
+ * `Time to apogee — flew higher · +245%`, on the row directly above Apogee, in the documents and
+ * in the JSON. `renderReported` is the funnel that already exists for exactly this: it takes one
+ * renderer per quantity and the compiler refuses a partial set, so the next metric added to
+ * `ReportedValue` cannot reach a flyer under borrowed words.
+ */
+export function predictionVerdict(c: ReportedComparison): string {
+  if (c.signedPct == null) return 'not measured';
+  const pct = Math.abs(c.signedPct);
+  if (pct <= AGREE_FRACTION * 100) return `as predicted · ${pct < 0.05 ? '≈0' : pct.toFixed(1)}%`;
+  const over = c.signedPct > 0;
+  const words = renderReported(c.reported.metric, {
+    length: () => (over ? 'flew higher' : 'flew lower'),
+    speed: () => (over ? 'flew faster' : 'flew slower'),
+    // "pulled more g" rather than "flew harder": every accel figure on this surface is a peak the
+    // airframe took, and g is the unit a flyer reads it in.
+    accel: () => (over ? 'pulled more g' : 'pulled fewer g'),
+    time: () => (over ? 'took longer' : 'took less time'),
+    mach: () => (over ? 'flew faster' : 'flew slower'),
+  });
+  return `${words} · ${over ? '+' : '−'}${pct.toFixed(0)}%`;
 }

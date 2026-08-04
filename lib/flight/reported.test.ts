@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractReportedSummary, compareReported } from './reported';
+import { extractReportedSummary, compareReported, predictionVerdict, reportedByMetric } from './reported';
 import type { ReportedValue } from './types';
 import type { FlightMetrics } from '../analyze/types';
 
@@ -124,5 +124,133 @@ describe('the gravity convention, not a disagreement', () => {
     const [c] = compareReported([at(306.95)], metrics(316.76));
     expect(c.reported.value).toBe(306.95);
     expect(c.computed).toBe(316.76);
+  });
+});
+
+describe('a prediction is a third source, and never judged as a second measurement', () => {
+  const metrics = { apogeeAltitude: 460, maxVelocity: 90, mach: 0.26 } as unknown as FlightMetrics;
+  const device: ReportedValue = { metric: 'apogeeAltitude', label: 'Apogee', value: 450, source: 'device' };
+  const predicted: ReportedValue = { metric: 'apogeeAltitude', label: 'Apogee', value: 400, source: 'predicted' };
+
+  it('groups two sources of one reading into ONE row', () => {
+    // The 1:1 map emitted two rows both labelled "Apogee", each showing Debrief's identical
+    // read beside a different figure — and on screen, a duplicate React key.
+    expect(compareReported([device, predicted], metrics)).toHaveLength(2);
+    const rows = reportedByMetric([device, predicted], metrics);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].metric).toBe('apogeeAltitude');
+    expect(rows[0].device!.reported.value).toBe(450);
+    expect(rows[0].predicted!.reported.value).toBe(400);
+    // Debrief's own read is stated once, not once per source.
+    expect(rows[0].computed).toBe(460);
+  });
+
+  it('keeps a row that only one source states', () => {
+    const rows = reportedByMetric([device, { ...predicted, metric: 'maxVelocity', label: 'Max velocity', value: 88 }], metrics);
+    expect(rows.map((r) => r.metric).sort()).toEqual(['apogeeAltitude', 'maxVelocity']);
+    expect(rows.find((r) => r.metric === 'apogeeAltitude')!.predicted).toBeUndefined();
+    expect(rows.find((r) => r.metric === 'maxVelocity')!.device).toBeUndefined();
+  });
+
+  it('says which WAY a flight went against its prediction, not just how far', () => {
+    // The direction is the reading. `deltaPct` is unsigned because two measurements of one
+    // flight have no reference between them; a prediction does — the flight.
+    const over = reportedByMetric([predicted], metrics)[0].predicted!;
+    expect(over.signedPct).toBeGreaterThan(0);
+    expect(predictionVerdict(over)).toMatch(/^flew higher · \+15%$/);
+
+    const under = reportedByMetric(
+      [{ ...predicted, value: 600 }],
+      metrics,
+    )[0].predicted!;
+    expect(under.signedPct).toBeLessThan(0);
+    expect(predictionVerdict(under)).toMatch(/^flew lower · −23%$/);
+  });
+
+  it('never uses the discrepancy vocabulary on a prediction', () => {
+    // `agree` / `consistent` / `differ` are about two instruments that measured the same
+    // flight. A flight that missed its prediction is not an error — it is the answer.
+    for (const v of [400, 460, 600, 1]) {
+      const words = predictionVerdict(reportedByMetric([{ ...predicted, value: v }], metrics)[0].predicted!);
+      expect(words, `${v} m predicted`).not.toMatch(/agree|consistent|differ/);
+    }
+  });
+
+  it('calls a prediction the flight landed on "as predicted", on the same 5% a peak is judged by', () => {
+    const close = reportedByMetric([{ ...predicted, value: 450 }], metrics)[0].predicted!;
+    expect(predictionVerdict(close)).toMatch(/^as predicted/);
+    const outside = reportedByMetric([{ ...predicted, value: 430 }], metrics)[0].predicted!;
+    expect(predictionVerdict(outside)).toMatch(/^flew higher/);
+  });
+
+  it('says nothing about a figure Debrief cannot measure', () => {
+    // Four of the ten a `.ork` states have no counterpart — see `METRIC_FIELD`.
+    const row = reportedByMetric(
+      [{ metric: 'optimumDelay', label: 'Optimum delay', value: 6, source: 'predicted' }],
+      metrics,
+    )[0];
+    expect(row.hasComputed).toBe(false);
+    expect(row.predicted!.signedPct).toBeNull();
+    expect(predictionVerdict(row.predicted!)).toBe('not measured');
+  });
+
+  it('does not say "higher" about a time, a speed or an acceleration', () => {
+    // "flew higher" is a sentence about ALTITUDE, and it was being said about all ten figures a
+    // design states: a flight that took two and a half times longer to reach apogee than
+    // predicted read `Time to apogee — flew higher · +245%`, on the row directly above Apogee.
+    // Hard-coded per metric rather than derived from `REPORTED_QUANTITY`, so this test can fail:
+    // built from the map it is checking, it would agree with any rewording of it.
+    const m = {
+      apogeeAltitude: 460,
+      timeToApogee: 24,
+      flightTime: 180,
+      maxVelocity: 90,
+      maxAcceleration: 200,
+      mach: 0.26,
+    } as unknown as FlightMetrics;
+    const verdict = (metric: ReportedValue['metric'], value: number) =>
+      predictionVerdict(reportedByMetric([{ metric, label: metric, value, source: 'predicted' }], m)[0].predicted!);
+
+    expect(verdict('apogeeAltitude', 400)).toBe('flew higher · +15%');
+    expect(verdict('apogeeAltitude', 600)).toBe('flew lower · −23%');
+    expect(verdict('timeToApogee', 7)).toBe('took longer · +243%');
+    expect(verdict('flightTime', 300)).toBe('took less time · −40%');
+    expect(verdict('maxVelocity', 70)).toBe('flew faster · +29%');
+    expect(verdict('maxMach', 0.2)).toBe('flew faster · +30%');
+    expect(verdict('maxAcceleration', 150)).toBe('pulled more g · +33%');
+    expect(verdict('maxAcceleration', 260)).toBe('pulled fewer g · −23%');
+  });
+
+  it('never calls a prediction a convention gap, whatever the acceleration says', () => {
+    // The +1 g regularity is a MEASURED property of instruments Debrief has read files from.
+    // The `.ork` format states no acceleration convention at all, so firing this on a design
+    // would print a confident sentence about "the device" under a figure no device wrote — and
+    // flip a real 5% under-prediction to `agree` on the strength of it.
+    const m = { maxAcceleration: 200 } as unknown as FlightMetrics;
+    const one = (source: ReportedValue['source']) =>
+      compareReported([{ metric: 'maxAcceleration', label: 'Max acceleration', value: 200 - G0, source }], m)[0];
+    expect(one('device').gravityConvention).toBe(true);
+    expect(one('predicted').gravityConvention).toBeUndefined();
+    expect(predictionVerdict(one('predicted'))).toMatch(/^pulled more g/);
+  });
+
+  it('states Debrief’s own read even where the other source wrote a zero', () => {
+    // `hasComputed` on a COMPARISON asks "is there a ratio to take", so a stated 0 makes it
+    // false. The row's Debrief column asks "did Debrief measure this", and copying the first
+    // source's answer let a device figure of 0 blank Debrief's cell for the whole row — on
+    // screen and in all three documents — while `analysisJson` still carried the number.
+    const row = reportedByMetric(
+      [
+        { metric: 'apogeeAltitude', label: 'Apogee', value: 0, source: 'device' },
+        { metric: 'apogeeAltitude', label: 'Apogee', value: 400, source: 'predicted' },
+      ],
+      metrics,
+    )[0];
+    expect(row.hasComputed).toBe(true);
+    expect(row.computed).toBe(460);
+    // The comparison against the zero is still refused — there is no percentage to state.
+    expect(row.device!.hasComputed).toBe(false);
+    expect(row.device!.deltaPct).toBeNull();
+    expect(row.predicted!.signedPct).toBeCloseTo(15, 5);
   });
 });

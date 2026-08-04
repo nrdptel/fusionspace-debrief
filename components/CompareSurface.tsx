@@ -8,7 +8,7 @@ import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
 import { STORAGE_WRITE_REFUSED } from '@/lib/recents';
-import { ingestFiles, highRateNote, unreadNote } from '@/lib/ingest';
+import { ingestFiles, highRateNote, predictionNote, unreadNote } from '@/lib/ingest';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
 import { flightFromMapping } from '@/lib/mapped';
@@ -146,7 +146,7 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, predictionPaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
       // A read cannot discover that writes are refused — only an attempted save can, and this is
@@ -207,6 +207,11 @@ export default function CompareSurface() {
       // The high-rate half of a Blue Raven download, read onto its flight — its own sentence
       // rather than folded into the summary's, which claims a cross-check this is not.
       const hrNote = highRatePaired.length > 0 ? ` ${highRateNote(highRatePaired)}` : '';
+      // A prediction read onto its flight — neither a summary nor the other half of a recording.
+      // `shown: false` on this whole surface: a comparison is rebuilt from the logbook and carries
+      // no reported figures, and a prediction is never persisted, so there is no view reachable
+      // from here that shows it. See `predictionNote`.
+      const predNote = predictionPaired.length > 0 ? ` ${predictionNote(predictionPaired, false)}` : '';
       const pairedNote =
         paired.length > 0
           ? ` Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`
@@ -241,7 +246,7 @@ export default function CompareSurface() {
           : ` ${names(notKept)} ${notKept.length === 1 ? 'was' : 'were'} read but could not be kept: ${STORAGE_WRITE_REFUSED}.`;
 
       if (merged.length >= 2) {
-        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
+        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${predNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
         return;
       }
       setState('picking');
@@ -249,8 +254,8 @@ export default function CompareSurface() {
         results.length === 0
           ? `Nothing in that drop could be read as a flight.${leftNote}${notRead}`
           : kept.length === 0
-            ? `Read ${names(results)} — but ${STORAGE_WRITE_REFUSED}, so ${results.length === 1 ? 'it was' : 'they were'} not kept, and a comparison here is assembled from the logbook. Read ${results.length === 1 ? 'it on the analyze page' : 'them one at a time on the analyze page'} instead.${leftNote}${pairedNote}${hrNote}${notRead}`
-            : `Added ${names(kept)} to your logbook — tick ${kept.length === 1 ? 'it' : 'them'} with another flight to compare.${notKeptNote}${leftNote}${pairedNote}${hrNote}${notRead}`,
+            ? `Read ${names(results)} — but ${STORAGE_WRITE_REFUSED}, so ${results.length === 1 ? 'it was' : 'they were'} not kept, and a comparison here is assembled from the logbook. Read ${results.length === 1 ? 'it on the analyze page' : 'them one at a time on the analyze page'} instead.${leftNote}${pairedNote}${hrNote}${predNote}${notRead}`
+            : `Added ${names(kept)} to your logbook — tick ${kept.length === 1 ? 'it' : 'them'} with another flight to compare.${notKeptNote}${leftNote}${pairedNote}${hrNote}${predNote}${notRead}`,
       );
     },
     [load, logbook],

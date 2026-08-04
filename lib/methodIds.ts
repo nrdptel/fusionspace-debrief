@@ -46,6 +46,7 @@ export const METHOD_IDS = [
   'battery',
   'mach-dynamic-pressure',
   'device-summary',
+  'predicted-versus-flown',
   'when-the-flight-flew',
   'what-the-charts-show',
   'what-goes-in-the-report',
