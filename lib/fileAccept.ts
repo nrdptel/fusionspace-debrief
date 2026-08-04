@@ -18,8 +18,29 @@
  *  mapper reads. `.eeprom` and `.rff` are here because the raw download off an Altus Metrum
  *  or a MissileWorks RRC3 card is now a file Debrief reads — a picker that greys out a
  *  format the app parses is the same bug `.pf2` was. `lib/fileAccept.test.ts` holds this against the parsers and fails when a
- *  parser starts keying on an extension this list doesn't offer. */
-export const FLIGHT_FILE_EXTENSIONS = ['.csv', '.txt', '.log', '.tsv', '.dat', '.pf2', '.xlsx', '.eeprom', '.rff'] as const;
+ *  parser starts keying on an extension this list doesn't offer.
+ *
+ *  `.ork` is an OpenRocket design, and `.xtra` / `.bin` are raw downloads off an Entacore
+ *  AIM and off an unidentified board. None of the three is a flight Debrief will analyse —
+ *  but each is RECOGNISED, and answering "this is an AIM XTRA download, here is what to do
+ *  with it" is a thing the app does that it cannot do for a file the picker greyed out. The
+ *  rule is about what the app can READ, which is a wider set than what it turns into a
+ *  flight; `.xtra` and `.bin` had been outside the list on the narrower reading, so the
+ *  flyer most in need of that sentence was the one who could not reach it. */
+export const FLIGHT_FILE_EXTENSIONS = [
+  '.csv',
+  '.txt',
+  '.log',
+  '.tsv',
+  '.dat',
+  '.pf2',
+  '.xlsx',
+  '.eeprom',
+  '.rff',
+  '.ork',
+  '.xtra',
+  '.bin',
+] as const;
 
 const FLIGHT_FILE_MIME = [
   'text/csv',

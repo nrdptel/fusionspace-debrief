@@ -300,6 +300,16 @@ of parsing and analysis runs locally.
   Debrief unzips it in the browser, reads the first sheet, and hands it to the same column
   mapper as a CSV. No conversion step, no upload — the file is opened entirely on your
   device. (Read from the published OpenXML/ZIP formats, no third-party library.)
+- **OpenRocket design** (`.ork`) — **not a flight, and Debrief will not pretend it is
+  one.** A `.ork` holds a rocket design and the figures OpenRocket's own simulator
+  predicted for it, so dropping one on its own is answered with what the file is and what
+  it needs alongside it, rather than being pushed into the column mapper as a table of
+  XML. The ten stated figures — apogee, max velocity, max acceleration, max Mach, time to
+  apogee, flight time, ground-hit and launch-rod and deployment velocity, and the optimum
+  delay — are read from the design's `flightdata`, in SI proved from the file itself
+  rather than assumed. Debrief never simulates, fits or corrects a prediction; comparing
+  one against the flight you actually flew is what it is for. (Read from OpenRocket's
+  published file-format page, no third-party library and no vendored engine.)
 
 More named formats are being added. A new parser is a single module under
 [`lib/parsers/`](lib/parsers/) that declares how to recognize a file and how to read it

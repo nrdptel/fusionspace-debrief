@@ -1579,10 +1579,19 @@ real risk attached: the standalone refusal must survive it.
 
 ## D9 — Predicted versus flown
 
-**Status:** DECOMPOSED 2026-08-03, and **SLICE 1 IS DONE the same day — the corpus has its first
-prediction.** `openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork` in
-`nrdptel/debrief-fixtures` (manifest row 62, full provenance in `SOURCES.md`). Slice 2 is unblocked
-and is the next D increment. Nothing built in this repo yet. `COMPETITION.md` row 12 — **not** the oldest open
+**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED; slice 3 is the next D increment.** Slice 2
+landed 2026-08-04 (`lib/parsers/openrocket.ts`, pinned by `lib/parsers/openrocket.test.ts`), so
+Debrief now reads a prediction and refuses it as a flight. Nothing SHOWS a prediction yet — that is
+slice 3, and until it lands the ten figures are read and dropped.
+
+**Slice 1's fixture reached `nrdptel/debrief-fixtures` main on 2026-08-04, not 2026-08-03.** The
+earlier status line said it was in the corpus; it was on an unmerged branch, which is a different
+thing and is why the file was absent from a session that went looking for it. Merged in that repo's
+`#4`. It is still **not in any release asset**, so CI cannot see it — see slice 2 below for the one
+owner action that closes that.
+
+`openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork`, manifest row 62,
+full provenance in `SOURCES.md`. `COMPETITION.md` row 12 — **not** the oldest open
 `GAP`, which this line first claimed: rows 3 and 4 are both `GAP` and both older, and rows are
 numbered in order added.
 
@@ -1701,7 +1710,45 @@ the whole milestone is about reading what a real tool actually writes.
    rather than being quietly dropped. *Done when:* `manifest.csv` carries a prediction row, or this
    slice records why it cannot and the milestone's status says BLOCKED.
 
-2. **Read `<flightdata>` and nothing else.** A registered parser that opens the `.ork` zip (the
+2. ~~**Read `<flightdata>` and nothing else.**~~ **SHIPPED 2026-08-04**, pinned by
+   `lib/parsers/openrocket.test.ts` (19 cases; the 3 that need the real archive carry an
+   `existsSync` guard and **skip in CI** — see the note below, which is a fact about the
+   corpus release, not about the parser). `lib/parsers/openrocket.ts` reads all ten scalars as
+   `ReportedValue[]` with `source: 'predicted'`, and a `.ork` dropped alone is refused with a
+   sentence naming what it is and what it needs. Both halves of the *done when* are met:
+   **SI is proved from the file, not assumed** — `maxvelocity / maxmach` over the fixture's five
+   simulations gives 340.1, 338.7, 339.1, 339.1, 339.1 m/s, and `readPrediction` re-runs that
+   check on every file and drops a prediction that fails it, so a future OpenRocket writing feet
+   cannot publish a number under a metre's label.
+
+   **Four things this slice found that the decomposition did not have.**
+   - **The fixture was reachable by nobody.** Slice 1's file sat on an unmerged branch of the
+     fixtures repo, and `scripts/make-release-zip.sh` there listed its ten format directories
+     *inline* — so `openrocket/` would have shipped in no release asset at all, and the parser
+     test would have passed locally and skipped in CI as though it were flaky. Both fixed in
+     `nrdptel/debrief-fixtures#4`: the payload is derived from disk and the built asset is
+     checked against the manifest before it can be published. **Cutting the release is an owner
+     action this session had no route to** — the API is unreachable here and the tooling has no
+     release verb — so `corpus.lock.json` still pins `v1.1.0` and CI still cannot see the `.ork`.
+     One command rebuilds the asset: `scripts/make-release-zip.sh v1.2.0`, sha256
+     `fc06599b2b9fefb690acebf453474085b38d77e8e6d7ba064a6a85bf8eaeb4ba`.
+   - **The three cross-check renderers fell through to acceleration.** Each wrote
+     `q === 'length' ? … : q === 'speed' ? … : accel`, so adding `time` and `mach` to the metric
+     union would have printed a flight time as g — the same defect `reported.ts` already records
+     having shipped once against burnout velocity and descent rate. Replaced by `renderReported`,
+     which takes one renderer per quantity and fails to compile when the set is incomplete.
+   - **Four of the ten are deliberately given nothing to compare against.** `groundhitvelocity`,
+     `launchrodvelocity`, `deploymentvelocity` and `optimumdelay` name no `FlightMetrics` field,
+     and mapping them to the nearest one would invent an agreement — the mistake that made four
+     recordings of one flight "disagree" by 121.6%. `METRIC_FIELD` records that as `null` per
+     metric, so the compiler asks again next time the union grows.
+   - **The picker greyed out three formats the app can read.** `lib/fileAccept.test.ts` swept for
+     `endsWith('.ext')` only, so `openrocket.ts`'s anchored regex was invisible to it — the class
+     error DESIGN.md §9 keeps recording in its own greps. Widened to both forms, it immediately
+     named `.xtra` and `.bin` as well: a flyer with an Entacore AIM download had it greyed out and
+     so could never reach the message that explains what to do with it. All three offered now.
+
+   *The original decomposition, kept because slices 3 and 4 still rest on it:* A registered parser that opens the `.ork` zip (the
    `lib/parsers/xlsx.ts` central-directory + `DecompressionStream` route, with `lib/fileText.ts` as
    the async pre-step that exists because `Parser.parse` is synchronous), reads `rocket.ork`, and
    returns the ten scalars as `ReportedValue[]` with `source: 'predicted'`. **Not a flight** — it
