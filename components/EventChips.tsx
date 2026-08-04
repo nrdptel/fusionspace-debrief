@@ -2,6 +2,7 @@
 
 import type { EventType } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import { ChipButton } from './ui';
 
 /** Flight order, so the chips read the way the flight went rather than alphabetically. */
 export const EVENT_ORDER: EventType[] = ['liftoff', 'burnout', 'apogee', 'drogue', 'main', 'landing'];
@@ -48,10 +49,9 @@ export default function EventChips({
         const on = !hidden.includes(t);
         const name = t[0].toUpperCase() + t.slice(1);
         return (
-          <button
+          <ChipButton
             key={t}
-            type="button"
-            aria-pressed={on}
+            pressed={on}
             // Elsewhere on these pages a button reading "Burnout" scrolls a table to that sample.
             // The visible chip stays one word because the row label and the colour dot say which
             // control this is; the accessible name carries the action, so a screen reader isn't
@@ -59,11 +59,6 @@ export default function EventChips({
             aria-label={on ? `Stop marking ${name.toLowerCase()} on the plot` : `Mark ${name.toLowerCase()} on the plot`}
             onClick={() => onToggle(t)}
             title={on ? `Stop calling out ${name.toLowerCase()} on the plot` : `Call out ${name.toLowerCase()} on the plot`}
-            className={`inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium transition ${
-              on
-                ? 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'
-                : 'border-dashed border-zinc-300 bg-transparent text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'
-            }`}
           >
             <span
               aria-hidden
@@ -71,7 +66,7 @@ export default function EventChips({
               style={{ backgroundColor: on ? EVENT_COLOR[t] : 'transparent', boxShadow: on ? undefined : 'inset 0 0 0 1px currentColor' }}
             />
             {name}
-          </button>
+          </ChipButton>
         );
       })}
       <span className="text-xs text-zinc-500 dark:text-zinc-400">kept on this device</span>

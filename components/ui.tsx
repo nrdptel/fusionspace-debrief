@@ -921,6 +921,83 @@ export function Chip({
   );
 }
 
+/**
+ * A chip that DOES something — `DESIGN.md` §5.
+ *
+ * `Chip` is a token: a label and a value, rendered as a `<span>`, saying what something is. This
+ * is the control with the same geometry — a filter you toggle, an action on a row, an "add this"
+ * affordance — and it needed a name because four surfaces had hand-rolled it and the census could
+ * not see them. The pin scanned `span|li|div`, so every chip-shaped BUTTON was invisible to it and
+ * it read green while four stood on the page. Widened to `button|a`, it named them at once:
+ * `EventChips`, `FlightReport`, `ChannelExplorer` and `SampleTable`.
+ *
+ * **Built from that census of four, not designed ahead of it.** All four wrote
+ * `rounded-md border px-2 py-0.5 text-xs font-medium` with `min-h-[1.75rem]`, and the variation
+ * between them was exactly three things — whether the border is dashed, whether it has a pressed
+ * state, and whether it hover-tints. So those are the three props and there are no others.
+ *
+ * **`py-1`, not the `py-0.5` all four carried.** §4's scale has no `-0.5`, and matching `Chip`'s
+ * own `px-2 py-1` is the point of having one geometry: a static chip and an actionable one sitting
+ * in the same row must not be two heights. The `min-h-[1.75rem]` goes with it — an arbitrary value
+ * that existed to prop up the short padding.
+ *
+ * `pressed` renders `aria-pressed`, so a toggle announces its state rather than only looking
+ * different. A control with no `pressed` is an action and gets no such attribute — announcing
+ * `aria-pressed="false"` on a button that does not toggle is worse than silence.
+ */
+export function ChipButton({
+  pressed,
+  dashed = false,
+  tone = 'default',
+  onClick,
+  disabled,
+  title,
+  'aria-label': ariaLabel,
+  className,
+  children,
+}: {
+  /** Omit for a plain action; set for a two-state toggle, which renders `aria-pressed`. */
+  pressed?: boolean;
+  dashed?: boolean;
+  tone?: 'default' | 'accent';
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+  'aria-label'?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const off = pressed === false;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
+      {...(pressed === undefined ? {} : { 'aria-pressed': pressed })}
+      className={cx(
+        'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950',
+        dashed || off ? 'border-dashed' : 'border-solid',
+        // An unpressed toggle recedes; a pressed one and a plain action read as present. The
+        // ramp is `Chip`'s own so the two primitives cannot drift apart in the same row.
+        off
+          ? 'border-zinc-300 bg-transparent text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'
+          : tone === 'accent'
+            ? CHIP_TONES.accent
+            : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',
+        !disabled && 'hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400',
+        disabled && 'cursor-default opacity-60',
+        'touch-area',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** Progressive detail — `DESIGN.md` §5. The label says what is inside, never "More". */
 export function Disclosure({
   summary,

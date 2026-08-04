@@ -29,7 +29,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button, Card, CopyTableButton, Segmented } from './ui';
+import { Button, Card, ChipButton, CopyTableButton, Segmented } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -390,15 +390,9 @@ export default function ChannelExplorer({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Views</span>
         {builtins.map((b) => (
-          <button
-            key={b.name}
-            type="button"
-            onClick={() => applyPreset(b)}
-            title={b.about}
-            className="inline-flex min-h-[1.75rem] items-center rounded-md border border-dashed border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
-          >
+          <ChipButton key={b.name} dashed onClick={() => applyPreset(b)} title={b.about}>
             {b.name}
-          </button>
+          </ChipButton>
         ))}
         {presets.map((p) => (
           <span

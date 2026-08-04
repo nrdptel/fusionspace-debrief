@@ -6,7 +6,7 @@ import type { PlotChannel } from '@/lib/explore';
 import type { UnitChoice } from '@/lib/display';
 import type { FlightEvent } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
-import { Frame } from './ui';
+import { ChipButton, Frame } from './ui';
 
 // The numbers themselves. AltosUI has a data tab and Excel *is* one, and a measurement
 // instrument that will only draw you a picture of your own record is missing something:
@@ -264,19 +264,14 @@ export default function SampleTable({
             Jump to
           </span>
           {jumpable.map((e) => (
-            <button
-              key={e.type + e.index}
-              type="button"
-              onClick={() => jumpTo(e)}
-              className="inline-flex min-h-[1.75rem] items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
+            <ChipButton key={e.type + e.index} onClick={() => jumpTo(e)}>
               <span
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: EVENT_COLOR[e.type] }}
                 aria-hidden="true"
               />
               {e.label}
-            </button>
+            </ChipButton>
           ))}
         </div>
       )}

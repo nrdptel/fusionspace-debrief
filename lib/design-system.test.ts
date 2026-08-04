@@ -342,7 +342,12 @@ const BUDGET = {
    *  above is copied from the built page. Quote or do not quote; do not paraphrase in quotation
    *  marks.* See the amendment above for why this move is defensible at all — it rests on a
    *  judgement about §3, not on §3 being unambiguous. */
-  invertedTypeFiles: 11,
+  // 11 → 10 on 2026-08-04: `ChannelExplorer` left the list when its hand-rolled preset chip
+  // became a `ChipButton`. Worth noting HOW it moved, because §9 warns that adoption normally
+  // drives this metric the wrong way — the `text-xs` moves INTO the primitive and the file's
+  // ratio worsens. Here it improved, because the conversion removed a whole hand-rolled class
+  // string from a file that was one `text-xs` over the line rather than moving one across it.
+  invertedTypeFiles: 10,
   /* Scoped to `components` — and unlike the per-primitive count below, it should STAY there until
    * someone decides what it means on a route. Measured 2026-07-31, after the docs conversion:
    * `app/validation/page.tsx` carries one `text-xs` (the back link) against zero `text-sm`, because
@@ -996,7 +1001,14 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
     const out: string[] = [];
     for (const f of uiSources(['components', 'app'], ['.tsx'])) {
       if (f.path.endsWith('components/ui.tsx')) continue;
-      for (const m of f.text.matchAll(/<(?:span|li|div)\b/g)) {
+      // `button` and `a` are in this list because leaving them out is the class error §9 keeps
+      // recording against its own greps: enumerating the tag in front of you rather than the
+      // class it belongs to. It scanned `span|li|div` only, so every chip-shaped CONTROL was
+      // invisible to it — the pin read green while eight of them stood on the page. A chip
+      // rendered as a button is still a hand-rolled chip treatment; whether it should BE a
+      // `Chip` is a separate question, and one the census now forces someone to answer instead
+      // of never asking.
+      for (const m of f.text.matchAll(/<(?:span|li|div|button|a)\b/g)) {
         // Same brace-depth scan the button grep above uses, and for the same reason: `[^>]*?>`
         // stops at the `>` of an arrow function inside a `{…}` prop and truncates the tag.
         let i = (m.index ?? 0) + m[0].length;
@@ -1060,9 +1072,32 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
    * gets its expected value updated without being read, which is a worse failure than a narrow
    * blind spot that is written down.
    */
+  /**
+   * **THREE MORE ARRIVED THE DAY THIS SCAN LEARNED TO SEE CONTROLS**, and each gets a reason for
+   * the same rule as the entries above. Widening the tag list from `span|li|div` to include
+   * `button|a` named six chip-shaped controls at once; four converted to `ChipButton` on the spot
+   * (`EventChips`, `ChannelExplorer`, `SampleTable`, and the primitive itself is built from that
+   * census), and these are the ones that should not.
+   *
+   * - **`FlightPicker` and `RecordingPicker` are not chips**, and matching this predicate is the
+   *   same false positive the paragraph above records for the two notices: a bordered box looks
+   *   like a bordered box. They are `flex-col` two-line SELECTABLE LIST OPTIONS at `min-h-11`
+   *   and `px-3 py-1.5` — a card in a picker, not a token in a row. Converting them would halve
+   *   their touch target and throw away the second line.
+   * - **`FlightReport`'s range picker wants `Segmented`, not `ChipButton`.** It is genuinely
+   *   chip-shaped and genuinely a control, but its two states are "selected" and "not selected
+   *   yet", where `ChipButton`'s pressed/unpressed pair is "on" and "muted-out" — an unpicked
+   *   range must not recede the way a hidden event series does. `Segmented` is the primitive for
+   *   one-of-N and it already exists; this is a conversion, not a new component, and it is filed
+   *   in `BACKLOG.md` rather than done here because it changes the control's shape on a surface
+   *   this increment is not otherwise touching.
+   */
   const DELIBERATE: Record<string, number> = {
     'components/RecentFlights.tsx': 2,
     'components/RecognizedFormats.tsx': 1,
+    'components/FlightPicker.tsx': 1,
+    'components/RecordingPicker.tsx': 1,
+    'components/FlightReport.tsx': 1,
   };
 
   it('is not re-invented by hand outside the three named above', () => {
