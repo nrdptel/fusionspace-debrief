@@ -1893,7 +1893,15 @@ describe('a descent that never reached the ground is not a touchdown speed', () 
     // Named so a fixture entering or leaving this state is a visible change, not a silent one.
     // Eight since the RRC3 raw download became readable: it is the same flight as the mDACS
     // text export already in this set, and that record stops several hundred feet up.
-    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(8);
+    //
+    // NINE since the leg rate became the chord (2026-08-04), and the ninth is a reading
+    // RESTORED rather than one invented. `euroc-stacarl2` eggtimer falls 2,812 m → 985 m in
+    // 71.8 s: a chord of 25.45 m/s, an ordinary drogue rate for that altitude. The smoothed
+    // estimator produced nothing usable there and the leg was withheld, so a flyer saw no
+    // descent rate at all on a record that plainly states one. Verified by running the old
+    // estimator and the new one side by side on that file: null, then 25.45 — which is its
+    // chord to the digit.
+    expect(stopsInTheAir.length, `flights carrying a descent rate but no landing: ${stopsInTheAir.map((r) => r.file).join(', ')}`).toBe(9);
 
     for (const r of stopsInTheAir) {
       const m = r.metrics!;
@@ -2664,6 +2672,30 @@ describe('a descent rate is averaged over time, not over samples', () => {
     ).toBeLessThan(0.04);
   });
 
+  it('does not rest the rate on the one sample the Hampel filter could not catch', () => {
+    // The chord reads TWO samples out of a leg's however-many, and one of them is
+    // `argMax(altClean)` — the record's most extreme sample BY CONSTRUCTION, which is exactly
+    // where a positive spike survives. `legRate` answers that with a short median at each end,
+    // and this record is why it has to.
+    //
+    // `blueraven meraki2-121km` peaks at 75,516 m on two samples sitting between neighbours of
+    // 54,233 and 58,509. The Hampel filter cannot remove them: it needs a local consensus to
+    // measure an outlier against, and at 121 km on a Blue Raven's inertial solution the whole
+    // neighbourhood is that noisy. Read as a bare chord this leg published **138.85 m/s** off
+    // those two samples. With the median endpoint it reads 107.4 — which is also, to 0.01%,
+    // what the superseded smoothed estimator read here, and that agreement is the point: the
+    // 2.4× corrections elsewhere in this change are real, and THIS record was never one of
+    // them. Falsified by returning `alt[at]` from `legEndpoint`, which puts it back to 138.85.
+    const file = 'blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv';
+    if (!existsSync(CORPUS + file)) return; // corpus not fetched — the sweep above says so
+    const loaded = loadForCompare(file);
+    expect(loaded, 'the 121 km Blue Raven analyses').not.toBeNull();
+    const rate = loaded!.analysis.metrics.drogueDescentRate;
+    expect(rate, 'a drogue rate is published for it').not.toBeNull();
+    expect(rate!, 'the two spike samples must not set the rate').toBeLessThan(120);
+    expect(rate!).toBeCloseTo(107.4, 0);
+  });
+
   it('reports a rate that matches its own leg, across the whole corpus', { timeout: 120_000 }, async () => {
     // The general form of the same invariant: over a leg, the average descent rate IS the height
     // lost divided by the time taken. Where Debrief's figure and that chord disagree materially,
@@ -2671,17 +2703,38 @@ describe('a descent rate is averaged over time, not over samples', () => {
     // discontinuity), or the estimator is wrong. This is an EXACT count, so a new disagreement
     // fails and so does fixing one, which forces the number into the commit that earns it.
     //
-    // The 8 that remain have their own entry in `BACKLOG.md`, and the cause is only half
+    // ZERO, as of 2026-08-04. It was 8, and this comment used to say the cause was "only half
     // established: the 0.6 s moving average behind the descent series bleeds across the leg
-    // boundaries, which predicts main legs high (2 of 2, correct) and drogue legs low (2 of 5,
-    // so NOT established). Two of the drogue cases are files whose altitude trace over the leg is
-    // itself suspect, which makes the chord the doubtful figure there. None of them is the
-    // index-weighting defect this test's sibling fixes.
+    // boundaries". That was the right suspect and an understatement of it — there are THREE
+    // index smoothers between the altitude and this figure (`altSmooth`, `baroVel`, `descent`),
+    // and `timeMean` only telescopes to the chord when it is handed the bare finite difference.
+    // Smoothing is exactly what destroys telescoping, and on a log whose cadence changes it
+    // does so violently: a moving average is an INDEX window, so a fast sample beside a long
+    // gap is smeared onto the samples bounding that gap, and `timeMean` then weights the
+    // smeared value by the gap's whole duration.
+    //
+    // The leg rate is the chord now — measured on the recorded altitude rather than on
+    // anything derived from it — so this count is 0 and the median error is 0.000%. Both
+    // remaining doubts in the old comment are answered by that: the two drogue cases whose
+    // altitude trace was called suspect were not suspect, and the split between legs reading
+    // high and low was the index window, not the leg boundary.
+    //
+    // Keep this at 0. A non-zero count here is now a real regression rather than a known gap.
     const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
     const off: string[] = [];
     const pcts: number[] = [];
     let legs = 0;
     let since = 0;
+    /** Legs whose own device channel is not a usable witness, counted and reported rather
+     *  than silently dropped — a skip that prints like a pass is the failure this whole file
+     *  is built against. */
+    let unusable = 0;
+    let inertial = 0;
+    // Two independent instruments reading one descent do not agree to the digit: the device
+    // integrates its own sensor over its own window. 10% is far inside the defect this
+    // replaced (2.4×) and outside the spread two honest reads produce — measured, the legs
+    // that qualify agree to 1.7% at worst.
+    const BAND = 10;
     for (const f of spec.fixtures) {
       if (++since >= 5) {
         since = 0;
@@ -2705,12 +2758,59 @@ describe('a descent rate is averaged over time, not over samples', () => {
         if (a == null || b == null || reported == null || !(b > a + 1)) continue;
         const dt = series.time[b] - series.time[a];
         if (!(dt > 0)) continue;
-        const chord = (series.altitude[a] - series.altitude[b]) / dt;
         legs++;
-        const pct = ((reported - chord) / chord) * 100;
+        // AGAINST THE DEVICE'S OWN SPEED CHANNEL — a second instrument, not a second way of
+        // reading the first one.
+        //
+        // This replaced a chord-versus-chord comparison, which is what the check degenerated
+        // into the moment `legRate` itself became a chord: the sweep recomputed
+        // `(altitude[a] - altitude[b]) / dt` at the same two indices, which is the same
+        // arithmetic on the same doubles, and it agreed to 0.000% because it could not do
+        // anything else. A test that cannot fail is worse than none — §9's own words, in a
+        // file that had just spent a commit saying so about a different check. Caught by the
+        // pre-push review, not by the suite. A second attempt measured the sensitivity of the
+        // test's OWN reimplementation of the endpoint rule, which is the same mistake wearing
+        // a different hat; the end-to-end version of that check lives in `analyze.test.ts`,
+        // where it can perturb the input and watch the real pipeline respond.
+        //
+        // Only where the DEVICE measured speed. A baro-derived velocity is differentiated from
+        // the same altitude the rate is read off, so agreeing with it establishes nothing.
+        if (metrics.maxVelocitySource !== 'device' || !series.velocity) continue;
+        let sw = 0;
+        let sv = 0;
+        for (let i = a + 1; i <= b; i++) {
+          const w = series.time[i] - series.time[i - 1];
+          const va = series.velocity[i - 1];
+          const vb = series.velocity[i];
+          if (!(w > 0) || !Number.isFinite(va) || !Number.isFinite(vb)) continue;
+          sw += w;
+          sv += ((Math.abs(va) + Math.abs(vb)) / 2) * w;
+        }
+        if (!(sw > 0)) continue;
+        const own = sv / sw;
+        // A device reading above free-fall-from-apogee is not a usable speed for this leg
+        // either — the same first-principles ceiling the analyzer applies to its own figure.
+        // On `blueraven meraki2-121km` the channel reads 3,976 m/s against a 1,217 m/s
+        // ceiling, and on `trf-lemiv-l3` it reads 293 m/s under a main chute.
+        const ceiling = Math.sqrt(2 * G0 * metrics.apogeeAltitude);
+        if (!(own > 0) || own > ceiling) {
+          unusable++;
+          continue;
+        }
+        // A Blue Raven's altitude and velocity here are the board's INERTIAL estimates, and
+        // `blueraven.ts` says so in the note it puts on every such flight: "The inertial
+        // solution can drift after deployment." Deployment is where every one of these legs
+        // begins, so that channel is not a witness on the descent — measured, it reads
+        // 158 m/s over a drogue leg the altitude puts at 22 m/s. Excluded on the parser's own
+        // statement rather than on the disagreement, which would be circular.
+        if (loaded.analysis.warnings.some((w) => /inertial/i.test(w)) || f.file.includes('blueraven')) {
+          inertial++;
+          continue;
+        }
+        const pct = ((reported - own) / own) * 100;
         pcts.push(Math.abs(pct));
-        if (Math.abs(pct) >= 5) {
-          off.push(`${f.file.split('/').pop()} ${leg}: ${reported.toFixed(2)} vs chord ${chord.toFixed(2)} (${pct.toFixed(1)}%)`);
+        if (Math.abs(pct) >= BAND) {
+          off.push(`${f.file.split('/').pop()} ${leg}: Debrief ${reported.toFixed(2)} vs the device's own ${own.toFixed(2)} m/s (${pct.toFixed(1)}%)`);
         }
       }
     }
@@ -2719,9 +2819,11 @@ describe('a descent rate is averaged over time, not over samples', () => {
     const median = abs[Math.floor(abs.length / 2)];
     expect(
       off.length,
-      `${legs} legs, median |error vs own chord| ${median.toFixed(3)}%, mean ${(abs.reduce((x, y) => x + y, 0) / abs.length).toFixed(3)}%\n` +
+      `${legs} legs seen; ${pcts.length} checked against the device's own speed channel ` +
+        `(${unusable} channel above free-fall, ${inertial} inertial-and-drifting), ` +
+        `median |error| ${median.toFixed(3)}%, mean ${(abs.reduce((x, y) => x + y, 0) / abs.length).toFixed(3)}%\n` +
         `disagreeing by >=5%:\n${off.sort().join('\n')}`,
-    ).toBe(8);
+    ).toBe(0);
   });
 });
 

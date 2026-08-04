@@ -536,11 +536,43 @@ export default function MethodsPage() {
             dense, so the error runs the rate <em>low</em>. On one corpus GPS log the drogue leg came
             out at <strong>50.7&nbsp;m/s</strong> that way; the same file&apos;s own vertical-speed
             column averages <strong>63.9&nbsp;m/s</strong> over that leg and the altitude falls at{' '}
-            <strong>64.5&nbsp;m/s</strong>. Debrief now reads <strong>64.8&nbsp;m/s</strong> there. A
-            descent rate is what a flyer sizes a canopy against, so being 21% low is not a rounding
-            difference. The average is taken across each interval rather than at each sample, so it
-            covers the whole leg including the gap that closes it — on a log that slows to one sample
-            every two seconds, leaving that last gap out drops a quarter of the leg&apos;s duration.
+            <strong>64.5&nbsp;m/s</strong>. Debrief reads <strong>64.5&nbsp;m/s</strong> there — and
+            since Debrief&apos;s figure now <em>is</em> that altitude chord, the number worth
+            weighing it against is the device&apos;s own <strong>63.9</strong>, which is a separate
+            instrument and agrees to 0.9%. A descent rate is what a flyer sizes a canopy against, so
+            being 21% low is not a rounding difference.
+            {' '}
+            <strong>The figure is the leg&apos;s own chord</strong> — the height it lost over the
+            time it took — measured on the recorded altitude rather than on anything derived from
+            it. Taking it directly is what makes it independent of how the samples happen to be
+            spaced, which is the whole point above: a chord asks only where the rocket was at each
+            end of the leg and how long it took to get between them, so a logger that changes its
+            sample rate mid-descent cannot tilt it at all.
+            {' '}
+            Until 2026-08-04 the figure was a time-weighted mean of the smoothed descent series
+            instead. That is meant to come to the same number and did not: there are three
+            smoothing passes between the altitude and that series, and a moving average works on an{' '}
+            <em>index</em> window, so a fast sample beside a long gap gets smeared onto the samples
+            that bound the gap and is then weighted by the gap&apos;s whole duration. The clearest
+            case is a TeleMega recording that climbs at 25&nbsp;Hz and descends at 3&nbsp;Hz with
+            gaps up to 11&nbsp;s: it published <strong>15.6&nbsp;m/s</strong> where its altitude
+            falls 2,113&nbsp;m to 150&nbsp;m in 307&nbsp;s and its own speed column reads{' '}
+            <strong>6.5&nbsp;m/s</strong>. It reads <strong>6.4&nbsp;m/s</strong> now.
+            {' '}
+            <strong>What settles it is the flights recorded more than once</strong>, because two
+            instruments watching one descent have no reason to agree better unless the reading got
+            closer to the truth. Of the eight such legs in the validation corpus, seven agree more
+            closely than before and none agrees less: the XPRS&nbsp;2015 flight&apos;s two
+            recordings went from <strong>40.1%</strong> apart to <strong>1.8%</strong>,
+            Stargazer&nbsp;1&apos;s from <strong>9.0%</strong> to <strong>0.3%</strong>, and an
+            L3 flight&apos;s three recordings from <strong>19.9%</strong> to <strong>4.3%</strong>.
+            {' '}
+            A chord reads two samples out of a leg&apos;s however-many, and one of them is the
+            record&apos;s highest — which is exactly where a pressure spike survives. So each end
+            is read as a short median rather than as the one sample sitting there. On a 121&nbsp;km
+            flight whose apogee sample reads 75,516&nbsp;m between neighbours of 54,233 and
+            58,509&nbsp;m, that is the difference between publishing 138.9&nbsp;m/s and
+            107.4&nbsp;m/s.
             {' '}
             Each phase also has to be <em>in</em> the record to be read: a rate is reported
             only where the log shows that leg dropping more than a tenth of the height it started
