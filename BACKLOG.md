@@ -14,6 +14,35 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-04 — "Couldn't read <file>" heads a message that says Debrief read the file perfectly
+  well.** `components/Analyzer.tsx:814` uses one `ErrorState` heading for every `ParseGuidanceError`,
+  but that class covers two different outcomes: a file Debrief genuinely could not parse, and a file
+  it parsed, recognised, and is declining to treat as a flight *on purpose*. Walked in the built app
+  2026-08-04: dropping the OpenRocket `.ork` shows **"Couldn't read
+  openrocket__example-simple-model-rocket__A-simple-model-rocket.ork"** above the sentence "This is
+  an OpenRocket design file "A simple model rocket" — a rocket and its simulations, not a recording
+  of a flight. It states 5 simulations…". The body is right and the heading contradicts it — Debrief
+  read the file well enough to name the design and count its simulations. The device summary and the
+  raw-download refusal have the same shape and the same heading, so this is three surfaces, not one.
+  **§5 already has the vocabulary**: a recognised-but-not-a-flight file is not an `error` state, it
+  is a `Notice` above an explanation. The fix is a second heading (or a `kind` on the guidance error)
+  for "recognised, not a flight", not a reword of this one.
+
+- **2026-08-04 — Two records publish a descent rate off an altitude trace that is not a flight
+  profile, and neither estimator can help.** Exposed by closing the chord-disagreement entry below,
+  which had bundled these two in with six real estimator defects. `eggtimer euler-explosion` reaches
+  its 292.0 m "apogee" at **t = 1.0 s, 0.8 s after liftoff** — a blast pressure spike from a motor
+  that exploded at Mach 2.4, not a climb — then its drogue leg runs to **−10.4 m AGL**, below the
+  pad, and it publishes **19.83 m/s**. `blueraven meraki2-121km` publishes a 138.85 m/s drogue leg
+  from 121 km, where the barometric model has no validity whatsoever. Debrief already emits four
+  warnings on the first (baseline not on the pad, last sample below the start, derived velocity,
+  climb-refuted speed) and still prints the rate. **The fix is not a better estimator — both of
+  these are honest reads of unsound traces.** It is a gate: a record whose apogee arrives within a
+  second of liftoff has no ascent to speak of, and a leg that descends past the record's own
+  starting altitude on a record already flagged as not starting on the pad is not a recovery
+  reading. Withhold with a reason, the way `descentAboveFreeFall` already does. Measured
+  2026-08-04; the numbers above are from the analysis, not from the manifest.
+
 - **2026-08-03 — FIXED (Sev-1): `altitudeUnproven` reached only the metric tile.** `lib/report.ts`
   gated the apogee caveat on `apogeeIsFloor`, the OTHER of the flag pair, so a record flagged
   unproven and not a floor published its apogee with no qualifier attached on the clipboard table,
@@ -1403,7 +1432,31 @@ wild, ideas too big for one pass. One line each, newest first.
   D4's composite surface must actively suppress that panel once a flyer states these are stages, or it
   ships a 30%-disagreement warning on a flight behaving exactly as designed.
 
-- **Eight descent legs still disagree with their own chord by 5% or more, and the cause is only
+- ~~**Eight descent legs still disagree with their own chord by 5% or more.**~~ **CLOSED
+  2026-08-04 — all eight, and the count is pinned at 0.** The leg rate IS the chord now, measured
+  on the recorded altitude. The entry below is kept because its reasoning was most of the way
+  there and because **its closing instruction was wrong in a way worth recording**: it said "Do NOT
+  fix it by using the chord directly", on the evidence that the `eggtimer euler-explosion` chord
+  implies 303 m of descent on a flight reading 292 m of apogee. That arithmetic is exactly right.
+  The premise under it is not — it assumed the smoothed figure was the sounder of the two on that
+  file, and measurement says otherwise: **7.31 m/s over that 15.3 s leg implies 112 m of descent,
+  contradicting the same trace by 191 m, where the chord's 303 m matches it.** Both are readings of
+  an unsound trace (apogee at t=1.0 s, 0.8 s after liftoff — a blast pressure spike, not a climb,
+  on a rocket that exploded at Mach 2.4). Neither is trustworthy. But the smoothed one was not
+  *more* trustworthy, only more plausible-looking, which is the worse of the two failures.
+  Same for `meraki2` at 121 km, where the barometric model has no validity at all.
+  **What is genuinely still open is narrower and is filed separately below:** Debrief publishes a
+  descent rate at all on those two records, and should not.
+  Verified across the corpus: 6 of 8 closed because the chord is simply right — proved by the
+  same-flight pairs, which agree far more closely afterwards (7 of 8 groups tightened, none
+  widened: XPRS 2015 40.1% → 1.8%, Stargazer 1 9.0% → 0.3%, sg1.1 drogue 10.6% → 0.5% and main
+  11.5% → 0.8%, lemiv L3 main 19.9% → 4.3%) and by the files' own speed columns.
+  **Note what this does NOT prove, because the pin moved for exactly this reason:** all eight closed
+  *by construction* once the published rate became the chord, so "8 → 0" on that comparison is
+  arithmetic, not evidence. The check compares against the device's own speed channel now. The
+  original entry follows.
+
+- **[SUPERSEDED — see above] Eight descent legs still disagree with their own chord by 5% or more, and the cause is only
   half established.** Separate from the index-weighting Sev-1 fixed 2026-07-31 and not closed by it.
   Measured over the **41 reported legs** the corpus test sweeps, after that fix: **median |error vs
   own chord| 0.755%, mean 4.574%** — so this is a tail, not a bias. The eight:

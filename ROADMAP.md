@@ -86,6 +86,57 @@ land here, unlike in a repo that ships none — they land as small affordances o
 whatever order a defect sweep surfaced them, while both North Star ambitions' headline items sit
 still.
 
+### The Sev-1 that preempted a run on 2026-08-04 — a descent rate 2.4× too fast
+
+**`legRate` read the leg rate off a derivative smoothed three times, and `timeMean` only
+telescopes to the chord when it is handed the bare finite difference.** A moving average works on
+an INDEX window, so on a log whose cadence changes — 25 Hz climbing, 3 Hz descending, gaps to 11 s —
+a fast sample beside a long gap is smeared onto the samples bounding that gap, and `timeMean` then
+weights the smeared value by the gap's whole duration. `issuiuc-sg1.2` sustainer published
+**15.59 m/s (51.2 ft/s)** where its altitude falls 2,113 m → 150 m in 307.5 s (**6.38 m/s**) and its
+own speed column reads **6.61 m/s** — two independent channels agreeing 2.4× below the published
+figure, on the reading a flyer sizes a canopy against.
+
+The leg rate is the chord now, read between **short medians** rather than between two single
+samples — see below, because that half was found by review and it matters.
+
+**What settles it is the flights recorded more than once**, because two instruments watching one
+descent have no reason to agree better unless the reading got closer to the truth. Over the 8 groups
+where two or more recordings publish the same leg: **7 tightened, 1 unchanged, 0 widened.** XPRS 2015
+**40.1% → 1.8%**, Stargazer 1 **9.0% → 0.3%**, sg1.1 drogue **10.6% → 0.5%** and main
+**11.5% → 0.8%**, lemiv L3 main **19.9% → 4.3%**. 43 of 50 digests moved; 42 legs; one record gained
+a rate it had been withholding (`euroc-stacarl2` eggtimer, 25.15 m/s).
+
+**The corpus test that had already measured this stopped being evidence, and saying so is the
+point.** `reports a rate that matches its own leg` asserted an exact 8 legs disagreeing with their
+own chord by ≥5%. All 8 closed — but they closed **by construction**, because the published rate IS
+the chord now, so that comparison became the same arithmetic on both sides and agreed to 0.000%
+because it could not do otherwise. A test that cannot fail is worse than none. It compares the
+published rate against **the device's own speed channel** instead — a second instrument, 11 legs,
+median error **0.109%**, worst 1.7%, with the legs it cannot use counted and named in the failure
+message (2 whose channel reads above free-fall, 2 whose board states its own inertial solution
+drifts after deployment). Falsified: a +12% error in the estimator fails it.
+
+**The chord's endpoints had to become medians, and the pre-push review is what caught it.** A chord
+reads two samples out of a leg's however-many, and one of them is `argMax(altClean)` — the record's
+most extreme sample BY CONSTRUCTION, exactly where a positive spike survives. The Hampel filter does
+not always see it: `blueraven meraki2-121km` peaks at 75,516 m on two samples between neighbours of
+54,233 and 58,509, because at 121 km the whole neighbourhood is that noisy and there is no local
+consensus to test against. As a bare chord that leg published **138.85 m/s**; with a short median at
+each end it reads **107.4**, which is what the superseded estimator read there to 0.01%. Pinned by
+`does not rest the rate on the one sample the Hampel filter could not catch`, falsified by returning
+the bare sample. **The first version of this change shipped the bare chord**, and it also made one
+same-flight group *worse* (lemiv L3 main 19.9% → 25.0%); the medians took that to 4.3%.
+
+**`BACKLOG.md` said "Do NOT fix it by using the chord directly" and that instruction was wrong.**
+Its arithmetic was right — the `euler-explosion` chord implies 303 m of descent on a 292 m apogee —
+but its premise was that the smoothed figure was the sounder of the two there, and it is not:
+7.31 m/s over that leg implies 112 m, contradicting the same trace by 191 m. Both read an unsound
+trace (apogee at t=1.0 s, 0.8 s after liftoff — a blast spike on a rocket that exploded at Mach
+2.4); the smoothed one was merely more plausible-looking, which is the worse failure. What is
+genuinely still open is narrower and is filed: those two records should publish no descent rate at
+all.
+
 ### The Sev-1 that preempted a run on 2026-08-03 — an apogee Debrief disowns, published bare
 
 `lib/analyze` flags an altitude channel `altitudeUnproven` where the climb is too slow to be a
@@ -1788,6 +1839,19 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
+**2026-08-04 — NOTHING SHIPPED ON THIS TRACK, and the run says so rather than dressing up what it
+did.** Every §9 count is exactly where it was: `rounded-lg` 0, card treatments 3, off-scale spacing
+0, off-scale type 1, inverted type files 11, `ui.tsx` adopters 35 of 48. What took the run was a
+Sev-1 (a descent rate published 2.4× too fast, which preempts by rule) and D9 slice 2, which ran
+long because the fixture it depended on turned out to be reachable by nobody. **The next run should
+open on the P-track and stay there** — the D-track has now had two consecutive runs.
+
+Three P-track-adjacent things did land inside the D work, named here so nobody re-finds them: the
+file picker stopped greying out `.ork`, `.xtra` and `.bin`, all of which the app can read and
+explain; every parser refusal now names the file it is refusing; and one refusal stopped instructing
+flyers to do something that could not help them. Item 5's census below was also re-measured and both
+previously recorded denominators were wrong.
+
 **2026-08-02, re-measured at the end of that day rather than carried forward — and four of the six
 clauses this paragraph used to carry were already false when written.** `Frame`, `NumberField` and
 `Figure` all exist (items 8 and 12); `Panel` is refuted, not pending, because nothing in the app has
@@ -2070,8 +2134,36 @@ the artifact rather than the tree.
    column addressed by a `col < 0` sentinel, the `view`→`[from,to]` window scan, `ROW_H`-based
    virtualisation with spacer rows, and the event jump strip. None of it generalises to a four-row
    cross-check table.
-5. **The five required states.** Re-measured 2026-08-02: the denominator is **15** data surfaces,
-   not 13, and `StitchSurface` is the only one implementing more than one state.
+5. **The five required states.** **Re-censused 2026-08-04 and BOTH previous figures were wrong.**
+   The denominator is **21** data surfaces, not 15 and not 13; **0 of 21 implement all five**; and
+   `StitchSurface` is *not* the only one implementing more than one — four surfaces implement three
+   each (`Analyzer`, `RecentFlights`, `CompareSurface`, `StitchSurface`). The count kept moving
+   because nobody had written the list down, so here it is, and the next session should correct it
+   rather than re-derive it.
+
+   **The headline is worse than a denominator, and it is the thing to fix first: `offline` is
+   implemented by 0 of 21, in a PWA whose whole promise is that it works at the pad with no signal.**
+   `extrapolated` is implemented once, at `MetricGrid.tsx:101` — the only `<Extrapolated>` in the app.
+
+   **Two of the five states have NO primitive in `ui.tsx` at all.** `EmptyState`, `ErrorState` and
+   `Extrapolated` exist; **`loading` and `offline` do not.** So the first increment here is a
+   primitive, not a conversion — which is why this item has looked like a sweep and stalled twice.
+
+   **Ranked conversions, measured:**
+   - **`FlightReport.tsx` + `Analyzer.tsx:295`** — a full quota or an ITP eviction returns
+     `id: null` with no `else`, so nothing on screen says the flight was not kept. The one sentence
+     that would sits inside a `Disclosure` that defaults closed. `useLogbook`'s `write-blocked`
+     machinery already exists.
+   - **`CompareView.tsx`** — 1,128 lines, the second-most-visited data surface, **zero** of the five.
+     A bookmarked `/compare/?ids=…` whose flights were evicted shows nothing at all.
+   - **`Chart.tsx`** — on every report; empty, loading and error all absent.
+   - The seven `Readout`-only reading panels (`ParachuteCd`, `DrogueCd`, `DragCoefficient`,
+     `LandingEnergy`, `DeployAltitude`, `EjectionDelay`, `RailExit`) share one `extrapolated`
+     decision, so they are one edit across seven files — but a **two**-increment job, because that
+     decision wants a corpus measurement before a component edit.
+   - `ChannelExplorer`, `GroundTrack`, `GpsApogee` and `DeviceSummary` each `return null` or fall to
+     a `DataTable` default on empty, and those empties are argued unreachable. Confirm that before
+     converting; an unreachable state is not a missing one.
 
    **2026-08-02, later the same day — three §8 defects closed that no state audit would have
    found, because they are not missing states but states a phone cannot reach.** A measured cold

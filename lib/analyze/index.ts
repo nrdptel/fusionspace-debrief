@@ -145,7 +145,18 @@ function altitudeFromPressure(pressure: Float64Array, padPressure: number): Floa
  *  rate that varies linearly across the gap and telescopes to the leg's own chord when `values` is
  *  the finite difference of the altitude. An interval whose step is missing, zero or backwards
  *  contributes nothing; an interval where either end is non-finite falls back to the end that is
- *  finite, so one bad sample costs its own two gaps rather than the whole leg. */
+ *  finite, so one bad sample costs its own two gaps rather than the whole leg.
+ *
+ *  **NOTHING IN THIS FILE CALLS THIS ANY MORE, and that is deliberate — do not wire it back into
+ *  `legRate`.** Everything above is still true and is still the right rule for a rate averaged
+ *  over a stretch of a channel; `lib/explore.ts` implements it case for case for the channel
+ *  explorer's window statistics, and names this function as its authority, which is why this stays
+ *  rather than being deleted. What it is NOT right for is the published descent rate, and the
+ *  reason is in the last paragraph above: it telescopes to the leg's chord **when `values` is the
+ *  finite difference of the altitude**, and `descent` is that difference after three index-window
+ *  smoothers. Handed a smoothed series it does not telescope, and on a log whose cadence changes
+ *  it weights a smeared sample by a gap it has nothing to do with. `legRate` takes the chord
+ *  directly now. Measured 2026-08-04; see the comment there. */
 function timeMean(values: Float64Array, time: Float64Array, from: number, to: number): number {
   let sum = 0;
   let weight = 0;
@@ -184,6 +195,30 @@ function median(values: Float64Array, from: number, to: number): number {
   if (arr.length === 0) return NaN;
   arr.sort((a, b) => a - b);
   return arr[arr.length >> 1];
+}
+
+/**
+ * A descent leg's altitude at one end, as the median of a short SYMMETRIC window rather than
+ * the one sample that happens to sit there.
+ *
+ * Symmetric on purpose. Both ends of a descent are places the rocket is near enough
+ * stationary — apogee is a turning point and landing is the ground — so a fraction of a
+ * second of altitude either side is flat, and the median of it is the local consensus. A
+ * one-sided window leaning into the leg would be biased instead: at apogee it would only see
+ * altitudes already falling and at landing only altitudes still above the ground, and both
+ * errors shrink the drop. That is a bias mid-leg and it is a bias here.
+ *
+ * 0.3 s matches the Hampel window the altitude was already cleaned with. Kept deliberately
+ * short: this is a de-spiking measure, not a smoother, and a long window on a fast descent
+ * would pull the endpoint toward the middle of the leg and understate the drop.
+ */
+function legEndpoint(alt: Float64Array, at: number, dt: number): number {
+  const half = Math.max(1, windowFor(dt, 0.3) >> 1);
+  const lo = Math.max(0, at - half);
+  const hi = Math.min(alt.length, at + half + 1);
+  // `median` takes a half-open range and ignores non-finite samples.
+  const m = median(alt, lo, hi);
+  return Number.isFinite(m) ? m : alt[at];
 }
 
 function stdev(values: Float64Array, from: number, to: number): number {
@@ -2323,16 +2358,49 @@ function analyzeWhole(
     if (!(to > from + 1)) return null;
     const drop = altClean[from] - altClean[to];
     if (!(drop > Math.max(3, Math.abs(altClean[from]) * 0.1))) return null;
-    // Weighted by TIME, not by sample count — see `timeMean`. On a log whose cadence changes
-    // during the descent the two answer different questions, and only one of them is the rate
-    // this leg averaged.
+    // The leg's OWN CHORD: how far it fell, over how long it took. That is what a mean
+    // descent rate is, and it is measured on the altitude the flight recorded rather than on
+    // anything derived from it.
     //
-    // `from`, not `from + 1`: the leg is the stretch of time between the two marks, and it starts
-    // at the first one. The index version had to skip the opening sample because it weighted
-    // samples; this weights the intervals BETWEEN them, so the opening sample contributes only
-    // through the short gap it actually bounds — which is the apogee, where the rate genuinely is
-    // near zero, and the leg's own chord counts it too.
-    const rate = downward(timeMean(descent, time, from, to));
+    // This used to be `timeMean(descent, …)`, and the two are supposed to be the same number.
+    // `timeMean`'s docstring says it "telescopes to the leg's own chord" — but it says so
+    // *when `values` is the finite difference of the altitude*, and `descent` is that finite
+    // difference passed through THREE index-window smoothers (`altSmooth` at :1276, `baroVel`
+    // at :1328, `descent` at :2246). Telescoping is exactly what smoothing destroys, and the
+    // damage is not small on a log whose cadence changes: a moving average is an INDEX window,
+    // so a fast sample beside a long gap is smeared onto the samples that BOUND that gap, and
+    // `timeMean` then weights the smeared value by the gap's whole duration. `issuiuc-sg1.2`
+    // sustainer — 25 Hz climbing, 3 Hz descending, gaps to 11 s — published 15.59 m/s
+    // (51.2 ft/s) where its altitude falls 2,113 m → 150 m in 307.5 s and its own speed column
+    // reads 6.5 m/s. It reads 6.36 m/s now: two independent channels had been sitting 2.4×
+    // below the published figure, on the reading a flyer sizes a canopy against.
+    //
+    // **THE ENDPOINTS ARE MEDIANS, NOT SAMPLES, AND THAT IS NOT A REFINEMENT.** A chord taken
+    // between two single samples rests the whole published figure on 2 of up to 27,077 — and
+    // one of those two is `argMax(altClean)`, the record's most extreme sample BY
+    // CONSTRUCTION, which is precisely where a positive spike survives. The Hampel filter does
+    // not save it: on `blueraven meraki2-121km` the apogee sample reads 75,515 m between
+    // neighbours of 54,233 and 58,509, because the whole neighbourhood is that noisy and there
+    // is no local consensus to test it against. Read as a bare chord that leg published
+    // 138.85 m/s off that one sample. A short symmetric median at each end costs nothing on a
+    // clean trace — at apogee and at landing the rocket is near enough stationary that the
+    // window is flat — and it is the difference between a safety number resting on 2 samples
+    // and on a few dozen. Falsified in `analyze.test.ts` by spiking one endpoint sample.
+    //
+    // The same-flight pairs settle that this is the right FIGURE and not a preference, because
+    // recordings of ONE flight have no reason to agree better unless the reading improved.
+    // Over the 8 groups where two or more recordings publish the same leg: 7 tightened, 1 was
+    // unchanged, NONE widened. XPRS 2015 40.1% → 1.8%, Stargazer 1 9.0% → 0.3%, sg1.1 drogue
+    // 10.6% → 0.5% and main 11.5% → 0.8%, lemiv L3 main 19.9% → 4.3%.
+    //
+    // `descent` is still what finds the main deployment below; detecting a sharp step is the
+    // job smoothing is FOR. It is only the published rate that must not be read off it.
+    const span = time[to] - time[from];
+    if (!(span > 0)) return null;
+    const top = legEndpoint(altClean, from, dt);
+    const bottom = legEndpoint(altClean, to, dt);
+    if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
+    const rate = downward((top - bottom) / span);
     if (rate != null && rate > freeFallLimit) {
       descentAboveFreeFall = true;
       return null;
