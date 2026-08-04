@@ -66,7 +66,17 @@ in production indefinitely — the entry was, in effect, protecting the defect.
 
 ## What shipped this run
 
-Four merges, all live. Two repos.
+Five merges, all live. Two repos.
+
+**`#118` came last and came from walking what `#114` had just shipped.** Dropping the OpenRocket
+design in the built app showed **"Couldn't read `…A-simple-model-rocket.ork`"** directly above a
+sentence saying Debrief had read it well enough to name the rocket and count its five simulations.
+`ParseGuidanceError` marks a file Debrief RECOGNISED and is declining to call a flight — a decision,
+not a failure — and the error state carries `recognised` now, headed *"Debrief didn't analyse …"*.
+**Two catch sites needed it and the first version fixed one**, so it passed its own new test in
+isolation and failed the full suite; a file from the picker goes through `onFile`'s catch, not
+`ingest`'s. The lesson is the cheap one: walk the surface you just shipped, in the built app, before
+calling the increment done.
 
 ### 1. `nrdptel/debrief-fixtures#4` — the corpus's first prediction, reachable at last
 
