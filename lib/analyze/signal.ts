@@ -210,14 +210,43 @@ export function medianDt(time: Float64Array): number {
   return diffs[diffs.length >> 1];
 }
 
-/** Largest absolute finite value within `half` samples either side of `center`
- *  (the peak magnitude of a transient like a deployment shock), or NaN if the
- *  window holds no finite samples. */
-export function peakAbsInWindow(values: Float64Array, center: number, half: number): number {
+/** Largest absolute finite value in the clock bracket `[center − back, center + fwd]` — the peak
+ *  magnitude of a transient like a deployment shock — or NaN if the bracket holds no finite
+ *  sample.
+ *
+ *  The bracket is a span of TIME, never a count of samples, and that is the whole reason this
+ *  function exists. A sample count converted from a record's median interval is a property of the
+ *  FILE, not of the flight: a logger writes the pad slowly and the boost fast, and Altus Metrum
+ *  writes the same recording again at a different rate as a second export format. The version
+ *  this replaces converted 0.3 s that way, and the span it really covered ran from 0.13 s to
+ *  8.24 s across the corpus — so one Kairos Booster recording published a 22.8 g apogee shock
+ *  from its `.csv` and 1.5 g from its `.eeprom`, one board, one launch, one charge.
+ *
+ *  It is ASYMMETRIC because a deployment charge does not happen at the index Debrief detects the
+ *  deployment at — it happens before it, and by different amounts for the two events. See
+ *  `SHOCK_BRACKET_S` in `lib/analyze/index.ts`, which sets the two brackets and says why. */
+export function peakAbsInTimeBracket(
+  time: Float64Array,
+  values: Float64Array,
+  center: number,
+  back: number,
+  fwd: number,
+): number {
+  if (!(center >= 0) || center >= time.length) return NaN;
+  const t = time[center];
+  if (!Number.isFinite(t)) return NaN;
+  const t0 = t - back;
+  const t1 = t + fwd;
   let peak = NaN;
-  const lo = Math.max(0, center - half);
-  const hi = Math.min(values.length - 1, center + half);
-  for (let i = lo; i <= hi; i++) {
+  // A full scan rather than a walk outward from `center`. The walk was cheaper and wrong: it
+  // stops at the first sample outside the bracket, so ONE non-ascending timestamp hides every
+  // in-bracket sample beyond it. `lib/parsers/altosEeprom.ts` is the one parser that bypasses
+  // `buildFlight`'s sort, and its own `unwrap` comment says records "do come back a tick or two
+  // out of order right at the boundary" — so the cheap version was correct only by luck, on
+  // exactly the files this reading matters most on.
+  for (let i = 0; i < time.length; i++) {
+    const ti = time[i];
+    if (!(ti >= t0) || !(ti <= t1)) continue;
     const v = values[i];
     if (Number.isFinite(v)) {
       const a = Math.abs(v);

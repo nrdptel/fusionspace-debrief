@@ -14,6 +14,54 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-04 — the 2 g floor on the deployment shock is applied by four surfaces and skipped by
+  two, and it never says it exists.** `accelInG(e.peakAccel) >= 2` gates the on-screen event
+  timeline (`components/FlightReport.tsx:1351`) and the .txt/.md/.html reports
+  (`lib/report.ts:519,606,738`), but **`analysisJson` has no gate** (`lib/report.ts:1464`) and
+  neither does the device cross-check (`lib/flight/reported.ts:201` → `lib/report.ts:420`,
+  `components/DeviceSummary.tsx`). So one report can print `—` in its Events table and a numeric
+  Debrief shock in its cross-check table for the same event, and the JSON a flyer parses carries a
+  figure the document does not. Two separate defects in one: the floor is not applied uniformly,
+  and — the honesty half — a shock withheld for being under it says nothing about why, where
+  `MAINTAINING.md` requires a withheld number to give its reason. The threshold appears in no
+  caveat, no warning and no methods paragraph. Found by the pre-push review of the shock-bracket
+  change; the bracket fix moved most shocks well clear of 2 g, which makes this less acute than it
+  was and does not make it right.
+
+- **2026-08-04 — `intrepid2` publishes a 30.4 g apogee deployment shock off a record that ends
+  mid-boost.** `altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv` stops at t = 2.84 s and
+  the file's own warning is *"The log appears to end at or before apogee"* — so the "apogee" the
+  shock is read around is a detection on a truncated record, not a charge. Every sample in the
+  bracket reads 29.0–30.4 g against a whole-flight max of 31.5 g: a sustained thrust plateau, which
+  is the opposite of the sharp isolated transient a pyrotechnic charge makes. The fix is not a wider
+  or narrower bracket — it is that a deployment shock should have to LOOK like a transient (a peak
+  standing well above its own local background) before it is published at all, which would also
+  refuse this one on the strongest possible grounds. Filed rather than built because it is a second
+  change to the same reading and wants its own corpus validation.
+
+- **2026-08-04 — `coastEfficiency` and `dragLossAltitude` are quadratic in a possibly-derived
+  velocity and say nothing about it, while max Q — twelve lines below them in the same file —
+  says so.** `lib/readings.ts:341–351` builds the coast-efficiency tile with `dragLossAltitude` as
+  its sub-label; `:353–368` builds max Q and calls `maxQProvenance(m)`, which states *"from a derived
+  speed, and squared by q = ½ρv², so it inherits that read twice over"* (shipped 2026-08-04). But
+  `coastEfficiency = actualGain / (v²/2g)` and `dragLossAltitude = v²/2g − actualGain` take the
+  burnout velocity through exactly the same square. Measured across the corpus: two exports of one
+  stargazer1 recording read 166.9 m and 509.0 m of drag loss (+205%), and one lemiv L3 flight reads
+  6,453 m off its Blue Raven against 37,580 m off its Proton. **NOT the Sev-1 it was first filed as:**
+  a drag loss larger than the apogee is ordinary physics — a rocket at Mach 1.3 would coast ~10 km in
+  vacuum and manages ~3.4 km in air — so 17 of 28 corpus flights exceeding their own apogee is
+  expected, not a bug. What is real is the missing caveat, and it is the same one-panel-caveated,
+  one-panel-bare pattern `#125` fixed for max Q and left for its two neighbours.
+
+- **2026-08-04 — the AltOS `.eeprom` parser never decodes battery voltage, so the same recording
+  loses it depending on which file the flyer downloaded.** `grep -i volt lib/parsers/altosEeprom.ts`
+  returns nothing, so `batteryStartV`/`batteryMinV` are null on all three corpus eeproms while the
+  AltosUI CSV of the identical bytes carries them — kairos 4.15/4.13, sg1.1 4.12/**3.69**,
+  stargazer1 4.03/4.01. The sg1.1 pair is the point: a 4.12 → 3.69 V sag is exactly the weak-pack
+  signal the field exists to surface, and it is present in one export of that recording and absent
+  from the other. UNVERIFIED beyond the channel lists — reported by an agent and confirmed only by
+  the grep and the presence/absence of the channel, not by decoding a voltage record by hand.
+
 - **2026-08-04 — `FlightReport`'s range picker should be `Segmented`, not a hand-rolled chip.**
   `components/FlightReport.tsx:1181` is a one-of-N range selector written as
   `rounded-md border px-2 py-0.5 text-xs font-medium` with an indigo selected state. It is the one

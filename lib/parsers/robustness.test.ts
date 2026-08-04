@@ -153,6 +153,12 @@ describe('import robustness', () => {
 // row and moves on; a binary parser meets it as a length field claiming ninety megabytes, a
 // record header halfway through the file, or a size that outruns the buffer. None of those
 // may crash the tab or spin it — a refusal is a fine outcome, a hang is not.
+//
+// `HANG_MS` is what one trial is allowed before it counts as a spin rather than slow work. It is
+// named rather than inlined because the guard at the foot of this block holds the suite's own
+// timeout against it.
+const HANG_MS = 8000;
+
 describe('a damaged raw download is refused, not survived by luck', () => {
   const CORPUS = fileURLToPath(new URL('./__corpus__/', import.meta.url));
   const FILES = [
@@ -178,8 +184,36 @@ describe('a damaged raw download is refused, not survived by luck', () => {
           // A ParseGuidanceError, or any refusal, is the right answer for a broken file.
         }
         const ms = Date.now() - started;
-        expect(ms, `${name} trial ${trial} (${bytes.length} bytes) took ${ms} ms`).toBeLessThan(8000);
+        expect(ms, `${name} trial ${trial} (${bytes.length} bytes) took ${ms} ms`).toBeLessThan(
+          HANG_MS,
+        );
       }
     }
+  });
+
+  // The assertion above could not fire. It gives ONE trial 8,000 ms inside a test the suite
+  // default killed at 5,000 ms, so a parser that spun on a damaged file was reported as a bare
+  // vitest timeout — losing the message directly above it, which names the file, the trial and
+  // the byte count that caused it. An assert that cannot fail is worse than no assert, and this
+  // one had been unreachable since it was written.
+  //
+  // So the two numbers are now held in a relationship rather than each being chosen alone: the
+  // suite must give this test enough room for one trial to reach its own bound and still report
+  // it. Falsified by putting `testTimeout` back to 5_000, which names both numbers.
+  it('the per-trial hang bound is reachable, not pre-empted by the suite timeout', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../../vitest.config.ts', import.meta.url)),
+      'utf8',
+    );
+    const m = src.match(/testTimeout:\s*([\d_]+)/);
+    // A regex that stopped matching must go red here rather than quietly pass on a `?? Infinity`.
+    expect(m, 'vitest.config.ts states an explicit testTimeout').toBeTruthy();
+    const suiteMs = Number(m![1].replace(/_/g, ''));
+
+    // Room for the one slow trial AND the other 119, which measured ~1.6 s in total.
+    expect(
+      suiteMs,
+      `suite timeout ${suiteMs} ms must exceed the ${HANG_MS} ms this test allows a single trial`,
+    ).toBeGreaterThan(HANG_MS * 2);
   });
 });
