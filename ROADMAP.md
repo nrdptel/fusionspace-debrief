@@ -1918,6 +1918,18 @@ chip-shaped BUTTON was invisible and the pin read green while four sat on the pa
 predicate only because a bordered box looks like a bordered box, and a third wants `Segmented` —
 each recorded with its reason rather than left as a silence.
 
+**2026-08-04, second P increment — the census that was widened that morning still could not see
+one.** `FigureChooser`'s figure toggles are a hand-rolled chip at `py-0.5`, and the scan walked
+straight past them: it finds the end of an opening tag by walking to the first `>` at brace depth
+zero, and it was walking through `//` comments and strings as if they were code. That file explains
+in a comment between two attributes why its control is named `"<title> figure"` — and that `>` cut
+the tag off five lines above its `className`. Three identical copies of the walk existed, so the
+blind spot was in all three; they are one shared `openingTag` now, which skips comments and strings
+and treats a template's `${…}` as nesting. Falsified both ways: with the hand-roll present the old
+scan passes green and the new one names the file. The toggle took `ChipButton` with `tone="accent"`
+and kept its `line-through` off state with a reason — the other chip toggles in the app are view
+settings, and this one says what goes in a document.
+
 **Counts that moved:** `invertedTypeFiles` **11 → 10** · `uiAdopters` **35 → 36** · three
 hand-rolled `py-0.5` chip treatments gone, the geometry now `Chip`'s own `px-2 py-1` so a static
 chip and an actionable one in the same row are one height. Unchanged: `rounded-lg` 0, card

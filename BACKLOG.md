@@ -1108,7 +1108,27 @@ wild, ideas too big for one pass. One line each, newest first.
   numbers above: two recordings of one launch must agree within 10%, and two exports of one
   recording within 2%. **The same index-mean-over-a-variable-rate-stretch shape sits on
   `avgBoostAcceleration` two lines away** — its window is the whole boost, so the window is right
-  and only the weighting is in question; unmeasured, and it is the next thing to measure.
+  and only the weighting is in question.
+
+- **`avgBoostAcceleration` averages the boost over SAMPLES, not over time — measured 2026-08-04 at
+  up to 16%.** The remaining half of the Sev-1 above. The window (liftoff → burnout) is correct; the
+  weighting is not, and the average acceleration over a burn is a TIME average — it is what relates
+  to Δv, `∫a dt / T`. Measured by swapping `mean` for `timeMean` in place and reading the metric,
+  which reproduces the analysis's own channel handling exactly; a first probe that reimplemented the
+  channel read was inconclusive because it missed the gravity-add-back correction and reported the
+  resulting one-gravity offsets as errors, which is worth recording as the way to get this wrong.
+
+  | flight | index mean | time-weighted |
+  |---|---|---|
+  | `issuiuc-intrepid1` | 181.48 m/s² | **210.68** (+16.1%) |
+  | `issuiuc-endurance` | 110.13 | 115.27 (+4.7%) |
+  | `jimheaney` L1 group (×4) | 162–179 | +2.3% to +3.1% |
+  | `issuiuc-kairos` sustainer | 77.27 | 78.81 (+2.0%) |
+  | the other 17 | — | under 1.3% |
+
+  Sev-2, not Sev-1: unlike thrust-to-weight this is not quoted against a range rule, and it does not
+  disagree with itself across two exports of one flight. Its own increment when it ships, with the
+  digest snapshot regenerated in the same commit — the same shape as the fix above.
 
 - **FIXED 2026-08-01 (was Sev-1, live in production until PR #72 merges): five corpus flights
   published a drag coefficient and a Mach window off a velocity trace the analysis had refused.**

@@ -47,6 +47,74 @@ function uiSources(dirs: string[], exts: string[] = ['.tsx', '.css']): { path: s
     .map((p) => ({ path: p.slice(ROOT.length + 1), text: readFileSync(p, 'utf8') }));
 }
 
+/**
+ * The text of one JSX opening tag, starting at the `<`.
+ *
+ * Every census in this file needs this and three of them had their own copy, character for
+ * character — so when the copy was wrong, it was wrong three times and nothing said so.
+ *
+ * A regex cannot do it: `<button[^>]*?>` stops at the `>` of an arrow function in a `{…}` prop and
+ * truncates the tag before `className`, which is where every treatment this file measures lives.
+ * The brace-depth walk fixes that and had its OWN blind spots, both of which hid real code:
+ *
+ *   **A `>` inside a `//` comment ends the scan.** `components/FigureChooser.tsx` explains, in a
+ *   comment between two attributes, why the control is named `"<title> figure"` — and that `>` is
+ *   at brace depth 0, so the tag was cut off five lines above its `className` and a hand-rolled
+ *   chip-shaped toggle went uncounted. The census read green; the button was on the page.
+ *
+ *   **A `>` inside a string ends it too** — `title="Bigger than 1 g"` or a `>` in any label. Not
+ *   found in the repo today, which is luck rather than a property, and it is the same failure.
+ *
+ * So this skips comments and string literals as it walks, and counts `${…}` inside a template as
+ * the brace nesting it is. The rule stays what it was: the tag ends at the first `>` at depth 0
+ * that is not the tail of an arrow.
+ */
+function openingTag(text: string, start: number, after: number): string {
+  let i = after;
+  let depth = 0;
+  while (i < text.length) {
+    const c = text[i];
+    const next = text[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c;
+      i++;
+      while (i < text.length) {
+        if (text[i] === '\\') { i += 2; continue; }
+        if (text[i] === quote) { i++; break; }
+        // A template's `${…}` holds real code, including `>` — walk it as nesting rather than
+        // treating the whole template as opaque, so a class list built by a ternary still counts.
+        if (quote === '`' && text[i] === '$' && text[i + 1] === '{') {
+          let d = 1;
+          i += 2;
+          while (i < text.length && d > 0) {
+            if (text[i] === '{') d++;
+            else if (text[i] === '}') d--;
+            i++;
+          }
+          continue;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    else if (c === '>' && depth === 0 && text[i - 1] !== '=') break;
+    i++;
+  }
+  return text.slice(start, i);
+}
+
 function countMatches(
   files: { path: string; text: string }[],
   re: RegExp,
@@ -927,17 +995,7 @@ describe('DESIGN.md §5 — the fifth button weight', () => {
     for (const f of uiSources(['components', 'app'], ['.tsx'])) {
       if (f.path.endsWith('components/ui.tsx')) continue;
       for (const m of f.text.matchAll(/<button\b/g)) {
-        // The opening tag ends at the first `>` at brace depth 0 that is not part of an arrow.
-        let i = (m.index ?? 0) + m[0].length;
-        let depth = 0;
-        while (i < f.text.length) {
-          const c = f.text[i];
-          if (c === '{') depth++;
-          else if (c === '}') depth--;
-          else if (c === '>' && depth === 0 && f.text[i - 1] !== '=') break;
-          i++;
-        }
-        const tag = f.text.slice(m.index ?? 0, i);
+        const tag = openingTag(f.text, m.index ?? 0, (m.index ?? 0) + m[0].length);
         if (!tag.includes('text-indigo-')) continue;
         if (/border-indigo|bg-indigo/.test(tag)) continue; // a chip, not a link
 
@@ -1009,18 +1067,7 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
       // `Chip` is a separate question, and one the census now forces someone to answer instead
       // of never asking.
       for (const m of f.text.matchAll(/<(?:span|li|div|button|a)\b/g)) {
-        // Same brace-depth scan the button grep above uses, and for the same reason: `[^>]*?>`
-        // stops at the `>` of an arrow function inside a `{…}` prop and truncates the tag.
-        let i = (m.index ?? 0) + m[0].length;
-        let depth = 0;
-        while (i < f.text.length) {
-          const c = f.text[i];
-          if (c === '{') depth++;
-          else if (c === '}') depth--;
-          else if (c === '>' && depth === 0 && f.text[i - 1] !== '=') break;
-          i++;
-        }
-        const tag = f.text.slice(m.index ?? 0, i);
+        const tag = openingTag(f.text, m.index ?? 0, (m.index ?? 0) + m[0].length);
         const chipish =
           /rounded-(md|lg|full)/.test(tag) &&
           /\bborder\b/.test(tag) &&
@@ -1122,16 +1169,7 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
     for (const f of uiSources(['components', 'app'], ['.tsx'])) {
       if (f.path.endsWith('components/ui.tsx')) continue;
       for (const m of f.text.matchAll(/<[a-z][a-z0-9]*\b/g)) {
-        let i = (m.index ?? 0) + m[0].length;
-        let depth = 0;
-        while (i < f.text.length) {
-          const c = f.text[i];
-          if (c === '{') depth++;
-          else if (c === '}') depth--;
-          else if (c === '>' && depth === 0 && f.text[i - 1] !== '=') break;
-          i++;
-        }
-        const tag = f.text.slice(m.index ?? 0, i);
+        const tag = openingTag(f.text, m.index ?? 0, (m.index ?? 0) + m[0].length);
         // The notice treatment: a tinted box on §5's `-300/70` border + `-50` fill ramp.
         if (/border-\w+-300\/70/.test(tag) && /bg-\w+-50\b/.test(tag)) {
           out.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length}`);

@@ -13,7 +13,7 @@
 // for a table-only write-up.
 
 import { TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
-import { Chip, IconButton } from './ui';
+import { Chip, ChipButton, IconButton } from './ui';
 
 export default function FigureChooser({
   titles,
@@ -75,10 +75,15 @@ export default function FigureChooser({
                 />
               </label>
             )}
-          <button
+          <ChipButton
             key={t}
-            type="button"
-            aria-pressed={on}
+            pressed={on}
+            // `accent` keeps the indigo an included figure has always had. It is deliberately not
+            // the default tone `EventChips` uses for its own on/off chips: that set answers "is
+            // this mark drawn on the plot", which is a view setting, and this one answers "is this
+            // plot IN THE DOCUMENT", which is what the flyer is about to hand someone. Same
+            // primitive, same geometry, and the louder of the two is the one with consequences.
+            tone="accent"
             onClick={() => onToggle(t)}
             // Named "<title> figure", not "<title>". The comparison surface already has a
             // channel picker whose buttons are Altitude / Velocity / Acceleration, and a second
@@ -87,14 +92,17 @@ export default function FigureChooser({
             // stays the bare title; only the accessible name says which control this is.
             aria-label={`${t} figure`}
             title={`${on ? 'Leave out' : 'Include'} the ${t.toLowerCase()} plot — applies to ${what}`}
-            className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
-              on
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
-                : 'border-zinc-300 bg-white text-zinc-500 line-through hover:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
-            }`}
+            // **`line-through` by hand, and it is kept on purpose.** `ChipButton`'s off state is a
+            // dashed border and muted text, which says "not selected" — right for a filter. This
+            // control says which plots go in a document, so the off state means LEFT OUT, and a
+            // struck-through title says that where a dimmed one only says "not chosen". The rest
+            // of the treatment — geometry, ramp, focus ring, touch area — is the primitive's; this
+            // was previously a full hand-roll at `py-0.5`, off §5's `px-2 py-1` and off the touch
+            // contract with it.
+            className={on ? undefined : 'line-through'}
           >
             {t}
-          </button>
+          </ChipButton>
           {/* Order is the other half of "this document is mine" — a certification package
               leads with the plot the certification asks for. Same control and same stored-order
               helpers as the readings chooser, so the two do not drift. */}
