@@ -1126,6 +1126,54 @@ export function EmptyState({
 }
 
 /**
+ * The `loading` state — one of §5's five, and the last of them with no primitive.
+ *
+ * Two surfaces were saying "I am working" in two different ways, and only one of them said it to
+ * a screen reader. `Analyzer` had `role="status" aria-live="polite"` with a pulsing dot;
+ * `StitchSurface` had `aria-busy` on a `<Card>` and **no live region at all** — `aria-busy` marks
+ * a region as stale, it does not announce anything, so a flyer on `/stitch` who cannot see the
+ * text was told nothing at all while the recordings were read.
+ *
+ * The live region is therefore the point of this component rather than the dot. It is ALWAYS
+ * announced politely, and the wording is the caller's, because what a flyer is waiting for is
+ * different on every surface and "Loading…" is the answer §5 forbids.
+ *
+ * `detail` exists because a long wait needs a reason: an 11 MB log on a phone takes about six
+ * seconds, which is long enough that a bare line reads as stuck and gets tapped again.
+ */
+export function Loading({
+  children,
+  detail,
+  className,
+}: {
+  /** What is being waited for, in the flyer's terms. Never "Loading…". */
+  children: React.ReactNode;
+  /** Why it is taking a moment, when that is worth saying. */
+  detail?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={cx('text-center text-sm text-zinc-600 dark:text-zinc-400', className)}
+    >
+      <p>
+        {/* Marks the wait as moving rather than hung. `aria-hidden` because the live region
+            above already says it in words, and a screen reader announcing a decorative dot
+            would be reading the animation, not the state. */}
+        <span
+          className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500 align-middle"
+          aria-hidden="true"
+        />
+        {children}
+      </p>
+      {detail && <p className="mx-auto mt-1 max-w-prose text-sm">{detail}</p>}
+    </div>
+  );
+}
+
+/**
  * A table's way out to a spreadsheet — the control and the announcement, together, so every
  * table says the same thing when it worked and the same thing when the browser refused.
  *

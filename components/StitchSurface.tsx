@@ -10,7 +10,7 @@ import type { StitchRefusal } from '@/lib/stitch';
 import { fmtLength } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { EVENT_COLOR } from '@/lib/eventStyle';
-import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Readout } from './ui';
+import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Loading, Readout } from './ui';
 
 /**
  * One timeline across several per-stage recordings of one launch.
@@ -133,9 +133,11 @@ export default function StitchSurface() {
   );
 
   if (state.kind === 'loading') {
+    // Was a `<Card aria-busy>` with no live region: `aria-busy` marks a region stale, it
+    // announces nothing, so this said nothing at all to a screen reader.
     return (
-      <Card aria-busy="true">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Reading the recordings…</p>
+      <Card>
+        <Loading>Reading the recordings…</Loading>
       </Card>
     );
   }

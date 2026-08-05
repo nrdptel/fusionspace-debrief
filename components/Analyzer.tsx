@@ -46,7 +46,7 @@ import { decodeBytes } from '@/lib/encoding';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
-import { Button, ErrorState, Notice } from './ui';
+import { Button, ErrorState, Loading, Notice } from './ui';
 import { apogeeCaveatFlags } from '@/lib/readings';
 
 type State =
@@ -197,18 +197,18 @@ function rememberOpenId(id: string | null): void {
 function ReadingNote({ what }: { what?: { name: string; bytes?: number } }) {
   const mb = what?.bytes != null ? what.bytes / 1024 / 1024 : null;
   return (
-    <div role="status" aria-live="polite" className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-      <p>
-        <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500 align-middle" />
-        Reading {what?.name ? <span className="font-mono text-xs">{what.name}</span> : 'the file'}…
-      </p>
-      {mb != null && mb >= 2 && (
-        <p className="mt-1 text-xs">
-          {mb.toFixed(1)} MB — a log this size takes a few seconds to read and analyze here on
-          your device. Nothing is being sent anywhere.
-        </p>
-      )}
-    </div>
+    <Loading
+      detail={
+        mb != null && mb >= 2 ? (
+          <>
+            {mb.toFixed(1)} MB — a log this size takes a few seconds to read and analyze here on
+            your device. Nothing is being sent anywhere.
+          </>
+        ) : undefined
+      }
+    >
+      Reading {what?.name ? <span className="font-mono">{what.name}</span> : 'the file'}…
+    </Loading>
   );
 }
 
