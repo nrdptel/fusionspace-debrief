@@ -406,22 +406,34 @@ states unreachable without hover. Both counts are zero or the surface is not don
 Run these before calling a surface done, and put the counts in the commit message. Numbers, not
 adjectives.
 
+Three of these read a class ATTRIBUTE's contents rather than the raw file, so a `cls()` helper
+comes first. Matching raw text made the radius check count the English words "rounded" and
+"Grounded" in prose, which is a false positive that reads exactly like drift.
+
 ```bash
-# radius drift — rounded-lg is out of the system; containers are xl, controls md
-grep -roh 'rounded-lg' components app | wc -l                      # target: 0
+cls() { grep -rohE 'class(Name)?="[^"]*"' "$@" \
+  | sed -E 's/^class(Name)?="//; s/"$//' | tr ' ' '\n' | grep -v '^$'; }
+
+# radius drift — SUBTRACT the sanctioned set (md for controls, xl for containers, full for
+# pills). Never name one drifted value: an arbitrary radius is drift too.
+cls components app | grep -xE 'rounded(-(sm|md|lg|xl|2xl|3xl|full|none|\[[^]]+\]))?' \
+  | grep -vxE 'rounded-(md|xl|full)' | wc -l                        # target: 0
 
 # card treatments hand-rolled instead of <Card>
 grep -roh 'rounded-xl border[a-z0-9:/ -]*' components \
   | sed 's/[[:space:]]*$//' | sort -u | wc -l                       # target: 1 (+ any named
                                                                     # non-card primitive, see below)
 
-# off-scale spacing — every spacing utility, minus the scale
-grep -rohE '\b((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+\b' components app \
-  | grep -vE -- '-(0|1|2|3|4|6|8|12)$' | wc -l                      # target: 0
+# off-scale spacing — every spacing utility, minus the scale, INCLUDING arbitrary values,
+# which §4 forbids outright and which a named-step pattern cannot see.
+cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-([0-9]+|\[[^]]+\])' \
+  | grep -vxE '.*-(0|1|2|3|4|6|8|12)' | wc -l                       # target: 0
 
-# a size that is not on the scale at all — anything but the six in §3
-grep -rohE '\btext-(xs|sm|base|lg|xl|[0-9]xl)\b' components app \
-  | grep -vxE 'text-(xs|sm|base|xl|3xl)' | wc -l                   # target: 0
+# a size that is not on the scale at all — every text- size INCLUDING an arbitrary one,
+# minus the six in §3 and the one annotation size it sanctions.
+cls components app | grep -xE 'text-([a-z0-9]+|\[[^]]+\])' \
+  | grep -E '^text-(xs|sm|base|lg|xl|[0-9]xl|\[)' \
+  | grep -vxE 'text-(xs|sm|base|xl|3xl|\[11px\])' | wc -l           # target: 0
 
 # decision-grade text at caption size — count the INVERTED FILES, not the suite total
 for f in components/*.tsx; do xs=$(grep -oh 'text-xs' "$f" | wc -l); \
@@ -431,6 +443,35 @@ for f in components/*.tsx; do xs=$(grep -oh 'text-xs' "$f" | wc -l); \
 # primitives actually adopted
 grep -rlE "from ['\"](\./ui|@/components/ui)['\"]" components | wc -l   # target: most components
 ```
+
+**The radius, spacing and type greps were rewritten on 2026-08-04 because they were provably
+blind, and the proof is a fixture rather than an argument.** Written into a scratch directory
+holding `rounded-2xl`, `rounded-sm`, `rounded-[10px]`, `p-[13px]`, `gap-[18px]`, `mt-[37px]` and
+`text-[13px]`, the OLD block reported **radius 0, spacing 0, type 0** against seven live
+violations. The corrected block reports **3, 3 and 1** — every one. Each failure was the same one
+this section already documents about itself and had never applied to its own commands: the radius
+grep named `rounded-lg` and so passed every other off-system radius, while the spacing and type
+greps matched named steps only and left `p-[13px]` and `text-[13px]` entirely unenforced.
+
+**Re-run against the real tree the three corrected greps move no count** — radius 0, spacing 0,
+type 1, unchanged. That is the honest result and worth stating plainly: the instrument was broken
+and nothing happened to be hiding behind it. It is a guard against the next drift, not a discovery.
+
+**Two of the six are still known-blind, measured but deliberately NOT changed here, because the
+obvious correction makes each WORSE and both need the ratchet in `lib/design-system.test.ts` to
+move in the same commit.** Recorded so the next session starts from the measurement:
+
+- **The card grep anchors on the literal string `rounded-xl border`**, which Tailwind class order
+  makes arbitrary, and it scans `components` only while the others scan `components app`. But
+  rewriting it to read class attributes the way `cls()` does reports **0 where the truth is 3** —
+  these treatments are not single-line `className` literals, so an attribute-based reader cannot
+  see them at all. The correct fix reads the same sources `lib/design-system.test.ts:633` reads and
+  normalises class ORDER before de-duplicating; it is not a one-line grep change.
+- **The inverted-file loop iterates `components/*.tsx`, so no route is ever measured.** Adding
+  `app/**/*.tsx` takes the count **10 → 12**, and the two it finds are real: `app/validation/page.tsx`
+  (1/0) and `app/privacy/page.tsx` (4/3). Moving it means moving `invertedTypeFiles` in the ratchet
+  in the same commit, and deciding first whether a docs route full of prose should be held to a
+  metric written for data surfaces.
 
 **The suite-wide ratio was removed on 2026-07-31, and the reason is worth keeping.** It hid what it
 was for and then actively misled. It hid: 88 `text-xs` against 91 `text-sm` passed `sm > xs` by three
