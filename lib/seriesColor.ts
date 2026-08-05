@@ -31,6 +31,12 @@ export const DEFAULT_FIGURE_COLORS: Record<string, string> = {
   Altitude: '#6366f1',
   Velocity: '#10b981',
   Acceleration: '#f59e0b',
+  /** A design's predicted curve, drawn beside the altitude it predicted. Deliberately a NEUTRAL
+   *  (zinc-500) rather than a fourth hue: §2 allows one accent and three meanings, and a
+   *  prediction is not a fourth meaning — it is the one line on the chart that is not a
+   *  measurement, and a colour that competed with the flight's would invite reading them as two
+   *  equal claims. The dash carries the distinction; the neutral keeps it quiet. */
+  Predicted: '#71717a',
 };
 
 /** The colour a report figure is drawn in — the flyer's, or the default. */

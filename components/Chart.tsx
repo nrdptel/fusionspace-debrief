@@ -78,6 +78,16 @@ export interface ChartSeries {
   width?: number;
   /** Which y-axis/scale to bind to. Defaults to the left axis. */
   axis?: 'left' | 'right';
+  /** Dash pattern, in canvas units — `[6, 4]` for a predicted trace. A dashed line is how this
+   *  app says "not measured", and it is deliberately the PREDICTION that is dashed rather than
+   *  the flight: the measurement is the reference here, and Project APEX dashing the measured
+   *  trace instead (COMPETITION.md row 32) encodes the opposite idea about which is which. */
+  dash?: number[];
+  /** Draw straight through gaps rather than breaking the line at them. Needed by any series
+   *  living on a UNION time base (see `lib/overlay.ts`), where every instant belonging to the
+   *  other trace is a NaN in this one — without it a merged overlay renders as nothing but
+   *  isolated points. */
+  spanGaps?: boolean;
 }
 
 export interface ChartMarker {
@@ -272,6 +282,8 @@ export default function Chart({
           width: s.width ?? 1.75,
           scale: s.axis === 'right' ? 'y2' : 'y',
           points: { show: false },
+          ...(s.dash ? { dash: s.dash } : {}),
+          ...(s.spanGaps ? { spanGaps: true } : {}),
           value: (_u: uPlot, v: number | null) =>
             v == null ? '—' : s.axis === 'right' ? yFmtRight(v) : yFmt(v),
         })),

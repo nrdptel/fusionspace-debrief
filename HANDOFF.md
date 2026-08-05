@@ -9,7 +9,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **A Sev-1, reproduced and shipped — and the FIRST fix for it was wrong** | **The deployment shock was under-reported by up to nine-fold.** 12 of the 23 shocks the corpus publishes moved, and **11 of the 12 went UP**. Kairos Booster's apogee charge is **84.6 g**; the old code published **22.8 g** from the `.csv` and **1.5 g** from the `.eeprom` — one board, one launch, one charge — and neither number was the charge. `#130`. |
 | **The lesson of this run, and it is the whole run** | **My first fix made the reading worse and looked like a 97x improvement.** The obvious defect — a window sized in SAMPLES from the record's median interval — is real and I fixed it. But the second defect underneath it is that **a charge does not fire at the index Debrief detects the deployment at**, so a *tighter* window reads the quiet coast beside the charge and reports that as the shock. The pre-push review caught it. See *The one thing to read before anything else*. |
 | **What actually protects this repo** | The pre-push second opinion, again — two independent reviewers found the regression, and a third found that the corpus invariant I wrote to pin the fix **compared three apogees and silently dropped every main**, which is the one event the bracket exists for. A test that skips the case it was written for reads exactly like a pass. |
-| **D — capability** | **D9 slice 4, first half SHIPPED.** `lib/parsers/openrocket.ts` now reads the saved trace out of `<databranch>` — 2,580 datapoints across five simulations in the corpus design, columns matched BY NAME. Nothing is drawn yet; the chart half is next and `Chart.tsx`'s shape is recorded below. |
+| **D — capability, FINISHED** | **D9 slice 4 SHIPPED whole.** A design dropped in with a log draws its saved curve on the altitude chart — dashed, neutral, on a union x that resamples nothing. Only slice 3b is left in D9 (let a flyer pick when a design states several simulations). *Superseded note from earlier in the run:* |
+| **D — capability (earlier)** | **D9 slice 4, first half SHIPPED.** `lib/parsers/openrocket.ts` now reads the saved trace out of `<databranch>` — 2,580 datapoints across five simulations in the corpus design, columns matched BY NAME. Nothing is drawn yet; the chart half is next and `Chart.tsx`'s shape is recorded below. |
 | **P — product & craft** | **P1's measuring instrument was blind, and that is now fixed.** Three of `DESIGN.md` §9's six greps reported **0 against seven live violations** in a fixture. Corrected, they report 3/3/1. Against the real tree **no count moved** — 0 · 3 · 0 · 1 · 10 · 36 of 48 — which is the honest result: the instrument was broken and nothing was hiding behind it. Two greps are still blind, measured, and deliberately left, because the obvious correction makes each worse. |
 | **A change owed to the sibling repo** | `DESIGN.md` is carried identically by both repos and a change to one is owed to both **in the same run**. The sibling was not attached to this session, so the §9 correction is **unshipped there**. It is a copy-paste of §9's block plus the two paragraphs under it. |
 | **Gate hygiene** | `vitest.config.ts` now sets `testTimeout: 30_000`. A full run had gone red at exactly 5,000 ms on a test that measures 2,433 ms alone, and passed on the next attempt. `#130`. |
@@ -201,11 +202,21 @@ the obvious correction makes each worse:
 - the **inverted-file loop** never measures a route. Adding `app/**/*.tsx` takes it **10 → 12**, and
   the two are real: `app/validation/page.tsx` (1/0), `app/privacy/page.tsx` (4/3).
 
-## Not done this run, and why
+## The lesson that repeated three times in one sitting — read this before trusting a gate
 
-**The chart half of D9 slice 4 is not built.** The constraint is recorded under *Pick this up
-first*: `uPlot` has one x array for every series, so a prediction on its own clock cannot be pushed
-into `series[]`, and resampling it onto the flight is forbidden by the slice's own text.
+**A build that FAILS leaves `out/` holding the previous build, and `npm run test:e2e` then tests
+code you did not write.** Falsifying slice 4's e2e case took four attempts. Three of them
+"passed" with the feature disabled, which read as a worthless test; all three were a type error in
+the disable itself, so the build errored and the suite ran against the last good `out/`. The
+fourth disable — making the parser's `readBranchSeries` return null — compiles, and the case then
+fails properly on the aria-label.
+
+`HANDOFF.md` already carried this warning in the form *"re-run the gate after the last keystroke"*.
+It is worth the stronger form: **check that the build SUCCEEDED before believing anything the e2e
+suite tells you**, because a stale `out/` fails open — it reports green for code that never built.
+Piping the build to `tail -1` or `/dev/null` is how three of these got past me.
+
+## Not done this run, and why
 
 The opening fan-out returned **2 of 8** agents on its first run (the rest lost to the harness fault
 above) and a second round was still in flight at the end. So the **phone cold walk, the tenth-use

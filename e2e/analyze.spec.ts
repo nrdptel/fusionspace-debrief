@@ -2278,3 +2278,58 @@ test('a design that states several simulations is read, and refuses to pick one'
   await expect(page.getByText(/Read the prediction for this flight alongside it/)).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Predicted' })).toHaveCount(0);
 });
+
+/** The same single simulation, but with the saved curve OpenRocket writes when
+ *  `StorageOptions.saveSimulationData` is on — a `types=` header and one comma-separated
+ *  `datapoint` row per sample. `Altitude` is deliberately the THIRD column, with a velocity
+ *  between it and `Time`, so a reader keying on position rather than on name draws the wrong
+ *  line and this case says so. */
+const ONE_SIM_ORK_WITH_CURVE = storedZip(
+  'rocket.ork',
+  `<?xml version='1.0' encoding='utf-8'?><openrocket version="1.10" creator="OpenRocket 24.12">` +
+    `<rocket><name>Telemetrum</name></rocket><simulations>` +
+    `<simulation status="uptodate"><name>Simulation 1</name>` +
+    `<flightdata maxaltitude="200" maxvelocity="68.6" maxacceleration="143.649" maxmach="0.2" ` +
+    `timetoapogee="6.5" flighttime="60" groundhitvelocity="4.681" launchrodvelocity="15.365" ` +
+    `deploymentvelocity="2.646" optimumdelay="2.751">` +
+    `<databranch name="Sustainer" types="Time,Vertical velocity,Altitude,Altitude above sea level">` +
+    `<datapoint>0,0,0,120</datapoint><datapoint>3.25,40,120,240</datapoint>` +
+    `<datapoint>6.5,0,200,320</datapoint><datapoint>60,-5,0,120</datapoint>` +
+    `</databranch></flightdata></simulation></simulations></openrocket>`,
+);
+
+test('a design that saved its curve is drawn beside the flight, dashed and on its own clock', async ({ page }) => {
+  // D9 slice 4. The prediction becomes a second line on the altitude chart — and the two do NOT
+  // share a clock, so they are merged onto a union x that keeps every original sample of each
+  // rather than resampling the simulation onto a measured liftoff.
+  await page.goto('/');
+  const orkPath = path.join(os.tmpdir(), 'Telemetrum-curve.ork');
+  writeFileSync(orkPath, ONE_SIM_ORK_WITH_CURVE);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), orkPath]);
+
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  // The chart's text alternative carries the second line, because `role="img"` means the canvas
+  // says nothing else and a screen-reader flyer would otherwise not know it is there.
+  const chart = page.getByRole('img', { name: /Line chart: altitude above ground/ });
+  await expect(chart).toBeVisible();
+  const label = (await chart.getAttribute('aria-label')) ?? '';
+  expect(label, 'names the design').toContain('Telemetrum');
+  expect(label, 'says the line is dashed').toContain('dashed');
+  // The claim that matters: it is stated as a simulation, not as a reading.
+  expect(label).toContain('a simulation, not a measurement');
+  // 200 m is the design's stated apogee AND the peak of the curve it saved; the label quotes the
+  // curve's own peak, so a wrong-column read would put a different number here.
+  expect(label).toMatch(/peaking at 200|peaking at 656/); // metric or imperial
+
+  // uPlot's legend is the one place both series are named on screen.
+  await expect(page.locator('.u-legend').first()).toContainText('Telemetrum (predicted)');
+
+  // And the prediction is NOT resampled onto the flight: the union keeps the simulation's own
+  // four instants, so the chart's x-extent still ends at the flight's own last sample rather
+  // than being truncated to it.
+  const drawn = await page.evaluate(() => document.querySelectorAll('.u-legend').length);
+  expect(drawn).toBeGreaterThan(0);
+});

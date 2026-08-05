@@ -1630,11 +1630,29 @@ real risk attached: the standalone refusal must survive it.
 
 ## D9 — Predicted versus flown
 
-**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED. Slice 4 (the predicted trace on the chart)
-is the next D increment, and a new slice 3b sits beside it: let a flyer pick which simulation.**
-A design stating one simulation is now read, paired onto the flight it was dropped beside, and
-shown as a third source in the cross-check with its own verdict wording. A design stating several
-is read and refused by name, which is the honest half — and the reason 3b exists.
+**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED 2026-08-05. Only slice 3b is left: let a
+flyer pick which simulation when a design states several.** Slice 4 is pinned by
+`lib/overlay.test.ts` (6 cases on the union time base, the sharpest of them a PROPERTY — every
+finite output sample must equal an input sample at exactly that instant, which is the difference
+between a union and a resample), by `lib/parsers/openrocket.test.ts` (the saved curve read by
+column NAME, and cross-checked against the figures the same file states independently), and by
+`e2e/analyze.spec.ts` → *"a design that saved its curve is drawn beside the flight, dashed and on
+its own clock"*, which drives the real app and is falsified by making the parser return no series.
+
+A design stating one simulation is read, paired onto the flight it was dropped beside, shown as a
+third source in the cross-check with its own verdict wording, **and its saved altitude curve is
+drawn on the report's altitude chart** — dashed, in a neutral zinc, on a union x that resamples
+nothing. A design stating several is read and refused by name, which is the honest half — and the
+reason 3b exists.
+
+**Two things slice 4 settled that the decomposition did not have.** The `types=` header is
+LOCALIZED in shipped 24.12, so columns are matched by name and a design whose names Debrief cannot
+find carries no curve rather than one read off the wrong column — `hasSeries` and `series` are
+separate fields because *there is no curve* and *there is a curve I cannot read* are different
+sentences. And the dash goes on the PREDICTION, which is the opposite of what the nearest
+competitor does: `COMPETITION.md` row 32 records Project APEX establishing its axis from the
+simulation and dashing the measured trace. Both are defensible; the measurement-not-simulation
+spine decides it here.
 
 Slice 2
 landed 2026-08-04 (`lib/parsers/openrocket.ts`, pinned by `lib/parsers/openrocket.test.ts`), so
