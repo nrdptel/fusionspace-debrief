@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildPlotChannels, planAxes, windowStats, exploreCsv } from './explore';
+import { withheldReason } from './readings';
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
 
@@ -80,6 +81,52 @@ describe('buildPlotChannels', () => {
     expect(flagged.some((c) => c.key === 'd-velocity')).toBe(true);
     expect(flagged.some((c) => c.key === 'd-mach')).toBe(false);
     expect(flagged.some((c) => c.key === 'd-q')).toBe(false);
+  });
+
+  // The trace staying is the decision above and it is right. What was wrong is that the STATS
+  // TABLE beside it published a `max` off that trace with nothing attached — on a panel whose
+  // own comment calls those "the numbers a cert document quotes", behind a "Copy these stats"
+  // button. Measured across the corpus: eight flights whose peak speed the report withholds,
+  // and the explorer reported a max for every one of them. Two are the dangerous shape — the
+  // `gap` withholdings read 497.0 and 1,908.9 m/s, entirely plausible figures a flyer would
+  // paste into a write-up — where the `implausible` ones (119,419.7 m/s on one eggtimer file)
+  // are self-evidently diagnostic and are exactly why the trace is kept.
+  describe('a statistic taken off a withheld speed carries the refusal with it', () => {
+    it('caveats the velocity channel, and says why when the reason is available', () => {
+      const withReason = buildPlotChannels(flight, { ...series, velocityUnusable: true }, {
+        maxVelocityWithheld: 'gap',
+      });
+      const v = withReason.find((c) => c.key === 'd-velocity')!;
+      expect(v.caveat).toBeTruthy();
+      expect(v.caveat).toContain('withheld');
+      // The reason, in the same words the headline uses — not a second vocabulary.
+      expect(v.caveat).toContain(withheldReason('gap'));
+    });
+
+    it('still refuses, in shorter words, when the caller has no metrics to give', () => {
+      const v = buildPlotChannels(flight, { ...series, velocityUnusable: true }).find(
+        (c) => c.key === 'd-velocity',
+      )!;
+      expect(v.caveat).toContain('withheld');
+    });
+
+    it('says nothing on a flight whose peak speed Debrief stands behind', () => {
+      const v = buildPlotChannels(flight, series, { maxVelocityWithheld: null }).find(
+        (c) => c.key === 'd-velocity',
+      )!;
+      expect(v.caveat).toBeUndefined();
+      // And no other channel picks one up by accident.
+      expect(buildPlotChannels(flight, series).every((c) => c.caveat === undefined)).toBe(true);
+    });
+
+    it('caveats on the metrics alone, so a withheld peak cannot slip through on a clean series', () => {
+      // `velocityUnusable` and `maxVelocityWithheld` are set in different places; a flight can
+      // reach here with the reason on the metrics and the flag not mirrored onto the series.
+      const v = buildPlotChannels(flight, series, { maxVelocityWithheld: 'implausible' }).find(
+        (c) => c.key === 'd-velocity',
+      )!;
+      expect(v.caveat).toContain(withheldReason('implausible'));
+    });
   });
 
   it('converts known units by the unit system and leaves native units alone', () => {

@@ -672,7 +672,11 @@ function Stats({
           ]}
           rows={() =>
             rows.map(({ c, s }) => [
-              c.label,
+              // The caveat rides in the CHANNEL cell rather than in a column of its own, so it
+              // survives a paste into a spreadsheet that only takes the first two columns — and
+              // so a figure Debrief refused on the report cannot reach a cert document from here
+              // wearing no qualifier at all.
+              c.caveat ? `${c.label} — ${c.caveat}` : c.label,
               c.unitLabel(sys),
               ...(s
                 ? [num(s.min), num(s.max), num(s.mean), ...(showDeltaRate ? [num(s.delta), num(s.rate)] : [])]
@@ -712,6 +716,17 @@ function Stats({
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.label}</span>
                     {c.unitLabel(sys) && <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>}
                   </span>
+                  {/* §2's caveat hue, on the one row whose numbers the report refused. The trace
+                      above is kept deliberately so a mis-scaled column can be diagnosed; these
+                      statistics are a different claim and carry the headline's reason with them.
+                      `text-sm`, not `text-xs`: §3 keeps caption size for the text AROUND a value —
+                      its unit, its provenance — and this is a sentence saying the value beside it
+                      is not one to quote. P1 already made exactly this correction on the seven
+                      derived-reading panels, which rendered every state message at caption size
+                      including a flight-safety caution. */}
+                  {c.caveat && (
+                    <span className="mt-0.5 block text-sm text-amber-700 dark:text-amber-500">{c.caveat}</span>
+                  )}
                 </th>
                 {s ? (
                   <>
