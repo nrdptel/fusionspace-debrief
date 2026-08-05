@@ -787,6 +787,45 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     ).toEqual(['components/ui.tsx']);
   });
 
+  it('says it is working from exactly one place, and always to a screen reader', () => {
+    // §5's `loading` was the last of the five states with no primitive, and the two surfaces that
+    // implemented it disagreed about the part that matters. `Analyzer` had a live region;
+    // `StitchSurface` had `aria-busy` on a `<Card>` and nothing else — and `aria-busy` marks a
+    // region STALE, it announces nothing, so a flyer on /stitch who could not see the text was
+    // told nothing at all while their recordings were read.
+    //
+    // Two assertions, because the treatment and the announcement are different failures. A
+    // hand-rolled dot is drift; a busy state with no live region is a flyer getting silence.
+    // **Comments are stripped, and the first version of this check did not strip them.** It
+    // failed naming `StitchSurface` — on the comment I had just written there explaining that the
+    // old code was `<Card aria-busy>` with no live region. Reading a comment as code is the class
+    // error this file already records three times over (the chip census, §9's inverted-file loop,
+    // §9's adoption grep); this was the fourth, written by the person fixing the third.
+    const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+
+    const dot = (s: string) => s.includes('animate-pulse') && /\brounded-full\b/.test(s);
+    const sites: string[] = [];
+    for (const f of ui) {
+      for (const line of strip(f.text).split('\n')) {
+        if (dot(line)) sites.push(`${f.path}: ${line.trim().slice(0, 90)}`);
+      }
+    }
+    expect(
+      sites.map((s) => s.split(':')[0]),
+      `the working-indicator treatment, by site (only components/ui.tsx may carry it):\n${sites.join('\n')}`,
+    ).toEqual(['components/ui.tsx']);
+
+    // And nothing may claim to be busy without saying so out loud. `aria-busy` is allowed only
+    // in a file that also carries a live region — the cheapest form of the rule that catches the
+    // exact regression this replaced.
+    const silent = ui
+      .map((f) => ({ path: f.path, code: strip(f.text) }))
+      .filter((f) => /aria-busy/.test(f.code))
+      .filter((f) => !/role=["']status["']|aria-live/.test(f.code))
+      .map((f) => f.path);
+    expect(silent, `aria-busy with no live region anywhere in the file:\n${silent.join('\n')}`).toEqual([]);
+  });
+
   it('manages focus from exactly one place', () => {
     // `DESIGN.md` §5 names `useReturnFocus` and, until 2026-08-02, nothing implemented it. Two
     // surfaces hand-rolled all three of its parts — focus the safe control on open, Escape to
