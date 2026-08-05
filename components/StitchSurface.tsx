@@ -76,7 +76,20 @@ type State =
 
 export default function StitchSurface() {
   const { sys } = useUnits();
-  const [state, setState] = useState<State>({ kind: 'empty' });
+  /** **Starts at `loading`, not `empty`, and that is a correction rather than a preference.**
+   *  Every route here is a static export, so whatever this renders on the first pass is baked into
+   *  `out/stitch/index.html` and served to a flyer before a line of JS runs. Starting at `empty`
+   *  prerendered *"Nothing to assemble yet — Tick them in the logbook"* into the page, so a flyer
+   *  opening a composite PERMALINK — the address this surface exists to mint — was told their
+   *  composite did not exist, until ~1.4 MB of JS hydrated and the ids in the URL were read.
+   *
+   *  This is the logbook's own shipped defect on a second surface: `RecentFlights` used an empty
+   *  list as the discriminator for three different states and promised a returning flyer with
+   *  fifty flights that their logbook was empty. `loading` is the honest answer here because
+   *  before the effect runs Debrief genuinely does not know yet — and it resolves to `empty` a
+   *  moment later for a flyer who arrived with no ids, which is a state becoming true rather than
+   *  a claim turning out false. */
+  const [state, setState] = useState<State>({ kind: 'loading' });
   const [ids, setIds] = useState<string[]>([]);
   const [firstStage, setFirstStage] = useState<string | undefined>(undefined);
 
@@ -137,7 +150,11 @@ export default function StitchSurface() {
     // announces nothing, so this said nothing at all to a screen reader.
     return (
       <Card>
-        <Loading>Reading the recordings…</Loading>
+        {/* "Looking for" rather than "Reading", because this copy is now also what the STATIC
+            EXPORT prerenders — before the ids in the URL have been read, claiming Debrief is
+            reading recordings would assert that there are some. Looking for them is true whether
+            this address names two or none. */}
+        <Loading>Looking for the recordings…</Loading>
       </Card>
     );
   }

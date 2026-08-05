@@ -321,3 +321,25 @@ test('each recording reports its own readings, and they are not merged into one'
   await expect.poll(() => read(SUSTAINER, 'Apogee'), { timeout: 10_000 }).not.toBe(before);
   expect(await read(SUSTAINER, 'Apogee')).toMatch(/\bm$/);
 });
+
+test('the prerendered page does not tell a flyer their composite is missing', async ({ page }) => {
+  // Every route here is a static export, so whatever `StitchSurface` renders on its first pass is
+  // baked into `out/stitch/index.html` and served before a line of JS runs. It started at `empty`,
+  // which prerendered "Nothing to assemble yet — Tick them in the logbook" — so a flyer opening a
+  // composite PERMALINK, the address this surface exists to mint, was told their composite did not
+  // exist until ~1.4 MB of JS hydrated and the ids in the URL were read.
+  //
+  // This is the logbook's own shipped defect on a second surface, and it is pinned the same way:
+  // by fetching the raw HTML rather than by driving the app, because the app is exactly what
+  // covers it up. Falsified by starting the state at `empty` again.
+  const res = await page.request.get('/stitch/');
+  expect(res.ok()).toBe(true);
+  const html = await res.text();
+
+  expect(html, 'the prerender does not claim there is nothing to assemble').not.toContain(
+    'Nothing to assemble yet',
+  );
+  expect(html, 'it says it is looking instead').toContain('Looking for the recordings');
+  // And it says so to a screen reader, not only on screen — the whole point of `Loading`.
+  expect(html, 'the wait is announced, not merely drawn').toMatch(/role="status"|aria-live/);
+});
