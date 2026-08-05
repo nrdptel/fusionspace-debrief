@@ -128,6 +128,20 @@ What is real underneath it is much narrower and is filed in `BACKLOG.md`: `coast
 while **max Q — twelve lines below them in `lib/readings.ts` — says exactly that**, having been fixed
 last run by `#125`. Same one-panel-caveated, one-panel-bare pattern, same file.
 
+## Pick this up FIRST — a Sev-1 candidate, filed unverified
+
+**`lib/explore.ts:193` pushes the `d-velocity` channel with no `velocityUnusable` gate, while
+`:210` and `:218` gate Mach and max-Q on exactly that flag.** So the channel explorer's window-stats
+table and its *"Copy these stats"* button — whose own comment calls these *"the numbers a cert
+document quotes"* — appear to publish a peak speed that `lib/readings.ts:62` and `lib/report.ts:215`
+print as *"withheld — …"* on the same flight. That is `analyzedDataCsv`'s already-fixed defect
+reappearing on a different surface's clipboard export.
+
+**It was reported by an agent and this run ended before I reproduced it by hand, so it is a claim,
+not a finding.** Reproduce it first — this run has already proved twice over that a confident
+report can be wrong in both directions. If it holds it preempts the milestone. Full entry, with the
+reported repro, at the top of `BACKLOG.md`.
+
 ## Pick this up first
 
 1. **D9 slice 4**, still. Scoped in `ROADMAP.md` and not started. What was read this run and is worth
