@@ -151,6 +151,26 @@ export interface RawFlight {
    *  extent exists. Absent on every recording that does not repeat itself, which is nearly all
    *  of them. */
   repeatedSpans?: RepeatedSpan[];
+  /** A simulation's own altitude curve, from a design dropped in beside this log. On the
+   *  SIMULATION's clock, never this recording's, and never resampled onto it — a prediction is
+   *  a third source, and moving its samples onto a measured liftoff would make a simulation look
+   *  like it was measured.
+   *
+   *  It sits here rather than in `channels` deliberately: a `Channel` is something an instrument
+   *  recorded, and everything downstream reads that list as measurement. This is a statement
+   *  about a flight that had not happened yet, so it stays out of the analyzer's way entirely —
+   *  nothing in `lib/analyze` looks at it, and no reading is derived from it. */
+  predicted?: PredictedTrace;
+}
+
+/** A design's saved simulation curve, carried onto the flight it was dropped beside. */
+export interface PredictedTrace {
+  /** The design's own name, for the legend — the flyer chose it and will recognise it. */
+  rocket: string;
+  /** Seconds from the simulation's own zero, which is ignition. */
+  time: Float64Array;
+  /** Metres above ground, aligned 1:1 with `time`. */
+  altitude: Float64Array;
 }
 
 export function getChannel(flight: RawFlight, kind: ChannelKind): Channel | undefined {

@@ -347,7 +347,7 @@ export function readPrediction(xml: string): Prediction | null {
  */
 export function predictionFigures(
   xml: string,
-): { rocket: string; reported: ReportedValue[]; notes: string[] } | null {
+): { rocket: string; reported: ReportedValue[]; notes: string[]; series?: PredictedSeries } | null {
   const { prediction } = readPredictionDetail(xml);
   if (!prediction) return null;
 
@@ -371,6 +371,10 @@ export function predictionFigures(
   return {
     rocket,
     reported: run.values,
+    // Only the single-simulation branch carries a curve. A design stating several is refused
+    // above and contributes nothing but its refusal, so there is no curve to choose between —
+    // the same reason it contributes no figures.
+    ...(run.series ? { series: run.series } : {}),
     notes: [
       `Predicted figures read from “${rocket}”${which}${by}. These are a simulation of a flight that had not happened yet — ` +
         `where they differ from what was flown, the flight is the measurement and the prediction is what missed it.`,

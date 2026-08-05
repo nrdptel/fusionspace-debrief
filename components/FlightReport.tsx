@@ -13,6 +13,7 @@ import { encodeFlight, shareUrl, MAX_SHARE_URL } from '@/lib/share';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { getChannel } from '@/lib/flight/types';
 import { buildPlotChannels } from '@/lib/explore';
+import { unionTimeBase } from '@/lib/overlay';
 import { canMeasureDrag } from '@/lib/drag';
 import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
@@ -694,10 +695,47 @@ export default function FlightReport({
     return Number.isFinite(m) && Math.abs(m) >= 0.8 ? `${fmtSpeed(v, sys)} · ${fmtMach(m)}` : fmtSpeed(v, sys);
   };
 
-  const altSeries = useMemo(
-    () => [{ label: 'altitude', values: series.altitude, stroke: figureColor('Altitude', figureColors), width: 2 }],
-    [series.altitude, figureColors],
-  );
+  /** The altitude chart, and the predicted curve beside it when a design was dropped in with the
+   *  log. The two do NOT share a clock — a simulation starts at ignition and a recording starts
+   *  when the logger was armed — so they are merged onto a union x that keeps every original
+   *  sample of each and NaN elsewhere (`lib/overlay.ts`). Nothing is resampled: moving a
+   *  simulation's samples onto a measured liftoff is what would make it look measured.
+   *
+   *  `altTime` is the flight's own time base when there is no prediction, so the ordinary case
+   *  pays nothing for this. */
+  const { altTime, altSeries } = useMemo(() => {
+    const measured = {
+      label: 'altitude',
+      values: series.altitude,
+      stroke: figureColor('Altitude', figureColors),
+      width: 2,
+    };
+    const pred = flight.predicted;
+    if (!pred || pred.time.length < 2) {
+      return { altTime: series.time, altSeries: [measured] };
+    }
+    const merged = unionTimeBase([
+      { time: series.time, values: series.altitude },
+      { time: pred.time, values: pred.altitude },
+    ]);
+    return {
+      altTime: merged.time,
+      altSeries: [
+        { ...measured, values: merged.values[0], spanGaps: true },
+        {
+          // Named for the design rather than "predicted", because the flyer chose that name and
+          // will recognise it — and the word `predicted` is already carried by the dash and by
+          // the caption under the chart.
+          label: `${pred.rocket} (predicted)`,
+          values: merged.values[1],
+          stroke: figureColor('Predicted', figureColors),
+          width: 2,
+          dash: [6, 4],
+          spanGaps: true,
+        },
+      ],
+    };
+  }, [series.time, series.altitude, flight.predicted, figureColors]);
   const velSeries = useMemo(
     () => [{ label: 'velocity', values: series.velocity, stroke: figureColor('Velocity', figureColors) }],
     [series.velocity, figureColors],
@@ -717,7 +755,18 @@ export default function FlightReport({
   const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
 
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
-  const altLabel = `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}. Marked events: ${eventSummary}.`;
+  // The predicted curve is a second line on this chart, so the text alternative has to carry it —
+  // a screen-reader flyer told "line chart: altitude" would have no way to know a second trace is
+  // there at all, and `role="img"` means the canvas says nothing else.
+  const predPeak = flight.predicted
+    ? flight.predicted.altitude.reduce((m, v) => (Number.isFinite(v) && v > m ? v : m), -Infinity)
+    : NaN;
+  const altLabel =
+    `Line chart: altitude above ground against time, peaking at ${fmtLength(metrics.apogeeAltitude, sys)}.` +
+    (flight.predicted && Number.isFinite(predPeak)
+      ? ` A second, dashed line shows the prediction from the design “${flight.predicted.rocket}”, peaking at ${fmtLength(predPeak, sys)} — a simulation, not a measurement, drawn on its own clock.`
+      : '') +
+    ` Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
   const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration, sys)}` : ''}.`;
 
@@ -1207,7 +1256,7 @@ export default function FlightReport({
         <Figure id="altitude-chart" title="Altitude" unit={`${unitsOf(sys).length} AGL`}>
           <div ref={altChartRef}>
             <Chart
-              time={series.time}
+              time={altTime}
               series={altSeries}
               markers={markers}
               dark={dark}

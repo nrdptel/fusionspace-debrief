@@ -194,6 +194,12 @@ function pairPredictions(
       ...target.flight,
       ...(added.length ? { reported: [...(target.flight.reported ?? []), ...added] } : {}),
       ...(notes.length ? { notes: [...target.flight.notes, ...notes] } : {}),
+      // The curve rides on the same pairing as the figures, and only where there ARE figures:
+      // a design stating several simulations contributes its refusal alone, so drawing one of
+      // its five curves would make exactly the pick the refusal declines to make.
+      ...(added.length && p.figures.series
+        ? { predicted: { rocket: p.figures.rocket, ...p.figures.series } }
+        : {}),
     };
     // **Named as paired only when it contributed FIGURES.** A design stating several simulations
     // contributes its refusal note and nothing else — and that note is already on the flight,
