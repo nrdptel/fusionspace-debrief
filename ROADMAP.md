@@ -2117,8 +2117,10 @@ the artifact rather than the tree.
    pattern now subtracts the scale instead of naming what is off it, and the five survivors —
    `mt-20 md:mt-28` ×2, `mt-16`, `space-y-5`, `gap-5` — were converted in the same commit.
    Falsified against `gap-5`, `space-y-7`, `mt-20` and `p-16`, every one of which the old form passed.
-2. **16 of 46 component files have `text-xs` outnumbering `text-sm` — down from 23, and the target
-   is NOT 0.** §5 makes `Chip` `text-xs` by definition, so a component built out of chips is
+2. **~~16 of 46~~ component files have `text-xs` outnumbering `text-sm` — and the target is NOT 0.**
+   **RE-MEASURED 2026-08-05: 10 of 48**, which is what `lib/design-system.test.ts`'s
+   `invertedTypeFiles` ratchet has been holding all along; the prose was two runs stale against its
+   own pin. The reasoning below still stands.** §5 makes `Chip` `text-xs` by definition, so a component built out of chips is
    permanently "inverted" while fully compliant; `EventChips`, `RecognizedFormats`, `SiteFooter` and
    `FusionSpaceBadge` are already correct and are the floor. **The 23 → 16 was the seven derived-
    reading panels**, every one of which rendered its label, its input, its description and all of its
@@ -2280,13 +2282,28 @@ the artifact rather than the tree.
    because nobody had written the list down, so here it is, and the next session should correct it
    rather than re-derive it.
 
-   **The headline is worse than a denominator, and it is the thing to fix first: `offline` is
-   implemented by 0 of 21, in a PWA whose whole promise is that it works at the pad with no signal.**
+   ~~**The headline is worse than a denominator, and it is the thing to fix first: `offline` is
+   implemented by 0 of 21, in a PWA whose whole promise is that it works at the pad with no
+   signal.**~~ **WITHDRAWN 2026-08-05 — this was a live contradiction inside one milestone, and it
+   is the shape that sends a session off to build something that should not exist.** `DESIGN.md`
+   §5 (line 308) records Debrief as **offline-complete**, pinned by `e2e/pwa.spec.ts`, and states
+   the rule directly: *a surface that cannot fail when the network does must not be given an
+   offline state — it would be decoration that has to be maintained and can never fire.* The count
+   to keep is **"0 of 21 NEED it"**, not "0 of 21 implement it", and those are opposite findings.
+   P1's own header has agreed with `DESIGN.md` since 2026-08-04; only this paragraph did not, and
+   a session reading item 5 top-down would have built twenty-one states nothing can trigger.
+   What would earn the state is a surface that reaches the network *at the moment a flyer uses it*
+   — a tile fetching a weather record, a map pulling tiles, a version check. None exists.
+
    `extrapolated` is implemented once, at `MetricGrid.tsx:101` — the only `<Extrapolated>` in the app.
 
-   **Two of the five states have NO primitive in `ui.tsx` at all.** `EmptyState`, `ErrorState` and
-   `Extrapolated` exist; **`loading` and `offline` do not.** So the first increment here is a
-   primitive, not a conversion — which is why this item has looked like a sweep and stalled twice.
+   ~~**Two of the five states have NO primitive in `ui.tsx` at all.**~~ **ONE did, and it now has
+   one: `Loading` shipped 2026-08-05 (`#137`).** `EmptyState`, `ErrorState`, `Extrapolated` and
+   `Loading` all exist; `offline` deliberately does not, per the withdrawal above. The two surfaces
+   that had hand-rolled the wait disagreed about the part that mattered — `Analyzer` announced it
+   through a live region and `StitchSurface` used `aria-busy` on a card, which marks a region stale
+   and announces nothing, so a flyer on `/stitch` who could not see the text was told nothing at
+   all. Pinned by two assertions in `lib/design-system.test.ts`, falsified separately.
 
    **Ranked conversions, measured:**
    - **The save-refused path, and read this before scoping it — the census got it wrong and I
@@ -2528,8 +2545,10 @@ the artifact rather than the tree.
    it composites the live canvas, whose pixels are already in that theme — but two buttons an inch
    apart now behave differently and nothing says why.
 
-7. **The remaining 41 hand-rolled `<button>` elements** outside `components/ui.tsx` (46 in the
-   tree, 5 inside the primitives). `RecentFlights` went **23 → 12** on 2026-07-31; what is left
+7. **~~41~~ hand-rolled `<button>` elements** outside `components/ui.tsx`. **RE-MEASURED
+   2026-08-05: there are 18** (25 in the tree, 7 inside the primitives), of which roughly four are
+   genuinely convertible — the recorded 41 was stale by more than 2x, and this file's own rule is
+   to re-measure a number before spending an increment against it. `RecentFlights` went **23 → 12** on 2026-07-31; what is left
    there is genuinely not `Button` — the row itself as a click target, the file-name text button,
    the ✕ (an `IconButton` with a responsive size), the sort chips and the checkbox labels.
 8. **12 call sites still hand-roll a card** — `rounded-xl border …` written out rather than `<Card>`.
