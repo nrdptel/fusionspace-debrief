@@ -230,22 +230,32 @@ describe('report exports', () => {
       compareMetricRows(buildComparison(inputs(metricsList)).flights, 'metric');
     const cellsOf = (rows: ReturnType<typeof compareMetricRows>, label: string) => rows.find((r) => r.label === label)!.cells;
 
-    const baro = { ...analysis.metrics, maxVelocity: 847, maxVelocitySource: 'baro' as const, mach: 2.52, maxVelocityWithheld: null };
+    const baro = { ...analysis.metrics, maxVelocity: 847, maxVelocitySource: 'baro' as const, mach: 2.52, maxVelocityWithheld: null, maxDynamicPressure: 402_000 };
     const device = { ...baro, maxVelocitySource: 'device' as const };
 
     // Every flight derived its peak: the tag must still be there, on the speed AND on the Mach.
     const allBaro = rowsFor([baro, baro]);
     for (const cell of cellsOf(allBaro, 'Max velocity')) expect(cell, 'a derived peak speed says so').toContain('(baro)');
     for (const cell of cellsOf(allBaro, 'Max Mach')) expect(cell, 'Mach rides on that peak, so it inherits the caveat').toContain('(baro)');
+    // Max Q rides on it SQUARED — `q = ½ρv²` — so it is the softest of the three and was the one
+    // leaving this surface bare, while the single-flight report has carried its qualifier since
+    // `#125`. A caveat on one surface and a confident claim on another is worse than either alone.
+    for (const cell of cellsOf(allBaro, 'Max Q')) expect(cell, 'max Q is that peak squared').toContain('(baro)');
 
     // A device-logged peak is NOT tagged — the tag has to mean something.
     expect(cellsOf(rowsFor([device, device]), 'Max velocity').join(' ')).not.toContain('(baro)');
 
     // Mixing the two still withholds the crown: ranking a derived peak against a logged one ranks
     // two definitions, not two flights.
-    const mixed = rowsFor([device, { ...baro, maxVelocity: 900, mach: 2.7 }]);
+    // The two max-Q figures must DIFFER, or `best` is -1 whatever `rankBlocked` says and the
+    // assertion below cannot fail. Caught by falsification: dropping `rankBlocked` from the row
+    // left this test green while both flights carried the same 402 kPa.
+    const mixed = rowsFor([device, { ...baro, maxVelocity: 900, mach: 2.7, maxDynamicPressure: 455_000 }]);
     expect(mixed.find((r) => r.label === 'Max velocity')!.best, 'no crown across two methods').toBe(-1);
     expect(mixed.find((r) => r.label === 'Max Mach')!.best).toBe(-1);
+    // …and the crown on max Q, for the same reason: a column mixing a measured speed with a
+    // differentiated one cannot say which airframe was worked hardest.
+    expect(mixed.find((r) => r.label === 'Max Q')!.best, 'no crown on a v² figure across two methods').toBe(-1);
   });
 
   it('tells a withheld peak speed apart from a flight that never had one, on the comparison', () => {
@@ -261,14 +271,19 @@ describe('report exports', () => {
       compareMetricRows(buildComparison(inputs(metricsList)).flights, 'metric');
     const cells = (rows: ReturnType<typeof compareMetricRows>, label: string) => rows.find((r) => r.label === label)!.cells;
 
-    const ok = { ...analysis.metrics, maxVelocity: 300, mach: 0.88, maxVelocityWithheld: null };
-    const refused = { ...ok, maxVelocity: NaN, mach: null, maxVelocityWithheld: 'implausible' as const };
-    const absent = { ...ok, maxVelocity: NaN, mach: null, maxVelocityWithheld: null };
+    const ok = { ...analysis.metrics, maxVelocity: 300, mach: 0.88, maxVelocityWithheld: null, maxDynamicPressure: 55_000 };
+    const refused = { ...ok, maxVelocity: NaN, mach: null, maxDynamicPressure: null, maxVelocityWithheld: 'implausible' as const };
+    const absent = { ...ok, maxVelocity: NaN, mach: null, maxDynamicPressure: null, maxVelocityWithheld: null };
 
     const withRefusal = rowsFor([refused, ok]);
     expect(cells(withRefusal, 'Max velocity')[0]).toContain('withheld');
     expect(cells(withRefusal, 'Max velocity')[0], 'and says WHY it was withheld').toContain('not physically possible');
     expect(cells(withRefusal, 'Max Mach')[0], 'Mach is withheld with the speed it rides on').toContain('withheld');
+    // Max Q printed a bare em dash here — identical to a flight carrying no speed at all — one
+    // row below a Max Mach that said why. The third of the three readings withheld together, and
+    // the one that did not get the treatment the comment above it describes.
+    expect(cells(withRefusal, 'Max Q')[0], 'max Q is withheld with the speed it is squared in').toContain('withheld');
+    expect(cells(rowsFor([absent, ok]), 'Max Q')[0], 'and an absence still reads as one').not.toContain('withheld');
 
     // A flight that genuinely carries no speed still reads as an em dash — the two must differ.
     expect(cells(rowsFor([absent, ok]), 'Max velocity')[0]).not.toContain('withheld');

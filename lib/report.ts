@@ -924,6 +924,15 @@ export function compareMetricRows(
   // Mach cell has the same two meanings to tell apart and takes the same treatment.
   const withheldMach = (m: FlightMetrics) =>
     m.mach == null && m.maxVelocityWithheld != null ? `withheld — ${withheldReason(m.maxVelocityWithheld)}` : null;
+  // …and max-Q, which the comment above names and which then did not get the treatment. It rode
+  // on the same withheld speed and printed a bare em dash — identical to a flight that carries no
+  // speed channel at all — one row below a Max Mach saying "withheld — the ascent has a stretch
+  // the record doesn't cover". That is the refusal/absence conflation `withheldSpeed` and
+  // `withheldMach` were both added to break, left in place on the third reading of the three.
+  const withheldQ = (m: FlightMetrics) =>
+    m.maxDynamicPressure == null && m.maxVelocityWithheld != null
+      ? `withheld — ${withheldReason(m.maxVelocityWithheld)}`
+      : null;
   // A descent rate off a record that stops in the air is a short leg, not a landing — the
   // grid and the saved report say so on the flight's own page, and this table is the one
   // surface that still printed the figure bare. Tagged per cell rather than per row, because
@@ -975,7 +984,23 @@ export function compareMetricRows(
       rank: true,
       rankBlocked: anyClipped,
     },
-    { label: 'Max Q', get: (m) => fmtPressure(m.maxDynamicPressure, sys), value: (m) => m.maxDynamicPressure ?? NaN, rank: true },
+    {
+      // `q = ½ρv²`, so on a barometer-only flight this is a derived speed SQUARED — the softest
+      // number in the table, and it was the only one of the three v-derived rows leaving this
+      // surface with neither the tag nor the ranking guard. The report's own Max Q row has
+      // carried its qualifier since `#125`; a caveat on one surface and a confident claim on
+      // another is worse than either alone, and this is the structures number.
+      label: 'Max Q',
+      get: (m) =>
+        withheldQ(m) ??
+        fmtPressure(m.maxDynamicPressure, sys) + baroTag(m.maxVelocitySource, m.maxDynamicPressure != null),
+      value: (m) => m.maxDynamicPressure ?? NaN,
+      rank: true,
+      // The crown, not the caveat — `velMixed` for the same reason the Mach row carries it: a
+      // column mixing a measured speed with a differentiated one cannot say which flight was
+      // worked hardest, because the two figures were not obtained the same way.
+      rankBlocked: velMixed,
+    },
     { label: 'Burn time', get: (m) => (m.burnTime != null ? fmtTime(m.burnTime) + boTag(m) : '—'), value: (m) => m.burnTime ?? NaN },
     { label: 'Burnout altitude', get: (m) => (m.burnoutAltitude != null ? fmtLength(m.burnoutAltitude, sys) + boTag(m) : '—'), value: (m) => m.burnoutAltitude ?? NaN },
     { label: 'Drogue descent', get: (m) => (m.drogueDescentRate != null ? fmtSpeed(m.drogueDescentRate, sys) : '—'), value: (m) => m.drogueDescentRate ?? NaN },
