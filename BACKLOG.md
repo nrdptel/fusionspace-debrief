@@ -14,8 +14,18 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-- **2026-08-05 — SEV-1 CANDIDATE, reported by an agent and NOT yet reproduced by hand: the channel
-  explorer publishes the peak speed the headline refuses.** `lib/explore.ts:193` pushes the
+- **2026-08-05 — FIXED (`#135`), and the reported fix would have been wrong: the channel
+  explorer publishes the peak speed the headline refuses.** Reproduced: eight corpus flights, and
+  the split is the point — five `implausible` withholdings publish self-evident garbage (119,419.7
+  m/s), which IS the diagnostic the trace exists for, while two `gap` ones read 497.0 and 1,908.9
+  m/s, plausible figures a flyer would paste into a write-up. **The agent called for gating the
+  channel out; the code and a test both say the trace stays deliberately "so a mis-scaled column
+  can still be seen and diagnosed".** A trace kept for diagnosis and a maximum offered for a
+  document are different claims — only the second was missing its caveat, and `PlotChannel.caveat`
+  now carries the headline's own reason into the stats table and the copied one. Original filing
+  kept below because the enumeration is still the useful part.
+
+  *(As filed:)* `lib/explore.ts:193` pushes the
   `d-velocity` channel with **no `velocityUnusable` gate**, while `:210` and `:218` gate Mach and
   max-Q on exactly that flag. So `ChannelExplorer.tsx:678,719` — the window-stats table and its
   *"Copy these stats"* button, whose own comment calls these *"the numbers a cert document
@@ -28,7 +38,8 @@ wild, ideas too big for one pass. One line each, newest first.
   than fixed is that this run ended with it unverified. **Reproduce it first**; if it holds it
   preempts the milestone.
 
-- **2026-08-05 — the comparison's Max Q is bare where the report's is caveated, and prints `—`
+- **2026-08-05 — FIXED (`#138`), and it was THREE defects rather than one: the comparison's Max Q
+  is bare where the report's is caveated, and prints `—`
   where the row above it says why.** `lib/report.ts:978` renders the cell as `fmtPressure(...)`
   with no `baroTag` and no `maxQProvenance`, while `lib/report.ts:240` and `lib/readings.ts:366`
   carry *"from a derived speed, and squared by q = ½ρv², so it inherits that read twice over"* —
@@ -36,7 +47,11 @@ wild, ideas too big for one pass. One line each, newest first.
   gives `"50 kPa"` where `headlineRows` gives `"50 kPa at 400 m — from a derived speed…"`. And on
   a withheld peak it prints `—`, identical to a flight with no speed channel at all, one row below
   a Max Mach that says *"withheld — the ascent has a stretch the record doesn't cover"* — the
-  refusal/absence conflation `withheldSpeed` and `withheldMach` exist to break. UNVERIFIED here.
+  refusal/absence conflation `withheldSpeed` and `withheldMach` exist to break.
+  **The third defect the filing missed: `rank: true` with no `rankBlocked`**, where the Mach row
+  beside it blocks on `velMixed` — so a column mixing a measured speed with a differentiated one
+  could still crown a winner on the structures number. All three fixed and falsified; the crown
+  assertion could not fail on its first write because both fixtures carried the same 402 kPa.
 
 - **2026-08-05 — the cert deliverable's CSV cells are display strings, so the table a flyer builds
   a write-up around cannot be summed, sorted or charted.** `lib/report.ts:865` — `compareMetricRows`
@@ -49,7 +64,23 @@ wild, ideas too big for one pass. One line each, newest first.
   unit into the header *"because a spreadsheet sorts a column of bare numbers and will not sort
   '1,234 ft'"*, while `RecentFlights.tsx:403` prints the unit in the header **and** in the cell.
   The logbook copy is how a launch day reaches a spreadsheet and is the one table the documented fix
-  skipped. UNVERIFIED beyond the agent's own two-line probe.
+  skipped.
+
+  **Verified 2026-08-05 by reading, and the obvious fix is a TRAP — this is why it was not built
+  in the run that found it.** `CompareMetricRow` already carries `values: number[]` beside
+  `cells: string[]`, so the numeric answer is one field away and it looks like a five-minute change.
+  It is not. Those display strings are where this run put the honesty qualifiers: `(baro)` on a
+  derived reading, `(at least)` on an unproven apogee, `withheld — <reason>` on a refused one,
+  `(speed peak)` on a burnout located differently. **Swapping the cells for bare numbers would
+  strip every one of them from the document a flyer files** — undoing `#135` and `#138` in the
+  same gesture, on the surface those fixes were about.
+  So the shape has to keep both. The likely answer is `Metric | Unit | <flight>… | Spread (%) |
+  Notes`, bare numbers in the flight columns, the unit per ROW rather than in the header (each row
+  is a different quantity, unlike the composite timeline where one header unit works), and the
+  qualifiers gathered into a Notes column — per cell, since `withheld` and `(at least)` are
+  per-flight while `(baro)` is usually per-row. `metricsTable()` in `CompareView.tsx` is the one
+  shape the CSV, the clipboard and the ZIP all render, so it changes in one place — and any
+  e2e asserting the current column set changes with it.
 
 - **2026-08-04 — the 2 g floor on the deployment shock is applied by four surfaces and skipped by
   two, and it never says it exists.** `accelInG(e.peakAccel) >= 2` gates the on-screen event
