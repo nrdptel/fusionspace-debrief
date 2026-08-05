@@ -473,6 +473,19 @@ move in the same commit.** Recorded so the next session starts from the measurem
   in the same commit, and deciding first whether a docs route full of prose should be held to a
   metric written for data surfaces.
 
+- **The inverted-file loop and the adoption grep both READ COMMENTS AS CODE, which is the second
+  member of the class §5 already records** — the chip census was taught to skip comments and these
+  two were not. Measured on a three-`text-xs` file with no `text-sm` at all: appending the single
+  line `// Sizes considered: text-sm, text-sm, text-sm, text-sm.` takes it off the inverted list,
+  **1 → 0, with no glyph changing size**. The adoption grep has the same hole in the other
+  direction: a file whose only reference to the primitive layer is `// TODO: import { Card } from
+  './ui'` counts as an adopter while it hand-rolls a card underneath, and "36 of 48" is the number
+  sessions quote as evidence the primitive layer landed. One line in the tree today carries a
+  size token inside a comment, so the effect is live but small — the hole is the point, not the
+  current count. The fix is the `openingTag`-style scan that already exists for the chip census in
+  `lib/design-system.test.ts`; a shell grep cannot do it, which is an argument for these two counts
+  moving into the ratchet rather than being repaired in place here.
+
 **The suite-wide ratio was removed on 2026-07-31, and the reason is worth keeping.** It hid what it
 was for and then actively misled. It hid: 88 `text-xs` against 91 `text-sm` passed `sm > xs` by three
 while **9 of 23 component files were individually inverted**, `GeometryInspector` at 9:2 and
