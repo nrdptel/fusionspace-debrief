@@ -14,6 +14,43 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-05 — SEV-1 CANDIDATE, reported by an agent and NOT yet reproduced by hand: the channel
+  explorer publishes the peak speed the headline refuses.** `lib/explore.ts:193` pushes the
+  `d-velocity` channel with **no `velocityUnusable` gate**, while `:210` and `:218` gate Mach and
+  max-Q on exactly that flag. So `ChannelExplorer.tsx:678,719` — the window-stats table and its
+  *"Copy these stats"* button, whose own comment calls these *"the numbers a cert document
+  quotes"* — publish a `max` for Velocity while `lib/readings.ts:62` and `lib/report.ts:215` print
+  *"withheld — …"* for the same flight. Reported repro: a series with `velocityUnusable: true`
+  still yields `d-velocity` labelled "Velocity" from `buildPlotChannels`, and `windowStats` returns
+  a max, while Mach and q are dropped. **This is `analyzedDataCsv`'s already-fixed defect
+  (`report.ts:807`) reappearing in a different surface's clipboard export** — the exact
+  withheld-here-published-there class `MAINTAINING.md` names, and the reason it is filed rather
+  than fixed is that this run ended with it unverified. **Reproduce it first**; if it holds it
+  preempts the milestone.
+
+- **2026-08-05 — the comparison's Max Q is bare where the report's is caveated, and prints `—`
+  where the row above it says why.** `lib/report.ts:978` renders the cell as `fmtPressure(...)`
+  with no `baroTag` and no `maxQProvenance`, while `lib/report.ts:240` and `lib/readings.ts:366`
+  carry *"from a derived speed, and squared by q = ½ρv², so it inherits that read twice over"* —
+  the caveat `#125` shipped. Reported repro: `compareMetricRows` on `maxVelocitySource: 'baro'`
+  gives `"50 kPa"` where `headlineRows` gives `"50 kPa at 400 m — from a derived speed…"`. And on
+  a withheld peak it prints `—`, identical to a flight with no speed channel at all, one row below
+  a Max Mach that says *"withheld — the ascent has a stretch the record doesn't cover"* — the
+  refusal/absence conflation `withheldSpeed` and `withheldMach` exist to break. UNVERIFIED here.
+
+- **2026-08-05 — the cert deliverable's CSV cells are display strings, so the table a flyer builds
+  a write-up around cannot be summed, sorted or charted.** `lib/report.ts:865` — `compareMetricRows`
+  returns `fmtLength(...)` and friends, i.e. `round()` → `toLocaleString('en-US')` plus a unit plus
+  a caveat word. Measured output: `Apogee,"12,374 ft (at least)","11,844 ft",4`, and the header row
+  (`CompareView.tsx:460`) carries no unit at all. That reaches `compare-metrics.csv`, the *"Copy
+  metrics"* clipboard table and `compare-debrief.zip`. **The numeric answer already exists in the
+  same ZIP** — `lib/report.ts:1323`'s `jsonMetrics` emits bare numbers — so the CSV alone throws it
+  away. And the repo already states the rule and follows it once: `StitchSurface.tsx:257` strips the
+  unit into the header *"because a spreadsheet sorts a column of bare numbers and will not sort
+  '1,234 ft'"*, while `RecentFlights.tsx:403` prints the unit in the header **and** in the cell.
+  The logbook copy is how a launch day reaches a spreadsheet and is the one table the documented fix
+  skipped. UNVERIFIED beyond the agent's own two-line probe.
+
 - **2026-08-04 — the 2 g floor on the deployment shock is applied by four surfaces and skipped by
   two, and it never says it exists.** `accelInG(e.peakAccel) >= 2` gates the on-screen event
   timeline (`components/FlightReport.tsx:1351`) and the .txt/.md/.html reports
