@@ -136,8 +136,14 @@ test('the compare surface is thumb-sized too', async ({ page }) => {
     // thumb has to hit is the target, not the box, and the target is the wrapping <label>.
     // Exempting them from the measurement too is why the logbook's compare tick sat at
     // 20x20 with no label at all and nothing caught it.
-    const sel = 'button, select, summary, [role=button], nav a, input:not([type=range])';
+    // `main a` for the same reason the analyze sweep above carries it, and it was NOT carried
+    // here: the comparison's two action links — the only route to /stitch for a drop-built
+    // comparison, and the only way to mint a permalink — are plain anchors in <main>, so every
+    // selector here looked straight past them while they rendered at 20 px on a phone. A sweep
+    // that cannot see a shape of control certifies that shape forever.
+    const sel = 'button, select, summary, [role=button], nav a, main a, input:not([type=range])';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      if (el.tagName === 'A' && el.closest('p, li')) continue; // prose links are not controls
       const r = (el.closest('label') ?? el).getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
@@ -255,8 +261,9 @@ test('a loaded comparison is thumb-sized, and orderable, on a phone', async ({ p
 
   const small = await page.evaluate(() => {
     const out: string[] = [];
-    const sel = 'button, select, summary, [role=button], nav a';
+    const sel = 'button, select, summary, [role=button], nav a, main a';
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      if (el.tagName === 'A' && el.closest('p, li')) continue; // prose links are not controls
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
