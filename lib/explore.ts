@@ -4,7 +4,8 @@
 // any channel can be plotted against time or against any other channel.
 
 import type { RawFlight } from './flight/types';
-import type { FlightSeries } from './analyze/types';
+import type { FlightSeries, FlightMetrics } from './analyze/types';
+import { withheldReason } from './readings';
 import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, unitsOf, type UnitChoice, accelIn } from './display';
 import { formulaGuard } from './csv';
 
@@ -20,6 +21,14 @@ export interface PlotChannel {
   toDisplay: (v: number, sys: UnitChoice) => number;
   /** Axis unit label for the chosen unit system. */
   unitLabel: (sys: UnitChoice) => string;
+  /** Why a statistic taken off this channel is not a reading Debrief stands behind.
+   *
+   *  The velocity trace is deliberately still offered when the peak speed was withheld, so a
+   *  mis-scaled column can be seen and diagnosed — but the stats table beside it publishes a
+   *  `max`, calls those "the numbers a cert document quotes", and copies them to the clipboard.
+   *  A trace kept for diagnosis and a maximum offered for a document are different claims, and
+   *  the second one needs the headline's caveat travelling with it. */
+  caveat?: string;
 }
 
 /** Map a canonical unit string to a display conversion + label. Lengths, speeds,
@@ -184,13 +193,27 @@ export function windowStats(
 
 /** Every channel worth plotting: Debrief's three derived series first (the cleaned
  * canonical altitude/velocity/acceleration), then each channel the file recorded. */
-export function buildPlotChannels(flight: RawFlight, series: FlightSeries): PlotChannel[] {
+export function buildPlotChannels(
+  flight: RawFlight,
+  series: FlightSeries,
+  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'>,
+): PlotChannel[] {
+  // The peak speed the report refused, and why. `series.velocityUnusable` is the flag; the
+  // REASON lives on the metrics, so the caveat is fuller when a caller has them — and a caller
+  // that has none still gets the refusal rather than silence.
+  const speedWithheld = series.velocityUnusable || metrics?.maxVelocityWithheld != null;
+  const velocityCaveat = speedWithheld
+    ? `not a reading Debrief stands behind — the peak speed is withheld${
+        metrics?.maxVelocityWithheld ? `, ${withheldReason(metrics.maxVelocityWithheld)}` : ''
+      }`
+    : undefined;
+
   const out: PlotChannel[] = [
     { key: 'd-altitude', label: 'Altitude (AGL)', group: 'Debrief', values: series.altitude, ...display('m') },
     // The pre-filter altitude — overlay it with the cleaned line to see exactly
     // what spike-removal took out (e.g. an ejection charge's pressure pop).
     { key: 'd-altitude-raw', label: 'Altitude (raw)', group: 'Debrief', values: series.altitudeRaw, ...display('m') },
-    { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s') },
+    { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s'), caveat: velocityCaveat },
   ];
   // Acceleration is offered only when it was measured. A baro-derived acceleration is the
   // second derivative of a coarse altitude and is pure differentiation noise — a real

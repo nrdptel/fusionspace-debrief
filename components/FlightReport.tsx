@@ -711,7 +711,7 @@ export default function FlightReport({
   const accFmt = useCallback((v: number) => round(accelIn(v, sys), placesFor(unitsOf(sys).accel)), [sys]);
 
   // Every channel worth plotting, for the flexible explorer below.
-  const plotChannels = useMemo(() => buildPlotChannels(flight, series), [flight, series]);
+  const plotChannels = useMemo(() => buildPlotChannels(flight, series, metrics), [flight, series, metrics]);
 
   // A per-flight key links the three charts' hover cursor and zoom range.
   const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
