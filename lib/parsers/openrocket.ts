@@ -100,6 +100,65 @@ export interface PredictedRun {
    *  defaults to false, so most `.ork` files carry none — and a prediction with no series
    *  must say so rather than draw a line through its own summary scalars. */
   hasSeries: boolean;
+  /** The predicted altitude trace, when one could be READ. Distinct from `hasSeries` on
+   *  purpose: a file can carry a `<databranch>` whose columns Debrief cannot name, and the
+   *  difference between "there is no curve" and "there is a curve I cannot read" is a
+   *  different sentence to a flyer. Null in both the absent and the unreadable case; ask
+   *  `hasSeries` to tell them apart. */
+  series: PredictedSeries | null;
+}
+
+/** A simulation's own saved trace, on its own clock. Never resampled onto a flight and never
+ *  merged with one: a prediction is a third source, and moving its samples onto a measured
+ *  liftoff would make a simulation look like it was measured. */
+export interface PredictedSeries {
+  /** Seconds from the simulation's own zero, which is ignition — a simulation has no pad wait. */
+  time: Float64Array;
+  /** Metres above ground level, from the branch's `Altitude` column (NOT `Altitude above sea
+   *  level`, which is the same trace plus the launch site's elevation). */
+  altitude: Float64Array;
+}
+
+/** Column names as OpenRocket 24.12 writes them in `types=`.
+ *
+ *  **These are LOCALIZED in shipped 24.12** — only the unstable 26.x line writes stable save
+ *  keys — so a design exported from a French or German OpenRocket states the same columns under
+ *  different words. Debrief therefore matches by NAME and carries no series when it cannot find
+ *  both, rather than falling back to column POSITION: the position of `Altitude` is a fact about
+ *  one file's column set, and reading a trace off the wrong column would draw a confident line
+ *  that is not the altitude. `hasSeries` stays true in that case, so the surface can say the
+ *  design carries a curve Debrief could not read instead of claiming it carries none. */
+const COL_TIME = 'Time';
+const COL_ALTITUDE = 'Altitude';
+
+/** Read one simulation's saved trace, or null when there is none to read.
+ *
+ *  A `<datapoint>` is one comma-separated row against the branch's `types=` header, with `NaN`
+ *  in the columns that stage of flight does not have. A row missing either of the two columns
+ *  that matter is dropped rather than interpolated — the gap is the simulation's own. */
+function readBranchSeries(block: string): PredictedSeries | null {
+  const branch = block.match(/<databranch\b([^>]*)>([\s\S]*?)<\/databranch>/);
+  if (!branch) return null;
+  const types = tagAttr(`<x${branch[1]}>`, 'types');
+  if (!types) return null;
+  const cols = types.split(',').map((c) => c.trim());
+  // Exact equality, not a prefix test: `Altitude above sea level` starts with `Altitude`.
+  const tIdx = cols.indexOf(COL_TIME);
+  const aIdx = cols.indexOf(COL_ALTITUDE);
+  if (tIdx < 0 || aIdx < 0) return null;
+
+  const time: number[] = [];
+  const altitude: number[] = [];
+  for (const m of branch[2].matchAll(/<datapoint>([^<]*)<\/datapoint>/g)) {
+    const row = m[1].split(',');
+    const t = Number(row[tIdx]);
+    const a = Number(row[aIdx]);
+    if (!Number.isFinite(t) || !Number.isFinite(a)) continue;
+    time.push(t);
+    altitude.push(a);
+  }
+  if (time.length < 2) return null;
+  return { time: Float64Array.from(time), altitude: Float64Array.from(altitude) };
 }
 
 export interface Prediction {
@@ -250,6 +309,7 @@ export function readPredictionDetail(xml: string): PredictionRead {
       status: tagAttr(block.match(/<simulation\b[^>]*>/)?.[0] ?? '', 'status'),
       values,
       hasSeries: /<databranch\b/.test(block),
+      series: readBranchSeries(block),
     });
   }
 

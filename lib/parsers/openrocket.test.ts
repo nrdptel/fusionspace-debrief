@@ -107,6 +107,52 @@ describe('OpenRocket .ork — reading a prediction', () => {
     expect(readPrediction(oneRun(TEN, '<databranch name="Sustainer"/>'))!.runs[0].hasSeries).toBe(true);
   });
 
+  describe('the saved trace', () => {
+    /** A branch with the two columns that matter separated by one that does not, so a reader
+     *  keying on POSITION rather than on name passes only by luck. */
+    const branch = (
+      types = 'Time,Vertical velocity,Altitude,Altitude above sea level',
+      rows = ['0,0,0,120', '1,25,12.5,132.5', '2,40,45,165', '3,0,50.59,170.59'],
+    ) =>
+      `<databranch name="Sustainer" types="${types}">` +
+      rows.map((r) => `<datapoint>${r}</datapoint>`).join('') +
+      `</databranch>`;
+
+    it('reads time and altitude off the columns their names identify', () => {
+      const run = readPrediction(oneRun(TEN, branch()))!.runs[0];
+      expect(run.series).not.toBeNull();
+      expect(Array.from(run.series!.time)).toEqual([0, 1, 2, 3]);
+      // The third column, not the second and not the fourth — `Altitude above sea level` is the
+      // same trace plus the site elevation, and it is 120 m higher in this fixture.
+      expect(Array.from(run.series!.altitude)).toEqual([0, 12.5, 45, 50.59]);
+    });
+
+    it('carries no trace when the column names are not the ones it knows', () => {
+      // Shipped OpenRocket 24.12 writes LOCALIZED column names; only unstable 26.x writes stable
+      // save keys. Reading by position instead would draw a confident line off whatever column
+      // happened to sit there — here, a velocity relabelled into French.
+      const fr = branch('Temps,Vitesse verticale,Altitude sol,Altitude');
+      const run = readPrediction(oneRun(TEN, fr))!.runs[0];
+      expect(run.hasSeries, 'the file does carry a branch').toBe(true);
+      expect(run.series, 'but not one Debrief can name the columns of').toBeNull();
+    });
+
+    it('drops a row whose own columns are NaN rather than interpolating across it', () => {
+      // OpenRocket writes NaN for the columns a stage of flight does not have.
+      const run = readPrediction(
+        oneRun(TEN, branch(undefined, ['0,0,0,120', '1,25,NaN,132.5', '2,40,45,165'])),
+      )!.runs[0];
+      expect(Array.from(run.series!.time)).toEqual([0, 2]);
+      expect(Array.from(run.series!.altitude)).toEqual([0, 45]);
+    });
+
+    it('reports no trace for a branch too short to draw', () => {
+      expect(readPrediction(oneRun(TEN, branch(undefined, ['0,0,0,120'])))!.runs[0].series).toBeNull();
+      expect(readPrediction(oneRun(TEN, '<databranch name="Sustainer"/>'))!.runs[0].series).toBeNull();
+      expect(readPrediction(oneRun())!.runs[0].series).toBeNull();
+    });
+  });
+
   it('reads every simulation in the file, not just the first', () => {
     const two = oneRun().replace(
       '</simulations>',
@@ -307,6 +353,48 @@ describe('OpenRocket .ork — the real file', () => {
     expect(p!.runs).toHaveLength(5);
     expect(p!.runs.map((r) => r.values.length)).toEqual([10, 10, 10, 10, 10]);
     expect(p!.runs.map((r) => r.hasSeries)).toEqual([true, true, true, true, true]);
+  });
+
+  // The trace and the summary are written INDEPENDENTLY by OpenRocket: `maxaltitude` and
+  // `timetoapogee` are attributes on `<flightdata>`, and the curve is a separate list of
+  // `<datapoint>` rows. So the file cross-checks the read against itself — if Debrief takes the
+  // altitude off a column that is not an altitude, or reads columns by position, the peak of the
+  // trace stops agreeing with the figure the same file states about that same simulation.
+  //
+  // **What this case CANNOT catch, stated because the first version of this comment claimed it
+  // could:** it does not distinguish `Altitude` from `Altitude above sea level`. This design's
+  // launch site is at elevation 0, so those two columns are identical over all 233 rows of every
+  // branch (measured: max |difference| = 0), and pointing the reader at the wrong one leaves this
+  // assertion green. The synthetic case above is what covers that, and it puts the site 120 m up
+  // on purpose so the two columns cannot be confused.
+  it.skipIf(!present)('the trace it reads peaks where the file says that simulation peaked', async () => {
+    const p = (await orkToXml(new Uint8Array(readFileSync(ORK))).then(readPrediction))!;
+    let checked = 0;
+    for (const run of p.runs) {
+      expect(run.series, `${run.name} carries a trace`).not.toBeNull();
+      const { time, altitude } = run.series!;
+      const by = Object.fromEntries(run.values.map((v) => [v.metric, v.value]));
+
+      let peak = -Infinity;
+      let atT = NaN;
+      for (let i = 0; i < altitude.length; i++) {
+        if (altitude[i] > peak) {
+          peak = altitude[i];
+          atT = time[i];
+        }
+      }
+      expect(peak, `${run.name}: trace peak vs stated apogee`).toBeCloseTo(by.apogeeAltitude, 2);
+      // The trace is sampled, so its peak SAMPLE can sit a sample either side of the stated
+      // instant; 0.05 s is well inside one step and far outside a wrong-column read.
+      expect(Math.abs(atT - by.timeToApogee), `${run.name}: trace peak at ${atT} s vs stated ${by.timeToApogee} s`)
+        .toBeLessThan(0.05);
+
+      // A simulation's clock starts at ignition and runs forward.
+      expect(time[0]).toBe(0);
+      for (let i = 1; i < time.length; i++) expect(time[i]).toBeGreaterThan(time[i - 1]);
+      checked++;
+    }
+    expect(checked, 'simulations whose trace was checked against the file').toBe(5);
   });
 
   it.skipIf(!present)('proves the file states SI, rather than assuming it off the spec page', async () => {
