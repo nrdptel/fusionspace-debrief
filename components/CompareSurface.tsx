@@ -22,7 +22,7 @@ import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { emptyFolderMessage } from './Analyzer';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
-import { Card, Notice } from './ui';
+import { Button, Card, Notice } from './ui';
 
 /**
  * The comparison surface: a launch day's flights lined up side by side, as its own route.
@@ -62,6 +62,9 @@ export default function CompareSurface() {
    *  was asked for. A drop merges onto these; seeding from the address instead let an id that
    *  no longer reads sit there forever, eating a comparison slot nothing could free. */
   const loadedIds = useRef<string[]>([]);
+  /** The hidden file input the primary call to action opens — `DropZone`'s idiom, so the two
+   *  file-entry surfaces share one rather than resembling each other. */
+  const fileRef = useRef<HTMLInputElement>(null);
 
   /** Assemble the given logbook ids, and put them in the URL so the view is reloadable. */
   const load = useCallback(async (ids: string[], pushUrl: boolean, extraNote?: string) => {
@@ -466,20 +469,31 @@ export default function CompareSurface() {
           {MAX_COMPARE} flights are in — that&apos;s one stroke colour each, and more than that is
           a chart nobody can read — so anything after them is named for you rather than opened.
         </p>
-        <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500">
+        {/* §5's `primary`, not a hand-roll of it. This was a `<label>` carrying
+            `rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500`
+            — the ONLY `bg-indigo-600` outside `ui.tsx`, and off the §4 scale at `px-4 py-2` where
+            the primitive is `px-3 py-1.5`. It is the shape §1 calls "just this once", and the cost
+            is that the suite's most prominent call to action drifted from every other button in
+            the app.
+            The button-plus-hidden-input idiom is `DropZone`'s (`components/DropZone.tsx:70`), so the
+            two file-entry surfaces now share it rather than resemble each other. The input keeps its
+            `aria-label` verbatim: it is what every e2e binds to, and it is the accessible name a
+            screen reader announces. */}
+        <Button variant="primary" className="mt-3" onClick={() => fileRef.current?.click()}>
           Choose flight logs
-          <input
-            type="file"
-            multiple
-            accept={FLIGHT_FILE_ACCEPT}
-            className="sr-only"
-            aria-label="Choose flight logs to compare"
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) void onDropFiles(Array.from(e.target.files));
-              e.target.value = '';
-            }}
-          />
-        </label>
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept={FLIGHT_FILE_ACCEPT}
+          className="sr-only"
+          aria-label="Choose flight logs to compare"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) void onDropFiles(Array.from(e.target.files));
+            e.target.value = '';
+          }}
+        />
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           Reading one flight, and mapping a file Debrief doesn&apos;t recognize, live on the{' '}
           <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
