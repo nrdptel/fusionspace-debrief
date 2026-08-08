@@ -179,6 +179,31 @@ describe('the methods page has a structure, and every block is in it', () => {
     // assertion rather than adding one. Two copies of a check are not two checks.
   });
 
+  it('lets a block have more than one paragraph, which it could not before', () => {
+    // `Method` wrapped each body in a single `<p>`, so no block on the page COULD have a second
+    // paragraph — owner note ON-1's wall was structural, not editorial. The bodies carried 36
+    // standalone `{' '}` lines sitting exactly where a break was intended, every one in front of
+    // a sentence that starts a new topic, and JSX rendered each as one space.
+    //
+    // Checked on the SOURCE of the content module and the page together, because the failure
+    // mode is a future edit putting the single `<p>` back — at which point the breaks silently
+    // become spaces again and nothing else would say so.
+    const content = readFileSync(new URL('./methods/content.tsx', import.meta.url), 'utf8');
+    const paragraphs = (content.match(/^\s*<p>$/gm) ?? []).length;
+    expect(paragraphs, 'every block body is made of paragraphs').toBeGreaterThanOrEqual(METHOD_IDS.length);
+    expect(paragraphs, 'and at least a dozen blocks have more than one').toBeGreaterThan(METHOD_IDS.length + 10);
+
+    // No standalone `{' '}` may come back: it is a paragraph break that renders as a space.
+    const eaten = (content.match(/^\s*\{' '\}$/gm) ?? []).length;
+    expect(eaten, "standalone {' '} lines — each is a paragraph break rendering as one space").toBe(0);
+
+    // And the page must not re-wrap the lot in one paragraph.
+    expect(PAGE, 'the block body is a container, not a single paragraph').not.toMatch(
+      /<p className="mt-1 max-w-3xl">\{body\}<\/p>/,
+    );
+    expect(PAGE, 'it stacks paragraphs with the §4 spacing scale').toContain('space-y-3');
+  });
+
   it('gives every group a title and a blurb that is not the title again', () => {
     // A group heading that restates its members' names teaches nothing — the craft bar's
     // "tooltips that restate the label" one level up. The blurb says what the subject IS.

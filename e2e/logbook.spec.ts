@@ -26,7 +26,7 @@ function eggtimerCsv(peak = 300): string {
 }
 
 const jsonInput = (page: import('@playwright/test').Page) =>
-  page.locator('input[type="file"][accept*="json"]');
+  page.locator('input[data-testid="logbook-restore"]');
 
 test('a logbook can be exported and restored on a cleared device', async ({ page }) => {
   await page.goto('/');
@@ -950,7 +950,7 @@ test('a restore the browser refuses does not report flights it did not keep', as
     flights: [{ id: 'x1', name: 'a.csv', formatLabel: 'Eggtimer', addedAt: Date.now(), text: 'T,Alt\n0,0\n', note: '' }],
   });
   await page
-    .locator('input[type="file"][accept*="json"]')
+    .locator('input[data-testid="logbook-restore"]')
     .setInputFiles({ name: 'debrief-logbook.json', mimeType: 'application/json', buffer: Buffer.from(backup) });
 
   // **The positive assertion goes FIRST, deliberately.** The negatives below are `toHaveCount(0)`,

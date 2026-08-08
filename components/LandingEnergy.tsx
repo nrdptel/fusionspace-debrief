@@ -59,6 +59,10 @@ export default function LandingEnergy({
   // descent rate was read from this log (it may end at or before apogee)" over a flight that
   // had logged a main leg at 50 ft/s.
   const stoppedAbove = descentStoppedAloft(metrics);
+  /** The flight landed, but the file held it twice and neither copy resolved a rate. A distinct
+   *  state from "the record stops in the air" and from "the log ends at apogee", and it used to
+   *  be told the second one's story. */
+  const splicedDescent = metrics.descentSource === 'second-copy';
 
   const massField = massKg == null ? '' : plain(massKg / MASS_TO_KG[unit], unit === 'oz' ? 1 : 0);
 
@@ -146,7 +150,14 @@ export default function LandingEnergy({
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           {stoppedAbove
             ? 'This record stops before the ground, so the descent rate it carries is the rate of the descent that was recorded — not a touchdown speed. Landing energy and parachute Cd are left unread rather than computed from it.'
-            : 'No landing descent rate was read from this log (it may end at or before apogee), so there’s no landing energy to compute.'}
+            : /* A flight spliced from a second copy DID land — the copy the clock came from
+                 reached the ground — so "it may end at or before apogee" is a wrong explanation
+                 rather than a missing one, and this panel was giving it. The corpus Blue Raven
+                 that takes this path has a flight time of 83 s and a landing in the record.
+                 What is true of it is narrower: no copy resolved a RATE. */
+              splicedDescent
+              ? 'This file holds the same flight twice, and the descent was read from the second copy. It reached the ground — there is a flight time — but neither copy resolved a descent rate to size a canopy against, so the landing energy and parachute Cd are left unread rather than averaged out of the whole descent.'
+              : 'No landing descent rate was read from this log (it may end at or before apogee), so there’s no landing energy to compute.'}
         </p>
       ) : massKg == null ? (
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">

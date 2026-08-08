@@ -31,6 +31,7 @@ import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
+import { toCanonical } from '@/lib/canonical';
 import { landedInRecord, landingRate, liftoffOnLogClock, withheldReason } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
@@ -425,6 +426,17 @@ export default function FlightReport({
       new Blob([analysisJson(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'application/json' }),
       `${stem}-debrief.json`,
     );
+  }
+
+  // The flight itself, not Debrief's read of it — every sample of every channel the logger
+  // recorded, in canonical SI, which Debrief can open again as the same flight. The two JSON
+  // files on this strip are deliberately different documents: `-debrief.json` is what Debrief
+  // CONCLUDED, in the units on screen, and it cannot be re-opened; this one is what the
+  // instrument RECORDED, and re-analyses from scratch when it is dropped back in — so an
+  // archived flight gets every later improvement to the analysis rather than being frozen at
+  // the version that wrote it.
+  function downloadRecord() {
+    download(new Blob([toCanonical(flight)], { type: 'application/json' }), `${stem}-debrief-record.json`);
   }
 
   // Print a clean flight card. Force a light theme first so the canvas charts
@@ -953,6 +965,14 @@ export default function FlightReport({
               className="shrink-0"
             >
               Save .json
+            </Button>
+            <Button
+              size="sm"
+              onClick={downloadRecord}
+              title="Download the flight record — every sample of every channel the logger recorded, in SI units, in one file Debrief can open again as this same flight. Unlike the analysis .json this is the measurement rather than the read, so re-opening it re-analyses from scratch. It carries everything the log did, including any GPS position."
+              className="shrink-0"
+            >
+              Save record
             </Button>
             <Button
               size="sm"

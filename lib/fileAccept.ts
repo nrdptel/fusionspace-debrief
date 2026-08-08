@@ -29,6 +29,10 @@
  *  flyer most in need of that sentence was the one who could not reach it. */
 export const FLIGHT_FILE_EXTENSIONS = [
   '.csv',
+  // Debrief's own flight record. The picker must never be narrower than what the app can read,
+  // and since 2026-08-08 the app both writes and reads this one — the `.pf2` bug this file's
+  // header describes, pointing at a format we published ourselves.
+  '.json',
   '.txt',
   '.log',
   '.tsv',
@@ -43,6 +47,7 @@ export const FLIGHT_FILE_EXTENSIONS = [
 ] as const;
 
 const FLIGHT_FILE_MIME = [
+  'application/json',
   'text/csv',
   'text/plain',
   'text/tab-separated-values',

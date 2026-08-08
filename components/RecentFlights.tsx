@@ -151,6 +151,11 @@ export default function RecentFlights({
       className="hidden"
       aria-hidden="true"
       tabIndex={-1}
+      // Named, because `accept*="json"` stopped identifying it: since 2026-08-08 the FLIGHT
+      // picker accepts `.json` too (Debrief's own flight record), so the attribute selector
+      // the logbook tests used resolved to two inputs. A hidden input has no accessible name
+      // to target instead, so it carries one.
+      data-testid="logbook-restore"
     />
   );
 

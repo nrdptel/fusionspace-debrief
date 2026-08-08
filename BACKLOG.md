@@ -14,6 +14,67 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-08 — `crossCheck()`'s apogee spec carries neither the `soft` nor the `partial` marker,
+  so a disowned altitude reaches the redundant-altimeter panel as an unmarked instrument
+  disagreement.** `lib/compare.ts:423`. Every other qualified reading has a flag — max acceleration
+  `saturated †`, main/whole descent `partialLeg ‡`, mixed source `*` — and `components/CompareView.tsx:711`
+  renders exactly those three. Measured on the `iss-sg1.2-20231118` group: the cross-check prints
+  `apogee: 9.50–2113.25 spread 198.2% mixed=false sat=false partial=false` while `compareMetricRows`
+  renders the same cell one row above as `31 ft (unproven)`. A caveat on the table and a bare claim on
+  the cross-check is the asymmetry `MAINTAINING.md` calls worse than either alone.
+- **2026-08-08 — `headlineRows()` prints Max acceleration with no "may be clipped", and it feeds the
+  four documents a flyer keeps.** `lib/report.ts:226` → the .txt, .md, .html and the clipboard table.
+  Every other surface tags a railed peak: the tile (`lib/readings.ts:316` "measured · may be clipped"),
+  the share card (`lib/flightCard.ts:79`), the comparison cell (`clipTag`) and the JSON
+  (`accelerationClipped`). A railed accelerometer peak is a FLOOR, not the truth, and the cert package
+  is the one artifact that loses that. **0 of 50 corpus fixtures set `accelClipped`**, which is why no
+  test sees it — so the fix needs a synthetic, not a corpus case.
+- **2026-08-08 — `buildPlotChannels` attaches a caveat only to the velocity channel.**
+  `lib/explore.ts:212`. With `altitudeUnproven` or `apogeeIsFloor` set, the d-altitude and
+  d-altitude-raw channels carry none, so the explorer's stats table — whose own comment calls these
+  "the numbers a cert document quotes", and which copies to the clipboard at
+  `components/ChannelExplorer.tsx:679` — publishes a min/max/mean off a channel the report says is in
+  doubt. Reproduced on `blueraven__issuiuc-sg1.2-20231118 …BlueRaven-Low.txt`: the grid says "unproven"
+  while d-altitude reports max 31.2 ft with `caveat=undefined`.
+- **2026-08-08 — the comparison's "Spread" column is `hidden … sm:table-cell`, and it is the only
+  content in the app that exists on a wide screen and not at all at 390 px.** `components/CompareView.tsx:889`.
+  `MAINTAINING.md`'s product-shape invariant names this exact failure — "never let a capability exist on
+  one form factor and simply not render on the other". Spread is the column that says whether redundant
+  recordings agree, which is the question the phone user at the pad has. P4 work.
+- **2026-08-08 — `onDoubleClick` is the only way to reset a figure or flight colour, and dblclick does
+  not exist on touch.** `components/FigureChooser.tsx:70` and `components/CompareView.tsx:848`. A state a
+  phone can enter (pick a colour) with no way back out of it — rank 2 on the damage list.
+- **2026-08-08 — the methods page's `scroll-mt-12` (48 px) is short of its own sticky nav (62 px at
+  390 px coarse).** `app/methods/page.tsx:121`, on all 51 `h3` ids and the 11 group `section` ids. A
+  heading jumped to from the strip lands 14 px underneath it. `app/globals.css:166` already solves this
+  for the flight report's strip with `scroll-margin-top: 4.5rem` and the methods page did not inherit it.
+- **2026-08-08 — five design-system hand-rolls the ratchet cannot see, all measured.**
+  `components/ChannelExplorer.tsx:405` re-adds control padding to a `Button variant="link"` at the call
+  site, and `lib/design-system.test.ts:1098` only ever inspects the variant STRING, never call sites —
+  so the one distinction §5 says the fifth weight exists for erodes green. `ChannelExplorer.tsx:312` and
+  `:398` hand-roll `Chip` and are invisible to the chip census because `handRolledChips()` requires
+  `\bpx-[\d.]+` and these split padding into `pl-`/`pr-`. `CompareSurface.tsx:469` hand-rolls
+  `Button variant="primary"` onto a `<label>` — the only `bg-indigo-600` outside `ui.tsx`.
+  `RecentFlights.tsx:479` and `:1003` hand-roll link weight; `:823` and `:838` hand-roll `IconButton`,
+  each re-deriving its own hover fill and touch geometry.
+- **2026-08-08 — §9's `cls()` helper reads double-quoted class attributes only.** `DESIGN.md:489`:
+  `class(Name)?="[^"]*"`. Every `className` written as a template literal or a `cx()` call is invisible
+  to the radius, spacing and type greps that depend on it. The 2026-08-04 rewrite fixed the PATTERNS
+  and left the EXTRACTOR blind — the same class of error one level down, and the third time this file
+  has recorded that shape about its own scans.
+- **2026-08-08 — `EmptyState` is imported by 1 of 48 components and `Loading` by 2.**
+  `components/ui.tsx:1406`. `CompareSurface.tsx:420` and `RecentFlights.tsx:211` each hand-roll a
+  loading state as a bare `<p>`; `ChannelExplorer.tsx:249` returns `null` for the whole "Explore the
+  data" section, heading included, when a log has no plottable channels — §5 says a surface with no
+  empty state is not finished, and that one fires on precisely the first-load case it is for.
+- **2026-08-08 — a stray 416-byte ELF binary is committed at the repo root.** `a.out`, added in
+  `d2d395c` (#109, "§5 gains `Notice`") — build cruft from a compiler invocation that leaked into an
+  unrelated commit. Not gitignored, so nothing will stop the next one. `git rm` it and add a pattern.
+- **2026-08-08 — 13 of the 47 corpus recordings that analyse report a descent RATE with no landing
+  (`descentTime` null).** Not a defect — `descentStoppedAloft`, the comparison's `partial` marker and
+  the report's `aloftTag` all flag it, verified this run. Recorded because it is the population behind
+  the spliced-descent Sev-1 fixed in this run: that shape and the doubled-recording shape are each
+  ordinary, and only their intersection being empty in today's corpus kept the bug off a real file.
 - **2026-08-08 — the readings grid grew 38% on a phone when the "?" became a button, and the
   obvious fix is a trap.** Measured at a 390 px viewport with the sample flight loaded: each tile
   **100 px → 128 px**, the readings grid **1,508 px → 2,084 px**, the report page 9,209 → 9,553 px.

@@ -2040,7 +2040,32 @@ exports.
 
 ## D11 (from ON-4) — One canonical file, out and back in
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**, pinned by `lib/canonical.test.ts` (8 cases;
+the round-trip runs over the 9 committed fixtures AND every corpus recording, so it holds in fork CI
+without `FIXTURES_TOKEN` and holds harder with the corpus attached) and by `e2e/analyze.spec.ts` →
+*"a flight saved as a record opens again as the same flight"*.
+
+**What slice 1 delivered.** `lib/canonical.ts` writes `RawFlight` as `debrief.record/1`;
+`lib/parsers/canonical.ts` reads it, registered FIRST in `PARSERS` because detection keeps a match
+only on a strict `score > best.score` and ties go to the earliest entry; `.json` joins
+`FLIGHT_FILE_EXTENSIONS`; "Save record" sits on the report's export strip. **50 corpus recordings and
+9 fixtures round-trip field-by-field and to an identical analysis digest.**
+
+**The headline result is about the architecture, not the feature.** D11's *notes* predicted that if
+every parser is genuinely a thin producer of one model the round-trip would be nearly free, and that
+wherever it was not free a parser would be smuggling format-specific state past the model. It was
+free, first try, across the whole corpus — no parser is smuggling anything. That is the answer to
+the question the milestone was really asking, and it is worth more than the export.
+
+**What is left, and slice 2 is the sharp one.** The *done when* also asks for the same multi-source
+STRUCTURE — a flight with two recordings must not flatten, a stitched composite must keep its stages —
+and slice 1 round-trips ONE recording. Slice 2: the multi-recording and composite case, plus the
+defect the scoping probe measured on the way past — `analyzedDataCsv` (`lib/report.ts:779`) still
+re-imports as a materially different flight, because its derived `velocity`/`acceleration` columns are
+re-read as MEASURED channels and its `dynamic pressure (kPa)` header claims the pressure role and
+blocks the recorded `Pressure (Pa)`. **19 of 48 corpus recordings shift peak acceleration, worst
++41.4%; 16 flip velocity provenance.** Slice 3: the version stamp (`COMPETITION.md` row 36) so a
+record says which methods wrote it.
 
 **Outcome.** Any of the ten formats goes in, one canonical file comes out, and dropping that file back
 in returns the same flight.
@@ -3098,7 +3123,20 @@ load to an explained flight, and count the states a first-timer can reach that e
 
 ## P4 — The range on a phone
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**: the *done when*'s own pinning check now
+exists in a form that can fail. It asks for "zero controls under 44 px … pinned by a mobile-viewport
+e2e that asserts both counts", and the e2e that claimed to do that measured ONE dimension — five
+hand-kept copies of the predicate, every one asking `if (r.height < 44)`. `e2e/touchTargets.ts` is now
+the single predicate, measures both axes, and runs on all six routes rather than the two it reached.
+It found exactly one real violation, on every route: the footer's `Privacy` link at 42×44.
+
+**What is left.** The floor is only half the milestone and the sharpening from `ON-6` says so: a
+vertical layout is not a narrowed one. The three surfaces laid out for a wide viewport and currently
+only narrowed — `components/CompareView.tsx`, `components/ChannelExplorer.tsx`,
+`components/Chart.tsx` — are untouched. The phone walk this run also filed the concrete list into
+`BACKLOG.md`, and one entry is a milestone blocker rather than a defect: **the comparison's "Spread"
+column is `hidden … sm:table-cell`**, the only content in the app that exists on a wide screen and
+not at all at 390 px, which is the product-shape invariant's named failure.
 
 **Outcome.** A phone at the range is a first-class tool, not a rescaled desktop.
 
@@ -3236,11 +3274,29 @@ list removed). The page is **1 `h1` → 11 `h2` → 51 `h3`** where it was 1 `h1
 `h3`**; it has a contents list and a pinned strip with a you-are-here marker; and all 51 anchors are
 unchanged, so every one of the 21 inbound `?` links still lands.
 
-**What is left, and it is the half the note is most about:** the prose itself. `Method` still wraps
-each block's entire body in a single `<p>`, so **no block on the page can have a second paragraph** —
-the wall is structural, not editorial — and 36 standalone `{' '}` lines sit exactly where paragraph
-breaks were intended and render as one space. The worst single block is 826 words in one unbroken
-paragraph. That is slice 2, and it is cheap now that the page has a shape to put paragraphs into.
+**Slice 2 SHIPPED 2026-08-08** — the structural half of the prose problem. `Method` wrapped each
+body in a single `<p>`, so **no block could have a second paragraph**; the wall was structural, not
+editorial. The bodies carried **36 standalone `{' '}` lines** sitting exactly where a break was
+intended — every one verified by reading it, each in front of a sentence opening a new topic (13 of
+them a `<strong>`) — and JSX rendered each as one space. The page now has **87 paragraphs across 51
+blocks**, **12** of which gained a break, and the longest single paragraph is down from **850 to 741
+words**. The number that moved most is the one a reader feels: **paragraphs over 400 words went from
+11 to 2**, because every block used to be exactly one paragraph.
+
+Verified three ways, because a scripted split of prose corrupts it silently: the rendered text is
+**character-identical after whitespace normalisation** (80,325 chars), so no word was joined or
+dropped; **zero** paragraphs start with a lowercase letter, none is under six words, and none ends
+without terminal punctuation, so no sentence was cut in half; and the counts above are read off the
+**built** `out/methods/index.html`, not off the source. Pinned by `lib/methodIds.test.ts` → *"lets a
+block have more than one paragraph, which it could not before"*, falsified both ways.
+
+**What is left is genuinely editorial and is slice 3:** this restored the author's OWN rhythm; it
+did not invent breaks nobody wrote. **Eleven blocks still exceed 400 words in total** and two carry
+a single paragraph over 400 (741 and 654), so the long ones need breaking by someone reading them.
+That is cheap now — the text is data in `lib/methods/content.tsx` and a break is a `</p><p>`. Also
+still open: `DESIGN.md` says nothing about long-form reading — no measure, no prose rhythm — which is
+the silence that let this happen, and §3's `text-base` for "prose in docs" is contradicted by the
+methods page's `text-sm`.
 
 **Outcome.** The longest surface in the app reads like a reference someone can navigate, not a wall.
 
@@ -3344,6 +3400,30 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-08 — the canonical flight record is JSON, not the CSV the scoping proposed.** The scoping
+  agent's slice-1 design was a CSV with a magic first line and a `key,value` preamble, on the
+  reasonable ground that a flyer can open it. **Rejected**, for three measured reasons. (1) NaN is
+  this model's gap marker and CSV has no way to distinguish an empty cell from a zero, which is the
+  exact failure mode the JSON codec had to add sentinels to avoid — a GPS dropout re-importing as a
+  real 0 m reading. (2) Presence is a signal in this model: `flownAt`, `reported`, `repeatedSpans`,
+  `predicted` and `gravityRemoved` are optional, and absent must come back absent rather than as an
+  empty column — a CSV preamble can express "missing" only by convention. (3) `reported[]` is a list
+  of records with their own `source` discriminator, which flattens into a CSV preamble badly. The
+  cost of the choice is real and named: the file is not readable in a spreadsheet, which is what the
+  `.csv` export is already for. Reversal is one module — `toCanonical`/`fromCanonical` are the whole
+  surface.
+- **2026-08-08 — a spliced descent publishes NO rate, rather than the second copy's rate.** Fixing
+  the Sev-1 (the first copy's in-the-air rate reaching the report as a touchdown speed) had two
+  candidate repairs, and the obvious one is wrong. **Rejected: taking the rates from the second copy
+  along with the clock**, which is what the field's own doc comment appeared to promise and what this
+  run implemented first. A descent time needs two instants both copies agree on; a rate needs the
+  deployment structure between them, and an unresolved one averages the whole descent — on the corpus
+  Blue Raven this comes from that is **48.2 m/s, where a GPS recording of the same flight separately
+  reads a 6.2 m/s main**, a 7.8x overstatement of the number a canopy is sized against. That
+  measurement was already recorded in `lib/analyze/analyze.test.ts`'s "does not take the descent RATES
+  across", by the session that decided it; the correction here is to make the withholding EXPLICIT
+  rather than a side effect of the first copy happening to have nothing.
 
 - **2026-08-08 — the sample flights are REAL recordings drawn from `lib/parsers/__fixtures__/`,
   not synthesized logs.** `ON-2` was triaged on the premise that no real log can ship, which is true
