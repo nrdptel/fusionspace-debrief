@@ -9,6 +9,7 @@ import { decodeBytes } from '../encoding';
 import { parseTable } from '../csv';
 import { analyzeTable, hasMappableColumns, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
+import { canonicalParser } from './canonical';
 import { altusMetrumParser } from './altusmetrum';
 import { altosEepromParser } from './altosEeprom';
 import { perfectFliteParser } from './perfectflite';
@@ -28,6 +29,9 @@ export type { FileInput, ParseInput, Parser } from './types';
 export { ParseGuidanceError } from './types';
 
 export const PARSERS: Parser[] = [
+  // FIRST on purpose. Detection keeps a match only on a strict `score > best.score`, so ties go
+  // to the earliest entry; this one anchors on a schema token no logger writes and returns 1.
+  canonicalParser,
   altusMetrumParser,
   altosEepromParser,
   perfectFliteParser,
