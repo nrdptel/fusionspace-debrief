@@ -2057,15 +2057,28 @@ wherever it was not free a parser would be smuggling format-specific state past 
 free, first try, across the whole corpus — no parser is smuggling anything. That is the answer to
 the question the milestone was really asking, and it is worth more than the export.
 
-**What is left, and slice 2 is the sharp one.** The *done when* also asks for the same multi-source
-STRUCTURE — a flight with two recordings must not flatten, a stitched composite must keep its stages —
-and slice 1 round-trips ONE recording. Slice 2: the multi-recording and composite case, plus the
-defect the scoping probe measured on the way past — `analyzedDataCsv` (`lib/report.ts:779`) still
-re-imports as a materially different flight, because its derived `velocity`/`acceleration` columns are
-re-read as MEASURED channels and its `dynamic pressure (kPa)` header claims the pressure role and
-blocks the recorded `Pressure (Pa)`. **19 of 48 corpus recordings shift peak acceleration, worst
-+41.4%; 16 flip velocity provenance.** Slice 3: the version stamp (`COMPETITION.md` row 36) so a
-record says which methods wrote it.
+**Slice 2 SHIPPED 2026-08-08 — the other file Debrief writes stopped lying about itself.** The
+scoping probe found that `analyzedDataCsv` (`lib/report.ts:779`) re-imports as a materially different
+flight: its derived `velocity`/`acceleration` columns look exactly like recorded ones, so they claim
+those roles and the real channels beside them are dropped. Reproduced through the real pipeline on
+`altusmetrum-telemetrum.csv`: `dynamic pressure (kPa)` takes the ambient-pressure role, `acceleration
+(g)` appears TWICE and both take `accelAxial`, and `axialResultant` then reads them as two body axes —
+**peak acceleration 194.21 m/s² out, 267.78 back in, +37.9%.** Across the corpus the probe measured
+**19 of 48 recordings shifting peak acceleration, worst +41.4%, and 16 flipping velocity provenance.**
+
+**It is refused with a reason rather than made to round-trip, and that is the decision.** The analyzed
+CSV is a report artifact — display units, no provenance, derived curves beside recorded ones — and
+teaching the mapper to un-pick it would produce a flight that still differs from the original in ways
+a flyer cannot see. So it joins the device summary, the OpenRocket design and the logbook backup as a
+file Debrief recognises and explains, and the explanation now has somewhere to send them: the flight
+record from slice 1, which before this run did not exist. Pinned by `lib/canonical.test.ts` → *"would
+have come back as a different flight, which is why it is refused"*, which asserts the exporter's own
+header trio, the roles the generic path WOULD have assigned, and the refusal — falsified.
+
+**What is left.** Slice 3: the multi-source STRUCTURE, which is the *done when*'s remaining clause — a
+flight with two recordings must not flatten, a stitched composite must keep its stages, and slice 1
+round-trips ONE recording. Slice 4: the version stamp (`COMPETITION.md` row 36) so a record says which
+methods wrote it.
 
 **Outcome.** Any of the ten formats goes in, one canonical file comes out, and dropping that file back
 in returns the same flight.
