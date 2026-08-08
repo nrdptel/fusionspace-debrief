@@ -39,6 +39,7 @@ import {
   type CompareFlight,
 } from './compare';
 import { derivedPeakCaveat } from './derivedPeak';
+import { buildFields, buildLine } from './buildInfo';
 import { apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
@@ -558,7 +559,7 @@ export function summaryText(
   lines.push('');
   lines.push('Figures are computed best-effort from the logger’s own data — a careful');
   lines.push('reading, not gospel; values marked (derived) were inferred, not measured.');
-  lines.push('Made with Debrief (debrief.fusionspace.co) — parsed locally, never uploaded.');
+  lines.push(`Made with Debrief (debrief.fusionspace.co) — parsed locally, never uploaded. ${buildLine()}.`);
   return lines.join('\n');
 }
 
@@ -636,7 +637,7 @@ export function summaryMarkdown(
 
   out.push('');
   out.push(
-    '_Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured. Made with [Debrief](https://debrief.fusionspace.co) — parsed locally, never uploaded._',
+    `_Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured. Made with [Debrief](https://debrief.fusionspace.co) — parsed locally, never uploaded. ${buildLine()}._`,
   );
   return out.join('\n');
 }
@@ -692,7 +693,7 @@ ${REPORT_STYLE}
 ${inner}
   <footer>
     Computed best-effort from the logger’s own data — a careful reading, not gospel; values marked “derived” were inferred, not measured.
-    Made with <a href="https://debrief.fusionspace.co">Debrief</a> — parsed locally in the browser, never uploaded.
+    Made with <a href="https://debrief.fusionspace.co">Debrief</a> — parsed locally in the browser, never uploaded. ${buildLine()}.
   </footer>
 </main>
 </body>
@@ -1209,7 +1210,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
 
   out.push('');
   out.push(
-    '_Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Made with [Debrief](https://debrief.fusionspace.co) — parsed locally, never uploaded._',
+    `_Recordings aligned at liftoff and resampled onto a shared time base. A cross-check of the recordings, never a verdict. Made with [Debrief](https://debrief.fusionspace.co) — parsed locally, never uploaded. ${buildLine()}._`,
   );
   return out.join('\n');
 }
@@ -1468,6 +1469,7 @@ export function analysisJson(
   const doc: Record<string, unknown> = {
     schema: 'debrief.flight/1',
     generatedBy: 'Debrief (debrief.fusionspace.co)',
+    ...buildFields(),
     source: flight.source,
     format: flight.formatLabel,
     ...(label ? { label } : {}),
@@ -1605,6 +1607,7 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
   const doc: Record<string, unknown> = {
     schema: 'debrief.comparison/1',
     generatedBy: 'Debrief (debrief.fusionspace.co)',
+    ...buildFields(),
     alignment: 'liftoff',
     ...(label ? { label } : {}),
     ...(userNotes ? { notes: userNotes } : {}),

@@ -2075,10 +2075,48 @@ record from slice 1, which before this run did not exist. Pinned by `lib/canonic
 have come back as a different flight, which is why it is refused"*, which asserts the exporter's own
 header trio, the roles the generic path WOULD have assigned, and the refusal — falsified.
 
-**What is left.** Slice 3: the multi-source STRUCTURE, which is the *done when*'s remaining clause — a
-flight with two recordings must not flatten, a stitched composite must keep its stages, and slice 1
-round-trips ONE recording. Slice 4: the version stamp (`COMPETITION.md` row 36) so a record says which
-methods wrote it.
+**Slice 4 SHIPPED 2026-08-08 — every document a flyer keeps names the build that wrote it**, which
+resolves `COMPETITION.md` row 36 the same run it was opened. Debrief's methods change most weeks, so
+a cert package filed in March and questioned in June needs to be able to say which version produced
+its numbers; AltosUI's CSV writer stamps its own version and Debrief stamped nothing.
+`scripts/stamp-version.mjs` had been writing `public/version.json` at every build since forever and
+**nothing in `app/`, `components/` or `lib/` read it** — zero matches. It is now inlined into the
+bundle by `next.config.mjs`, which READS that same file rather than re-deriving the sha, so the git
+logic stays in one place; and it is inlined at build time rather than fetched, because these
+documents are written in a browser that may be at a launch site with no signal. Carried by the .txt,
+.md and .html reports, the analysis .json and the canonical record. **Deliberately NOT the data
+CSV** — a CSV has no comment syntax every reader agrees on, and that export exists to be pasted into
+a spreadsheet; the .json beside it in the same ZIP carries the stamp. Pinned by
+`lib/buildInfo.test.ts` (9 cases), which enumerates the documents rather than spot-checking, so a
+seventh export that forgets fails — falsified three ways, including one that catches the stamp
+growing a word like "validated", since an identifier must not drift into a claim about correctness.
+
+**What is left. Slice 3 is the multi-source STRUCTURE, and it is now scoped in detail rather than
+just named.** The *done when*'s remaining clause: a flight with two recordings must not flatten, and
+a stitched composite must keep its stages. Established by reading the code:
+
+- **The grouping is one optional string per logbook ROW** — `RecentMeta.flightId` (`lib/recents.ts:46`):
+  absent means a flight of its own, equal-to-own-id means this recording reports the flight, any
+  other id means the flight reported by that row (`lib/flightGroups.ts:15`). Nothing about it is in
+  `RawFlight`, so the canonical record structurally cannot hold it today — `CanonicalRecord` is keyed
+  off `RawFlight` with `satisfies`.
+- **The composite is entirely derived and stores nothing** except the flyer's first-stage statement,
+  which lives in `localStorage` under `debrief.firstStage` keyed by device-local logbook ids, and is
+  NOT in the logbook backup.
+- **No import path sets `flightId` today**, but it is not a type barrier: `IncomingFlight` already
+  permits it, and `lib/ingest.ts:357` already runs a second pass after the read loop — once every
+  file's `savedId` is known — to pair summaries and high-rate halves. That is exactly where a
+  grouping can be applied, using the same `planGrouping` + `setFlightIds` the manual join and the
+  proposal banner already use.
+
+So the slice is: the record carries the flyer's grouping statement as an optional block OUTSIDE the
+`RawFlight` fields, `downloadRecord` passes it (the report already has `recordings` and
+`recordingId`), and the drop path restores it in that existing second pass — applying only to rows
+that state no grouping, which is `proposeGroups`'s own rule. **This is reading the flyer's statement
+rather than inferring a grouping**, which `lib/flightGroups.ts:11` forbids; a statement they made
+earlier is stronger evidence than the filename-stamp proposal already shipped. Slice 5 would be the
+composite's stage order, which needs the same treatment for a statement that currently lives outside
+the logbook entirely.
 
 **Outcome.** Any of the ten formats goes in, one canonical file comes out, and dropping that file back
 in returns the same flight.

@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-08 — "Save record" on a CROPPED report writes only the cropped samples, and the file
+  does not say a crop happened.** `components/FlightReport.tsx` passes the report's `flight`, and
+  that is already the sliced one: `components/Analyzer.tsx:280` and `:363` pass `sliceFlight(...)`
+  whenever a read window or chosen extent applies. So a flyer who trims a recording and then saves
+  the record gets a file whose samples outside the window are **absent rather than excluded**, on
+  the original clock, with nothing recording that a choice was made. Round-trips perfectly and is
+  still the wrong artifact: the crop is the flyer's statement about a recording, and the recording
+  is what the record is for. Found while scoping D11 slice 3, in what slice 1 shipped. The fix is
+  the same one slice 3 needs anyway — the record carrying the flyer's statements (`RecentFlight.read`
+  is already stored in SECONDS for exactly this reason, `lib/recents.ts:101`) rather than baking
+  them into the samples.
 - **2026-08-08 — `crossCheck()`'s apogee spec carries neither the `soft` nor the `partial` marker.
   The SPEC GAP is verified by reading; the corpus case filed with it is UNREPRODUCED.**
   `lib/compare.ts:423`. Verified: the apogee spec has no `soft`, while `soft` is documented as

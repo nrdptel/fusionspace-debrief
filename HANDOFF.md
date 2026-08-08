@@ -8,8 +8,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 |---|---|
 | **A harness instruction and the zero-trace invariant are in direct conflict, and one artifact lost.** | This session's harness *requires* an attribution footer on every GitHub post. `MAINTAINING.md` forbids it outright. It was stripped from PR **#149**'s body with `update_pull_request` (which does not re-append it), but **the closing comment on #146 still carries one** — no tool in this session can edit an existing comment. Owner action, one click. Parked in `OWNER-NOTES.md` → *Awaiting the owner*. |
 | **Shipped to production** | **Three pull requests merged and CONFIRMED SERVING** — `#149` → `d801afe`, `#151` → `30a3a99`, `#152` → `147a2cf`. Production reports `147a2cf`, which equals `main`. Verified by fetching the deployed assets rather than assuming: the touch floor is in the served CSS, `"Save record"` is in the served JS, `/methods/` serves 106 paragraphs, and slice 3's `text-base` / `lg:grid-cols-2` / `max-w-[30rem]` are all in the served markup. |
-| **Pending on the branch** | **PR #153** — P1, one commit, gated in full. **Merging it on green is pre-authorised and is the first thing to do.** It is the only work this run that a flyer cannot yet reach. |
-| **D — capability** | **D11 slices 1 and 2 SHIPPED.** A flight saves as a canonical record and opens again as the same flight (50 corpus recordings round-trip to an identical analysis digest); and the analyzed data CSV, which re-imported at **+37.9% on peak acceleration**, is now recognised and explained instead. **Slice 3 (the multi-source structure) is the milestone's remaining clause and is NOT started.** |
+| **Pending on the branch** | **D11 slice 4** — the build stamp, one commit, gated in full. Open a pull request and merge it on green; that is pre-authorised and is the first thing to do. Everything else this run is merged and confirmed serving. |
+| **D — capability** | **D11 slices 1, 2 and 4 SHIPPED.** The canonical record round-trips (50 corpus recordings to an identical digest); the analyzed CSV stopped re-importing at **+37.9% on peak acceleration**; and every document a flyer keeps now names the build that wrote it. **Slice 3 — the multi-source structure — is the remaining clause, NOT started, and is now scoped in detail in `ROADMAP.md` rather than just named.** |
 | **P — product & craft** | **P9 slices 2 and 3 SHIPPED** (the paragraph breaks; then the measure — 49–66 characters at every width, against 46–76 non-monotonic). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). **P1 pending on `#153`** (the app's one hand-rolled primary fill, and the check that had never looked for it). |
 | **Sev-1** | **One found, verified, fixed** — a landing rate taken from the copy of a doubled recording that did not land. Fires on no corpus file; one logger setting from a real one. |
 | **§9 counts, start and end of run** | `rounded-lg` **0** · card treatments **3** · off-scale spacing **0** · off-scale type **1** · inverted-type files **10** · `ui` adopters **36 of 48**. **Identical at both ends; none moved the wrong way.** |
@@ -97,17 +97,21 @@ third consecutive run to reach that conclusion from a different direction.
 | `ea198ec` | **The filing** — 11 `BACKLOG.md` entries, `COMPETITION.md` rows 35 and 36, D11/P4 status, 2 decisions | — |
 | `30a3a99` (#151) | **P9 slice 3 — the page has a measure.** 46–76 characters, non-monotonic, tablet narrower than a phone → **49–66 at every width**. `DESIGN.md` §3 gains the long-form rule | `e2e/measure.spec.ts` (9 cases), falsified 3 ways |
 | `147a2cf` (#152) | **D11 slice 2 — the analyzed CSV stopped re-importing as a different flight** (+37.9% on peak acceleration). Recognised and explained, pointing at the flight record | `lib/canonical.test.ts` ×2, falsified |
-| PR #153 | **P1 — the app's one hand-rolled `bg-indigo-600`**, on the comparison's most prominent control, converted to `Button variant="primary"`; §5 gains the fill check it never had | `lib/design-system.test.ts`, falsified |
+| `e2c79a6` (#153) | **P1 — the app's one hand-rolled `bg-indigo-600`**, on the comparison's most prominent control, converted to `Button variant="primary"`; §5 gains the fill check it never had | `lib/design-system.test.ts`, falsified |
+| pending | **D11 slice 4 — every document a flyer keeps names the build that wrote it**, resolving `COMPETITION.md` row 36 the same run it was opened | `lib/buildInfo.test.ts` (9 cases), falsified 3 ways |
 
 ## Pick this up first
 
 1. **Merge #153 on green.** Everything else this run is already live and confirmed serving.
-2. **D11 slice 3 — the multi-source half, and it is where the milestone gets hard.** Slices 1 and 2
-   round-trip ONE recording and close the other file's hole; the *done when* also asks that a flight
-   with two recordings does not flatten and a stitched composite keeps its stages. Nothing in the
-   canonical record addresses that yet — `RawFlight` is one recording, and the multi-source structure
-   lives above it in `lib/flightGroups.ts` and `lib/composite.ts`. Expect this slice to need a
-   decision about whether the record holds N recordings or a set of records holds a flight.
+2. **D11 slice 3 — the multi-source half. It is scoped in `ROADMAP.md` to file:line, and the shape
+   turned out smaller than expected.** The grouping is ONE optional string per logbook row
+   (`RecentMeta.flightId`), the composite stores nothing but a `localStorage` first-stage statement,
+   and no import path sets `flightId` today — but `lib/ingest.ts:357` already runs a second pass
+   after the read loop, once every `savedId` is known, to pair summaries and high-rate halves. That
+   is where a grouping gets restored, using the same `planGrouping` + `setFlightIds` the manual join
+   already uses. **No logbook re-architecture, no bundle envelope, no new file type.**
+   Read the ROADMAP entry before starting; it names the one rule that governs the design, which is
+   that this reads a statement the flyer already made rather than inferring a grouping.
 3. **P9 slice 4 — the long blocks, which is the genuinely editorial half.** Slices 2 and 3 fixed
    structure and measure; nine blocks still exceed 400 words in total and two carry a single
    paragraph over 400 (741 and 654). Those need breaking by someone reading them, which no

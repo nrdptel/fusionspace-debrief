@@ -36,6 +36,7 @@
 //      fall out and a reader that defaults it read the same flight at two different peak
 //      accelerations.
 
+import { buildFields } from './buildInfo';
 import type { Channel, ChannelKind, PredictedTrace, RawFlight, ReportedValue } from './flight/types';
 import type { FlownAt } from './flight/flownAt';
 import type { RepeatedSpan } from './highRateRepeats';
@@ -116,6 +117,12 @@ interface CanonicalPredicted {
  */
 interface CanonicalRecord {
   schema: typeof CANONICAL_SCHEMA;
+  /** Which build of Debrief wrote this file. Not part of the flight — `fromCanonical` ignores it,
+   *  and it is deliberately absent from the field-by-field round-trip comparison, because it says
+   *  nothing about the measurement. It is here so a record archived in March can be traced to the
+   *  code that read it when a number is questioned in June. See `lib/buildInfo.ts`. */
+  build?: string;
+  builtAt?: string;
   source: string;
   format: string;
   formatLabel: string;
@@ -154,6 +161,7 @@ const decodeSeries = (a: readonly Scalar[]): Float64Array => {
 export function toCanonical(flight: RawFlight): string {
   const record = {
     schema: CANONICAL_SCHEMA,
+    ...buildFields(),
     source: flight.source,
     format: flight.format,
     formatLabel: flight.formatLabel,
