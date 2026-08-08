@@ -121,7 +121,12 @@ function Method({ id }: { id: MethodId }) {
       <h3 id={id} className="scroll-mt-12 text-base font-medium text-zinc-800 dark:text-zinc-200">
         {title}
       </h3>
-      <p className="mt-1 max-w-3xl">{body}</p>
+      {/* A DIV, not a `<p>`. Until 2026-08-08 this wrapped each block's whole body in one
+          paragraph, so **no block on this page could have a second one** — the wall owner note
+          ON-1 describes was structural rather than editorial. The bodies carried 14 standalone
+          `{' '}` lines sitting exactly where a break was intended, every one of them in front of
+          a `<strong>` opening a new topic sentence, and JSX rendered each as a single space. */}
+      <div className="mt-1 max-w-3xl space-y-3">{body}</div>
     </div>
   );
 }

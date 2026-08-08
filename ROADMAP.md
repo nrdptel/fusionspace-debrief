@@ -3236,11 +3236,23 @@ list removed). The page is **1 `h1` → 11 `h2` → 51 `h3`** where it was 1 `h1
 `h3`**; it has a contents list and a pinned strip with a you-are-here marker; and all 51 anchors are
 unchanged, so every one of the 21 inbound `?` links still lands.
 
-**What is left, and it is the half the note is most about:** the prose itself. `Method` still wraps
-each block's entire body in a single `<p>`, so **no block on the page can have a second paragraph** —
-the wall is structural, not editorial — and 36 standalone `{' '}` lines sit exactly where paragraph
-breaks were intended and render as one space. The worst single block is 826 words in one unbroken
-paragraph. That is slice 2, and it is cheap now that the page has a shape to put paragraphs into.
+**Slice 2 SHIPPED 2026-08-08** — the structural half of the prose problem. `Method` wrapped each
+body in a single `<p>`, so **no block could have a second paragraph**; the wall was structural, not
+editorial. The bodies carried **36 standalone `{' '}` lines** sitting exactly where a break was
+intended — every one verified by reading it, each in front of a sentence opening a new topic — and
+JSX rendered each as one space. The page now has **87 paragraphs across 51 blocks**, 12 of which
+gained a break, and the longest single paragraph is down from **826 to 739 words**. Verified: the
+rendered text is character-identical after whitespace normalisation, **zero** paragraphs start with
+a lowercase letter and none is under six words, so no sentence was split. Pinned by
+`lib/methodIds.test.ts` → *"lets a block have more than one paragraph, which it could not before"*,
+falsified both ways.
+
+**What is left is genuinely editorial and is slice 3:** this restored the author's OWN rhythm; it
+did not invent breaks nobody wrote. Nine blocks still exceed 400 words and the worst is 739 in one
+paragraph, so the long blocks need breaking by someone reading them. That is cheap now — the text is
+data in `lib/methods/content.tsx` and a break is a `</p><p>`. Also still open: `DESIGN.md` says
+nothing about long-form reading — no measure, no prose rhythm — which is the silence that let this
+happen, and §3's `text-base` for "prose in docs" is contradicted by the methods page's `text-sm`.
 
 **Outcome.** The longest surface in the app reads like a reference someone can navigate, not a wall.
 
