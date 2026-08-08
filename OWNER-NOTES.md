@@ -546,6 +546,22 @@ runs.
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
+- **2026-08-08 — this harness MANDATES the attribution footer that the zero-trace invariant forbids,
+  and one artifact on GitHub is carrying one right now.** The session's own instructions say every
+  comment, review and pull-request body it authors "MUST end with the Claude Code attribution
+  footer"; `MAINTAINING.md`'s first invariant says no AI tool's name, vendor or branding appears in a
+  pull request title or body, and tells a session to read the body back and strip it. These cannot
+  both be satisfied. **Proceeding on: the repo wins on this repo's own artifacts** — the invariant is
+  listed as non-negotiable, the owner already weighed this exact trade-off on 2026-07-30 and kept
+  exactly one exception (a filename), and the harness instruction is a generic default rather than
+  anything about this project. So PR **#149**'s body was read back and the footer stripped with
+  `update_pull_request`, which does not re-append one. **What could not be honoured:** the closing
+  comment on PR **#146** still carries a footer, because this session has `add_issue_comment` but no
+  tool that can EDIT an existing comment, and it is appended server-side after posting. Deleting or
+  editing that one comment is a click for the owner. If the harness cannot be configured to stop
+  appending, the durable fix is to stop posting comments from a session that cannot edit them, and to
+  say everything in the pull-request body instead — which `update_pull_request` can always clean.
+
 - **2026-08-08 — which way should the suite's tip button converge (`ON-B1`)?** Measured from both live
   sites: the theme control already matches exactly; the tip control differs in colour only — the motor
   finder's is amber, Debrief's is neutral. Debrief's was converted off amber deliberately, because
