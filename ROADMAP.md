@@ -2108,6 +2108,26 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
+**2026-08-08 — the app's ONLY hand-rolled primary fill converted, and §5 gained the check that
+would have caught it.** `components/CompareSurface.tsx`'s "Choose flight logs" — the comparison
+surface's single most prominent control — was a styled `<label>` carrying `rounded-md bg-indigo-600
+px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500`. The only `bg-indigo-600` outside
+`ui.tsx`, and off §4's scale where the primitive is `px-3 py-1.5`. It now uses `Button
+variant="primary"` over a hidden input, which is `DropZone`'s idiom — so the two file-entry surfaces
+share one rather than resembling each other. `Button` adopters **20 → 21**.
+
+The check is the durable half, and writing it found something worth recording: §5's existing
+hand-roll scan looks for `text-indigo-`, the weight that lives inside a sentence, and nothing looked
+for the FILL. **The first version of the new check matched `bg-indigo-\d+` and named four more
+files** — `FlightPicker`, `RecordingPicker`, `SampleTable`, `FlightReport` — every one of which is
+`bg-indigo-50` / `bg-indigo-950/40`, §2's *"interactive, selected"* tint on a current segment, a
+selected row or a pressed chip. **Correct usage.** Converting them would have broken four right
+things to fix one wrong one, so the check narrowed to the saturated levels the primitive itself
+uses (600 light, 500 dark), with the reason written into it. It also scans class ATTRIBUTES rather
+than raw text, because the conversion left a comment naming the string it removed and a raw grep
+counts that comment as a violation — a check that goes red on its own explanation is one somebody
+deletes.
+
 **2026-08-04 — `ChipButton` shipped, and §5 gained its sixth word.** The vocabulary was short a name
 for **a chip that DOES something** — a filter you toggle, an action on a row — and the scan that
 was supposed to catch hand-rolls could not see them: it read `<span|li|div>` only, so every

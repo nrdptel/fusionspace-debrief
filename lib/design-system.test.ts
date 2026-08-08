@@ -501,7 +501,13 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  eight sites converted — read the two numbers together. */
   /** 19 → 20 on 2026-08-08: `MetricGrid`, whose "Read this on the methods page" is §5's `link`
    *  weight inside the popover that replaced the navigating one. */
-  Button: 20,
+  /** 20 → 21 on 2026-08-08: `CompareSurface`, whose "Choose flight logs" was the app's ONLY
+   *  hand-rolled `bg-indigo-600` — the comparison surface's single most prominent control, written
+   *  as a styled `<label>` at `px-4 py-2` where §4's scale and the primitive both say `px-3 py-1.5`.
+   *  It now uses `Button variant="primary"` over a hidden input, which is `DropZone`'s idiom, so
+   *  the two file-entry surfaces share one rather than resembling each other. Pinned going forward
+   *  by §5's "keeps the primary fill inside the primitive". */
+  Button: 21,
   /** 3 → 7 on 2026-08-03 with §5's semantic chip tones. `DeviceSummary`, `GpsApogee`,
    *  `FlightReport` and `LogDetails` were hand-rolling a chip, and **the grep below counted 12
    *  hand-rolled chip-shaped elements on `main` over THREE padding combinations** —
@@ -1089,6 +1095,45 @@ describe('DESIGN.md §5 — the fifth button weight', () => {
     expect(
       offenders,
       `hand-rolled link-weight buttons — use <Button variant="link">, DESIGN.md §5:\n  ${offenders.join('\n  ')}`,
+    ).toEqual([]);
+  });
+
+  /**
+   * The PRIMARY fill belongs to the primitive, and only to it.
+   *
+   * `link`'s hand-roll check above looks for `text-indigo-`, which is the weight that lives inside
+   * a sentence. This one looks for the FILL — `bg-indigo-600` — which is the loudest treatment in
+   * the app and the one a surface reaches for when it wants its call to action to stand out. Until
+   * 2026-08-08 exactly one existed outside `ui.tsx`: `components/CompareSurface.tsx`'s "Choose
+   * flight logs", written as a styled `<label>` at `rounded-md bg-indigo-600 px-4 py-2` — off §4's
+   * scale, where the primitive is `px-3 py-1.5`. It was the comparison surface's single most
+   * prominent control, and it had drifted from every other button in the app.
+   *
+   * Scanned on class ATTRIBUTES rather than raw text, for the reason §9 records about its own
+   * greps: the fix for this left a comment in that file naming the string it removed, and a raw
+   * `grep -r bg-indigo-600` counts that comment as a violation. A check that goes red on its own
+   * explanation is a check somebody deletes.
+   */
+  it('keeps the primary fill inside the primitive', () => {
+    const offenders: string[] = [];
+    for (const f of uiSources(['components', 'app'], ['.tsx'])) {
+      if (f.path.endsWith('components/ui.tsx')) continue;
+      for (const m of f.text.matchAll(/class(Name)?=(?:"([^"]*)"|\{`([^`]*)`\}|\{'([^']*)'\})/g)) {
+        const classes = m[2] ?? m[3] ?? m[4] ?? '';
+        // The SATURATED levels only. `bg-indigo-50` and `bg-indigo-950/40` are §2's
+        // "interactive, selected" tint — a selected row in `SampleTable`, the current segment in
+        // `FlightPicker` and `RecordingPicker`, a pressed range chip in `FlightReport` — and they
+        // are correct usage, not a hand-rolled button. A first version of this check matched
+        // `bg-indigo-\d+` and named all four of them, which would have converted four right
+        // things to fix one wrong one. The fill that belongs to the primitive is the one the
+        // primitive uses: 600 on light, 500 on dark.
+        if (!/\bbg-indigo-(?:500|600|700)\b/.test(classes)) continue;
+        offenders.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length}`);
+      }
+    }
+    expect(
+      offenders,
+      `hand-rolled primary fill — use <Button variant="primary">, DESIGN.md §5:\n  ${offenders.join('\n  ')}`,
     ).toEqual([]);
   });
 
