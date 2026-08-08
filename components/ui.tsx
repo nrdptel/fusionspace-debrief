@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 
 import { copyTable } from '@/lib/copyTable';
+import { useCurrentSection } from './useCurrentSection';
 import { TOUCH_TARGET, TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
 
 /**
@@ -530,6 +531,13 @@ export function IconButton({
   ...rest
 }: {
   variant?: ButtonVariant;
+  /** Declared for the same reason `Button` declares it: React 19 passes `ref` to a function
+   *  component as an ordinary prop, but `ButtonHTMLAttributes` does not carry it, so without this
+   *  line the type is the only thing stopping a surface that returns focus from using this
+   *  primitive. `Popover`'s close control is the first that needs it — `useReturnFocus` holds the
+   *  safe way out by ref, and hand-rolling a `<button>` to get one back is the hand-roll §5 exists
+   *  to remove. */
+  ref?: React.Ref<HTMLButtonElement>;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
@@ -630,6 +638,7 @@ export function Figure({
   title,
   unit,
   note,
+  caveat,
   children,
 }: {
   id?: string;
@@ -639,6 +648,18 @@ export function Figure({
   unit?: string;
   /** A short qualifier for the title row — what the trace is, or where it stops. */
   note?: React.ReactNode;
+  /** §5's *extrapolated / out-of-envelope* state: this curve is drawn but cannot be believed.
+   *
+   *  **Added 2026-08-08, and it is the state §5 has always asked a `Figure` for.** It was left
+   *  out when this primitive was written, correctly at the time — the `empty` prop that shipped
+   *  alongside it was removed because no surface could reach it, and a guard that fires on
+   *  nothing is worse than none. This one is the opposite case, measured: **15 of 50 analysable
+   *  corpus recordings** reach the report with `series.velocityUnusable` set and a finite trace,
+   *  and the Velocity chart drew every one of them as an ordinary measurement.
+   *
+   *  It is `warn`, not `danger`: the curve is still there on purpose, so a mis-scaled column can
+   *  be seen and diagnosed. What is refused is the reading taken off it. */
+  caveat?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -649,6 +670,11 @@ export function Figure({
         </h3>
         {note && <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>}
       </div>
+      {caveat && (
+        <Notice as="p" tone="warn" className="mb-2 text-xs">
+          {caveat}
+        </Notice>
+      )}
       {children}
     </Card>
   );
@@ -1024,6 +1050,246 @@ export function Disclosure({
       </summary>
       <div className="mt-3 space-y-4 text-zinc-600 dark:text-zinc-400">{children}</div>
     </details>
+  );
+}
+
+/** A pinned strip of in-page links with a you-are-here marker — `DESIGN.md` §5.
+ *
+ *  **Lifted out of `components/FlightReport.tsx` on 2026-08-08, where it was hand-rolled, because
+ *  the surface that needed it most did not have it.** The report grew this strip when it reached
+ *  nine screens on a phone; `app/methods/page.tsx` is ~12,700 words in 51 blocks and had no
+ *  in-page navigation of any kind — no contents, no strip, no back-to-top — which is most of
+ *  `OWNER-NOTES.md` `ON-1`. One surface solving a problem privately while the worse instance of
+ *  it goes unserved is exactly what a primitive layer is for.
+ *
+ *  `sticky` rather than `fixed`: until the reader has scrolled past where it already sat, it
+ *  costs nothing at all. It scrolls sideways rather than wrapping, because a jump bar that takes
+ *  a screen of its own to read is not a fix for a long page. Hidden in print, where every section
+ *  is already on the paper.
+ *
+ *  Targets need a `scroll-margin-top` so a heading lands below the strip rather than under it. */
+export function SectionNav({
+  label,
+  items,
+  className,
+}: {
+  /** Names the landmark: "Jump to a section of this report". */
+  label: string;
+  items: { id: string; label: string }[];
+  className?: string;
+}) {
+  // The hook measures from the strip's own bottom edge, because that is the line a reader
+  // actually reads from — the strip covers everything above it. Its default selector is
+  // `nav[aria-label^="Jump to a section"]`, which matched the report's label and NOT this
+  // page's ("Jump to a subject on this page"), so the you-are-here marker would have measured
+  // against the viewport top on the surface it was added for and drifted by the strip's height.
+  // Handing it this nav's exact label cannot go stale the way a shared prefix can.
+  const current = useCurrentSection(
+    items.map((i) => i.id),
+    `nav[aria-label="${label}"]`,
+  );
+  if (items.length === 0) return null;
+  return (
+    <nav
+      aria-label={label}
+      className={cx(
+        'sticky top-0 z-20 -mx-1 overflow-x-auto bg-white px-1 py-2 print:hidden dark:bg-zinc-950',
+        className,
+      )}
+    >
+      <ul className="flex w-max items-center gap-1.5 text-xs">
+        {items.map((j) => {
+          const here = j.id === current;
+          return (
+            <li key={j.id}>
+              <a
+                href={`#${j.id}`}
+                // `location`, not `page` or `true`: this marks where in the document the reader
+                // is, which is exactly what the token means. A screen reader then says "current
+                // location" on the one chip that is, and nothing on the rest.
+                {...(here ? { 'aria-current': 'location' as const } : {})}
+                className={cx(
+                  'inline-flex shrink-0 items-center rounded-md border px-2 py-1 font-medium transition',
+                  here
+                    ? 'border-zinc-400 bg-zinc-100 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100'
+                    : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
+                )}
+              >
+                {j.label}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/** An explanation or a small set of controls, opened from a trigger and shown OVER the surface —
+ *  `DESIGN.md` §5.
+ *
+ *  **Not a tooltip.** A tooltip is hover-only, which is nothing on a phone, and it carries a phrase.
+ *  This is click- and tap-activated, keyboard-reachable and dismissible, and it carries a paragraph.
+ *
+ *  Three things it owns so no call site has to get them right:
+ *
+ *  1. **Dismissal tells the two exits apart.** `Escape` returns focus to the trigger, because the
+ *     reader asked to leave and has nowhere else to be. A click outside does NOT, because they have
+ *     already put their focus somewhere deliberately and yanking it back is the more surprising of
+ *     the two. `useReturnFocus` supplies the first; the second is a plain close.
+ *  2. **Below `sm` it anchors to the VIEWPORT, not to the trigger.** Measured 2026-08-04 on the units
+ *     panel this replaces: right-anchored to a control near the right edge, it ran from −39 px to 201
+ *     at a 375 px viewport and cut off the whole left column — the one holding "Altitude", "Speed"
+ *     and the rest of the labels. The page itself never scrolled sideways, so nothing watching
+ *     document width could see it. It was fixed at the one call site that had been measured; it
+ *     belongs here.
+ *  3. **A visible way out.** A surface a flyer can open and not obviously shut is the craft bar's
+ *     "state with no way back out", and on touch there is no `Escape` key to fall back on. */
+export function Popover({
+  trigger,
+  label,
+  description,
+  title,
+  align = 'end',
+  width = 'w-72',
+  triggerVariant = 'secondary',
+  triggerSize = 'sm',
+  triggerClassName,
+  className,
+  children,
+}: {
+  /** What the trigger shows. */
+  trigger: React.ReactNode;
+  /** An accessible name for a trigger whose visible content is a GLYPH — a `?`, an icon.
+   *
+   *  **Omit it whenever the trigger shows words, and that is not a style preference.** An
+   *  `aria-label` REPLACES the visible text in the accessible name, so a button reading "per
+   *  quantity" named "Choose the unit for each quantity…" fails WCAG 2.5.3 *Label in Name* and
+   *  stops answering to voice control — someone saying "click per quantity" hits nothing. The
+   *  `<summary>` this primitive replaced had the visible words as its name and the sentence as
+   *  its `title`, which is exactly right; the first version of this primitive made `label`
+   *  required and undid it at the only call site there was. Put the sentence in `description`. */
+  label?: string;
+  /** The hover/`title` sentence. Supplements the accessible name; never replaces it. */
+  description?: string;
+  /** The panel's heading — REQUIRED, and it is `Card`'s own `title` rather than a heading this
+   *  primitive writes out. A panel carrying a close control and no heading puts the ✕ at the
+   *  left edge of `Card`'s `justify-between` row with nothing opposite it, and more to the
+   *  point a panel that does not say what it is has failed at the one job it has. */
+  title: React.ReactNode;
+  /** Which edge of the trigger the panel lines up with, at `sm` and wider. */
+  align?: 'start' | 'end';
+  /** Panel width at `sm` and wider. Below that the viewport decides — see the note above. */
+  width?: string;
+  triggerVariant?: ButtonVariant;
+  triggerSize?: 'sm' | 'md';
+  triggerClassName?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const close = React.useCallback(() => setOpen(false), []);
+  const { triggerRef, safeRef, dismiss } = useReturnFocus(open, close);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const panelId = React.useId();
+
+  // **Both exits land focus somewhere on purpose, and an earlier version of this did not.**
+  // The primitive moves focus INTO the panel on open (`useReturnFocus` focuses the safe control),
+  // so when the panel unmounts it OWES focus a home: a click on empty page left `document.
+  // activeElement` on `<body>`, which `useReturnFocus`'s own doc calls the exact bug it exists to
+  // prevent. It is restored only when focus would otherwise be lost — if the outside click landed
+  // on something focusable, that is where the reader meant to go and taking it back is worse.
+  const closeAndKeepFocusSomewhere = React.useCallback(() => {
+    const lost = () => {
+      const el = document.activeElement;
+      return !el || el === document.body || panelRef.current?.contains(el) === true;
+    };
+    close();
+    // After the click has settled, so `activeElement` is whatever the browser gave it.
+    requestAnimationFrame(() => {
+      if (lost()) triggerRef.current?.focus();
+    });
+  }, [close, triggerRef]);
+
+  // A click outside. `pointerdown` rather than `click` so the panel is gone before whatever was
+  // clicked reacts; `capture` so a handler inside the page that stops propagation cannot leave
+  // the popover stranded open.
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      closeAndKeepFocusSomewhere();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [open, closeAndKeepFocusSomewhere, triggerRef]);
+
+  // **Escape is bound to the DOCUMENT, not to the wrapper, and the difference is a trap.** Bound
+  // to the wrapper it works only while focus is inside it — Tab twice out of the panel and the
+  // key stops closing anything, which is the "state with no way back out" this primitive is
+  // supposed to own, for the one user a `<details>` served correctly.
+  React.useEffect(() => {
+    if (!open) return;
+    // Bubble phase, and NOT `stopPropagation`. In capture this would run ahead of the panel's
+    // own content — a native `<select>` open inside it takes Escape first and should — and
+    // swallowing the key would take it from every ancestor on a surface that is not this one.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, dismiss]);
+
+  return (
+    <span className={cx('relative inline-flex print:hidden', className)}>
+      <Button
+        ref={triggerRef}
+        variant={triggerVariant}
+        size={triggerSize}
+        className={triggerClassName}
+        // `dialog`, because that is what opens. `aria-expanded` alone is the DISCLOSURE pattern's
+        // attribute, and a screen reader announcing "collapsed" for a dialog describes the wrong
+        // widget — the `<summary>` got this right natively and had to be replaced carefully.
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        {...(label ? { 'aria-label': label } : {})}
+        {...(description ? { title: description } : {})}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {trigger}
+      </Button>
+      {open && (
+        <Card
+          id={panelId}
+          ref={panelRef}
+          role="dialog"
+          aria-label={typeof title === 'string' ? title : (label ?? description)}
+          // `Card`'s own title/actions row, not a hand-rolled one. The first version wrote the
+          // heading and the close control out by hand at `text-sm`, which is a SECOND card
+          // heading treatment invented inside the primitive whose whole job is to stop that.
+          title={title}
+          actions={
+            <IconButton ref={safeRef} className="-mr-1 -mt-1" aria-label="Close" onClick={dismiss}>
+              <span aria-hidden="true">✕</span>
+            </IconButton>
+          }
+          className={cx(
+            'absolute top-full z-30 mt-1 text-left shadow-lg',
+            width,
+            align === 'end' ? 'right-0' : 'left-0',
+            // The viewport anchoring. `inset-x-3` rather than `inset-x-0` so the panel keeps the
+            // page's own gutter instead of running edge to edge, and `w-auto` because a fixed
+            // width and two insets cannot both be honoured.
+            'max-sm:fixed max-sm:inset-x-3 max-sm:top-auto max-sm:w-auto',
+          )}
+        >
+          <div className="text-sm text-zinc-600 dark:text-zinc-400">{children}</div>
+        </Card>
+      )}
+    </span>
   );
 }
 

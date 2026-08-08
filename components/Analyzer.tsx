@@ -42,7 +42,7 @@ import {
 } from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
-import { decodeBytes } from '@/lib/encoding';
+import { SAMPLES, type Sample } from '@/lib/samples';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
@@ -105,7 +105,6 @@ type State =
       recognised?: boolean;
     };
 
-const SAMPLE_URL = '/samples/sample-altusmetrum.csv';
 
 /** What to say when a dropped folder yielded nothing. Shared by both surfaces that take a
  *  drop, so they cannot describe the same gesture two different ways. */
@@ -538,18 +537,46 @@ export default function Analyzer() {
     [onFile, logbook.refresh, beginLoad],
   );
 
-  const onSample = useCallback(async () => {
-    setState({ phase: 'loading', what: { name: 'the sample flight' } });
-    try {
-      const res = await fetch(SAMPLE_URL);
-      if (!res.ok) throw new Error('sample missing');
-      const text = decodeBytes(new Uint8Array(await res.arrayBuffer()));
-      await tick();
-      await ingest('sample-altusmetrum.csv', text);
-    } catch {
-      setState({ phase: 'error', message: 'The sample flight could not be loaded — it is fetched from this site, so a lost connection is the usual cause.' });
-    }
-  }, [ingest]);
+  /**
+   * Open a sample — through the SAME path a dropped file takes, which the old one did not.
+   *
+   * It fetched one hardcoded URL, ran the bytes through `decodeBytes` and handed `ingest` a
+   * string. Two things followed from that, and both capped what a sample could ever be. The drop
+   * path uses `fileToText(name, bytes)`, which unzips an `.xlsx` and sniffs a UTF-16 BOM, so a
+   * sample could only ever be a UTF-8 text file — no `.pf2`, no `.eeprom`, no spreadsheet. And it
+   * passed no `bytes`, which `lib/parsers/types.ts` calls a lossy view for a binary download.
+   *
+   * Building real `File` objects and calling `onFiles` removes both, because it stops being a
+   * second path: one file goes to `onFile` and gets the column-mapper flow like any other, and
+   * several go to the batch import and land on a comparison. That is what lets a sample be two
+   * boards recording one flight, which is the capability that had no demonstration at all.
+   */
+  const onSample = useCallback(
+    async (sample: Sample) => {
+      setState({
+        phase: 'loading',
+        what: { name: sample.files.length > 1 ? `${sample.files.length} sample files` : 'the sample flight' },
+      });
+      try {
+        const files = await Promise.all(
+          sample.files.map(async (name) => {
+            const res = await fetch(`/samples/${name}`);
+            if (!res.ok) throw new Error(`sample missing: ${name}`);
+            return new File([await res.arrayBuffer()], name);
+          }),
+        );
+        await tick();
+        await onFiles(files);
+      } catch {
+        setState({
+          phase: 'error',
+          message:
+            'The sample flight could not be loaded — it is fetched from this site, so a lost connection is the usual cause.',
+        });
+      }
+    },
+    [onFiles],
+  );
 
   const onMappingSubmit = useCallback(
     async (mappings: ColumnMapping[]) => {

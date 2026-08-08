@@ -14,6 +14,48 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-08 — the report's Velocity chart is the ONE surface that does not say the speed trace
+  is unusable.** `components/FlightReport.tsx:1273` renders the `Velocity` `Figure` unconditionally
+  with the note "derived from altitude", never consulting `series.velocityUnusable` — while six
+  other surfaces do: the timeline reading NaNs it (`FlightReport.tsx:691`), the channel explorer
+  attaches "the peak speed the report refused, and why" to the SAME trace (`lib/explore.ts:201`),
+  the rail exit refuses (`RailExit.tsx:72`), the exports NaN it (`lib/report.ts:71`), the
+  comparison marks it unusable (`lib/compare.ts:164`) and drag refuses (`drag.ts:54`). **Measured
+  over the corpus: 15 of 50 analysable recordings reach the report with `velocityUnusable` set and
+  a finite trace** — 13 `implausible`, 2 `gap`. Not a wrong NUMBER (the chart publishes no
+  statistic, and `#135` established that the trace is drawn deliberately so a mis-scaled column
+  can be diagnosed), so not a Sev-1 — but it is a caveat present on six surfaces and absent from
+  the biggest rendering of the same data, which is the asymmetry `MAINTAINING.md` calls worse than
+  either alone. The fix is `Figure`'s extrapolated state, which §5 already specifies and this
+  Figure does not use.
+- **2026-08-08 — `burnoutVelocity` and `coastEfficiency` are gated on `velocityImplausible` alone
+  where `maxVelocity` is withheld on `velocityImplausible || ascentGapBreaksPeak`.**
+  `lib/analyze/index.ts:2914` and `:2726` against `:2058` and `:2862`. Real in the code and
+  **latent**: swept over the corpus, 2 of 50 recordings withhold on `gap` and both are Featherweight
+  GPS tracks with no detectable burnout, so the `burnoutIdx !== null` half of the gate catches them
+  and neither publishes anything. Reachable only by a file with a detectable burnout AND an ascent
+  gap that breaks the peak; no such file is in the corpus. Filed rather than guarded — a guard that
+  fires on zero real files is worse than nothing.
+- **2026-08-08 — `/methods#what-debrief-isnt` is the one anchor of 51 that does not land where a
+  jump should put it**: y=356 on a desktop and y=321 on a phone, against 48 px for every other. Not
+  a scroll-margin bug — it is the last block of the last group and the document has no scroll left.
+  `e2e/analyze.spec.ts:1365` asserts `top < 120` but only for `links.first()`, so the gate cannot
+  see it. Fixed for the you-are-here MARKER this run (`useCurrentSection` treats the bottom of the
+  document as the last section); the landing position needs the last group to carry more, or a
+  back-to-top block after it.
+- **2026-08-08 — two anchor pairs on `/methods` differ by one character.**
+  `#what-debrief-isn-t` (the group, slugged from a curly apostrophe) against `#what-debrief-isnt`
+  (the block), and `#several-recordings-of-one-flight` against `#several-recordings-one-flight`.
+  Not a collision today — `grep -o 'id="[^"]*"' out/methods/index.html | sort | uniq -d` is empty —
+  but 21 readings link into this page by id and a one-character difference is a silent wrong
+  landing waiting to happen. `groupId()` should reject a slug that is within one edit of a
+  `METHOD_ID`, in `lib/methodIds.test.ts`.
+- **2026-08-08 — the new `/methods` chips are below §8's touch floor, consistent with the report's
+  strip.** 11 strip chips at 26 px and 11 contents links at ~20 px on a 390 px viewport.
+  `e2e/touch.spec.ts` never visits `/methods`, and its `el.closest('p, li')` exemption would skip
+  the contents links anyway because they are `<li>` children. Pre-existing in the strip this was
+  lifted from rather than introduced — but §8 says the floor holds "everywhere, not just where it
+  was first measured", and the strip now exists on two surfaces instead of one.
 - **2026-08-05 — FIXED (`#135`), and the reported fix would have been wrong: the channel
   explorer publishes the peak speed the headline refuses.** Reproduced: eight corpus flights, and
   the split is the point — five `implausible` withholdings publish self-evident garbage (119,419.7
@@ -1440,8 +1482,12 @@ wild, ideas too big for one pass. One line each, newest first.
   which is the same drift item 3 of `ROADMAP.md` P1 turned out to have. The honest state, measured
   today over `components/` and `app/` and with comment lines excluded: `-2.5` at **11 sites** —
   `px-2.5` in the four note/label inputs (`FlightReport` ×2, `CompareView` ×2), `RecentFlights`'s
-  filter input, `FlightReport`'s section-nav chip, and `mt-2.5`/`mb-2.5` on four panel
-  descriptions (`GpsApogee` ×2, `RecognizedFormats`, `DeviceSummary`). The other three figures in
+  filter input, ~~`FlightReport`'s section-nav chip~~, and `mt-2.5`/`mb-2.5` on four panel
+  descriptions (`GpsApogee` ×2, `RecognizedFormats`, `DeviceSummary`). **Corrected 2026-08-08:
+  11 → 10.** The section-nav chip is gone — the strip became `SectionNav` in `components/ui.tsx`
+  and the primitive uses §4's `px-2`, so that site was converted by a lift rather than swept.
+  Which is the shape the caution below asks for: the occurrence went away because the treatment
+  moved into the system, not because someone removed a half-step the rule does not yet forbid. The other three figures in
   this entry are from the same stale sweep and should be re-measured before being spent against.
   **Do not read this as the entry being half-done**: a run that swept the rest without changing §4
   would be removing occurrences of a rule the file has not yet made.

@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
+import { SAMPLES, type Sample } from '@/lib/samples';
 import { Button, Card } from './ui';
 
 export default function DropZone({
@@ -10,7 +11,7 @@ export default function DropZone({
   busy,
 }: {
   onFiles: (files: File[]) => void;
-  onSample: () => void;
+  onSample: (sample: Sample) => void;
   busy: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,10 +45,28 @@ export default function DropZone({
           <Button variant="primary" onClick={() => inputRef.current?.click()} disabled={busy}>
             Choose files
           </Button>
-          <Button onClick={onSample} disabled={busy}>
-            Try a sample flight
+          <Button onClick={() => onSample(SAMPLES[0])} disabled={busy}>
+            {SAMPLES[0].label}
           </Button>
         </div>
+        {/* The other samples, in a sentence rather than as a row of equal buttons.
+            `DESIGN.md` §5 gives `link` to "the one weight that sits INSIDE a sentence", and
+            these are exactly that: a first-time visitor wants ONE obvious way in, not three
+            competing ones, and the rest are an aside for someone who has already seen a flight.
+            Until 2026-08-08 there was one sample and no aside — owner note ON-2. */}
+        {SAMPLES.length > 1 && (
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            or see what else it reads:{' '}
+            {SAMPLES.slice(1).map((s, i) => (
+              <span key={s.id}>
+                {i > 0 && ' · '}
+                <Button variant="link" onClick={() => onSample(s)} disabled={busy} title={s.shows}>
+                  {s.label}
+                </Button>
+              </span>
+            ))}
+          </p>
+        )}
         <input
           ref={inputRef}
           type="file"

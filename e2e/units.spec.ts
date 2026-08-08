@@ -6,10 +6,12 @@ import { test, expect } from '@playwright/test';
 // mph on screen and ft/s in the file it saved is worse than either.
 const read = (page: import('@playwright/test').Page) => page.locator('div.grid').first().innerText();
 
-/** The per-quantity panel's disclosure — a <summary>, so it isn't confused with the
- *  phrase "per quantity" in the page's own how-to copy. */
+/** The per-quantity panel's trigger. Matched on its accessible name rather than its text,
+ *  so it isn't confused with the phrase "per quantity" in the page's own how-to copy — it was
+ *  a <summary> for the same reason until `Popover` (`DESIGN.md` §5) took the hand-rolled
+ *  overlay over on 2026-08-08. */
 const panel = (page: import('@playwright/test').Page) =>
-  page.locator('summary').filter({ hasText: 'per quantity' });
+  page.getByRole('button', { name: 'per quantity', exact: true }).first();
 
 async function sampleFlight(page: import('@playwright/test').Page) {
   await page.goto('/');
@@ -24,7 +26,7 @@ test('a unit can be chosen per quantity, and it reaches every surface', async ({
 
   // Speed in mph, acceleration in m/s² — neither is in either named system.
   await panel(page).click();
-  const selects = page.locator('details select');
+  const selects = page.getByRole('dialog', { name: 'Units per quantity' }).locator('select');
   await selects.nth(1).selectOption('mph');
   await selects.nth(2).selectOption('m/s²');
 
@@ -65,7 +67,7 @@ test('a unit can be chosen per quantity, and it reaches every surface', async ({
 test('the choice rides in the URL and is remembered on this device', async ({ page }) => {
   await sampleFlight(page);
   await panel(page).click();
-  await page.locator('details select').nth(1).selectOption('km/h');
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').nth(1).selectOption('km/h');
   await expect(page).toHaveURL(/[?&]u=/);
   expect(await read(page)).toMatch(/km\/h/);
 
@@ -92,7 +94,7 @@ test('the choice rides in the URL and is remembered on this device', async ({ pa
 test('the feet/metres toggle still works, and clears any override', async ({ page }) => {
   await sampleFlight(page);
   await panel(page).click();
-  await page.locator('details select').nth(1).selectOption('kt');
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').nth(1).selectOption('kt');
   await expect(page.getByRole('button', { name: /Units:/ })).toContainText('custom');
 
   // One click back to a familiar system.

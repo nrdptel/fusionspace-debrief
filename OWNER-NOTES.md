@@ -186,7 +186,28 @@ structure for a page someone reads rather than scans.
 The fix is unlikely to be one page. Cross-applied to the sibling repo as its `ON-8` on the same
 reasoning.
 
-VERDICT: *(pending — first run to read this file)*
+VERDICT: **→ ROADMAP · 2026-08-08 · P9 — "The methods page is a document you can read"**, and the
+note is an understatement rather than an exaggeration. **Reproduced by measurement, not by
+impression:** `app/methods/page.tsx` is **1,205 lines carrying ~12,700 words in 51 `<Method>`
+blocks**, and the structure underneath them is flat — **51 sibling `<h2>`s at `text-base`, one `<h1>`,
+and zero `<h3>`**, laid out in a two-column `sm:grid-cols-2` grid with no grouping, no table of
+contents, no in-page navigation and no back-to-top. There is no third level of hierarchy anywhere on
+the page, so nothing tells a reader that "Apogee", "Velocity & max velocity" and "A GPS speed doesn't
+settle it either" are one subject and "Battery" is another.
+
+The mechanism the note guesses at is the right one, and it has a sharper form: **the page also imports
+nothing from the primitive layer** (`grep -c "components/ui" app/methods/page.tsx` → 0), so it is the
+largest surface in the app and the one least converted onto the design system. `DESIGN.md` says
+nothing about long-form reading — §3 is a type scale for data surfaces, §4 a spacing scale, and no
+section covers measure, prose rhythm, or the architecture of a page someone reads rather than scans.
+That gap is why every run could correctly update one sentence and none was ever asked what the page
+had become.
+
+**The fix already exists in this repo, applied to the wrong page.** `components/FlightReport.tsx:816`
+builds a pinned "Jump to a section" strip with a you-are-here marker backed by
+`components/useCurrentSection.ts`, written because the report ran nine screens on a phone. The methods
+page is longer than the report and has none of it. That strip is also hand-rolled inside one
+component, so lifting it into `components/ui.tsx` is P1 work that P9 pays for.
 
 ---
 
@@ -225,7 +246,47 @@ labelled synthetic on **every** surface that can carry it out of the app — the
 report, the comparison, the print card, and each of the `.txt`, `.md`, `.html`, `.csv`, `.json`,
 `.gpx` and `.kml` exports. Run the surface audit; do not trust memory for that list.
 
-VERDICT: *(pending)*
+VERDICT: **→ ROADMAP · 2026-08-08 · D10 — "A sample for every capability, and it says it is one"**.
+The note's premise is confirmed by measurement: `find public -type f | grep -i sample` returns
+**exactly one file**, `public/samples/sample-altusmetrum.csv`, offered from a single call site
+(`components/Analyzer.tsx:108`, `SAMPLE_URL`). One baro/GPS log from one logger family is the entire
+demonstration surface for ten parsers, the column-mapper, multi-recording reconciliation, per-stage
+stitching, the OpenRocket overlay and the report builder — so every shipped D-milestone except D2 is
+invisible to anyone who has not brought their own files.
+
+The filing answer above stands and is not re-litigated: the corpus cannot ship. The route is the
+owner's own — synthesized logs — and the constraint in the note body is adopted verbatim as the
+milestone's hardest *done when*: **labelled synthetic on every surface that can carry it out of the
+app, never counted in any accuracy or validation figure.** The surface audit is run as slice 1 rather
+than trusted from memory, because this repo's own history is that a caveat lands on one panel and a
+confident claim on another.
+
+One correction to the note's framing: the sample path is **not** a bypass of the parser — but it
+was a second path, and that mattered. It fetched one URL, ran the bytes through `decodeBytes` and
+handed `ingest` a string, where a dropped file goes through `fileToText(name, bytes)` (which unzips
+an `.xlsx` and sniffs a UTF-16 BOM) and carries its `bytes`. So a sample could only ever be a UTF-8
+text file, and only ever ONE file. Both are gone as of slice 1 — samples build real `File` objects
+and go through `onFiles`, the drop path itself.
+
+---
+
+**CORRECTION, 2026-08-08, and it changes the answer to the owner's actual question.** The verdict
+above says the fixtures cannot ship, and that is right about `debrief-fixtures` — the PRIVATE
+corpus, which has no blanket license and carries real names, launch-site GPS and device serials.
+**It is not true of `lib/parsers/__fixtures__/`, which is a different set**: publicly-shared logs
+already committed to this public MIT repo, with their provenance documented in that directory's own
+README. Serving one from `public/samples/` publishes nothing that is not already published.
+
+So the answer to *"tell me if this is solved in the fixtures and you can just pull the data"* is
+**partly yes, and better than the synthetic route** — because these are real recordings, so no
+sample has to be labelled synthetic and the MEASUREMENT invariant is never traded for a
+demonstration. Two of them are the same physical flight recorded by two different boards, which is
+the capability (D3, shipped) that had no demonstration at all.
+
+**Synthetic logs are therefore NOT needed for the capabilities the committed fixtures already
+cover, and remain the route for the ones they do not** — a deliberately mis-scaled column for the
+mapper, a saturated accelerometer, a staged flight on two devices. The labelling constraint in the
+note body stands unchanged for those, and D10's *done when* keeps it.
 
 ---
 
@@ -243,7 +304,34 @@ one that exists on one surface and is merely described on the surface that needs
 that navigates away costs the flyer their place in the report, which is the specific friction the note
 is about.
 
-VERDICT: *(pending)*
+VERDICT: **→ DESIGN.md, then → ROADMAP · 2026-08-08 · P8 — "The explanation comes to the reading"**.
+**Reproduced exactly.** The question marks are at `components/MetricGrid.tsx:33`: every reading tile
+whose term of art has a write-up renders a superscript `?` that is an
+`<a href={`/methods#${tile.method}`} target="_blank">`. **21 of the grid's tiles carry one**
+(`grep -c "method:" lib/readings.ts`), and all 21 do the same thing — open a second tab onto a
+12,700-word page (see `ON-1`) and jump to an anchor sitting among 51 flat sections. Nothing in the app
+explains a reading in place; the count is **21 that navigate away, 0 that explain where you are.**
+
+Two things this repo already got right, both worth keeping rather than rediscovering. The comment
+above that link rejects a **tooltip**, and is correct to: hover is nothing on the phone this tool is
+built for, and the answer is a paragraph rather than a phrase. A popover is not a tooltip — it is
+click- and tap-activated, keyboard-reachable and dismissible — so the owner's ask survives the
+objection already recorded against the alternative. And `lib/methodIds.ts` already binds both sides at
+compile time: a reading may only cite a `MethodId` that exists, and the page may only render one, so a
+renamed block breaks the build rather than a flyer's link. **The content is already keyed; what is
+missing is somewhere to put it.**
+
+**This is a system change before it is a surface change, so `DESIGN.md` moves first.** §5's vocabulary
+has `Disclosure` (in-flow progressive detail) and no overlay primitive at all, and the app has already
+hand-rolled one without it: the per-quantity units panel is a raw `<details>` that
+`e2e/touch.spec.ts:209` had to be written for after it opened from −39 px at a 375 px viewport. That
+is the second site reaching for the same missing word, which §5 records twice already as the
+vocabulary being wrong rather than surfaces being undisciplined. **§5 gains `Popover`.**
+
+**Owed to the sibling repo and not shipped there** — `DESIGN.md` is identical in both and the sibling
+was not attached to this session. Parked under *Awaiting the owner*. The sibling's `ON-5` (clicking a
+body tube opens a popover to customize it) is the same primitive arriving from the other direction, so
+building it twice is the failure this verdict exists to prevent.
 
 ---
 
@@ -267,7 +355,18 @@ promote a derived value to a measured one), and **multi-source structure survive
 two recordings must not flatten into one. A round-trip that loses either is a lossy export wearing a
 canonical label.
 
-VERDICT: *(pending)*
+VERDICT: **→ ROADMAP · 2026-08-08 · D11 — "One canonical file, out and back in"**. Accepted as
+written, including both constraints in the note body, which become the milestone's *done when* rather
+than notes under it: provenance survives, and multi-source structure survives.
+
+The note's own argument is why it ranks where it does — this is a **test of the architecture the
+manual already commits to**, and it is the only test of it that a flyer can also use. Queued behind
+D10 because D10 gives it something to round-trip that can ship in the repo: the corpus cannot, and a
+round-trip assertion over synthesized logs is a corpus-independent check that CI can run on a fork
+with no token.
+
+Scoped after D10 rather than before it, and that is a real ordering decision, recorded in *Decisions
+taken without the owner*.
 
 ---
 
@@ -287,7 +386,46 @@ The site is publicly fetchable, so this is verifiable without the repo. If a ses
 that repo has to be attached to the environment by the owner — say so in the report rather than
 guessing at the implementation from rendered output.
 
-VERDICT: *(pending)*
+VERDICT: **→ COMPETITION.md · 2026-08-08 · the note is HALF right, and the two halves need opposite
+answers.** Both live sites fetched and their rendered header markup compared directly — this is
+measured from served HTML, not inferred from a screenshot.
+
+**The theme control: UNREPRODUCED — they are already the same control.** Byte-identical on both sites
+in every property a flyer can perceive:
+
+| | motor.fusionspace.co | debrief.fusionspace.co |
+|---|---|---|
+| `title` | `Theme: System (click to change)` | **identical** |
+| `aria-label` | `Color theme: System. Click to change.` | **identical** |
+| glyph + label | `◐` + `System` (3-way, not a 2-way toggle) | **identical** |
+| resting classes | `rounded-md border border-zinc-300 bg-white text-zinc-700 text-xs` | **identical** |
+| horizontal padding | `px-2.5` | `px-2` |
+| touch floor | none | `pointer-coarse:min-h-11` |
+
+Two differences, both in Debrief's favour and neither visible: 2 px of padding, because Debrief routes
+through `Button size="sm"` where the motor finder hand-rolls the classes, and a coarse-pointer hit
+floor the motor finder does not have. **Deliberately NOT converged.** Moving `Button size="sm"` to
+`px-2.5` to match would take every small button in the app off `DESIGN.md` §4's spacing scale to close
+a gap nobody can see, and would drop the touch floor §8 requires. Recorded rather than done.
+
+**The tip control: REPRODUCED, and it is a colour divergence Debrief made on purpose.** The motor
+finder's is `border-amber-300 bg-amber-50 text-amber-700`; Debrief's is neutral secondary. Geometry,
+icon, label and `title` string already match exactly. `components/KofiButton.tsx` carries the reason in
+a comment: it *was* amber and was converted, because `DESIGN.md` §2 gives amber the meaning `warn` —
+an estimate outside its envelope, a caveat — and every other amber in this tree is a real caveat.
+
+**Not converged onto amber, and this is the decision rather than an omission.** The same fetch shows
+the motor finder's header also carries a **sky** API chip. §2 permits `indigo` and no second accent, so
+converging Debrief onto that header imports two off-system accents into a shared design system that
+allows one, and spends the exact hue Debrief's safety posture leans on — in a persistent header that
+sits above every report a flyer scans for amber caveats. That cost does not exist in a motor
+catalogue, which is why the same choice is right there and wrong here.
+
+**The outcome the note wants is a consistent suite, and the cheaper direction is the other one:** the
+motor finder adopts the neutral treatment its own shared `DESIGN.md` already specifies. Only the owner
+can make that change — that repo is not attached — so it is parked under *Awaiting the owner* with the
+question stated in one line, a `COMPETITION.md` row records the comparison, and Debrief ships
+unchanged. Recorded in *Decisions taken without the owner* with the alternative rejected.
 
 ---
 
@@ -300,7 +438,21 @@ sees who arrives from a forum link, and nothing in the workflow currently treats
 can go stale — `README.md` is not in the session-start read list and no done-check step looks at it.
 The description, topics and pinned links are part of it, not just the README.
 
-VERDICT: *(pending)*
+VERDICT: **→ ROADMAP · 2026-08-08 · folded into P5 ("Ready for the public"), whose *done when* is
+widened to name the repo page.** P5 already carried half of this — *"the README shows what the tool
+does with images rather than describing it in 27 KB of text"* — and the measurement confirms it is
+still true and slightly worse than recorded: `README.md` is **4,545 words and 28.0 KB with zero
+images** (`grep -c '!\[' README.md` → 0). A forum visitor's first screenful is three paragraphs of
+prose before a single link, and there is no picture of the tool anywhere.
+
+The note's real contribution is the half P5 did **not** have: the repo page is more than the README.
+P5's *done when* now also requires the GitHub **description and topics** to be set and to match what
+the tool actually does, and the done-check gains a step that looks at the repo page as a surface. That
+is the gap the note identifies precisely — nothing in the workflow ever looked at it, so it could not
+go stale visibly.
+
+Kept in P5 rather than made its own milestone because splitting "the README" from "the repo page it
+sits on" would guarantee one ships without the other.
 
 ---
 
@@ -318,7 +470,41 @@ that count is added it belongs in both copies of the file on the same day.
 **Confirm before treating this as direction.** It is a hypothesis derived from a sibling note, not
 something the owner said about this repo.
 
-VERDICT: *(pending)*
+VERDICT: **→ DESIGN.md · 2026-08-08 · the literal complaint is UNREPRODUCED here; the missing CHECK is
+real and one token genuinely fails.** Both halves measured, neither assumed.
+
+**UNREPRODUCED, and stated plainly because a note closed on a guess is worse than one left open.**
+Debrief's docs are not grey-in-dark. All three long-form routes use §2's *secondary* role
+(`text-zinc-600 dark:text-zinc-400`), which measures **7.73:1 in light and 7.76:1 in dark** against
+the page surface — both clear AA (4.5:1) and AAA (7:1). Across `components` and `app` only **11 lines**
+carry a light zinc text class with no `dark:` variant on them, and every one is either a decorative
+chevron, a `print:`-only line, or `text-zinc-500`, which §2 defines as identical in both themes on
+purpose. The sibling's bug does not exist in this tree.
+
+**What IS real is one token and one absent count.** §2's *tertiary* role is
+`text-zinc-500 dark:text-zinc-500` — the same value in both themes — and that symmetry is exactly what
+breaks it, because the two backgrounds are not symmetric:
+
+| tertiary on | ratio | AA 4.5:1 |
+|---|---|---|
+| light `page` (white) | **4.83:1** | pass |
+| light `sunken` (`zinc-50`) | **4.63:1** | pass |
+| dark `page` (`zinc-950`) | **4.12:1** | **fail** |
+| dark `raised` (`zinc-900`) | **3.67:1** | **fail** |
+
+Seven sites use it, and **five are not disabled controls** — `Chip`'s label (`ui.tsx:911`),
+`ChipButton`'s unpressed state (`ui.tsx:986`), a stitch annotation (`StitchSurface.tsx:399`), a logbook
+qualifier (`RecentFlights.tsx:930`), and — compounding `ON-3` — **the `?` help affordance itself**
+(`MetricGrid.tsx:38`). The affordance the owner wants to click is the one rendered at 4.12:1.
+
+And the note's larger half is confirmed as written: **§9 counts nothing about contrast in either
+theme.** Its six greps are radius, card treatments, spacing, type scale, inverted files and adoption.
+A token could be regressed to any ratio and every count would stay at its floor. §9 gains a contrast
+assertion, computed from §2's own table rather than from a hand-copied list, so the ratchet fails when
+the tokens move rather than when someone remembers to look.
+
+**Owed to the sibling repo in the same run and NOT shipped there** — not attached to this session.
+Parked under *Awaiting the owner*.
 
 ---
 
@@ -336,7 +522,22 @@ version of each would be. That is a P-track question, not a defect.
 
 **Confirm before treating this as direction.**
 
-VERDICT: *(pending)*
+VERDICT: **→ ROADMAP · 2026-08-08 · folded into P4 ("The range on a phone"), not a new milestone.**
+P4 already exists, is `NOT STARTED`, and its *outcome* is this note in the queue's own words — *"a
+phone at the range is a first-class tool, not a rescaled desktop."* Creating a P10 beside it would put
+two milestones on one subject and let each run pick whichever it preferred, which is the thrash the
+milestone machinery exists to stop.
+
+What the note **adds** to P4, and what has been written into its notes: P4's *done when* was a floor
+(zero targets under 44 px, zero hover-only states) and floors are satisfiable by a desktop layout that
+has been made touch-safe. The note is asking for something a floor cannot express — that a surface be
+*laid out* vertically rather than narrowed — so P4 now names the three candidates to answer that
+question against: the comparison table, the channel explorer, and the chart legends. Cited as
+`P4 (sharpened by ON-6)`.
+
+**Not confirmed as the owner's direction for this repo, and P4 does not depend on it being so** — the
+milestone was queued before the note existed. The note changes what P4 must answer, not whether it
+runs.
 
 ---
 
@@ -345,6 +546,20 @@ VERDICT: *(pending)*
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
+- **2026-08-08 — which way should the suite's tip button converge (`ON-B1`)?** Measured from both live
+  sites: the theme control already matches exactly; the tip control differs in colour only — the motor
+  finder's is amber, Debrief's is neutral. Debrief's was converted off amber deliberately, because
+  `DESIGN.md` §2 gives amber the meaning *caveat* and Debrief is a measurement instrument whose header
+  sits above readings a flyer scans for exactly that hue. The motor finder's header also carries a sky
+  API chip, so it is the site that has drifted from the shared system, not this one. **Proceeding on:
+  Debrief stays neutral, and the consistent outcome is the motor finder adopting neutral.** One line
+  changes it if the owner wants the other direction.
+- **2026-08-08 — `DESIGN.md` changes from this note batch are OWED to the sibling repo and unshipped
+  there**, because it was not attached to this session: §5's new `Popover` entry (`ON-3`) and §2's
+  tertiary-token contrast fix plus the §9 contrast count (`ON-5`). Both repos carry an identical copy
+  and a change to one is owed to both in the same run; that could not be honoured here. The sibling's
+  own `ON-5` asks for the same popover primitive from the other direction, so building it twice is the
+  live risk.
 - **2026-08-08 — the motor finder's repo is not attached to this environment, only its live site.**
   `ON-B1` asks these two tools to match `motor.fusionspace.co`'s theme and tip controls. The site is
   publicly fetchable, so the *behaviour* is verifiable without the repo; the implementation is not.

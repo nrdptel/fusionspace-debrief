@@ -168,6 +168,77 @@ hand-rolls it instead is not done.
 - **`Section`** — a titled region within a route: heading, optional description, children. This is
   what a route is built from.
 - **`Disclosure`** — progressive detail. The label says what is inside, never "More".
+- **`SectionNav`** — a pinned strip of in-page links with a **you-are-here** marker, for a surface
+  longer than a couple of screens. A map with no "you are here" is a list of place names.
+
+  **Lifted out of `components/FlightReport.tsx` on 2026-08-08, where it was hand-rolled — because
+  the surface that needed it most did not have it.** The report grew this when it reached nine
+  screens on a phone; `app/methods/page.tsx` is ~12,700 words in 51 blocks and had no in-page
+  navigation of any kind. One surface solving a problem privately while the worse instance of it
+  goes unserved is the case a primitive layer exists for, and it is the same shape as `Popover`
+  one entry down: the vocabulary was short a word, so the first site to need it wrote its own.
+
+  `sticky`, not `fixed`: until the reader has scrolled past where it already sat it costs nothing.
+  It scrolls sideways rather than wrapping, because a jump bar that takes a screen of its own to
+  read is not a fix for a long page. Targets carry a `scroll-margin-top` so a heading lands below
+  it rather than under it.
+
+  **The marker must be able to reach the LAST section, and for two surfaces it could not.** A short
+  final section cannot be scrolled up to the reading line — there is no page left — so it never lit
+  up and clicking its own chip left the mark on the section above. `useCurrentSection` treats the
+  bottom of the document as the last section. Measured on `/methods`, whose last group holds one
+  short block: its heading sits 288 px down at maximum scroll on a desktop. The report had the same
+  bug and hid it behind a tall final section.
+
+- **`Popover`** — an explanation or a small set of controls, opened from a trigger and shown **over**
+  the surface rather than in it. Use it where `Disclosure` would push the thing the reader is looking
+  at off the screen, and where navigating away would cost them their place.
+
+  **It is not a tooltip and the distinction is the reason it exists.** A tooltip is hover-only, which
+  is nothing at all on a phone, and it carries a phrase. This is click- and tap-activated, keyboard
+  reachable, dismissible, and carries a paragraph. **Never add a hover-only affordance to either
+  app** — §8's form-factor contract rules it out before this section does.
+
+  The contract, all of it owned by the primitive rather than by call sites:
+  - the trigger is a `Button` — any weight, and **`link` is the right one for a `?` inside a label**,
+    since §5 already defines `link` as the weight that sits inside a sentence;
+  - **the trigger's visible words ARE its accessible name.** An `aria-label` is for a trigger whose
+    content is a glyph — a `?`, an icon — and never for one that shows words, because it *replaces*
+    the visible text: a button reading "per quantity" named "Choose the unit for each quantity…"
+    fails WCAG 2.5.3 *Label in Name* and stops answering to voice control. The long sentence is a
+    `title`. The `<details>` this replaced had exactly this right, natively, and the first version
+    of the primitive undid it at the only call site there was;
+  - **`Escape` closes it from anywhere on the page, not only while focus is inside it.** Bound to
+    the primitive's own wrapper, the key silently stops working two Tabs later — which is the
+    state-with-no-way-out this entry exists to prevent, for the one user `<details>` served
+    correctly;
+  - **both exits leave focus somewhere real.** The primitive moves focus INTO the panel on open, so
+    it owes focus a home when the panel goes: `Escape` returns it to the trigger, and a click
+    outside returns it too *when focus would otherwise be lost* — but not when the click landed on
+    something focusable, because that is where the reader meant to go. A drop to `<body>` is what
+    `useReturnFocus` exists to prevent and the first version of this primitive did it;
+  - it carries a visible close control, because a surface a flyer can open and not obviously shut is
+    the "state with no way back out" the craft bar names — and on touch there is no `Escape` key to
+    fall back on;
+  - the panel is a `Card`, **including its title row**: the heading and the close control are
+    `Card`'s own `title` and `actions`. A popover is not a licence for a thirteenth card treatment,
+    and writing that row out by hand inside the primitive — which the first version did, at
+    `text-sm` against every other card heading's `text-base` — is the same failure one level down;
+  - the trigger says `aria-haspopup="dialog"`. `aria-expanded` alone is the *disclosure* pattern's
+    attribute, and a screen reader announcing "collapsed" for a dialog names the wrong widget;
+  - **on a narrow viewport it is anchored to the VIEWPORT, not to its trigger.** Measured 2026-08-04:
+    the units panel, right-anchored to a control near the right edge, ran from −39 px to 201 at 375 px
+    and cut off the entire left column of its own labels. The page never scrolled sideways, so nothing
+    watching document width could see it. That belongs in the primitive; it was a per-call-site fix at
+    the one site that had been measured.
+
+  **Added 2026-08-08 from owner note `ON-3`, and the census is the story again.** The vocabulary had
+  `Disclosure` and no overlay word at all, so two surfaces reached past it in opposite directions:
+  `components/UnitsControl.tsx` hand-rolled one out of `<details>` plus an absolutely-positioned
+  `Card` with bespoke viewport anchoring, and `components/MetricGrid.tsx` gave up on showing anything
+  in place and sent the flyer to another route in another tab — 21 readings, all 21 navigating away.
+  Sites reaching for the same missing word is the vocabulary being short, not surfaces being
+  undisciplined; it is the third time §5 has recorded that shape, after `link` and `ChipButton`.
 
 ### Controls — five button weights, and only five
 - **`Button variant="primary"`** — indigo fill. **At most one per surface**, and only for the action
