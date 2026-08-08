@@ -636,6 +636,52 @@ grep but is genuinely not a card — a floating toast that needs elevation, an i
 gets its own named primitive rather than a `shadow` prop on `Card`. Record the honest floor and what
 each remaining string is, on the milestone that owns the conversion.
 
+### Contrast — the one thing every grep above is blind to
+
+**Every count above matches a class NAME, and readability is a rendered COLOUR.** So all of them can
+read zero while text on a live route is unreadable — and on 2026-08-08 that is exactly what had
+happened in the sibling app. The owner reported its docs as "grey in dark mode, incredibly hard to
+read", and every §9 number there was at target. Measured on the built export: body prose at
+**1.91:1**, `h2` and `strong` at **1.12:1**, links at 3.16:1, against WCAG AA's 4.5:1. It had shipped
+on all six docs routes for as long as those routes existed.
+
+**The mechanism is worth stating, because it is a trap this system sets for itself.** The `dark`
+variant has TWO clauses — the `.dark` class an explicit choice sets, and `prefers-color-scheme` for a
+visitor who has chosen neither — and every `dark:` UTILITY gets both. A rule written by hand in a
+stylesheet gets only the one it asks for, and "System" is the DEFAULT theme, setting no class at all.
+So a hand-written `:where(.dark)` rule is correct for everyone who has visited the theme toggle and
+wrong for everyone who has not.
+
+Two rules follow, and they are binding in both apps:
+
+- **A hand-written rule states its colour with `light-dark()`, never with `.dark` alone.** It
+  resolves against the element's used `color-scheme`, which is already set per clause on the root, so
+  one function covers both with no media query to forget. Keep the bare light value as a preceding
+  declaration — that is the fallback for a browser without `light-dark()`, and it costs nothing.
+- **Contrast is measured on the RENDERED page, in every theme a visitor can be in** — light, Dark
+  chosen, and a dark OS with nothing chosen. That third state is the default and is the one that was
+  broken.
+
+**This app is currently clean, and that is a measurement rather than an assumption.** Checked
+2026-08-08: `app/globals.css` here carries **zero** `:where(.dark)` rules and **zero** hand-written
+`color`/`background` declarations — every colour comes through a `dark:` utility, which gets both
+clauses for free. So there is nothing to convert today. The rule is recorded here anyway, because
+this file is shared and because the first hand-written rule anyone adds is the one that reintroduces
+it.
+
+```bash
+# the rendered check, once this app has any hand-written colour to protect
+npx playwright test e2e/contrast.spec.ts        # target: 0 nodes below WCAG AA
+
+# the source check — no hand-written rule may answer the class clause alone
+npx vitest run lib/design-system.test.ts -t "class half of the dark variant"   # target: green
+```
+
+Colours are **rasterised onto a 1×1 canvas, never parsed**: Chromium reports computed colours as
+`lab()`/`oklab()`, and a digit match over `lab(2.51 0.24 -0.89)` yields confident nonsense. And each
+case asserts its own sample count first — a walk that examined nothing reports zero unreadable nodes
+and prints exactly like a pass.
+
 ---
 
 ## 10. Suite consistency
