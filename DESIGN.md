@@ -731,10 +731,17 @@ was deliberately changed: spending the caveat colour on a tip jar in the persist
 the one signal the safety posture leans on. **Two of the three agree, and they are the two that meet
 §2** — so the motor finder is the app that should move on colour.
 
-What DOES converge is the **glyph and the tooltip**: a coffee cup on the same path, and the sentence
+What DOES converge is the **glyph and the wording**: a coffee cup on the same path, and the sentence
 *"Tip the project — buy me a coffee on Ko-fi"*. Loft carried a `♥` and a shorter accessible name until
-2026-08-08 and was the odd one out; it is not now. Loft additionally puts that sentence on
-`aria-label` as well as `title`, because a `title` reaches no touch device.
+2026-08-08 and was the odd one out; it is not now.
+
+**The MECHANISM that sentence rides on does not converge, and that is a measurement rather than a
+preference.** Both siblings put it on a `title`. Loft puts it on `aria-label` alone, because
+`e2e/touch.spec.ts` counts any `title` whose text is not already on screen beside it as a state a
+flyer at the pad cannot reach, and holds that total at zero. Adding the `title` here took it to 1 and
+failed the suite — correctly: the visible label is "Tip", the tooltip is a sentence, and a phone gets
+no tooltip at all. So the rule for the family is **the accessible name carries the destination, and a
+`title` may only repeat what is already rendered.**
 
 **Geometry stays each app's own, and Loft's is the one to copy**: the motor finder renders
 `px-2.5 py-1 text-xs` with no `focus-visible` ring and no touch minimum — about 26 px against §8's
