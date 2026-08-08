@@ -84,7 +84,17 @@ export default function MethodsPage() {
               {g.title}
             </h2>
             <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{g.blurb}</p>
-            <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
+            <div
+              /* §3's long-form measure, and both halves of this class list are set by
+                 measurement rather than by the breakpoint that came next in the scale.
+                 `text-base` because §3 assigns it to "prose in docs" and this page — the
+                 longest reading surface in the app — was the one place rendering `text-sm`.
+                 `lg:` rather than `sm:` because a second column at 640 px left each one
+                 **46 rendered characters**, below §3's floor of 45–75 and NARROWER than the
+                 same page on a 390 px phone (58). At `lg:` each column is 472 px, which at
+                 16 px is 66 characters — the middle of the range. */
+              className="mt-4 grid gap-x-8 gap-y-6 text-base leading-relaxed text-zinc-600 lg:grid-cols-2 dark:text-zinc-400"
+            >
               {g.ids.map((id) => (
                 <Method key={id} id={id} />
               ))}
@@ -126,7 +136,17 @@ function Method({ id }: { id: MethodId }) {
           ON-1 describes was structural rather than editorial. The bodies carried 36 standalone
           `{' '}` lines sitting exactly where a break was intended, each in front of a sentence
           opening a new topic (13 of them a `<strong>`), and JSX rendered each as a single space. */}
-      <div className="mt-1 max-w-3xl space-y-3">{body}</div>
+      <div
+        /* 30rem, not `max-w-prose`, and not `max-w-3xl`. §3: cap the measure in rem and pick
+           the number by measuring RENDERED characters, because `ch` is the width of `0` and a
+           Geist `0` is 11.0 px where the average prose character is 7.10 px — so Tailwind's
+           65ch `max-w-prose` renders about 101 characters. 480 px / 7.10 = 68 characters, just
+           inside the upper bound. Below `lg:` this is what holds the single column in range;
+           at `lg:` the 472 px grid column is narrower and binds first. */
+        className="mt-1 max-w-[30rem] space-y-3"
+      >
+        {body}
+      </div>
     </div>
   );
 }

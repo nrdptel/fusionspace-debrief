@@ -10,7 +10,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | **Shipped to production** | Nothing new yet this run. `main` is at `367eca6`; `#147` and `#148` landed from elsewhere mid-session, both docs. |
 | **Pending on the branch** | **PR #149**, five commits, rebased onto `367eca6` and re-gated after the rebase. **Merging it on green is pre-authorised and is the first thing to do.** |
 | **D — capability** | **D11 slice 1 SHIPPED.** A flight saves as a canonical record and opens again as the same flight — 50 corpus recordings and 9 fixtures round-trip to an identical analysis digest. |
-| **P — product & craft** | **P9 slice 2 SHIPPED** (the paragraph breaks). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). |
+| **P — product & craft** | **P9 slices 2 and 3 SHIPPED** (the paragraph breaks; then the measure — 49–66 characters at every width, against 46–76 non-monotonic). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). |
 | **Sev-1** | **One found, verified, fixed** — a landing rate taken from the copy of a doubled recording that did not land. Fires on no corpus file; one logger setting from a real one. |
 | **§9 counts, start and end of run** | `rounded-lg` **0** · card treatments **3** · off-scale spacing **0** · off-scale type **1** · inverted-type files **10** · `ui` adopters **36 of 48**. **Identical at both ends; none moved the wrong way.** |
 
@@ -98,13 +98,10 @@ third consecutive run to reach that conclusion from a different direction.
    `velocity`/`acceleration` columns are re-read as MEASURED channels, and `dynamic pressure (kPa)`
    claims the pressure role and blocks the recorded `Pressure (Pa)`. **19 of 48 corpus recordings
    shift peak acceleration, worst +41.4%; 16 flip velocity provenance.**
-3. **P9 slice 3 — the methods page has no measure, and the number is non-monotonic in viewport
-   width.** Measured off the built page: the bodies render inside `sm:grid-cols-2` at `text-sm`
-   (14 px), and the only cap (`max-w-3xl`, 768 px) never binds because the grid column decides —
-   **52.4ch at ≥1024 px, 32.0ch at 640 px, 60 characters at 430 px.** The 640–768 px band is
-   *narrower than a phone* and sits below the 45-character floor. `DESIGN.md` §3 assigns `text-base`
-   to "prose in docs" and this page renders `text-sm`, which is the rule it is already breaking.
-   Four class edits plus one new `DESIGN.md` long-form rule; not one character of prose changes.
+3. **P9 slice 4 — the long blocks, which is the genuinely editorial half.** Slices 2 and 3 fixed
+   structure and measure; nine blocks still exceed 400 words in total and two carry a single
+   paragraph over 400 (741 and 654). Those need breaking by someone reading them, which no
+   measurement can do.
 4. **The four caveat asymmetries filed this run** (`BACKLOG.md`, newest first). All four are the same
    shape — a qualifier that holds on one surface and is missing on another — and `crossCheck()`'s
    missing `soft`/`partial` marker is the worst: a disowned altitude reaches the redundant-altimeter
