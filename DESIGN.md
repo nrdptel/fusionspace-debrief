@@ -142,6 +142,26 @@ inversion is the bug this rule fixes: a whole app of decision-grade numbers rend
 **Numerals:** any number a flyer compares against another number — a table column, a cross-check row,
 a readout — is `font-mono tabular-nums`. Digits must line up vertically. Prose numbers stay sans.
 
+**Long-form reading has a MEASURE, and it is a count of characters rather than a width.** Running
+prose — the methods page, the validation notes, anything a flyer reads a paragraph of rather than
+scans — renders at `text-base` (the table above already says so) and its line is held to **45–75
+rendered characters**, the range every typographic reference agrees on, with the middle of it the
+target. Below 45 the eye returns too often; above 75 it loses the line on the way back.
+
+**Do NOT express that cap in `ch`, and this is the trap it exists to name.** The CSS `ch` unit is the
+advance width of `0`, and in Geist Sans a `0` is far wider than the average prose character — measured
+2026-08-08 on the built methods page, **1ch = 11.0 px at 16 px while the average prose character is
+7.10 px**. So Tailwind's `max-w-prose` (65ch) renders about **101** characters per line, half again the
+upper bound, while reading like a rule was applied. Cap in `rem`, pick the number by measuring
+rendered characters, and say in the class comment which measurement it came from.
+
+**A multi-column layout owns this too, and it is where the rule is actually broken.** Columns divide
+the width, so a two-column grid can make a wide screen read *narrower than a phone*. Measured on the
+methods page before this rule existed: **58 characters at 390 px in one column, 46 at 640 px in two,
+55 at 768 px, 76 at 1024 px** — non-monotonic in viewport width, with the 640 px band the worst on the
+page. Choose the breakpoint at which a second column appears from the measure it leaves each column,
+never from the breakpoint that happens to be next in the scale.
+
 ---
 
 ## 4. Spacing

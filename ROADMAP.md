@@ -3290,13 +3290,33 @@ without terminal punctuation, so no sentence was cut in half; and the counts abo
 **built** `out/methods/index.html`, not off the source. Pinned by `lib/methodIds.test.ts` → *"lets a
 block have more than one paragraph, which it could not before"*, falsified both ways.
 
-**What is left is genuinely editorial and is slice 3:** this restored the author's OWN rhythm; it
-did not invent breaks nobody wrote. **Eleven blocks still exceed 400 words in total** and two carry
+**Slice 3 SHIPPED 2026-08-08 — the page has a measure, and it is a number somebody measured.**
+`DESIGN.md` §3 said nothing about long-form reading, which is the silence that let this happen. It
+now binds running prose to **45–75 rendered characters**, and names the two traps that were live on
+this page. Measured on the built page BEFORE: **58 characters at 390 px, 46 at 640 px, 55 at 768 px,
+76 at 1024 px** — non-monotonic in viewport width, with the tablet band reading *narrower than the
+same page on a phone*, because a `sm:grid-cols-2` grid divides the width and nobody had multiplied
+the classes together. AFTER: **49 · 55 · 66 · 66 · 66 · 65 · 65 · 65** across 390–1600 px, monotonic
+and inside the range everywhere.
+
+Three classes, each load-bearing and each falsified separately: `text-sm` → `text-base` (§3 already
+assigned `text-base` to "prose in docs" and this page was the one place breaking it — reverting it
+fails every width on the computed-size assert); `sm:grid-cols-2` → `lg:grid-cols-2` (reverting gives
+40 characters at 640 px); and `max-w-3xl` → `max-w-[30rem]` (reverting gives 84 at 640 px and 99 at
+768 px). **Not `max-w-prose`**: `ch` is the advance width of `0`, and a Geist `0` is 11.0 px where
+the average prose character is 7.10 px, so 65ch renders about 101 characters — the cap is in `rem`
+and the number came from measuring rendered text.
+
+Pinned by `e2e/measure.spec.ts` (9 cases): eight widths asserting the character count and the
+COMPUTED font size, plus one that compares widths against each other — because a per-width floor
+cannot see the actual defect. 46 characters is inside the range; it was only wrong *relative to the
+phone*.
+
+**What is left is genuinely editorial and is slice 4:** the paragraph work restored the author's OWN
+rhythm; it did not invent breaks nobody wrote. **Eleven blocks still exceed 400 words in total** and two carry
 a single paragraph over 400 (741 and 654), so the long ones need breaking by someone reading them.
-That is cheap now — the text is data in `lib/methods/content.tsx` and a break is a `</p><p>`. Also
-still open: `DESIGN.md` says nothing about long-form reading — no measure, no prose rhythm — which is
-the silence that let this happen, and §3's `text-base` for "prose in docs" is contradicted by the
-methods page's `text-sm`.
+That is cheap now — the text is data in `lib/methods/content.tsx` and a break is a `</p><p>`. Both
+`DESIGN.md` gaps that slice 2 recorded here are closed by slice 3 above.
 
 **Outcome.** The longest surface in the app reads like a reference someone can navigate, not a wall.
 
