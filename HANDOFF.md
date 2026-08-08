@@ -7,8 +7,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **A harness instruction and the zero-trace invariant are in direct conflict, and one artifact lost.** | This session's harness *requires* an attribution footer on every GitHub post. `MAINTAINING.md` forbids it outright. It was stripped from PR **#149**'s body with `update_pull_request` (which does not re-append it), but **the closing comment on #146 still carries one** — no tool in this session can edit an existing comment. Owner action, one click. Parked in `OWNER-NOTES.md` → *Awaiting the owner*. |
-| **Shipped to production** | **Three pull requests merged and CONFIRMED SERVING** — `#149` → `d801afe`, `#151` → `30a3a99`, `#152` → `147a2cf`. Production reports `147a2cf`, which equals `main`. Verified by fetching the deployed assets rather than assuming: the touch floor is in the served CSS, `"Save record"` is in the served JS, `/methods/` serves 106 paragraphs, and slice 3's `text-base` / `lg:grid-cols-2` / `max-w-[30rem]` are all in the served markup. |
-| **Pending on the branch** | **D11 slice 4** — the build stamp, one commit, gated in full. Open a pull request and merge it on green; that is pre-authorised and is the first thing to do. Everything else this run is merged and confirmed serving. |
+| **Shipped to production** | **Five pull requests merged and CONFIRMED SERVING** — `#149` → `d801afe`, `#151` → `30a3a99`, `#152` → `147a2cf`, `#153` → `e2c79a6`, `#154` → `a3bd9b0`. Verified by fetching the deployed assets rather than assuming: the touch floor is in the served CSS, `"Save record"` is in the served JS, `/methods/` serves 106 paragraphs, and slice 3's `text-base` / `lg:grid-cols-2` / `max-w-[30rem]` are all in the served markup. |
+| **Pending on the branch** | **Nothing.** All eight increments are merged to `main` across five pull requests (`#149`, `#151`, `#152`, `#153`, `#154`), and no pull request is open on either repo. |
 | **D — capability** | **D11 slices 1, 2 and 4 SHIPPED.** The canonical record round-trips (50 corpus recordings to an identical digest); the analyzed CSV stopped re-importing at **+37.9% on peak acceleration**; and every document a flyer keeps now names the build that wrote it. **Slice 3 — the multi-source structure — is the remaining clause, NOT started, and is now scoped in detail in `ROADMAP.md` rather than just named.** |
 | **P — product & craft** | **P9 slices 2 and 3 SHIPPED** (the paragraph breaks; then the measure — 49–66 characters at every width, against 46–76 non-monotonic). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). **P1 pending on `#153`** (the app's one hand-rolled primary fill, and the check that had never looked for it). |
 | **Sev-1** | **One found, verified, fixed** — a landing rate taken from the copy of a doubled recording that did not land. Fires on no corpus file; one logger setting from a real one. |
@@ -98,11 +98,12 @@ third consecutive run to reach that conclusion from a different direction.
 | `30a3a99` (#151) | **P9 slice 3 — the page has a measure.** 46–76 characters, non-monotonic, tablet narrower than a phone → **49–66 at every width**. `DESIGN.md` §3 gains the long-form rule | `e2e/measure.spec.ts` (9 cases), falsified 3 ways |
 | `147a2cf` (#152) | **D11 slice 2 — the analyzed CSV stopped re-importing as a different flight** (+37.9% on peak acceleration). Recognised and explained, pointing at the flight record | `lib/canonical.test.ts` ×2, falsified |
 | `e2c79a6` (#153) | **P1 — the app's one hand-rolled `bg-indigo-600`**, on the comparison's most prominent control, converted to `Button variant="primary"`; §5 gains the fill check it never had | `lib/design-system.test.ts`, falsified |
-| pending | **D11 slice 4 — every document a flyer keeps names the build that wrote it**, resolving `COMPETITION.md` row 36 the same run it was opened | `lib/buildInfo.test.ts` (9 cases), falsified 3 ways |
+| `a3bd9b0` (#154) | **D11 slice 4 — every document a flyer keeps names the build that wrote it**, resolving `COMPETITION.md` row 36 the same run it was opened | `lib/buildInfo.test.ts` (9 cases), falsified 3 ways |
 
 ## Pick this up first
 
-1. **Merge #153 on green.** Everything else this run is already live and confirmed serving.
+1. **Nothing is waiting.** Every increment this run reached `main` and no pull request is open —
+   which is the one thing this list has NOT been able to say for several runs. Start on the queue.
 2. **D11 slice 3 — the multi-source half. It is scoped in `ROADMAP.md` to file:line, and the shape
    turned out smaller than expected.** The grouping is ONE optional string per logbook row
    (`RecentMeta.flightId`), the composite stores nothing but a `localStorage` first-stage statement,
