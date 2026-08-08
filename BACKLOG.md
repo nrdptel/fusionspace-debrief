@@ -14,14 +14,24 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-- **2026-08-08 — `crossCheck()`'s apogee spec carries neither the `soft` nor the `partial` marker,
-  so a disowned altitude reaches the redundant-altimeter panel as an unmarked instrument
-  disagreement.** `lib/compare.ts:423`. Every other qualified reading has a flag — max acceleration
-  `saturated †`, main/whole descent `partialLeg ‡`, mixed source `*` — and `components/CompareView.tsx:711`
-  renders exactly those three. Measured on the `iss-sg1.2-20231118` group: the cross-check prints
-  `apogee: 9.50–2113.25 spread 198.2% mixed=false sat=false partial=false` while `compareMetricRows`
-  renders the same cell one row above as `31 ft (unproven)`. A caveat on the table and a bare claim on
-  the cross-check is the asymmetry `MAINTAINING.md` calls worse than either alone.
+- **2026-08-08 — `crossCheck()`'s apogee spec carries neither the `soft` nor the `partial` marker.
+  The SPEC GAP is verified by reading; the corpus case filed with it is UNREPRODUCED.**
+  `lib/compare.ts:423`. Verified: the apogee spec has no `soft`, while `soft` is documented as
+  "marks a contributing value as a floor rather than a true peak" — which is exactly what
+  `apogeeIsFloor` means, and `altitudeUnproven` is stronger still (the altitude channel is disowned).
+  Every other qualified reading has a flag, and `components/CompareView.tsx:711` renders three of
+  them. The spec's own comment only argues that apogee needs no SOURCE flag, which is a different
+  question and is why the gap is easy to miss.
+  **What is unreproduced:** the filing agent reported the `iss-sg1.2-20231118` group printing
+  `apogee: 9.50–2113.25 spread 198.2%`. A sweep this run counted **1 `altitudeUnproven` and 2
+  `apogeeIsFloor` across 39 auto-parsed recordings**, and could not produce a GROUP in which one of
+  those sits beside a sound recording — which is what the claim needs. So the fix is not scoped yet:
+  adding a marker that fires on no real file is the speculative guard `MAINTAINING.md` forbids.
+  **Next step is a measurement, not a patch:** enumerate the corpus's same-flight groups (the corpus
+  is grouped by flight) and report how many contain a floored or disowned apogee alongside a sound
+  one. If the answer is zero, the honest fix may be excluding a disowned altitude from the
+  cross-check population entirely — the precedent being `wholeDescentRate` being split from
+  `mainDescentRate` after four recordings "disagreed" by 121.6% while measuring different things.
 - **2026-08-08 — `headlineRows()` prints Max acceleration with no "may be clipped", and it feeds the
   four documents a flyer keeps.** `lib/report.ts:226` → the .txt, .md, .html and the clipboard table.
   Every other surface tags a railed peak: the tile (`lib/readings.ts:316` "measured · may be clipped"),
