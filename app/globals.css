@@ -88,11 +88,22 @@ html {
   footer a {
     padding-block: 0.875rem;
   }
+  /* A target has two dimensions, and until 2026-08-08 only one of them was held. `padding-block`
+     buys the height; a link whose text is narrower than 44 px stays narrow, and "Privacy" sat at
+     42x44 in the footer of every route in the app. `min-width` is what the button rule above
+     already uses, and it costs nothing on the links that are wider — the floor only ever moves a
+     link that was under it. Not applied to prose links, for the same reason as the height. */
+  nav a,
+  header a,
+  footer a {
+    min-width: 44px;
+  }
   header p a,
   header li a,
   footer p a,
   footer li a {
     padding-block: 0;
+    min-width: 0;
   }
   /* A control that has to stay small on the page but still be hittable with a thumb: the
      "?" beside a reading's label, which is 6x14 px at a phone's type scale and would push

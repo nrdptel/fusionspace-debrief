@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { underSizedTargets } from './touchTargets';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 
@@ -181,22 +182,12 @@ test.describe('on a phone', () => {
   await link.click();
   await expect(page).toHaveURL(/\/stitch/);
 
-  const small = await page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.querySelectorAll<HTMLElement>('button, a[href], select, summary, [role=button]')) {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 && r.height === 0) continue;
-      // The suite's own conventions (`e2e/touch.spec.ts`): a link inside running prose is not a
-      // control — 44 px mid-sentence is wrong — and a control kept small on purpose expands its
-      // HIT AREA with a pseudo-element rather than its box.
-      if (el.classList.contains('touch-area')) continue;
-      if (el.tagName === 'A' && el.closest('p, li')) continue;
-      if (el.closest('footer, nav, header')) continue;
-      if (r.height < 44) out.push(`${el.tagName.toLowerCase()}: ${(el.textContent || '').trim().slice(0, 30)} ${Math.round(r.height)}px`);
-    }
-    return out;
-  });
-  expect(small, `controls under 44 px tall on /stitch:\n${small.join('\n')}`).toEqual([]);
+  // The shared predicate (`e2e/touchTargets.ts`), not a fifth hand-kept copy. This one used to
+  // exclude `footer, nav, header` outright and skip `.touch-area` rather than measuring the hit
+  // area it opts into, so the chrome of this route was certified by a sweep that never looked at
+  // it — and it measured height only, like every other copy.
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on /stitch:\n${small.join('\n')}`).toEqual([]);
   });
 });
 
