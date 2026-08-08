@@ -876,7 +876,15 @@ function recordedTwice(altitude: Float64Array, cut: number, padDataLikely: boole
 
 /** What the second copy of a doubled recording can supply, and the sentence that says so. */
 interface SplicedDescent {
-  metrics: Pick<FlightMetrics, 'descentTime' | 'flightTime' | 'descentSource'>;
+  /** Every reading `descentSource` speaks for, so the block cannot half-move — including the
+   *  three rate fields, which this sets to null on purpose. They were absent from this type
+   *  until 2026-08-08, which is not the same thing: absent, they fell through from the first
+   *  copy, and that was a wrong number rather than a missing one. See the call site.
+   *  `lib/analyze/splice.test.ts` holds it. */
+  metrics: Pick<
+    FlightMetrics,
+    'descentTime' | 'flightTime' | 'descentSource' | 'mainDescentRate' | 'drogueDescentRate' | 'wholeDescentRate'
+  >;
   warning: string;
 }
 
@@ -944,11 +952,29 @@ function descentFromSecondCopy(
       descentTime: m.descentTime,
       flightTime: first.metrics.timeToApogee + m.descentTime,
       descentSource: 'second-copy',
+      // WITHHELD, and explicitly rather than by omission — this is the whole correction of
+      // 2026-08-08. Leaving these to fall through from the first copy published a rate measured
+      // over a leg that stops in the air as a touchdown speed, because setting `descentSource`
+      // has already made `landedInRecord` true, which is what `landingRate` gates on and what
+      // suppresses the "stops before the ground" caveat. On a synthetic doubled log whose first
+      // copy cuts at 900 m that was 19.94 m/s against a true 5 m/s: 4x on the rate a flyer sizes
+      // a canopy against, 16x on the landing energy, since energy goes as v².
+      //
+      // Taking them from the SECOND copy instead is the other obvious repair and is worse. A
+      // descent time needs two instants both copies agree on; a rate needs the deployment
+      // structure between them, and an unresolved one averages the whole descent. Measured on
+      // the corpus flight this comes from: 48.2 m/s, where a GPS recording of the same flight
+      // separately reads a 6.2 m/s main — a 7.8x overstatement of the number this is. So the
+      // honest answer is no rate, on a flight whose rate no copy resolved.
+      mainDescentRate: null,
+      drogueDescentRate: null,
+      wholeDescentRate: null,
     },
     warning:
       `The first copy stops before the rocket lands, so the descent CLOCK is read from the second copy of the same flight in this file — ` +
       `measured against the file's own pad baseline it reaches apogee within ${((Math.abs(m.apogeeAltitude - apo) / apo) * 100).toFixed(1)}% of the first copy's ` +
-      `${lenTok(apo)}. Descent time and flight time come from that second copy; the climb, the apogee and every reading above them come from the first.`,
+      `${lenTok(apo)}. Descent time and flight time come from that second copy; the climb, the apogee and every reading above them come from the first. ` +
+      `No descent RATE is read from either: the first copy stops in the air, and averaging the second copy's whole descent would put a figure under the label a parachute is sized against that no copy measured.`,
   };
 }
 
