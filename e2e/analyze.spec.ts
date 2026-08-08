@@ -2333,3 +2333,44 @@ test('a design that saved its curve is drawn beside the flight, dashed and on it
   const drawn = await page.evaluate(() => document.querySelectorAll('.u-legend').length);
   expect(drawn).toBeGreaterThan(0);
 });
+
+// Debrief refuses to report a peak speed it cannot stand behind, and six surfaces say so: the
+// timeline reading NaNs it, the channel explorer attaches the reason to the trace, the rail exit
+// refuses, the exports NaN it, the comparison marks it unusable, and drag refuses. The report's
+// own Velocity chart — the largest rendering of that same data, and the one a flyer would read a
+// peak off by eye — said only "derived from altitude".
+//
+// Measured 2026-08-08 over the corpus: 15 of 50 analysable recordings reach the report with
+// `series.velocityUnusable` set and a finite trace. `featherweight-gps-groundstation.csv` is the
+// committed fixture in that state, so this runs without the private corpus.
+test('a velocity trace the report will not read a peak off says so on the chart', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-gps-groundstation.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  // The headline withholds it. That is the claim the chart has to agree with.
+  const speedTile = page.locator('[data-reading="Max velocity"]');
+  await expect(speedTile).toContainText(/withheld/i);
+
+  // …and the chart carries the same refusal, with the same reason, from the same function.
+  const chart = page.locator('#velocity-chart').locator('xpath=ancestor::*[contains(@class,"rounded-xl")][1]');
+  await expect(chart, 'the velocity chart names the refusal').toContainText(
+    /will not report a peak off this trace/i,
+  );
+  await expect(chart, 'and gives the headline’s own reason').toContainText(
+    /the ascent has a stretch the record doesn’t cover/i,
+  );
+  // The curve stays drawn on purpose — a mis-scaled column has to remain visible to be
+  // diagnosed. Removing the trace would be a different bug, so assert it is still there.
+  await expect(chart.locator('canvas').first(), 'the curve is still drawn').toBeVisible();
+
+  // And a flight whose speed stands carries no such caveat — otherwise this passes on every
+  // flight and says nothing.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  const ok = page.locator('#velocity-chart').locator('xpath=ancestor::*[contains(@class,"rounded-xl")][1]');
+  await expect(ok, 'a believable speed gets no refusal').not.toContainText(/will not report a peak/i);
+});

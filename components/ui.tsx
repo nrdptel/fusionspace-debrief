@@ -638,6 +638,7 @@ export function Figure({
   title,
   unit,
   note,
+  caveat,
   children,
 }: {
   id?: string;
@@ -647,6 +648,18 @@ export function Figure({
   unit?: string;
   /** A short qualifier for the title row — what the trace is, or where it stops. */
   note?: React.ReactNode;
+  /** §5's *extrapolated / out-of-envelope* state: this curve is drawn but cannot be believed.
+   *
+   *  **Added 2026-08-08, and it is the state §5 has always asked a `Figure` for.** It was left
+   *  out when this primitive was written, correctly at the time — the `empty` prop that shipped
+   *  alongside it was removed because no surface could reach it, and a guard that fires on
+   *  nothing is worse than none. This one is the opposite case, measured: **15 of 50 analysable
+   *  corpus recordings** reach the report with `series.velocityUnusable` set and a finite trace,
+   *  and the Velocity chart drew every one of them as an ordinary measurement.
+   *
+   *  It is `warn`, not `danger`: the curve is still there on purpose, so a mis-scaled column can
+   *  be seen and diagnosed. What is refused is the reading taken off it. */
+  caveat?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -657,6 +670,11 @@ export function Figure({
         </h3>
         {note && <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>}
       </div>
+      {caveat && (
+        <Notice as="p" tone="warn" className="mb-2 text-xs">
+          {caveat}
+        </Notice>
+      )}
       {children}
     </Card>
   );

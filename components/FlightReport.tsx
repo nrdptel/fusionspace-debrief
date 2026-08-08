@@ -31,7 +31,7 @@ import RecordingPicker from './RecordingPicker';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
-import { landedInRecord, landingRate, liftoffOnLogClock } from '@/lib/readings';
+import { landedInRecord, landingRate, liftoffOnLogClock, withheldReason } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import FigureChooser from './FigureChooser';
@@ -1233,11 +1233,31 @@ export default function FlightReport({
           </div>
         </Figure>
 
+        {/* The refusal travels with the curve. Six surfaces already consult
+            `series.velocityUnusable` — the timeline reading NaNs it (:691), the channel explorer
+            attaches the headline's own reason to the SAME trace (`lib/explore.ts:201`), the rail
+            exit refuses (`RailExit.tsx:72`), the exports NaN it (`lib/report.ts:71`), the
+            comparison marks it unusable (`lib/compare.ts:164`) and drag refuses (`drag.ts:54`) —
+            and this Figure, the largest rendering of that data on the page, said only "derived
+            from altitude". Measured 2026-08-08: 15 of 50 analysable corpus recordings reach the
+            report in that state with a finite trace.
+
+            The curve stays drawn, deliberately: `#135` established that a mis-scaled column has
+            to remain visible to be diagnosed, and it is the READING taken off it that is refused.
+            The reason comes from `withheldReason`, the same function the headline tile uses, so
+            the two cannot drift into saying different things about one refusal. */}
         <Figure
           id="velocity-chart"
           title="Velocity"
           unit={unitsOf(sys).speed}
           note={series.velocitySource === 'device' ? 'logged by the device' : 'derived from altitude'}
+          caveat={
+            series.velocityUnusable
+              ? `Debrief will not report a peak off this trace${
+                  metrics.maxVelocityWithheld ? ` — ${withheldReason(metrics.maxVelocityWithheld)}` : ''
+                }. The curve is drawn so the problem can be seen; read no speed off it.`
+              : undefined
+          }
         >
           <Chart
             time={series.time}
