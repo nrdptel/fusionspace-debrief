@@ -25,6 +25,7 @@ export default function KofiButton() {
       target="_blank"
       rel="noopener noreferrer"
       title="Tip the project — buy me a coffee on Ko-fi"
+      aria-label="Tip the project — buy me a coffee on Ko-fi"
       className="shrink-0"
     >
       <svg
