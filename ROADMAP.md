@@ -1972,9 +1972,36 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ---
 
-## D10 (from ON-2) — A sample for every capability, and every one says it is synthetic
+## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**, pinned by `lib/samples.test.ts` (6 cases,
+including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
+check that `public/sw.js`'s precache list equals the registry) and two walks in
+`e2e/analyze.spec.ts`.
+
+**The route changed, and the change made the milestone smaller and more honest.** This was scoped
+around synthesized logs because the corpus cannot ship. That is right about `debrief-fixtures`, the
+private corpus — and not true of `lib/parsers/__fixtures__/`, which is a different set: real,
+publicly-shared logs already committed to this public repo with their provenance documented. Serving
+one publishes nothing new, so a sample can be a REAL flight and no synthetic label is needed for it.
+Recorded under *Decisions taken without the owner*.
+
+Three samples now, from one: a single flight; **two boards recording one physical flight** (a
+PerfectFlite Pnut and a Featherweight Raven aboard the same airframe, agreeing at 1,025 vs 1,029 ft,
+a 0.4% spread); and a log beside its board's own summary. The first demonstrates D3 — a shipped
+milestone that until now a visitor could not see without bringing two of their own files.
+
+**And the sample path stopped being a second path.** It fetched one hardcoded URL, ran the bytes
+through `decodeBytes` and handed `ingest` a string, so a sample could only ever be one UTF-8 text
+file — no binary, no spreadsheet, no set. Samples build real `File` objects and go through
+`onFiles` now, which is the drop path itself; the `.pf2` sample opening at all is the proof.
+
+**What is left:** the capabilities the committed fixtures do NOT cover — a deliberately mis-scaled
+column for the mapper, a saturated accelerometer, a staged flight on two devices. Those still need
+synthesized logs, and the *done when* below governs them unchanged: labelled synthetic on every
+surface that can carry them out of the app, never counted in any accuracy figure. Also left: the
+samples are offered on `/` only, and `/compare` and `/stitch` — the two surfaces whose whole point
+is more than one file — still offer none.
 
 **Outcome.** Someone who has never flown a rocket can see everything Debrief does, in one click each,
 without supplying a file — and can never mistake a demonstration for a flight.
@@ -3293,6 +3320,19 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-08 — the sample flights are REAL recordings drawn from `lib/parsers/__fixtures__/`,
+  not synthesized logs.** `ON-2` was triaged on the premise that no real log can ship, which is true
+  of the private `debrief-fixtures` corpus (no blanket license; real names, launch-site GPS to a few
+  metres, device serials) and **not** true of the fixtures already committed to this public repo,
+  whose provenance is documented in that directory's README. **Rejected: synthesizing a log for
+  every capability**, which was the plan and which would have required a `synthetic` label on every
+  one of thirteen surfaces and eight export formats before the first sample could ship — a large
+  change to the safety spine, taken to demonstrate features, when real recordings that need none of
+  it were already in the repo. Synthesis stays the route for what the fixtures cannot show (a
+  mis-scaled column, a saturated accelerometer, a staged flight), and the labelling requirement
+  stands for those. **Reversal cost: the files are copies in `public/samples/`; deleting them and
+  the registry entries restores the previous state exactly.**
 
 - **2026-08-08 — Debrief's tip button stays NEUTRAL, against the literal text of `ON-B1`.** The note
   asks for the theme control and the tip control to match `motor.fusionspace.co`. Both live sites were

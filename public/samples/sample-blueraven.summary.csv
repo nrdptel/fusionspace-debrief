@@ -1,0 +1,48 @@
+Rocket Name,BlRv_SN0829
+Firmware,fd31408 02/03/2024 11:34:33
+Searial number,SN829 BlRv_SN0829
+Max Altitude,4034.98 feet
+Max velocity,700.36 feet/sec
+Pad altitude ASL,230.55 feet
+Launch date,11-May-24
+Launch time,14:09:46.518
+Time to first burnout,1.4 sec
+Time to Apo channel fire,17.8 sec
+Time to gyro overload,0.0 sec
+Time to third channel fire,18.3 sec
+Time to main channel fire,87.6 sec
+Time to fourth channel fire,1.4 sec
+Launch rod angle,2.5 deg
+Tilt angle at burnout,2.6 deg
+Roll rate at burnout,-45.0 deg/sec
+Thrust tilt efficiency,99.42%
+Number of ascent rolls,-0.482
+Horiz. velocity at apogee,60.7 feet/sec
+Inertial navigation max alt,4226.5 feet
+Max motor burn acceleration,24.1 Gs
+Peak drag deceleration,2.5 Gs
+Apo channel max accel,51.7 Gs
+Main channel max accel,67.8 Gs
+3rd channel max accel,17.9 Gs
+4th channel max accel,3.5 Gs
+Max landing accel,6.4 Gs
+Drogue descent rate,-45.7 feet/sec
+Main chute deploy altitude,399.1 feet
+Main chute descent rate,-23.5 feet
+Landing Time,14:11:38.378
+Temperature on pad,86.8 F
+Max Temperature,87.1 F
+Min Temperature,83.21 F
+Battery voltage on pad,4.12 V
+Min Battery voltage,4.12 V
+Battery voltage at landing,4.1 V
+Build date,03-Feb-24
+Build time,11:34:33.000
+Flight number,3
+Direction of 1st motion,-0.9998,-0.0219,0.0029
+Gravity direction on pad,-0.9998,0.0211,-0.0020
+Low-G accel pad offset,0.0031,-0.0001,0.0000
+Hi-G accel pad offset,1.01,0.86,2.00
+Pad gyro rates (deg/sec),-0.35,-0.39,-0.29
+Pad Hi-G accel,0.02,0.88,2.00
+Pad Low-G Accel,-1.00,0.02,-0.00

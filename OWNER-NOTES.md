@@ -261,10 +261,32 @@ app, never counted in any accuracy or validation figure.** The surface audit is 
 than trusted from memory, because this repo's own history is that a caveat lands on one panel and a
 confident claim on another.
 
-One correction to the note's framing, and it makes the work smaller: the sample path is **not** a
-bypass — `Analyzer.tsx:548` calls the same `ingest()` a dropped file does, so a synthesized log is
-parsed by the real parser and any sample that renders is also a parser test. That is a reason to
-prefer generating real-format files over fixtures-with-a-flag.
+One correction to the note's framing: the sample path is **not** a bypass of the parser — but it
+was a second path, and that mattered. It fetched one URL, ran the bytes through `decodeBytes` and
+handed `ingest` a string, where a dropped file goes through `fileToText(name, bytes)` (which unzips
+an `.xlsx` and sniffs a UTF-16 BOM) and carries its `bytes`. So a sample could only ever be a UTF-8
+text file, and only ever ONE file. Both are gone as of slice 1 — samples build real `File` objects
+and go through `onFiles`, the drop path itself.
+
+---
+
+**CORRECTION, 2026-08-08, and it changes the answer to the owner's actual question.** The verdict
+above says the fixtures cannot ship, and that is right about `debrief-fixtures` — the PRIVATE
+corpus, which has no blanket license and carries real names, launch-site GPS and device serials.
+**It is not true of `lib/parsers/__fixtures__/`, which is a different set**: publicly-shared logs
+already committed to this public MIT repo, with their provenance documented in that directory's own
+README. Serving one from `public/samples/` publishes nothing that is not already published.
+
+So the answer to *"tell me if this is solved in the fixtures and you can just pull the data"* is
+**partly yes, and better than the synthetic route** — because these are real recordings, so no
+sample has to be labelled synthetic and the MEASUREMENT invariant is never traded for a
+demonstration. Two of them are the same physical flight recorded by two different boards, which is
+the capability (D3, shipped) that had no demonstration at all.
+
+**Synthetic logs are therefore NOT needed for the capabilities the committed fixtures already
+cover, and remain the route for the ones they do not** — a deliberately mis-scaled column for the
+mapper, a saturated accelerometer, a staged flight on two devices. The labelling constraint in the
+note body stands unchanged for those, and D10's *done when* keeps it.
 
 ---
 

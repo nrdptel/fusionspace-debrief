@@ -28,8 +28,20 @@ const ROUTES = ['/', '/compare/', '/stitch/', '/methods/', '/validation/', '/pri
 //    offline, Next falls back to a browser navigation — to the payload URL — and the flyer
 //    lands on `/methods/index.txt` looking at the home page. Stable across builds like the
 //    documents, so they precache the same way.
-const PRECACHE = [
+// Every sample file, so "offline at the field" includes the demonstrations. Kept in step with
+// `lib/samples.ts` by `lib/samples.test.ts`, which reads both and fails when they drift — a
+// second sample that is not precached is a button that works at home and not at the range, and
+// nothing else in the build would have said so.
+const SAMPLE_FILES = [
   '/samples/sample-altusmetrum.csv',
+  '/samples/sample-pnut.pf2',
+  '/samples/sample-raven-fip.csv',
+  '/samples/sample-blueraven.csv',
+  '/samples/sample-blueraven.summary.csv',
+];
+
+const PRECACHE = [
+  ...SAMPLE_FILES,
   ...ROUTES,
   ...ROUTES.map((r) => `${r}index.txt`),
 ];

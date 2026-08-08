@@ -2374,3 +2374,55 @@ test('a velocity trace the report will not read a peak off says so on the chart'
   const ok = page.locator('#velocity-chart').locator('xpath=ancestor::*[contains(@class,"rounded-xl")][1]');
   await expect(ok, 'a believable speed gets no refusal').not.toContainText(/will not report a peak/i);
 });
+
+// `OWNER-NOTES.md` ON-2 — "there needs to be more sample flights for showing the different
+// capabilities of the project." Until 2026-08-08 there was ONE sample behind one hardcoded URL:
+// a single baro+GPS log, and the entire demonstration surface for ten parsers, the column
+// mapper, reconciliation, stitching, the design overlay and the report builder.
+//
+// The capability with the sharpest gap was multi-recording reconciliation — a shipped milestone
+// (D3) that a visitor could not see at all without bringing two of their own files. This walks
+// it: two REAL recordings of one physical flight, from two different boards, in one click.
+test('a sample can show two boards recording one flight, in one click', async ({ page }) => {
+  await page.goto('/');
+
+  // The primary button stays the single flight — a first-time visitor wants one obvious way in.
+  await expect(page.getByRole('button', { name: 'Try a sample flight' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Two altimeters, one flight' }).click();
+
+  // Two files means the batch path, which lands on a comparison rather than a single report.
+  // That is the whole point: the two recordings are set SIDE BY SIDE, never averaged.
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 20_000 });
+
+  // Both boards are present by name, so it is visibly two instruments and not one file twice.
+  const body = page.locator('body');
+  await expect(body, 'the PerfectFlite recording is there').toContainText(/pnut/i);
+  await expect(body, 'and the Featherweight Raven one').toContainText(/raven/i);
+
+  // And it is a comparison of READINGS, not just two file names — the apogee row is the one
+  // the two boards cross-check each other on. Scoped to the table, because "Apogee" also
+  // appears in the page's own print-only and screen-reader copy.
+  await expect(
+    page.getByRole('table').getByText(/Apogee/i).first(),
+    'the comparison table has an apogee row',
+  ).toBeVisible();
+});
+
+// The sample path is the drop path, and it did not used to be. It fetched one URL, ran the
+// bytes through `decodeBytes` and handed `ingest` a string — so a sample could only ever be a
+// UTF-8 text file, and no binary download could be one. `sample-pnut.pf2` is a native PerfectFlite
+// binary; it opening at all is the proof that divergence is gone.
+test('a binary sample opens, which the old single-URL sample path could not do', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Two altimeters, one flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 20_000 });
+  // The `.pf2` is parsed by its NAMED parser and produces a column of its own. Asserted on the
+  // table rather than on the absence of an error string: the page's own "How to use this" copy
+  // contains the sentence "Anything in the drop Debrief couldn't read is named, with the
+  // reason", so a `not.toContainText(/couldn't read/)` over the body matches page furniture and
+  // fails on a working app — which is exactly what it did.
+  const table = page.getByRole('table');
+  await expect(table.getByText(/PerfectFlite/i).first(), 'the .pf2 is read by its own parser').toBeVisible();
+  await expect(table.getByText(/Featherweight Raven/i).first(), 'and the CSV by its own').toBeVisible();
+});
