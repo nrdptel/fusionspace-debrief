@@ -274,6 +274,16 @@ hand-rolls it instead is not done.
   Sites reaching for the same missing word is the vocabulary being short, not surfaces being
   undisciplined; it is the third time §5 has recorded that shape, after `link` and `ChipButton`.
 
+  **Loft has this primitive too as of 2026-08-08, and it meets this CONTRACT without matching this
+  API.** Its version has no `description`, `align` or `width`, builds its close control from
+  `ClosePanel` rather than an `IconButton` it does not have, and calls a two-value `useReturnFocus()`
+  rather than this repo's `useReturnFocus(open, close)`. Those are the shared-file drift, not a
+  disagreement about the pattern — filed in Loft's `BACKLOG.md` as part of reconciling the two copies
+  of this document. **What it does meet is every clause above that is a defect rather than an API
+  choice**, and it arrived at the document-level `Escape` independently, the same week, from the same
+  symptom. That is the entry earning its place: the app that wrote it second did not have to
+  rediscover the other six.
+
 ### Controls — five button weights, and only five
 - **`Button variant="primary"`** — indigo fill. **At most one per surface**, and only for the action
   the surface exists to perform. Two primaries on one screen means neither is.
