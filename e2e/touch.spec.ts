@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { underSizedTargets } from './touchTargets';
 import { readFile } from 'node:fs/promises';
 
 const fixture = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
@@ -75,41 +76,30 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
 
-  const small = await page.evaluate(() => {
-    const out: string[] = [];
-    // A checkbox is NOT exempt here, unlike in the CSS. globals.css skips checkboxes from
-    // the 44 px floor because stretching the BOX would draw a giant square — but what a
-    // thumb has to hit is the target, not the box, and the target is the wrapping <label>.
-    // Exempting them from the measurement too is why the logbook's compare tick sat at
-    // 20x20 with no label at all and nothing caught it.
-    // `nav a` alone left the chrome's other links unmeasured, and they are controls too:
-    // the brand eyebrow sits in a header <div>, not the <nav>, and measured 102x16 with a
-    // report loaded, as did the Tip link (59x26) and the footer's project line (358x20) —
-    // none of which this test could see. A link inside running prose is NOT a control and
-    // stays out: 44 px mid-sentence is wrong, and each of those has a nav entry or a button
-    // doing the same job at full size beside it.
-    // `main a` was added after a link that is plainly a control slipped straight through
-    // this test: the "?" beside each reading, which opens that reading's definition, renders
-    // 6x14 px at a phone's type scale. It sits in a grid cell rather than a <nav>, so none of
-    // the selectors above could see it, and a closing cold walk found thirteen of them.
-    const sel =
-      'button, select, summary, [role=button], nav a, header a, footer a, main a, input:not([type=range])';
-    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
-      if (el.tagName === 'A' && el.closest('p, li')) continue;
-      // A control kept small on purpose expands its HIT AREA with a pseudo-element rather
-      // than its box (see `.touch-area` in globals.css), so measure what a thumb can hit.
-      const box = el.closest('label') ?? el;
-      const after = el.classList.contains('touch-area') ? window.getComputedStyle(el, '::after') : null;
-      const r = after && after.content !== 'none'
-        ? { width: parseFloat(after.width), height: parseFloat(after.height) }
-        : box.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue; // hidden (e.g. the sr-only file input)
-      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
-    }
-    return out;
-  });
-  expect(small, `controls under 44 px tall on a phone:\n${small.join('\n')}`).toEqual([]);
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on a phone:\n${small.join('\n')}`).toEqual([]);
 });
+
+// §8 says the floor holds "everywhere, not just where it was last measured", and until
+// 2026-08-08 the two sweeps in this file went to exactly two routes — `/` and `/compare`. The
+// other four were never measured at a phone width by anything. That is the shape of hole §8's
+// own sentence is about: /stitch is a fully interactive surface and had no touch coverage at
+// all, and the footer that appears on all six carried the one real violation.
+for (const route of ['/', '/compare', '/methods', '/privacy', '/validation', '/stitch']) {
+  test(`every control on ${route} is thumb-sized before anything is loaded`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(route);
+    await expect(page.locator('footer')).toBeVisible();
+
+    const small = await page.evaluate(underSizedTargets);
+    expect(small, `controls under 44 px on ${route}:\n${small.join('\n')}`).toEqual([]);
+
+    // A phone body never scrolls sideways (§8). Cheap to assert here, and this is now the only
+    // place four of these routes are looked at on a phone at all.
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow, `${route} overflows its viewport`).toBeLessThanOrEqual(0);
+  });
+}
 
 // The same floor on the comparison surface, where the logbook is the whole page: its
 // rows, its per-flight controls and the sort chips are what a thumb has to hit at the
@@ -129,28 +119,8 @@ test('the compare surface is thumb-sized too', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
 
-  const small = await page.evaluate(() => {
-    const out: string[] = [];
-    // A checkbox is NOT exempt here, unlike in the CSS. globals.css skips checkboxes from
-    // the 44 px floor because stretching the BOX would draw a giant square — but what a
-    // thumb has to hit is the target, not the box, and the target is the wrapping <label>.
-    // Exempting them from the measurement too is why the logbook's compare tick sat at
-    // 20x20 with no label at all and nothing caught it.
-    // `main a` for the same reason the analyze sweep above carries it, and it was NOT carried
-    // here: the comparison's two action links — the only route to /stitch for a drop-built
-    // comparison, and the only way to mint a permalink — are plain anchors in <main>, so every
-    // selector here looked straight past them while they rendered at 20 px on a phone. A sweep
-    // that cannot see a shape of control certifies that shape forever.
-    const sel = 'button, select, summary, [role=button], nav a, main a, input:not([type=range])';
-    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
-      if (el.tagName === 'A' && el.closest('p, li')) continue; // prose links are not controls
-      const r = (el.closest('label') ?? el).getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
-    }
-    return out;
-  });
-  expect(small, `controls under 44 px tall on the compare page:\n${small.join('\n')}`).toEqual([]);
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on the compare page:\n${small.join('\n')}`).toEqual([]);
 
   // A <label> wrapping a file input is a button in everything but tag name, and the one on
   // this page is its primary call to action. Excluded from the selector above, it sat at
@@ -186,16 +156,8 @@ test('the column mapper is usable one-handed', async ({ page }) => {
     expect(box.x + box.width, `"${sample}" ends at x=${box.x + box.width}`).toBeLessThanOrEqual(390);
   }
 
-  const small = await page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.querySelectorAll<HTMLElement>('button, select, summary, nav a')) {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName}`);
-    }
-    return out;
-  });
-  expect(small, `controls under 44 px tall on the mapper:\n${small.join('\n')}`).toEqual([]);
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on the mapper:\n${small.join('\n')}`).toEqual([]);
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -322,18 +284,8 @@ test('a loaded comparison is thumb-sized, and orderable, on a phone', async ({ p
     .poll(async () => (await page.getByRole('columnheader').allInnerTexts()).join('|'))
     .not.toBe(before.join('|'));
 
-  const small = await page.evaluate(() => {
-    const out: string[] = [];
-    const sel = 'button, select, summary, [role=button], nav a, main a';
-    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
-      if (el.tagName === 'A' && el.closest('p, li')) continue; // prose links are not controls
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      if (r.height < 44) out.push(`${Math.round(r.width)}x${Math.round(r.height)} ${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}"`);
-    }
-    return out;
-  });
-  expect(small, `controls under 44 px tall in a loaded comparison:\n${small.join('\n')}`).toEqual([]);
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px in a loaded comparison:\n${small.join('\n')}`).toEqual([]);
 });
 
 // The grouping offer carries a control whose options are FILE-DERIVED, so their width is the
