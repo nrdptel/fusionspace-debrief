@@ -499,7 +499,9 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  the vocabulary having been short a word rather than four files having been careless. The
    *  other three already imported `Button` for something else, so the count moves by one while
    *  eight sites converted — read the two numbers together. */
-  Button: 19,
+  /** 19 → 20 on 2026-08-08: `MetricGrid`, whose "Read this on the methods page" is §5's `link`
+   *  weight inside the popover that replaced the navigating one. */
+  Button: 20,
   /** 3 → 7 on 2026-08-03 with §5's semantic chip tones. `DeviceSummary`, `GpsApogee`,
    *  `FlightReport` and `LogDetails` were hand-rolling a chip, and **the grep below counted 12
    *  hand-rolled chip-shaped elements on `main` over THREE padding combinations** —
@@ -566,7 +568,15 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  hand-roll the primitive was extracted from — the one measured running to −39 px at 375 px.
    *  The second adopter is the `?` on 21 reading tiles, which is the next slice: today all 21
    *  navigate to another route in another tab, and none of them explains anything in place. */
-  Popover: 1,
+  /** 1 → 2 on 2026-08-08: `MetricGrid`'s "?" — the second adopter, and the one the primitive
+   *  was extracted for. All 21 of the grid's help affordances opened a second tab on a
+   *  12,700-word page before this; they explain in place now, from the same module the methods
+   *  page renders (owner note ON-3). */
+  Popover: 2,
+  /** 0 → 2 on 2026-08-08. Lifted out of `FlightReport`, where it was hand-rolled, and given to
+   *  `app/methods/page.tsx`, which is longer than the report and had no in-page navigation at
+   *  all. Both adopters landed in the same commit as the primitive. */
+  SectionNav: 2,
   /** §5's "every table is this one", started 2026-08-01 on the two cross-check tables — the two
    *  surfaces §6 exists for and the ones a cert document most wants to lift. `SampleTable` and
    *  `CompareView` are deliberately NOT counted here and are not meant to be: one is transposed
