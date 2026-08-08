@@ -206,17 +206,25 @@ test('the column mapper is usable one-handed', async ({ page }) => {
 // opening it cold at 375 px, where it ran from −39 px to 201 and cut off the whole left
 // column — the one holding "Altitude", "Speed" and the rest of the labels. The page itself
 // never scrolled sideways, so nothing that watches document width could see it.
+//
+// Rewritten 2026-08-08: the panel was a `<details>` hand-rolled at this one call site and is
+// now `Popover` (`DESIGN.md` §5, from owner note ON-3), so the anchoring this test was written
+// for belongs to the primitive rather than to this surface — and every future popover inherits
+// it instead of re-earning it. The locators moved from `summary`/`details` to the trigger
+// button and the panel's `dialog` role.
 test('a popover opens fully on screen, not off the side of it', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 780 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
 
-  const summary = page.locator('summary').filter({ hasText: 'per quantity' }).first();
-  await summary.scrollIntoViewIfNeeded();
-  await summary.click();
+  const trigger = page.getByRole('button', { name: 'per quantity', exact: true }).first();
+  await trigger.scrollIntoViewIfNeeded();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await trigger.click();
 
-  const panel = page.locator('details', { has: summary }).locator('div').first();
+  const panel = page.getByRole('dialog', { name: 'Units per quantity' });
+  await expect(panel).toBeVisible();
   const box = (await panel.boundingBox())!;
   expect(box.x, `panel starts at x=${Math.round(box.x)}`).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width, `panel ends at x=${Math.round(box.x + box.width)}`).toBeLessThanOrEqual(375);
@@ -228,6 +236,61 @@ test('a popover opens fully on screen, not off the side of it', async ({ page })
     expect(r, `"${label}" row is rendered`).toBeTruthy();
     expect(r!.x, `"${label}" starts at x=${Math.round(r!.x)}`).toBeGreaterThanOrEqual(0);
   }
+});
+
+// The three things a `<summary>` could not give this control, now that a primitive owns it.
+// Walked rather than read off the source, because `lib/design-system.test.ts` can only see that
+// the code is written — not that it works. Two of these were absent from this surface entirely
+// before the extraction: there was no close control and no focus return at all.
+test('a popover can be shut, and Escape puts focus back where it started', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  const trigger = page.getByRole('button', { name: 'per quantity', exact: true }).first();
+  await trigger.scrollIntoViewIfNeeded();
+  const panel = page.getByRole('dialog', { name: 'Units per quantity' });
+
+  // 1. A visible way out, at §8's hit minimum. On touch there is no Escape key to fall back
+  //    on, so a panel that only closes by keyboard is a state a flyer at the range cannot leave.
+  await trigger.click();
+  await expect(panel).toBeVisible();
+  const close = panel.getByRole('button', { name: 'Close' });
+  const closeBox = (await close.boundingBox())!;
+  expect(closeBox.width, `close is ${Math.round(closeBox.width)} px wide`).toBeGreaterThanOrEqual(44);
+  expect(closeBox.height, `close is ${Math.round(closeBox.height)} px tall`).toBeGreaterThanOrEqual(44);
+  await close.click();
+  await expect(panel).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  // 2. Escape closes it and returns focus to the trigger — from OUTSIDE the panel. Tabbing
+  //    away first is the whole point of this case: the first version of the primitive bound
+  //    the key to its own wrapper, so Escape worked while focus was inside and silently
+  //    stopped working once it left, which is a state a keyboard user could not get out of
+  //    and which the `<details>` this replaced handled correctly.
+  await trigger.click();
+  await expect(panel).toBeVisible();
+  for (let i = 0; i < 12; i++) await page.keyboard.press('Tab');
+  await expect(panel).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  // 3. A click on empty page closes it and focus does NOT end up on `<body>`. The primitive
+  //    moved focus INTO the panel on open, so it owes focus a home when the panel goes —
+  //    `useReturnFocus`'s own doc calls a drop to body the exact bug it exists to prevent.
+  //
+  //    Asserted as "the trigger has it" rather than "the trigger does NOT have it", which is
+  //    what the first version of this case checked and which could not fail: focus is on the
+  //    panel's close control at that point, so `not.toBeFocused()` on the trigger was already
+  //    true before the click and stayed true however the dismissal was wired.
+  await trigger.click();
+  await expect(panel).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(panel).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
 });
 
 // The floor once flights are actually IN the comparison, which nothing measured: every touch

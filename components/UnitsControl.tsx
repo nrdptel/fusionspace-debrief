@@ -13,7 +13,7 @@ import {
   type UnitChoice,
   type Units,
 } from '@/lib/display';
-import { Button, Card } from './ui';
+import { Button, Popover } from './ui';
 
 // Units, the way the mature tools do it: one click for the system a flyer works in,
 // and a choice per quantity underneath for the cases the two systems don't cover — a US
@@ -60,50 +60,46 @@ export default function UnitsControl({
       <Button size="sm" onClick={onToggleUnits} aria-label={`Units: ${label}. Switch to ${other}.`}>
         Units: {label}
       </Button>
-      <details className="group relative print:hidden">
-        <summary
-          className="cursor-pointer select-none rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          title="Choose the unit for each quantity — altitude, speed, acceleration, temperature and pressure"
-        >
-          per quantity
-        </summary>
-        {/* Right-anchored to the trigger on a desktop, where there is room to its left. On a
-            phone there isn't: measured at 375 px the panel ran from −39 px to 201, cutting off
-            the whole left column — which is the one holding "Altitude", "Speed" and the rest of
-            the labels. Below sm it is anchored to the viewport instead, so it fits wherever the
-            control has wrapped to. */}
-        <Card className="absolute right-0 z-20 mt-1 w-60 shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:w-auto">
-          <div className="space-y-2">
-            {CHOICES.map((c) => (
-              <label key={c.key} className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">{c.label}</span>
-                <select
-                  value={current[c.key]}
-                  onChange={(e) => onSetUnits({ ...current, [c.key]: e.target.value } as Units)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-sm text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                >
-                  {c.options.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-          </div>
-          <div className="mt-3 flex gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <Button size="sm" onClick={() => onSetUnits(SYSTEM_UNITS.imperial)}>
-              All feet
-            </Button>
-            <Button size="sm" onClick={() => onSetUnits(SYSTEM_UNITS.metric)}>
-              All metric
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-            Applies to every number, chart and export, and is remembered on this device.
-          </p>
-        </Card>
-      </details>
+      {/* Was a hand-rolled overlay: `<details>` wrapping an absolutely-positioned `Card`, carrying
+          its own viewport anchoring because this is the control that measured −39 px at 375 px. All
+          of that is `Popover`'s now (`DESIGN.md` §5) — including two things this site never had, a
+          visible close control and a focus return, both of which a `<summary>` cannot give you. */}
+      <Popover
+        trigger="per quantity"
+        description="Choose the unit for each quantity — altitude, speed, acceleration, temperature and pressure"
+        title="Units per quantity"
+        width="w-60"
+      >
+        <div className="space-y-2">
+          {CHOICES.map((c) => (
+            <label key={c.key} className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-zinc-600 dark:text-zinc-400">{c.label}</span>
+              <select
+                value={current[c.key]}
+                onChange={(e) => onSetUnits({ ...current, [c.key]: e.target.value } as Units)}
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-sm text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+              >
+                {c.options.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <Button size="sm" onClick={() => onSetUnits(SYSTEM_UNITS.imperial)}>
+            All feet
+          </Button>
+          <Button size="sm" onClick={() => onSetUnits(SYSTEM_UNITS.metric)}>
+            All metric
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Applies to every number, chart and export, and is remembered on this device.
+        </p>
+      </Popover>
     </span>
   );
 }

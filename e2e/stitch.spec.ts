@@ -316,8 +316,8 @@ test('each recording reports its own readings, and they are not merged into one'
   // A unit switch reaches these numbers, which is what makes them readings rather than strings
   // baked at load time — the bug the state shape was chosen to prevent.
   const before = await read(SUSTAINER, 'Apogee');
-  await page.locator('summary').filter({ hasText: 'per quantity' }).click();
-  await page.locator('details select').first().selectOption('m');
+  await page.getByRole('button', { name: 'per quantity', exact: true }).first().click();
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').first().selectOption('m');
   await expect.poll(() => read(SUSTAINER, 'Apogee'), { timeout: 10_000 }).not.toBe(before);
   expect(await read(SUSTAINER, 'Apogee')).toMatch(/\bm$/);
 });

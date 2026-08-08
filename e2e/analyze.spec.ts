@@ -302,8 +302,8 @@ test('the explorer shows the samples behind the plot, in the chosen units', asyn
   }).toPass();
 
   // The unit choice reaches the table like every other number.
-  await page.locator('summary').filter({ hasText: 'per quantity' }).click();
-  await page.locator('details select').nth(0).selectOption('m');
+  await page.getByRole('button', { name: 'per quantity', exact: true }).first().click();
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').nth(0).selectOption('m');
   await expect(table.locator('thead')).toContainText('m');
 });
 

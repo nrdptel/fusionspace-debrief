@@ -590,8 +590,8 @@ test('a refusal does not outlive the value it described', async ({ page }) => {
   //    reset happens during render rather than in an effect, it must never be painted at all.
   await field.fill('50000');
   await expect(panel.getByText(/is used\./)).toBeVisible();
-  await page.locator('summary').filter({ hasText: 'per quantity' }).click();
-  await page.locator('details select').first().selectOption('m');
+  await page.getByRole('button', { name: 'per quantity', exact: true }).first().click();
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').first().selectOption('m');
   await expect(panel.getByText(/is used\./)).toHaveCount(0);
   await expect(field).not.toHaveAttribute('aria-invalid', 'true');
 
@@ -603,7 +603,14 @@ test('a refusal does not outlive the value it described', async ({ page }) => {
   //    written that way, which is an assert that cannot fail.
   //
   //    So the live region is WATCHED across the switch rather than sampled after it.
-  await page.locator('details select').first().selectOption('ft');
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').first().selectOption('ft');
+  // Shut the units panel before touching the field. It is a `Popover` now (`DESIGN.md` §5) and a
+  // click outside dismisses it — so leaving it open here and typing into a field BEHIND it walks
+  // a path no flyer can walk, and passes only because Playwright's `fill` dispatches no pointer
+  // events. The regression this case guards is real; it has to be reached the way a flyer
+  // reaches it.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Units per quantity' })).toBeHidden();
   await field.fill('20000');
   await expect(panel.getByText(/is used\./)).toHaveCount(0);
 
@@ -619,11 +626,12 @@ test('a refusal does not outlive the value it described', async ({ page }) => {
     check();
     new MutationObserver(check).observe(el, { subtree: true, childList: true, characterData: true });
   });
-  await page.locator('details select').first().selectOption('m');
+  await page.getByRole('button', { name: 'per quantity', exact: true }).first().click();
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').first().selectOption('m');
   await expect(field).toHaveValue(/6[,.]?09/);
   const flashed = await page.evaluate(() => (window as unknown as { __flash: string[] }).__flash);
   expect(flashed.filter((t) => /is used/.test(t)), `the live region said: ${JSON.stringify(flashed)}`).toEqual([]);
-  await page.locator('details select').first().selectOption('ft');
+  await page.getByRole('dialog', { name: 'Units per quantity' }).locator('select').first().selectOption('ft');
 
   // 3. A refusal on a panel whose bound NEVER changes, then the flight reloaded underneath it.
   //    `EjectionDelay` is 0/30/"s" — constants — so a reset keyed on the bound alone can never

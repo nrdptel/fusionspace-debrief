@@ -488,7 +488,12 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  hand-rolled `tone="danger"` error box, which is now `ErrorState` — the §5 primitive whose job
    *  that is. A generic container giving way to the specific one is the direction this milestone
    *  exists to push, so the two numbers have to be read together: `ErrorState` 1 → 2. */
-  Card: 26,
+  /** 26 → 25 on 2026-08-08, and it is the same MOVE the entry above records rather than a loss:
+   *  `UnitsControl`'s only `Card` was the panel of its hand-rolled overlay, floated over the page
+   *  out of `<details>` plus its own absolute positioning. `Popover` owns that now, and still
+   *  renders a `Card` underneath — so the treatment did not leave the system, it stopped being
+   *  assembled at a call site. Read the two numbers together: `Popover` 0 → 1. */
+  Card: 25,
   /** 18 → 19 on 2026-08-03 with §5's fifth weight. `Analyzer` is the new adopter: its "← Analyze
    *  another flight" was one of eight hand-rolled indigo-text controls across four files, which is
    *  the vocabulary having been short a word rather than four files having been careless. The
@@ -557,6 +562,11 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  options with both visible — §5's own definition of when to reach for this. */
   Segmented: 4,
   Disclosure: 3,
+  /** 0 → 1 on 2026-08-08, from owner note `ON-3`. `UnitsControl` is the first adopter and was the
+   *  hand-roll the primitive was extracted from — the one measured running to −39 px at 375 px.
+   *  The second adopter is the `?` on 21 reading tiles, which is the next slice: today all 21
+   *  navigate to another route in another tab, and none of them explains anything in place. */
+  Popover: 1,
   /** §5's "every table is this one", started 2026-08-01 on the two cross-check tables — the two
    *  surfaces §6 exists for and the ones a cert document most wants to lift. `SampleTable` and
    *  `CompareView` are deliberately NOT counted here and are not meant to be: one is transposed
@@ -1310,4 +1320,149 @@ function chipTones(): Record<string, string> {
   return Object.fromEntries(
     [...block.matchAll(/^\s{2}(\w+): '([^']*)'/gm)].map((m) => [m[1], m[2]]),
   );
+}
+
+describe('DESIGN.md §5 — the popover', () => {
+  // `Popover` was added 2026-08-08 from owner note `ON-3`, and the reason it is guarded here rather
+  // than left to the adopter counts is the one this file keeps re-learning: a second hand-rolled
+  // overlay would import nothing from `./ui`, so every count in this file would sit exactly where
+  // it is while the behaviour forked. That is not hypothetical — it is what happened. The units
+  // panel floated a `Card` over the page out of `<details>` plus its own absolute positioning and
+  // its own viewport anchoring, and the only reason anyone knew is that someone measured it at
+  // 375 px and found it running from −39 px.
+  //
+  // What is actually being protected is the three things a call site cannot be trusted to redo:
+  // the narrow-viewport anchoring, the focus return, and a visible way out. A `<summary>` gives
+  // you none of them, which is why the hand-roll had none of them.
+
+  /** A floating panel: positioned out of flow AND stacked above the page.
+   *
+   *  **Two signals, not three, and the third was dropped because it could be walked past.** The
+   *  first version also required `shadow-`, which meant a shadowless scrim or a panel styled by
+   *  any other means was invisible to it. Requiring only out-of-flow + a stacking context is
+   *  broader, so the one legitimate non-panel — `FlightReport`'s `pointer-events-none` scroll
+   *  gradient — is excluded by NAME below rather than by a pattern that happens to miss it. A
+   *  named exception is a decision somebody can read; a pattern that quietly excludes a class is
+   *  the blind spot §9 documents about itself twice.
+   *
+   *  `z-\d+` and `z-[…]` both, because `z-[60]` is the arbitrary form and the named-steps-only
+   *  version of this let it through.
+   *
+   *  **The word boundary goes on the NUMERIC arm only, and the version that put it on both was
+   *  still blind to the exact case it had just been widened for.** `\bz-(\d+|\[[^\]]+\])\b` never
+   *  matches `z-[60]`: the character before the trailing `\b` is `]`, which is not a word
+   *  character, so at the end of the token there is no boundary to find. The falsification run
+   *  is the only reason this is known — the widened check passed, green, against a hand-rolled
+   *  `cx('fixed inset-0', 'z-[60]')` planted specifically to trip it. */
+  const floats = (cls: string) =>
+    /\b(absolute|fixed)\b/.test(cls) && /\bz-(\d+\b|\[[^\]]+\])/.test(cls);
+
+  /** Out of flow and stacked, and deliberately NOT a panel. One entry, with its reason. */
+  const NOT_A_PANEL = [
+    // A gradient fading the right edge of a horizontally scrolling row. It has no content, takes
+    // no pointer events, and cannot be opened or dismissed.
+    'pointer-events-none',
+  ];
+
+  it('is the only thing in either surface tree that floats a panel over the page', () => {
+    const sites: string[] = [];
+    for (const f of uiSources(['components', 'app'], ['.tsx'])) {
+      // Comments stripped: this is not one of §9's own greps, and a component that DESCRIBES the
+      // old hand-roll in a comment — `components/UnitsControl.tsx` now does, on purpose, so the
+      // measurement that produced the primitive is not lost — is not floating anything.
+      const code = f.text.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+      // **Every string literal, not just `className="…"`.** The first version of this matched the
+      // attribute form only and reported ZERO against a tree containing the primitive itself —
+      // because `Popover` builds its classes through `cx('absolute top-full z-30 …')`, where the
+      // treatment is an ARGUMENT and never appears inside a `className=`. A check that cannot see
+      // the one site it is guarding would have passed for exactly as long as nobody hand-rolled an
+      // overlay in an attribute, which is the class of blind spot §9 documents about itself twice.
+      //
+      // **A treatment split across two `cx` arguments still counts**, because the whole `cx(…)`
+      // call's literals are joined before the test — `cx('fixed inset-0', 'z-50')` is one panel,
+      // not two halves of nothing, and matching per-literal would have missed it.
+      const joined = code.replace(/cx\(([\s\S]*?)\)/g, (whole, args: string) => {
+        const lits = [...args.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`/g)]
+          .map((m) => m[1] ?? m[2] ?? m[3] ?? '')
+          .join(' ');
+        return `cx('${lits.replace(/'/g, '')}')`;
+      });
+      for (const m of joined.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`/g)) {
+        const cls = m[1] ?? m[2] ?? m[3] ?? '';
+        if (!floats(cls)) continue;
+        if (NOT_A_PANEL.some((x) => cls.includes(x))) continue;
+        sites.push(`${f.path}: ${cls.trim().slice(0, 80)}`);
+      }
+    }
+    expect(
+      [...new Set(sites.map((s) => s.split(':')[0]))],
+      `floating panels, by site (only components/ui.tsx may carry one):\n${sites.join('\n')}`,
+    ).toEqual(['components/ui.tsx']);
+  });
+
+  it('anchors to the viewport below sm, which is the defect it was extracted from', () => {
+    // Measured 2026-08-04 on the units panel: right-anchored to a control near the right edge, it
+    // ran from −39 px to 201 at a 375 px viewport and cut off the entire left column of its own
+    // labels — and the page never scrolled sideways, so nothing watching document width saw it.
+    // Asserted on the primitive's source because no unit test renders at a viewport width; the
+    // behaviour itself is walked by `e2e/touch.spec.ts`.
+    expect(popoverSource(), 'the Popover panel pins itself to the viewport below sm').toMatch(
+      /max-sm:fixed/,
+    );
+    expect(
+      popoverSource(),
+      'and drops its fixed width, which cannot coexist with two insets',
+    ).toMatch(/max-sm:w-auto/);
+  });
+
+  it('gives every popover a visible way out, and returns focus only on Escape', () => {
+    // Two exits, deliberately different, and the difference is the part a call site would get
+    // wrong: Escape returns focus to the trigger because the reader asked to leave and has
+    // nowhere else to be; a click outside does not, because they have already put their focus
+    // somewhere on purpose. `dismiss` is `useReturnFocus`'s returning exit; `close` is the plain
+    // one. If a future edit wires the outside-click handler to `dismiss`, this fails.
+    const fn = popoverSource();
+    expect(fn, 'the close control is the focus-return target').toMatch(/ref=\{safeRef\}/);
+    expect(fn, 'and it is labelled for a screen reader').toMatch(/aria-label="Close"/);
+    expect(fn, 'the close control dismisses through useReturnFocus').toMatch(/onClick=\{dismiss\}/);
+
+    // **Escape is bound to the DOCUMENT.** Bound to the primitive's own wrapper it works only
+    // while focus is inside it, so tabbing out of the panel silently takes the exit away — the
+    // state-with-no-way-out this primitive is supposed to own, for the one user `<details>`
+    // served correctly. The first version of these assertions said "Escape returns focus" and
+    // checked only the close BUTTON's handler, so removing the key binding entirely left the
+    // unit suite green. Asserted on the listener, not on a prop name.
+    expect(fn, "Escape is listened for on the document, not on the primitive's wrapper").toMatch(
+      /document\.addEventListener\('keydown'/,
+    );
+    expect(fn, 'and it is removed again').toMatch(/document\.removeEventListener\('keydown'/);
+    expect(fn, "Escape's handler is the focus-returning exit").toMatch(
+      /if \(e\.key === 'Escape'\) dismiss\(\)/,
+    );
+
+    // Both exits leave focus somewhere real. The outside click restores it only when it would
+    // otherwise be LOST — if the click landed on something focusable, that is where the reader
+    // meant to go.
+    const outside = fn.slice(fn.indexOf('const closeAndKeepFocusSomewhere'), fn.indexOf('const onDown'));
+    expect(outside, 'a click outside must not strand focus on <body>').toContain('document.body');
+    expect(outside, 'and restores the trigger when focus would be lost').toMatch(
+      /triggerRef\.current\?\.focus\(\)/,
+    );
+  });
+});
+
+/** The body of `Popover`, from its own `export` to the next one.
+ *
+ *  A helper rather than three copies, and the slice is `indexOf` from AFTER the declaration for a
+ *  reason worth one line: slicing from the declaration itself and then looking for the next
+ *  `export function` finds the declaration again at offset 0, so the "body" is the empty string —
+ *  and every `toMatch` against it fails while every `not.toContain` PASSES. Two of the three
+ *  assertions below would have been vacuously green. */
+function popoverSource(): string {
+  const ui = readFileSync(join(ROOT, 'components/ui.tsx'), 'utf8');
+  const start = ui.indexOf('export function Popover(');
+  expect(start, 'Popover exists in components/ui.tsx').toBeGreaterThan(-1);
+  const after = start + 'export function Popover('.length;
+  const next = ui.indexOf('\nexport ', after);
+  return ui.slice(start, next === -1 ? undefined : next);
 }
