@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { METHOD_IDS, METHOD_GROUPS } from './methodIds';
+import { METHOD_CONTENT } from './methods/content';
 import { metricTiles } from './readings';
 import type { FlightMetrics } from './analyze/types';
 
@@ -55,9 +56,43 @@ function everyReading(): ReturnType<typeof metricTiles> {
 }
 
 describe('readings and the methods page', () => {
-  it('renders a block for every id in the canonical list', () => {
-    const missing = METHOD_IDS.filter((id) => !PAGE.includes(`<Method id="${id}"`));
-    expect(missing, `ids with no block on the page: ${missing.join(', ')}`).toEqual([]);
+  it('has real text for every id in the canonical list', () => {
+    // **This used to grep the PAGE for `<Method id="x"`, and the content moved on 2026-08-08.**
+    // It lives in `lib/methods/content.tsx` now, because the report's "?" renders the same
+    // explanation in a popover and two surfaces doing one job share a module rather than a
+    // resemblance. Checking the module is also a stronger claim than the grep was: a block
+    // could have been present on the page and empty, and this cannot be.
+    const missing = METHOD_IDS.filter((id) => !METHOD_CONTENT[id]);
+    expect(missing, `ids with no entry in METHOD_CONTENT: ${missing.join(', ')}`).toEqual([]);
+    for (const id of METHOD_IDS) {
+      expect(METHOD_CONTENT[id].title.trim().length, `${id} has a title`).toBeGreaterThan(0);
+      expect(METHOD_CONTENT[id].body, `${id} has a body`).toBeTruthy();
+    }
+    // And nothing in the module that is not a block — the other direction, which the page
+    // grep could never see.
+    const extra = Object.keys(METHOD_CONTENT).filter((id) => !(METHOD_IDS as readonly string[]).includes(id));
+    expect(extra, `entries in METHOD_CONTENT that are not blocks: ${extra.join(', ')}`).toEqual([]);
+  });
+
+  it('renders every block from the shared module, not from a copy', () => {
+    // The failure this guards is the one the architecture invariant names: a second copy of an
+    // explanation written beside the first, which drifts the moment either is edited and leaves
+    // a flyer reading two different accounts of one number. If the page ever inlines prose again
+    // it will stop going through METHOD_CONTENT, and this says so.
+    expect(PAGE, 'and renders its groups from the data, not from 51 literal sections').toContain(
+      'METHOD_GROUPS.map',
+    );
+    // The page is now short because it holds no prose. 1,348 lines before the move, 128 after —
+    // a page that grows back past ~400 has had content written into it again.
+    expect(PAGE.split('\n').length, 'the methods page holds layout, not text').toBeLessThan(400);
+
+    // **The real guard, and the first version of this test did not have it.** It asserted
+    // `PAGE.toContain('METHOD_CONTENT')`, which the IMPORT LINE alone satisfies — so a page that
+    // kept the import and inlined prose underneath would have passed. What actually cannot be
+    // true of a page holding no explanations is that it names one: no block id appears as a
+    // string literal anywhere in it, because the only place ids are written now is the grouping.
+    const inlined = METHOD_IDS.filter((id) => PAGE.includes(`"${id}"`) || PAGE.includes(`'${id}'`));
+    expect(inlined, `block ids written into the page — content has been inlined again:\n${inlined.join('\n')}`).toEqual([]);
   });
 
   it('puts the id on the heading, not only in the prop', () => {
@@ -123,20 +158,25 @@ describe('the methods page has a structure, and every block is in it', () => {
     expect(placed).toHaveLength(METHOD_IDS.length);
   });
 
-  it('renders each group as its own section, in the order it declares', () => {
-    // The grouping is worth nothing if the page does not follow it. Read off the page source
-    // rather than the data, because the data is what a session edits and the page is what a
-    // flyer reads — this is the pair that can drift.
-    const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const rendered = [...PAGE.matchAll(/<section id="([^"]+)" className="mt-12 scroll-mt-12">/g)].map((m) => m[1]);
-    expect(rendered, 'every group has a section on the page, in order').toEqual(
-      METHOD_GROUPS.map((g) => slug(g.title)),
-    );
+  it('renders its sections from the grouping rather than from a hand-kept list', () => {
+    // **This used to compare 51 literal `<section id="…">` strings against the data.** That was
+    // the right check while the page listed them by hand; it is the wrong one now, because the
+    // page maps over `METHOD_GROUPS` and the ordering is true by construction rather than by
+    // agreement. Asserting the literal strings again would only be asserting that the map still
+    // exists, which the check above already does.
+    //
+    // What still needs saying is that the ids the map iterates ARE the grouping — so the
+    // contents list, the strip and the blocks cannot disagree about what follows what.
+    expect(PAGE, 'the sections come from the grouping').toContain('g.ids.map');
+    expect(PAGE, 'and their anchors from the group titles').toContain('groupId(g.title)');
 
-    // And the blocks appear in the order their group places them, so the contents list and
-    // the page agree about what follows what.
-    const order = [...PAGE.matchAll(/<Method id="([^"]+)"/g)].map((m) => m[1]);
-    expect(order, 'blocks are rendered in group order').toEqual(placed);
+    // The rendered result is walked for real by `e2e/smoke.spec.ts` → "the methods page can be
+    // navigated, not just scrolled", which counts the headings on the BUILT page. That is the
+    // stronger check and it is the one that would catch a map that renders nothing.
+    //
+    // A `toHaveLength(METHOD_IDS.length)` stood here and was deleted: it is character-identical
+    // to one in the test above, over the same module-level `placed`, so it restated a passing
+    // assertion rather than adding one. Two copies of a check are not two checks.
   });
 
   it('gives every group a title and a blurb that is not the title again', () => {

@@ -1277,16 +1277,50 @@ export function Popover({
             </IconButton>
           }
           className={cx(
-            'absolute top-full z-30 mt-1 text-left shadow-lg',
+            // **A floating panel does not inherit the typography of whatever it opened from, and
+            // this cost a whole feature before it was caught.** `text-transform` and
+            // `letter-spacing` INHERIT. `Readout` renders its label inside
+            // `text-xs uppercase tracking-wide`, and a popover triggered from a reading's label is
+            // a DOM descendant of that — so every one of the 21 method explanations rendered as
+            // 764 words of ALL CAPS at 12 px with letter-spacing. Nothing in the gate could see
+            // it: `innerText` is identical either way, so the word-count and text assertions in
+            // `e2e/analyze.spec.ts` all passed. Found by reading `getComputedStyle` on the panel.
+            //
+            // Reset here rather than at the call site, because the next popover opened from
+            // anything with inherited type would rediscover it.
+            'absolute top-full z-30 mt-1 text-left normal-case tracking-normal shadow-lg',
             width,
             align === 'end' ? 'right-0' : 'left-0',
-            // The viewport anchoring. `inset-x-3` rather than `inset-x-0` so the panel keeps the
-            // page's own gutter instead of running edge to edge, and `w-auto` because a fixed
-            // width and two insets cannot both be honoured.
-            'max-sm:fixed max-sm:inset-x-3 max-sm:top-auto max-sm:w-auto',
+            // **The viewport anchoring, and it has to pin the BOTTOM as well as the sides.**
+            // `inset-x-3` rather than `inset-x-0` so the panel keeps the page's own gutter
+            // instead of running edge to edge, and `w-auto` because a fixed width and two
+            // insets cannot both be honoured.
+            //
+            // `bottom-3` is the half that was missing, and the omission was invisible until a
+            // popover opened from something far down a long page. `position: fixed` with no
+            // `top` or `bottom` resolves to the element's STATIC position — where it would have
+            // sat in flow — so a panel triggered 1,200 px down a report rendered at y=2045 on an
+            // 844 px viewport: entirely below the screen, with its close control off it too.
+            // Measured 2026-08-08 on the report's readings grid. The units panel, which is the
+            // one this was extracted from, sits near the top of the page and never showed it.
+            //
+            // Pinned to the bottom it is a sheet, which is the right shape on a phone anyway:
+            // it opens where the thumb already is, and the body's own `max-h` keeps the heading
+            // and the close control on screen however long the content is.
+            'max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 max-sm:top-auto max-sm:w-auto',
           )}
         >
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">{children}</div>
+          {/* **The content scrolls; the heading and the close control do not.** A popover that
+              can be taller than the window is a panel a flyer cannot get out of on a phone — the
+              close control would be off-screen above them. Capping the BODY rather than the whole
+              `Card` is what keeps the way out pinned in view. `70vh` leaves the trigger and its
+              surroundings visible, so the reader can still see the reading they asked about.
+
+              It is here rather than at a call site because the longest content this now carries is
+              a methods block, and those run to 764 words. */}
+          <div className="max-h-[70vh] overflow-y-auto text-sm text-zinc-600 dark:text-zinc-400">
+            {children}
+          </div>
         </Card>
       )}
     </span>

@@ -220,6 +220,10 @@ hand-rolls it instead is not done.
   - it carries a visible close control, because a surface a flyer can open and not obviously shut is
     the "state with no way back out" the craft bar names — and on touch there is no `Escape` key to
     fall back on;
+  - **the BODY scrolls and the heading does not.** A panel that can grow taller than the window is
+    one a flyer cannot get out of on a phone, because the close control ends up off-screen above
+    them. Capping the body rather than the whole card is what keeps the way out pinned in view. The
+    longest content this carries is a methods block, and those run to 764 words;
   - the panel is a `Card`, **including its title row**: the heading and the close control are
     `Card`'s own `title` and `actions`. A popover is not a licence for a thirteenth card treatment,
     and writing that row out by hand inside the primitive — which the first version did, at

@@ -3159,11 +3159,35 @@ clause about 27 KB of text was still true and is now 28.
 
 ## P8 (from ON-3) — The explanation comes to the reading
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**: `DESIGN.md` §5 gains `Popover` and
-`components/UnitsControl.tsx` is its first adopter, pinned by three assertions in
-`lib/design-system.test.ts` and a dismissal walk in `e2e/touch.spec.ts`. Slice 2 — the method
-content out of `app/methods/page.tsx` into a shared module — is next, and P9 slice 1 has made it
-cheaper: the blocks are now grouped data rather than 51 flat siblings.
+**Status:** SHIPPED 2026-08-08 — pinned by `e2e/analyze.spec.ts` → *"a question mark explains the
+reading where it is, without losing the page"*, which asserts the dialog opens without navigating,
+that the scroll position moves less than 4 px, that the explanation is more than 25 words of real
+prose rather than a restated label, and — as a COUNT, because the note is about a count — that
+**zero** readings still open the methods page in a second tab. Falsified by restoring the anchor.
+
+All three slices landed in one run. Slice 1: `DESIGN.md` §5 gains `Popover`, with
+`components/UnitsControl.tsx` — the hand-roll it was extracted from — as its first adopter. Slice 2:
+the text of all 51 blocks moved out of `app/methods/page.tsx` into `lib/methods/content.tsx`, which
+took the page from **1,348 lines to 128**; the move was verified lossless by comparing the built
+page's rendered text character for character (79,900 characters, identical). Slice 3: the `?` on
+every reading opens that same text in place, with *"Read this on the methods page"* still one click
+away.
+
+**One measured cost, taken deliberately.** The report route's First Load JS goes **270 kB → 302 kB**,
+because the methods prose now ships with `/` as well as with `/methods`. For the installed PWA this
+app is designed around that is close to free — the service worker already precaches the whole
+`/methods` route, so those bytes were already on the device — and it is what keeps *"what does this
+number mean?"* answerable with no bars, which the app's own copy promises. The alternative,
+lazy-loading the module on first open, moves the text into a build-hashed chunk the service worker
+does not know to precache, and would trade a headline promise for 32 kB. Filed in `BACKLOG.md` with
+that caveat rather than done.
+
+**What slice 4 would have been** — the same affordance on the eight standalone estimator panels
+(`DragCoefficient`, `ParachuteCd`, `DrogueCd`, `LandingEnergy`, `EjectionDelay`, `RailExit`,
+`DeployAltitude`, `GroundTrack`) and on the comparison table, which have no `?` at all and whose
+values are the user-input-driven ESTIMATES most in need of "and here is where this is wrong" — is
+filed in `BACKLOG.md`. The primitive and the content module are both in place, so it is a call-site
+change now rather than a milestone.
 
 **Outcome.** A flyer meeting a term of art gets the explanation where they are standing, and keeps
 their place in the report.

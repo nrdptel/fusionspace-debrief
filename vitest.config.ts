@@ -1,6 +1,16 @@
 import { defineConfig, configDefaults } from 'vitest/config';
 
 export default defineConfig({
+  // **JSX, because a unit test now imports a module that contains some.** `lib/methods/content.tsx`
+  // holds the text of every methods block, and `lib/methodIds.test.ts` imports it to assert that
+  // every id has one. `tsconfig.json` sets `"jsx": "preserve"` — correct, because Next does the
+  // transform — so esbuild leaves the JSX alone and the module throws `React is not defined` the
+  // moment it is imported rather than read as text.
+  //
+  // No test had ever imported JSX before: `lib/design-system.test.ts` reads components as SOURCE,
+  // never as modules. So this unlocks a capability rather than changing an existing behaviour, and
+  // the whole suite was re-run to confirm the blast radius is nil.
+  esbuild: { jsx: 'automatic' },
   test: {
     // Unit tests only. The Playwright specs under e2e/ are run separately by
     // `npm run test:e2e` and must not be collected by vitest (their test() comes

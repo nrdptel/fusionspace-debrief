@@ -1344,17 +1344,32 @@ test('a reading says where its definition is, and the link lands on it', async (
     .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
   await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
 
-  const links = page.locator('a[href^="/methods#"]');
-  const n = await links.count();
+  // **Rewritten 2026-08-08 (owner note ON-3).** This used to assert the opposite contract —
+  // that every reading's "?" is an anchor carrying `target="_blank"`, so the definition opened
+  // BESIDE the report rather than instead of it. That was the best available answer while the
+  // only place an explanation existed was the methods page. It is not any more: the explanation
+  // opens in place, and the anchor now lives inside the popover for the reader who wants the
+  // neighbouring blocks too.
+  //
+  // The half of this test that still matters is the half about the ANCHOR really existing — a
+  // link to a page with no anchors scrolls to the top and looks like it worked — so that is
+  // what it keeps doing, reached the way a flyer now reaches it.
+  const help = page.getByRole('button', { name: /is worked out$/ });
+  const n = await help.count();
   expect(n, 'the readings grid should offer a definition per reading').toBeGreaterThanOrEqual(8);
 
-  // It opens beside the report rather than instead of it: a definition is a lookup, not a
-  // destination, and the report screen is the one you'd be giving up to read it.
-  await expect(links.first()).toHaveAttribute('target', '_blank');
-
-  // Follow one and prove the anchor is really there — a link to a page with no anchors
-  // scrolls to the top and looks like it worked.
+  await help.first().click();
+  const panel = page.getByRole('dialog');
+  await expect(panel).toBeVisible();
+  // `/methods/#id`, with the trailing slash, because the control is a `<Link>` and
+  // `next.config.mjs` sets `trailingSlash: true`. The hand-written anchor this replaced emitted
+  // `/methods#id` and relied on the host's redirect carrying the fragment across — which is not
+  // something every host does. Going through the primitive fixed that on the way past.
+  const links = panel.locator('a[href*="/methods"][href*="#"]');
   const href = (await links.first().getAttribute('href'))!;
+  expect(href, 'the canonical trailing-slash form, so no redirect has to preserve the fragment').toMatch(
+    /^\/methods\/#/,
+  );
   const id = href.split('#')[1];
   await page.goto(`/methods/#${id}`);
   const target = page.locator(`#${id}`);
@@ -2425,4 +2440,70 @@ test('a binary sample opens, which the old single-URL sample path could not do',
   const table = page.getByRole('table');
   await expect(table.getByText(/PerfectFlite/i).first(), 'the .pf2 is read by its own parser').toBeVisible();
   await expect(table.getByText(/Featherweight Raven/i).first(), 'and the CSV by its own').toBeVisible();
+});
+
+// `OWNER-NOTES.md` ON-3 — "it would be nice if clicking on any of the question marks would just
+// open up a pop up not to a seperate page that would explain".
+//
+// Measured before this: 21 of the readings grid's tiles carried a "?", and ALL 21 were an
+// anchor with target=_blank onto /methods — a second tab, a 12,700-word document, an anchor
+// among 51 blocks. A flyer looking up one term lost their place in the report to get it.
+//
+// The cost the note is actually about is the LOST PLACE, so that is what this measures.
+test('a question mark explains the reading where it is, without losing the page', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+
+  // Scroll well down the report, so "kept my place" is a claim with something to lose.
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before, 'the reader is some way down the report').toBeGreaterThan(200);
+
+  const help = page.getByRole('button', { name: /is worked out$/ }).first();
+  await help.scrollIntoViewIfNeeded();
+  const at = await page.evaluate(() => Math.round(window.scrollY));
+  await help.click();
+
+  // It explains IN PLACE: a dialog on this page, not a navigation.
+  const panel = page.getByRole('dialog');
+  await expect(panel).toBeVisible();
+  expect(page.url(), 'no navigation happened').not.toContain('/methods');
+  expect(await page.evaluate(() => document.title), 'still the report').not.toMatch(/Where the numbers come from/);
+
+  // …with real prose, not a restated label. The shortest methods block runs to dozens of words;
+  // a panel echoing the tile's name would be the "tooltip that restates the label" tell.
+  const words = (await panel.innerText()).trim().split(/\s+/).length;
+  expect(words, `the explanation is ${words} words`).toBeGreaterThan(25);
+
+  // **It is READABLE, which no other assertion here can see.** `text-transform` and
+  // `letter-spacing` inherit, and this popover opens from inside `Readout`'s label — which is
+  // `text-xs uppercase tracking-wide`. The first version of this feature rendered all 51
+  // explanations as ALL CAPS at 12 px with letter-spacing, and every text assertion above
+  // passed, because `innerText` is identical either way. Found with `getComputedStyle`, so
+  // that is what guards it.
+  const type = await panel.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const p = el.querySelector('p');
+    return { transform: cs.textTransform, spacing: cs.letterSpacing, pTransform: p ? getComputedStyle(p).textTransform : 'none' };
+  });
+  expect(type.transform, 'the panel does not inherit uppercase from the reading label').toBe('none');
+  expect(type.pTransform, 'nor does the prose inside it').toBe('none');
+  expect(type.spacing, 'nor the label letter-spacing').toBe('normal');
+
+  // The full page is still one click away for anyone who wants the neighbouring blocks.
+  await expect(panel.getByRole('link', { name: /Read this on the methods page/ })).toBeVisible();
+
+  // And the place is kept — the whole point of the note.
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  const after = await page.evaluate(() => Math.round(window.scrollY));
+  expect(Math.abs(after - at), `scroll moved ${Math.abs(after - at)} px`).toBeLessThan(4);
+
+  // No reading sends the flyer away any more. This is the count the note is about, so it is
+  // asserted as a count rather than as "the first one works".
+  const navigating = await page.locator('a[href*="/methods"][href*="#"][target="_blank"]').count();
+  expect(navigating, 'no reading opens the methods page in a second tab').toBe(0);
+  const explaining = await page.getByRole('button', { name: /is worked out$/ }).count();
+  expect(explaining, 'and every term of art explains in place').toBeGreaterThanOrEqual(8);
 });

@@ -14,6 +14,40 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-08 — the readings grid grew 38% on a phone when the "?" became a button, and the
+  obvious fix is a trap.** Measured at a 390 px viewport with the sample flight loaded: each tile
+  **100 px → 128 px**, the readings grid **1,508 px → 2,084 px**, the report page 9,209 → 9,553 px.
+  Cause: `app/globals.css`'s `@media (pointer: coarse)` floors every `button` at 44×44, and the `?`
+  used to be an `<a>`, which that rule deliberately does not cover ("text links, which must not
+  become 44 px tall inside a paragraph"). **No hit size was gained** — the old anchor was already
+  44×44-hittable through `.touch-area`'s `::after`.
+  **The obvious fix was tried and reverted, and the measurement is the useful part.** Adding
+  `:not(.touch-area)` to that rule restores the tiles to 102 px exactly — and turns
+  `e2e/touch.spec.ts` red on nine OTHER controls in the loaded comparison (Altitude, Velocity,
+  Acceleration, Mach, Dynamic pressure, Burnout, Apogee, Main, Landing), which drop to 26×26.
+  So those nine were getting their 44 px from the blanket rule and NOT from the `::after` they
+  appear to opt into — which means `.touch-area` is not doing the job it is documented to do on at
+  least those sites, and that is the thing to find out before touching the rule again. Reverted
+  rather than shipped half-understood; §8's floor is intact and the cost is 28 px per tile.
+- **2026-08-08 — eight estimator panels and the comparison table still have no "?" at all.**
+  `DragCoefficient.tsx:109`, `ParachuteCd.tsx:84`, `DrogueCd.tsx:86`, `LandingEnergy.tsx:90`,
+  `EjectionDelay.tsx:48`, `RailExit.tsx:85`, `DeployAltitude.tsx:58`, `GroundTrack.tsx:513` — and
+  `/methods` carries a dedicated anchor for every one of them. These are the panels where a flyer
+  types a mass and gets a Cd back, so they are the readings most in need of "and here is where this
+  is wrong". The comparison's metric rows (`lib/report.ts` `compareMetricRows`) carry no `method` id
+  at all, and its "Spread (%)" definition — a full sentence of real help — exists only as a native
+  `title=` on the header cell: invisible, hover-only, dead on touch. Measured 2026-08-08: the
+  original ON-3 count of "21 tiles" undercounts the gap by eight panels. `Popover` and
+  `METHOD_CONTENT` both exist now, so each is a call-site change.
+- **2026-08-08 — the report route grew 32 kB when the methods text moved into a shared module.**
+  `/` 270 → 302 kB First Load JS, `/compare` 274 → 306 kB, because `lib/methods/content.tsx` is
+  imported by `components/MetricGrid.tsx`. Deliberate: for the installed PWA the service worker
+  already precaches the whole `/methods` route, so the bytes were on the device either way, and
+  shipping them with the report is what keeps an explanation available offline. **The obvious fix is
+  a trap**: lazy-loading the module puts the text in a build-hashed chunk that `public/sw.js`'s
+  PRECACHE list cannot name, so "what does this number mean?" would stop being answerable with no
+  bars — which the app's own copy promises. Any fix has to teach the service worker about the chunk
+  first.
 - **2026-08-08 — the report's Velocity chart is the ONE surface that does not say the speed trace
   is unusable.** `components/FlightReport.tsx:1273` renders the `Velocity` `Figure` unconditionally
   with the note "derived from altitude", never consulting `series.velocityUnusable` — while six
