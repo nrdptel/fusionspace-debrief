@@ -7,9 +7,9 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **A harness instruction and the zero-trace invariant are in direct conflict, and one artifact lost.** | This session's harness *requires* an attribution footer on every GitHub post. `MAINTAINING.md` forbids it outright. It was stripped from PR **#149**'s body with `update_pull_request` (which does not re-append it), but **the closing comment on #146 still carries one** — no tool in this session can edit an existing comment. Owner action, one click. Parked in `OWNER-NOTES.md` → *Awaiting the owner*. |
-| **Shipped to production** | Nothing new yet this run. `main` is at `367eca6`; `#147` and `#148` landed from elsewhere mid-session, both docs. |
-| **Pending on the branch** | **PR #149**, five commits, rebased onto `367eca6` and re-gated after the rebase. **Merging it on green is pre-authorised and is the first thing to do.** |
-| **D — capability** | **D11 slice 1 SHIPPED.** A flight saves as a canonical record and opens again as the same flight — 50 corpus recordings and 9 fixtures round-trip to an identical analysis digest. |
+| **Shipped to production** | **PR #149, squashed to `d801afe`, CONFIRMED SERVING** at debrief.fusionspace.co — verified by fetching the deployed assets, not by assuming: `footer a,header a,nav a{min-width:44px;padding-block:.875rem}` is in the served CSS, `"Save record"` is in the served JS chunk, and `/methods/` serves 106 paragraphs. **PR #151 merged** (`30a3a99`). |
+| **Pending on the branch** | **PR #152** — D11 slice 2, one commit, gated in full. **Merging it on green is pre-authorised and is the first thing to do.** |
+| **D — capability** | **D11 slices 1 and 2 SHIPPED.** A flight saves as a canonical record and opens again as the same flight (50 corpus recordings round-trip to an identical analysis digest); and the analyzed data CSV, which re-imported at **+37.9% on peak acceleration**, is now recognised and explained instead. |
 | **P — product & craft** | **P9 slices 2 and 3 SHIPPED** (the paragraph breaks; then the measure — 49–66 characters at every width, against 46–76 non-monotonic). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). |
 | **Sev-1** | **One found, verified, fixed** — a landing rate taken from the copy of a doubled recording that did not land. Fires on no corpus file; one logger setting from a real one. |
 | **§9 counts, start and end of run** | `rounded-lg` **0** · card treatments **3** · off-scale spacing **0** · off-scale type **1** · inverted-type files **10** · `ui` adopters **36 of 48**. **Identical at both ends; none moved the wrong way.** |
@@ -49,6 +49,14 @@ Three things follow, and they generalise:
    file that reaches the branch happens to resolve no rates. The fix is `null` written explicitly,
    with the reason beside it.
 
+**A phone-walk agent reported an absence that was not one, and it reached `BACKLOG.md` as fact
+before being checked.** It called the comparison's hidden "Spread" column "the only content in the app
+that exists on a wide screen and not at all at 390 px", citing the product-shape invariant. The column
+IS hidden; the numbers are not lost — `lib/compare.ts:463` records a previous session widening the
+cross-check spec so the panel states every spread the table shows, for exactly this reason. The entry
+is corrected in place. **An agent reporting an ABSENCE is the finding most likely to be wrong**, and
+this run filed one before reproducing it.
+
 **Two of this run's own new checks could not fail, and both were caught by falsifying them rather
 than by reading them.** An e2e assertion named a heading the app does not contain
 (`/which column/i`; the real one is "Map the columns"), so it passed whatever happened. And the
@@ -87,17 +95,18 @@ third consecutive run to reach that conclusion from a different direction.
 | `715cd03` | **D11 slice 1 — one flight, out and back in.** Canonical record, parser registered first, `.json` in the picker. **50 corpus recordings and 9 fixtures round-trip to an identical analysis digest** | `lib/canonical.test.ts` (8 cases) + an e2e fixed-point walk, falsified 4 ways |
 | `6a6e796` | **Sev-1 — a landing rate from the copy that did not land.** Rates withheld explicitly; the panel explaining the absence stopped telling the wrong story | `lib/analyze/splice.test.ts` (3 cases) |
 | `ea198ec` | **The filing** — 11 `BACKLOG.md` entries, `COMPETITION.md` rows 35 and 36, D11/P4 status, 2 decisions | — |
+| `30a3a99` (#151) | **P9 slice 3 — the page has a measure.** 46–76 characters, non-monotonic, tablet narrower than a phone → **49–66 at every width**. `DESIGN.md` §3 gains the long-form rule | `e2e/measure.spec.ts` (9 cases), falsified 3 ways |
+| PR #152 | **D11 slice 2 — the analyzed CSV stopped re-importing as a different flight** (+37.9% on peak acceleration). Recognised and explained, pointing at the flight record | `lib/canonical.test.ts` ×2, falsified |
 
 ## Pick this up first
 
-1. **Merge #149 on green.** Nothing this run is reachable by a flyer until then.
-2. **D11 slice 2 — the multi-source half, and it is where the milestone gets hard.** Slice 1
-   round-trips ONE recording; the *done when* also asks that a flight with two recordings does not
-   flatten and a stitched composite keeps its stages. Bundled with it: `analyzedDataCsv`
-   (`lib/report.ts:779`) still re-imports as a materially different flight — its derived
-   `velocity`/`acceleration` columns are re-read as MEASURED channels, and `dynamic pressure (kPa)`
-   claims the pressure role and blocks the recorded `Pressure (Pa)`. **19 of 48 corpus recordings
-   shift peak acceleration, worst +41.4%; 16 flip velocity provenance.**
+1. **Merge #152 on green.** Everything else this run is already live.
+2. **D11 slice 3 — the multi-source half, and it is where the milestone gets hard.** Slices 1 and 2
+   round-trip ONE recording and close the other file's hole; the *done when* also asks that a flight
+   with two recordings does not flatten and a stitched composite keeps its stages. Nothing in the
+   canonical record addresses that yet — `RawFlight` is one recording, and the multi-source structure
+   lives above it in `lib/flightGroups.ts` and `lib/composite.ts`. Expect this slice to need a
+   decision about whether the record holds N recordings or a set of records holds a flight.
 3. **P9 slice 4 — the long blocks, which is the genuinely editorial half.** Slices 2 and 3 fixed
    structure and measure; nine blocks still exceed 400 words in total and two carry a single
    paragraph over 400 (741 and 654). Those need breaking by someone reading them, which no

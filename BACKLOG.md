@@ -36,11 +36,21 @@ wild, ideas too big for one pass. One line each, newest first.
   `components/ChannelExplorer.tsx:679` — publishes a min/max/mean off a channel the report says is in
   doubt. Reproduced on `blueraven__issuiuc-sg1.2-20231118 …BlueRaven-Low.txt`: the grid says "unproven"
   while d-altitude reports max 31.2 ft with `caveat=undefined`.
-- **2026-08-08 — the comparison's "Spread" column is `hidden … sm:table-cell`, and it is the only
-  content in the app that exists on a wide screen and not at all at 390 px.** `components/CompareView.tsx:889`.
-  `MAINTAINING.md`'s product-shape invariant names this exact failure — "never let a capability exist on
-  one form factor and simply not render on the other". Spread is the column that says whether redundant
-  recordings agree, which is the question the phone user at the pad has. P4 work.
+- **2026-08-08 — the comparison's "Spread" column is `hidden … sm:table-cell` — filed, then
+  CORRECTED THE SAME RUN, and the correction is the useful part.** `components/CompareView.tsx:889`
+  and `:965`. A phone-walk agent reported this as "the only content in the app that exists on a wide
+  screen and not at all at 390 px", citing `MAINTAINING.md`'s product-shape invariant. **That
+  overstates it.** The column is hidden; the NUMBERS are not lost. `components/CompareView.tsx:961`
+  says so in a comment — "the cross-check panel above states every one of these spreads in prose" —
+  and `lib/compare.ts:463` shows a previous session widening the cross-check spec for exactly that
+  reason: *"Everything below is a reading the comparison TABLE already shows. Leaving them out of the
+  cross-check meant the panel could report agreement over a shorter list of readings than the table
+  beside it displayed."* So this is a deliberate, documented touch adaptation with the content
+  preserved in another form, which is what §8 asks for. **Left open as a lower-priority question, not
+  as a defect:** prose is a worse shape than a column for scanning ten spreads, so the P4 question is
+  whether a phone should get a *vertical* presentation of them rather than none — which is P4's own
+  `ON-6` sharpening, not this invariant. The lesson worth keeping: an agent reporting an ABSENCE is
+  the finding most likely to be wrong, and this one was filed as fact before being checked.
 - **2026-08-08 — `onDoubleClick` is the only way to reset a figure or flight colour, and dblclick does
   not exist on touch.** `components/FigureChooser.tsx:70` and `components/CompareView.tsx:848`. A state a
   phone can enter (pick a colour) with no way back out of it — rank 2 on the damage list.
