@@ -7,10 +7,10 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **The owner's inbox was full, and it is now empty of unanswered notes.** | `OWNER-NOTES.md` arrived with **eight open notes and no verdicts**. All eight carry a verdict dated 2026-08-08. Four became milestones (**D10, D11, P8, P9**), two sharpened milestones that already existed (**P4**, **P5**), one is a `DESIGN.md` token change, one a `COMPETITION.md` row. |
-| **Shipped to production** | `#143`, squashed to `84d2455`, **confirmed serving** at debrief.fusionspace.co. Five increments. |
-| **Pending on the branch** | `#145` (`2fb1854`) — P8 slices 2 and 3. Open, CI running at the time of writing. **Merging it on green is pre-authorised and is the first thing to do.** |
+| **Shipped to production** | `#143` → `84d2455` and `#145` → `002cb6b`, both **confirmed serving** at debrief.fusionspace.co. Six increments. |
+| **Pending on the branch — DO THIS FIRST** | **`#146` (`1d56321`) is open and CI NEVER FIRED for it.** No check run appeared in ~30 minutes, through a close/reopen that should have re-triggered `pull_request`. `#143` and `#145` both got their checks within two minutes of the same kind of push, so this is GitHub Actions, not the change. **It was NOT merged**, because merging on green is pre-authorised and merging on *no CI at all* is not. The local gate for it was fully green — 1,191 unit tests including the 148-test corpus half (the fixtures repo was attached, so that half really ran here), build green, 283 e2e run serially. Re-run the workflow, or push any commit to re-trigger it, and merge on green. |
 | **D — capability** | **D10 slice 1 shipped.** Three sample flights where there was one, and the second demonstrates D3 — two boards recording one physical flight, agreeing at 1,025 vs 1,029 ft. **D11 (canonical round-trip) is decomposed and NOT STARTED.** |
-| **P — product & craft** | **P8 SHIPPED** (the `?` explains in place). **P9 slice 1 shipped** (the methods page has a structure). §5 gained two primitives: `Popover` and `SectionNav`. |
+| **P — product & craft** | **P8 SHIPPED** (the `?` explains in place). **P9 slices 1 and 2** — the methods page has a structure, and its blocks can have paragraphs again; slice 2 is the part pending in `#146`. §5 gained two primitives: `Popover` and `SectionNav`. |
 | **§9 counts, start and end of run** | `rounded-lg` **0** · card treatments **3** · off-scale spacing **0** · off-scale type **1** · inverted-type files **10** · `ui` adopters **36 of 48**. **Identical at both ends; none moved the wrong way.** |
 
 **Re-measure before believing any of this**: `git fetch --prune origin`, then
