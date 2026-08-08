@@ -55,6 +55,22 @@ export function useCurrentSection(ids: string[], stripSelector = 'nav[aria-label
         if (el.getBoundingClientRect().top <= line) found = id;
         else break; // the ids are in document order, so the first one below the line ends it
       }
+      // **At the bottom of the document the LAST section is the one you are in, whatever the
+      // line says.** A short final section cannot be scrolled up to the reading line — there is
+      // no page left to scroll — so it could never light up, and clicking its own chip left the
+      // marker on the section above. Measured 2026-08-08 on `/methods`, whose last group holds
+      // one short block: its heading sits 288 px down at maximum scroll on a desktop and 233 px
+      // on a phone, against a line at 50. The report has the same shape and the same bug; it was
+      // invisible there because its last section is tall.
+      //
+      // `documentElement` rather than `body` for the scroll position, and a 2 px slack because
+      // fractional device pixel ratios make the arithmetic land a hair short of equality.
+      const doc = document.documentElement;
+      const atBottom = window.scrollY + window.innerHeight >= doc.scrollHeight - 2;
+      if (atBottom) {
+        const last = [...list].reverse().find((id) => document.getElementById(id));
+        if (last) found = last;
+      }
       setCurrent(found);
     };
 

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
-import type { MethodId } from '@/lib/methodIds';
+import { METHOD_GROUPS, type MethodId } from '@/lib/methodIds';
+import { SectionNav } from '@/components/ui';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_URL } from '@/lib/links';
 import { derivedPeakList } from '@/lib/derivedPeak';
@@ -12,6 +13,26 @@ export const metadata: Metadata = {
     'How Debrief works out every flight number — apogee, velocity, acceleration, thrust-to-weight, drag and parachute Cd, recovery drift and more — and exactly where each one can be wrong. A measurement instrument, not a simulator.',
   alternates: { canonical: `${SITE_URL}/methods/` },
 };
+
+/** A group's heading id, derived from its title so the two can never disagree — a hand-kept
+ *  second list of anchors is the thing `lib/methodIds.ts` exists to avoid one level down. */
+function groupId(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/** The strip's items. Short labels, because the strip scrolls sideways on a phone and a
+ *  full subject title turns it into the wall it is meant to open up. */
+const NAV = METHOD_GROUPS.map((g) => ({
+  id: groupId(g.title),
+  label: g.title.length > 22 ? `${g.title.slice(0, 21).trimEnd()}\u2026` : g.title,
+}));
+
+function blurbOf(id: string): string {
+  return METHOD_GROUPS.find((g) => groupId(g.title) === id)?.blurb ?? '';
+}
 
 export default function MethodsPage() {
   return (
@@ -36,77 +57,53 @@ export default function MethodsPage() {
           .
         </p>
 
-        <div className="mt-6 grid gap-x-8 gap-y-4 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
-          <Method id="gps-recording" title="The GPS recording, where the file has one">
-            Some loggers write the receiver&apos;s own altitude beside the barometer&apos;s — a
-            different sensor, indifferent to the weather and to the shock over a static port. Debrief
-            keeps it as a <em>second recording</em> and states its apogee beside its own, never
-            averaging the two: where they agree that is real corroboration, and where they don&apos;t
-            the gap is the finding. Across the corpus the two differ by &minus;2.7% to +6.5%. The
-            analysis itself stays on the barometric channel, which doesn&apos;t jump metres between
-            fixes. Two things have to hold before a GPS figure is a reading. It needs <em>four</em> satellites. Three
-            give a 2D fix — latitude and longitude solved on an assumed height — because a receiver
-            solves for x, y, z and its own clock bias, four unknowns needing four satellites; and a
-            receiver with none doesn&apos;t report nothing, it repeats its last position and altitude
-            (one corpus flight loses lock through the whole boost and writes its pad altitude all the
-            way to 2,400&nbsp;m). So a height beside a 2D fix is an assumption the receiver made,
-            not something it measured, and it is dropped — while the position beside it is kept,
-            because a 2D fix still walks you to the rocket.
-            {' '}
-            <strong>The count of fixes is a count of SOLUTIONS, not of rows</strong>, and that
-            distinction is the whole value of the number. A receiver runs at a few hertz and a log
-            can run at two hundred; between solutions the receiver repeats its last position rather
-            than writing nothing. Counting rows counts the repeats, and it did: one corpus flight
-            reported <strong>4,010</strong> ascent fixes behind an apogee that rests on{' '}
-            <strong>40</strong>, and one board&apos;s two export formats of a single launch
-            reported 2,259 and 24 for the same 24 fixes. That figure exists to say how much
-            independent evidence is behind the GPS apogee, so inflating it inflated exactly the
-            claim it is there to qualify. And the
-            record has to have come back down from its peak, because a rocket returns to the ground:
-            a GPS record whose highest sample is roughly where it stops never saw an apogee, it just
-            stopped climbing. Two corpus flights are exactly that, and would otherwise have stated a
-            0&nbsp;ft and a 20&nbsp;ft &ldquo;GPS apogee&rdquo; against 3,253&nbsp;ft and
-            3,547&nbsp;ft flights. And the cross-check is judged on <em>when</em> as well as how
-            high: apogee is one instant, so two recordings that put it seconds apart did not see the
-            same one, and a close pair of heights is then a coincidence rather than corroboration.
-            A corpus flight shows exactly that — a receiver whose altitude solution lags so far
-            behind that it sits at pad level through the whole climb and peaks 34&nbsp;s later,
-            under drogue, within 3% of the barometric apogee. Read as an agreement that would be a
-            wrong number with a green badge; it reads &ldquo;not the same peak&rdquo;. The
-            receiver&apos;s altitude and its satellite count are both in
-            the explorer, so you can plot either against the barometric line.
-          </Method>
-          <Method id="ground-baseline-altitude" title="Ground baseline & altitude">
-            From the logger&apos;s own altitude channel, or from barometric pressure (with the standard
-            atmosphere) when it only logs pressure. The pad level is the median of the opening samples,
-            so everything reads as height above the pad (AGL). Baro altitude drifts with weather and
-            the airframe&apos;s own airflow — good to a few metres, not centimetres. Above ~36,000&nbsp;ft
-            (11&nbsp;km), the top of the troposphere, the constant-lapse standard-atmosphere model behind
-            any barometric altitude stops holding and the reading under-reads; a flight that high is
-            flagged, and a GPS or inertial altitude is more trustworthy up there.
-          </Method>
-          <Method id="several-recordings-one-flight" title="Whether several recordings are one flight">
-            A comparison&apos;s cross-check asks a specific question — if these are recordings of
-            the same flight, how closely do they agree? — and that question has a premise the
-            files can refute. Where two of them state a launch date and those dates are days
-            apart, no reading of them is a redundant-altimeter agreement, and reporting a 139%
-            apogee gap as an &ldquo;agreement to within 139%&rdquo; would dress a comparison of
-            different flights as a failed reconciliation. So Debrief checks the dates the files
-            themselves carry, and where they refute it, says plainly that these are different
-            flights and that the figures are how far apart they are. A day of slack is allowed
-            either way, because one recording can stamp UTC while another stamps a logger&apos;s
-            own wall clock and an evening launch straddles midnight between them; and where
-            fewer than two files state a date the question stays open, which is the honest
-            answer. Nothing else about the comparison changes — the numbers are the same
-            numbers, correctly introduced.{' '}
-            A cross-check can also compare two readings that were never quite the same
-            measurement, and it marks those rather than averaging over the difference: a speed one
-            device measured against one differentiated out of an altitude, an accelerometer that
-            railed at its full-scale limit, and — where one recording landed and another stopped
-            recording under canopy — a main descent leg that covers a shorter span of the descent
-            than the leg it is being compared with. Each carries its own footnote saying which way
-            it bends the spread. Both corpus groups whose recordings cross-check a main leg are in
-            that last state, so it is the ordinary case for that row rather than an edge one.
+
+        {/* The 51 blocks, under the eleven subjects `METHOD_GROUPS` places them in. Until
+            2026-08-08 this was one flat `sm:grid-cols-2` grid of 51 sibling `<h2>`s with no
+            level above them and no way in — owner note ON-1. The strip and the contents are
+            the same two affordances the flight report has had since it reached nine screens
+            on a phone; this page is longer and had neither. */}
+        <SectionNav label="Jump to a subject on this page" items={NAV} className="mt-6" />
+
+        <nav aria-label="Contents" className="mt-4 print:hidden">
+          <ul className="grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
+            {METHOD_GROUPS.map((g) => (
+              <li key={g.title}>
+                <a
+                  href={`#${groupId(g.title)}`}
+                  className="text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
+                >
+                  {g.title}
+                </a>{' '}
+                <span className="text-zinc-500 dark:text-zinc-400">({g.ids.length})</span>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <section id="what-the-file-is-before-any-number" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            What the file is, before any number
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('what-the-file-is-before-any-number')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
+          <Method id="not-a-flight" title="When a record isn&apos;t a flight at all">
+            Every reading on the page rests on the altitude channel, so Debrief checks that the
+            channel actually holds a flight before trusting it. The test is the climb against
+            gravity: a throw that just reaches height <em>h</em> passes it{' '}
+            <span className="font-mono">&radic;(2h/g)</span> seconds in, and a real rocket does most
+            of its climbing under thrust and gets there sooner still. If a record takes more than
+            four times that long to reach its highest point, it is not a climb — the altitude
+            column is a stuck sensor, a disconnected barometer, or a column that is not a height.
+          {' '}
+            Debrief says so rather than silently correcting anything, because it cannot know the
+            true height from a channel that did not record it. One log in our test corpus does this:
+            it reports a peak of 9 m reached 30.9 s after liftoff, an ascent 22 times slower than
+            gravity allows, while a second altimeter in the same airframe recorded 2,115 m. The
+            limit is four rather than something tighter because real flights do sometimes climb
+            slowly — the slowest in the corpus, a 75 km flight with a long burn in thin air, takes
+            1.5 times the throw — so the check discriminates on a fourteen-fold gap rather than a
+            fine judgement.
           </Method>
           <Method id="several-flights-in-a-file" title="More than one flight in a file">
             A logger downloaded twice, or a whole launch day dumped at once, puts several flights in
@@ -188,24 +185,245 @@ export default function MethodsPage() {
             carried across: a time needs two instants both copies agree on, a rate needs the
             deployment structure between them.
           </Method>
-          <Method id="not-a-flight" title="When a record isn&apos;t a flight at all">
-            Every reading on the page rests on the altitude channel, so Debrief checks that the
-            channel actually holds a flight before trusting it. The test is the climb against
-            gravity: a throw that just reaches height <em>h</em> passes it{' '}
-            <span className="font-mono">&radic;(2h/g)</span> seconds in, and a real rocket does most
-            of its climbing under thrust and gets there sooner still. If a record takes more than
-            four times that long to reach its highest point, it is not a climb — the altitude
-            column is a stuck sensor, a disconnected barometer, or a column that is not a height.
-          {' '}
-            Debrief says so rather than silently correcting anything, because it cannot know the
-            true height from a channel that did not record it. One log in our test corpus does this:
-            it reports a peak of 9 m reached 30.9 s after liftoff, an ascent 22 times slower than
-            gravity allows, while a second altimeter in the same airframe recorded 2,115 m. The
-            limit is four rather than something tighter because real flights do sometimes climb
-            slowly — the slowest in the corpus, a 75 km flight with a long burn in thin air, takes
-            1.5 times the throw — so the check discriminates on a fourteen-fold gap rather than a
-            fine judgement.
+          <Method id="unrecognized-file" title="A file Debrief doesn&apos;t recognize">
+            An unrecognized export goes to the column mapper, where you say which column is
+            which — and Debrief <strong>keeps that answer</strong> with the flight. Reopening it
+            from the logbook comes straight back to the flight rather than asking again, and it can
+            join a comparison named by id like any auto-detected file; before, the mapping lived
+            only in the moment you made it, and both of those paths quietly lost the flight. A
+            logbook backup carries the mapping too. Drop a launch day&apos;s folder at once and the
+            files that need mapping aren&apos;t left out either: the comparison offers each one by
+            name, and mapping it puts it back with the flights it arrived with. A file with no
+            columns of numbers in it — a binary download off the device, a screenshot — is not
+            offered, because there is nothing there to map, and it says so instead.
           </Method>
+          <Method id="raw-downloads" title="Reading the file the card actually holds">
+            Two loggers are read from their <em>raw download</em> — the file their own software saves
+            when it pulls a flight off the board, with no CSV export in between. An Altus Metrum{' '}
+            <code>.eeprom</code> is the board&apos;s configuration as JSON followed by the log exactly as
+            it sat in flash; Debrief reads the records directly, converting the raw MS5607 conversions
+            with the factory calibration coefficients the file&apos;s own header carries (and the older
+            TeleMetrum&apos;s 12-bit MP3H6115A readings with that sensor&apos;s transfer function). A
+            MissileWorks RRC3 <code>.rff</code> is a serialized list of 16-bit words: barometer readings
+            in tenths of a millibar, with two auxiliary words written once a second. In both, the
+            altitude you see is derived from the barometer&apos;s own pressure readings rather than from
+            a height the board had already computed.
+            <span className="mt-3 block">
+              Two rules keep this a measurement rather than a plausible decode. Every one of these files
+              in the test corpus has the vendor&apos;s own export of the <em>same bytes</em> sitting
+              beside it, and every reading Debrief takes is checked against that export — identically,
+              where both sides do the arithmetic in whole numbers (the newer Altus Metrum boards and the
+              RRC3, 10,361 readings), and to within four thousandths of a pascal on the one older board
+              where both sides convert in floating point. And a file whose shape Debrief has not been
+              shown is refused by name: an AltOS log format it does not know, a record layout whose
+              pressures disagree with the ground pressure the file states about itself, an RRC3 log
+              whose once-a-second markers and whose readings disagree about how long the flight was.
+              Misreading a binary record layout does not fail loudly — it produces a perfectly plausible
+              flight out of misaligned bytes — so the only safe answer to a file that does not check out
+              is to say so.
+            </span>
+            <span className="mt-3 block">
+              An Entacore AIM <code>.bin</code> or <code>.xtra</code> is <em>not</em> read yet. Both are
+              containers Debrief can identify but has no verified reading of, and there is no
+              sample-for-sample ground truth to check a guess against — so a file like that is named for
+              what it is and pointed at the AIM XTRA software&apos;s CSV export, instead of being reported
+              as though it were not a flight log at all.
+            </span>
+          </Method>
+          <Method id="ground-baseline-altitude" title="Ground baseline & altitude">
+            From the logger&apos;s own altitude channel, or from barometric pressure (with the standard
+            atmosphere) when it only logs pressure. The pad level is the median of the opening samples,
+            so everything reads as height above the pad (AGL). Baro altitude drifts with weather and
+            the airframe&apos;s own airflow — good to a few metres, not centimetres. Above ~36,000&nbsp;ft
+            (11&nbsp;km), the top of the troposphere, the constant-lapse standard-atmosphere model behind
+            any barometric altitude stops holding and the reading under-reads; a flight that high is
+            flagged, and a GPS or inertial altitude is more trustworthy up there.
+          </Method>
+          </div>
+        </section>
+
+        <section id="several-recordings-of-one-flight" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Several recordings of one flight
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('several-recordings-of-one-flight')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
+          <Method id="gps-recording" title="The GPS recording, where the file has one">
+            Some loggers write the receiver&apos;s own altitude beside the barometer&apos;s — a
+            different sensor, indifferent to the weather and to the shock over a static port. Debrief
+            keeps it as a <em>second recording</em> and states its apogee beside its own, never
+            averaging the two: where they agree that is real corroboration, and where they don&apos;t
+            the gap is the finding. Across the corpus the two differ by &minus;2.7% to +6.5%. The
+            analysis itself stays on the barometric channel, which doesn&apos;t jump metres between
+            fixes. Two things have to hold before a GPS figure is a reading. It needs <em>four</em> satellites. Three
+            give a 2D fix — latitude and longitude solved on an assumed height — because a receiver
+            solves for x, y, z and its own clock bias, four unknowns needing four satellites; and a
+            receiver with none doesn&apos;t report nothing, it repeats its last position and altitude
+            (one corpus flight loses lock through the whole boost and writes its pad altitude all the
+            way to 2,400&nbsp;m). So a height beside a 2D fix is an assumption the receiver made,
+            not something it measured, and it is dropped — while the position beside it is kept,
+            because a 2D fix still walks you to the rocket.
+            {' '}
+            <strong>The count of fixes is a count of SOLUTIONS, not of rows</strong>, and that
+            distinction is the whole value of the number. A receiver runs at a few hertz and a log
+            can run at two hundred; between solutions the receiver repeats its last position rather
+            than writing nothing. Counting rows counts the repeats, and it did: one corpus flight
+            reported <strong>4,010</strong> ascent fixes behind an apogee that rests on{' '}
+            <strong>40</strong>, and one board&apos;s two export formats of a single launch
+            reported 2,259 and 24 for the same 24 fixes. That figure exists to say how much
+            independent evidence is behind the GPS apogee, so inflating it inflated exactly the
+            claim it is there to qualify. And the
+            record has to have come back down from its peak, because a rocket returns to the ground:
+            a GPS record whose highest sample is roughly where it stops never saw an apogee, it just
+            stopped climbing. Two corpus flights are exactly that, and would otherwise have stated a
+            0&nbsp;ft and a 20&nbsp;ft &ldquo;GPS apogee&rdquo; against 3,253&nbsp;ft and
+            3,547&nbsp;ft flights. And the cross-check is judged on <em>when</em> as well as how
+            high: apogee is one instant, so two recordings that put it seconds apart did not see the
+            same one, and a close pair of heights is then a coincidence rather than corroboration.
+            A corpus flight shows exactly that — a receiver whose altitude solution lags so far
+            behind that it sits at pad level through the whole climb and peaks 34&nbsp;s later,
+            under drogue, within 3% of the barometric apogee. Read as an agreement that would be a
+            wrong number with a green badge; it reads &ldquo;not the same peak&rdquo;. The
+            receiver&apos;s altitude and its satellite count are both in
+            the explorer, so you can plot either against the barometric line.
+          </Method>
+          <Method id="several-recordings-one-flight" title="Whether several recordings are one flight">
+            A comparison&apos;s cross-check asks a specific question — if these are recordings of
+            the same flight, how closely do they agree? — and that question has a premise the
+            files can refute. Where two of them state a launch date and those dates are days
+            apart, no reading of them is a redundant-altimeter agreement, and reporting a 139%
+            apogee gap as an &ldquo;agreement to within 139%&rdquo; would dress a comparison of
+            different flights as a failed reconciliation. So Debrief checks the dates the files
+            themselves carry, and where they refute it, says plainly that these are different
+            flights and that the figures are how far apart they are. A day of slack is allowed
+            either way, because one recording can stamp UTC while another stamps a logger&apos;s
+            own wall clock and an evening launch straddles midnight between them; and where
+            fewer than two files state a date the question stays open, which is the honest
+            answer. Nothing else about the comparison changes — the numbers are the same
+            numbers, correctly introduced.{' '}
+            A cross-check can also compare two readings that were never quite the same
+            measurement, and it marks those rather than averaging over the difference: a speed one
+            device measured against one differentiated out of an altitude, an accelerometer that
+            railed at its full-scale limit, and — where one recording landed and another stopped
+            recording under canopy — a main descent leg that covers a shorter span of the descent
+            than the leg it is being compared with. Each carries its own footnote saying which way
+            it bends the spread. Both corpus groups whose recordings cross-check a main leg are in
+            that last state, so it is the ordinary case for that row rather than an edge one.
+          </Method>
+          <Method id="one-flight-several-recordings" title="One flight, several recordings">
+            A rocket flown with a primary and a backup altimeter comes home with two files of{' '}
+            <em>one</em> flight. Tick both in the logbook and say <em>these are one flight</em>:
+            they become one entry, counted once — including by the ★ that marks your best, which
+            otherwise reads one launch as two, or crowns nothing at all when two instruments agree
+            to the digit.
+            <p className="mt-2">
+              Debrief never decides this for you, and it never blends the readings. Each recording
+              keeps its own reading and its own caveats, and you choose which one the flight is{' '}
+              <em>reported by</em> — the one whose figures a certification document would quote.
+              The report says which recording you are reading and reaches the others in a click,
+              and the text, Markdown, HTML and JSON exports carry that line too, so a write-up
+              quoting an apogee can state which instrument measured it.
+            </p>
+            <p className="mt-2">
+              Two altimeters that measured one flight are two independent measurements that can
+              disagree, and both halves of that matter: on the four-altimeter flight in the
+              validation corpus the apogees agree to 0.03% while the top speeds spread
+              6.7%. An average would hide the agreement and the disagreement together. To see them
+              side by side on one timeline, tick them and <em>Compare</em> — that surface exists
+              for exactly this and reports the spread on every reading.
+            </p>
+          </Method>
+          <Method id="device-summary" title="The device's own summary, dropped alongside">
+            Some altimeter apps write a summary file next to the log — the device&apos;s own
+            headline figures, with no time series in it. Drop the pair together and Debrief reads
+            the flight from the log and puts those figures beside its own read as a cross-check,
+            matched up by the rocket name the summary itself states. They are never merged into the
+            read: two measurements that agree build confidence, and a gap is worth a look. The unit
+            is taken from the value the file states (&ldquo;4034.98 feet&rdquo;) rather than assumed,
+            since the same app can be set to metric, and a figure whose unit doesn&apos;t resolve is
+            left out rather than guessed at. Only figures that line up against something Debrief
+            measures are read — a GPS summary&apos;s &ldquo;distance at apogee&rdquo; is downrange,
+            not altitude, and mapping it would invent a disagreement out of a sound read.
+          {' '}
+            That includes the <strong>deployment shocks</strong> a Featherweight summary states for
+            its apogee and main channels. Debrief measures the same quantity — the acceleration peak
+            at each of those events — on 19 of the 36 corpus flights that analyse, so on those the
+            two are a real cross-check. On the rest the row still appears and says the reading is not
+            comparable rather than going blank, because on a barometric recording the board&apos;s
+            figure is the only one there is: nothing in a pressure trace recovers what a charge did.
+            The shocks are judged against the wider agreement band, like the descent rates and for
+            the same reason — a shock is a millisecond transient, and the board reading its own
+            charge channel and Debrief reading the airframe&apos;s accelerometer over a window are
+            not sampling the same instant of it. The summary&apos;s <em>landing</em> figure is
+            deliberately left out: that is the ground impact, not a flight load, and Debrief has no
+            event to hold it against.
+          {' '}
+            One difference there is worth naming, because it looks like a disagreement and isn&apos;t:
+            an accelerometer at rest on the pad reads <strong>1&nbsp;g</strong>. Debrief reports that
+            specific force — the g the airframe felt, which is the number a structures check wants —
+            while some devices report acceleration net of gravity, what the rocket was accelerated{' '}
+            <em>by</em>. Every AltimeterCloud file in the corpus shows it exactly: 316.76 m/s² against
+            the device&apos;s 306.95, 314.07 against 304.26, +1.00&nbsp;g every time. Two independent
+            reads landing precisely one gravity apart is not what noise does, so the cross-check says
+            so rather than printing a 3.2% gap and leaving you to wonder. Neither figure is adjusted
+            into the other: both are shown as each instrument states them.
+          </Method>
+          <Method id="predicted-versus-flown" title="A prediction, dropped beside the flight">
+            Drop an <strong>OpenRocket design</strong> (<span className="font-mono">.ork</span>) in
+            with your log and Debrief reads the figures its simulator stated — apogee, top speed,
+            peak acceleration, Mach, time to apogee, flight time and four more — and puts them
+            beside its own read of what actually flew. Debrief does not simulate, fit, or correct a
+            prediction; it reports the gap.
+            {' '}
+            <strong>A prediction is not a second measurement, and the wording keeps them apart.</strong>{' '}
+            Two altimeters that recorded the same flight are two instruments, so they{' '}
+            <em>agree</em>, are <em>consistent</em>, or <em>differ</em> — and a gap between them is
+            worth chasing because one of them is wrong. A simulation is a statement about a flight
+            that had not happened yet. When the flight does not match it, nothing is wrong: the
+            flight is the measurement and the prediction is the thing that missed. So a predicted
+            row reads <em>flew higher · +8%</em> or <em>as predicted · 2%</em>, never{' '}
+            <em>differ</em>, and it is never given the amber of a discrepancy. The direction word
+            belongs to the reading: a time <em>took longer</em>, a speed <em>flew faster</em>, an
+            acceleration <em>pulled more g</em>. Only a height flew higher.
+            {' '}
+            <strong>Max acceleration is the one row to read carefully.</strong> Debrief reports the
+            specific force the airframe felt, which is 1&nbsp;g on the pad; a logger that reports
+            acceleration net of gravity instead is named as such, because the corpus shows that
+            convention holding to two decimals on every file. The{' '}
+            <span className="font-mono">.ork</span> format states no convention at all, so Debrief
+            claims neither for a design and says so beside the figures: a gap of about a gravity on
+            that row may be the two conventions rather than the flight.
+            {' '}
+            <strong>The sign is the flight&apos;s, and it is worth knowing that the field is split
+            on this.</strong> Debrief states the difference as{' '}
+            <span className="font-mono">(flown − predicted) / |predicted|</span>, so positive means
+            the rocket beat its simulation. RASAero II&apos;s published comparison table — 43
+            flights, average error 3.47% — states the same quantity as{' '}
+            <span className="font-mono">(sim − flown) / flown</span>, which is the opposite sign
+            <em>and</em> a different denominator: a flight RASAero prints as{' '}
+            <strong>&minus;4.30%</strong> Debrief prints as <strong>+4.5%</strong>. Neither is
+            wrong; they are answering &ldquo;how far off was the simulator&rdquo; and &ldquo;what
+            did the rocket do against its prediction&rdquo;. Debrief takes the flight as the
+            reference because the flight is the thing it measured.
+            {' '}
+            <strong>Where a design states several simulations, Debrief will not pick one.</strong> A{' '}
+            <span className="font-mono">.ork</span> accumulates a simulation per motor — the
+            reference design shipped with OpenRocket holds five, whose apogees run from 51&nbsp;m to
+            320&nbsp;m — and nothing in a flight log says which motor flew. Choosing one would be
+            Debrief inventing the very claim the comparison exists to test, so it names the
+            simulations it found and asks for the design saved with the one you flew. A prediction
+            also lasts the session rather than being kept with the flight: the design file is
+            roughly a megabyte of XML and the logbook is a shared browser quota.
+          </Method>
+          </div>
+        </section>
+
+        <section id="how-high" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            How high
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('how-high')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="apogee" title="Apogee">
             The peak of a spike-cleaned altitude trace. A short median filter removes the one- or
             two-sample jump an ejection charge punches into a baro trace — what makes a naïve
@@ -225,6 +443,66 @@ export default function MethodsPage() {
             can&apos;t look like one, and a trace whose ascent velocity swings well negative is
             carrying noise rather than speed, so its sign is not used at all.
           </Method>
+          <Method id="altitude-of-a-reading" title="The altitude a reading happened at">
+            Burnout, the speed peak, the Mach-1 crossing and max-Q are each reported with the altitude
+            they occurred at — and every one of them lands in the stretch where a barometric port is
+            least trustworthy. Through the transonic push the shock over the port drives the sensed
+            pressure up, which reads as the rocket <em>descending</em>: one corpus flight&apos;s trace
+            drops to 307&nbsp;ft below its pad while the same device&apos;s inertial channel climbs past
+            1,700&nbsp;ft, and another reads 1,095&nbsp;ft below a height it had already recorded. A
+            climbing rocket can do neither. The same shock runs the other way on other airframes,
+            driving the sensed pressure <em>down</em> so the trace climbs faster than the rocket did —
+            and a running maximum cannot see that, because the altitude never goes backwards. What
+            catches it is a bound rather than a tolerance: over any stretch a rocket&apos;s mean climb
+            rate cannot exceed the fastest it was going during that stretch, and where the flight has a
+            measured speed the fastest it was going is in the file. So the height gained since liftoff
+            is capped by (peak speed so far)&nbsp;×&nbsp;(time since liftoff). One corpus flight reports
+            a burnout altitude of 2,495&nbsp;ft where its own inertial speed record allows under
+            900&nbsp;ft. The cap applies only where the speed is <em>measured</em> — a barometric
+            velocity is worked out from this very altitude trace, so it would be testing the trace
+            against itself — and reading an axial speed as vertical only makes the cap more generous,
+            which is the right direction for a guard. Across the whole corpus it changes exactly that
+            one figure. Where the record contradicts itself either way — below the
+            pad, well below a height already passed, or above what its own speed record allows —
+            Debrief looks for a second altitude recording
+            in the same file: where the logger solved for an inertial altitude (a Blue Raven does) and
+            that solution satisfies the bound the barometer just failed, the reading is taken
+            from it instead. On the flight above that turns 2,495&nbsp;ft into 564&nbsp;ft. On that flight it turns a burnout altitude of &minus;307&nbsp;ft into
+            1,583&nbsp;ft, which checks out against the flight&apos;s own burnout speed and time
+            (v&nbsp;·&nbsp;t&nbsp;÷&nbsp;2&nbsp;&asymp;&nbsp;1,366&nbsp;ft, a lower bound since thrust
+            tapers). With no second recording to turn to, the altitude for that reading is withheld and
+            shown as &ldquo;—&rdquo;, because the file cannot say how high the rocket was there. The
+            time and the speed of the reading are unaffected, so are apogee and the descent, and the
+            altitude chart still shows the trace exactly as recorded. Ordinary barometric wander is far
+            below the bar: across the corpus every sound flight&apos;s read-offs sit within 72&nbsp;ft
+            of the record, and the three that trip it are 557 to 1,125&nbsp;ft out. Where the logger
+            solved for an <strong>inertial altitude</strong> of its own (a Blue Raven does), Debrief
+            carries it as a second altitude recording you can plot against the barometric line — on
+            that same flight it reads 1,710&nbsp;ft at the instant the barometer reads 493&nbsp;ft
+            below the pad, and only one of those can be a height. The analysis stays on the barometric
+            channel, which is the one that doesn&apos;t drift over a whole flight; the two are shown
+            side by side rather than merged.{' '}
+            <strong>That second recording is carried only for as long as it is still a recording.</strong>{' '}
+            It is an integration, written into a field that cannot hold a large flight, so it ends at
+            whichever comes first of a single-sample step of about 2<sup>16</sup>&nbsp;ft — a counter
+            wrapping, not a rocket moving — or the two recordings differing by more than the whole
+            flight was high, which means one of them has stopped reading. Past that point it is
+            withheld rather than plotted, and the flight says when and what both instruments read
+            there. Neither bound is a tuned number: one is the field&apos;s own span and the other is
+            the flight&apos;s own height. Across the corpus one Blue Raven keeps every sample, two
+            keep their whole ascent and are still readable at apogee, and one — a 121&nbsp;km flight
+            in a field that tops out near 32,767&nbsp;ft — is over its ceiling before apogee, which is
+            the honest answer for that flight rather than a convenient one.
+          </Method>
+          </div>
+        </section>
+
+        <section id="how-fast" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            How fast
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('how-fast')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="velocity-max-velocity" title="Velocity & max velocity">
             Used straight from the device when it logged a velocity (an accelerometer-integrated speed
             is best through the fast boost); otherwise it&apos;s the time-derivative of the cleaned
@@ -317,57 +595,58 @@ export default function MethodsPage() {
             the corpus flights where a device velocity settles the truth, the barometric trace still runs
             up to 38% over the ceiling while being right.
           </Method>
-          <Method id="altitude-of-a-reading" title="The altitude a reading happened at">
-            Burnout, the speed peak, the Mach-1 crossing and max-Q are each reported with the altitude
-            they occurred at — and every one of them lands in the stretch where a barometric port is
-            least trustworthy. Through the transonic push the shock over the port drives the sensed
-            pressure up, which reads as the rocket <em>descending</em>: one corpus flight&apos;s trace
-            drops to 307&nbsp;ft below its pad while the same device&apos;s inertial channel climbs past
-            1,700&nbsp;ft, and another reads 1,095&nbsp;ft below a height it had already recorded. A
-            climbing rocket can do neither. The same shock runs the other way on other airframes,
-            driving the sensed pressure <em>down</em> so the trace climbs faster than the rocket did —
-            and a running maximum cannot see that, because the altitude never goes backwards. What
-            catches it is a bound rather than a tolerance: over any stretch a rocket&apos;s mean climb
-            rate cannot exceed the fastest it was going during that stretch, and where the flight has a
-            measured speed the fastest it was going is in the file. So the height gained since liftoff
-            is capped by (peak speed so far)&nbsp;×&nbsp;(time since liftoff). One corpus flight reports
-            a burnout altitude of 2,495&nbsp;ft where its own inertial speed record allows under
-            900&nbsp;ft. The cap applies only where the speed is <em>measured</em> — a barometric
-            velocity is worked out from this very altitude trace, so it would be testing the trace
-            against itself — and reading an axial speed as vertical only makes the cap more generous,
-            which is the right direction for a guard. Across the whole corpus it changes exactly that
-            one figure. Where the record contradicts itself either way — below the
-            pad, well below a height already passed, or above what its own speed record allows —
-            Debrief looks for a second altitude recording
-            in the same file: where the logger solved for an inertial altitude (a Blue Raven does) and
-            that solution satisfies the bound the barometer just failed, the reading is taken
-            from it instead. On the flight above that turns 2,495&nbsp;ft into 564&nbsp;ft. On that flight it turns a burnout altitude of &minus;307&nbsp;ft into
-            1,583&nbsp;ft, which checks out against the flight&apos;s own burnout speed and time
-            (v&nbsp;·&nbsp;t&nbsp;÷&nbsp;2&nbsp;&asymp;&nbsp;1,366&nbsp;ft, a lower bound since thrust
-            tapers). With no second recording to turn to, the altitude for that reading is withheld and
-            shown as &ldquo;—&rdquo;, because the file cannot say how high the rocket was there. The
-            time and the speed of the reading are unaffected, so are apogee and the descent, and the
-            altitude chart still shows the trace exactly as recorded. Ordinary barometric wander is far
-            below the bar: across the corpus every sound flight&apos;s read-offs sit within 72&nbsp;ft
-            of the record, and the three that trip it are 557 to 1,125&nbsp;ft out. Where the logger
-            solved for an <strong>inertial altitude</strong> of its own (a Blue Raven does), Debrief
-            carries it as a second altitude recording you can plot against the barometric line — on
-            that same flight it reads 1,710&nbsp;ft at the instant the barometer reads 493&nbsp;ft
-            below the pad, and only one of those can be a height. The analysis stays on the barometric
-            channel, which is the one that doesn&apos;t drift over a whole flight; the two are shown
-            side by side rather than merged.{' '}
-            <strong>That second recording is carried only for as long as it is still a recording.</strong>{' '}
-            It is an integration, written into a field that cannot hold a large flight, so it ends at
-            whichever comes first of a single-sample step of about 2<sup>16</sup>&nbsp;ft — a counter
-            wrapping, not a rocket moving — or the two recordings differing by more than the whole
-            flight was high, which means one of them has stopped reading. Past that point it is
-            withheld rather than plotted, and the flight says when and what both instruments read
-            there. Neither bound is a tuned number: one is the field&apos;s own span and the other is
-            the flight&apos;s own height. Across the corpus one Blue Raven keeps every sample, two
-            keep their whole ascent and are still readable at apogee, and one — a 121&nbsp;km flight
-            in a field that tops out near 32,767&nbsp;ft — is over its ceiling before apogee, which is
-            the honest answer for that flight rather than a convenient one.
+          <Method id="mach-dynamic-pressure" title="Mach & dynamic pressure">
+            The speed of sound comes from the air temperature, which falls with altitude on the
+            standard-atmosphere lapse rate — anchored to the ground temperature the logger records
+            (else a 15&nbsp;°C standard day, and likewise when a recorded pad temperature falls outside
+            the range Earth&apos;s surface actually reaches, e.g. a mis-scaled sensor column) and
+            levelling off at the tropopause (~11&nbsp;km). Mach
+            is velocity over that <em>local</em> speed of sound, so a peak reached a few thousand feet
+            up is read against the colder, slower air it was actually in, not the ground value (a
+            touch higher than a ground-temperature divisor, and more so with height). Dynamic pressure
+            (½&nbsp;ρv²) uses air density from the same lapse, anchored to the pad&apos;s own conditions
+            — so a high-elevation launch reads its real, thinner air. Both ride on the velocity, so
+            they carry whatever caveat it carries.
+            <br />
+            <br />
+            Max-Q is read over the <strong>ascent</strong> — liftoff to apogee, climbing — the same
+            window the peak speed comes from, and where the structural load case lives. The window is
+            the whole point: q squares the speed, so a velocity that swings hard <em>negative</em>
+            counts as though it were airspeed, and the place that happens is the deployment transient,
+            where a charge vents the airframe and a derived or integrated velocity spikes for a
+            fraction of a second. Read over the whole record, six of the 34 corpus flights that report
+            a max-Q took it from such a sample instead of from the boost — 3.2&times;, 2.2&times;,
+            2.2&times; and 2.0&times; the real ascent peak on four of them, and on the 121&nbsp;km
+            flight a &minus;8,970&nbsp;m/s sample read 47,322&nbsp;kPa against an ascent peak of
+            404&nbsp;kPa. A descent has real airspeed and a real q, but nothing near the boost&apos;s,
+            and none of those six samples was a descent. A record with no ascent in it has no boost, so
+            no load case, and gets no max-Q at all.
           </Method>
+          <Method id="barometric-speed-refuted" title="A barometric speed the climb refutes">
+            A speed derived from the altitude trace can be checked against that same trace. From
+            the point the speed peaks, a drag-free coast would gain{' '}
+            <span className="font-mono">v²/2g</span>, and drag only ever takes from that — so what
+            the flight <em>actually</em> gained from there, as a fraction of that vacuum coast, is
+            what drag cost. Across 33 corpus flights it runs from <strong>6.3% to 81.7%</strong>: a
+            wide, continuous spread, because airframes differ. Two files sit at{' '}
+            <strong>0.1%</strong> — an Eggtimer anomaly reading Mach 4.08 over a 4,661&nbsp;ft
+            apogee, and an in-air breakup reading 2,671&nbsp;ft/s over 958&nbsp;ft. A speed whose
+            coast would have carried the rocket a hundred times higher than it went is the slope of
+            a trace that jumped, not a speed, and it is withheld with the arithmetic shown. The
+            bound sits at 1%: six times below the lowest genuine reading, ten times above the two
+            refused. It applies only to a <em>derived</em> speed, where the velocity and the
+            altitude are one channel disagreeing with itself — a device-measured speed and the
+            altitude are two instruments, and which to believe is not a guard&apos;s call.
+          </Method>
+          </div>
+        </section>
+
+        <section id="off-the-pad-and-the-burn" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Off the pad, and the burn
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('off-the-pad-and-the-burn')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="acceleration" title="Acceleration">
             Read from the accelerometer when the logger recorded one: max acceleration over the boost,
             the average over the same boost (ignition to burnout), and max deceleration over the ascent.
@@ -379,6 +658,24 @@ export default function MethodsPage() {
             altitude step — so those numbers are withheld, and the acceleration trace isn&apos;t charted,
             offered in the explorer or comparison, or written into the data export either (its shape is the
             same noise). The velocity — a first derivative, and usable — still is, labelled as derived.
+          </Method>
+          <Method id="accelerometer-channel-meaning" title="What an accelerometer channel means">
+            Debrief reports <strong>specific force</strong> everywhere — what the sensor actually
+            measures, and the g the airframe felt, which is the number a structures check wants. An
+            accelerometer sitting still on the pad reads <strong>+1&nbsp;g</strong>, not zero.
+            Loggers do not agree on this: AltusMetrum&apos;s{' '}
+            <code>acceleration</code> column has that gravity already taken out and rests at{' '}
+            <strong>~0</strong>. The same row of one of its files proves it — the column reads
+            &minus;0.98 while the device&apos;s own <code>accel_x</code> body axis reads 9.78 on that
+            same sample. Read as specific force, such a channel is a full g low in{' '}
+            <em>every</em> reading taken off it: the peak g, the boost average, the thrust-to-weight,
+            the drag coefficient, and the accelerometer speed ceiling — which subtracts a gravity
+            itself, so gravity came off twice. Ten corpus flights carried it. The importer for that
+            format now marks the column, and the analysis adds the gravity back before anything is
+            read from it, so a peak of 62.3&nbsp;g reads 63.3 and a boost average of 3.24 reads 4.24.
+            Note that a device&apos;s own app may show you the other convention for the same flight;
+            the difference is exactly one gravity, and it is a choice of definition rather than a
+            disagreement about the measurement.
           </Method>
           <Method id="thrust-to-weight" title="Thrust-to-weight (off the pad)">
             The accelerometer&apos;s reading in g right at liftoff is the thrust-to-weight ratio —
@@ -414,24 +711,6 @@ export default function MethodsPage() {
             0.2&nbsp;s window is <strong>6.44:1</strong> for both. On another, two altimeters on one
             airframe read 9.49:1 and 11.23:1, which by time become 11.95 and 11.34. Under a 5:1 rule
             that is the difference between a flight that passes and one that does not.
-          </Method>
-          <Method id="accelerometer-channel-meaning" title="What an accelerometer channel means">
-            Debrief reports <strong>specific force</strong> everywhere — what the sensor actually
-            measures, and the g the airframe felt, which is the number a structures check wants. An
-            accelerometer sitting still on the pad reads <strong>+1&nbsp;g</strong>, not zero.
-            Loggers do not agree on this: AltusMetrum&apos;s{' '}
-            <code>acceleration</code> column has that gravity already taken out and rests at{' '}
-            <strong>~0</strong>. The same row of one of its files proves it — the column reads
-            &minus;0.98 while the device&apos;s own <code>accel_x</code> body axis reads 9.78 on that
-            same sample. Read as specific force, such a channel is a full g low in{' '}
-            <em>every</em> reading taken off it: the peak g, the boost average, the thrust-to-weight,
-            the drag coefficient, and the accelerometer speed ceiling — which subtracts a gravity
-            itself, so gravity came off twice. Ten corpus flights carried it. The importer for that
-            format now marks the column, and the analysis adds the gravity back before anything is
-            read from it, so a peak of 62.3&nbsp;g reads 63.3 and a boost average of 3.24 reads 4.24.
-            Note that a device&apos;s own app may show you the other convention for the same flight;
-            the difference is exactly one gravity, and it is a choice of definition rather than a
-            disagreement about the measurement.
           </Method>
           <Method id="liftoff-burnout" title="Liftoff & burnout">
             With an accelerometer, liftoff is the first sustained kick above about 2 g and burnout is
@@ -495,77 +774,15 @@ export default function MethodsPage() {
             is this, rather than reporting a percentage measured from a height the record cannot
             state.
           </Method>
-          <Method id="ejection-delay" title="Ejection delay">
-            For a motor-ejection flight, the ideal motor delay is the coast time — the interval
-            from burnout to apogee, where the rocket has slowed to a stop and a charge deploys most
-            gently. Debrief measures that coast directly, so it frames it as the delay to load and,
-            given the printed delay you flew, reads off how far before or after apogee that charge
-            actually fired (delay − coast time). A reading of the flown flight, not a prediction; the
-            offset is only as sharp as the burnout and apogee it sits between.
-          </Method>
-          <Method id="drag-coefficient" title="Drag coefficient">
-            Back-calculated from the coast: after burnout and before apogee the only forces are
-            gravity and drag, so the deceleration is a direct reading of the drag the airframe had
-            on this flight. From the coast deceleration, the air density, and the coast mass and body
-            diameter you supply: C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;(drag deceleration) ÷
-            (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A). It&apos;s a measurement of the flown flight, not a
-            prediction — the figure to check your simulation&apos;s assumed C<sub>d</sub> against.
-            C<sub>d</sub> rises through the transonic region, so the value is the median over the
-            faster part of the coast, with the Mach window shown; a derived (baro) velocity makes it
-            softer and it&apos;s flagged approximate.
-          </Method>
-          <Method id="parachute-cd" title="Parachute Cd">
-            How the main actually performed: under a steady canopy the rocket is at terminal
-            velocity, where drag balances weight, so C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;g ÷
-            (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A) falls straight out of the measured main descent rate, with
-            the descending mass and canopy diameter you supply (A is the canopy area, ρ the low-air
-            density). A measurement of the flown descent, not a prediction — check it against the
-            rule of thumb (~0.75 for a flat sheet, ~1.5 for a domed chute). It assumes the main
-            reached a steady rate. The same reading is offered for the <em>drogue</em> on a dual-deploy
-            flight — the fast fall between apogee and the main, worked with the thinner air density up
-            there — flagged approximate, since a small drogue may not be fully at terminal velocity.
-          </Method>
-          <Method id="landing-energy" title="Landing energy">
-            How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
-            touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
-            of the flight you flew, shown only when the log descended to a readable landing rate. The
-            landing speed is also given as the free-fall <em>drop height</em> that reaches it
-            (h&nbsp;=&nbsp;v²/2g) — exact and mass-free, the gut-feel &ldquo;it came in like a drop from
-            here&rdquo; for judging whether a landing was too hard.
-          </Method>
-          <Method id="deployment-shock" title="Deployment shock">
-            When the logger recorded acceleration, the peak the airframe felt as the apogee charge
-            and the main fired — the snatch force that breaks shock cords and zippers tubes — read
-            straight from the accelerometer in a bracket of clock around the deployment —{' '}
-            <strong>1&nbsp;s either side of apogee</strong>, and{' '}
-            <strong>3.5&nbsp;s before to 1&nbsp;s after the main</strong>. A gentle deployment shows
-            none; a coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
-            {' '}
-            The bracket is a span of time rather than a count of samples, and it is deliberately
-            lopsided, because <strong>a charge does not fire at the instant Debrief detects the
-            deployment</strong>. Apogee is the top of the altitude trace, and every apogee charge in
-            the corpus fires 0.35–0.78&nbsp;s <em>before</em> it. The main is detected from the
-            change in descent rate, which the charge causes rather than coincides with — the canopy
-            has to open and the rate has to settle before there is anything to detect — so that lag
-            is far longer, 2.0–2.9&nbsp;s on the flights that can be measured.
-            {' '}
-            Until 2026-08-04 this was ±0.3&nbsp;s converted to a <em>sample count</em> using the
-            record&apos;s median interval, which is a property of the export and not of the flight:
-            the span it really covered ran from 0.13&nbsp;s to 8.24&nbsp;s, and one Kairos Booster
-            recording published <strong>22.8&nbsp;g</strong> from its <code>.csv</code> and{' '}
-            <strong>1.5&nbsp;g</strong> from its <code>.eeprom</code> — one board, one launch, one
-            charge, read two ways. The charge itself was <strong>84.6&nbsp;g</strong>, and neither
-            file reported it. Twelve of the twenty-three shocks in the corpus moved by more than
-            10%, and <strong>eleven of the twelve went up</strong>: the reading a flyer sizes a
-            shock cord and a harness against was being understated, by as much as nine-fold.
-          </Method>
-          <Method id="main-deploy-altitude" title="Main deploy altitude">
-            On a dual-deploy flight the altimeter fires the main at a set altitude. Debrief detects
-            the main deployment and the AGL altitude it happened at, so it reads off where the main
-            actually fired — and, given the altitude you set, how close the two were. It also shows
-            how far the rocket fell under drogue first (apogee minus the main altitude). A reading of
-            the flown flight and a safety check: a main that fires well below its setting lands hard.
-          </Method>
+          </div>
+        </section>
+
+        <section id="coming-down" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Coming down
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('coming-down')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="deployments-descent-rates" title="Deployments & descent rates">
             After apogee, Debrief looks for a clear, sustained drop in descent speed — a fast drogue
             giving way to a slow main — and marks it as the main deployment. Descent rates are the
@@ -624,93 +841,46 @@ export default function MethodsPage() {
             1,877&nbsp;ft; the samples left average to 2&nbsp;ft/s where the second altimeter on the
             same flight reads 57. Two feet per second is the end of the record, not a descent.
           </Method>
-          <Method id="predicted-versus-flown" title="A prediction, dropped beside the flight">
-            Drop an <strong>OpenRocket design</strong> (<span className="font-mono">.ork</span>) in
-            with your log and Debrief reads the figures its simulator stated — apogee, top speed,
-            peak acceleration, Mach, time to apogee, flight time and four more — and puts them
-            beside its own read of what actually flew. Debrief does not simulate, fit, or correct a
-            prediction; it reports the gap.
-            {' '}
-            <strong>A prediction is not a second measurement, and the wording keeps them apart.</strong>{' '}
-            Two altimeters that recorded the same flight are two instruments, so they{' '}
-            <em>agree</em>, are <em>consistent</em>, or <em>differ</em> — and a gap between them is
-            worth chasing because one of them is wrong. A simulation is a statement about a flight
-            that had not happened yet. When the flight does not match it, nothing is wrong: the
-            flight is the measurement and the prediction is the thing that missed. So a predicted
-            row reads <em>flew higher · +8%</em> or <em>as predicted · 2%</em>, never{' '}
-            <em>differ</em>, and it is never given the amber of a discrepancy. The direction word
-            belongs to the reading: a time <em>took longer</em>, a speed <em>flew faster</em>, an
-            acceleration <em>pulled more g</em>. Only a height flew higher.
-            {' '}
-            <strong>Max acceleration is the one row to read carefully.</strong> Debrief reports the
-            specific force the airframe felt, which is 1&nbsp;g on the pad; a logger that reports
-            acceleration net of gravity instead is named as such, because the corpus shows that
-            convention holding to two decimals on every file. The{' '}
-            <span className="font-mono">.ork</span> format states no convention at all, so Debrief
-            claims neither for a design and says so beside the figures: a gap of about a gravity on
-            that row may be the two conventions rather than the flight.
-            {' '}
-            <strong>The sign is the flight&apos;s, and it is worth knowing that the field is split
-            on this.</strong> Debrief states the difference as{' '}
-            <span className="font-mono">(flown − predicted) / |predicted|</span>, so positive means
-            the rocket beat its simulation. RASAero II&apos;s published comparison table — 43
-            flights, average error 3.47% — states the same quantity as{' '}
-            <span className="font-mono">(sim − flown) / flown</span>, which is the opposite sign
-            <em>and</em> a different denominator: a flight RASAero prints as{' '}
-            <strong>&minus;4.30%</strong> Debrief prints as <strong>+4.5%</strong>. Neither is
-            wrong; they are answering &ldquo;how far off was the simulator&rdquo; and &ldquo;what
-            did the rocket do against its prediction&rdquo;. Debrief takes the flight as the
-            reference because the flight is the thing it measured.
-            {' '}
-            <strong>Where a design states several simulations, Debrief will not pick one.</strong> A{' '}
-            <span className="font-mono">.ork</span> accumulates a simulation per motor — the
-            reference design shipped with OpenRocket holds five, whose apogees run from 51&nbsp;m to
-            320&nbsp;m — and nothing in a flight log says which motor flew. Choosing one would be
-            Debrief inventing the very claim the comparison exists to test, so it names the
-            simulations it found and asks for the design saved with the one you flew. A prediction
-            also lasts the session rather than being kept with the flight: the design file is
-            roughly a megabyte of XML and the logbook is a shared browser quota.
+          <Method id="ejection-delay" title="Ejection delay">
+            For a motor-ejection flight, the ideal motor delay is the coast time — the interval
+            from burnout to apogee, where the rocket has slowed to a stop and a charge deploys most
+            gently. Debrief measures that coast directly, so it frames it as the delay to load and,
+            given the printed delay you flew, reads off how far before or after apogee that charge
+            actually fired (delay − coast time). A reading of the flown flight, not a prediction; the
+            offset is only as sharp as the burnout and apogee it sits between.
           </Method>
-          <Method id="barometric-speed-refuted" title="A barometric speed the climb refutes">
-            A speed derived from the altitude trace can be checked against that same trace. From
-            the point the speed peaks, a drag-free coast would gain{' '}
-            <span className="font-mono">v²/2g</span>, and drag only ever takes from that — so what
-            the flight <em>actually</em> gained from there, as a fraction of that vacuum coast, is
-            what drag cost. Across 33 corpus flights it runs from <strong>6.3% to 81.7%</strong>: a
-            wide, continuous spread, because airframes differ. Two files sit at{' '}
-            <strong>0.1%</strong> — an Eggtimer anomaly reading Mach 4.08 over a 4,661&nbsp;ft
-            apogee, and an in-air breakup reading 2,671&nbsp;ft/s over 958&nbsp;ft. A speed whose
-            coast would have carried the rocket a hundred times higher than it went is the slope of
-            a trace that jumped, not a speed, and it is withheld with the arithmetic shown. The
-            bound sits at 1%: six times below the lowest genuine reading, ten times above the two
-            refused. It applies only to a <em>derived</em> speed, where the velocity and the
-            altitude are one channel disagreeing with itself — a device-measured speed and the
-            altitude are two instruments, and which to believe is not a guard&apos;s call.
+          <Method id="deployment-shock" title="Deployment shock">
+            When the logger recorded acceleration, the peak the airframe felt as the apogee charge
+            and the main fired — the snatch force that breaks shock cords and zippers tubes — read
+            straight from the accelerometer in a bracket of clock around the deployment —{' '}
+            <strong>1&nbsp;s either side of apogee</strong>, and{' '}
+            <strong>3.5&nbsp;s before to 1&nbsp;s after the main</strong>. A gentle deployment shows
+            none; a coarse sample rate undersamples the spike, so read it as a floor, not a ceiling.
+            {' '}
+            The bracket is a span of time rather than a count of samples, and it is deliberately
+            lopsided, because <strong>a charge does not fire at the instant Debrief detects the
+            deployment</strong>. Apogee is the top of the altitude trace, and every apogee charge in
+            the corpus fires 0.35–0.78&nbsp;s <em>before</em> it. The main is detected from the
+            change in descent rate, which the charge causes rather than coincides with — the canopy
+            has to open and the rate has to settle before there is anything to detect — so that lag
+            is far longer, 2.0–2.9&nbsp;s on the flights that can be measured.
+            {' '}
+            Until 2026-08-04 this was ±0.3&nbsp;s converted to a <em>sample count</em> using the
+            record&apos;s median interval, which is a property of the export and not of the flight:
+            the span it really covered ran from 0.13&nbsp;s to 8.24&nbsp;s, and one Kairos Booster
+            recording published <strong>22.8&nbsp;g</strong> from its <code>.csv</code> and{' '}
+            <strong>1.5&nbsp;g</strong> from its <code>.eeprom</code> — one board, one launch, one
+            charge, read two ways. The charge itself was <strong>84.6&nbsp;g</strong>, and neither
+            file reported it. Twelve of the twenty-three shocks in the corpus moved by more than
+            10%, and <strong>eleven of the twelve went up</strong>: the reading a flyer sizes a
+            shock cord and a harness against was being understated, by as much as nine-fold.
           </Method>
-          <Method id="record-stops-in-the-air" title="A record that stops in the air">
-            A flight time and a descent need a descent to be <em>in</em> the record, and the same
-            vacuum argument says when it isn&apos;t: a body cannot fall from{' '}
-            <span className="font-mono">h</span> in less than <span className="font-mono">√(2h/g)</span>,
-            so a log that ends sooner than that after its own apogee holds the climb and not the
-            fall — whatever the trace does at the cut. This is not a rare shape. A logger that writes
-            the same flight into one file twice can cut the first copy short, and the &ldquo;landing&rdquo;
-            then found is the record restarting: on one corpus Blue Raven, 0.08&nbsp;s after the peak
-            of a 10,245&nbsp;ft flight, reported as an 18.3&nbsp;s flight time. Those readings are
-            withheld now, with a note saying how far short the record stops. The climb — apogee, top
-            speed, burnout, the whole ascent — is unaffected and still read.
-          </Method>
-          <Method id="descent-faster-than-vacuum" title="A descent rate that beats a vacuum">
-            The rocket is at rest at apogee — that is what apogee means — so nothing after it can be
-            travelling faster than a free fall from that height in a vacuum,{' '}
-            <span className="font-mono">√(2·g·h)</span>. No drag model, no mass, nothing to tune: it
-            is the same energy argument the coast-efficiency read uses in the other direction. A leg
-            whose average comes out above that ceiling is not a recovery rate, it is a jump in the
-            altitude record showing up in the speed derived from it — a segment boundary, a pressure
-            glitch, a logger resuming on a different baseline. Three logs in the corpus produced one,
-            reading <strong>16,495</strong>, <strong>8,303</strong> and <strong>749&nbsp;ft/s</strong>{' '}
-            as a <em>main descent</em>: a number a flyer might size a parachute against. Those legs
-            are left unread with a note saying why, and every genuine reading in the corpus sits far
-            inside its own ceiling — the fastest, 148&nbsp;ft/s, against 924.
+          <Method id="main-deploy-altitude" title="Main deploy altitude">
+            On a dual-deploy flight the altimeter fires the main at a set altitude. Debrief detects
+            the main deployment and the AGL altitude it happened at, so it reads off where the main
+            actually fired — and, given the altitude you set, how close the two were. It also shows
+            how far the rocket fell under drogue first (apogee minus the main altitude). A reading of
+            the flown flight and a safety check: a main that fires well below its setting lands hard.
           </Method>
           <Method id="main-descent-rate" title="A main descent rate, or the whole descent">
             A <strong>main descent rate</strong> is measured over the leg after a main deployment,
@@ -736,6 +906,61 @@ export default function MethodsPage() {
             recorded, but it says which it is, and no landing energy or parachute Cd is computed
             from it.
           </Method>
+          <Method id="parachute-cd" title="Parachute Cd">
+            How the main actually performed: under a steady canopy the rocket is at terminal
+            velocity, where drag balances weight, so C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;g ÷
+            (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A) falls straight out of the measured main descent rate, with
+            the descending mass and canopy diameter you supply (A is the canopy area, ρ the low-air
+            density). A measurement of the flown descent, not a prediction — check it against the
+            rule of thumb (~0.75 for a flat sheet, ~1.5 for a domed chute). It assumes the main
+            reached a steady rate. The same reading is offered for the <em>drogue</em> on a dual-deploy
+            flight — the fast fall between apogee and the main, worked with the thinner air density up
+            there — flagged approximate, since a small drogue may not be fully at terminal velocity.
+          </Method>
+          <Method id="drag-coefficient" title="Drag coefficient">
+            Back-calculated from the coast: after burnout and before apogee the only forces are
+            gravity and drag, so the deceleration is a direct reading of the drag the airframe had
+            on this flight. From the coast deceleration, the air density, and the coast mass and body
+            diameter you supply: C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;(drag deceleration) ÷
+            (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A). It&apos;s a measurement of the flown flight, not a
+            prediction — the figure to check your simulation&apos;s assumed C<sub>d</sub> against.
+            C<sub>d</sub> rises through the transonic region, so the value is the median over the
+            faster part of the coast, with the Mach window shown; a derived (baro) velocity makes it
+            softer and it&apos;s flagged approximate.
+          </Method>
+          <Method id="landing-energy" title="Landing energy">
+            How hard it came in: ½&nbsp;·&nbsp;m&nbsp;·&nbsp;v², from the descent rate measured near
+            touchdown and the descending mass you enter. Reported in ft·lbf and joules — a measurement
+            of the flight you flew, shown only when the log descended to a readable landing rate. The
+            landing speed is also given as the free-fall <em>drop height</em> that reaches it
+            (h&nbsp;=&nbsp;v²/2g) — exact and mass-free, the gut-feel &ldquo;it came in like a drop from
+            here&rdquo; for judging whether a landing was too hard.
+          </Method>
+          <Method id="descent-faster-than-vacuum" title="A descent rate that beats a vacuum">
+            The rocket is at rest at apogee — that is what apogee means — so nothing after it can be
+            travelling faster than a free fall from that height in a vacuum,{' '}
+            <span className="font-mono">√(2·g·h)</span>. No drag model, no mass, nothing to tune: it
+            is the same energy argument the coast-efficiency read uses in the other direction. A leg
+            whose average comes out above that ceiling is not a recovery rate, it is a jump in the
+            altitude record showing up in the speed derived from it — a segment boundary, a pressure
+            glitch, a logger resuming on a different baseline. Three logs in the corpus produced one,
+            reading <strong>16,495</strong>, <strong>8,303</strong> and <strong>749&nbsp;ft/s</strong>{' '}
+            as a <em>main descent</em>: a number a flyer might size a parachute against. Those legs
+            are left unread with a note saying why, and every genuine reading in the corpus sits far
+            inside its own ceiling — the fastest, 148&nbsp;ft/s, against 924.
+          </Method>
+          <Method id="record-stops-in-the-air" title="A record that stops in the air">
+            A flight time and a descent need a descent to be <em>in</em> the record, and the same
+            vacuum argument says when it isn&apos;t: a body cannot fall from{' '}
+            <span className="font-mono">h</span> in less than <span className="font-mono">√(2h/g)</span>,
+            so a log that ends sooner than that after its own apogee holds the climb and not the
+            fall — whatever the trace does at the cut. This is not a rare shape. A logger that writes
+            the same flight into one file twice can cut the first copy short, and the &ldquo;landing&rdquo;
+            then found is the record restarting: on one corpus Blue Raven, 0.08&nbsp;s after the peak
+            of a 10,245&nbsp;ft flight, reported as an 18.3&nbsp;s flight time. Those readings are
+            withheld now, with a note saying how far short the record stops. The climb — apogee, top
+            speed, burnout, the whole ascent — is unaffected and still read.
+          </Method>
           <Method id="recovery-ground-track" title="Recovery (ground track)">
             When the logger recorded a GPS track, Debrief projects the latitude/longitude onto a
             north-up, equal-scale map and reads off how far and which way the rocket landed, and the
@@ -756,6 +981,15 @@ export default function MethodsPage() {
             <span className="font-mono">relativeToGround</span> mode means, so nothing about the
             site&apos;s own elevation has to be invented.
           </Method>
+          </div>
+        </section>
+
+        <section id="how-the-airframe-moved" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            How the airframe moved
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('how-the-airframe-moved')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="roll-spin" title="Roll &amp; spin">
             When the logger recorded a roll-rate channel (angular rate about the long axis), Debrief
             reports the peak rate and the total revolutions the airframe turned through — the
@@ -874,73 +1108,20 @@ export default function MethodsPage() {
             names only the repeated stretches that fall inside the stretch of the flight being read,
             since a caution about a moment the chart does not draw is one you cannot check.
           </Method>
+          </div>
+        </section>
+
+        <section id="what-else-the-board-wrote-down" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            What else the board wrote down
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('what-else-the-board-wrote-down')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="battery" title="Battery">
             When the logger recorded its battery voltage, the resting voltage at the start and the
             lowest it sagged to. A pack that droops under the current a deployment charge draws can
             fail to fire it, so the drop is worth a look — though what counts as low depends on your
             battery, so it&apos;s reported plainly, not judged.
-          </Method>
-          <Method id="mach-dynamic-pressure" title="Mach & dynamic pressure">
-            The speed of sound comes from the air temperature, which falls with altitude on the
-            standard-atmosphere lapse rate — anchored to the ground temperature the logger records
-            (else a 15&nbsp;°C standard day, and likewise when a recorded pad temperature falls outside
-            the range Earth&apos;s surface actually reaches, e.g. a mis-scaled sensor column) and
-            levelling off at the tropopause (~11&nbsp;km). Mach
-            is velocity over that <em>local</em> speed of sound, so a peak reached a few thousand feet
-            up is read against the colder, slower air it was actually in, not the ground value (a
-            touch higher than a ground-temperature divisor, and more so with height). Dynamic pressure
-            (½&nbsp;ρv²) uses air density from the same lapse, anchored to the pad&apos;s own conditions
-            — so a high-elevation launch reads its real, thinner air. Both ride on the velocity, so
-            they carry whatever caveat it carries.
-            <br />
-            <br />
-            Max-Q is read over the <strong>ascent</strong> — liftoff to apogee, climbing — the same
-            window the peak speed comes from, and where the structural load case lives. The window is
-            the whole point: q squares the speed, so a velocity that swings hard <em>negative</em>
-            counts as though it were airspeed, and the place that happens is the deployment transient,
-            where a charge vents the airframe and a derived or integrated velocity spikes for a
-            fraction of a second. Read over the whole record, six of the 34 corpus flights that report
-            a max-Q took it from such a sample instead of from the boost — 3.2&times;, 2.2&times;,
-            2.2&times; and 2.0&times; the real ascent peak on four of them, and on the 121&nbsp;km
-            flight a &minus;8,970&nbsp;m/s sample read 47,322&nbsp;kPa against an ascent peak of
-            404&nbsp;kPa. A descent has real airspeed and a real q, but nothing near the boost&apos;s,
-            and none of those six samples was a descent. A record with no ascent in it has no boost, so
-            no load case, and gets no max-Q at all.
-          </Method>
-          <Method id="device-summary" title="The device's own summary, dropped alongside">
-            Some altimeter apps write a summary file next to the log — the device&apos;s own
-            headline figures, with no time series in it. Drop the pair together and Debrief reads
-            the flight from the log and puts those figures beside its own read as a cross-check,
-            matched up by the rocket name the summary itself states. They are never merged into the
-            read: two measurements that agree build confidence, and a gap is worth a look. The unit
-            is taken from the value the file states (&ldquo;4034.98 feet&rdquo;) rather than assumed,
-            since the same app can be set to metric, and a figure whose unit doesn&apos;t resolve is
-            left out rather than guessed at. Only figures that line up against something Debrief
-            measures are read — a GPS summary&apos;s &ldquo;distance at apogee&rdquo; is downrange,
-            not altitude, and mapping it would invent a disagreement out of a sound read.
-          {' '}
-            That includes the <strong>deployment shocks</strong> a Featherweight summary states for
-            its apogee and main channels. Debrief measures the same quantity — the acceleration peak
-            at each of those events — on 19 of the 36 corpus flights that analyse, so on those the
-            two are a real cross-check. On the rest the row still appears and says the reading is not
-            comparable rather than going blank, because on a barometric recording the board&apos;s
-            figure is the only one there is: nothing in a pressure trace recovers what a charge did.
-            The shocks are judged against the wider agreement band, like the descent rates and for
-            the same reason — a shock is a millisecond transient, and the board reading its own
-            charge channel and Debrief reading the airframe&apos;s accelerometer over a window are
-            not sampling the same instant of it. The summary&apos;s <em>landing</em> figure is
-            deliberately left out: that is the ground impact, not a flight load, and Debrief has no
-            event to hold it against.
-          {' '}
-            One difference there is worth naming, because it looks like a disagreement and isn&apos;t:
-            an accelerometer at rest on the pad reads <strong>1&nbsp;g</strong>. Debrief reports that
-            specific force — the g the airframe felt, which is the number a structures check wants —
-            while some devices report acceleration net of gravity, what the rocket was accelerated{' '}
-            <em>by</em>. Every AltimeterCloud file in the corpus shows it exactly: 316.76 m/s² against
-            the device&apos;s 306.95, 314.07 against 304.26, +1.00&nbsp;g every time. Two independent
-            reads landing precisely one gravity apart is not what noise does, so the cross-check says
-            so rather than printing a 3.2% gap and leaving you to wonder. Neither figure is adjusted
-            into the other: both are shown as each instrument states them.
           </Method>
           <Method id="when-the-flight-flew" title="When the flight flew">
             Where the file says, Debrief reads the flight&apos;s own date and time and shows it beside
@@ -964,6 +1145,29 @@ export default function MethodsPage() {
             one corpus TeleMetrum insists on 27 Apr 2013 for a flight flown in October 2023, and that
             is the device&apos;s own record, not something to quietly correct.
           </Method>
+          <Method id="the-samples" title="The samples themselves">
+            Under the explorer&apos;s plot is every sample in the window, exact and in your units —
+            nothing decimated away, because a sample you can&apos;t see is a sample you can&apos;t
+            check. <em>Jump to</em> scrolls straight to a liftoff, burnout, apogee or deployment and
+            highlights the row it landed on, and <strong>any column sorts</strong> (click once for
+            highest first, again for lowest, a third time back to the order the flight was recorded
+            in). Sorting a time series is not idle: sorting altitude descending is how you tell a
+            real apogee from a one-sample spike — the top of the list either steps down gently or
+            starts with an outlier, and the second reading is the honest one. Each column also
+            copies on its own (the ⧉ beside its name): the whole set has always been a CSV away,
+            but a flyer who wants the descent rates in a club sheet wants one channel, not eleven.
+            What lands in the spreadsheet is what is on screen — the rows in this window, in the
+            order the table is showing them.
+          </Method>
+          </div>
+        </section>
+
+        <section id="what-you-get-out" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            What you get out
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('what-you-get-out')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="what-the-charts-show" title="What the charts show, and what they leave out">
             The three plots open on <strong>the flight</strong> — from just before liftoff to just
             after touchdown — not on the whole file. A logger armed early records the pad wait, and
@@ -985,28 +1189,6 @@ export default function MethodsPage() {
             consumer reading <span className="font-mono">debrief.flight/1</span> expects every key it
             knows to be there. Trimming a report is a presentation choice; trimming a data contract
             is a broken file.
-          </Method>
-          <Method id="the-samples" title="The samples themselves">
-            Under the explorer&apos;s plot is every sample in the window, exact and in your units —
-            nothing decimated away, because a sample you can&apos;t see is a sample you can&apos;t
-            check. <em>Jump to</em> scrolls straight to a liftoff, burnout, apogee or deployment and
-            highlights the row it landed on, and <strong>any column sorts</strong> (click once for
-            highest first, again for lowest, a third time back to the order the flight was recorded
-            in). Sorting a time series is not idle: sorting altitude descending is how you tell a
-            real apogee from a one-sample spike — the top of the list either steps down gently or
-            starts with an outlier, and the second reading is the honest one. Each column also
-            copies on its own (the ⧉ beside its name): the whole set has always been a CSV away,
-            but a flyer who wants the descent rates in a club sheet wants one channel, not eleven.
-            What lands in the spreadsheet is what is on screen — the rows in this window, in the
-            order the table is showing them.
-          </Method>
-          <Method id="named-views" title="Named views">
-            The explorer remembers how you last set it up, and you can also keep several plots under
-            names you choose — the boost, the deployments, the airframe&apos;s health — and switch
-            between them on any flight. A view names its channels rather than their column numbers,
-            since column 3 means something different in every logger&apos;s export, so a saved view
-            follows you across loggers and restores only the channels the flight in front of you
-            actually has. Kept on this device, like the rest of Debrief&apos;s state.
           </Method>
           <Method id="events-called-out" title="Which events are called out">
             Debrief marks liftoff, burnout, apogee, the deployments and landing on the explorer&apos;s
@@ -1030,17 +1212,13 @@ export default function MethodsPage() {
             series is a different plot under the same name. Saving a view of your own under one of
             those names replaces it.
           </Method>
-          <Method id="unrecognized-file" title="A file Debrief doesn&apos;t recognize">
-            An unrecognized export goes to the column mapper, where you say which column is
-            which — and Debrief <strong>keeps that answer</strong> with the flight. Reopening it
-            from the logbook comes straight back to the flight rather than asking again, and it can
-            join a comparison named by id like any auto-detected file; before, the mapping lived
-            only in the moment you made it, and both of those paths quietly lost the flight. A
-            logbook backup carries the mapping too. Drop a launch day&apos;s folder at once and the
-            files that need mapping aren&apos;t left out either: the comparison offers each one by
-            name, and mapping it puts it back with the flights it arrived with. A file with no
-            columns of numbers in it — a binary download off the device, a screenshot — is not
-            offered, because there is nothing there to map, and it says so instead.
+          <Method id="named-views" title="Named views">
+            The explorer remembers how you last set it up, and you can also keep several plots under
+            names you choose — the boost, the deployments, the airframe&apos;s health — and switch
+            between them on any flight. A view names its channels rather than their column numbers,
+            since column 3 means something different in every logger&apos;s export, so a saved view
+            follows you across loggers and restores only the channels the flight in front of you
+            actually has. Kept on this device, like the rest of Debrief&apos;s state.
           </Method>
           <Method id="logbook-backup" title="Logbook & backup">
             Flights you open are remembered in this browser (IndexedDB) for quick re-opening,
@@ -1049,29 +1227,6 @@ export default function MethodsPage() {
             file you keep, and <em>Import</em> merges it back, so a new machine or a cleared
             browser doesn&apos;t lose it. The file never leaves your device; it&apos;s yours to
             store wherever you like.
-          </Method>
-          <Method id="one-flight-several-recordings" title="One flight, several recordings">
-            A rocket flown with a primary and a backup altimeter comes home with two files of{' '}
-            <em>one</em> flight. Tick both in the logbook and say <em>these are one flight</em>:
-            they become one entry, counted once — including by the ★ that marks your best, which
-            otherwise reads one launch as two, or crowns nothing at all when two instruments agree
-            to the digit.
-            <p className="mt-2">
-              Debrief never decides this for you, and it never blends the readings. Each recording
-              keeps its own reading and its own caveats, and you choose which one the flight is{' '}
-              <em>reported by</em> — the one whose figures a certification document would quote.
-              The report says which recording you are reading and reaches the others in a click,
-              and the text, Markdown, HTML and JSON exports carry that line too, so a write-up
-              quoting an apogee can state which instrument measured it.
-            </p>
-            <p className="mt-2">
-              Two altimeters that measured one flight are two independent measurements that can
-              disagree, and both halves of that matter: on the four-altimeter flight in the
-              validation corpus the apogees agree to 0.03% while the top speeds spread
-              6.7%. An average would hide the agreement and the disagreement together. To see them
-              side by side on one timeline, tick them and <em>Compare</em> — that surface exists
-              for exactly this and reports the spread on every reading.
-            </p>
           </Method>
           <Method id="units" title="Units">
             Every number is stored in SI internally and converted once for display, so the unit you
@@ -1086,6 +1241,15 @@ export default function MethodsPage() {
             stays a number, since neither has a unit to pick; the mass and diameter you type for the
             drag, parachute and landing-energy readings follow whichever system your altitude is in.
           </Method>
+          </div>
+        </section>
+
+        <section id="where-it-runs-and-what-leaves-your-device" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Where it runs, and what leaves your device
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('where-it-runs-and-what-leaves-your-device')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="offline" title="Offline">
             One visit with a signal is enough: as soon as the service worker takes control, the page
             hands it the list of what it just loaded, so the shell, the app&apos;s code and the
@@ -1136,46 +1300,24 @@ export default function MethodsPage() {
             altitude in whichever unit matches the apogee its own barometric-pressure column implies.
             Files are read with the browser&apos;s own file API and never uploaded.
           </Method>
-          <Method id="raw-downloads" title="Reading the file the card actually holds">
-            Two loggers are read from their <em>raw download</em> — the file their own software saves
-            when it pulls a flight off the board, with no CSV export in between. An Altus Metrum{' '}
-            <code>.eeprom</code> is the board&apos;s configuration as JSON followed by the log exactly as
-            it sat in flash; Debrief reads the records directly, converting the raw MS5607 conversions
-            with the factory calibration coefficients the file&apos;s own header carries (and the older
-            TeleMetrum&apos;s 12-bit MP3H6115A readings with that sensor&apos;s transfer function). A
-            MissileWorks RRC3 <code>.rff</code> is a serialized list of 16-bit words: barometer readings
-            in tenths of a millibar, with two auxiliary words written once a second. In both, the
-            altitude you see is derived from the barometer&apos;s own pressure readings rather than from
-            a height the board had already computed.
-            <span className="mt-3 block">
-              Two rules keep this a measurement rather than a plausible decode. Every one of these files
-              in the test corpus has the vendor&apos;s own export of the <em>same bytes</em> sitting
-              beside it, and every reading Debrief takes is checked against that export — identically,
-              where both sides do the arithmetic in whole numbers (the newer Altus Metrum boards and the
-              RRC3, 10,361 readings), and to within four thousandths of a pascal on the one older board
-              where both sides convert in floating point. And a file whose shape Debrief has not been
-              shown is refused by name: an AltOS log format it does not know, a record layout whose
-              pressures disagree with the ground pressure the file states about itself, an RRC3 log
-              whose once-a-second markers and whose readings disagree about how long the flight was.
-              Misreading a binary record layout does not fail loudly — it produces a perfectly plausible
-              flight out of misaligned bytes — so the only safe answer to a file that does not check out
-              is to say so.
-            </span>
-            <span className="mt-3 block">
-              An Entacore AIM <code>.bin</code> or <code>.xtra</code> is <em>not</em> read yet. Both are
-              containers Debrief can identify but has no verified reading of, and there is no
-              sample-for-sample ground truth to check a guess against — so a file like that is named for
-              what it is and pointed at the AIM XTRA software&apos;s CSV export, instead of being reported
-              as though it were not a flight log at all.
-            </span>
-          </Method>
+          </div>
+        </section>
+
+        <section id="what-debrief-isn-t" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            What Debrief isn’t
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{blurbOf('what-debrief-isn-t')}</p>
+          <div className="mt-4 grid gap-x-8 gap-y-6 text-sm leading-relaxed text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
           <Method id="what-debrief-isnt" title="What Debrief isn't">
             Debrief reads flights you have already flown. It is <em>not</em> a simulator: it doesn&apos;t
             predict performance, recommend motors, or model anything you haven&apos;t flown. To plan a
             flight <em>before</em> you fly it, reach for a dedicated, well-validated rocketry simulator —
             this is a hobby where that margin matters.
           </Method>
-        </div>
+          </div>
+        </section>
+
       </section>
 
       <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -1196,9 +1338,9 @@ function Method({ id, title, children }: { id: MethodId; title: string; children
     <div>
       {/* The heading IS the anchor, and it carries the same scroll-margin the report's jump
           targets do, so a link from a reading doesn't land the definition under the chrome. */}
-      <h2 id={id} className="scroll-mt-6 text-base font-medium text-zinc-800 dark:text-zinc-200">
+      <h3 id={id} className="scroll-mt-12 text-base font-medium text-zinc-800 dark:text-zinc-200">
         {title}
-      </h2>
+      </h3>
       <p className="mt-1 max-w-3xl">{children}</p>
     </div>
   );

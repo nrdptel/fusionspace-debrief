@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 
 import { copyTable } from '@/lib/copyTable';
+import { useCurrentSection } from './useCurrentSection';
 import { TOUCH_TARGET, TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
 
 /**
@@ -1031,6 +1032,78 @@ export function Disclosure({
       </summary>
       <div className="mt-3 space-y-4 text-zinc-600 dark:text-zinc-400">{children}</div>
     </details>
+  );
+}
+
+/** A pinned strip of in-page links with a you-are-here marker — `DESIGN.md` §5.
+ *
+ *  **Lifted out of `components/FlightReport.tsx` on 2026-08-08, where it was hand-rolled, because
+ *  the surface that needed it most did not have it.** The report grew this strip when it reached
+ *  nine screens on a phone; `app/methods/page.tsx` is ~12,700 words in 51 blocks and had no
+ *  in-page navigation of any kind — no contents, no strip, no back-to-top — which is most of
+ *  `OWNER-NOTES.md` `ON-1`. One surface solving a problem privately while the worse instance of
+ *  it goes unserved is exactly what a primitive layer is for.
+ *
+ *  `sticky` rather than `fixed`: until the reader has scrolled past where it already sat, it
+ *  costs nothing at all. It scrolls sideways rather than wrapping, because a jump bar that takes
+ *  a screen of its own to read is not a fix for a long page. Hidden in print, where every section
+ *  is already on the paper.
+ *
+ *  Targets need a `scroll-margin-top` so a heading lands below the strip rather than under it. */
+export function SectionNav({
+  label,
+  items,
+  className,
+}: {
+  /** Names the landmark: "Jump to a section of this report". */
+  label: string;
+  items: { id: string; label: string }[];
+  className?: string;
+}) {
+  // The hook measures from the strip's own bottom edge, because that is the line a reader
+  // actually reads from — the strip covers everything above it. Its default selector is
+  // `nav[aria-label^="Jump to a section"]`, which matched the report's label and NOT this
+  // page's ("Jump to a subject on this page"), so the you-are-here marker would have measured
+  // against the viewport top on the surface it was added for and drifted by the strip's height.
+  // Handing it this nav's exact label cannot go stale the way a shared prefix can.
+  const current = useCurrentSection(
+    items.map((i) => i.id),
+    `nav[aria-label="${label}"]`,
+  );
+  if (items.length === 0) return null;
+  return (
+    <nav
+      aria-label={label}
+      className={cx(
+        'sticky top-0 z-20 -mx-1 overflow-x-auto bg-white px-1 py-2 print:hidden dark:bg-zinc-950',
+        className,
+      )}
+    >
+      <ul className="flex w-max items-center gap-1.5 text-xs">
+        {items.map((j) => {
+          const here = j.id === current;
+          return (
+            <li key={j.id}>
+              <a
+                href={`#${j.id}`}
+                // `location`, not `page` or `true`: this marks where in the document the reader
+                // is, which is exactly what the token means. A screen reader then says "current
+                // location" on the one chip that is, and nothing on the rest.
+                {...(here ? { 'aria-current': 'location' as const } : {})}
+                className={cx(
+                  'inline-flex shrink-0 items-center rounded-md border px-2 py-1 font-medium transition',
+                  here
+                    ? 'border-zinc-400 bg-zinc-100 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100'
+                    : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
+                )}
+              >
+                {j.label}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
 

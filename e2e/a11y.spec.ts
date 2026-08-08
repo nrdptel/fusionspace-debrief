@@ -27,6 +27,12 @@ async function audit(page: import('@playwright/test').Page, where: string) {
 const PAGES: [string, string][] = [
   ['home', '/'],
   ['privacy', '/privacy'],
+  // Added 2026-08-08. `/methods` is the longest surface in the app — ~12,700 words, a
+  // 63-heading outline, three nav landmarks and a sticky strip — and it had never been
+  // scanned. It gained most of that structure in the run that added this line, which is
+  // exactly when an unscanned page is most likely to have grown a violation.
+  ['methods', '/methods'],
+  ['validation', '/validation'],
 ];
 
 for (const [name, path] of PAGES) {

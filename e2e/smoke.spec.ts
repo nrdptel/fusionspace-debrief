@@ -114,3 +114,73 @@ test('both file pickers offer every format the app can read', async ({ page }) =
   }
   expect(new Set(accepts).size, `the two surfaces offer different files: ${JSON.stringify(accepts)}`).toBe(1);
 });
+
+// `OWNER-NOTES.md` ON-1 — "the docs need some serious work in formatting and presentation.
+// its just a large block of text at this point." The page was ~12,700 words in 51 blocks
+// with ONE level of heading under the title, no contents and no in-page navigation of any
+// kind, so finding one rule meant scrolling the whole thing.
+//
+// This walks the two things that fix it, rather than asserting the markup exists: a reader
+// who has never seen the page reaches a named definition from the top in ONE click, and the
+// definition they land on sits under a subject heading that says what it is among.
+test('the methods page can be navigated, not just scrolled', async ({ page }) => {
+  await page.goto('/methods');
+  await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();
+
+  // A real hierarchy: subjects above blocks. Flat, this page had 51 h2 and no h3 at all, so
+  // nothing said that "Apogee" and "Parachute Cd" are different subjects.
+  const groups = page.getByRole('heading', { level: 2 });
+  const blocks = page.getByRole('heading', { level: 3 });
+  const nGroups = await groups.count();
+  const nBlocks = await blocks.count();
+  expect(nGroups, `subject headings: ${nGroups}`).toBeGreaterThanOrEqual(8);
+  expect(nBlocks, `block headings: ${nBlocks}`).toBeGreaterThanOrEqual(40);
+  // Every block sits under a subject — more blocks than subjects, and no subject empty.
+  expect(nBlocks).toBeGreaterThan(nGroups);
+
+  // ONE click from the top of the page to a named subject, through the contents list.
+  const contents = page.getByRole('navigation', { name: 'Contents' });
+  await expect(contents).toBeVisible();
+  await contents.getByRole('link', { name: 'Coming down' }).click();
+  const landed = page.locator('#coming-down');
+  const top = await landed.evaluate((el) => el.getBoundingClientRect().top);
+  expect(top, `"Coming down" landed at y=${Math.round(top)}`).toBeLessThan(140);
+
+  // The strip is pinned, so it is still reachable from deep in the page — the report has had
+  // this since it reached nine screens on a phone and this page is longer.
+  const strip = page.getByRole('navigation', { name: 'Jump to a subject on this page' });
+  await expect(strip).toBeVisible();
+  const stripBottom = await strip.evaluate((el) => el.getBoundingClientRect().bottom);
+  expect(stripBottom, `the strip is still on screen, bottom at y=${Math.round(stripBottom)}`).toBeLessThan(80);
+
+  // …and the heading landed BELOW the strip rather than under it. The first version of this
+  // asserted `top >= 0`, which only says the heading is below the top of the VIEWPORT — a
+  // heading sitting at y=10, wholly covered by a strip whose bottom is at 42, passed it. The
+  // real margin is `scroll-mt-12` (48 px) against that bottom, so this has about 6 px in it
+  // and will fail if either number moves.
+  expect(top, `heading at y=${Math.round(top)} vs strip bottom y=${Math.round(stripBottom)}`).toBeGreaterThanOrEqual(
+    stripBottom,
+  );
+
+  // And it marks where the reader is standing, which is the difference between a map and a
+  // list of place names.
+  await expect(
+    strip.locator('[aria-current="location"]'),
+    'the strip says which subject the reader is in',
+  ).toHaveCount(1);
+
+  // **Including the LAST subject, which could never light up.** A short final section cannot be
+  // scrolled up to the reading line — there is no page left — so clicking its own chip left the
+  // marker on the section above it. Measured before the fix: the last heading sits 288 px down
+  // at maximum scroll on a desktop against a line at 50. The report has the same shape and hid
+  // it behind a tall final section. This is the marker the primitive was lifted for, failing at
+  // the one place a reader is most likely to look.
+  const chips = strip.getByRole('link');
+  const last = chips.nth((await chips.count()) - 1);
+  const lastLabel = (await last.textContent())!.trim();
+  await last.click();
+  await expect(last, `the last chip ("${lastLabel}") marks itself once the reader is there`).toHaveAttribute(
+    'aria-current',
+    'location',
+  );
+});

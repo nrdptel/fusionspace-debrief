@@ -22,7 +22,6 @@ import { download } from '@/lib/download';
 import { plotSvg } from '@/lib/svgChart';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { useIsDark } from './useIsDark';
-import { useCurrentSection } from './useCurrentSection';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { focusRange, type ChartMarker } from './Chart';
 import MetricGrid from './MetricGrid';
@@ -51,7 +50,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card, Chip, Disclosure, Figure, Frame } from './ui';
+import { Button, Card, Chip, Disclosure, Figure, Frame, SectionNav } from './ui';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -795,51 +794,15 @@ export default function FlightReport({
     { id: 'flight-card-heading', label: 'Flight card' },
   ];
 
-  // Which of those the reader is standing in — the strip pins, so without this it lists
-  // eight places six screens down and marks none of them.
-  const currentSection = useCurrentSection(jumpTo.map((j) => j.id));
-
   return (
     <div className="space-y-8">
       <h2 className="sr-only">Flight report for {flight.source}</h2>
-      {/* Scrolls sideways rather than wrapping to a second row on a phone, like the "Save a
-          file" strip — a jump bar that costs a screen of its own to read is not a fix for a
-          long page. Hidden in print, where every section is already on the paper.
-
-          Pinned to the top of the viewport, because a jump bar that scrolls away with the page
-          helps on arrival and not once you are six screens down — and this report is nine
-          screens on a phone. `sticky` rather than `fixed` is how it earns the room it holds:
-          until you have scrolled past where it already sat, it costs nothing at all. The jump
-          targets carry a `scroll-margin-top` so a heading lands below it rather than under it
-          (see the id list in app/globals.css). */}
-      <nav
-        aria-label="Jump to a section of this report"
-        className="sticky top-0 z-20 -mx-1 overflow-x-auto bg-white px-1 py-2 print:hidden dark:bg-zinc-950"
-      >
-        <ul className="flex w-max items-center gap-1.5 text-xs">
-          {jumpTo.map((j) => {
-            const here = j.id === currentSection;
-            return (
-              <li key={j.id}>
-                <a
-                  href={`#${j.id}`}
-                  // `location`, not `page` or `true`: this marks where in the document the
-                  // reader is, which is exactly what the token means. A screen reader then
-                  // says "current location" on the one chip that is, and nothing on the rest.
-                  {...(here ? { 'aria-current': 'location' as const } : {})}
-                  className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 font-medium transition ${
-                    here
-                      ? 'border-zinc-400 bg-zinc-100 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100'
-                      : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
-                  }`}
-                >
-                  {j.label}
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      {/* `SectionNav` (`DESIGN.md` §5) since 2026-08-08. This strip was hand-rolled here, and
+          `app/methods/page.tsx` — ~12,700 words in 51 blocks — had no in-page navigation at
+          all, which is most of owner note ON-1. The jump targets carry a `scroll-margin-top`
+          so a heading lands below the strip rather than under it (see the id list in
+          app/globals.css). */}
+      <SectionNav label="Jump to a section of this report" items={jumpTo} />
       {/* Print-only masthead: a printed card should still say what it is. */}
       <div className="hidden print:block">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">Debrief · Flight Report</p>

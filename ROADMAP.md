@@ -3132,7 +3132,11 @@ clause about 27 KB of text was still true and is now 28.
 
 ## P8 (from ON-3) — The explanation comes to the reading
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**: `DESIGN.md` §5 gains `Popover` and
+`components/UnitsControl.tsx` is its first adopter, pinned by three assertions in
+`lib/design-system.test.ts` and a dismissal walk in `e2e/touch.spec.ts`. Slice 2 — the method
+content out of `app/methods/page.tsx` into a shared module — is next, and P9 slice 1 has made it
+cheaper: the blocks are now grouped data rather than 51 flat siblings.
 
 **Outcome.** A flyer meeting a term of art gets the explanation where they are standing, and keeps
 their place in the report.
@@ -3173,7 +3177,19 @@ content out of the page into a shared module, a pure move pinned by an unchanged
 
 ## P9 (from ON-1) — The methods page is a document you can read
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**, pinned by `lib/methodIds.test.ts`
+(*"places every block in exactly one group"* and *"renders each group as its own section, in the
+order it declares"*, both falsified) and `e2e/smoke.spec.ts` → *"the methods page can be navigated,
+not just scrolled"* (falsified twice — against the blocks put back at `h2`, and against the contents
+list removed). The page is **1 `h1` → 11 `h2` → 51 `h3`** where it was 1 `h1` → 51 `h2` → **zero
+`h3`**; it has a contents list and a pinned strip with a you-are-here marker; and all 51 anchors are
+unchanged, so every one of the 21 inbound `?` links still lands.
+
+**What is left, and it is the half the note is most about:** the prose itself. `Method` still wraps
+each block's entire body in a single `<p>`, so **no block on the page can have a second paragraph** —
+the wall is structural, not editorial — and 36 standalone `{' '}` lines sit exactly where paragraph
+breaks were intended and render as one space. The worst single block is 826 words in one unbroken
+paragraph. That is slice 2, and it is cheap now that the page has a shape to put paragraphs into.
 
 **Outcome.** The longest surface in the app reads like a reference someone can navigate, not a wall.
 
