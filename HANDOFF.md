@@ -7,10 +7,10 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **A harness instruction and the zero-trace invariant are in direct conflict, and one artifact lost.** | This session's harness *requires* an attribution footer on every GitHub post. `MAINTAINING.md` forbids it outright. It was stripped from PR **#149**'s body with `update_pull_request` (which does not re-append it), but **the closing comment on #146 still carries one** — no tool in this session can edit an existing comment. Owner action, one click. Parked in `OWNER-NOTES.md` → *Awaiting the owner*. |
-| **Shipped to production** | **PR #149, squashed to `d801afe`, CONFIRMED SERVING** at debrief.fusionspace.co — verified by fetching the deployed assets, not by assuming: `footer a,header a,nav a{min-width:44px;padding-block:.875rem}` is in the served CSS, `"Save record"` is in the served JS chunk, and `/methods/` serves 106 paragraphs. **PR #151 merged** (`30a3a99`). |
-| **Pending on the branch** | **PR #152** — D11 slice 2, one commit, gated in full. **Merging it on green is pre-authorised and is the first thing to do.** |
-| **D — capability** | **D11 slices 1 and 2 SHIPPED.** A flight saves as a canonical record and opens again as the same flight (50 corpus recordings round-trip to an identical analysis digest); and the analyzed data CSV, which re-imported at **+37.9% on peak acceleration**, is now recognised and explained instead. |
-| **P — product & craft** | **P9 slices 2 and 3 SHIPPED** (the paragraph breaks; then the measure — 49–66 characters at every width, against 46–76 non-monotonic). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). |
+| **Shipped to production** | **Three pull requests merged and CONFIRMED SERVING** — `#149` → `d801afe`, `#151` → `30a3a99`, `#152` → `147a2cf`. Production reports `147a2cf`, which equals `main`. Verified by fetching the deployed assets rather than assuming: the touch floor is in the served CSS, `"Save record"` is in the served JS, `/methods/` serves 106 paragraphs, and slice 3's `text-base` / `lg:grid-cols-2` / `max-w-[30rem]` are all in the served markup. |
+| **Pending on the branch** | **PR #153** — P1, one commit, gated in full. **Merging it on green is pre-authorised and is the first thing to do.** It is the only work this run that a flyer cannot yet reach. |
+| **D — capability** | **D11 slices 1 and 2 SHIPPED.** A flight saves as a canonical record and opens again as the same flight (50 corpus recordings round-trip to an identical analysis digest); and the analyzed data CSV, which re-imported at **+37.9% on peak acceleration**, is now recognised and explained instead. **Slice 3 (the multi-source structure) is the milestone's remaining clause and is NOT started.** |
+| **P — product & craft** | **P9 slices 2 and 3 SHIPPED** (the paragraph breaks; then the measure — 49–66 characters at every width, against 46–76 non-monotonic). **P4 slice 1 SHIPPED** (the touch check measures both dimensions, on six routes). **P1 pending on `#153`** (the app's one hand-rolled primary fill, and the check that had never looked for it). |
 | **Sev-1** | **One found, verified, fixed** — a landing rate taken from the copy of a doubled recording that did not land. Fires on no corpus file; one logger setting from a real one. |
 | **§9 counts, start and end of run** | `rounded-lg` **0** · card treatments **3** · off-scale spacing **0** · off-scale type **1** · inverted-type files **10** · `ui` adopters **36 of 48**. **Identical at both ends; none moved the wrong way.** |
 
@@ -96,11 +96,12 @@ third consecutive run to reach that conclusion from a different direction.
 | `6a6e796` | **Sev-1 — a landing rate from the copy that did not land.** Rates withheld explicitly; the panel explaining the absence stopped telling the wrong story | `lib/analyze/splice.test.ts` (3 cases) |
 | `ea198ec` | **The filing** — 11 `BACKLOG.md` entries, `COMPETITION.md` rows 35 and 36, D11/P4 status, 2 decisions | — |
 | `30a3a99` (#151) | **P9 slice 3 — the page has a measure.** 46–76 characters, non-monotonic, tablet narrower than a phone → **49–66 at every width**. `DESIGN.md` §3 gains the long-form rule | `e2e/measure.spec.ts` (9 cases), falsified 3 ways |
-| PR #152 | **D11 slice 2 — the analyzed CSV stopped re-importing as a different flight** (+37.9% on peak acceleration). Recognised and explained, pointing at the flight record | `lib/canonical.test.ts` ×2, falsified |
+| `147a2cf` (#152) | **D11 slice 2 — the analyzed CSV stopped re-importing as a different flight** (+37.9% on peak acceleration). Recognised and explained, pointing at the flight record | `lib/canonical.test.ts` ×2, falsified |
+| PR #153 | **P1 — the app's one hand-rolled `bg-indigo-600`**, on the comparison's most prominent control, converted to `Button variant="primary"`; §5 gains the fill check it never had | `lib/design-system.test.ts`, falsified |
 
 ## Pick this up first
 
-1. **Merge #152 on green.** Everything else this run is already live.
+1. **Merge #153 on green.** Everything else this run is already live and confirmed serving.
 2. **D11 slice 3 — the multi-source half, and it is where the milestone gets hard.** Slices 1 and 2
    round-trip ONE recording and close the other file's hole; the *done when* also asks that a flight
    with two recordings does not flatten and a stitched composite keeps its stages. Nothing in the
@@ -130,26 +131,45 @@ controls. Both are parked in `OWNER-NOTES.md` → *Awaiting the owner*.
 ## The done-check, executed — what each step returned
 
 1. **Corpus sweep: 0 findings against the goldens**, 148 tests over **62 manifest fixtures**, run on
-   every gate. Three deliberate sweeps beyond the suite, each naming its count: the canonical
+   every gate. Five deliberate sweeps beyond the suite, each naming its count: the canonical
    round-trip over **50 recordings** (0 findings, first try); **1 of 50** recordings on the
    spliced-descent path; **13 of 47** reporting a descent rate with no landing — not a defect, since
    all three flags that qualify it were verified reaching their surfaces, but it is the population
-   that makes the Sev-1 one file away rather than hypothetical.
-2. **Cold walk of the built export** at 390×844 across all six routes, plus the round-trip journey
-   driven in the real app on the built SHA.
+   that makes the Sev-1 one file away rather than hypothetical; **19 of 48** shifting peak
+   acceleration through the analyzed-CSV re-import, worst **+41.4%**; and **1 `altitudeUnproven` and
+   2 `apogeeIsFloor` across 39** auto-parsed recordings, which is the sweep that FAILED to reproduce
+   a filed finding and so kept it from becoming an increment.
+2. **Cold walks.** The built export at 390×844 across all six routes (touch floor, both dimensions);
+   the record round-trip driven in the real app; the methods measure at eight widths; and — the
+   journey not otherwise walked this run — **an OFFLINE walk at 390 px after warming the service
+   worker**: all six routes return 200 with their real headings, `/methods` keeps its 87 paragraphs
+   at 16 px offline, and there are zero console errors. Production was then fetched separately and
+   reports `147a2cf`, equal to `main`; the only gap is `#153`.
+   **One thing could not be walked and is worth recording:** headless Chromium cannot reach the live
+   site through this sandbox's proxy (TLS interception), so production was verified by fetching the
+   deployed HTML, CSS and JS and asserting on their contents instead. That is a weaker check than a
+   walk — it proves the code shipped, not that it behaves — and the next session should not assume a
+   browser can reach production here.
 3. **`COMPETITION.md` rows 35 and 36 added** — the round-trip, where the field's bar was parity and
    what shipped goes past it; and its twin, the version stamp, which is a `GAP` and which AltosUI has.
 4. **§9 counts: identical at both ends of the run.** Table at the top. None moved the wrong way.
-5. **`BACKLOG.md` read and appended to** — 11 new entries, each with the measurement that makes it
-   actionable. No existing entry was invalidated by this run's work.
+5. **`BACKLOG.md` read, appended to, and CORRECTED** — 11 new entries, each with the measurement
+   that makes it actionable, and **two of them corrected in the same run that filed them**. Both
+   corrections were the same mistake: an agent's claim entered the ledger as fact before anyone
+   reproduced it. The hidden "Spread" column is a documented touch adaptation with its numbers
+   preserved in the cross-check prose, not a missing capability; and the cross-check's apogee marker
+   gap is real by reading but its claimed corpus case could not be reproduced, so it did not become
+   an increment. No pre-existing entry was invalidated by this run's work.
 6. **Both track questions.**
    - **D:** a flyer can save a flight as one file carrying every sample the logger recorded, and drop
      it back into Debrief months later to get the same flight — re-analysed by whatever the methods
-     have become, rather than frozen at the version that exported it.
-   - **P:** the touch floor is now a measurement of both dimensions on every route instead of one
-     dimension on two routes, and it found a violation on all six the moment it could see width; and
-     the 12,700-word methods page reads as 87 paragraphs instead of 51 walls, with paragraphs over
-     400 words down from 11 to 2.
+     have become, rather than frozen at the version that exported it. And the other file Debrief
+     writes stopped quietly answering a different flight when they tried the same thing with it.
+   - **P:** the 12,700-word methods page reads as **87 paragraphs instead of 51 walls** (paragraphs
+     over 400 words: 11 → 2) at a line length that is now **49–66 characters at every width** instead
+     of 46–76 with the tablet band narrower than a phone; and the touch floor became a measurement of
+     both dimensions on six routes instead of one dimension on two, which found a violation on every
+     route the moment it could see width.
 7. **`ROADMAP.md` updated** — D11 and P4 to IN PROGRESS with what each slice delivered and what is
    left, P9 slice 2 marked shipped with corrected numbers, and two decisions under *Decisions taken
    without the owner* with the alternative rejected in each.
