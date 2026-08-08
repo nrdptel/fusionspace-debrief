@@ -141,7 +141,7 @@ test('a paired device summary survives a backup and restore', async ({ page }) =
   await page.getByRole('button', { name: /^Delete (all \d+|it)$/ }).click();
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
 
-  await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath);
+  await page.locator('input[data-testid="logbook-restore"]').setInputFiles(backupPath);
   await expect(page.getByText(/Restored \d+ flights?\./)).toBeVisible();
   await expect.poll(storedSummary, { message: 'the restore kept the summary, not just the log' }).toBe(true);
 

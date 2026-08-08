@@ -2507,3 +2507,66 @@ test('a question mark explains the reading where it is, without losing the page'
   const explaining = await page.getByRole('button', { name: /is worked out$/ }).count();
   expect(explaining, 'and every term of art explains in place').toBeGreaterThanOrEqual(8);
 });
+
+// D11's *done when*, walked in the real app rather than asserted in a unit test: any of the ten
+// formats goes in, one canonical file comes out, and dropping that file back in returns the same
+// flight. The unit half (`lib/canonical.test.ts`) proves the model survives across every corpus
+// recording; this proves a flyer can actually do it, which is the half that decides whether it
+// shipped.
+test('a flight saved as a record opens again as the same flight', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+
+  // The readings this flight is read at, before it is ever written out. Taken off the metric
+  // grid — what a flyer actually looks at — rather than out of any internal state.
+  const readingsOf = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('main dl div, main [data-reading]')]
+        .map((el) => (el.textContent ?? '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .slice(0, 12),
+    );
+  const before = await readingsOf();
+  expect(before.length, 'readings to compare').toBeGreaterThan(3);
+
+  const [record] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save record' }).click(),
+  ]);
+  expect(record.suggestedFilename()).toMatch(/-debrief-record\.json$/);
+  const saved = (await record.path()) as string;
+  const firstBytes = await readFile(saved, 'utf8');
+  // Big enough to be the flight rather than a header — a record that wrote no samples would
+  // otherwise round-trip perfectly and prove nothing.
+  expect(firstBytes.length, 'the record carries the flight').toBeGreaterThan(50_000);
+
+  // Drop it back in, as a flyer would with a file off their disk.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page.getByLabel('Choose a flight log file').setInputFiles(saved);
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Not the column mapper, and not the refusal beside it — the failure this whole slice is
+  // about. Before the canonical parser existed, `importFlight` fell through to the generic table
+  // path and the flight that came back was a different flight. Both headings are quoted from
+  // `components/ColumnMapper.tsx`: an assertion naming a string the app does not contain passes
+  // whatever happens, which is worse than not asserting.
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /no flight data in this file/i })).toHaveCount(0);
+
+  expect(await readingsOf(), 'the same flight, read the same way').toEqual(before);
+
+  // The assertion that actually bites: writing the re-imported flight out again must produce
+  // the SAME BYTES. A readings comparison cannot see a channel the record dropped — measured,
+  // by deleting the last channel on the way out and watching the readings match anyway — but a
+  // fixed point can see it, because every sample of every channel is in the file.
+  const [again] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save record' }).click(),
+  ]);
+  const secondBytes = await readFile((await again.path()) as string, 'utf8');
+  expect(secondBytes.length, 'the second record is the same size').toBe(firstBytes.length);
+  expect(secondBytes === firstBytes, 'writing the re-imported flight reproduces the record').toBe(true);
+});
