@@ -35,6 +35,19 @@ unstarted milestone", never a number — because the same prompt is run for a we
 a prompt naming D1 is wrong the day D1 ships. The `Status:` lines are the baton. Update them in the
 same commit as the work, never in a later one.
 
+**The queue was reordered on 2026-08-08 by the first batch of owner notes, and this is where that is
+recorded.** Eight notes arrived at once and all eight were triaged that day. Four became milestones —
+**D10**, **D11**, **P8**, **P9** — and they take the FRONT of their tracks, ahead of D9's remaining
+slice and P1's remaining conversions. Two sharpened milestones that already existed rather than
+becoming new ones (**P4** by `ON-6`, **P5** by `ON-B2`), because two milestones on one subject let each
+run pick whichever it prefers, which is the thrash the *Status* machinery exists to stop. One is a
+`DESIGN.md` token change (`ON-5`), and one is a `COMPETITION.md` row plus a parked question (`ON-B1`).
+
+Note-born milestones jumping the queue is what *"a note reorders them"* means, and it does not violate
+*"do not skip ahead"*: **P8 slice 1 and P9 both ADD to P1** — each needs a primitive the app has
+already hand-rolled twice — so taking them first advances the milestone they are placed in front of
+rather than stranding it.
+
 **One input reorders this queue: `OWNER-NOTES.md`.** It is the owner's inbox — rough direction dropped
 between runs — and it is read before this file at session start, because a note can change what the
 next milestone is. It is usually empty, in which case nothing here changes. When it is not, a triaged
@@ -1959,6 +1972,71 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ---
 
+## D10 (from ON-2) — A sample for every capability, and every one says it is synthetic
+
+**Status:** NOT STARTED
+
+**Outcome.** Someone who has never flown a rocket can see everything Debrief does, in one click each,
+without supplying a file — and can never mistake a demonstration for a flight.
+
+**Done when** the app offers a named sample for each shipped capability that has none today —
+multi-recording reconciliation, per-stage stitching, the column-mapper on an unrecognized CSV, the
+OpenRocket design overlay, a saturated accelerometer, and a coarse-GPS flight; each opens through the
+same `ingest()` path a dropped file takes; and **every synthetic flight is labelled synthetic on every
+surface that can carry it out of the app** — the metric grid, the report, the comparison, the print
+card, the logbook, and each of the `.txt`, `.md`, `.html`, `.csv`, `.json`, `.gpx` and `.kml` exports.
+No synthetic flight is counted in any accuracy or validation figure on `/validation`.
+
+**Pinned by** a test that enumerates the export surfaces from the same list the exporters are
+registered in and fails when a synthetic flight reaches one without its label — the asymmetry check,
+not a per-surface assertion, because a per-surface list is the thing that goes stale.
+
+**Notes.** Measured 2026-08-08: `public/samples/` holds **exactly one** file, offered from one call
+site (`components/Analyzer.tsx:108`). The corpus cannot substitute — `debrief-fixtures/LICENSING.md`
+grants no redistribution and the logs carry real names, launch-site GPS to a few metres, and device
+serial numbers. Two independent reasons, and neither is fixable by finding a license.
+
+**The samples are generated, not hand-written, and that is the load-bearing decision.** A generator
+that writes a real logger's actual file format means every sample is also a parser test, and the
+sample path already proves it: `Analyzer.tsx:548` calls the same `ingest()` a drop does, so nothing
+here needs a bypass. Synthesizing to a format also lets a sample exercise a capability a real log
+covers only by luck — redundant altimeters that genuinely *disagree*, an accelerometer that saturates
+at a known value, a column deliberately mis-scaled so the mapper has something to catch.
+
+**Slice 1 is the surface audit, run rather than remembered.** This repo's history is a caveat landing
+on one panel and a confident claim on another; the label is worth nothing if it reaches six of eight
+exports.
+
+**Size.** 4–6 increments.
+
+---
+
+## D11 (from ON-4) — One canonical file, out and back in
+
+**Status:** NOT STARTED
+
+**Outcome.** Any of the ten formats goes in, one canonical file comes out, and dropping that file back
+in returns the same flight.
+
+**Done when** a canonical export of the internal flight model round-trips losslessly: the re-imported
+flight carries the same readings, **the same provenance** (a derived value is still derived, never
+silently promoted to measured), and **the same multi-source structure** (a flight with two recordings
+does not flatten into one, and a stitched composite keeps its stages). Pinned by a property test that
+round-trips every corpus flight and every D10 sample and diffs the model both ways — an assertion
+class golden values cannot produce.
+
+**Notes.** This is worth more than a convenience export because it is **a test of the architecture the
+manual already commits to.** If every parser and the column-mapper are genuinely thin producers of one
+canonical model, the round-trip is nearly free; wherever it is not free, that is a parser smuggling
+format-specific state past the model, and finding those is the point rather than a side effect.
+
+Queued behind D10 deliberately: D10 gives this something to round-trip that can ship in the repo and
+run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
+
+**Size.** 3–5 increments.
+
+---
+
 ## P1 — One design system, adopted
 
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
@@ -3007,6 +3085,19 @@ applied at the wrong layer — a global `min-height` is a floor, not a design. `
 contract. Decompose by what a flyer needs to DO at the range, not by auditing the desktop layout
 narrow.
 
+**Sharpened 2026-08-08 by `ON-6`, and the sharpening is a correction to the *done when* above.** Both
+its clauses are **floors** — zero targets under 44 px, zero hover-only states — and a floor is
+satisfiable by a desktop layout that has merely been made touch-safe, which is the exact outcome the
+note is against. A vertical layout is not a wider one; it is a different one. So P4 must also answer,
+for each of the three surfaces laid out for a wide viewport and currently only narrowed, what the
+genuinely vertical version is: **the comparison table** (`components/CompareView.tsx`), **the channel
+explorer** (`components/ChannelExplorer.tsx`), and **the chart legends** (`components/Chart.tsx`). A
+milestone that hits both floors and leaves all three as narrowed tables has not met this.
+
+`ON-6` is cross-applied from the sibling repo and is **not** confirmed as the owner's direction for
+Debrief. P4 does not depend on it being so — it was queued before the note existed. The note changes
+what P4 must answer, not whether it runs.
+
 **Size.** 4–6 increments.
 
 ---
@@ -3029,7 +3120,91 @@ the release.
 board rather than one, it cross-checks redundant recordings, and nothing is uploaded. Keep the
 ecosystem consistency invariant — whatever ships here ships in both apps.
 
+**Widened 2026-08-08 by `ON-B2`.** The repo landing page is a surface and nothing in the workflow ever
+looked at it, so it could not go stale visibly. Added to the *done when* above: **the GitHub
+description and topics are set and match what the tool does**, and the done-check gains a step that
+reads the repo page. Measured at filing: `README.md` is **4,545 words, 28.0 KB, zero images** — the
+clause about 27 KB of text was still true and is now 28.
+
 **Size.** 3–5 increments.
+
+---
+
+## P8 (from ON-3) — The explanation comes to the reading
+
+**Status:** NOT STARTED
+
+**Outcome.** A flyer meeting a term of art gets the explanation where they are standing, and keeps
+their place in the report.
+
+**Done when** every `?` on a reading opens its explanation **in place** rather than navigating; the
+explanation is the same text the methods page carries, from one module, not a second summary that can
+drift; the full write-up is still one click away for anyone who wants it; and the affordance is
+reachable by keyboard, dismissible with `Escape`, returns focus to its trigger, and opens fully on
+screen at 390 px. Pinned by a unit test asserting every `MethodId` cited by a reading resolves to
+content, plus an e2e that opens a popover from a reading, reads its text, dismisses it and asserts the
+scroll position did not move.
+
+**Notes.** Measured 2026-08-08: `components/MetricGrid.tsx:33` renders the `?` as
+`<a href={"/methods#" + tile.method} target="_blank">`, on **21 tiles**
+(`grep -c "method:" lib/readings.ts`). **21 navigate away; 0 explain in place.**
+
+**§5 gains `Popover`, and `DESIGN.md` moves before any component does.** The vocabulary has
+`Disclosure` for in-flow progressive detail and no overlay primitive at all — and the app has already
+hand-rolled one without it: the per-quantity units panel is a raw `<details>` that
+`e2e/touch.spec.ts:209` had to be written for after it opened from −39 px at 375 px. Two sites reaching
+for the same missing word is the vocabulary being short, which §5 records twice already as its own
+failure mode. `useReturnFocus` in `components/ui.tsx:88` already owns the focus-return and `Escape`
+contract this needs.
+
+**The content extraction is the real work and it is slice 2.** The 51 explanations live as JSX
+children of `<Method>` inside `app/methods/page.tsx`. Both surfaces must render from **one** module —
+the architecture invariant's *"where two surfaces do the same job, they share a module rather than a
+resemblance"* — so a short popover summary written beside the long page is the thing this milestone
+must not ship. `lib/methodIds.ts` already binds both sides at compile time, so the key layer exists.
+
+**Slices.** 1: `Popover` in `components/ui.tsx` + `DESIGN.md` §5 (owed to the sibling repo). 2: method
+content out of the page into a shared module, a pure move pinned by an unchanged-text assertion.
+3: the `?` opens it in place. 4: the same affordance wherever else a term of art is published.
+
+**Size.** 3–5 increments. Slice 1 is also P1 work — a primitive the app hand-rolled twice.
+
+---
+
+## P9 (from ON-1) — The methods page is a document you can read
+
+**Status:** NOT STARTED
+
+**Outcome.** The longest surface in the app reads like a reference someone can navigate, not a wall.
+
+**Done when** the methods page has a real hierarchy — its 51 blocks grouped under named subjects with
+a level above them; an in-page table of contents and a pinned section strip with a you-are-here marker;
+a reading measure the prose actually obeys; and no reader has to scroll 12,700 words to find one
+definition. Pinned by an assertion that every `METHOD_ID` belongs to exactly one named group (so a new
+block cannot be added ungrouped) and an e2e that reaches a named definition from the top of the page in
+one click.
+
+**Notes.** Measured 2026-08-08: `app/methods/page.tsx` is **1,205 lines, ~12,700 words, 51 `<Method>`
+blocks**, structured as **one `<h1>`, 51 sibling `<h2>`s at `text-base`, and zero `<h3>`** in a
+two-column grid. No table of contents, no section nav, no back-to-top. It also **imports nothing from
+the primitive layer**, making it the largest surface in the app and the least converted.
+
+**The fix already exists in this repo, on the wrong page.** `components/FlightReport.tsx:816` builds a
+pinned "Jump to a section" strip with a you-are-here marker from `components/useCurrentSection.ts`,
+written because the report ran nine screens on a phone. The methods page is longer and has none of it.
+That strip is hand-rolled inside one component — lifting it into `components/ui.tsx` is P1 work this
+milestone pays for, and it is the second primitive (after P8's `Popover`) that this batch of notes
+turns out to need.
+
+**`DESIGN.md` says nothing about long-form reading** — §3 is a type scale for data surfaces, §4 a
+spacing scale, and no section covers measure, prose rhythm, or the architecture of a page someone reads
+rather than scans. That silence is the mechanism: every run correctly updated one sentence and none was
+ever asked what the page had become. The system gains that section before the page is re-laid-out.
+
+**Depends on P8 slice 2**, which moves the content into a shared module. Grouping the blocks is far
+cheaper against data than against 1,205 lines of JSX.
+
+**Size.** 3–4 increments.
 
 ---
 
@@ -3102,6 +3277,32 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-08 — Debrief's tip button stays NEUTRAL, against the literal text of `ON-B1`.** The note
+  asks for the theme control and the tip control to match `motor.fusionspace.co`. Both live sites were
+  fetched and their header markup compared: the **theme control already matches byte for byte** in
+  `title`, `aria-label`, glyph, label, border, background, radius and type size, differing only by 2 px
+  of padding and a coarse-pointer floor Debrief has and the motor finder does not. The **tip control
+  differs in colour only** — the motor finder's is `amber-300/50/700`, Debrief's is neutral secondary.
+  **Rejected: converging Debrief onto amber.** `DESIGN.md` §2 gives amber the meaning `warn` and
+  permits `indigo` as the single accent; the same fetch shows the motor finder's header also carries a
+  **sky** API chip, so converging imports two off-system accents into a system that allows one, and
+  spends the hue Debrief's safety posture leans on — in a persistent header sitting above every report a
+  flyer scans for amber caveats. That cost does not exist in a motor catalogue, which is why the same
+  choice is right there and wrong here. **Also rejected: converging the theme control's `px-2.5`**,
+  which would take every small button off §4's spacing scale and drop §8's touch floor to close a gap
+  nobody can see. The direction that makes the suite consistent without either cost is the motor finder
+  adopting the neutral treatment its own copy of `DESIGN.md` already specifies; only the owner can make
+  that change, so it is parked in `OWNER-NOTES.md`. **Reversal cost: one `className` in
+  `components/KofiButton.tsx`.**
+
+- **2026-08-08 — D11 (the canonical round-trip) is queued BEHIND D10 (the sample flights), not ahead
+  of it.** `ON-4` and `ON-2` arrived in the same batch and either could go first. **Rejected: D11
+  first**, which is the more architecturally interesting of the two and would have had nothing it
+  could ship a round-trip assertion over: the corpus cannot be redistributed, so a fork or a
+  `FIXTURES_TOKEN`-less CI run would exercise the check on zero files. D10 produces logs that live in
+  the repo, so D11's property test runs everywhere. **Reversal cost: the order of two `NOT STARTED`
+  headings.**
 
 - **2026-08-04 — the deployment-shock bracket is set from corpus measurement, and it is ASYMMETRIC.**
   `[1.0, 1.0]` s at apogee, `[3.5, 1.0]` s at main. No vendor publishes its own detection lag, so
