@@ -9,6 +9,8 @@ import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
 import { CANONICAL_SCHEMA, CanonicalFormatError, fromCanonical, looksCanonical, toCanonical } from './canonical';
 import { FLIGHT_FILE_EXTENSIONS } from './fileAccept';
+import { analyzedDataCsv } from './report';
+import { analyzeTable } from './flight/columns';
 import type { RawFlight } from './flight/types';
 
 /**
@@ -289,5 +291,50 @@ describe('a logbook backup is explained, not handed to the column mapper', () =>
     // falling back to the mapper — the same route `deviceSummaryParser` takes.
     expect(open).toThrow(ParseGuidanceError);
     expect(open).toThrow(/Recent flights/);
+  });
+});
+
+describe("Debrief's own analyzed data export is explained, not silently re-read as a flight", () => {
+  // Re-importing it produces a DIFFERENT flight, which is worse than refusing it. The derived
+  // velocity/acceleration columns look exactly like recorded ones, so they claim those roles and
+  // the real channels are dropped — measured below, on a real fixture, through the real pipeline.
+  const fixture = `${FIXTURES}altusmetrum-telemetrum.csv`;
+
+  it('would have come back as a different flight, which is why it is refused', () => {
+    const orig = flightFrom(fixture);
+    expect(orig, 'the fixture reads').not.toBeNull();
+    const analysis = analyzeFlight(orig!);
+    const csv = analyzedDataCsv(orig!, analysis, 'metric');
+
+    // The header trio the detector keys on, asserted so a change to the exporter that breaks
+    // detection fails here rather than silently re-opening the hole.
+    const cols = csv.split('\n')[0].split(',');
+    expect(cols[0]).toBe('time (s)');
+    expect(cols[1]).toMatch(/^altitude \(.+ AGL\)$/);
+    expect(cols[2]).toMatch(/^velocity \(.+\)$/);
+
+    // What the generic path WOULD have made of it — the reason for the refusal, kept as a
+    // measurement rather than a claim. Roles are assigned by `analyzeTable`, not by the parser.
+    const rows = csv
+      .split('\n')
+      .filter(Boolean)
+      .slice(0, 400)
+      .map((line) => line.split(','));
+    const table = analyzeTable(rows);
+    const roles = table.columns.map((c) => c.role);
+    expect(roles.filter((r) => r === 'accelAxial').length, 'two columns claim the axial role').toBeGreaterThan(1);
+    expect(roles[5], 'dynamic pressure claims the ambient-pressure role').toBe('pressure');
+
+    // …and the refusal itself, through the real entry point.
+    const open = () => importFlight({ name: 'a-debrief.csv', text: csv, bytes: new TextEncoder().encode(csv) });
+    expect(open).toThrow(ParseGuidanceError);
+    expect(open, 'it names the file that IS built to be read back').toThrow(/Save record/);
+  });
+
+  it('does not refuse an ordinary logger CSV that happens to have a time column', () => {
+    // The detector must be narrow. Every committed fixture still opens.
+    let opened = 0;
+    for (const f of logFiles(FIXTURES)) if (flightFrom(f)) opened++;
+    expect(opened, 'the fixtures still open').toBeGreaterThan(5);
   });
 });
