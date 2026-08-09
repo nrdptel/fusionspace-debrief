@@ -257,3 +257,51 @@ describe('the machine-readable half of the attribution', () => {
     expect(flyerChoseSimulation(back.notes)).toBe(false);
   });
 });
+
+describe('what the chip may promise about a curve', () => {
+  const withBranch = (types: string) =>
+    design(FIVE).replace(
+      `${ten(319.75)}/>`,
+      `${ten(319.75)}><databranch name="Main" types="${types}">` +
+        `<datapoint>0,0</datapoint><datapoint>1,120</datapoint><datapoint>2,319.75</datapoint>` +
+        `</databranch></flightdata>`,
+    );
+
+  it('says "drawn" only when a line will actually appear', () => {
+    const p = readPrediction(withBranch('Time,Altitude'))!;
+    const rows = summariseRuns(p);
+    expect(rows[4].curve).toBe('drawn');
+    expect(rows[0].curve, 'a run with no branch at all').toBe('none');
+    // …and choosing it really does put the curve on the flight, which is what "drawn" claims.
+    expect(applySimulationChoice(ingestedFlight(p), offerFor(p), 4).predicted).toBeDefined();
+  });
+
+  it('says "unreadable" for a branch whose columns Debrief cannot name, and draws nothing', () => {
+    // Shipped OpenRocket 24.12 LOCALIZES `types=`, so this is a design saved from a French build —
+    // the file carries a curve and Debrief cannot read it. `hasSeries` stays true on purpose so a
+    // surface can say exactly this instead of claiming the design carries no curve.
+    const p = readPrediction(withBranch('Temps,Altitude au-dessus du sol'))!;
+    const rows = summariseRuns(p);
+    expect(rows[4].curve).toBe('unreadable');
+    // The promise and the outcome agree: nothing is drawn, and the chip does not say one will be.
+    expect(applySimulationChoice(ingestedFlight(p), offerFor(p), 4).predicted).toBeUndefined();
+  });
+});
+
+describe('the design’s own word for how current a simulation is', () => {
+  it('rides in the NOTE too, so it survives where there is no picker', () => {
+    // The picker only exists when a design states SEVERAL. A design stating exactly one is merged
+    // automatically — Debrief doing the choosing — so that is the case where a stale simulation
+    // most needs to say so. Verbatim, uninterpreted.
+    const single = readPrediction(
+      design([FIVE[0]]).replace('status="uptodate"', 'status="outdated"'),
+    )!;
+    const note = predictionFiguresFrom(single).notes[0];
+    expect(note).toContain('The design states this simulation as “outdated”.');
+
+    // …and it reaches a chosen run's note by the same route.
+    const p = prediction();
+    const chosen = applySimulationChoice(ingestedFlight(p), offerFor(p), 1);
+    expect(chosen.notes.some((n) => n.includes('states this simulation as “uptodate”'))).toBe(true);
+  });
+});

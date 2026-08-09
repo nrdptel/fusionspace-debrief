@@ -15,10 +15,14 @@
  * horizontal overflow at 390 px, which §8 rules out, and a design may state more than five anyway.
  * `ChipButton` wraps, carries `pressed`, and is already the vocabulary for a row of toggles.
  *
- * **`hasSeries` stays in the `title` and that is not the hover this fixed.** Whether a run saved a
- * curve needs no announcement, because CHOOSING it draws the curve on the altitude chart — the
- * feedback is the thing itself, immediately, on the surface below. `status` was different: nothing
- * anywhere else ever repeats it, so a hover was its only home.
+ * **What is in the `title` and what is visible, decided per fact rather than by rule.** A curve
+ * that WILL be drawn needs no announcement — picking the run draws it, and the feedback is the
+ * thing itself. A curve the design saved and Debrief CANNOT read is the surprising case and is
+ * visible, because nothing else on the page will ever mention it. The design's own freshness word
+ * is visible for the same reason. An earlier version of this file promised "saved its altitude
+ * curve" off `hasSeries`, which is `<databranch` being present rather than a trace Debrief could
+ * read — so a design exported from a localized OpenRocket 24.12 was promised a line that never
+ * appears. `summariseRuns` answers the question the surface actually asks.
  *
  * The five states, checked rather than assumed: this surface is only rendered for an offer that
  * exists, so `empty` cannot be reached — a design stating one simulation needs no choice and a
@@ -74,9 +78,17 @@ export default function SimulationChoice({
             pressed={choice === run.index}
             onClick={() => onChoice(choice === run.index ? null : run.index)}
             title={
-              run.status
-                ? `Your design file states this simulation as “${run.status}”. Debrief carries that word without interpreting it — OpenRocket publishes no list of what its values mean.${run.hasSeries ? ' This one also saved its altitude curve.' : ''}`
-                : undefined
+              [
+                run.status &&
+                  `Your design file states this simulation as “${run.status}”. Debrief carries that word without interpreting it — OpenRocket publishes no list of what its values mean.`,
+                run.curve === 'drawn'
+                  ? 'This one saved its altitude curve, which is drawn on the chart when you pick it.'
+                  : run.curve === 'unreadable'
+                    ? 'This one saved a curve in columns Debrief could not name, so no line is drawn for it.'
+                    : null,
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined
             }
           >
             {run.name ?? `Simulation ${run.index + 1}`}
@@ -85,6 +97,17 @@ export default function SimulationChoice({
               // defaults. `text-zinc-500` is §2's tertiary role, which is the same value in
               // both themes on purpose.
               <span className="text-zinc-500">· {fmtLength(run.apogee, sys)}</span>
+            )}
+            {run.curve === 'unreadable' && (
+              // **The one curve fact that has to be VISIBLE**, because it is the one that
+              // surprises: the design saved a trace and Debrief cannot draw it. `hasSeries` and
+              // `series` are separate fields precisely so a surface can say this rather than
+              // claiming the design carries no curve — and the first version of this chip promised
+              // "saved its altitude curve" off `hasSeries`, which would have promised a line that
+              // never appears for any design exported from a localized OpenRocket 24.12.
+              //
+              // A curve that WILL be drawn needs no announcement: picking the run draws it.
+              <span className="text-zinc-500">· curve unreadable</span>
             )}
             {run.status && (
               // **Visible, not only a `title`.** A simulation can be one the design has since

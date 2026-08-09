@@ -1689,8 +1689,6 @@ leaves nothing of the one before, and *Don't compare one* restores the ingested 
    would be a rule built on an unpublished vocabulary. `COMPETITION.md` row 38 carries the rest.
 
 **Scoped 2026-08-09 by reading rather than by planning.** `lib/parsers/openrocket.ts` already reads
-
-**Scoped 2026-08-09 by reading rather than by planning.** `lib/parsers/openrocket.ts` already reads
 every `<simulation>` block into a run with its own name, its ten stated figures in canonical SI, and
 its saved trace (`PredictedSeries`). `predictionFigures` then throws all of that away when
 `runs.length > 1` and returns a refusal naming them: *"…states 5 simulations … a flight log does not

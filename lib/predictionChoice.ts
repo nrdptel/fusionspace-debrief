@@ -143,7 +143,16 @@ export interface SimulationSummary {
   status: string | null;
   /** Apogee in metres, as the simulation states it. Null when it stated none. */
   apogee: number | null;
-  hasSeries: boolean;
+  /** What choosing this run would actually draw, which is NOT the same question as whether the
+   *  file carries a branch.
+   *
+   *  `hasSeries` is `<databranch` being present; `series` is a trace Debrief could read out of it.
+   *  They differ, and `PredictedRun`'s own doc says so: shipped OpenRocket 24.12 LOCALIZES its
+   *  `types=` column names, so a design saved from a French or German build carries a branch whose
+   *  columns Debrief cannot name — and a self-closing `<databranch/>` does the same. A chip
+   *  promising "saved its altitude curve" off `hasSeries` would be promising a line that never
+   *  appears, which is the one thing that field exists to stop a surface doing. */
+  curve: 'drawn' | 'unreadable' | 'none';
 }
 
 /**
@@ -174,6 +183,6 @@ export function summariseRuns(prediction: Prediction): SimulationSummary[] {
     name: run.name,
     status: run.status,
     apogee: run.values.find((v) => v.metric === 'apogeeAltitude')?.value ?? null,
-    hasSeries: run.hasSeries,
+    curve: run.series ? 'drawn' : run.hasSeries ? 'unreadable' : 'none',
   }));
 }

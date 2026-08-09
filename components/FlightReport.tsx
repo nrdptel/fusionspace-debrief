@@ -803,7 +803,16 @@ export default function FlightReport({
   const plotChannels = useMemo(() => buildPlotChannels(flight, series, metrics), [flight, series, metrics]);
 
   // A per-flight key links the three charts' hover cursor and zoom range.
-  const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
+  //
+  // **Keyed on the ANALYSIS, not on the flight object.** Regenerating it tears down and rebuilds
+  // all three uPlot instances, which throws away the flyer's zoom and snaps the preset row back to
+  // "Flight" — right when the reading being shown is genuinely a different one, and wrong
+  // otherwise. Every path that used to hand this a new `flight` handed it a new `analysis` in the
+  // same breath (a load, a crop, another recording), so this is the same key it always was for all
+  // of them. What changed is that a flyer picking which simulation flew now rewrites the flight —
+  // additively, with no re-analysis — and losing a zoom you set to compare two traces, because you
+  // asked to see the other trace, is the "controls that forget" tell.
+  const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [analysis]);
 
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   // The predicted curve is a second line on this chart, so the text alternative has to carry it —

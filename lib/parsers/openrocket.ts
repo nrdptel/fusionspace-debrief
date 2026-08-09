@@ -442,7 +442,14 @@ export function figuresForRun(
           ]
         : []),
       `Predicted figures read from “${rocket}”${which}${by}. These are a simulation of a flight that had not happened yet — ` +
-        `where they differ from what was flown, the flight is the measurement and the prediction is what missed it.`,
+        `where they differ from what was flown, the flight is the measurement and the prediction is what missed it.` +
+        // The design's own word for whether this simulation still matches the rocket, carried into
+        // the NOTE and not only onto the picker's chips — because the picker only exists when a
+        // design states several, and the single-simulation case is the one where DEBRIEF does the
+        // choosing. A simulation the flyer has since edited past would otherwise populate the
+        // cross-check with nothing anywhere saying so, which is the worse of the two hazards.
+        // Verbatim, uninterpreted, for the reason `PredictedRun.status` records.
+        (run.status ? ` The design states this simulation as “${run.status}”.` : ''),
       // The one caveat a flyer cannot work out from the table. Debrief reports the SPECIFIC FORCE
       // an accelerometer measures — 1 g on the pad — and a device that reports acceleration net
       // of gravity instead is named as such, because the corpus proves that convention on every

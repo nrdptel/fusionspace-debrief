@@ -419,7 +419,10 @@ export default function Analyzer() {
    */
   const chooseSimulation = useCallback((choice: SimulationChoice) => {
     setState((prev) =>
-      prev.phase === 'report' && prev.simulationOffer
+      // A press that changes nothing changes nothing — pressing the chip already pressed, or
+      // "Don't compare one" with nothing chosen. Without this it still built a new flight object,
+      // and everything keyed on one rebuilt for a value that had not moved.
+      prev.phase === 'report' && prev.simulationOffer && (prev.simulationChoice ?? null) !== choice
         ? {
             ...prev,
             flight: applySimulationChoice(prev.flight, prev.simulationOffer, choice),

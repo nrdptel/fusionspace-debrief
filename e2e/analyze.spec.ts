@@ -2742,6 +2742,17 @@ test('a design stating several simulations lets the flyer say which flew, and sa
   await expect(page.getByText(/You said “Simulation 3 - C6-5” is the one that flew/)).toBeVisible();
   await expect(page.getByText(/You said “Simulation 2 - B6-4”/)).toHaveCount(0);
 
+  // A zoom set to compare two traces survives picking the other trace. "Controls that forget" is
+  // a named tell, and this one forgot because the chart group was keyed on the flight OBJECT,
+  // which a choice rewrites — additively, with no re-analysis, so nothing about the measured
+  // series moved at all.
+  await page.getByRole('button', { name: 'Ascent', exact: true }).first().click();
+  const ascent = page.getByRole('button', { name: 'Ascent', exact: true }).first();
+  await expect(ascent).toHaveAttribute('aria-pressed', 'true');
+  await group.getByRole('button', { name: /Simulation 2 - B6-4/ }).click();
+  await expect(ascent, 'the view a flyer chose is still the view').toHaveAttribute('aria-pressed', 'true');
+  await group.getByRole('button', { name: /Simulation 3 - C6-5/ }).click();
+
   // And the way back out — the state a flyer entered is one they can leave, which is what
   // stops this being a one-way door.
   await group.getByRole('button', { name: /Don’t compare one/ }).click();
