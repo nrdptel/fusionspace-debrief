@@ -3377,8 +3377,9 @@ what P4 must answer, not whether it runs.
 
 ## P5 — Ready for the public
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-09**: the README shows the tool instead of
-describing it. **4,545 words, 32 KB, zero images → 1,948 words, 16 KB, four images**, with the
+**Status:** IN PROGRESS — **slices 1–5 all SHIPPED 2026-08-09.** Only the repo METADATA half of
+`ON-B2` is outstanding, and it is owner-level: no tool in a session can set a repository's
+description, topics or pinned links. Slice 1 shipped the README — **4,545 words, 32 KB, zero images → 1,948 words, 16 KB, four images**, with the
 first screenful a real flight read by the real app rather than three paragraphs of prose. 68% of
 the file was one 3,099-word `What it does` section duplicating — without citations — what the
 methods page now says properly, so it was cut and linked rather than paraphrased. Pinned by
@@ -3410,10 +3411,22 @@ missing. Both `?template=`d so they land on the form's questions rather than an 
 `lib/links.test.ts` (4 cases, falsified 3 ways — a renamed template, the wrong query parameter, and
 a hand-written URL at a call site) and an e2e over three routes.
 
-**What is left, in order.** (a) A visible CHANGELOG — the version is now on screen and traceable to a
-commit, which is the half a flyer can act on; what is still missing is a human account of what
-changed between builds. (b) The GitHub description, topics and pinned links — **owner-level and parked**, because no tool in
-this session can write repository settings; the README carries the message without them.
+**Slice 5 SHIPPED 2026-08-09 — `/changelog`, and the half of it that earns the page.**
+`lib/buildInfo.ts` made a saved report traceable to the code that wrote it; a build identifier says
+WHICH code ran and cannot say what that code did differently, so a flyer whose report disagreed with
+today's read had a SHA and no account of why. The page answers that, and its spine is **“Readings
+that changed”** — first in each release rather than last, because a number that moved is the one
+thing a flyer holding an old cert package has to know about, and it is the entry a generic
+Added/Changed/Fixed template has no place for. **3 of 8 releases so far moved a reading**, and the
+five that did not say so in as many words rather than omitting the heading, which would leave a
+reader working out whether nothing moved or nobody checked. Pinned by `lib/changelog.test.ts` (8
+cases, falsified 6 ways: a post-dated release, a release out of order, copy where “upload” describes
+something a flyer does, a dropped footer link, a dropped service-worker precache entry, and an entry
+that is a bare commit subject) and an e2e that walks in from the footer on another route.
+
+**What is left.** The GitHub description, topics and pinned links — **owner-level and parked**,
+because no tool in this session can write repository settings; the README carries the message
+without them. Everything else in the *done when* is met.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
 

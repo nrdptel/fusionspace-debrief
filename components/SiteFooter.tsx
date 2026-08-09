@@ -61,6 +61,12 @@ export default function SiteFooter() {
           <Link href="/privacy" prefetch className="hover:text-zinc-800 dark:hover:text-zinc-200">
             Privacy
           </Link>
+          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+            ·
+          </span>
+          <Link href="/changelog" prefetch className="hover:text-zinc-800 dark:hover:text-zinc-200">
+            What changed
+          </Link>
         </nav>
         <a
           href={HUB_URL}

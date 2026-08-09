@@ -302,3 +302,37 @@ test('the methods page can be navigated, not just scrolled', async ({ page }) =>
     'location',
   );
 });
+
+test('a flyer can find out what changed, and which builds moved a number', async ({ page }) => {
+  // P5 slice 5. `lib/buildInfo.ts` made a saved report traceable to the code that wrote it; a
+  // build identifier says WHICH code ran and cannot say what that code did differently. This is
+  // the surface that answers the second question, and the half that earns it is `Readings that
+  // changed` — the entry a flyer holding a March cert package has to read.
+  await page.goto('/');
+
+  // Reachable from the docs spine on every route, not only from the one it lives on.
+  const link = page.getByRole('link', { name: 'What changed' });
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page).toHaveURL(/\/changelog\/?$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'What changed' })).toBeVisible();
+
+  // The warning that sends a flyer to the entries that matter sits above the list.
+  await expect(page.getByText(/If you saved a report before today/)).toBeVisible();
+
+  // A release that moved a reading says so under its own heading — and one that did not says
+  // that too, rather than leaving a reader to wonder whether anyone checked.
+  await expect(page.getByRole('heading', { name: 'Readings that changed' }).first()).toBeVisible();
+  await expect(page.getByText(/No reading changed in this release/).first()).toBeVisible();
+
+  // The descent rate is the entry this page exists for: it is the reading a flyer sizes a
+  // canopy against, and it moved.
+  await expect(page.getByText(/size a parachute against/)).toBeVisible();
+
+  // A jump strip with a you-are-here marker, like every long reading surface here since P9.
+  await expect(page.getByRole('navigation', { name: /Jump to a section of this changelog/ })).toBeVisible();
+
+  // …and it is a real static route, so it is reachable by URL and by a flyer with no signal.
+  await page.goto('/changelog/');
+  await expect(page.getByRole('heading', { level: 1, name: 'What changed' })).toBeVisible();
+});

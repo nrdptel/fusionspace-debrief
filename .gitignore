@@ -24,3 +24,7 @@ npm-debug.log*
 # fixtures repo (the trailing-slash pattern alone does not match a symlink).
 /lib/parsers/__corpus__
 /lib/parsers/__corpus__/
+
+# A stray build artefact once reached the repo root of a public repo (see BACKLOG, 2026-08-09).
+a.out
+*.o
