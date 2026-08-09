@@ -15,6 +15,11 @@
  * horizontal overflow at 390 px, which §8 rules out, and a design may state more than five anyway.
  * `ChipButton` wraps, carries `pressed`, and is already the vocabulary for a row of toggles.
  *
+ * **`hasSeries` stays in the `title` and that is not the hover this fixed.** Whether a run saved a
+ * curve needs no announcement, because CHOOSING it draws the curve on the altitude chart — the
+ * feedback is the thing itself, immediately, on the surface below. `status` was different: nothing
+ * anywhere else ever repeats it, so a hover was its only home.
+ *
  * The five states, checked rather than assumed: this surface is only rendered for an offer that
  * exists, so `empty` cannot be reached — a design stating one simulation needs no choice and a
  * design that paired with nothing is reported in `skipped`. There is no `loading` (the runs were
@@ -44,14 +49,18 @@ export default function SimulationChoice({
   const rocket = offer.prediction.rocket ?? 'this design';
 
   return (
-    <Card as="section" tone="sunken" aria-labelledby="simchoice-heading">
+    // `print:hidden` like every other control on this report (CropControl, FigureChooser,
+    // LogDetails, FlightCard): a printed cert document carrying a dead row of five candidate
+    // apogees, with the chosen one distinguished only by a border style, hands its reader four
+    // predictions the flight was never compared against.
+    <Card as="section" tone="sunken" aria-labelledby="simchoice-heading" className="print:hidden">
       <p id="simchoice-heading" className="mb-0.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         Which simulation flew?
       </p>
-      {/* Deliberately NOT a restatement of the refusal sitting a few lines above it in "How this
-          file was read". That note has to name every simulation, because it travels into the
-          exports where these chips do not exist; saying the same sentence twice on one screen is
-          the redundancy the craft bar calls a tell. This says what the CONTROL does. */}
+      {/* Deliberately NOT a restatement of the refusal, which prints further DOWN the report in
+          "How this file was read". That note has to name every simulation, because it travels
+          into the exports where these chips do not exist; saying the same sentence twice on one
+          screen is the redundancy the craft bar calls a tell. This says what the CONTROL does. */}
       <p className="mb-2.5 text-sm text-zinc-500 dark:text-zinc-400">
         A flight log doesn’t name the motor, so Debrief won’t choose for you. If you know which one
         flew, name it below — that one is compared beside your flight, as your statement rather than

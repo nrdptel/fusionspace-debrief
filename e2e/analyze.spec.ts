@@ -2776,3 +2776,86 @@ test('a chosen simulation reaches the exports, not just the panel', async ({ pag
   expect(text, 'and whose statement it was').toContain('You said “Simulation 3 - C6-5” is the one that flew');
   expect(text, 'the refusal is not still being made').not.toContain('will not pick one to compare against');
 });
+
+/** One simulation, named for the same rocket as THREE_SIM_ORK, so both designs pair to one log. */
+const ONE_SIM_TELEMETRUM_ORK = storedZip(
+  'rocket.ork',
+  `<?xml version='1.0' encoding='utf-8'?><openrocket version="1.10" creator="OpenRocket 24.12">` +
+    `<rocket><name>Telemetrum</name></rocket><simulations>` +
+    `<simulation status="uptodate"><name>The only one</name>` +
+    `<flightdata maxaltitude="150" maxvelocity="68.6" maxacceleration="143.649" maxmach="0.2" ` +
+    `timetoapogee="6.5" flighttime="60" groundhitvelocity="4.681" launchrodvelocity="15.365" ` +
+    `deploymentvelocity="2.646" optimumdelay="2.751"/></simulation>` +
+    `</simulations></openrocket>`,
+);
+
+test('a saved record that already names its simulation comes back saying so, not asking again', async ({ page }) => {
+  // The failure this closes, found by the pre-push review: `pairPredictions` decided "offer a
+  // choice" from "this design contributed no figures", which is also true of a flight that ALREADY
+  // states one — because a canonical record keeps `notes`, `reported` and `predicted` verbatim. So
+  // doing exactly what the chosen note tells a flyer to do (drop the design in again beside the
+  // flight) stapled the refusal on beside the statement contradicting it, and opened the picker
+  // showing "Don't compare one" over a populated Predicted column.
+  await page.goto('/');
+  const orkPath = path.join(os.tmpdir(), 'three-sims-record.ork');
+  writeFileSync(orkPath, THREE_SIM_ORK);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), orkPath]);
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  await page
+    .getByRole('region', { name: /Which simulation flew/ })
+    .getByRole('button', { name: /Simulation 3 - C6-5/ })
+    .click();
+
+  const archive = await mkdtemp(path.join(os.tmpdir(), 'debrief-simchoice-'));
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save record' }).click(),
+  ]);
+  const record = path.join(archive, dl.suggestedFilename());
+  await dl.saveAs(record);
+
+  // Wipe the logbook, so what comes back comes back from the FILE and not from this browser.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page.getByRole('button', { name: /^Delete/ }).click();
+
+  await page.getByLabel('Choose a flight log file').setInputFiles([record, orkPath]);
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  // The statement survived, and Debrief is not asking again over the top of it.
+  await expect(page.getByText(/You said “Simulation 3 - C6-5” is the one that flew/)).toBeVisible();
+  await expect(page.getByText(/will not pick one to compare against/)).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'Predicted' })).toBeVisible();
+
+  // …and the control agrees with the panel beside it rather than contradicting it.
+  const group = page.getByRole('group', { name: 'Which simulation flew' });
+  await expect(group.getByRole('button', { name: /Simulation 3 - C6-5/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(group.getByRole('button', { name: /Don’t compare one/ })).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('two designs claiming one flight are not offered a picker that would delete one of them', async ({ page }) => {
+  // Also from the pre-push review. Applying a choice strips predicted rows by SOURCE, so with two
+  // designs paired onto one log the picker would delete the other design's figures and its curve
+  // while leaving its note behind — asserting a prediction no longer on the page. Both `.ork`s
+  // name the same rocket as the log, so `sameRocket` pairs both.
+  await page.goto('/');
+  const three = path.join(os.tmpdir(), 'two-designs-three.ork');
+  const one = path.join(os.tmpdir(), 'two-designs-one.ork');
+  writeFileSync(three, THREE_SIM_ORK);
+  writeFileSync(one, ONE_SIM_TELEMETRUM_ORK);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), one, three]);
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  // No picker at all — and the single-simulation design's figures are untouched, which is the
+  // thing the picker would have deleted.
+  await expect(page.getByRole('region', { name: /Which simulation flew/ })).toHaveCount(0);
+  const panel = page.getByRole('region', { name: /Predicted, logged, and read|design’s prediction/ });
+  await expect(panel.getByRole('row', { name: /Apogee/ }).first()).toContainText('492 ft'); // 150 m
+  // The design stating several still says so, so the drop is still accounted for in full.
+  await expect(page.getByText(/will not pick one to compare against/)).toBeVisible();
+});

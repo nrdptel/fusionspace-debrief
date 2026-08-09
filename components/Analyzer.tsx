@@ -549,7 +549,17 @@ export default function Analyzer() {
           // be offering a control whose effect is on another page. Only the first offer is taken
           // — this branch has exactly one flight, and two designs both claiming to predict it is
           // a drop nothing else in the app has a shape for either.
-          ...(predictionOffers.length > 0 ? { simulationOffer: predictionOffers[0] } : {}),
+          ...(predictionOffers.length > 0
+            ? {
+                simulationOffer: predictionOffers[0],
+                // Seeded from what the FLIGHT already says, not from nothing. A canonical record
+                // keeps the sentence naming the run, so a flyer dropping a saved record back
+                // beside the design — which is what that sentence tells them to do — would
+                // otherwise open the picker showing "Don't compare one" as pressed, directly
+                // above a populated Predicted column.
+                ...(predictionOffers[0].stated != null ? { simulationChoice: predictionOffers[0].stated } : {}),
+              }
+            : {}),
           // Both accounts, not whichever fires first. A drop of the summary + the low-rate log
           // + the high-rate log — what Featherweight's own software writes out together —
           // hits the left-out branch, and the paired note used to be discarded by the

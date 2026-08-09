@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { applySimulationChoice, summariseRuns, type PredictionOffer } from './predictionChoice';
-import { orkToXml, readPrediction, predictionFiguresFrom, type Prediction } from './parsers/openrocket';
+import { applySimulationChoice, statedChoice, summariseRuns, type PredictionOffer } from './predictionChoice';
+import { flyerChoseSimulation, orkToXml, readPrediction, predictionFiguresFrom, type Prediction } from './parsers/openrocket';
 import type { RawFlight, ReportedValue } from './flight/types';
 
 const CORPUS = fileURLToPath(new URL('./parsers/__corpus__/', import.meta.url));
@@ -205,5 +205,55 @@ describe('the real five-simulation fixture', () => {
     const base = ingestedFlight(p);
     const back = applySimulationChoice(applySimulationChoice(base, offerFor(p), 3), offerFor(p), null);
     expect(back.notes).toEqual(base.notes);
+  });
+});
+
+describe('a flight that already says which simulation flew', () => {
+  it('is recognised from the sentence it carries, and only for the run that owns it', () => {
+    // A canonical record keeps `notes` verbatim, so a saved-and-reopened flight arrives stating
+    // its own choice. Matching regenerates each run's sentence from the function that writes it —
+    // a reworded note cannot leave a stale matcher behind.
+    const p = prediction();
+    expect(statedChoice(ingestedFlight(p), p), 'a fresh drop states nothing').toBeNull();
+
+    for (const i of [0, 2, 4]) {
+      const chosen = applySimulationChoice(ingestedFlight(p), offerFor(p), i);
+      expect(statedChoice(chosen, p)).toBe(i);
+    }
+    // …and taking the choice back takes the statement with it.
+    const back = applySimulationChoice(applySimulationChoice(ingestedFlight(p), offerFor(p), 1), offerFor(p), null);
+    expect(statedChoice(back, p)).toBeNull();
+  });
+
+  it('survives the canonical round trip, which is the whole reason it is detected', () => {
+    // The failure this closes: a flyer chooses, saves the record, drops it back beside the same
+    // design months later — exactly what the chosen note tells them to do — and the picker opens
+    // showing "Don't compare one" pressed over a populated Predicted column.
+    const p = prediction();
+    const chosen = applySimulationChoice(ingestedFlight(p), offerFor(p), 3);
+    const reopened: RawFlight = { ...chosen, notes: [...chosen.notes] };
+    expect(statedChoice(reopened, p), 'the record still names the run').toBe(3);
+  });
+});
+
+describe('the machine-readable half of the attribution', () => {
+  it('says a flyer chose the run, and says the design did when nobody chose', () => {
+    // `analysisJson` carries this as `predictionChosenBy` so a script reading ten numbers out of
+    // `doc.prediction` does not have to parse English to learn a human picked them. Detector and
+    // sentence share one constant, so a reworded note cannot leave the detector on the old one.
+    const p = prediction();
+    expect(flyerChoseSimulation(ingestedFlight(p).notes), 'the refusal is not a choice').toBe(false);
+
+    const chosen = applySimulationChoice(ingestedFlight(p), offerFor(p), 2);
+    expect(flyerChoseSimulation(chosen.notes)).toBe(true);
+
+    // A design stating ONE simulation contributes its figures unasked — that is the design's
+    // provenance, not the flyer's, and the two must not read the same on the way out.
+    const single = readPrediction(design([FIVE[0]]))!;
+    expect(flyerChoseSimulation(predictionFiguresFrom(single).notes)).toBe(false);
+
+    // …and taking the choice back takes the claim with it.
+    const back = applySimulationChoice(chosen, offerFor(p), null);
+    expect(flyerChoseSimulation(back.notes)).toBe(false);
   });
 });

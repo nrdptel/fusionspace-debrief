@@ -387,8 +387,28 @@ export function predictionRefusal(prediction: Prediction): string {
   const named = prediction.runs.map((r) => r.name ?? 'an unnamed simulation');
   return (
     `“${rocket}” states ${prediction.runs.length} simulations${by} — ${named.join(', ')} — and a flight log does not say which motor flew, ` +
-    `so Debrief will not pick one to compare against. If you know which one flew, say so below; otherwise save the design with only that simulation and drop it in again.`
+    `so Debrief will not pick one to compare against. Tell Debrief which one flew, or save the design with only that simulation and drop it in again.`
   );
+}
+
+/** The opening of the sentence that records a FLYER's pick, and the only place it is written.
+ *
+ *  It is a constant rather than a literal because two things have to agree about it: the note that
+ *  states the pick, and `flyerChoseSimulation`, which is how a machine-readable export says a human
+ *  chose the run instead of leaving a consumer to parse English. A reworded sentence must not be
+ *  able to leave the detector matching the old one. */
+const FLYER_CHOSE = 'You said';
+
+/**
+ * Does this flight's own account say a FLYER picked which simulation flew?
+ *
+ * Exists so `analysisJson` can carry the fact as data — the same reason `read.chosenBy` does. A
+ * predicted figure a human selected and one a design stated on its own are different provenance,
+ * and a script reading ten numbers out of `doc.prediction` should not have to read a paragraph to
+ * tell them apart.
+ */
+export function flyerChoseSimulation(notes: readonly string[]): boolean {
+  return notes.some((n) => n.startsWith(FLYER_CHOSE) && n.includes('is the one that flew'));
 }
 
 /**
@@ -415,10 +435,10 @@ export function figuresForRun(
     notes: [
       ...(chosenByFlyer
         ? [
-            `You said ${run.name ? `“${run.name}”` : 'this simulation'} is the one that flew. Debrief cannot read that from a flight log, ` +
+            `${FLYER_CHOSE} ${run.name ? `“${run.name}”` : 'this simulation'} is the one that flew. Debrief cannot read that from a flight log, ` +
               `so it is your statement rather than a reading — the design states ${prediction.runs.length} simulations and the other ` +
-              `${prediction.runs.length - 1} are not compared. Change it below while this page is open; Debrief doesn’t keep the design ` +
-              `in your logbook, so changing your mind later means dropping the design in again.`,
+              `${prediction.runs.length - 1} are not compared. Debrief doesn’t keep the design in your logbook, so changing your mind ` +
+              `later means dropping the design in again beside this flight.`,
           ]
         : []),
       `Predicted figures read from “${rocket}”${which}${by}. These are a simulation of a flight that had not happened yet — ` +

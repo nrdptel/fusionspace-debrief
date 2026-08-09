@@ -55,6 +55,11 @@ export interface PredictionOffer {
   flightName: string;
   /** The design as read, runs and all. */
   prediction: Prediction;
+  /** Which run the flight ALREADY states flew, where it arrived saying so — a canonical record
+   *  keeps that sentence, and the picker has to open agreeing with the cross-check beside it
+   *  rather than showing *Don't compare one* over a populated Predicted column. `null` on the
+   *  ordinary first drop. See `statedChoice`. */
+  stated?: SimulationChoice;
 }
 
 /** Which simulation the flyer says flew: an index into `prediction.runs`, or `null` for the
@@ -139,6 +144,28 @@ export interface SimulationSummary {
   /** Apogee in metres, as the simulation states it. Null when it stated none. */
   apogee: number | null;
   hasSeries: boolean;
+}
+
+/**
+ * Which simulation a flight ALREADY states was the one that flew, if any.
+ *
+ * A canonical record keeps `notes` verbatim, so a flight saved after a choice comes back carrying
+ * the sentence that names the run. Dropping that record beside the same design is exactly what the
+ * chosen note tells a flyer to do — and without this, `lib/ingest.ts` would staple the refusal on
+ * beside the statement it contradicts, and the picker would open showing *Don't compare one* as
+ * pressed directly above a populated Predicted column.
+ *
+ * Matched by regenerating each run's note from the same function that writes it, which is the rule
+ * `everyNote` follows one level down: a reworded sentence cannot leave a stale matcher behind,
+ * because there is only one place the sentence exists.
+ */
+export function statedChoice(flight: RawFlight, prediction: Prediction): SimulationChoice {
+  const notes = new Set(flight.notes);
+  for (let i = 0; i < prediction.runs.length; i++) {
+    const said = figuresForRun(prediction, prediction.runs[i], true).notes[0];
+    if (said && notes.has(said)) return i;
+  }
+  return null;
 }
 
 export function summariseRuns(prediction: Prediction): SimulationSummary[] {
