@@ -2609,8 +2609,13 @@ test('two recordings saved as records come back as one flight, not two', async (
   const saved: string[] = [];
   for (const name of logs) {
     if (saved.length > 0) {
-      await page.getByRole('button', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first().click();
-      await expect(page.getByRole('heading', { name: '2 recordings of this flight' })).toBeVisible({ timeout: 20_000 });
+      const card = page.getByRole('button', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first();
+      await card.click();
+      // Wait for the SWITCH, not for a heading that was already on screen — the picker marks the
+      // recording being read with `aria-current`. Waiting on the heading is a no-op, so "Save
+      // record" could fire against the previous recording and both files would claim to report
+      // the flight.
+      await expect(card).toHaveAttribute('aria-current', 'true', { timeout: 20_000 });
     }
     const [dl] = await Promise.all([
       page.waitForEvent('download'),
@@ -2622,12 +2627,12 @@ test('two recordings saved as records come back as one flight, not two', async (
     await dl.saveAs(to);
     saved.push(to);
   }
-  expect(saved).toHaveLength(2);
   expect(saved.every((f) => f.endsWith('-debrief-record.json'))).toBe(true);
 
   // Both records name the SAME flight and exactly one of them reports it. Read off the files
   // themselves, because the file is the only thing that crosses the device boundary.
   const tokens = await Promise.all(saved.map(async (f) => JSON.parse(await readFile(f, 'utf8')).grouping));
+  expect(tokens[0]?.flight, 'the record carries a grouping at all').toBeTruthy();
   expect(tokens[0]?.flight, 'both records name one flight').toBe(tokens[1]?.flight);
   expect(tokens.filter((g) => g?.reports), 'exactly one reports it').toHaveLength(1);
   expect(tokens.every((g) => g?.of === 2), 'each states the flight held two recordings').toBe(true);

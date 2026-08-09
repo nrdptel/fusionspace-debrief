@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   groupRecordings,
+  groupToken,
   isGrouped,
   planGrouping,
   planJoin,
@@ -282,9 +283,11 @@ describe('planRestoredGroupings', () => {
       { id: 'new-a', flightId: 'new-a' },
       { id: 'new-b', flightId: 'new-a' },
     ]);
-    // Written against the ids these files were JUST saved under, never the token in the file:
-    // the flight has to be addressable in the logbook it landed in.
-    expect(changes.every((c) => c.flightId === 'new-a')).toBe(true);
+    // The plan names the ids these files were JUST saved under and never the token in the file,
+    // which is the whole reason the token can be a stranger's logbook id. Asserted against the
+    // INPUT rather than restated, because repeating the `toEqual` above cannot fail.
+    expect(changes.map((c) => c.id).sort()).toEqual(['new-a', 'new-b']);
+    expect(changes.some((c) => c.flightId === 'f'), 'never the token the file carried').toBe(false);
     expect(restored).toEqual(['new-a-debrief-record.json + new-b-debrief-record.json → one flight']);
   });
 
@@ -338,7 +341,6 @@ describe('planRestoredGroupings', () => {
     // Only reachable from a hand-edited file: two records under one token both claiming to be
     // the primary. The first wins and the token is never followed, so there is one flight.
     const { changes } = planRestoredGroupings([rec('b', 'f', true), rec('c', 'f', true)]);
-    expect(new Set(changes.map((c) => c.flightId)).size).toBe(1);
     expect(changes).toEqual([
       { id: 'b', flightId: 'b' },
       { id: 'c', flightId: 'b' },
@@ -355,5 +357,54 @@ describe('planRestoredGroupings', () => {
     // Deduped in the logbook, both results carry ONE saved id, so the plan would name a flight
     // of one row twice. `planGrouping` uniques the ids and then refuses the set.
     expect(planRestoredGroupings([rec('same', 'f', true), rec('same', 'f', false)]).changes).toEqual([]);
+  });
+});
+
+describe('groupToken', () => {
+  it('does not move when the flyer hands the flight to a different recording', () => {
+    // The regression this rule exists for. `planGrouping` rewrites every row's `flightId` to the
+    // new primary, so a token taken from the flight's own id would differ between a record saved
+    // before and one saved after — and the two would restore as two flights, silently, because
+    // that outcome is indistinguishable from two ordinary flights.
+    const first = row('first', { addedAt: 1_000 });
+    const later = row('later', { addedAt: 2_000 });
+    const before = groupRecordings([{ ...first, flightId: 'first' }, { ...later, flightId: 'first' }]);
+    const plan = planGrouping(['first', 'later'], 'later');
+    const byId = new Map(plan.map((c) => [c.id, c.flightId]));
+    const after = groupRecordings([
+      { ...first, flightId: byId.get('first') },
+      { ...later, flightId: byId.get('later') },
+    ]);
+    expect(before[0].id, 'the FLIGHT id moved, which is the premise').not.toBe(after[0].id);
+    expect(groupToken(after[0].recordings), 'the token did not').toBe(groupToken(before[0].recordings));
+    expect(groupToken(before[0].recordings)).toBe('first');
+  });
+
+  it('survives the recordings arriving in a different order', () => {
+    // A record is exported from whichever recording is on screen, so the array order differs
+    // between the two saves. The token is a property of the set, never of position.
+    const a = row('a');
+    const b = row('b');
+    expect(groupToken([a, b])).toBe(groupToken([b, a]));
+  });
+
+  it('does not move when a recording is merely re-opened', () => {
+    // The trap `addedAt` fell into, and the reason this is pinned rather than assumed:
+    // `saveRecent` stamps a fresh `addedAt` every time a file is re-read, so opening one
+    // recording and then the other moves "earliest" between the two exports. Ids do not move —
+    // a replacement keeps the existing one.
+    const a = row('a', { addedAt: 1_000 });
+    const b = row('b', { addedAt: 2_000 });
+    const before = groupToken([a, b]);
+    // …the flyer opens `a`, then `b`, so both timestamps have been rewritten and their ORDER
+    // has flipped.
+    const after = groupToken([{ ...a, addedAt: 9_000 }, { ...b, addedAt: 9_500 }]);
+    expect(after).toBe(before);
+  });
+
+  it('is a property of which recordings are in the flight, and nothing else', () => {
+    const late = row('aaa', { addedAt: 9_000 });
+    const early = row('zzz', { addedAt: 1_000 });
+    expect(groupToken([late, early])).toBe('aaa');
   });
 });

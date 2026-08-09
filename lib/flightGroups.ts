@@ -140,6 +140,34 @@ export function planGrouping(ids: string[], primaryId: string): { id: string; fl
   return unique.map((id) => ({ id, flightId: primaryId }));
 }
 
+/**
+ * The token a set of recordings carries out of the app so a later drop can tell they are one
+ * flight: the smallest of their logbook ids.
+ *
+ * An arbitrary representative on purpose. The requirement is not that it MEAN anything — nothing
+ * ever resolves it against the importing logbook, and only equality across a set of records is
+ * read — but that two records exported from one flight at different moments agree on it.
+ *
+ * **Not the flight's own id**, which is its current primary's and moves: `planGrouping` rewrites
+ * every row's `flightId` when the flyer hands the flight to another recording, and
+ * `groupRecordings` promotes the next survivor when the primary row is deleted.
+ *
+ * **And not `addedAt` order**, which looks stable and is not — measured 2026-08-09, by the e2e
+ * walk failing on it. `saveRecent` writes a fresh `addedAt` every time a file is re-read,
+ * including when a flyer simply re-opens a recording, so exporting a record from each of two
+ * recordings moves the "earliest" between the two exports and the tokens disagree.
+ * (`planJoin` reduces on `addedAt` for the same "opened first" idea; it runs once, at the moment
+ * of joining, so it is not exposed to this.)
+ *
+ * A row's ID is the thing that does not move: `saveRecent` keeps the existing one on a
+ * replacement, so re-dropping, re-opening and re-nominating all leave it alone. The token
+ * therefore changes only when the flight gains or loses a recording, which is a real change to
+ * what the set IS.
+ */
+export function groupToken(recordings: RecentMeta[]): string {
+  return recordings.map((r) => r.id).sort()[0];
+}
+
 /** One dropped flight record's grouping statement, paired with where that file landed. */
 export interface RecordedGrouping {
   /** The logbook id this file was just saved under — the id the plan will be written against. */

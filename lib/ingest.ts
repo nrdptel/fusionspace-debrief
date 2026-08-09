@@ -17,7 +17,7 @@ import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers
 import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { attachHighRateText, attachSummaryText, listRecents, saveRecent, setFlightIds } from './recents';
+import { attachHighRateText, attachSummaryText, saveRecent, setFlightIds } from './recents';
 import { readGrouping } from './canonical';
 import { planRestoredGroupings, type RecordedGrouping } from './flightGroups';
 import { fileToText, textIsTheFile } from './fileText';
@@ -36,6 +36,10 @@ export interface IngestedFlight {
   text: string;
   /** The logbook key it was stored under, or null where storage was unavailable. */
   savedId: string | null;
+  /** Whether this landed on a row the flyer already had, rather than creating one. From the
+   *  store, which is the only thing that can tell: a replaced row keeps its id and gets a fresh
+   *  `addedAt`, so it is indistinguishable from a new one afterwards. */
+  replaced: boolean;
 }
 
 export interface IngestOutcome {
@@ -101,29 +105,30 @@ export interface IngestOutcome {
  * dropping them back in gives two unrelated flights, and the statement is silently lost on the
  * one export built to be read back.
  *
- * **A row that already states a grouping is left alone**, which is the rule `proposeGroups` also
- * follows. Dropping a record onto a flight already in the logbook replaces it in place and
- * inherits the flyer's current `flightId` (`replaceInPlace`'s `FLYER_OWNED`), so applying the
- * record's older statement on top would let an archived file undo a regrouping made since — the
- * flyer's most recent word losing to their oldest one.
+ * **A row the flyer already had is left alone**, which is the rule `proposeGroups` also follows.
+ * The test is `saveRecent`'s own `replaced`, and it has to come from there: a re-dropped file
+ * keeps its existing id but gets a FRESH `addedAt`, so nothing outside the store can tell a
+ * replacement from a new row afterwards.
  *
- * The logbook is read only when something in the drop actually carries a statement, so the
- * ordinary single-file drop costs no extra storage round trip.
+ * Checking "does the row state a grouping already?" instead is the version that looks right and
+ * is wrong, because `planSeparation` writes `flightId: null` — the key is DELETED. A flyer who
+ * dropped these records, saw them grouped, and deliberately separated them would have had the
+ * separation undone by dropping the same files again, which is the one statement this rule most
+ * needs to protect. A replaced row covers that case and every other one: they have had the
+ * chance to say something about it, whatever they said.
  */
 async function restoreGroupings(results: IngestedFlight[]): Promise<string[]> {
   const stated: RecordedGrouping[] = [];
   for (const r of results) {
-    if (!r.savedId) continue;
+    if (!r.savedId || r.replaced) continue;
     const g = readGrouping(r.text);
     if (!g) continue;
     stated.push({ id: r.savedId, name: r.name, flight: g.flight, reports: g.reports, of: g.of });
   }
-  if (stated.length < 2) return [];
-
-  const already = new Set((await listRecents()).filter((r) => r.flightId).map((r) => r.id));
-  const { changes, restored } = planRestoredGroupings(stated.filter((r) => !already.has(r.id)));
-  await setFlightIds(changes);
-  return restored;
+  const { changes, restored } = planRestoredGroupings(stated);
+  // Only claim it if the store actually took it. A quota abort left the sentence "put these
+  // recordings back together" printed over a logbook that had not changed.
+  return (await setFlightIds(changes)) ? restored : [];
 }
 
 /** Does this file name belong to the rocket a summary names? Compared on letters and digits
@@ -365,7 +370,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         ...(textIsTheFile(text) ? {} : { bytes }),
       });
       for (const n of saved.forgotten) forgotten.push(n);
-      results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id });
+      results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id, replaced: saved.replaced });
     } catch (e) {
       // A device summary throws on the way through the parsers, but it isn't rubbish: it
       // holds the altimeter's own figures for a flight logged beside it.
@@ -493,7 +498,7 @@ export function groupsRestoredNote(groupsRestored: string[]): string {
   return (
     `Put these recordings back together as one flight (${groupsRestored.join('; ')}) — each record ` +
     `carries the grouping you saved it with, so Debrief remembered it rather than working it out ` +
-    `from the files. Separate them again from the flight's own list of recordings.`
+    `from the files. To undo it, open the flight in your logbook and separate its recordings.`
   );
 }
 
