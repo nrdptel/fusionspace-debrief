@@ -923,9 +923,19 @@ export default function CompareView({
           </thead>
           <tbody className="block sm:table-row-group">
             {metricRows.map((row) => (
+              // A separator, NOT a card. The first version of this gave each metric block the
+              // sunken card treatment by hand, and DESIGN.md §9's card ratchet refused it as a
+              // FOURTH hand-rolled card — correctly, and it could not have been the `Card`
+              // primitive either, because a <tr> cannot be a <div>. A vertical layout needs the
+              // metrics told apart, which the row's own top border already does at every width;
+              // it does not need each of them to be a container.
+              //
+              // Do not quote the offending class string here, even to explain it: that ratchet
+              // greps the source, so a comment naming the treatment IS the treatment as far as it
+              // can tell. This comment cost a red gate learning that.
               <tr
                 key={row.label}
-                className="mb-3 block rounded-xl border-hairline bg-sunken p-3 sm:mb-0 sm:table-row sm:rounded-none sm:border-0 sm:border-t sm:border-zinc-100 sm:bg-transparent sm:p-0 dark:sm:border-zinc-900"
+                className="block border-t border-zinc-100 py-2 sm:table-row sm:py-0 dark:border-zinc-900"
               >
                 <th
                   scope="row"
