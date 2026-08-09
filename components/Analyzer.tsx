@@ -16,6 +16,7 @@ import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import DropZone from './DropZone';
 import RecognizedFormats from './RecognizedFormats';
+import WhyDebrief from './WhyDebrief';
 import ColumnMapper from './ColumnMapper';
 import FlightReport from './FlightReport';
 import RecentFlights from './RecentFlights';
@@ -885,6 +886,12 @@ export default function Analyzer() {
           expected={state.file ? state.message : undefined}
         />
       )}
+      {/* Only on the surface a first-time visitor actually lands on. The report and the comparison
+          return early above and never reach this block, so what the `idle` test actually excludes
+          is the ERROR and mapping states — where a panel of claims under "there's no flight data in
+          this file" would be its own small tell. Not pinned: `e2e/smoke.spec.ts` records that an
+          assertion about the report would pass whichever way this went. */}
+      {state.phase === 'idle' && <WhyDebrief />}
       {state.phase !== 'loading' && <RecognizedFormats />}
       {state.phase !== 'loading' && (
         <RecentFlights
