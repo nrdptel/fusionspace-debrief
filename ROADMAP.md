@@ -2046,7 +2046,7 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**, pinned by `lib/samples.test.ts` (6 cases,
+**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED.** Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
 check that `public/sw.js`'s precache list equals the registry) and two walks in
 `e2e/analyze.spec.ts`.
@@ -2082,12 +2082,55 @@ demonstration. A sample presented as a staged launch that is not one is precisel
 milestone's *done when* forbids about synthetic flights, without even the honesty of a label. It
 needs a synthesized staged pair, labelled, which is the same work as the rest of the list below.
 
-**What is left:** the capabilities the committed fixtures do NOT cover — a deliberately mis-scaled
-column for the mapper, a saturated accelerometer, a staged flight on two devices. Those still need
-synthesized logs, and the *done when* below governs them unchanged: labelled synthetic on every
-surface that can carry them out of the app, never counted in any accuracy figure. Also left: the
-samples are offered on `/` only, and `/compare` and `/stitch` — the two surfaces whose whole point
-is more than one file — still offer none.
+**Slice 3 SHIPPED 2026-08-09 — a flight Debrief made up says so, and the cost of the milestone is
+now measured rather than guessed.** `lib/synthetic.ts` generates a deterministic demonstration
+flight and writes it as a CSV the COLUMN MAPPER must handle; the marker rides **in the file**, in
+the same metadata block a logger's own summary block occupies, and `analyzeTable` lifts it onto the
+flight as its FIRST note. Pinned by `lib/synthetic.test.ts` (14 cases, falsified 5 ways), including
+the canonical round trip — save the record, mail it, drop it back, and it still says what it is.
+
+**Three things this slice established by measurement, and they reshape what is left.**
+
+1. **The file is the ONLY carrier that survives.** A surface audit traced a `synthetic` field on
+   `RawFlight` through five persistence hops and **four silently drop it**: `toCanonical` and
+   `fromCanonical` are explicit field-by-field rebuilds (`satisfies` rejects excess keys, never
+   missing ones), `SharePayload` is `{n,t}` and nothing else, and `normalizeFlight` rebuilds on
+   logbook restore — its own comments already record three fields lost exactly that way. A marker in
+   the bytes survives all five with no new code. That is why the label is a note and not a field.
+2. **There are 26 export sinks across 6 call sites, and NO registry to enumerate them from.**
+   `lib/download.ts` is the only shared thing and it takes an already-serialized `Blob`, so it
+   cannot see a flight let alone a flag on one. The *done when*'s pinning check therefore cannot be
+   written as specified until that registry exists and every exporter is routed through it.
+   **That, not the label, is the milestone's remaining cost.**
+3. **Four surfaces never receive a `RawFlight` at all** — the metric grid takes `FlightMetrics`, the
+   print card takes series/metrics/stem, the logbook row takes a `RecentFlight`, and the comparison
+   takes a `CompareFlight` with no provenance member. Each needs a prop threaded, not a read.
+
+**No synthetic sample is offered in the app yet, and that is the slice boundary rather than an
+omission.** `lib/synthetic.test.ts` enumerates all 26 sinks with a verdict each and requires a
+written reason for every one not covered; **5 carry the label today** (.txt, .md, .html, .json and
+the canonical record, all via `flight.notes`) and the data CSV — the export a flyer pastes into a
+spreadsheet, where an unlabelled number is most likely to be read as measured — is named as the gap
+that matters. Offering a sample before that is closed is exactly what this milestone's *done when*
+forbids.
+
+**What is left, in order.**
+(a) **The export registry** — one list in source that the report's download strip renders from and
+    the check enumerates, replacing the hand-maintained list now sitting in `lib/synthetic.test.ts`.
+    `lib/buildInfo.test.ts` has the right shape (thunk list, generated cases, explicit negative
+    exemptions) and the wrong home: its list is in the test and covers 5 of the 26.
+(b) **The remaining reachable sinks**, in the order an unlabelled number would mislead: the data
+    CSV, the metric grid, the logbook row, the print card and its PNG, the comparison, the two
+    clipboard tables.
+(c) **Then, and only then, offer the mapper sample** — the generated file is already written and
+    tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
+    single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so
+    that assertion needs a second kind rather than a loosened tolerance.
+(d) **The other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and a staged
+    pair on two devices, which is also the only thing that will give `/stitch` a sample. Each
+    revisits the `.gpx`/`.kml`/composite rows the current check marks unreachable.
+
+**Also still left:** the samples are offered on `/` and `/compare`; `/stitch` offers none.
 
 **Outcome.** Someone who has never flown a rocket can see everything Debrief does, in one click each,
 without supplying a file — and can never mistake a demonstration for a flight.

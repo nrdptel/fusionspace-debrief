@@ -6,6 +6,7 @@
 import { resolveUnit } from '../units';
 import { isNumeric, parseNumber } from '../csv';
 import { extractReportedSummary } from './reported';
+import { syntheticFromRows } from '../synthetic';
 import { clockFromText, flownAtFromText } from './flownAt';
 import type { ReportedValue } from './types';
 
@@ -499,6 +500,10 @@ export interface AnalyzedTable {
   /** Headline figures read from a summary block ahead of the data, if the file
    *  carried one (e.g. an AltimeterCloud export) — for a device-vs-Debrief check. */
   reported?: ReportedValue[];
+  /** The sentence a file carries saying it is one Debrief made up, if it says so. From the same
+   *  block as `reported`. See `lib/synthetic.ts` for why it rides in the FILE rather than being a
+   *  property of the button that offered it. */
+  synthetic?: string;
 }
 
 /**
@@ -626,9 +631,21 @@ export function analyzeTable(rows: string[][]): AnalyzedTable {
 
   // Anything above the header is a metadata/summary block; read the device's own
   // headline figures from it (a no-op unless the file carries a known summary).
-  const reported = extractReportedSummary(rows.slice(0, namesRow));
+  const metadataRows = rows.slice(0, namesRow);
+  const reported = extractReportedSummary(metadataRows);
+  // The same block a logger's summary is read from also carries a file's own statement that it is
+  // not a recording at all. Read here rather than at a call site, because every route into the
+  // mapper comes through this function — and a marker only one route honours is worse than none.
+  const synthetic = syntheticFromRows(metadataRows);
 
-  return { headerRow: namesRow, headers, dataRows, columns, ...(reported.length ? { reported } : {}) };
+  return {
+    headerRow: namesRow,
+    headers,
+    dataRows,
+    columns,
+    ...(reported.length ? { reported } : {}),
+    ...(synthetic ? { synthetic } : {}),
+  };
 }
 
 /** A logger uses one unit system across a file — it won't record altitude in feet and

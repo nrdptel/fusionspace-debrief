@@ -51,6 +51,7 @@ export async function flightFromMapping(
     dataRows: table.dataRows,
     mappings,
     reported: table.reported,
+    ...(table.synthetic ? { synthetic: table.synthetic } : {}),
   });
   const analysis = await analyzeAsync(flight);
   const save = saveRecent({
