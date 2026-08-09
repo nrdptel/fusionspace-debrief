@@ -132,7 +132,15 @@ export default function FigureChooser({
       {allOff ? (
         <Chip tone="accent" mono={false} value="None — the document carries its numbers and no plots." />
       ) : (
-        <span className="text-sm text-zinc-600 dark:text-zinc-400">Applies to {what}.</span>
+        <span className="text-sm text-zinc-600 dark:text-zinc-400">
+          Applies to {what}.
+          {/* The way back out of a colour change, said in TEXT. It was in the swatch's `title` and
+              its `aria-label` and nowhere else, so on a phone — no hover — a flyer who recoloured a
+              figure had no way to learn there was a default to return to. `e2e/hoverOnly.ts` is what
+              found it, and it is the same shape as the defect a competitive probe caught in D9: a
+              fact that exists only in a tooltip does not exist at the range. */}
+          {colorOf && onClearColor && ' Tap a swatch to recolour a figure, or double-tap it for the default.'}
+        </span>
       )}
     </div>
   );

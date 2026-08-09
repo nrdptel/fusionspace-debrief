@@ -4074,6 +4074,62 @@ refuted. They are written down rather than fixed because each needs its own gate
 
 ## Craft & product feel
 
+- **FILED 2026-08-09 — a chart legend row hides a trace, and until today nothing in this repo knew
+  it was a control.** Measured on `/compare` at 390×844 with the two-altimeter sample: clicking a
+  legend row adds `u-off` and that flight's trace leaves the plot. uPlot ships those rows as a bare
+  `<th>` with `cursor: pointer` — no role, no `tabindex`, no key handler, **30×67 px**. Fixed in P4
+  slice 4 (`role="switch"`, `aria-checked`, Enter/Space, a 44 px floor). **Filed anyway, because the
+  general lesson outlives the fix:** `e2e/touchTargets.ts` enumerates ROLES, so a floor check can
+  only ever reach controls somebody has already named as controls. Every third-party widget dropped
+  into this app is a place the same hole can open. The two others in the tree worth measuring the
+  same way, neither checked yet: `GroundTrack`'s canvas overlay and any uPlot axis label.
+
+- **FILED 2026-08-09 — the hover-only count had never been asserted, and the first check for it
+  found three live cases.** P4's *done when* has always asked for "zero controls under 44 px **and**
+  zero states reachable only by hover", pinned by an e2e that "asserts both counts". Only the first
+  count had a check. `e2e/hoverOnly.ts` now measures the second — every visible element whose only
+  statement of a fact is a `title` tooltip. On the report at 390 px it found seven; three were real
+  (the figure and flight colour swatches said *double-click to reset* in a tooltip and an
+  `aria-label` and nowhere else) and are fixed; four are exempt with reasons verified in source.
+  **Not covered, and named so it is not mistaken for covered:** the walk runs on the analyze report
+  and the comparison only. `/stitch`, `/methods`, `/validation` and the column mapper have never been
+  measured for hover-only statements, and the mapper in particular is a dense form full of `title`s.
+
+- **FILED 2026-08-09 — `e2e/analyze.spec.ts:156` (the ZIP bundle) failed once with
+  `SyntaxError: Unexpected end of JSON input` at `JSON.parse(text)`, reading a zip entry out of a
+  stream.** Recorded as a FLAKE after four attempts to reproduce it — once alone, then three times
+  with `--repeat-each=3`, all green — and not instead of them. The read at `analyze.spec.ts:191-193`
+  collects a stream and parses on `end`; a truncated collect gives exactly this error, so the
+  suspicion is the test's own stream handling rather than the export. **Not diagnosed**, because it
+  did not reproduce; if it recurs, that `on('end')`/`on('error')` pair is where to look before
+  anything in `lib/`.
+
+- **FILED 2026-08-09 — two smaller things the legend switches created, both from the pre-push
+  review and both left unfixed on purpose.** (a) **The chart's `role="img"` description is static and
+  can now be made false by the one user who reads it.** `CompareView.tsx:430` composes *"Altitude
+  against time after liftoff for 2 flights"* once, as a prop; hiding a trace changes
+  `plot.series[i].show` and nothing else, so a screen-reader user who turns one off still hears the
+  chart claim two. Before P4 slice 4 only a pointer user could create that state, and a pointer user
+  does not read the label. The keyboard READING was fixed in the same slice (it no longer names a
+  hidden trace); the static label was not, because it is composed by two callers with different
+  sentences and the fix belongs with whatever unifies them. (b) **Ctrl/Cmd-click on a legend row
+  isolates that series and has no keyboard path** — uPlot branches on the modifier and `th.click()`
+  synthesises one with `ctrlKey` false, so Enter and Space can only reach the plain toggle. A
+  keyboard user can reconstruct isolate by toggling each other trace, so the capability is not lost;
+  it is a branch of a control that only a pointer can take, on the very control that slice added to
+  end a pointer-only capability. Worth a decision either way rather than silence.
+
+- **FILED 2026-08-09 — `innerText` is not a reliable test for "does this element show text", and a
+  check that used it reported four working controls as broken.** Measured on the report at 390 px:
+  the sample table's sort button returns `textContent` of `"Time (s)▼"` and `innerText` of `""`,
+  stably, on a button with a non-zero box and a computed `visibility` of `visible`. `innerText`
+  approximates what an engine paints and is free to answer for subtrees it has not laid out. Anything
+  in this repo asking "is there visible text here" should walk the tree and subtract `display: none`,
+  `visibility: hidden` and the `sr-only` clip, the way `e2e/hoverOnly.ts` now does. **Unchecked:**
+  whether any existing assertion in the suite depends on `innerText` in the same way — `grep -rn
+  innerText e2e/` returns several, and none was audited for this.
+
+
 - **FIXED 2026-08-04 (`#128`): a probe script in the repo root no longer fails `npm run build`.**
   `tsconfig.json` excludes `**/*-tmp.*`, the same pattern `.gitignore` already used — so the two
   halves of the convention now agree, where before one stopped a probe being committed and the other

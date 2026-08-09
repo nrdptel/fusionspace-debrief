@@ -149,6 +149,8 @@ export default function Chart({
   xRange,
 }: ChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  /** Where uPlot's legend is moved to after init — see the block that moves it. */
+  const legendRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   /** Where the keyboard has walked to, as a sample index. A ref rather than state: it is read
    *  and written inside one key press and never drives a render on its own — the reading a
@@ -299,6 +301,71 @@ export default function Chart({
     // an ordinary zoom the flyer can zoom out of.
     if (xRange && xRange[1] > xRange[0]) plot.setScale('x', { min: xRange[0], max: xRange[1] });
 
+    /* The legend rows are CONTROLS, and until this ran they were not shaped like any.
+     *
+     * Measured 2026-08-09 on `/compare` with the two-altimeter sample: clicking a legend row adds
+     * `u-off` to it and the flight's trace disappears from the plot. That is a real capability —
+     * two traces overlaid is exactly when a flyer wants one of them out of the way — and uPlot
+     * ships it as a bare `<th>` with `cursor: pointer`. No role, so no screen reader is told it
+     * does anything; no `tabindex`, so no keyboard can reach it; 30x67 px at 390 px, well under
+     * §8's floor. Hiding a trace was therefore a POINTER-ONLY capability, which is the state
+     * `DESIGN.md` §8 forbids and the failure this whole milestone exists to remove.
+     *
+     * It also slipped every touch sweep this repo has ever run, and the reason is worth keeping:
+     * `e2e/touchTargets.ts` enumerates ROLES — `button, [role=button], nav a …` — and a `<th>`
+     * carries none. Naming these as switches is what puts them INSIDE that check rather than
+     * beside it; the floor is then held by the existing sweep rather than by a new special case.
+     *
+     * `role="switch"` rather than `role="button"` because the state is the point: a screen reader
+     * says "Show sample-pnut on the chart, switch, on", which is the whole control in five words.
+     */
+    const legend = plot.root.querySelector<HTMLElement>('.u-legend');
+
+    /* …and the legend has to come OUT of the plot element to be one.
+     *
+     * uPlot appends its legend inside the same root it draws into, and that root is this chart's
+     * `role="img"` host — the element a keyboard user focuses to read values off the trace. A
+     * focusable control inside an `img` is `nested-interactive`, which axe fails and which is a
+     * genuine contradiction rather than a lint: an image does not contain switches. Caught by
+     * `e2e/a11y.spec.ts` the first time this ran, which is the check working.
+     *
+     * So it moves to a sibling. That is also the honest structure — the traces are the picture and
+     * the legend is the control strip beside it — and it takes the legend out from under
+     * `.uplot { width: min-content }`, so a stacked row can be the full width of the card. */
+    if (legend && legendRef.current) legendRef.current.appendChild(legend);
+
+    // Row 0 is the x series. It carries the time reading and toggles nothing, so it stays text —
+    // giving it a switch role would announce a control that does not exist.
+    const switches = Array.from(legend?.querySelectorAll<HTMLElement>('tr.u-series') ?? [])
+      .map((row, i) => ({ th: row.querySelector<HTMLElement>('th'), i }))
+      .filter((r): r is { th: HTMLElement; i: number } => r.i > 0 && r.th != null);
+    for (const { th, i } of switches) {
+      th.setAttribute('role', 'switch');
+      th.setAttribute('tabindex', '0');
+      th.setAttribute('aria-label', `Show ${series[i - 1]?.label ?? `series ${i}`} on the chart`);
+    }
+    const syncSwitches = () => {
+      for (const { th, i } of switches) {
+        th.setAttribute('aria-checked', plot.series[i]?.show === false ? 'false' : 'true');
+      }
+    };
+    syncSwitches();
+
+    // Enter and Space press it, which is what `switch` promises. Routed through the element's own
+    // `click` so uPlot remains the only thing that toggles a series — a second code path would be
+    // a second definition of what "hidden" means, and they would drift.
+    const onLegendKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const th = (e.target as HTMLElement | null)?.closest<HTMLElement>('th[role="switch"]');
+      if (!th) return;
+      e.preventDefault(); // Space scrolls the page otherwise
+      th.click();
+    };
+    // Bubbled, so it runs AFTER uPlot's own handler on the row and reads the state it just set.
+    // One listener on the legend rather than one per row, for the same reason as everywhere else.
+    legend?.addEventListener('keydown', onLegendKey);
+    legend?.addEventListener('click', syncSwitches);
+
     // Touch zoom. uPlot binds only mouse events, so on a phone — where this tool
     // is built to be used, reading a log at the field — the charts couldn't be
     // zoomed at all. Add a two-finger pinch on the x-axis (one finger still
@@ -434,6 +501,11 @@ export default function Chart({
 
     return () => {
       ro.disconnect();
+      legend?.removeEventListener('keydown', onLegendKey);
+      legend?.removeEventListener('click', syncSwitches);
+      // It lives outside `plot.root` now, so `plot.destroy()` no longer takes it with it. Without
+      // this every effect re-run — a unit change, a theme flip — would stack another dead legend.
+      legend?.remove();
       over.removeEventListener('touchstart', onTouchStart);
       over.removeEventListener('touchmove', onTouchMove);
       over.removeEventListener('touchend', onTouchEnd);
@@ -538,9 +610,17 @@ export default function Chart({
   function describeAt(i: number): string {
     const x = xFmt ? xFmt(time[i]) : `${time[i].toFixed(2)} s`;
     const parts = [`${xLabel ?? 'time'} ${x}`];
-    for (const s of series) {
+    for (const [n, s] of series.entries()) {
       const v = s.values[i];
       if (!Number.isFinite(v)) continue;
+      // A trace the flyer has TURNED OFF is not read out. Found by the pre-push review of the
+      // slice that made the legend switches keyboard-reachable, and it is that slice's own
+      // consequence: hiding a trace used to need a mouse, and a mouse user does not listen to this
+      // announcement. Handing the toggle to a screen-reader user made them the only person who
+      // could put the chart into a state where the reading names a line that is not drawn.
+      // `plotRef.current` rather than a captured `plot`, because visibility lives in uPlot and
+      // nowhere else — a second record of it here would be a second answer to disagree with.
+      if (plotRef.current?.series[n + 1]?.show === false) continue;
       const f = s.axis === 'right' ? (fmtRight ?? fmt) : fmt;
       parts.push(`${s.label} ${f ? f(v) : String(v)}`);
     }
@@ -565,6 +645,11 @@ export default function Chart({
         tabIndex={0}
         onKeyDown={onKeyDown}
       />
+      {/* uPlot's legend is moved in here after init. It is a strip of switches — one per trace,
+          each showing its colour, its name and its reading at the cursor — so it sits BESIDE the
+          picture rather than inside it. Empty until the effect runs, and empty again if uPlot
+          never initialises, which is the right thing to render in that case. */}
+      <div ref={legendRef} className="w-full" />
       {/* Only key presses write here. A pointer sweeping the plot sets a new reading on nearly
           every pixel of travel, and routing that into a live region would queue an announcement
           per pointer sample — the mistake `GroundTrack` made once and fixed. */}

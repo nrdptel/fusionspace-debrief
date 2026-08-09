@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import { underSizedTargets } from './touchTargets';
+import { hoverOnlyStatements } from './hoverOnly';
 import { readFile } from 'node:fs/promises';
 
 const fixture = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
@@ -505,4 +506,184 @@ test('the channel stats read down the page on a phone', async ({ page }) => {
   // …and at a desktop width it is a table again, with its headers back.
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole('columnheader', { name: 'Channel' })).toBeVisible();
+});
+
+// P4 slice 4 — `ON-6`'s THIRD named surface, and the one that is not a table.
+//
+// Two failures, found by aiming at the legend rather than at the page around it. Measured at
+// 390×844 on `/compare` with the two-altimeter sample, before either was fixed:
+//
+//   1. The legend was a centred row of inline entries with a 16 px gutter, so it wrapped wherever
+//      it ran out of room: `time` and `sample-pnut` on one line, `sample-raven-fip` alone and
+//      centred on a second. Three readings in a ragged block, with no column to run an eye down.
+//   2. Every one of those entries is a CONTROL — clicking it adds `u-off` and drops that flight's
+//      trace off the plot — shipped by uPlot as a bare `<th>` with `cursor: pointer`. 30x67 px, no
+//      role, no tab stop, no key handler. Hiding a trace was a pointer-only capability, which is
+//      exactly what `DESIGN.md` §8 forbids, and `e2e/touchTargets.ts` could not see it because a
+//      role list only reaches controls that have been given a role.
+test('a chart legend stacks on a phone, and its traces toggle by thumb and by keyboard', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/compare');
+  await page.getByRole('button', { name: /Two altimeters, one flight/i }).click();
+  await expect(page.getByRole('heading', { name: /Comparing/i })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.u-legend').first()).toBeVisible();
+
+  // Each entry is its own line. Asserted on the geometry rather than on a class, because the
+  // failure was geometric: distinct tops, and each row the full width of the legend it sits in.
+  const rows = await page.evaluate(() => {
+    const t = document.querySelector('.u-legend') as HTMLElement;
+    return Array.from(t.querySelectorAll('tr')).map((r) => {
+      const b = r.getBoundingClientRect();
+      return { top: Math.round(b.top), width: Math.round(b.width), legend: Math.round(t.clientWidth) };
+    });
+  });
+  expect(rows.length, 'the sample pairs two flights, so time + two traces').toBe(3);
+  expect(new Set(rows.map((r) => r.top)).size, 'two legend entries share a line').toBe(rows.length);
+  for (const r of rows) expect(r.width, 'an entry is narrower than the legend').toBe(r.legend);
+
+  // The traces are switches now: named, stateful, and reachable without a pointer.
+  const pnut = page.getByRole('switch', { name: /sample-pnut/i });
+  await expect(pnut).toHaveAttribute('aria-checked', 'true');
+  await pnut.focus();
+  await page.keyboard.press('Enter');
+  await expect(pnut, 'Enter did not turn the trace off').toHaveAttribute('aria-checked', 'false');
+  await page.keyboard.press(' ');
+  await expect(pnut, 'Space did not turn it back on').toHaveAttribute('aria-checked', 'true');
+
+  // …and the switch state is uPlot's own, not a second opinion about it.
+  await pnut.click();
+  const off = await page.evaluate(() => document.querySelectorAll('.u-legend tr.u-off').length);
+  expect(off, 'the switch says off and the plot still draws the trace').toBe(1);
+  await pnut.click();
+
+  // The comparison's own swatches carry the same "double-click to reset" only in a tooltip, and
+  // the same fix: a sentence in the intro paragraph, which the hover-only exemption points at.
+  await expect(page.getByText(/double-tap for the default/i)).toBeVisible();
+
+  // The x-series row shows the time reading and toggles nothing, so it must NOT claim to.
+  const notASwitch = await page.evaluate(
+    () => (document.querySelector('.u-legend tr th') as HTMLElement).getAttribute('role'),
+  );
+  expect(notASwitch, 'the time row was given a control role it cannot honour').toBeNull();
+
+  // The floor, now that the sweep can see them at all.
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px with a legend on screen:\n${small.join('\n')}`).toEqual([]);
+
+  // …and at a desktop width the entries are back on one line, which is what a wide legend wants.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(pnut).toBeVisible();
+  // Measured as "the legend is no taller than its tallest entry", not as "every entry shares a
+  // top": the switch rows carry the 44 px touch floor and the time row does not, so three entries
+  // on one line sit at three baselines and a top-equality check would fail a passing layout.
+  const oneLine = await page.evaluate(() => {
+    const t = document.querySelector('.u-legend') as HTMLElement;
+    const rows = Array.from(t.querySelectorAll('tr'));
+    return {
+      legend: Math.round(t.getBoundingClientRect().height),
+      tallest: Math.round(Math.max(...rows.map((r) => r.getBoundingClientRect().height))),
+    };
+  });
+  expect(oneLine.legend, `the wide legend stacked instead of running across: ${JSON.stringify(oneLine)}`)
+    .toBeLessThanOrEqual(oneLine.tallest + 2);
+});
+
+/**
+ * Every hover-only statement this walk tolerates, and why each is not the failure it looks like.
+ *
+ * Matched as PATTERNS rather than pinned as strings, deliberately. The timeline's tooltips carry
+ * the fixture's own durations, and the observance stripe depends on the date the suite runs on —
+ * pinning either would make this check a calendar. What must not drift is the set of REASONS, so
+ * that is what is enumerated: a tooltip nothing here explains fails the walk.
+ *
+ * The reasons are verified against the source, not asserted from the shape of the markup. Each one
+ * names where the same fact appears as text, because "it is stated elsewhere" is exactly the claim
+ * a reader of this list needs to be able to check.
+ */
+const HOVER_EXEMPT: { pattern: RegExp; why: string }[] = [
+  {
+    pattern: /^DIV title="(Boost|Coast|Drogue descent|Main descent|Descent):/,
+    why: "the flight timeline's proportional bar, which is aria-hidden and decorative; the chips directly beneath it print every phase's label and duration as ordinary text (components/FlightTimeline.tsx), so the tooltip repeats what is already on screen.",
+  },
+  {
+    pattern: /^DIV\.h-\d(\.\d)? title=/,
+    why: 'the observance accent stripe stacked at the top of every page (app/layout.tsx). SiteFooter renders the same observance as visible text — emoji and message — on the same page, so nothing is reachable only by hovering the stripe.',
+  },
+  {
+    pattern: /^INPUT\.h-\d(\.\d)? title="Colour for /,
+    why: "a figure or flight colour swatch. The way back — double-tap for the default — is now stated in text in FigureChooser's caption and in CompareView's intro paragraph; before P4 slice 5 it lived in the title and the aria-label and nowhere a sighted flyer on a phone could reach.",
+  },
+];
+
+// P4 slice 5 — the *done when* itself, walked end to end at 390 px with the network cut.
+//
+// The milestone's acceptance has been one sentence since it was written: a flyer can, one-handed
+// and offline on a 390 px viewport, "drop a log straight off a card, read apogee and descent rate,
+// check a deploy altitude, and show someone the result — with zero controls under 44 px and zero
+// states reachable only by hover", *"pinned by a mobile-viewport e2e that asserts both counts and
+// walks each journey."*
+//
+// Slices 1–4 built the surfaces. Nothing walked the sentence, and the SECOND count had never been
+// asserted anywhere at all — `e2e/hoverOnly.ts` is what makes it measurable. It exists because D9
+// slice 3b shipped a design's staleness word into a `title=` and only a competitive probe noticed;
+// the first time it ran it found the same shape again in the colour swatches, which is why this
+// slice touches `FigureChooser` and `CompareView` at all.
+test('the whole range-day journey, one-handed and offline at 390 px', async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  // Get the worker installed and serving, then cut the network. Everything after this line is the
+  // desert: no signal, one hand, a phone.
+  await page.goto('/');
+  await page.waitForFunction(() => !!(navigator.serviceWorker && navigator.serviceWorker.controller), null, {
+    timeout: 20_000,
+  });
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await context.setOffline(true);
+
+  // 1. Drop a log straight off a card.
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(fixture('altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // 2. Read apogee and descent rate — and 3, check a deploy altitude. Each is asserted VISIBLE at
+  //    this width rather than merely present in the DOM, which is the whole distinction the
+  //    milestone rests on.
+  for (const label of ['Apogee', 'Main descent', 'Main deploy altitude']) {
+    await expect(
+      page.getByText(label, { exact: true }).filter({ visible: true }).first(),
+      `${label} is not readable at 390 px`,
+    ).toBeVisible();
+  }
+
+  // 4. Show someone the result — the strip a flyer saves from or hands over.
+  await expect(page.getByRole('button', { name: 'Save .txt' })).toBeVisible();
+
+  // The swatch exemption below is only honest while the sentence it points at is ON the page, so
+  // assert the sentence rather than trusting the exemption's prose. Without this the exemption
+  // would keep the walk green after someone deleted the fix it describes — a list of reasons that
+  // cannot fail is the same mistake `lib/documents.ts` was built to end.
+  await expect(page.getByText(/double-tap it for the default/i)).toBeVisible();
+
+  // The first count.
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on the range-day walk:\n${small.join('\n')}`).toEqual([]);
+
+  // The second count, which nothing asserted before this slice.
+  const hoverOnly = await page.evaluate(hoverOnlyStatements);
+  const unexplained = hoverOnly.filter((h) => !HOVER_EXEMPT.some((e) => e.pattern.test(h)));
+  expect(
+    unexplained,
+    `facts a flyer can only reach by hovering, with nothing on screen saying them:\n${unexplained.join('\n')}`,
+  ).toEqual([]);
+  for (const e of HOVER_EXEMPT) {
+    expect(e.why.length, `an exemption too thin to check: ${e.pattern}`).toBeGreaterThan(40);
+  }
+
+  // …and none of it needed a sideways scroll.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, 'the report pushes the page sideways at 390 px').toBeLessThanOrEqual(0);
+
+  await context.setOffline(false);
 });
