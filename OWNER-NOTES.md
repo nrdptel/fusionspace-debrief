@@ -165,62 +165,18 @@ outstanding.
 
 ### Dropped 2026-08-08 — the first batch
 
-Eight notes, filed from a single conversation after the owner walked the live site. **Nothing in this
-batch has been reproduced by a session** — every one is the owner's reading of `debrief.fusionspace.co`,
-except the corpus measurement in `ON-2`, which was taken at filing time and is marked as such.
+**Housekeeping, 2026-08-09.** `ON-1` and `ON-4` sat here in full for a day after being marked
+RESOLVED, so this section read as eight open notes when six are open — and the count is the whole
+signal this file exists to give. Both are collapsed into `## Resolved` per the lifecycle rule above,
+**with the owner's verbatim words carried across** rather than dropped: "never rewrite or delete the
+owner's words" outranks "collapse it to one line", so the one line got a blockquote under it.
 
----
 
-**ON-1 · the docs are a wall of text · SOURCE: owner, 2026-08-08**
-
-> the docs need some serious work in formatting and presentation. its just a large block of text at
-> this point.
-
-LIVING DOCS is a first-class invariant and workflow step 5 makes every calculation change update
-them — so they have been *maintained* for accuracy every run and *designed* never. That is the likely
-mechanism: content accreted a paragraph at a time by sessions each correctly updating one sentence,
-with nothing in the workflow ever asking what the page had become. `DESIGN.md` covers tokens, scale
-and component vocabulary; it says nothing about long-form reading — no measure, no heading rhythm, no
-structure for a page someone reads rather than scans.
-
-The fix is unlikely to be one page. Cross-applied to the sibling repo as its `ON-8` on the same
-reasoning.
-
-VERDICT: **→ ROADMAP · 2026-08-08 · P9 — "The methods page is a document you can read"**, and the
-note is an understatement rather than an exaggeration. **Reproduced by measurement, not by
-impression:** `app/methods/page.tsx` is **1,205 lines carrying ~12,700 words in 51 `<Method>`
-blocks**, and the structure underneath them is flat — **51 sibling `<h2>`s at `text-base`, one `<h1>`,
-and zero `<h3>`**, laid out in a two-column `sm:grid-cols-2` grid with no grouping, no table of
-contents, no in-page navigation and no back-to-top. There is no third level of hierarchy anywhere on
-the page, so nothing tells a reader that "Apogee", "Velocity & max velocity" and "A GPS speed doesn't
-settle it either" are one subject and "Battery" is another.
-
-The mechanism the note guesses at is the right one, and it has a sharper form: **the page also imports
-nothing from the primitive layer** (`grep -c "components/ui" app/methods/page.tsx` → 0), so it is the
-largest surface in the app and the one least converted onto the design system. `DESIGN.md` says
-nothing about long-form reading — §3 is a type scale for data surfaces, §4 a spacing scale, and no
-section covers measure, prose rhythm, or the architecture of a page someone reads rather than scans.
-That gap is why every run could correctly update one sentence and none was ever asked what the page
-had become.
-
-**RESOLVED · 2026-08-09 (PR #156, PR #157) — P9 SHIPPED, all five slices.** The wall the note
-describes is gone as a measurable thing, and the last slice answered a complaint the note did not
-make but should have: the page cited nothing at all.** The page reads as **96 paragraphs** where it was 51 walls;
-the longest single paragraph is **369 words**, down from 850 when the note was filed and 705 at the
-start of this run; **nothing on the page is over 400 words**, against 11 blocks when triaged. Line
-length is 49–66 characters at every width. One slice is left and it is a different complaint the note
-did not make: the page **cites nothing** — 0 URLs and no named algorithm in 102 KB — which is scoped
-as P9 slice 5 — and it shipped in the same run, with `COMPETITION.md` row 37 opened and resolved
-behind it. Five sources, each fetched and read before it was written down, cited from the five
-blocks that rest on published work and deliberately from no others.
-
-Moved to `## Resolved`: every clause is reachable by a flyer on debrief.fusionspace.co.
-
-**The fix already exists in this repo, applied to the wrong page.** `components/FlightReport.tsx:816`
-builds a pinned "Jump to a section" strip with a you-are-here marker backed by
-`components/useCurrentSection.ts`, written because the report ran nine screens on a phone. The methods
-page is longer than the report and has none of it. That strip is also hand-rolled inside one
-component, so lifting it into `components/ui.tsx` is P1 work that P9 pays for.
+Eight notes were filed from a single conversation after the owner walked the live site; **six are
+still open here** and two are in `## Resolved`. Every one was the owner's reading of
+`debrief.fusionspace.co` — except the corpus measurement in `ON-2`, taken at filing time and marked
+as such — and each has since been reproduced or refuted by measurement rather than left as an
+impression.
 
 ---
 
@@ -347,57 +303,6 @@ body tube opens a popover to customize it) is the same primitive arriving from t
 building it twice is the failure this verdict exists to prevent.
 
 ---
-
-**ON-4 · a canonical CSV that round-trips · SOURCE: owner, 2026-08-08**
-
-> it would be cool to make a standard csv format you can export to after importing whatever logs you
-> put in then that can become another log and you can just drop in and it works.
-
-A canonical export of the internal flight model that Debrief can re-import losslessly: bring any of
-the ten formats, export one, drop it back in, get the same flight.
-
-This is worth more than a convenience feature, because it is a **test of the architecture the manual
-already commits to**. If every parser and the column-mapper are genuinely thin producers of one
-canonical model, a round-trip is nearly free — and wherever it is not free, that is a place where a
-parser is smuggling format-specific state past the model. It also gives the corpus a new class of
-assertion that golden values cannot produce.
-
-Two things it must carry, both from existing invariants: **provenance survives the round-trip**
-(measured / derived / estimated is part of the model, so a re-imported flight must not silently
-promote a derived value to a measured one), and **multi-source structure survives it** — a flight with
-two recordings must not flatten into one. A round-trip that loses either is a lossy export wearing a
-canonical label.
-
-VERDICT: **→ ROADMAP · 2026-08-08 · D11 — "One canonical file, out and back in"**. Accepted as
-written, including both constraints in the note body, which become the milestone's *done when* rather
-than notes under it: provenance survives, and multi-source structure survives.
-
-The note's own argument is why it ranks where it does — this is a **test of the architecture the
-manual already commits to**, and it is the only test of it that a flyer can also use. Queued behind
-D10 because D10 gives it something to round-trip that can ship in the repo: the corpus cannot, and a
-round-trip assertion over synthesized logs is a corpus-independent check that CI can run on a fork
-with no token.
-
-Scoped after D10 rather than before it, and that is a real ordering decision, recorded in *Decisions
-taken without the owner*.
-
----
-
-**RESOLVED · 2026-08-09 — D11 SHIPPED, all five slices, and both of the note's constraints hold.**
-*Provenance survives*: the record writes the measurement and never the reading, so a re-imported
-flight is re-analysed by whatever the methods have become rather than frozen at the version that
-exported it. *Multi-source structure survives*, in both forms — a flight of two recordings does not
-flatten, and a stitched composite keeps its stages. The note's own argument was that this is a test
-of the architecture the manual commits to; the answer is that the round-trip was free across the
-whole corpus first try, and the only two things that did not survive were the flyer's own
-statements, which are not in the model and now ride beside it.
-
-**PROGRESS · 2026-08-09 (PR #156) — D11 slice 3 shipped, which is the second of the note's two
-constraints.** *"Multi-source structure survives"* now holds for the two-recordings case: a flyer who
-told the logbook that two files are one flight gets that statement back when they drop the saved
-records in months later, and it is stated rather than done silently. *"Provenance survives"* shipped
-with slice 1. One clause is left — a stitched composite keeping its stages — and it is slice 5. The
-note stays Open until then.
 
 ---
 
@@ -652,9 +557,17 @@ these are parked so they can be answered once instead of re-derived every run. N
   forms. It is JSON rather than the CSV the note imagined, and the reason is recorded under
   *Decisions taken without the owner*: CSV cannot distinguish an empty cell from a zero, and this
   model uses NaN as its gap marker, so a GPS dropout would have re-imported as a real 0 m reading.
+
+  > it would be cool to make a standard csv format you can export to after importing whatever logs you
+  > put in then that can become another log and you can just drop in and it works.
+
 - **`ON-1` · the docs are a wall of text** → **P9, all five slices, 2026-08-09** (PR #156, PR #157).
   1 `h1` → 11 `h2` → 51 `h3` with a contents list and a pinned jump strip; 96 paragraphs where 51
   blocks were 51 walls; longest paragraph 369 words against 850 at filing, and nothing over 400;
   49–66 rendered characters at every width. And the half the note did not ask for and needed most:
   the page **cites its sources** — five of them, fetched and read — where it had 0 URLs and no named
   algorithm in 102 KB.
+
+  > the docs need some serious work in formatting and presentation. its just a large block of text at
+  > this point.
+

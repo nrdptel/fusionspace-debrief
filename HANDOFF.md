@@ -122,9 +122,53 @@ about the CHECKS rather than the code:
    one-glyph controls hand-roll `IconButton`, which exists with 2 adopters; four copies of one text
    input across two files; `max-w-prose` at three sites that §3 names by name as the trap.
 
+## The done-check, executed — what each step returned
+
+1. **Corpus sweep: the full suite on every gate, 1,349 unit tests over 62 manifest fixtures, and 0
+   goldens moved all run.** No calculation changed, so no independent recompute was owed. Said
+   plainly: an empty sweep is a result.
+2. **Cold walks.** Every slice is driven end to end in the real app: a made-up flight through the
+   column mapper (the only route one can take), its logbook row, its reopen, and — the walk added
+   last — the actual **download**, because the per-row column being right in `analyzedDataCsv` does
+   not prove the save strip calls it with the flight that knows. Production fetched separately and
+   reported below.
+3. **`COMPETITION.md` rows 40 and 41 added.** Row 41 is the one that paid: it answered a design
+   question the roadmap had been carrying open, from outside rocketry.
+4. **§9's six shell counts, measured against `origin/main` in a worktree rather than recalled:**
+   radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** ·
+   inverted-type files **10→10** · ui adopters **38→38**. **None moved, in either direction** —
+   this run's craft work was per-primitive adoption, which the shell block cannot see. The ratchet
+   that can: `Chip` **7→8** · `Notice` **6→8** · `EmptyState` **1→2** · `Disclosure` **3→5** ·
+   `Loading` **uncounted→3** · `ChipButton`, `CopyTableButton`, `Sources` **uncounted→counted**.
+   Nothing moved down.
+5. **`BACKLOG.md` read and appended to — five new entries**, each with the measurement that makes
+   it actionable, and each naming what was *not* checked.
+6. **Both track questions.**
+   - **D:** a flyer who opens a flight Debrief made up can no longer mistake it for a recording —
+     it says so on the report, beside the readings, on its logbook row, in the CSV they paste into
+     a spreadsheet, in the readings they copy into a cert document, and in the backup they restore
+     six months later; and it can never wear a personal best.
+   - **P:** the landing surface's list stopped rendering four of §5's five required states by hand,
+     the app's two byte-identical copies of `Disclosure` became one primitive, and the ratchet that
+     is supposed to make P1 mechanical went from blind to four of its own primitives to exhaustive
+     against the file it measures.
+7. **`ROADMAP.md` updated** — D10 5a and 5b recorded against the *done when* with what is left
+   named in order; P1 item 5 records the slice, the counts, and the one thing measured and
+   deliberately not done.
+8. **`OWNER-NOTES.md`: zero notes are open without a verdict, and the count is now honest.** Eight
+   notes carry verdicts dated 2026-08-08/09; none is new, so none was owed one this run. Two
+   (`ON-1`, `ON-4`) had been marked RESOLVED a day ago and left sitting in `## Open` in full, so
+   the inbox read as eight open when six are — they are collapsed into `## Resolved` with the
+   owner's verbatim words carried across. **Seven items sit under *Awaiting the owner***, one added
+   this run.
+
 ## Owed to the sibling repo
 
-`DESIGN.md` is identical in both and **nothing in this run changed it**, so nothing new is owed.
+**One change this run, and it is owed.** §5's `Button variant="link"` entry cited *"Got a backup?
+**Restore it**."* as its canonical in-a-sentence example, and that control no longer exists — the
+logbook's empty state took `EmptyState`, whose action is a standalone button. The example was
+replaced with two that do exist; the rule is unchanged. Parked in `OWNER-NOTES.md`.
+
 Still owed from earlier runs: §5's `Popover` and `SectionNav`, and **§2's tertiary token still fails
 AA in dark** (4.12:1 on page, 3.67:1 on raised) at five sites that are not disabled controls. Parked
 in `OWNER-NOTES.md` → *Awaiting the owner*.
