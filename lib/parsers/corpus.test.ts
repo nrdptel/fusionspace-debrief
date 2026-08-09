@@ -11,7 +11,7 @@ import { compareReported, REPORTED_QUANTITY } from '../flight/reported';
 import { getChannel, type ChannelKind, type ReportedValue } from '../flight/types';
 import { convert } from '../units';
 import { decodeBytes } from '../encoding';
-import { landedInRecord, landingRate, metricTiles, stageTiles } from '../readings';
+import { burnoutVelocitySub, landedInRecord, landingRate, metricTiles, stageTiles, velocityProvenance } from '../readings';
 import { headlineRows } from '../report';
 import { groundTrack, padOrigin, recoveryStats, trackGpx, trackKml } from '../gps';
 import { buildComparison, crossCheck, type CompareInput } from '../compare';
@@ -1105,6 +1105,61 @@ describe('a withheld peak speed stays withheld on every surface', () => {
     // The guard is worthless if nothing in the corpus is withheld — and both reasons must be
     // represented, since it was the second one that leaked.
     expect(withheld, `${withheld} corpus flights withhold a peak speed`).toBeGreaterThan(0);
+  }, 180_000);
+
+  /**
+   * The Sev-1 of 2026-08-09, pinned across the whole corpus rather than on one synthetic.
+   *
+   * A burnout SPEED took its provenance from how the burnout INSTANT was located, so on a flight
+   * whose velocity is differentiated from the altitude and whose burnout came off a real axial
+   * crossing, the same barometric derivative was published twice under opposite words: the peak
+   * as `derived, which usually reads high at the peak` and the burnout speed, three rows down, as
+   * `measured`. Two recordings here do it — 121.2 m/s and 128.4 m/s.
+   *
+   * Written as a sweep with a floor rather than as two named files: naming them would pass the
+   * day the corpus is re-cut without either flight, which is the failure mode this repo has
+   * already shipped once.
+   */
+  it('no corpus recording calls a derived burnout speed measured', async () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    let seen = 0;
+    let atRisk = 0;
+    let since = 0;
+    for (const f of spec.fixtures) {
+      if (++since >= 5) {
+        since = 0;
+        await breathe();
+      }
+      let loaded;
+      try {
+        loaded = loadWithFlight(f.file);
+      } catch {
+        continue;
+      }
+      if (!loaded) continue;
+      const m = loaded.analysis.metrics;
+      if (m.burnoutVelocity == null || !Number.isFinite(m.burnoutVelocity)) continue;
+      seen++;
+      const short = f.file.split('/').pop() as string;
+      const sub = burnoutVelocitySub(m);
+      if (m.maxVelocitySource === 'device') continue;
+      // The population the defect lived in: the speed is a derivative, so nothing about this row
+      // may read as an instrument reading, however the instant was located.
+      atRisk++;
+      expect(sub, `${short}: burnout speed ${m.burnoutVelocity.toFixed(1)} m/s off a derived trace`).toMatch(/derived/);
+      expect(sub, `${short}: and never bare 'measured'`).not.toBe('measured');
+      // …and the two rows a flyer reads three apart do not contradict each other.
+      if (m.maxVelocity != null && Number.isFinite(m.maxVelocity)) {
+        expect(
+          velocityProvenance(m).startsWith('derived') && (sub ?? '').includes('derived'),
+          `${short}: the peak says '${velocityProvenance(m)}' and the burnout says '${sub}'`,
+        ).toBe(true);
+      }
+    }
+    // A guard that fires on nothing is worse than none. Both counts are stated so a re-cut
+    // corpus that stops covering this case is visible rather than silently green.
+    expect(seen, `${seen} corpus recordings report a burnout speed`).toBeGreaterThan(5);
+    expect(atRisk, `${atRisk} of them read it off a derived velocity trace`).toBeGreaterThan(0);
   }, 180_000);
 });
 

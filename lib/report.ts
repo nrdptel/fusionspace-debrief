@@ -1389,6 +1389,12 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     // How burnout was located: 'measured' off a signed accelerometer crossing zero, or
     // 'derived' from the velocity peak because no crossing was found before it.
     burnoutSource: m.burnoutSource,
+    // …and what `burnoutVelocity` IS, which is a different question with a different answer.
+    // The instant can be measured off the accelerometer while the speed at it is read from a
+    // barometric derivative — two corpus recordings do exactly that. A consumer reading
+    // `burnoutSource: 'measured'` beside `burnoutVelocity` and concluding the speed was measured
+    // would be reading the page's own former mistake out of the file.
+    burnoutVelocitySource: m.burnoutVelocity == null ? null : m.maxVelocitySource === 'device' ? 'measured' : 'derived',
     // Whether `burnoutVelocity` and `maxVelocity` are the same sample, so a consumer doesn't
     // read one number under two keys as two independent measurements. True by construction on
     // a 'derived' burnout, and true on a 'measured' one whenever the axial crossing lands on

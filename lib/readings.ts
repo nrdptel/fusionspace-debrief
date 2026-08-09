@@ -245,16 +245,40 @@ export function burnoutSub(m: FlightMetrics): string | undefined {
   return m.burnoutSource === 'derived' ? 'derived from the speed peak' : 'measured';
 }
 
-/** The burnout SPEED additionally carries the identity note, because it is the one burnout
- *  reading whose number is literally another number already on the page: where burnout is
- *  the peak sample, this row and the max-velocity row are one measurement printed twice, and
- *  left bare they read as two instruments agreeing. The other two burnout readings get the
- *  provenance alone — a duration is not a duplicate of anything, and repeating the full
- *  sentence down three consecutive rows buys nothing. */
+/**
+ * The burnout SPEED, which does not take `burnoutSub`'s answer — and that is the whole point of
+ * this function existing separately.
+ *
+ * `burnoutSource` answers **how the INSTANT was located**: a signed axial crossing (`measured`)
+ * or the velocity peak standing in for one (`derived`). Burn time and burnout altitude are read
+ * at that instant off a clock and off the altitude channel, so for them that answer is the whole
+ * story. **The burnout SPEED is not**: it is `velocity[burnoutIdx]`, read off the velocity trace,
+ * and where that trace is a barometric derivative the number is derived however well the instant
+ * was found. Handing it `burnoutSub`'s word published a differentiated altitude as `measured`
+ * three rows under the identical figure labelled `derived` — measured 2026-08-09 on two corpus
+ * recordings (`issuiuc-sg1.1` at 121.2 m/s, `issuiuc-stargazer1` at 128.4 m/s), which is the
+ * caveat-on-one-surface, confident-claim-on-another failure this file's own docstrings forbid.
+ *
+ * It also carries the identity note, because it is the one burnout reading whose number is
+ * literally another number already on the page: where burnout is the peak sample, this row and
+ * the max-velocity row are one measurement printed twice, and left bare they read as two
+ * instruments agreeing.
+ */
 export function burnoutVelocitySub(m: FlightMetrics): string | undefined {
-  const base = burnoutSub(m);
-  if (base == null) return undefined;
-  return m.burnoutAtVelocityPeak ? `${base} — the same instant as max velocity` : base;
+  if (m.burnoutSource == null) return undefined;
+  const atPeak = m.burnoutAtVelocityPeak ? ' — the same instant as max velocity' : '';
+  // A device that logged its own velocity measured this sample like any other, so the only
+  // question left is how the instant was found — which is exactly what `burnoutSub` answers.
+  if (m.maxVelocitySource === 'device') return `${burnoutSub(m)}${atPeak}`;
+  return m.burnoutAtVelocityPeak
+    ? // Burnout IS the peak, so this row and the max-velocity row are one sample. It carries
+      // that reading's own caveat rather than inventing a second wording for one number.
+      `${velocityProvenance(m, 'short')}${atPeak}`
+    : // Burnout is elsewhere on the trace. "Usually reads high at the peak" is a tendency
+      // measured ON THE PEAK — five of six corpus pairs — and this sample is not it, so
+      // repeating it here would quote one basis under another's name. The provenance is stated
+      // without a tendency this reading has not earned.
+      'derived from the altitude, at a measured burnout';
 }
 
 /**

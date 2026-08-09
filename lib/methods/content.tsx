@@ -812,6 +812,19 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           own summary puts burnout 2.7–5.0% below its peak speed, which is the gap between two
           definitions of the instant, not two readings of a speed.
         </p>
+        <p>
+          <strong>Two different questions, and the burnout speed answers the second one.</strong>{' '}
+          How the <em>instant</em> was located — an accelerometer crossing, or the speed peak
+          standing in for one — is what the burn time and the burnout altitude rest on, because a
+          clock and the altitude channel are read directly at it. The burnout <em>speed</em> is
+          read off the velocity trace, so where that trace is differentiated from the altitude the
+          number is derived however cleanly the crossing was found. Two logs in our test corpus are
+          exactly that case, and until 2026-08-09 they printed a differentiated altitude as{' '}
+          <em>measured</em> three rows under the identical figure labelled <em>derived</em>. The
+          instant&apos;s provenance and the speed&apos;s are now stated separately, and where
+          burnout is not the peak the &ldquo;usually reads high&rdquo; tendency is left off: that
+          was measured on the peak, and this is a different sample.
+        </p>
       </>
     ),
   },

@@ -2081,7 +2081,21 @@ function analyzeWhole(
   // behind. **Both reasons, not just one** — a gap across the ascent withholds the headline
   // exactly as an impossible magnitude does, and for a while this line propagated only the
   // second, so the curves went out on a flight whose peak the report had already refused.
-  series.velocityUnusable = velocityImplausible || ascentGapBreaksPeak;
+  //
+  // **Named, because three readings downstream were still gating on `velocityImplausible`
+  // alone** — the burnout speed, coast efficiency and drag loss. A gap across the ascent
+  // withholds the headline speed and sets this flag, so `eventSpeed`, `analyzedDataCsv`,
+  // `canMeasureDrag`, `canMeasureRailExit` and the explorer all withhold; those three read the
+  // same array at the burnout index and published anyway. The gap exists precisely because a
+  // derivative taken across it spikes to a spurious figure, so when the hole straddles burnout
+  // that spike is what got printed — a refused reading republished one row down. Reproduced on
+  // a synthetic (peak withheld for a gap, burnout speed 300 m/s published); **zero of 38
+  // analysable corpus recordings reach it today**, which is why it is a latent leak rather than
+  // a live wrong number, and why it is fixed by making the flag single rather than by adding a
+  // guard. One decision, one flag — the same rule the corpus suite already asserts for the
+  // surfaces.
+  const velocityUnusable = velocityImplausible || ascentGapBreaksPeak;
+  series.velocityUnusable = velocityUnusable;
 
   // --- Burnout --------------------------------------------------------------
   // With accel: thrust end — acceleration first falls through zero after the
@@ -2749,7 +2763,7 @@ function analyzeWhole(
   // rejected; the existing self-contradiction warning says why.
   let coastEfficiency: number | null = null;
   let dragLossAltitude: number | null = null;
-  if (burnoutIdx !== null && !velocityImplausible) {
+  if (burnoutIdx !== null && !velocityUnusable) {
     const vBo = velocity[burnoutIdx];
     const vacuumGain = Number.isFinite(vBo) ? (vBo * vBo) / (2 * G0) : NaN;
     const actualGain = apogeeAlt - altAt(burnoutIdx);
@@ -2935,9 +2949,10 @@ function analyzeWhole(
     mainDeployTime: mainIdx !== null && mainIdx >= 0 && liftoffFound ? time[mainIdx] - liftoffTime : null,
     burnTime: burnoutIdx !== null && liftoffFound ? time[burnoutIdx] - liftoffTime : null,
     burnoutAltitude: burnoutIdx !== null ? nullIfNaN(altAt(burnoutIdx)) : null,
-    // Reads the velocity trace directly, so it inherits an impossible velocity even
-    // when burnout was pinned off the accelerometer — withheld with the rest.
-    burnoutVelocity: burnoutIdx !== null && !velocityImplausible ? velocity[burnoutIdx] : null,
+    // Reads the velocity trace directly, so it inherits an unusable velocity even
+    // when burnout was pinned off the accelerometer — withheld with the rest, for EITHER
+    // reason the peak was refused. It gated on the magnitude check alone until 2026-08-09.
+    burnoutVelocity: burnoutIdx !== null && !velocityUnusable ? velocity[burnoutIdx] : null,
     burnoutSource: burnoutIdx === null ? null : burnoutFromAccel ? 'measured' : 'derived',
     burnoutAtVelocityPeak: burnoutIdx !== null && maxVelIdx >= 0 && burnoutIdx === maxVelIdx,
     coastTime: burnoutIdx !== null ? apogeeTime - time[burnoutIdx] : null,
