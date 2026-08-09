@@ -3456,6 +3456,17 @@ which is how the omission was noticed at all.
 
 **Outcome.** A phone at the range is a first-class tool, not a rescaled desktop.
 
+**Scoped 2026-08-09 by `COMPETITION.md` row 39, and the correction is to this milestone's TITLE
+rather than to its work.** The benchmark against the phone-capable field found that Debrief's phone
+case is **post-recovery** and cannot be anything else: none of the vendor tools needs Debrief to get
+data off the board, and **Debrief cannot do that for any board** — no Bluetooth, no WiFi, no live
+telemetry, no continuity or deployment check. At the pad the vendor app is the first app opened and
+Debrief is not opened at all. *The range on a phone* reads wider than that, because a range day
+starts at the pad. The *done when* above is already honestly scoped — every journey it names is
+post-flight — so nothing here changes what the milestone must deliver; it changes what a later run
+should expect to find when it reads the title. The same row records the one thing this milestone
+still owes: **`components/Chart.tsx`'s legends**, the third of `ON-6`'s three surfaces.
+
 **Done when** a flyer can, one-handed and offline on a 390 px viewport, complete the things a range
 day actually needs — drop a log straight off a card, read apogee and descent rate, check a deploy
 altitude, and show someone the result — with zero controls under 44 px and zero states reachable only
