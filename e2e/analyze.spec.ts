@@ -2916,6 +2916,31 @@ test('a flight Debrief made up says so at the top of the report AND beside the r
   await page.emulateMedia({ media: 'screen' });
 });
 
+test('the file a made-up flight exports says so on every row, not just on screen', async ({ page }) => {
+  // **The walk the unit tests cannot do: that the BUTTON is wired to the labelled writer.** The
+  // per-row `Provenance` column is asserted over `analyzedDataCsv` directly in
+  // `lib/synthetic.test.ts`; nothing there proves the report's save strip calls it with the flight
+  // that knows. This is the export a flyer pastes into a spreadsheet, so the gap between "the
+  // function is right" and "the button reaches the function" is the whole risk.
+  await openMadeUpFlight(page);
+
+  const [csv] = await Promise.all([
+    page.waitForEvent('download'),
+    // Two controls on this page carry the visible label "Save .csv" — the report's data export
+    // and the channel explorer's plotted-data export, which is a separate sink still marked `todo`
+    // in the audit table. Addressed by its title; the label collision is filed in `BACKLOG.md`.
+    page.getByTitle(/Download the whole flight as CSV/).click(),
+  ]);
+  const text = await readFile(await csv.path(), 'utf8');
+  const lines = text.trim().split('\n');
+  expect(lines[0].startsWith('provenance,'), `header was: ${lines[0].slice(0, 60)}`).toBe(true);
+  // The walk's own generated flight is ~400 samples (the module's is 5,144); this bound is about
+  // the export not being a stub, so it is set from what this file actually holds.
+  expect(lines.length, 'a whole flight of samples, not a stub').toBeGreaterThan(300);
+  // Every DATA row, because select-the-block-and-paste is the gesture this file exists for.
+  expect(lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC')).length).toBe(0);
+});
+
 test('a flight Debrief made up is tagged in the logbook and never wears its star', async ({ page }) => {
   await openMadeUpFlight(page);
 

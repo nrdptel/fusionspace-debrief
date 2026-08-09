@@ -14,6 +14,16 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — two controls on the report carry the identical visible label `Save .csv`.** The
+  report's data export (`lib/documents.ts` → `analyzedDataCsv`) and the channel explorer's
+  plotted-data export (`components/ChannelExplorer.tsx` → `exploreCsv`) are different files with
+  different contents and the same four characters on the button. Their `title`s differ, so a
+  screen-reader user gets an accessible description that distinguishes them and a sighted user
+  gets nothing until they hover — which §8 says is nothing at all on a phone. Found by an e2e that
+  could not click either one: `getByRole('button', { name: 'Save .csv' })` is a strict-mode
+  violation, which is the machine noticing what a reader would. Reproduce in a minute: open any
+  report with a chart and read the two save strips. The fix is a distinguishing word on one of
+  them (*"Save plot .csv"*), not a `title`.
 - **2026-08-09 — `DataTable`'s empty fallback is the string `DESIGN.md` §5 forbids, and it is
   reachable from ZERO call sites.** `components/ui.tsx` renders `empty ?? 'Nothing to show yet.'`,
   which is "No data" with different words, and neither of the two callers passes `empty`. Both were
