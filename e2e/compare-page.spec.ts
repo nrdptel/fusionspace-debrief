@@ -16,6 +16,25 @@ async function remember(page: import('@playwright/test').Page, file: string) {
 // flights is named in the URL, so the view survives a reload, the back button works, and
 // the address can be bookmarked or opened in a second tab. Before this it was a state of
 // the analyze page that vanished the moment the page did.
+test('a visitor with no files can still see a comparison', async ({ page }) => {
+  // D10 — this surface's whole subject is more than one flight, and it offered nothing to someone
+  // who has not flown two boards: an empty state whose only exit needs a thing they do not have.
+  // The sample it offers is a REAL pair — a PerfectFlite Pnut and a Featherweight Raven aboard one
+  // airframe — so the capability being demonstrated (D3) is demonstrated by an actual instance of
+  // it, not by a stand-in.
+  await page.goto('/compare/');
+  const sample = page.getByRole('button', { name: /Two altimeters, one flight/i });
+  await expect(sample).toBeVisible();
+
+  await sample.click();
+  await expect(page.getByText(/Comparing 2 flights/)).toBeVisible({ timeout: 30_000 });
+
+  // Two recordings, not one file twice — and they went through the ordinary drop path, so they are
+  // in the logbook and the comparison has an address.
+  await expect(page).toHaveURL(/ids=/, { timeout: 20_000 });
+  expect((new URL(page.url()).searchParams.get('ids') ?? '').split(',').filter(Boolean)).toHaveLength(2);
+});
+
 test('a comparison built from the logbook has an address, and survives a reload', async ({
   page,
 }) => {

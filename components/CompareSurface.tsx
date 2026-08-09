@@ -9,6 +9,7 @@ import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
 import { STORAGE_WRITE_REFUSED } from '@/lib/recents';
 import { ingestFiles, groupsRestoredNote, highRateNote, predictionNote, unreadNote } from '@/lib/ingest';
+import { MULTI_SAMPLE, sampleFiles } from '@/lib/samples';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
 import { flightFromMapping } from '@/lib/mapped';
@@ -485,6 +486,37 @@ export default function CompareSurface() {
         <Button variant="primary" className="mt-3" onClick={() => fileRef.current?.click()}>
           Choose flight logs
         </Button>
+        {/* D10: a way in for someone with no files. This surface's whole subject is more than one
+            flight, and until now it offered nothing to a visitor who has not flown two — an empty
+            state whose only exit needs something they do not have. The sample is chosen by ID
+            rather than by position, and it is a REAL pair: two boards that recorded one physical
+            flight, which is the capability (D3) this surface exists for. It goes through
+            `onDropFiles`, the same path a dropped folder takes. */}
+        {MULTI_SAMPLE &&
+          // Bound to a local so the async handler keeps the narrowing: a module-level `const` of
+          // union type is not narrowed inside a closure that could run later.
+          ((sample) => (
+          <Button
+            variant="link"
+            className="mt-3 ml-3"
+            disabled={state === 'loading'}
+            title={sample.shows}
+            onClick={async () => {
+              setState('loading');
+              setNote(null);
+              try {
+                await onDropFiles(await sampleFiles(sample));
+              } catch {
+                setState('picking');
+                setNote(
+                  'The sample could not be loaded — it is fetched from this site, so a lost connection is the usual cause.',
+                );
+              }
+            }}
+          >
+            {sample.label}
+          </Button>
+          ))(MULTI_SAMPLE)}
         <input
           ref={fileRef}
           type="file"

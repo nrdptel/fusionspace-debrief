@@ -1652,7 +1652,27 @@ real risk attached: the standalone refusal must survive it.
 ## D9 — Predicted versus flown
 
 **Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED 2026-08-05. Only slice 3b is left: let a
-flyer pick which simulation when a design states several.** Slice 4 is pinned by
+flyer pick which simulation when a design states several.**
+
+**Scoped further 2026-08-09, by reading rather than by planning — the remaining work is a CHOICE,
+not a parse.** `lib/parsers/openrocket.ts` already reads every `<simulation>` block into a run with
+its own name, its ten stated figures in canonical SI, and its saved trace (`PredictedSeries`).
+`predictionFigures` then throws all of that away when `runs.length > 1` and returns a refusal
+naming them: *"…states 5 simulations … a flight log does not say which motor flew, so Debrief will
+not pick one"*. That refusal is honest and is the right default — what it costs is a trip back to
+OpenRocket to re-export, which is a task a flyer can complete expensively rather than one they
+cannot complete at all.
+
+So slice 3b is: return the runs instead of discarding them, offer the names, and feed the chosen
+one to the figures and the overlay. **A real test case exists**:
+`lib/parsers/__corpus__/openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork`
+states **five** simulations. It is corpus-only, so the assertion runs in CI and skips on a fork.
+
+**Not started deliberately, and this is the reason rather than an omission.** It changes what
+reaches the cross-check panel — the surface where a PREDICTION sits beside real readings — and
+`MAINTAINING.md`'s spine is that the two must never blur. Starting that at the end of a long run is
+how this repo's own history says a wrong claim ships. The next session should take it first: the
+data is already parsed, the fixture is already there, and the decision to make is a UI one. Slice 4 is pinned by
 `lib/overlay.test.ts` (6 cases on the union time base, the sharpest of them a PROPERTY — every
 finite output sample must equal an input sample at exactly that instant, which is the difference
 between a union and a resample), by `lib/parsers/openrocket.test.ts` (the saved curve read by
@@ -1995,6 +2015,20 @@ milestone that until now a visitor could not see without bringing two of their o
 through `decodeBytes` and handed `ingest` a string, so a sample could only ever be one UTF-8 text
 file — no binary, no spreadsheet, no set. Samples build real `File` objects and go through
 `onFiles` now, which is the drop path itself; the `.pf2` sample opening at all is the proof.
+
+**Slice 2 SHIPPED 2026-08-09 — `/compare` offers a way in.** Its empty state was a task a flyer
+could not complete at all: the only exit needed two flight logs, which is exactly what a first-time
+visitor does not have, on the surface that demonstrates D3. It offers the two-board sample — a real
+pair, agreeing to about 0.4% — chosen by id rather than by position, through the same
+`sampleFiles()` + drop path the analyze page uses. Pinned by 4 cases in `lib/samples.test.ts` and an
+e2e that asserts TWO ids reach the address.
+
+**`/stitch` is deliberately NOT given one, and that is a decision rather than the slice being
+half-done.** The committed fixtures hold no genuine staged pair. `e2e/stitch.spec.ts` uses two
+unrelated real logs as stand-ins because they have the right SHAPE — fine for a test, not fine for a
+demonstration. A sample presented as a staged launch that is not one is precisely what this
+milestone's *done when* forbids about synthetic flights, without even the honesty of a label. It
+needs a synthesized staged pair, labelled, which is the same work as the rest of the list below.
 
 **What is left:** the capabilities the committed fixtures do NOT cover — a deliberately mis-scaled
 column for the mapper, a saturated accelerometer, a staged flight on two devices. Those still need
@@ -3300,13 +3334,34 @@ methods page now says properly, so it was cut and linked rather than paraphrased
 text that says "screenshot" fails, and a copy line where "upload" describes something a flyer does
 fails — the PRIVACY invariant reaches the copy, not just the code.
 
-**What is left, in order.** (a) The landing surface still does not state the three things Debrief
-does that no vendor tool does — `COMPETITION.md`'s standing conclusion is written down and reaches
-no flyer. (b) A visible changelog and a release the flyer can see in the UI; the build stamp from
-D11 slice 4 is already in every document, so the surface is the missing half rather than the data.
-(c) A working way to report a bug or request a format from inside the app. (d) The GitHub
-description, topics and pinned links — **owner-level and parked**, because no tool in this session
-can write repository settings; the README carries the message without them.
+**Slice 2 SHIPPED 2026-08-09** — the landing surface states the four things Debrief does that a
+flyer's own altimeter software cannot, taken from `COMPETITION.md`'s standing conclusion, which had
+been saying since it was written that it "is what the landing surface and the README should say, and
+right now they do not say it". Two of the four are worded to that file's own warnings, because their
+broader forms are false: overlaying several of its OWN files is something Featherweight's tool now
+does too (row 15), so the cross-vendor qualifier IS the claim; and a composite combines nothing,
+which the ledger says to publish carefully because combining is the part a rival would skip. Pinned
+by `lib/whyDebrief.test.ts`, which holds the copy and the ledger side by side and fails from either
+direction, and by an e2e on what a flyer actually reads.
+
+**Slice 3 SHIPPED 2026-08-09** — the page says which build a flyer is looking at, linked to the
+commit, using the same `buildLine()` the six saved documents carry. Pinned by `lib/buildInfo.test.ts`
+and an e2e that saves a report and compares the two.
+
+**Slice 4 SHIPPED 2026-08-09 — a flyer can tell the project something without leaving the app.**
+`.github/ISSUE_TEMPLATE/` has carried a bug report and a format request for a long time, and the
+only link to either was one sentence on the PRIVACY page — the craft bar's "a feature reachable only
+by knowing it is there", almost word for word, since a flyer whose board is not read has no reason
+to visit the privacy page. "Report a problem" is in the footer on every route; "Ask for a logger
+that isn't here" is on the recognised-loggers card, which is where a flyer DISCOVERS their board is
+missing. Both `?template=`d so they land on the form's questions rather than an empty box. Pinned by
+`lib/links.test.ts` (4 cases, falsified 3 ways — a renamed template, the wrong query parameter, and
+a hand-written URL at a call site) and an e2e over three routes.
+
+**What is left, in order.** (a) A visible CHANGELOG — the version is now on screen and traceable to a
+commit, which is the half a flyer can act on; what is still missing is a human account of what
+changed between builds. (b) The GitHub description, topics and pinned links — **owner-level and parked**, because no tool in
+this session can write repository settings; the README carries the message without them.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
 

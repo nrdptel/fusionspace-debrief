@@ -6,6 +6,7 @@
 // promise, and the word does not describe something a flyer does here even in a comment.
 
 import { Card } from './ui';
+import { FORMAT_REQUEST_URL } from '@/lib/links';
 
 const FORMATS = [
   'Altus Metrum (AltOS)',
@@ -37,7 +38,19 @@ export default function RecognizedFormats() {
         Auto-detected from the file, including the raw download straight off the card for Altus Metrum
         (<span className="font-mono">.eeprom</span>) and MissileWorks RRC3 (<span className="font-mono">.rff</span>)
         — no CSV export needed first. Anything else — any logger that exports a CSV or an Excel spreadsheet —
-        works through a quick column mapper.
+        works through a quick column mapper.{' '}
+        {/* Asked on the surface where a flyer discovers their board is not in the list, rather
+            than only in the footer. The form has existed all along; nothing pointed at it from
+            here, which is the half of the tell that costs a format request. */}
+        <a
+          href={FORMAT_REQUEST_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+        >
+          Ask for a logger that isn&apos;t here
+        </a>
+        .
       </p>
     </Card>
   );

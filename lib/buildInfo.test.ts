@@ -86,3 +86,36 @@ describe('every document a flyer keeps names the build that wrote it', () => {
     expect(buildLine()).not.toMatch(/verif|valid|correct|accurate|certif/i);
   });
 });
+
+/**
+ * P5 — the build a flyer is LOOKING at, not just the one that wrote a file they saved.
+ *
+ * `buildLine()` has been on every kept document since D11 slice 4 while the screen said nothing,
+ * so a flyer who noticed a reading change between two visits could answer "which version produced
+ * this?" about a saved report and not about the page in front of them.
+ */
+describe('the running build is visible on the page, not only in saved documents', () => {
+  const FOOTER = readFileSync(new URL('../components/SiteFooter.tsx', import.meta.url), 'utf8');
+
+  it('renders the same line the documents carry, from the same module', () => {
+    // Not a second phrasing built in the component. The whole reason `buildLine()` exists is that
+    // six documents must not drift into six wordings; a seventh surface writing its own would be
+    // the same defect on the surface a flyer sees most.
+    expect(FOOTER).toContain("from '@/lib/buildInfo'");
+    expect(FOOTER, 'the shared formatter, not a hand-built string').toContain('buildLine()');
+    expect(FOOTER, 'no second phrasing of the build line').not.toMatch(/`Debrief \$\{/);
+  });
+
+  it('links the build to the commit it was made from', () => {
+    // An identifier nobody can resolve is decoration. The methods change most weeks, which is the
+    // whole reason the stamp exists, so `Debrief a1b2c3d` is only useful if a1b2c3d can be read.
+    expect(FOOTER).toContain('/commit/${BUILD_SHA}');
+    expect(FOOTER, 'an outbound link carries the standing rel').toMatch(/rel="noopener noreferrer"/);
+  });
+
+  it('says nothing at all outside a production build', () => {
+    // `BUILD_SHA` is exactly 'dev' there, and a version line reading "Debrief dev" on a real visit
+    // would be worse than no line — it looks like a build identifier and identifies nothing.
+    expect(FOOTER).toContain("BUILD_SHA !== 'dev'");
+  });
+});
