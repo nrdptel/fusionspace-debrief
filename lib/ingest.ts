@@ -17,7 +17,9 @@ import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers
 import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { attachHighRateText, attachSummaryText, saveRecent } from './recents';
+import { attachHighRateText, attachSummaryText, saveRecent, setFlightIds } from './recents';
+import { readGrouping } from './canonical';
+import { planRestoredGroupings, type RecordedGrouping } from './flightGroups';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -34,6 +36,10 @@ export interface IngestedFlight {
   text: string;
   /** The logbook key it was stored under, or null where storage was unavailable. */
   savedId: string | null;
+  /** Whether this landed on a row the flyer already had, rather than creating one. From the
+   *  store, which is the only thing that can tell: a replaced row keeps its id and gets a fresh
+   *  `addedAt`, so it is indistinguishable from a new one afterwards. */
+  replaced: boolean;
 }
 
 export interface IngestOutcome {
@@ -66,6 +72,14 @@ export interface IngestOutcome {
    *  happened yet, and telling a flyer Debrief "read a summary" for a design file would be wrong
    *  about what they dropped. */
   predictionPaired: string[];
+  /** "<record> + <record> → one flight", one per flight whose grouping this drop RESTORED from
+   *  the statements the records themselves carry.
+   *
+   *  Its own list rather than a line in `paired` for the same reason the two above are: nothing
+   *  was read ONTO anything here and no second measurement arrived. The flyer said months ago
+   *  that these files were one flight, and Debrief is remembering it rather than discovering it —
+   *  which is also why it is safe to do without asking, where `proposeGroups` has to ask. */
+  groupsRestored: string[];
   /** Flights this drop pushed out of the logbook. The logbook keeps a bounded window of
    *  un-noted flights (every entry holds the whole file text), and a launch day's folder is
    *  most of that window — so the third day quietly ate the first. Named now, so the flyer
@@ -80,6 +94,41 @@ export interface IngestOutcome {
    *  it named the wrong files. They are not in the logbook either — nothing read them — which the
    *  drop box's own copy promises they would be, so a surface has to be able to say so. */
   unread: string[];
+}
+
+/**
+ * Put back the flyer's own grouping, where the flight records in this drop state one.
+ *
+ * A flight record carries the statement the flyer made in the logbook — that this file is one of
+ * several recordings of one flight, and which of them reports it (`lib/canonical.ts`
+ * `CanonicalGrouping`). Without this, saving both recordings of a two-altimeter flight and
+ * dropping them back in gives two unrelated flights, and the statement is silently lost on the
+ * one export built to be read back.
+ *
+ * **A row the flyer already had is left alone**, which is the rule `proposeGroups` also follows.
+ * The test is `saveRecent`'s own `replaced`, and it has to come from there: a re-dropped file
+ * keeps its existing id but gets a FRESH `addedAt`, so nothing outside the store can tell a
+ * replacement from a new row afterwards.
+ *
+ * Checking "does the row state a grouping already?" instead is the version that looks right and
+ * is wrong, because `planSeparation` writes `flightId: null` — the key is DELETED. A flyer who
+ * dropped these records, saw them grouped, and deliberately separated them would have had the
+ * separation undone by dropping the same files again, which is the one statement this rule most
+ * needs to protect. A replaced row covers that case and every other one: they have had the
+ * chance to say something about it, whatever they said.
+ */
+async function restoreGroupings(results: IngestedFlight[]): Promise<string[]> {
+  const stated: RecordedGrouping[] = [];
+  for (const r of results) {
+    if (!r.savedId || r.replaced) continue;
+    const g = readGrouping(r.text);
+    if (!g) continue;
+    stated.push({ id: r.savedId, name: r.name, flight: g.flight, reports: g.reports, of: g.of });
+  }
+  const { changes, restored } = planRestoredGroupings(stated);
+  // Only claim it if the store actually took it. A quota abort left the sentence "put these
+  // recordings back together" printed over a logbook that had not changed.
+  return (await setFlightIds(changes)) ? restored : [];
 }
 
 /** Does this file name belong to the rocket a summary names? Compared on letters and digits
@@ -321,7 +370,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
         ...(textIsTheFile(text) ? {} : { bytes }),
       });
       for (const n of saved.forgotten) forgotten.push(n);
-      results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id });
+      results.push({ name: file.name, formatLabel: result.flight.formatLabel, flight: result.flight, analysis, text, savedId: saved.id, replaced: saved.replaced });
     } catch (e) {
       // A device summary throws on the way through the parsers, but it isn't rubbish: it
       // holds the altimeter's own figures for a flight logged beside it.
@@ -366,6 +415,11 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   skipped.push(...hr.unpaired);
   for (const r of hr.remember) await attachHighRateText(r.id, r.text);
   for (const r of remember) await attachSummaryText(r.id, r.text);
+  // …and the same third pass for a grouping the records themselves state: which of these files
+  // the flyer had already said were one flight. Here rather than in the read loop because it is
+  // the same question the two above ask — it can only be answered once every file has a logbook
+  // id, since the plan is written against those ids and not against the tokens in the files.
+  const groupsRestored = await restoreGroupings(results);
   for (const s of unpaired) {
     // Two different facts, and only one of them is ever true. With no flights in the drop the
     // log really isn't here. With flights in it, Debrief has one and cannot tell it is the
@@ -390,6 +444,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
     paired,
     highRatePaired: hr.paired,
     predictionPaired: pred.paired,
+    groupsRestored,
     forgotten,
     unread,
   };
@@ -427,6 +482,23 @@ export function predictionNote(predictionPaired: string[], shown: boolean): stri
     `design states what its simulator expected, and it sits beside Debrief's read of what actually ` +
     `flew rather than being mixed into it. Drop the design again next time: unlike a device summary, ` +
     `it is not kept with the flight.`
+  );
+}
+
+/**
+ * What a flyer is told when a drop of flight records put their own grouping back.
+ *
+ * Says the one thing they cannot see for themselves: that this is REMEMBERED rather than worked
+ * out. Debrief inferring that two files are one flight would be a claim it is not entitled to
+ * make — `lib/flightGroups.ts` is built around refusing to — so a sentence that read like a
+ * discovery would describe the wrong tool. It also names the way out, because a restored grouping
+ * is a state the flyer did not ask for in this session.
+ */
+export function groupsRestoredNote(groupsRestored: string[]): string {
+  return (
+    `Put these recordings back together as one flight (${groupsRestored.join('; ')}) — each record ` +
+    `carries the grouping you saved it with, so Debrief remembered it rather than working it out ` +
+    `from the files. To undo it, open the flight in your logbook and separate its recordings.`
   );
 }
 

@@ -14,6 +14,39 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — a RESTORED group whose recordings were cropped can print an apogee spread taken
+  over two different stretches.** `lib/flightGroups.ts:recordingSpread` returns nothing when any
+  recording carries a `read` window, precisely so a flyer's own crop is never painted as instrument
+  disagreement. But `downloadRecord` writes the CROPPED samples (the entry below, filed 2026-08-08)
+  and the `read` window does not survive the round trip, so a re-imported cropped recording looks
+  whole and the guard cannot fire. Reachable only through D11 slice 3's restore, which is what
+  created the exposure: before it, two such records were two unrelated flights and no spread was
+  computed at all. Fixed by the same change the entry below needs — the record carrying the flyer's
+  statements rather than baking them into the samples — so the two should be done together.
+- **2026-08-09 — two copies of ONE flight record under different names group as a flight recorded
+  twice.** `lib/flightGroups.ts:planRestoredGroupings`. The logbook dedupes on file identity, so
+  `x.json` and `x (1).json` are two rows carrying one grouping token, and the restore buckets them
+  together. `recordingSpread` then reports an apogee spread of ~0% — one instrument agreeing with
+  itself, presented with the confidence a redundant-altimeter flyer acts on. Not reachable without
+  a deliberate rename; the honest fix is for the record to state WHICH recording it is (the token
+  says which flight, not which member), which is one field and would also let a re-drop of the same
+  record replace rather than duplicate.
+- **2026-08-09 — `analyzedDataCsv` is the only report artifact with no recording line, and it ships
+  in the same ZIP as the .md that has one.** `lib/report.ts:780` takes no `ReportMeta` at all. On a
+  grouped flight "Save bundle" therefore writes a summary that names which altimeter these readings
+  came from and a data CSV that does not, so the two altimeters' CSVs are byte-indistinguishable as
+  provenance to anyone handed the bundle. Reported by the multi-source surface audit; the mechanism
+  is verified by reading the signature, the bundle claim is not driven. Note the deliberate decision
+  beside it (D11 slice 4): the CSV carries no build stamp either, because a leading `#` breaks a
+  spreadsheet's column detection — so the fix is a column, not a comment.
+- **2026-08-09 — the comparison surface, whose entire subject is several recordings of one flight,
+  never states a grouping the logbook already holds.** `lib/compareFromLogbook.ts:36` loads rows by
+  id and never reads `RecentMeta.flightId`; `components/CompareView.tsx:300` omits `recording` from
+  its `reportMeta`; and `lib/report.ts:1639`'s `compareJson.sameFlight` has only `different-flights`
+  and `unknown` as verdicts, so there is no value a stated grouping could ever produce. Three layers
+  of the same absence, which is why it is one entry. Reported by the surface audit and verified by
+  reading the three sites; the exported `compare.json` was not driven.
+
 - **2026-08-08 — "Save record" on a CROPPED report writes only the cropped samples, and the file
   does not say a crop happened.** `components/FlightReport.tsx` passes the report's `flight`, and
   that is already the sliced one: `components/Analyzer.tsx:280` and `:363` pass `sliceFlight(...)`

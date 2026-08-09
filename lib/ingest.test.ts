@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { predictionNote, unreadNote, MAX_NAMED_UNREAD } from './ingest';
+import { groupsRestoredNote, predictionNote, unreadNote, MAX_NAMED_UNREAD } from './ingest';
 
 // `ingestFiles` itself needs real Files and a real IndexedDB, so it is exercised end to end in
 // e2e/compare.spec.ts. The SENTENCE it hands the surfaces is pure, and it makes claims about a
@@ -95,5 +95,38 @@ describe('what a flyer is told when a design paired onto their flight', () => {
     expect(note).toContain("comparison doesn't show a prediction");
     // …and says what to do instead, rather than naming a dead end.
     expect(note).toContain('on its own');
+  });
+});
+
+describe('what a flyer is told when their own grouping came back', () => {
+  const one = ['a-debrief-record.json + b-debrief-record.json → one flight'];
+
+  it('says Debrief REMEMBERED it, never that it worked it out', () => {
+    // The distinction is the whole product posture: `lib/flightGroups.ts` refuses to infer that
+    // two files are one flight, so a sentence that read like a discovery would describe a tool
+    // Debrief deliberately is not — and would invite a flyer to trust an automatic merge.
+    const note = groupsRestoredNote(one);
+    expect(note).toMatch(/remembered/);
+    expect(note).toMatch(/rather than working it out/);
+    expect(note, 'never a word that claims Debrief decided this').not.toMatch(/detected|matched|inferred|worked out that/);
+  });
+
+  it('names the files, so the flyer can see WHICH two were put together', () => {
+    expect(groupsRestoredNote(one)).toContain('a-debrief-record.json + b-debrief-record.json');
+  });
+
+  it('says where the way back out is, not just that there is one', () => {
+    // `predictionNote`'s `shown` flag exists because a sentence that sends a flyer to a control
+    // the surface does not carry is worse than saying nothing. Both surfaces that render this
+    // note are comparison views and neither shows the logbook, so it names the logbook.
+    const note = groupsRestoredNote(one);
+    expect(note).toMatch(/logbook/);
+    expect(note).toMatch(/separate/i);
+  });
+
+  it('carries every restored flight when a drop put back more than one', () => {
+    const note = groupsRestoredNote([...one, 'c.json + d.json → one flight']);
+    expect(note).toContain('a-debrief-record.json');
+    expect(note).toContain('c.json + d.json');
   });
 });

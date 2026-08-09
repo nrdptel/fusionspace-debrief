@@ -2506,3 +2506,55 @@ describe('reading the descent from a file’s second copy of one flight', () => 
     expect(a.metrics.descentTime).toBeNull();
   });
 });
+
+/**
+ * The second half of the 2026-08-09 Sev-1 sweep: a peak speed refused for an ascent GAP, and the
+ * readings that go on reading the same array anyway.
+ *
+ * `series.velocityUnusable` is set for either reason, and every surface downstream withholds off
+ * it. Three metrics gated on the magnitude check alone, so a flight whose peak Debrief refused
+ * still published a burnout speed — labelled measured — plus a coast efficiency and a drag loss
+ * built on it. Zero corpus recordings reach this today, so it is pinned on a synthetic and the
+ * corpus count is stated rather than implied.
+ */
+describe('a peak refused for a gap takes the readings taken off it', () => {
+  /** `accelFlight`'s clean boost, with a mid-ascent dropout: 4 s added from index 100 on. */
+  function gapped(): RawFlight {
+    const f = accelFlight(null);
+    const t = Float64Array.from(f.time);
+    for (let i = 100; i < t.length; i++) t[i] += 4;
+    return { ...f, time: t };
+  }
+
+  it('withholds the burnout speed, the coast efficiency and the drag loss with it', () => {
+    const m = analyzeFlight(gapped()).metrics;
+    // The premise: this is the gap path, not the magnitude path.
+    expect(m.maxVelocityWithheld, 'the peak is refused for a gap, not for magnitude').toBe('gap');
+    expect(analyzeFlight(gapped()).series.velocityUnusable, 'and the flag every surface reads is set').toBe(true);
+
+    // All three read `velocity[burnoutIdx]`, directly or through it. Before this they published
+    // 300 m/s, 7.8% and 4,229 m off a trace the same document refused to quote a peak from.
+    expect(m.burnoutVelocity, 'no burnout speed off a refused trace').toBeNull();
+    expect(m.coastEfficiency, 'and nothing built on it').toBeNull();
+    expect(m.dragLossAltitude).toBeNull();
+  });
+
+  it('still reports all three on a flight whose peak was never refused', () => {
+    // The other direction, so the fix is a WITHHOLDING and not a deletion — a guard that always
+    // fires is the same defect pointing the other way. `coastFlight` is the fixture the coast
+    // readings are already pinned on above, and its peak stands.
+    const m = analyzeFlight(coastFlight()).metrics;
+    expect(m.maxVelocityWithheld, 'nothing is refused on this one').toBeNull();
+    expect(m.burnoutVelocity, 'so it still reports a burnout speed').toBeGreaterThan(0);
+    expect(m.coastEfficiency).not.toBeNull();
+    expect(m.dragLossAltitude).not.toBeNull();
+  });
+
+  it('keeps the readings burnout does not rest on the velocity trace for', () => {
+    // Burn time and burnout altitude come off the clock and the altitude channel at the same
+    // instant, so a refused SPEED must not take them with it.
+    const m = analyzeFlight(gapped()).metrics;
+    expect(m.burnoutSource, 'the instant was still located').not.toBeNull();
+    expect(m.burnoutAltitude, 'and the altitude read at it stands').not.toBeNull();
+  });
+});

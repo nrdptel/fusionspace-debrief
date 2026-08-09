@@ -109,6 +109,44 @@ interface CanonicalPredicted {
 }
 
 /**
+ * The flyer's statement that this recording is one of several of ONE flight.
+ *
+ * **Deliberately not part of the flight.** `RawFlight` is what one instrument recorded, and
+ * "these two files are one flight" is not something an instrument records — it is something the
+ * flyer said afterwards, in the logbook, and `lib/flightGroups.ts` exists precisely because
+ * INFERRING it is the dangerous problem. So it rides beside the measurement, outside the
+ * `RawFlight` fields, exactly as `build` does: `fromCanonical` never sees it and the analyzer
+ * cannot reach it.
+ *
+ * `flight` is the primary recording's logbook id, which makes it a device-local token that is
+ * meaningless on its own — and that is all it has to be. It is never resolved against the
+ * importing device's logbook; it only has to be EQUAL across the records written from one
+ * flight, so the drop path can tell which of the files in front of it belong together.
+ */
+export interface CanonicalGrouping {
+  /** The flight this recording belongs to. Opaque, and equal across every record of one flight. */
+  flight: string;
+  /** Whether this is the recording the flight is reported by. */
+  reports: boolean;
+  /** How many recordings the flight had when this record was written. Stated so a flyer who
+   *  drops two records of a four-recording flight can be told that two are missing rather than
+   *  being shown a flight that quietly claims to be complete. */
+  of: number;
+}
+
+/**
+ * How far into the file `readGrouping` looks.
+ *
+ * The block is written immediately after the build stamp and before `source`, so it lands in the
+ * first couple of hundred characters of every record this code writes. Reading it out of the head
+ * rather than parsing the file again is not a micro-optimisation: `importFlight` has ALREADY
+ * parsed the whole record by the time the drop path wants the grouping, and a record carries
+ * every sample of every channel — re-parsing tens of megabytes to read three short fields would
+ * double the cost of opening a set of them.
+ */
+const GROUPING_HEAD = 2048;
+
+/**
  * The file's shape.
  *
  * Keyed off `RawFlight` with `satisfies`, so a field ADDED to the model without being handled
@@ -123,6 +161,9 @@ interface CanonicalRecord {
    *  code that read it when a number is questioned in June. See `lib/buildInfo.ts`. */
   build?: string;
   builtAt?: string;
+  /** The flyer's grouping statement. Not part of the flight — see `CanonicalGrouping`. Written
+   *  here, ahead of the series, so `readGrouping` can find it without parsing the file again. */
+  grouping?: CanonicalGrouping;
   source: string;
   format: string;
   formatLabel: string;
@@ -158,10 +199,13 @@ const decodeSeries = (a: readonly Scalar[]): Float64Array => {
  * exactly (ECMA-262), so no digits are lost and no tolerance is involved. The file is therefore
  * larger than the log it came from, which is the honest cost of carrying every sample.
  */
-export function toCanonical(flight: RawFlight): string {
+export function toCanonical(flight: RawFlight, grouping?: CanonicalGrouping): string {
   const record = {
     schema: CANONICAL_SCHEMA,
     ...buildFields(),
+    // Presence, not truthiness: a flight of one recording states nothing, which is what every
+    // record written before this existed also states, so both read back identically.
+    ...(grouping === undefined ? {} : { grouping }),
     source: flight.source,
     format: flight.format,
     formatLabel: flight.formatLabel,
@@ -282,4 +326,36 @@ export function fromCanonical(text: string): RawFlight {
 /** Cheap enough to run on every dropped file: the schema token near the head of the text. */
 export function looksCanonical(text: string): boolean {
   return text.slice(0, 400).includes(`"schema":"${CANONICAL_SCHEMA}"`);
+}
+
+/**
+ * The grouping statement a record carries, or null where it carries none.
+ *
+ * **Ignores rather than refuses, which is the opposite of `fromCanonical` and is deliberate.**
+ * That function refuses a record it cannot read fully because a flight that is subtly different
+ * from the archived one is worse than one that failed to open. A grouping cannot make a flight
+ * subtly different: it is not in the flight. Dropping an unreadable one degrades to exactly the
+ * state before this existed — two flights in the logbook, joinable in one click — and that is
+ * visible to the flyer, where refusing the file would lose the measurement outright.
+ *
+ * `of` is required to be at least 2 because a grouping of one recording is not a grouping, and
+ * `flight` must be non-empty: an empty token would bucket every record that carries one together.
+ */
+export function readGrouping(text: string): CanonicalGrouping | null {
+  // The braces are excluded from the body match so this cannot run away across the whole file
+  // when a record carries no grouping at all — which is nearly every record.
+  const m = /"grouping":(\{[^{}]*\})/.exec(text.slice(0, GROUPING_HEAD));
+  if (!m) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(m[1]);
+  } catch {
+    return null;
+  }
+  if (typeof raw !== 'object' || raw === null) return null;
+  const g = raw as Partial<CanonicalGrouping>;
+  if (typeof g.flight !== 'string' || g.flight === '') return null;
+  if (typeof g.reports !== 'boolean') return null;
+  if (typeof g.of !== 'number' || !Number.isInteger(g.of) || g.of < 2) return null;
+  return { flight: g.flight, reports: g.reports, of: g.of };
 }

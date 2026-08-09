@@ -2040,7 +2040,28 @@ exports.
 
 ## D11 (from ON-4) — One canonical file, out and back in
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**, pinned by `lib/canonical.test.ts` (8 cases;
+**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED; only slice 5 (the composite's stage order)
+remains.** Slice 3 shipped 2026-08-09 (PR #156): the flyer's grouping statement now travels in the
+record, outside the `RawFlight` fields, and the drop path restores it. The *done when*'s
+multi-source clause is met for the two-recordings case and pinned twice — by
+`lib/flightGroups.test.ts` → `planRestoredGroupings` and `groupToken` (12 cases, falsified against
+both rejected token designs) and by `e2e/analyze.spec.ts` → *"two recordings saved as records come
+back as one flight, not two"*, which drives the whole journey in the real app and was falsified in
+both halves, writer and reader. `lib/canonical.test.ts` additionally pins that the grouping stays
+OUT of the flight: a record written with one and a record written without produce an identical
+`RawFlight`.
+
+**What slice 5 still owes, and it is the last clause:** *"a stitched composite keeps its stages"*.
+The composite is entirely derived and stores nothing except the flyer's first-stage statement, which
+lives in `localStorage` under `debrief.firstStage` keyed by device-local logbook ids and is not in
+the logbook backup — so it needs the same treatment slice 3 gave the grouping, applied to a
+statement that currently lives outside the logbook entirely. Two known gaps are filed in
+`BACKLOG.md` rather than fixed here: a restored group whose recordings were CROPPED can compute an
+apogee spread over two different stretches (the crop does not survive the round trip either, and the
+fix is the same one), and two copies of one record under different names group as a flight recorded
+twice.
+
+**Slice 1 SHIPPED 2026-08-08**, pinned by `lib/canonical.test.ts` (8 cases;
 the round-trip runs over the 9 committed fixtures AND every corpus recording, so it holds in fork CI
 without `FIXTURES_TOKEN` and holds harder with the corpus attached) and by `e2e/analyze.spec.ts` →
 *"a flight saved as a record opens again as the same flight"*.
@@ -3337,7 +3358,27 @@ content out of the page into a shared module, a pure move pinned by an unchanged
 
 ## P9 (from ON-1) — The methods page is a document you can read
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**, pinned by `lib/methodIds.test.ts`
+**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED. Slice 5 is now scoped and is the last
+one: the page cites nothing.** Slice 4 shipped 2026-08-09 (PR #156) — the two blocks that were still
+a single paragraph, 705 and 614 words, broken at eight subject changes with the rendered text proved
+character-identical (62,797 chars). Paragraphs **88 → 96**, longest **705 → 369**, over 400 words
+**2 → 0**, pinned by a ratchet in `lib/methodIds.test.ts` that walks every paragraph rather than
+spot-checking the two, falsified against the previous text and against a reader that matches nothing.
+
+**Slice 5 — the page cites nothing, and that is a gap against this repo's own invariant.** Measured
+2026-08-09: `lib/methods/content.tsx` carries **0 URLs, 0 DOIs and not one named algorithm** across
+102 KB — `Hampel` 0, `Kalman` 0, `Barrowman` 0, `Savitzky` 0, `1976` 0 — while `Hampel` appears 11
+times in the analysis code and `1976` twice. `MAINTAINING.md`'s CLEAN-ROOM invariant says to
+implement every method from published sources **and cite them**; the citing is happening in code
+comments, where no flyer can reach it. `COMPETITION.md` row 37 has the field comparison, including
+why OpenRocket is both the high-water mark and the cautionary tale: its technical documentation is
+thesis-derived and frozen at v13.05 (2013-05-10) while the app is many releases past it — which is
+exactly the drift D11 slice 4's build stamp already lets Debrief avoid. **Done when** every method
+block that rests on a published source or a named algorithm names it, the page carries a references
+section those names link to, and a check fails when a block cites nothing that the code it describes
+names. Sized 1–2 increments.
+
+**Slice 1 SHIPPED 2026-08-08**, pinned by `lib/methodIds.test.ts`
 (*"places every block in exactly one group"* and *"renders each group as its own section, in the
 order it declares"*, both falsified) and `e2e/smoke.spec.ts` → *"the methods page can be navigated,
 not just scrolled"* (falsified twice — against the blocks put back at `h2`, and against the contents
@@ -3491,6 +3532,30 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-09 — the grouping token in a flight record is the smallest logbook id in the set, not
+  the flight's own id and not opening order.** Two records of one flight must agree on a token or
+  the restore silently does nothing, and "silently" is the problem: the failure is two ordinary
+  flights, which looks like nothing went wrong. **Rejected: the flight's own id**, which is its
+  current primary's and moves the moment a flyer presses "report by this one" or deletes the primary
+  row. **Rejected, and this one was shipped and then caught: earliest `addedAt`**, the "opened
+  first" rule `planJoin` already uses — `saveRecent` writes a fresh `addedAt` on every re-read,
+  including a plain re-open, so exporting a record from each of two recordings moves "earliest"
+  BETWEEN the two exports. The e2e walk failed on it. A row's ID is the only thing here that does
+  not move: a replacement keeps it. **The cost of the choice, stated:** the token changes if the
+  flight gains or loses a recording, so records exported either side of that will not re-group. That
+  is a real change to what the set IS, it fails safe (two flights, joinable in one click), and the
+  alternative — a stable per-flight key minted at join time — is a new field in `RecentMeta` and a
+  migration, which is a bigger change than this slice, worth doing if the failure is ever observed.
+
+- **2026-08-09 — a burnout speed's caveat does NOT inherit the peak's "usually reads high" tendency
+  unless burnout IS the peak.** The tendency is measured on the peak — five of six corpus pairs read
+  high, one 14% low — and the burnout sample is generally a different one. **Rejected: reusing
+  `velocityProvenance`'s full sentence everywhere**, which reads better and would state a
+  corpus-measured error range for a sample the corpus never measured. The row says
+  "derived from the altitude, at a measured burnout" instead: the provenance without a tendency the
+  reading has not earned. This is the same rule as the standing one about quoting a speed ratio
+  under a Mach ratio's name.
 
 - **2026-08-08 — the canonical flight record is JSON, not the CSV the scoping proposed.** The scoping
   agent's slice-1 design was a CSV with a magic first line and a `key,value` preamble, on the

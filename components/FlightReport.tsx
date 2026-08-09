@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { renderCaveats } from '@/lib/caveatUnits';
 import { repeatedSpanNote } from '@/lib/highRateRepeats';
+import { groupToken } from '@/lib/flightGroups';
 import type { RawFlight } from '@/lib/flight/types';
 import type { FlightAnalysis } from '@/lib/analyze/types';
 import { accelIn, accelInG, fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime, lengthIn, placesFor, speedIn, systemOf, unitsOf } from '@/lib/display';
@@ -436,7 +437,31 @@ export default function FlightReport({
   // archived flight gets every later improvement to the analysis rather than being frozen at
   // the version that wrote it.
   function downloadRecord() {
-    download(new Blob([toCanonical(flight)], { type: 'application/json' }), `${stem}-debrief-record.json`);
+    // …and the flyer's own statement that this file is one of several recordings of one flight,
+    // where they made one. It rides beside the measurement rather than in it — a grouping is
+    // something the flyer said, not something the instrument recorded — so saving both halves of
+    // a two-altimeter flight and dropping them back in returns one flight rather than two.
+    //
+    // **The token is the EARLIEST-ADDED recording's id, deliberately not the flight's own id.**
+    // A flight's id is its current primary's, and the primary MOVES: "report by this one"
+    // rewrites every row's `flightId`, and deleting the primary promotes the next survivor. Two
+    // records saved either side of that would carry different tokens, bucket separately and
+    // restore nothing — silently, because the failure looks exactly like two ordinary flights.
+    // Opening order is a property of the SET rather than of whichever member currently speaks
+    // for it, and it is the same rule `planJoin` already picks a primary by.
+    //
+    // `reports` still reads the current primary, because that is what it is a statement about:
+    // which recording the flight is reported by, now. `recordings[0]` is that one, which is how
+    // `groupRecordings` builds the list.
+    const group =
+      recordings && recordings.length > 1 && recordingId && recordings.some((r) => r.id === recordingId)
+        ? {
+            flight: groupToken(recordings),
+            reports: recordings[0].id === recordingId,
+            of: recordings.length,
+          }
+        : undefined;
+    download(new Blob([toCanonical(flight, group)], { type: 'application/json' }), `${stem}-debrief-record.json`);
   }
 
   // Print a clean flight card. Force a light theme first so the canvas charts

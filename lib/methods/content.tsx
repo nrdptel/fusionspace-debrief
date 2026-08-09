@@ -468,8 +468,10 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           1,700&nbsp;ft, and another reads 1,095&nbsp;ft below a height it had already recorded. A
           climbing rocket can do neither. The same shock runs the other way on other airframes,
           driving the sensed pressure <em>down</em> so the trace climbs faster than the rocket did —
-          and a running maximum cannot see that, because the altitude never goes backwards. What
-          catches it is a bound rather than a tolerance: over any stretch a rocket&apos;s mean climb
+          and a running maximum cannot see that, because the altitude never goes backwards.
+        </p>
+        <p>
+          What catches it is a bound rather than a tolerance: over any stretch a rocket&apos;s mean climb
           rate cannot exceed the fastest it was going during that stretch, and where the flight has a
           measured speed the fastest it was going is in the file. So the height gained since liftoff
           is capped by (peak speed so far)&nbsp;×&nbsp;(time since liftoff). One corpus flight reports
@@ -478,7 +480,10 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           velocity is worked out from this very altitude trace, so it would be testing the trace
           against itself — and reading an axial speed as vertical only makes the cap more generous,
           which is the right direction for a guard. Across the whole corpus it changes exactly that
-          one figure. Where the record contradicts itself either way — below the
+          one figure.
+        </p>
+        <p>
+          Where the record contradicts itself either way — below the
           pad, well below a height already passed, or above what its own speed record allows —
           Debrief looks for a second altitude recording
           in the same file: where the logger solved for an inertial altitude (a Blue Raven does) and
@@ -491,13 +496,17 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           time and the speed of the reading are unaffected, so are apogee and the descent, and the
           altitude chart still shows the trace exactly as recorded. Ordinary barometric wander is far
           below the bar: across the corpus every sound flight&apos;s read-offs sit within 72&nbsp;ft
-          of the record, and the three that trip it are 557 to 1,125&nbsp;ft out. Where the logger
-          solved for an <strong>inertial altitude</strong> of its own (a Blue Raven does), Debrief
+          of the record, and the three that trip it are 557 to 1,125&nbsp;ft out.
+        </p>
+        <p>
+          Where the logger solved for an <strong>inertial altitude</strong> of its own (a Blue Raven does), Debrief
           carries it as a second altitude recording you can plot against the barometric line — on
           that same flight it reads 1,710&nbsp;ft at the instant the barometer reads 493&nbsp;ft
           below the pad, and only one of those can be a height. The analysis stays on the barometric
           channel, which is the one that doesn&apos;t drift over a whole flight; the two are shown
           side by side rather than merged.{' '}
+        </p>
+        <p>
           <strong>That second recording is carried only for as long as it is still a recording.</strong>{' '}
           It is an integration, written into a field that cannot hold a large flight, so it ends at
           whichever comes first of a single-sample step of about 2<sup>16</sup>&nbsp;ft — a counter
@@ -524,13 +533,18 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           <strong>high</strong> at the peak rather than soft — smoothing does soften a peak, but
           what differentiation adds is generally larger. Across the corpus pairs that carry both
           reads it runs {derivedPeakList('speed')} on the speeds: mostly high, once 14% low, so it
-          bounds the speed in neither direction. It is labelled wherever it appears. A logged velocity column that turns out to be the
+          bounds the speed in neither direction. It is labelled wherever it appears.
+        </p>
+        <p>
+          A logged velocity column that turns out to be the
           file&apos;s <em>own altitude differenced sample to sample</em> is not a second reading at
           all — a baro-only altimeter has no speed sensor, so what it writes there carries the
           barometer&apos;s quantization as speed, and its peak is that noise (one real export of a
           Mach&nbsp;1.3 flight states 4,880&nbsp;ft/s). Debrief detects that case, re-derives the
-          velocity from the same altitude with proper smoothing, and labels it derived. The weaker
-          version of the same problem is a <em>filtered</em> barometric derivative, which no longer
+          velocity from the same altitude with proper smoothing, and labels it derived.
+        </p>
+        <p>
+          The weaker version of the same problem is a <em>filtered</em> barometric derivative, which no longer
           matches the raw difference and slips past that test — caught instead by asking what the
           device had to measure a speed <em>with</em>. A baro-only altimeter has one sensor, so its
           velocity column is worked out from its own pressure readings however the firmware smooths
@@ -540,8 +554,10 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           leaves the accelerometer out, as a Blue Raven&apos;s low-rate file does. Nine corpus
           flights used to read as measured with none of the three, among them 4,483&nbsp;ft/s on a
           4,661&nbsp;ft apogee and 2,671&nbsp;ft/s on 958&nbsp;ft; the numbers the device wrote are
-          still shown, but they now carry every derived-velocity caveat. A peak beyond
-          any rocket — the fastest amateur flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled
+          still shown, but they now carry every derived-velocity caveat.
+        </p>
+        <p>
+          A peak beyond any rocket — the fastest amateur flights reach ~Mach&nbsp;6 — is not flight but a mis-scaled
           or misidentified velocity column (a raw sensor count read as a speed); such a reading is
           withheld, along with everything derived from it — Mach, max-Q, the burnout velocity and the
           coast efficiency — rather than reported as an impossible number. The same figures are
@@ -552,8 +568,10 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           separation — where the pressure at the port stops tracking altitude. Two altimeters that
           recorded one such booster agree on its apogee to the foot and read peaks of 1,500 and
           540&nbsp;ft/s, so the honest answer is that neither recording resolves the speed. Apogee,
-          the timings and the descent still read normally from the altitude. A derived speed that peaks
-          at or past the transonic region (about Mach&nbsp;0.9 up) carries a further caveat:
+          the timings and the descent still read normally from the altitude.
+        </p>
+        <p>
+          A derived speed that peaks at or past the transonic region (about Mach&nbsp;0.9 up) carries a further caveat:
           approaching Mach&nbsp;1 the airflow over a barometric pressure port goes locally supersonic
           and a shock sits on it, distorting the sensed pressure and the speed read from it — and
           the error runs both ways. It is usually high, and the corpus pairs span{' '}
@@ -811,6 +829,19 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
           116.30 against 118.09&nbsp;m/s. An AltimeterCloud export shows the other side of it: its
           own summary puts burnout 2.7–5.0% below its peak speed, which is the gap between two
           definitions of the instant, not two readings of a speed.
+        </p>
+        <p>
+          <strong>Two different questions, and the burnout speed answers the second one.</strong>{' '}
+          How the <em>instant</em> was located — an accelerometer crossing, or the speed peak
+          standing in for one — is what the burn time and the burnout altitude rest on, because a
+          clock and the altitude channel are read directly at it. The burnout <em>speed</em> is
+          read off the velocity trace, so where that trace is differentiated from the altitude the
+          number is derived however cleanly the crossing was found. Two logs in our test corpus are
+          exactly that case, and until 2026-08-09 they printed a differentiated altitude as{' '}
+          <em>measured</em> three rows under the identical figure labelled <em>derived</em>. The
+          instant&apos;s provenance and the speed&apos;s are now stated separately, and where
+          burnout is not the peak the &ldquo;usually reads high&rdquo; tendency is left off: that
+          was measured on the peak, and this is a different sample.
         </p>
       </>
     ),

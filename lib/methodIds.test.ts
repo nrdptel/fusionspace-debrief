@@ -204,6 +204,37 @@ describe('the methods page has a structure, and every block is in it', () => {
     expect(PAGE, 'it stacks paragraphs with the §4 spacing scale').toContain('space-y-3');
   });
 
+  it('has no paragraph a reader has to climb — nothing over 400 words', () => {
+    // P9 slice 4, the editorial half. Slices 2 and 3 restored the author's OWN breaks and gave
+    // the page a measure; what they could not do is invent a break nobody wrote. Two blocks were
+    // still a single paragraph of 724 and 640 words — the longest things on the page and the
+    // only ones a reader meets as an unbroken wall at 49–66 characters a line.
+    //
+    // A RATCHET, not a spot check: it walks every paragraph of every block, so a future edit
+    // that grows one past the bar fails here rather than being noticed by a reader. 400 words is
+    // roughly two screens of this page's measure on a phone, which is the thing being prevented.
+    const content = readFileSync(new URL('./methods/content.tsx', import.meta.url), 'utf8');
+    const bodies = content.split(/^\s*<p>$/m).slice(1);
+    const words = (t: string) =>
+      t
+        .replace(/\{[^{}]*\}/g, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .split(/\s+/)
+        .filter((w) => /[a-z0-9]/i.test(w)).length;
+    const long = bodies
+      .map((b) => words(b.split(/^\s*<\/p>$/m)[0] ?? ''))
+      .map((n, i) => ({ i, n }))
+      .filter((p) => p.n > 400);
+    expect(long.map((p) => p.n), `paragraphs over 400 words: ${JSON.stringify(long)}`).toEqual([]);
+
+    // …and the bar has something to bite on. Without this the assertion above passes on an empty
+    // page, a failed split, or a regex that stopped matching — the shape this file has shipped
+    // before and now falsifies deliberately.
+    expect(bodies.length, 'it actually read the paragraphs').toBeGreaterThan(90);
+    const longest = Math.max(...bodies.map((b) => words(b.split(/^\s*<\/p>$/m)[0] ?? '')));
+    expect(longest, 'and the longest is a real paragraph, not an empty match').toBeGreaterThan(150);
+  });
+
   it('gives every group a title and a blurb that is not the title again', () => {
     // A group heading that restates its members' names teaches nothing — the craft bar's
     // "tooltips that restate the label" one level up. The blurb says what the subject IS.

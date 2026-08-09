@@ -201,6 +201,14 @@ export interface SaveResult {
   id: string | null;
   /** File names dropped from the logbook to make room for this one. */
   forgotten: string[];
+  /** Whether this save landed on a row that was ALREADY in the logbook, rather than creating
+   *  one. The store knows — a duplicate keeps the existing id — and nothing outside could work
+   *  it out afterwards, because a replaced row gets a fresh `addedAt` like a new one.
+   *
+   *  It matters wherever a drop wants to act on the flyer's behalf: a row they already have is
+   *  a row they have had the chance to say something about, so restoring a grouping onto it
+   *  would put an archived file's old statement over their most recent one. */
+  replaced: boolean;
 }
 
 /** What a save takes: everything but the two the store owns and the note, which is only ever
@@ -311,6 +319,7 @@ export function planPrune(others: RecentFlight[]): RecentFlight[] {
 
 export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
   let savedId: string | null = null;
+  let replaced = false;
   const forgotten: string[] = [];
   try {
     const db = await idb();
@@ -332,6 +341,7 @@ export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
     // in place, so the address it replaces is the address it should keep.
     const existing = all.find(isDup);
     const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    replaced = existing != null;
     store.put({
       ...replaceInPlace(rec, dups),
       id,
@@ -378,13 +388,13 @@ export async function saveRecent(rec: IncomingFlight): Promise<SaveResult> {
     // null. Re-opening a logbook flight on a quota-full device would have read fine and then
     // silently dropped its own address out of the URL, so Back and reload landed on the empty
     // drop zone. Null is right only for a flight that was never in the logbook to begin with.
-    if (!complete) return { id: existing ? id : null, forgotten: [] };
+    if (!complete) return { id: existing ? id : null, forgotten: [], replaced: existing != null };
     savedId = id;
     for (const g of groupRecordings(dropped)) if (droppedIds.has(g.primary.id)) forgotten.push(g.primary.name);
   } catch {
     /* storage unavailable — just don't remember */
   }
-  return { id: savedId, forgotten };
+  return { id: savedId, forgotten, replaced };
 }
 
 /** Remember the device-summary file a flight was paired with, so the pairing survives a
@@ -478,8 +488,8 @@ export async function saveCaption(id: string, caption: { label: string; notes: s
  * any note, caption or crop that landed in between — and every one of those writers is
  * fire-and-forget from a click.
  */
-export async function setFlightIds(changes: { id: string; flightId: string | null }[]): Promise<void> {
-  if (changes.length === 0) return;
+export async function setFlightIds(changes: { id: string; flightId: string | null }[]): Promise<boolean> {
+  if (changes.length === 0) return true;
   try {
     const db = await idb();
     const store = tx(db, 'readwrite');
@@ -502,15 +512,22 @@ export async function setFlightIds(changes: { id: string; flightId: string | nul
     // comes back to check — and an uncommitted transaction is discarded when the page goes
     // away. Measured: the grouping was on screen, survived a refresh of the list, and was back
     // to its previous state after a reload.
-    await new Promise<void>((resolve) => {
-      store.transaction.oncomplete = () => resolve();
+    //
+    // **Whether it committed is now RETURNED**, because a caller that tells the flyer what it
+    // did has to know. `restoreGroupings` says "put these recordings back together"; on a quota
+    // abort that sentence was printed over a logbook that had not changed, which is the
+    // save-that-cannot-report-failure shape `saveRecent` and `importLogbook` were both rewritten
+    // to stop. A click-driven caller can still ignore it, and every existing one does.
+    return await new Promise<boolean>((resolve) => {
+      store.transaction.oncomplete = () => resolve(true);
       store.transaction.onabort = (e) => {
         e.preventDefault();
-        resolve();
+        resolve(false);
       };
     });
   } catch {
     /* storage unavailable — the logbook simply doesn't remember the grouping */
+    return false;
   }
 }
 

@@ -456,3 +456,64 @@ describe('a stage panel shows one recording’s own readings and cannot invent o
     ]);
   });
 });
+
+/**
+ * The Sev-1 found 2026-08-09 and its fix: a burnout SPEED took its provenance from how the
+ * INSTANT was located, so a barometric derivative was published as `measured` three rows under
+ * the identical figure labelled `derived`. Two corpus recordings do this.
+ *
+ * `EVERYTHING` carries `maxVelocitySource: 'device'`, which is why every existing assertion above
+ * passed throughout: the whole defect lives on the baro path, and nothing exercised it.
+ */
+describe('a burnout speed says what the SPEED is, not how the instant was found', () => {
+  /** A flight whose velocity is differentiated from the altitude — the case the corpus hits. */
+  const BARO = { ...EVERYTHING, maxVelocitySource: 'baro' as const };
+
+  it('never calls a differentiated altitude "measured", however clean the crossing', () => {
+    // The defect verbatim: a signed axial crossing located the instant, so `burnoutSource` is
+    // 'measured' — but the number at that instant came off a baro derivative.
+    const m = { ...BARO, burnoutSource: 'measured' as const, burnoutAtVelocityPeak: false, burnoutVelocity: 121.2 };
+    const sub = metricTiles(m, 'metric').find((t) => t.label === 'Burnout velocity')?.sub;
+    expect(sub, 'the old bug was this reading bare-labelled "measured"').not.toBe('measured');
+    expect(sub).toMatch(/derived/);
+    // …and it is explicit about WHERE the derivation came from, so the row is readable alone.
+    expect(sub).toMatch(/altitude/);
+  });
+
+  it('does not borrow the peak\u2019s tendency for a sample that is not the peak', () => {
+    // "usually reads high" was measured ON THE PEAK — five of six corpus pairs. Quoting it on a
+    // different sample would be stating one basis under another's name, which is the mistake
+    // this repo has made before with speed and Mach percentages.
+    const m = { ...BARO, burnoutSource: 'measured' as const, burnoutAtVelocityPeak: false, burnoutVelocity: 121.2 };
+    expect(metricTiles(m, 'metric').find((t) => t.label === 'Burnout velocity')?.sub).not.toMatch(/reads high/);
+  });
+
+  it('does carry the peak\u2019s own caveat where burnout IS the peak, because it is one sample', () => {
+    const m = { ...BARO, burnoutSource: 'derived' as const, burnoutAtVelocityPeak: true, burnoutVelocity: 156.91, maxVelocity: 156.91 };
+    const sub = metricTiles(m, 'metric').find((t) => t.label === 'Burnout velocity')?.sub;
+    expect(sub).toMatch(/reads high/);
+    expect(sub, 'and still says the two rows are one sample').toMatch(/same instant as max velocity/);
+  });
+
+  it('leaves a device-measured speed exactly as it was', () => {
+    // The regression guard for the other half: a logger that recorded its own velocity measured
+    // this sample like any other, and the row must go on saying how the instant was found.
+    const m = { ...EVERYTHING, burnoutSource: 'measured' as const, burnoutAtVelocityPeak: false };
+    expect(metricTiles(m, 'metric').find((t) => t.label === 'Burnout velocity')?.sub).toBe('measured');
+  });
+
+  it('says the same thing on the tile and in the saved document', () => {
+    // The failure this whole class belongs to is a caveat landing on one surface and a confident
+    // claim on another, so the two are compared directly rather than each pinned alone.
+    for (const m of [
+      { ...BARO, burnoutSource: 'measured' as const, burnoutAtVelocityPeak: false },
+      { ...BARO, burnoutSource: 'derived' as const, burnoutAtVelocityPeak: true },
+      { ...EVERYTHING, burnoutSource: 'measured' as const, burnoutAtVelocityPeak: false },
+    ]) {
+      const sub = metricTiles(m, 'metric').find((t) => t.label === 'Burnout velocity')?.sub;
+      const row = headlineRows(m, 'metric').find(([l]) => l === 'Burnout velocity')?.[1];
+      expect(sub, 'the tile has a provenance at all').toBeTruthy();
+      expect(row, `the report row repeats the tile's exact words: ${sub}`).toContain(sub as string);
+    }
+  });
+});

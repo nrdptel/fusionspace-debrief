@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { groupRecordings, isGrouped, planGrouping, planJoin, planSeparation, recordingSpread } from './flightGroups';
+import {
+  groupRecordings,
+  groupToken,
+  isGrouped,
+  planGrouping,
+  planJoin,
+  planRestoredGroupings,
+  planSeparation,
+  recordingSpread,
+} from './flightGroups';
 import type { RecentMeta } from './recents';
 
 const row = (id: string, over: Partial<RecentMeta> = {}): RecentMeta => ({
@@ -252,5 +261,150 @@ describe('recordingSpread', () => {
 
   it('says nothing at all about a flight recorded once', () => {
     expect(recordingSpread(groupRecordings([row('solo')])[0])).toEqual([]);
+  });
+});
+
+describe('planRestoredGroupings', () => {
+  /** One dropped record's statement, as `restoreGroupings` builds it from the file. */
+  const rec = (id: string, flight: string, reports: boolean, of = 2) => ({
+    id,
+    name: `${id}-debrief-record.json`,
+    flight,
+    reports,
+    of,
+  });
+
+  it('puts two records of one flight back together, reported by the one that says so', () => {
+    // The journey the slice exists for: a flyer saved both altimeters' records months ago and
+    // drops the pair back in. `f` is the token both files carry — the primary's logbook id on
+    // the device that wrote them, which this device never resolves and only compares.
+    const { changes, restored } = planRestoredGroupings([rec('new-a', 'f', true), rec('new-b', 'f', false)]);
+    expect(changes).toEqual([
+      { id: 'new-a', flightId: 'new-a' },
+      { id: 'new-b', flightId: 'new-a' },
+    ]);
+    // The plan names the ids these files were JUST saved under and never the token in the file,
+    // which is the whole reason the token can be a stranger's logbook id. Asserted against the
+    // INPUT rather than restated, because repeating the `toEqual` above cannot fail.
+    expect(changes.map((c) => c.id).sort()).toEqual(['new-a', 'new-b']);
+    expect(changes.some((c) => c.flightId === 'f'), 'never the token the file carried').toBe(false);
+    expect(restored).toEqual(['new-a-debrief-record.json + new-b-debrief-record.json → one flight']);
+  });
+
+  it('reports the flight by the record that SAYS so, not by the one dropped first', () => {
+    // The assertion that separates the rule from the order. Without it every test here passes
+    // against a primary chosen as `members[0]`, because a flyer usually drops the primary first
+    // — and Debrief would then hand the flight to whichever file the file picker happened to
+    // list first, which is exactly the best-of-two-instruments this feature must never be.
+    const { changes } = planRestoredGroupings([rec('second', 'f', false), rec('first', 'f', true)]);
+    expect(changes.every((c) => c.flightId === 'first')).toBe(true);
+  });
+
+  it('leaves an ordinary drop of unrelated flights completely alone', () => {
+    // The case that must cost nothing. Two records of two different flights state two different
+    // tokens, so neither bucket reaches two and nothing is written.
+    const { changes, restored } = planRestoredGroupings([rec('a', 'f1', true), rec('b', 'f2', true)]);
+    expect(changes).toEqual([]);
+    expect(restored).toEqual([]);
+  });
+
+  it('promotes the first survivor when the recording that reports the flight was not dropped', () => {
+    // A flyer who exported four recordings and drops the two that are not the primary has still
+    // stated a real grouping — its nominee is simply absent. Same rule `groupRecordings` uses
+    // when the primary ROW is deleted: the flight is still their flight.
+    const { changes } = planRestoredGroupings([rec('b', 'f', false, 4), rec('c', 'f', false, 4)]);
+    expect(changes).toEqual([
+      { id: 'b', flightId: 'b' },
+      { id: 'c', flightId: 'b' },
+    ]);
+  });
+
+  it('says how many of the flight\u2019s recordings are actually here', () => {
+    // Two of four. A restored flight that silently claimed to be the whole thing would be the
+    // repo's own recurring failure — a figure stated without the count it was taken over.
+    const { restored } = planRestoredGroupings([rec('b', 'f', false, 4), rec('c', 'f', false, 4)]);
+    expect(restored[0]).toContain('2 of the 4 recordings it was saved with');
+    // …and it is silent when the set IS complete, rather than saying "2 of the 2".
+    const whole = planRestoredGroupings([rec('b', 'f', true), rec('c', 'f', false)]);
+    expect(whole.restored[0]).not.toMatch(/of the/);
+  });
+
+  it('takes the fullest claim when records disagree about how many there were', () => {
+    // A set exported at different times: one record was written when the flight held two
+    // recordings and another after a third joined. Understating is the failure that matters —
+    // it would tell a flyer nothing is missing when something is.
+    const { restored } = planRestoredGroupings([rec('b', 'f', true, 2), rec('c', 'f', false, 3)]);
+    expect(restored[0]).toContain('2 of the 3');
+  });
+
+  it('cannot be made to produce two flights that each report the other', () => {
+    // Only reachable from a hand-edited file: two records under one token both claiming to be
+    // the primary. The first wins and the token is never followed, so there is one flight.
+    const { changes } = planRestoredGroupings([rec('b', 'f', true), rec('c', 'f', true)]);
+    expect(changes).toEqual([
+      { id: 'b', flightId: 'b' },
+      { id: 'c', flightId: 'b' },
+    ]);
+  });
+
+  it('does not make a flight out of one record, however it is stated', () => {
+    // A grouping of one recording is not a grouping — `planGrouping` refuses it too.
+    expect(planRestoredGroupings([rec('b', 'f', true, 4)]).changes).toEqual([]);
+    expect(planRestoredGroupings([]).changes).toEqual([]);
+  });
+
+  it('does not merge two flights because the same file was dropped twice', () => {
+    // Deduped in the logbook, both results carry ONE saved id, so the plan would name a flight
+    // of one row twice. `planGrouping` uniques the ids and then refuses the set.
+    expect(planRestoredGroupings([rec('same', 'f', true), rec('same', 'f', false)]).changes).toEqual([]);
+  });
+});
+
+describe('groupToken', () => {
+  it('does not move when the flyer hands the flight to a different recording', () => {
+    // The regression this rule exists for. `planGrouping` rewrites every row's `flightId` to the
+    // new primary, so a token taken from the flight's own id would differ between a record saved
+    // before and one saved after — and the two would restore as two flights, silently, because
+    // that outcome is indistinguishable from two ordinary flights.
+    const first = row('first', { addedAt: 1_000 });
+    const later = row('later', { addedAt: 2_000 });
+    const before = groupRecordings([{ ...first, flightId: 'first' }, { ...later, flightId: 'first' }]);
+    const plan = planGrouping(['first', 'later'], 'later');
+    const byId = new Map(plan.map((c) => [c.id, c.flightId]));
+    const after = groupRecordings([
+      { ...first, flightId: byId.get('first') },
+      { ...later, flightId: byId.get('later') },
+    ]);
+    expect(before[0].id, 'the FLIGHT id moved, which is the premise').not.toBe(after[0].id);
+    expect(groupToken(after[0].recordings), 'the token did not').toBe(groupToken(before[0].recordings));
+    expect(groupToken(before[0].recordings)).toBe('first');
+  });
+
+  it('survives the recordings arriving in a different order', () => {
+    // A record is exported from whichever recording is on screen, so the array order differs
+    // between the two saves. The token is a property of the set, never of position.
+    const a = row('a');
+    const b = row('b');
+    expect(groupToken([a, b])).toBe(groupToken([b, a]));
+  });
+
+  it('does not move when a recording is merely re-opened', () => {
+    // The trap `addedAt` fell into, and the reason this is pinned rather than assumed:
+    // `saveRecent` stamps a fresh `addedAt` every time a file is re-read, so opening one
+    // recording and then the other moves "earliest" between the two exports. Ids do not move —
+    // a replacement keeps the existing one.
+    const a = row('a', { addedAt: 1_000 });
+    const b = row('b', { addedAt: 2_000 });
+    const before = groupToken([a, b]);
+    // …the flyer opens `a`, then `b`, so both timestamps have been rewritten and their ORDER
+    // has flipped.
+    const after = groupToken([{ ...a, addedAt: 9_000 }, { ...b, addedAt: 9_500 }]);
+    expect(after).toBe(before);
+  });
+
+  it('is a property of which recordings are in the flight, and nothing else', () => {
+    const late = row('aaa', { addedAt: 9_000 });
+    const early = row('zzz', { addedAt: 1_000 });
+    expect(groupToken([late, early])).toBe('aaa');
   });
 });

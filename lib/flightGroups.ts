@@ -140,6 +140,115 @@ export function planGrouping(ids: string[], primaryId: string): { id: string; fl
   return unique.map((id) => ({ id, flightId: primaryId }));
 }
 
+/**
+ * The token a set of recordings carries out of the app so a later drop can tell they are one
+ * flight: the smallest of their logbook ids.
+ *
+ * An arbitrary representative on purpose. The requirement is not that it MEAN anything — nothing
+ * ever resolves it against the importing logbook, and only equality across a set of records is
+ * read — but that two records exported from one flight at different moments agree on it.
+ *
+ * **Not the flight's own id**, which is its current primary's and moves: `planGrouping` rewrites
+ * every row's `flightId` when the flyer hands the flight to another recording, and
+ * `groupRecordings` promotes the next survivor when the primary row is deleted.
+ *
+ * **And not `addedAt` order**, which looks stable and is not — measured 2026-08-09, by the e2e
+ * walk failing on it. `saveRecent` writes a fresh `addedAt` every time a file is re-read,
+ * including when a flyer simply re-opens a recording, so exporting a record from each of two
+ * recordings moves the "earliest" between the two exports and the tokens disagree.
+ * (`planJoin` reduces on `addedAt` for the same "opened first" idea; it runs once, at the moment
+ * of joining, so it is not exposed to this.)
+ *
+ * A row's ID is the thing that does not move: `saveRecent` keeps the existing one on a
+ * replacement, so re-dropping, re-opening and re-nominating all leave it alone. The token
+ * therefore changes only when the flight gains or loses a recording, which is a real change to
+ * what the set IS.
+ */
+export function groupToken(recordings: RecentMeta[]): string {
+  return recordings.map((r) => r.id).sort()[0];
+}
+
+/** One dropped flight record's grouping statement, paired with where that file landed. */
+export interface RecordedGrouping {
+  /** The logbook id this file was just saved under — the id the plan will be written against. */
+  id: string;
+  /** The file's name, for the sentence the flyer reads afterwards. */
+  name: string;
+  /** The flight token the record states. Opaque; only equality across records matters. */
+  flight: string;
+  /** Whether the record says this recording is the one its flight is reported by. */
+  reports: boolean;
+  /** How many recordings the flight had when the record was written. */
+  of: number;
+}
+
+/** What a drop of flight records restored, and the sentence to say about it. */
+export interface RestoredGroupings {
+  /** For `setFlightIds`. Empty where nothing in the drop belongs together. */
+  changes: { id: string; flightId: string }[];
+  /** "a.json + b.json → one flight", one per flight restored. */
+  restored: string[];
+}
+
+/**
+ * The flyer's earlier grouping, restored from a set of flight records dropped together.
+ *
+ * **This reads a statement rather than inferring one**, which is the rule at the top of this
+ * file and the reason it is safe to do automatically where `proposeGroups` has to ask. The flyer
+ * already said these files were one flight; each record carries that statement, written when it
+ * was exported. Nothing here looks at what the flights CONTAIN — not the name, not the clock, not
+ * the apogee — so there is no reading of the data that could be wrong.
+ *
+ * Two cases the tokens make possible and the code has to answer, both settled the way
+ * `groupRecordings` already settles them for a logbook whose primary row was deleted:
+ *
+ *  - **no record in the drop claims to report the flight.** A flyer who exported four recordings
+ *    and drops the two that are not the primary has stated a real grouping with its nominee
+ *    missing, so the first of them is promoted, exactly as a logbook does when the primary row
+ *    is removed. The flight is still their flight.
+ *  - **more than one claims it.** Only reachable from a hand-edited file. The first wins, and
+ *    nothing follows the token any further, so a contradictory pair cannot produce two flights
+ *    that each think they report the other.
+ *
+ * A token with a single record under it yields nothing: one recording is not a flight of
+ * several, and `planGrouping` refuses it in any case.
+ */
+export function planRestoredGroupings(records: RecordedGrouping[]): RestoredGroupings {
+  const buckets = new Map<string, RecordedGrouping[]>();
+  for (const r of records) {
+    const at = buckets.get(r.flight);
+    if (at) at.push(r);
+    else buckets.set(r.flight, [r]);
+  }
+
+  const changes: { id: string; flightId: string }[] = [];
+  const restored: string[] = [];
+  for (const members of buckets.values()) {
+    // No length guard here on purpose: `planGrouping` already refuses a set that does not name
+    // at least two DISTINCT rows, and that is the stricter test — a `members.length < 2` check
+    // passes a bucket holding the same file dropped twice, which dedupes to one logbook id.
+    // Falsified: adding the guard changes no test, because it can only ever agree.
+    const primary = members.find((r) => r.reports) ?? members[0];
+    const plan = planGrouping(members.map((r) => r.id), primary.id);
+    if (plan.length === 0) continue;
+    changes.push(...plan);
+    // Say when the set is INCOMPLETE. The records state how many recordings the flight had when
+    // they were written, so a flyer who drops two of four can be told the other two are missing
+    // rather than shown a flight that quietly claims to be all of it — the same reason
+    // `RecordingSpread` prints the count it was taken over. `of` is the largest any record
+    // claims: a set exported at different times can disagree, and the fullest statement is the
+    // only one that cannot understate what is absent.
+    const of = Math.max(...members.map((r) => r.of));
+    const names = members.map((r) => r.name).join(' + ');
+    restored.push(
+      members.length < of
+        ? `${names} → one flight (${members.length} of the ${of} recordings it was saved with)`
+        : `${names} → one flight`,
+    );
+  }
+  return { changes, restored };
+}
+
 /** The plan that separates a flight back into one flight per recording. The way out of a
  *  grouping, which every grouping needs: a flyer who joins the wrong two files must be able to
  *  say so without deleting them and dropping them again. */
