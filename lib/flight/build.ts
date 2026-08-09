@@ -69,6 +69,11 @@ export interface BuildOptions {
   mappings: ColumnMapping[];
   meta?: Record<string, string | number>;
   notes?: string[];
+  /** The file's own statement that it is a flight Debrief made up, when it carries one. It becomes
+   *  the FIRST note on the flight, which is what puts it in front of every reader: `lib/report.ts`
+   *  carries `flight.notes` into the .txt, .md, .html and .json, and `toCanonical` writes them
+   *  verbatim into a saved record. See `lib/synthetic.ts`. */
+  synthetic?: string;
   reported?: ReportedValue[];
   /** When the flight flew, where the source file states it. */
   flownAt?: FlownAt;
@@ -79,7 +84,9 @@ function num(cell: string | undefined): number {
 }
 
 export function buildFlight(opts: BuildOptions): RawFlight {
-  const notes = [...(opts.notes ?? [])];
+  // FIRST, ahead of anything a parser wants to say about carried-forward rows. A reader who stops
+  // after one line has to have read this one.
+  const notes = [...(opts.synthetic ? [opts.synthetic] : []), ...(opts.notes ?? [])];
   const timeMap = opts.mappings.find((m) => m.role === 'time');
   if (!timeMap) {
     throw new Error('No time column was selected.');
