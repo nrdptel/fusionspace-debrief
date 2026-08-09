@@ -497,7 +497,10 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  that a flyer's own altimeter software cannot (P5 slice 2). A NEW surface taking the primitive
    *  on the pass that creates it, which is the cheap direction — the expensive ones in this list
    *  are all conversions. */
-  Card: 26,
+  /** 26 → 27 on 2026-08-09: `SimulationChoice`, the control that lets a flyer say which of a
+   *  design's several simulations flew (D9 slice 3b). Another NEW surface built on the primitive
+   *  rather than converted onto it — which is the point of P1 having gone first. */
+  Card: 27,
   /** 18 → 19 on 2026-08-03 with §5's fifth weight. `Analyzer` is the new adopter: its "← Analyze
    *  another flight" was one of eight hand-rolled indigo-text controls across four files, which is
    *  the vocabulary having been short a word rather than four files having been careless. The

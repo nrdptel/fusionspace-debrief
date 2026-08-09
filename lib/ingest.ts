@@ -12,7 +12,13 @@
 
 import { importFlight, ParseGuidanceError } from './parsers';
 import { summaryFigures } from './parsers/deviceSummary';
-import { predictionFigures } from './parsers/openrocket';
+import {
+  predictionFiguresFrom,
+  readPredictionDetail,
+  type Prediction,
+  type PredictionContribution,
+} from './parsers/openrocket';
+import type { PredictionOffer } from './predictionChoice';
 import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers/blueraven';
 import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
@@ -73,6 +79,14 @@ export interface IngestOutcome {
    *  happened yet, and telling a flyer Debrief "read a summary" for a design file would be wrong
    *  about what they dropped. */
   predictionPaired: string[];
+  /** Designs that stated SEVERAL simulations and paired onto a flight — the offer a surface turns
+   *  into "which one flew?".
+   *
+   *  Separate from `predictionPaired` because nothing was read onto the flight: a design stating
+   *  several contributes its refusal and no figures, which is exactly why there is something to
+   *  offer. Empty for a design stating one, which needs no choice, and for a design that found no
+   *  flight, which is already reported in `skipped`. See `lib/predictionChoice.ts`. */
+  predictionOffers: PredictionOffer[];
   /** "<record> + <record> → one flight", one per flight whose grouping this drop RESTORED from
    *  the statements the records themselves carry.
    *
@@ -243,10 +257,11 @@ function pairSummaries(results: IngestedFlight[], summaries: IngestOutcome['summ
  */
 function pairPredictions(
   results: IngestedFlight[],
-  predictions: { name: string; figures: NonNullable<ReturnType<typeof predictionFigures>> }[],
-): { paired: string[]; unpaired: { name: string; why: string }[] } {
+  predictions: { name: string; figures: PredictionContribution; prediction: Prediction }[],
+): { paired: string[]; unpaired: { name: string; why: string }[]; offers: PredictionOffer[] } {
   const paired: string[] = [];
   const unpaired: { name: string; why: string }[] = [];
+  const offers: PredictionOffer[] = [];
   for (const p of predictions) {
     const target =
       results.find((r) => sameRocket(r.name, p.figures.rocket)) ??
@@ -284,8 +299,19 @@ function pairPredictions(
     // not pick one to compare against", with no prediction column anywhere on the page. The
     // refusal is the honest account of that drop, so it is the only one made.
     if (added.length) paired.push(`${p.name} → ${target.name}`);
+    // …and where it contributed NOTHING because it states several, the flyer is the only one who
+    // can break the tie. Offered here rather than at the surface because pairing is the step that
+    // knows which flight the design belongs to, and that is half the offer.
+    else if (p.prediction.runs.length > 1) {
+      offers.push({
+        file: p.name,
+        flightId: target.savedId ?? undefined,
+        flightName: target.name,
+        prediction: p.prediction,
+      });
+    }
   }
-  return { paired, unpaired };
+  return { paired, unpaired, offers };
 }
 
 /**
@@ -355,7 +381,9 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   const summaries: IngestOutcome['summaries'] = [];
   /** Blue Raven high-rate streams, held until every file is read so each can find its flight. */
   const highRate: { name: string; stream: HighRateStream; why: string; text: string }[] = [];
-  const predictions: { name: string; figures: NonNullable<ReturnType<typeof predictionFigures>> }[] = [];
+  /** Designs, held with the read they came from: the contribution pairs onto a flight, and the
+   *  `Prediction` beside it is what a picker is built from when that contribution was a refusal. */
+  const predictions: { name: string; figures: PredictionContribution; prediction: Prediction }[] = [];
   const unread: string[] = [];
 
   for (const [i, file] of files.entries()) {
@@ -408,9 +436,17 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
       // An OpenRocket design throws as well, and it is the third file in this drop that is not
       // rubbish: it states what the flight was PREDICTED to do. Held aside like a summary,
       // because which flight it belongs to can only be answered once every file has been read.
-      const predicted = text ? predictionFigures(text) : null;
-      if (predicted) {
-        predictions.push({ name: file.name, figures: predicted });
+      // Read ONCE and keep both views. The contribution is what pairs onto a flight; the
+      // `Prediction` beside it carries every simulation the design states, which is what the
+      // "which one flew?" control is built from. The corpus fixture is 996 KB of XML, so reading
+      // it a second time to answer the second half would be a cost with no reason behind it.
+      const read = text ? readPredictionDetail(text) : null;
+      if (read?.prediction) {
+        predictions.push({
+          name: file.name,
+          figures: predictionFiguresFrom(read.prediction),
+          prediction: read.prediction,
+        });
         continue;
       }
       // A Blue Raven high-rate file throws too, and it is not rubbish either: it is the other
@@ -473,6 +509,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
     paired,
     highRatePaired: hr.paired,
     predictionPaired: pred.paired,
+    predictionOffers: pred.offers,
     groupsRestored,
     forgotten,
     unread,

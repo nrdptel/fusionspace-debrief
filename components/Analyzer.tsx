@@ -42,6 +42,7 @@ import {
   type StoredMapping,
 } from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
+import { applySimulationChoice, type PredictionOffer, type SimulationChoice } from '@/lib/predictionChoice';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
 import { SAMPLES, sampleFiles, type Sample } from '@/lib/samples';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
@@ -80,6 +81,12 @@ type State =
       reading?: boolean;
       /** Why the last stretch the flyer asked for could not be read. */
       readError?: string;
+      /** A design dropped beside this flight stating SEVERAL simulations, held for the session
+       *  so the flyer can say which one flew. It is not persisted, for the same reason the
+       *  prediction itself is not — see `predictionNote`. Absent on every flight without one. */
+      simulationOffer?: PredictionOffer;
+      /** Which they said. `null`/absent is Debrief's own default of comparing none. */
+      simulationChoice?: SimulationChoice;
     }
   /** `ids` are the logbook keys the dropped files were saved under, when storage allowed
    *  it — enough to offer this comparison at its own address on /compare. */
@@ -375,7 +382,20 @@ export default function Analyzer() {
         }
         setState((prev) =>
           prev.phase === 'report'
-            ? { ...prev, flight: shown, analysis, analyzedAt: Date.now(), reading: false, readError: undefined }
+            ? {
+                ...prev,
+                // `shown` is sliced from `file`, which never carried the design's contribution —
+                // so a crop would silently drop a simulation the flyer had chosen, and leave the
+                // picker showing it as still chosen. Re-applied here, against the new stretch, so
+                // the control and the cross-check cannot disagree about what is being compared.
+                flight: prev.simulationOffer
+                  ? applySimulationChoice(shown, prev.simulationOffer, prev.simulationChoice ?? null)
+                  : shown,
+                analysis,
+                analyzedAt: Date.now(),
+                reading: false,
+                readError: undefined,
+              }
             : prev,
         );
       } catch (err) {
@@ -388,6 +408,26 @@ export default function Analyzer() {
     },
     [state],
   );
+
+  /**
+   * The flyer says which simulation flew — or takes it back.
+   *
+   * Applied to the flight already on screen rather than by re-reading anything: a prediction
+   * contributes figures, notes and a curve, none of which the analyzer reads, so there is nothing
+   * to re-analyse. `applySimulationChoice` strips whatever the last choice left before it adds,
+   * which is what lets this be called repeatedly and what makes "Don't compare one" exact.
+   */
+  const chooseSimulation = useCallback((choice: SimulationChoice) => {
+    setState((prev) =>
+      prev.phase === 'report' && prev.simulationOffer
+        ? {
+            ...prev,
+            flight: applySimulationChoice(prev.flight, prev.simulationOffer, choice),
+            simulationChoice: choice,
+          }
+        : prev,
+    );
+  }, []);
 
   const onFile = useCallback(
     async (file: File) => {
@@ -447,7 +487,7 @@ export default function Analyzer() {
       // One set of rules for what a launch day's folder holds — including which summary
       // belongs to which log — shared with the comparison surface so the two can't disagree
       // about it (see lib/ingest.ts).
-      const { results, skipped, mappable, paired, highRatePaired, predictionPaired, groupsRestored, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable, paired, highRatePaired, predictionPaired, predictionOffers, groupsRestored, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
 
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
@@ -503,6 +543,13 @@ export default function Analyzer() {
           analysis: r.analysis,
           analyzedAt: Date.now(),
           text: r.text,
+          // The choice lives on THIS branch alone, and that is the same fact `predictionNote`'s
+          // `shown` argument carries: the cross-check a chosen simulation fills is on the
+          // single-flight report and nowhere else, so offering the control on a comparison would
+          // be offering a control whose effect is on another page. Only the first offer is taken
+          // — this branch has exactly one flight, and two designs both claiming to predict it is
+          // a drop nothing else in the app has a shape for either.
+          ...(predictionOffers.length > 0 ? { simulationOffer: predictionOffers[0] } : {}),
           // Both accounts, not whichever fires first. A drop of the summary + the low-rate log
           // + the high-rate log — what Featherweight's own software writes out together —
           // hits the left-out branch, and the paired note used to be discarded by the
@@ -792,6 +839,9 @@ export default function Analyzer() {
           readError={state.readError}
           {...(state.savedId ? { recordings: groupOf(logbook.recents, state.savedId)?.recordings, recordingId: state.savedId } : {})}
           onRecording={openRecent}
+          simulationOffer={state.simulationOffer}
+          simulationChoice={state.simulationChoice}
+          onSimulationChoice={state.simulationOffer ? chooseSimulation : undefined}
         />
       </div>
     );

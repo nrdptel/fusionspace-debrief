@@ -2288,9 +2288,14 @@ test('a design that states several simulations is read, and refuses to pick one'
   await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
   // Read, paired, and declined — all three said out loud. A silent nothing would read as
   // "this file has no prediction", which is false.
-  await expect(page.getByText(/states 5 simulations/)).toBeVisible();
-  await expect(page.getByText(/Simulation 3 - too short delay/)).toBeVisible();
-  await expect(page.getByText(/will not pick one to compare against/)).toBeVisible();
+  // Scoped to the note rather than the page since D9 slice 3b: the picker below it labels each
+  // simulation by name too, so an unscoped match now resolves to two elements. The subject of
+  // this case is what the NOTE says — which is also what travels into an export, where the
+  // picker does not exist.
+  const howRead = page.locator('li').filter({ hasText: /will not pick one to compare against/ });
+  await expect(howRead).toHaveCount(1);
+  await expect(howRead).toContainText('states 5 simulations');
+  await expect(howRead).toContainText('Simulation 3 - too short delay');
 
   // **And it is not ALSO announced as a prediction that landed.** The refusal is the whole
   // account of this drop; the paired sentence beside it said "Read the prediction for this
@@ -2663,4 +2668,106 @@ test('two recordings saved as records come back as one flight, not two', async (
   // …and it is one flight OF TWO RECORDINGS, not one file that lost its partner — the failure a
   // bare count of 1 would also pass.
   await expect(page.getByRole('button', { name: /Recorded 2 times/ }).first()).toBeVisible();
+});
+
+/** A design stating THREE simulations, with apogees far enough apart that the picker's own
+ *  labels tell them apart: 100 m, 200 m and 300 m are 328, 656 and 984 ft. Built here rather
+ *  than taken from the corpus so this case runs on a fork with no fixtures token — the corpus
+ *  `.ork` states five and is the same shape. */
+const THREE_SIM_ORK = storedZip(
+  'rocket.ork',
+  `<?xml version='1.0' encoding='utf-8'?><openrocket version="1.10" creator="OpenRocket 24.12">` +
+    `<rocket><name>Telemetrum</name></rocket><simulations>` +
+    [
+      { name: 'Simulation 1 - A8-3', alt: 100 },
+      { name: 'Simulation 2 - B6-4', alt: 200 },
+      { name: 'Simulation 3 - C6-5', alt: 300 },
+    ]
+      .map(
+        (s) =>
+          `<simulation status="uptodate"><name>${s.name}</name>` +
+          `<flightdata maxaltitude="${s.alt}" maxvelocity="68.6" maxacceleration="143.649" maxmach="0.2" ` +
+          `timetoapogee="6.5" flighttime="60" groundhitvelocity="4.681" launchrodvelocity="15.365" ` +
+          `deploymentvelocity="2.646" optimumdelay="2.751"/></simulation>`,
+      )
+      .join('') +
+    `</simulations></openrocket>`,
+);
+
+test('a design stating several simulations lets the flyer say which flew, and says it was theirs', async ({ page }) => {
+  // D9 slice 3b. Debrief still refuses to pick — nothing in a flight log names the motor — so
+  // what ships is the flyer's own statement, attributed to them on the surface where a
+  // PREDICTION sits beside a MEASUREMENT. The refusal stays the default and stays reachable.
+  await page.goto('/');
+  const orkPath = path.join(os.tmpdir(), 'three-sims.ork');
+  writeFileSync(orkPath, THREE_SIM_ORK);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), orkPath]);
+
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  // Before anybody says anything: no prediction is compared, and the refusal says why.
+  const picker = page.getByRole('region', { name: /Which simulation flew/ });
+  await expect(picker).toBeVisible();
+  await expect(page.getByText(/will not pick one to compare against/)).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Predicted' })).toHaveCount(0);
+
+  // Each run is offered by name AND by its stated apogee — the thing that tells three
+  // OpenRocket-default names apart.
+  const group = picker.getByRole('group', { name: 'Which simulation flew' });
+  await expect(group.getByRole('button', { name: /Simulation 2 - B6-4/ })).toContainText('656 ft');
+
+  // Say which flew.
+  await group.getByRole('button', { name: /Simulation 2 - B6-4/ }).click();
+
+  const panel = page.getByRole('region', { name: /Predicted, logged, and read|design’s prediction/ });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('row', { name: /Apogee/ }).first()).toContainText('656 ft');
+  // Attribution is the whole point: Debrief did not work this out.
+  await expect(page.getByText(/You said “Simulation 2 - B6-4” is the one that flew/)).toBeVisible();
+  await expect(page.getByText(/Debrief cannot read that from a flight log/)).toBeVisible();
+  await expect(page.getByText(/the other 2 are not compared/)).toBeVisible();
+  // …and the refusal is no longer on a flight it is no longer true of.
+  await expect(page.getByText(/will not pick one to compare against/)).toHaveCount(0);
+
+  // Change it. The old choice leaves nothing behind — one attribution line, one apogee.
+  await group.getByRole('button', { name: /Simulation 3 - C6-5/ }).click();
+  await expect(panel.getByRole('row', { name: /Apogee/ }).first()).toContainText('984 ft');
+  await expect(page.getByText(/You said “Simulation 3 - C6-5” is the one that flew/)).toBeVisible();
+  await expect(page.getByText(/You said “Simulation 2 - B6-4”/)).toHaveCount(0);
+
+  // And the way back out — the state a flyer entered is one they can leave, which is what
+  // stops this being a one-way door.
+  await group.getByRole('button', { name: /Don’t compare one/ }).click();
+  await expect(page.getByText(/will not pick one to compare against/)).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Predicted' })).toHaveCount(0);
+  await expect(page.getByText(/You said/)).toHaveCount(0);
+});
+
+test('a chosen simulation reaches the exports, not just the panel', async ({ page }) => {
+  // The rule this repo keeps relearning: when a value is computed, presented or withheld, it
+  // changes on EVERY surface that carries it. A choice that filled the cross-check and left the
+  // .md a flyer pastes into a cert document saying Debrief declined to pick would be the caveat
+  // landing on one panel and a confident claim on another.
+  await page.goto('/');
+  const orkPath = path.join(os.tmpdir(), 'three-sims-export.ork');
+  writeFileSync(orkPath, THREE_SIM_ORK);
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'), orkPath]);
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  await page
+    .getByRole('region', { name: /Which simulation flew/ })
+    .getByRole('button', { name: /Simulation 3 - C6-5/ })
+    .click();
+
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save .md' }).first().click();
+  const text = readFileSync(await (await download).path(), 'utf8');
+
+  expect(text, 'the chosen simulation’s apogee').toContain('984 ft');
+  expect(text, 'and whose statement it was').toContain('You said “Simulation 3 - C6-5” is the one that flew');
+  expect(text, 'the refusal is not still being made').not.toContain('will not pick one to compare against');
 });
