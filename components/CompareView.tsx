@@ -773,8 +773,76 @@ export default function CompareView({
         );
       })()}
 
-      {/* Side-by-side metrics */}
-      <div className="overflow-x-auto">
+      {/* Side-by-side metrics.
+
+          **Two shapes, one data set, and that is the whole design.** `metricRows` is computed once
+          and both renders below read it, so the phone and the desktop cannot disagree about a
+          number — the failure mode a second layout invites. What differs is the AXIS: a wide
+          screen reads a metric across its flights, a narrow one reads a flight down its metrics.
+
+          `ON-6` is why the narrow one exists at all. P4's *done when* is two floors — nothing under
+          44 px, nothing hover-only — and a floor is satisfiable by a desktop layout that has merely
+          been made touch-safe, which is exactly what this surface was. The table below is
+          `overflow-x-auto`: at 390 px with three flights a flyer scrolls sideways to read a row,
+          and the Spread column was hidden outright because cut off at the edge it showed the
+          leading digit of each percentage, which reads as a number rather than as a fragment.
+          Measured 2026-08-09 over the real two-altimeter pair: 10 spreads in the table, 8 restated
+          in the prose above, **2 available at no width below `sm` at all** — Max Mach and Flight
+          time. The stacked layout carries all ten. */}
+      <div className="space-y-3 sm:hidden">
+        {metricRows.map((row) => (
+          <Card key={row.label} as="section" tone="sunken" aria-label={row.label}>
+            <button
+              type="button"
+              onClick={() => cycleSort(row.label)}
+              title={`Order the flights by ${row.label.toLowerCase()}`}
+              className={`touch-area mb-2 flex w-full items-center gap-1 text-left text-sm font-medium transition ${
+                sort?.label === row.label ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-600 dark:text-zinc-400'
+              }`}
+            >
+              {row.label}
+              {/* Standing, never hover-revealed: this renders only where the pointer is coarse. */}
+              <span aria-hidden="true" className={sort?.label === row.label ? '' : 'opacity-40'}>
+                {sort?.label === row.label && sort.dir === 'asc' ? '▲' : '▼'}
+              </span>
+            </button>
+            <dl className="space-y-1">
+              {flights.map((f, i) => (
+                <div key={f.id} className="flex items-baseline justify-between gap-3">
+                  <dt className="min-w-0 truncate text-sm text-zinc-500 dark:text-zinc-400">
+                    {columnLabels[i]}
+                  </dt>
+                  <dd
+                    className={`shrink-0 font-mono text-sm tabular-nums text-zinc-900 dark:text-zinc-100 ${
+                      i === row.best ? 'font-semibold' : ''
+                    }`}
+                  >
+                    {i === row.best && (
+                      <span className="mr-0.5" title="Highest of the flights being compared">
+                        ★
+                      </span>
+                    )}
+                    {row.cells[i]}
+                    {i === row.best && <span className="sr-only"> (highest)</span>}
+                  </dd>
+                </div>
+              ))}
+              {spread && (
+                // The column the table hides below `sm`. Here it is a labelled line rather than a
+                // cell at the edge, so it cannot be clipped into looking like a reading.
+                <div className="flex items-baseline justify-between gap-3 border-t border-zinc-200 pt-1 dark:border-zinc-800">
+                  <dt className="text-sm text-zinc-500 dark:text-zinc-400">Spread</dt>
+                  <dd className="shrink-0 font-mono text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </Card>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto sm:block">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr>

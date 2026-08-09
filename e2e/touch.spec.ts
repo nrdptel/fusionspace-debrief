@@ -418,3 +418,55 @@ test('the comparison says it sorts, and its colour swatches are thumb-sized', as
     expect(s.h, `swatch height ${s.h}`).toBeGreaterThanOrEqual(44);
   }
 });
+
+// P4 slice 2, sharpened by `ON-6`: a vertical layout is not a narrowed one. The comparison was a
+// wide table with `overflow-x-auto` — at 390 px a flyer scrolled sideways to read a metric across
+// its flights, and the Spread column was hidden outright because clipped at the edge it showed the
+// leading digit of each percentage, which reads as a number rather than as a fragment.
+//
+// Measured before this was built, over the real two-altimeter pair: the table carries 10 spreads,
+// the prose panel above restates 8 under different names, and TWO are available at no width below
+// `sm` at all. So the claim in the ledger ("nothing exists on a wide screen and not at 390 px")
+// was overstated and the code comment beside the column ("nothing is lost") was wrong; the honest
+// answer is neither, and it is this layout.
+test('the comparison reads down the page on a phone, and hides nothing', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([
+      path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'),
+      path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'),
+    ]);
+  await expect(page.getByRole('heading', { name: /Comparing/i })).toBeVisible({ timeout: 60_000 });
+
+  // The wide table is not rendered at all here — not merely scrolled off. Its own header cell is
+  // the tell, because the stacked layout has no column headers.
+  await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeHidden();
+
+  // Every metric is its own block, and the Spread the table hides is a labelled line in each.
+  const apogee = page.getByRole('region', { name: 'Apogee', exact: true });
+  await expect(apogee).toBeVisible();
+  await expect(apogee.getByText('Spread')).toBeVisible();
+
+  // …including the two that were reachable at NO narrow width before this: Max Mach and Flight
+  // time. Named individually rather than counted, because the count was the thing that was wrong.
+  for (const label of ['Max Mach', 'Flight time']) {
+    const block = page.getByRole('region', { name: label, exact: true });
+    await expect(block, `${label} has no block on a phone`).toBeVisible();
+    await expect(block.getByText('Spread')).toBeVisible();
+  }
+
+  // Nothing runs past the right edge, and nothing needs a sideways scroll to be read.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, 'the comparison pushes the page sideways').toBeLessThanOrEqual(0);
+
+  // The sort control on each block is a real target, not a table header shrunk.
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on the stacked comparison:\n${small.join('\n')}`).toEqual([]);
+
+  // And at a desktop width the table is what renders, from the same rows.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Apogee', exact: true })).toBeHidden();
+});

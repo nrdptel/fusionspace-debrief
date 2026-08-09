@@ -3374,7 +3374,7 @@ load to an explained flight, and count the states a first-timer can reach that e
 
 ## P4 — The range on a phone
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-08**: the *done when*'s own pinning check now
+**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED.** Slice 1, 2026-08-08: the *done when*'s own pinning check now
 exists in a form that can fail. It asks for "zero controls under 44 px … pinned by a mobile-viewport
 e2e that asserts both counts", and the e2e that claimed to do that measured ONE dimension — five
 hand-kept copies of the predicate, every one asking `if (r.height < 44)`. `e2e/touchTargets.ts` is now
@@ -3382,12 +3382,48 @@ the single predicate, measures both axes, and runs on all six routes rather than
 It found exactly one real violation, on every route: the footer's `Privacy` link at 42×44.
 
 **What is left.** The floor is only half the milestone and the sharpening from `ON-6` says so: a
-vertical layout is not a narrowed one. The three surfaces laid out for a wide viewport and currently
-only narrowed — `components/CompareView.tsx`, `components/ChannelExplorer.tsx`,
-`components/Chart.tsx` — are untouched. The phone walk this run also filed the concrete list into
-`BACKLOG.md`, and one entry is a milestone blocker rather than a defect: **the comparison's "Spread"
-column is `hidden … sm:table-cell`**, the only content in the app that exists on a wide screen and
-not at all at 390 px, which is the product-shape invariant's named failure.
+vertical layout is not a narrowed one. Of the three surfaces laid out for a wide viewport and only
+narrowed, the comparison (`components/CompareView.tsx`) is done as of slice 2; **the channel
+explorer (`components/ChannelExplorer.tsx`) and the chart legends (`components/Chart.tsx`) are
+untouched**, and each needs its own answer to the same question rather than a copy of this one. The phone walk this run also filed the concrete list into
+`BACKLOG.md`, and one entry was filed as a milestone blocker: **the comparison's "Spread" column is
+`hidden … sm:table-cell`**, content that exists on a wide screen and not at 390 px.
+
+**Corrected 2026-08-09 by measurement, because the entry as filed would have bought a fix for a
+problem two-thirds smaller than it claimed.** The column is genuinely hidden below `sm`, and the
+code comment beside it claims *"Nothing is lost — the cross-check panel above states every one of
+these spreads in prose."* Neither is quite true. Driven over the real two-altimeter pair
+(`perfectflite-pnut.pf2` + `featherweight-raven-fip.csv`, the pair the sample offers): the table
+carries **10** spreads and the prose panel — which does render at every width — restates **8** of
+them, under different names (`max speed` for *Max velocity*, `max-Q` for *Max Q*, `main deploy time`
+for *Main deploy at*, `main descent rate` for *Main descent*). **Two are absent at 390 px and
+nowhere else: Max Mach (4.1%) and Flight time (0.2%).**
+
+So the comment is wrong and the ledger entry was overstated, and the useful conclusion is neither:
+hiding the column was the right call — it did not fit, and cut off it showed the leading digit of
+each percentage, which reads as a number rather than as a fragment — and the answer `ON-6` asks for
+is not "show the column at 390 px" but a comparison that is **laid out vertically** instead of being
+a narrowed table. That is what this milestone owes, and closing the two-value gap on its own would
+have let it look closed.
+
+**Slice 2 SHIPPED 2026-08-09 — the comparison reads DOWN the page on a phone.** The first of the
+three surfaces `ON-6` names, and the one where the gap was measurable. At 390 px the comparison is
+no longer a table you scroll sideways: each metric is its own block, each flight a labelled line
+inside it, and the Spread the table hides below `sm` is a line in every block rather than a cell
+clipped at the edge. **Both shapes read the same `metricRows`**, computed once, so the phone and the
+desktop cannot disagree about a number — which is the failure a second layout invites and the reason
+this is one data set rendered two ways rather than two components.
+
+Built from `Card` plus a `<dl>` rather than a new §5 word, deliberately: `DESIGN.md` is identical in
+both repos and a change to one is owed to the other in the same run, and the sibling was not
+attached. Composition of existing primitives owes nothing.
+
+Pinned by `e2e/touch.spec.ts` → *"the comparison reads down the page on a phone, and hides
+nothing"*, which drives the real two-altimeter pair at 390×844: it asserts the wide table is not
+rendered at all (not merely scrolled off), that **Max Mach** and **Flight time** — the two the
+measurement found were reachable at no narrow width — each have a block with a Spread, that the page
+does not push sideways, that no control is under 44 px, and that the table is what returns at 1280.
+Falsified two ways: reverting to the narrowed table, and dropping the Spread line from the blocks.
 
 **Outcome.** A phone at the range is a first-class tool, not a rescaled desktop.
 

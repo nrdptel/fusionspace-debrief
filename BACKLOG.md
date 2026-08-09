@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — CORRECTION to this run's own phone-walk finding about the comparison's "Spread"
+  column.** Filed earlier today as "the only content in the app that exists on a wide screen and not
+  at all at 390 px". Measured rather than left standing: driven over the real two-altimeter pair
+  (`perfectflite-pnut.pf2` + `featherweight-raven-fip.csv`), the table carries **10** spreads and
+  the cross-check panel above it — which renders at every width — restates **8** in prose under
+  different names. Exactly **two** are absent on a phone and nowhere else: **Max Mach (4.1%)** and
+  **Flight time (0.2%)**. The code comment at `components/CompareView.tsx:960` is also wrong in the
+  other direction: it says *"Nothing is lost"*. Both claims corrected in `ROADMAP.md` under P4. The
+  fix is not to unhide the column — it did not fit, and cut off it showed the leading digit of each
+  percentage, which reads as a number rather than a fragment — it is the vertical layout `ON-6`
+  asks for.
 - **2026-08-09 — a multi-simulation design dropped into a COMPARISON says nothing at all.**
   `lib/ingest.ts:pairPredictions`. It contributes no figures, so it is never named in `paired`; it
   finds a target, so it is never in `skipped`; `predictionOffers` is read only by `Analyzer`'s
