@@ -131,6 +131,69 @@ html {
     padding-block: 0.75rem;
     min-height: 44px; /* the floor for a summary whose label is smaller than text-sm */
   }
+
+  /* A chart legend's rows show and hide their traces (`components/Chart.tsx` explains why they
+     were not shaped like controls until 2026-08-09). They measured 30x67 px, so the capability
+     was there and a thumb could not reliably take it. Selected on the role rather than on `th`,
+     because the x-series row is a reading and must NOT grow. */
+  .u-legend th[role='switch'] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* The chart legend, laid out to be READ DOWN a phone rather than scanned across a desktop.
+   `ON-6`'s third named surface, and the one that is not a table: uPlot's legend is a row of
+   inline entries with a 16 px gutter, centred, which at a narrow width wraps wherever it happens
+   to run out of room. Measured at 390 px on `/compare` with the two-altimeter sample: `time` and
+   `sample-pnut` on one line, `sample-raven-fip` alone and centred on a second — three readings in
+   a ragged block with no column to scan and no alignment between a name and its number.
+
+   Below `sm` each entry becomes its own line: the trace's name and colour swatch on the left, its
+   value on the right, so the values form a column the eye can run down. That is the same answer
+   slices 2 and 3 gave the comparison and the channel stats, applied to the shape a legend has.
+
+   Styled here rather than in `Chart.tsx` because this is uPlot's own DOM — the component never
+   renders these rows and cannot put a class on them. The breakpoint is Tailwind's `sm` (640 px)
+   written out, since a plain stylesheet has no access to the token. */
+@media (max-width: 639px) {
+  .u-legend.u-inline {
+    display: block;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+  }
+  /* uPlot's `.u-inline *` makes every descendant an inline-block, and the browser-inserted
+     `<tbody>` is one of them — so a row's `width: 100%` resolved against a shrink-to-fit box and
+     the whole list rendered 199 px wide, indented, inside a 324 px column. Measured, not guessed. */
+  .u-legend.u-inline tbody {
+    display: block;
+    width: 100%;
+  }
+  .u-legend.u-inline tr.u-series {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    margin-right: 0; /* uPlot's inter-entry gutter, which a stacked list does not want */
+  }
+  /* `min-width: 0` so a long series name wraps instead of pushing its value off the right edge —
+     the failure mode a flex row defaults to, and the one that would put content out of reach at
+     the exact width this rule exists for. */
+  .u-legend.u-inline tr.u-series > th {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+  }
+  .u-legend.u-inline tr.u-series > td.u-value {
+    display: block;
+    flex: 0 0 auto;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* Honour reduced-motion for the few transitions we use. */

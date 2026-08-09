@@ -3389,21 +3389,20 @@ load to an explained flight, and count the states a first-timer can reach that e
 
 ## P4 — The range on a phone
 
-**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED.** Slice 1, 2026-08-08: the *done when*'s own pinning check now
+**Status:** SHIPPED 2026-08-09 — **slices 1–5.** Slice 1, 2026-08-08: the *done when*'s own pinning check now
 exists in a form that can fail. It asks for "zero controls under 44 px … pinned by a mobile-viewport
 e2e that asserts both counts", and the e2e that claimed to do that measured ONE dimension — five
 hand-kept copies of the predicate, every one asking `if (r.height < 44)`. `e2e/touchTargets.ts` is now
 the single predicate, measures both axes, and runs on all six routes rather than the two it reached.
 It found exactly one real violation, on every route: the footer's `Privacy` link at 42×44.
 
-**What is left.** The floor is only half the milestone and the sharpening from `ON-6` says so: a
-vertical layout is not a narrowed one. Of the three surfaces laid out for a wide viewport and only
-narrowed, the comparison (`components/CompareView.tsx`) is done as of slice 2 and the channel explorer
-(`components/ChannelExplorer.tsx`) as of slice 3. **The chart legends (`components/Chart.tsx`) are
-untouched**, and that one is genuinely a different question rather than a third table: a legend is
-not a grid, so the answer will not be this one again. The phone walk this run also filed the concrete list into
-`BACKLOG.md`, and one entry was filed as a milestone blocker: **the comparison's "Spread" column is
-`hidden … sm:table-cell`**, content that exists on a wide screen and not at 390 px.
+**All three of `ON-6`'s surfaces are done**: the comparison (`components/CompareView.tsx`) as of
+slice 2, the channel explorer (`components/ChannelExplorer.tsx`) as of slice 3, and the chart legends
+(`components/Chart.tsx`) as of slice 4 — which was genuinely a different question rather than a third
+table, and turned out to be half a layout problem and half a control nobody had noticed was one. The
+phone walk also filed a concrete list into `BACKLOG.md`, including what was filed as a milestone
+blocker: **the comparison's "Spread" column is `hidden … sm:table-cell`**, content that exists on a
+wide screen and not at 390 px. That entry was measured and corrected — see below.
 
 **Corrected 2026-08-09 by measurement, because the entry as filed would have bought a fix for a
 problem two-thirds smaller than it claimed.** The column is genuinely hidden below `sm`, and the
@@ -3454,7 +3453,64 @@ hiding the comparison's header in slice 2 deleted its reorder buttons and colour
 phone. And the stats table had no accessible NAME on a page carrying seven tables; it has one now,
 which is how the omission was noticed at all.
 
+**Slice 4 SHIPPED 2026-08-09 — the chart legends, and the control nobody knew was one.** `ON-6`'s
+third surface, and the one that is not a table, so the answer is not the one the first two got.
+Measured at 390×844 on `/compare` with the two-altimeter sample before it changed: uPlot's legend is
+a centred row of inline entries with a 16 px gutter, so it wrapped where it ran out of room — `time`
+and `sample-pnut` on one line, `sample-raven-fip` alone and centred on a second. Three readings in a
+ragged block with no column to run an eye down. Below `sm` each entry is now its own full-width line,
+name and colour left, value right, so the values form a column.
+
+**The half that was not a layout problem.** Every one of those entries is a **control**: clicking one
+adds `u-off` and drops that flight's trace off the plot. uPlot ships them as a bare `<th>` with
+`cursor: pointer` — no role, no tab stop, no key handler, **30×67 px**. So *hide this trace* was a
+pointer-only capability, which is the state `DESIGN.md` §8 forbids and the exact failure this
+milestone exists to remove. They are `role="switch"` now, with `aria-checked`, a name, Enter and
+Space routed through the element's own click so uPlot stays the only thing that toggles a series.
+
+**Two things this cost that are worth knowing before touching a legend again.** The legend had to be
+moved OUT of the chart's `role="img"` host into a sibling — a focusable control inside an image is
+`nested-interactive`, which `e2e/a11y.spec.ts` failed on the first run, correctly. And
+`e2e/touchTargets.ts` could not see these controls at all: its predicate enumerates ROLES, and a
+`<th>` has none. **A floor check only reaches controls somebody has already named as controls** —
+`[role=switch]` was added to that selector, and the falsification that proves it is the one where the
+44 px rule is deleted *and* the selector entry with it, and the sweep goes green on a broken page.
+
+**Slice 5 SHIPPED 2026-08-09 — the *done when* itself, walked.** Slices 1–4 built surfaces; nothing
+walked the acceptance sentence, and its SECOND count — *zero states reachable only by hover* — had
+never been asserted anywhere at all. `e2e/hoverOnly.ts` is what makes it measurable: every visible
+element whose only statement of a fact is a `title` tooltip. It exists because D9 slice 3b shipped a
+design's staleness word into a `title=` and only a competitive probe noticed.
+
+It found seven on the report at 390 px, and **three were the same defect again**: the figure and
+flight colour swatches say *double-click to reset* in a tooltip and an `aria-label` and nowhere a
+sighted flyer on a phone can reach. Both now say it in text, in `FigureChooser`'s caption and
+`CompareView`'s intro. The other four are exempt with a reason verified against the source — the
+timeline's `aria-hidden` bar, whose chips restate every phase and duration as text, and the
+observance stripe, whose message `SiteFooter` prints in full. The exemptions are **patterns with
+reasons**, not pinned strings, because the durations belong to the fixture and the stripe belongs to
+the calendar; and the walk asserts the sentences the exemptions POINT AT are on the page, so an
+exemption cannot outlive the fix it describes.
+
+Two corrections the predicate forced on itself, recorded because both were nearly shipped as facts:
+`innerText` returned `""` for the sample table's sort button while `textContent` returned
+`"Time (s)▼"`, stably, on a visible button — so four controls that do carry their label were being
+reported as hover-only. The predicate now walks the tree and subtracts what an eye cannot reach
+(`display: none`, `visibility: hidden`, the `sr-only` clip). And the flight timeline's tooltips look
+like hover-only durations and are not: the bar is decorative and the chips beneath it are the text.
+
 **Outcome.** A phone at the range is a first-class tool, not a rescaled desktop.
+
+**Scoped 2026-08-09 by `COMPETITION.md` row 39, and the correction is to this milestone's TITLE
+rather than to its work.** The benchmark against the phone-capable field found that Debrief's phone
+case is **post-recovery** and cannot be anything else: none of the vendor tools needs Debrief to get
+data off the board, and **Debrief cannot do that for any board** — no Bluetooth, no WiFi, no live
+telemetry, no continuity or deployment check. At the pad the vendor app is the first app opened and
+Debrief is not opened at all. *The range on a phone* reads wider than that, because a range day
+starts at the pad. The *done when* above is already honestly scoped — every journey it names is
+post-flight — so nothing here changes what the milestone must deliver; it changes what a later run
+should expect to find when it reads the title. The same row records the one thing this milestone
+still owes: **`components/Chart.tsx`'s legends**, the third of `ON-6`'s three surfaces.
 
 **Done when** a flyer can, one-handed and offline on a 390 px viewport, complete the things a range
 day actually needs — drop a log straight off a card, read apogee and descent rate, check a deploy

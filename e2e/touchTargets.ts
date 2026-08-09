@@ -39,8 +39,12 @@ export function underSizedTargets(floor = 44): string[] {
   // brand eyebrow measured 102x16 on a phone, as did the Tip link (59x26).
   // `main a`: the "?" beside each reading opens that reading's definition and renders 6x14 at a
   // phone's type scale; it sits in a grid cell, so no nav selector could ever see it.
+  // `[role=switch]`: a chart legend's rows show and hide their traces, and uPlot ships them as
+  // bare <th> with `cursor: pointer`. They were 30x67 px on a phone and this predicate could not
+  // see them — a role list only reaches controls that have been given a role. `components/Chart.tsx`
+  // names them switches, which is what brings them under this floor rather than beside it.
   const sel =
-    'button, select, summary, [role=button], nav a, header a, footer a, main a, input:not([type=range])';
+    'button, select, summary, [role=button], [role=switch], nav a, header a, footer a, main a, input:not([type=range])';
 
   for (const el of document.querySelectorAll<HTMLElement>(sel)) {
     // A link inside running prose is not a control: 44 px tall mid-sentence would be wrong, and

@@ -595,7 +595,8 @@ export default function CompareView({
         </Heading>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Aligned at liftoff (t = 0, or the start of the log when no liftoff was detected) and
-          resampled onto a shared time base. Read locally — never uploaded.
+          resampled onto a shared time base. Read locally — never uploaded. Each flight&apos;s colour
+          is the swatch beside its name — tap it to change it, or double-tap for the default.
         </p>
         {note && (
           <Notice as="p" role="status" className="mt-2">
