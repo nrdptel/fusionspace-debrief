@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { GitHubIcon } from './icons';
 import { HUB_URL, REPO_URL } from '@/lib/links';
+import { BUILD_SHA, buildLine } from '@/lib/buildInfo';
 import { observancesForDate } from '@/lib/observances';
 
 export default function SiteFooter() {
@@ -73,6 +74,32 @@ export default function SiteFooter() {
         Personal, non-commercial project — not affiliated with any altimeter or rocketry
         manufacturer. Built for the hobby rocketry community.
       </p>
+
+      {/* Which build a flyer is actually looking at (P5).
+          `lib/buildInfo.ts` has stamped every document a flyer KEEPS since D11 slice 4, and the
+          screen said nothing — so a flyer who noticed a reading change between two visits could
+          answer "which version produced this number?" about a saved report and not about the page
+          in front of them. Same module, same wording, so the two cannot drift.
+
+          It links to the commit, which is what makes it checkable rather than decorative: the
+          methods change most weeks, and `Debrief a1b2c3d` is only useful if a1b2c3d can be read.
+          A navigation and nothing else — no fetch, so the offline promise is untouched.
+
+          Absent outside a production build rather than printed as `dev`: a version line that says
+          `dev` on a real visit would be worse than none, and `BUILD_SHA` is exactly `dev` there. */}
+      {BUILD_SHA !== 'dev' && (
+        <p className="mt-4 text-zinc-500 dark:text-zinc-400">
+          <a
+            href={`${REPO_URL}/commit/${BUILD_SHA}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-zinc-800 dark:hover:text-zinc-200"
+            title="The exact code this page was built from — Debrief's methods change often, and a saved report names its build the same way"
+          >
+            {buildLine()}
+          </a>
+        </p>
+      )}
 
       {observances.length > 0 && (
         <div className="mt-4 space-y-1">

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 // A clean load of the home page: the brand and drop zone render, and nothing
 // throws to the console during hydration.
@@ -123,6 +124,40 @@ test('both file pickers offer every format the app can read', async ({ page }) =
 // This walks the two things that fix it, rather than asserting the markup exists: a reader
 // who has never seen the page reaches a named definition from the top in ONE click, and the
 // definition they land on sits under a subject heading that says what it is among.
+test('the page says which build a flyer is looking at, and links to it', async ({ page }) => {
+  // P5 — the stamp has been on every SAVED document since D11 slice 4 and on no screen. Driven on
+  // the built export, where `BUILD_SHA` is real; in `npm run dev` it is 'dev' and the line is
+  // deliberately absent, which is why this belongs in the e2e rather than a unit test.
+  await page.goto('/');
+  // Not scoped to `contentinfo`: the footer is nested inside `<main>`, so `<footer>` carries no
+  // implicit landmark role there and a role-scoped query finds nothing.
+  const stamp = page.getByRole('link', { name: /^Debrief [0-9a-f]{7}/ });
+  await expect(stamp).toBeVisible();
+
+  // Resolvable, or it is decoration: the methods change most weeks, so the identifier is only
+  // worth printing if the commit behind it can be read.
+  const href = (await stamp.getAttribute('href')) as string;
+  expect(href).toMatch(/^https:\/\/github\.com\/[^/]+\/[^/]+\/commit\/[0-9a-f]{7,40}$/);
+  await expect(stamp).toHaveAttribute('rel', /noreferrer/);
+
+  // The same build the documents name. Save one and compare, rather than trusting that two call
+  // sites of the same helper agree.
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .txt' }).click(),
+  ]);
+  const txt = await readFile((await dl.path()) as string, 'utf8');
+  const shown = ((await stamp.textContent()) ?? '').trim();
+  // The WHOLE line, not a prefix. A `toContain` alone passes when the footer drops the build date
+  // and prints a shorter hand-built string — measured, by falsifying it that way.
+  expect(shown, 'the footer prints the shared line in full').toMatch(/^Debrief [0-9a-f]{7,40}, built \d{4}-\d{2}-\d{2}$/);
+  expect(txt, `the report names the same build the footer does: ${shown}`).toContain(shown);
+});
+
 test('the landing surface says what this does that your own software cannot', async ({ page }) => {
   // P5 slice 2. `COMPETITION.md`'s standing conclusion opens: "it is what the landing surface and
   // the README should say, and right now they do not say it." A flyer arriving from a forum link
