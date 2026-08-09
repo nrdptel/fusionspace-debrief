@@ -3300,13 +3300,25 @@ methods page now says properly, so it was cut and linked rather than paraphrased
 text that says "screenshot" fails, and a copy line where "upload" describes something a flyer does
 fails — the PRIVACY invariant reaches the copy, not just the code.
 
-**What is left, in order.** (a) The landing surface still does not state the three things Debrief
-does that no vendor tool does — `COMPETITION.md`'s standing conclusion is written down and reaches
-no flyer. (b) A visible changelog and a release the flyer can see in the UI; the build stamp from
-D11 slice 4 is already in every document, so the surface is the missing half rather than the data.
-(c) A working way to report a bug or request a format from inside the app. (d) The GitHub
-description, topics and pinned links — **owner-level and parked**, because no tool in this session
-can write repository settings; the README carries the message without them.
+**Slice 2 SHIPPED 2026-08-09** — the landing surface states the four things Debrief does that a
+flyer's own altimeter software cannot, taken from `COMPETITION.md`'s standing conclusion, which had
+been saying since it was written that it "is what the landing surface and the README should say, and
+right now they do not say it". Two of the four are worded to that file's own warnings, because their
+broader forms are false: overlaying several of its OWN files is something Featherweight's tool now
+does too (row 15), so the cross-vendor qualifier IS the claim; and a composite combines nothing,
+which the ledger says to publish carefully because combining is the part a rival would skip. Pinned
+by `lib/whyDebrief.test.ts`, which holds the copy and the ledger side by side and fails from either
+direction, and by an e2e on what a flyer actually reads.
+
+**Slice 3 SHIPPED 2026-08-09** — the page says which build a flyer is looking at, linked to the
+commit, using the same `buildLine()` the six saved documents carry. Pinned by `lib/buildInfo.test.ts`
+and an e2e that saves a report and compares the two.
+
+**What is left, in order.** (a) A visible CHANGELOG — the version is now on screen and traceable to a
+commit, which is the half a flyer can act on; what is still missing is a human account of what
+changed between builds. (b) A working way to report a bug or request a format from inside the app.
+(c) The GitHub description, topics and pinned links — **owner-level and parked**, because no tool in
+this session can write repository settings; the README carries the message without them.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
 

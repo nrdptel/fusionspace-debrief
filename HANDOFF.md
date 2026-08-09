@@ -6,136 +6,156 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **PR #156, four commits, merged on green.** `c16c89b` D11 slice 3 · `7161f5a` the Sev-1 · `838576f` the review fixes · `e46c347` P9 slice 4 · `dda9e05` the filing. Re-measure before believing it: `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending on the branch** | **Nothing.** No pull request is open on either repo. |
-| **Sev-1** | **One found, reproduced on real files, fixed.** A burnout speed labelled `measured` over a barometric derivative — **2 of 38** analysable corpus recordings, at 121.2 m/s and 128.4 m/s, three rows under the identical figure labelled `derived`. |
-| **D — capability** | **D11 slices 1–4 SHIPPED. Only slice 5 is left**: a stitched composite keeping its stages, which needs the same treatment slice 3 gave the grouping applied to a statement (`debrief.firstStage`) that lives in `localStorage` outside the logbook entirely. |
-| **P — product & craft** | **P9 slices 1–4 SHIPPED. Slice 5 is scoped and is the last one: the methods page cites nothing** — 0 URLs, 0 DOIs, no named algorithm in 102 KB, while the code names `Hampel` 11 times. `COMPETITION.md` row 37. |
-| **§9 counts, start and end of run** | radius **0** · card treatments **3** · off-scale spacing **0** · off-scale type **1** · inverted-type files **10** · `ui` adopters **36 of 48**. **Identical at both ends; none moved the wrong way.** |
+| **Shipped to production** | **Three pull requests merged: `#156`, `#157`, `#158`.** Production was confirmed serving `ada0a17` and then `592bd5d` mid-run. Re-measure before believing any of this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — and the version is now on the page footer too. |
+| **Pending on the branch** | **One increment** — the visible build stamp (`306dda1`), gated green locally, in a pull request. Everything else reached `main`. |
+| **Sev-1** | **One found, reproduced on real files, fixed.** A burnout speed labelled `measured` over a barometric derivative — **2 of 38** analysable corpus recordings, at 121.2 and 128.4 m/s, three rows under the identical figure labelled `derived`. |
+| **D — capability** | **D11 SHIPPED, all five slices.** Every clause of its *done when* is met and pinned. The D-track has no in-progress milestone: D8's tilt slice is MEASURED AND BLOCKED (unchanged), D9 has slice 3b left, D10 has slices after its first. |
+| **P — product & craft** | **P9 SHIPPED, all five slices.** **P5 IN PROGRESS** — slices 1, 2 and 3 shipped (the README, the landing claims, the visible build). |
+| **§9 counts, start → end of run** | radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** · inverted-type files **10→10** · `ui` adopters **36→37**. **The only count that moved went UP.** `Card` adopters 25→26 in the ratchet. |
+| **Another session merged into `main` during this run** | `9698d04` (PR #159), a `DESIGN.md` §8 rule about scale drawings, mirrored from the sibling tool. It adds no compliance count and Debrief has no scale drawing, so nothing here changed — but **the sibling repo is being worked on concurrently**, which is new information and bears on everything below marked "owed to the sibling". |
 
 ## The one thing to read before anything else
 
-**A subagent's review found a real bug in the increment I had just committed, my first fix for it
-was worse than the bug, and the milestone's own e2e caught that.** All three steps matter.
+**I pushed a commit with a red unit suite, and the reason was the shape of my gate command.**
 
-The grouping token in a flight record has to be equal across the records of one flight or the
-restore silently does nothing — and "silently" is the whole problem, because the failure looks
-exactly like two ordinary flights. I first used the flight's own id. That is its *current primary's*
-id, and the primary moves the moment a flyer presses "report by this one". The review caught it.
+It was `npm test 2>&1 | tail -3 && npm run build && npx playwright test`. A shell pipeline's exit
+status is the LAST command's, so `tail` returning 0 made a red suite look green to the `&&` — and
+`tail -3` cut off the "Tests N failed" line that would have said so. Build and e2e then ran and
+passed, and the summary read as three greens. CI caught it (`0baaa5b` → failure, run #748) and the
+fix was one commit later.
 
-The obvious repair was the earliest `addedAt` — "the recording opened first", which is the rule
-`planJoin` already uses and reads as a property of the set. **It is not.** `saveRecent` writes a
-fresh `addedAt` every time a file is re-read, *including a plain re-open*, so exporting a record from
-each of two recordings moves "earliest" between the two exports. The e2e walk that had passed an hour
-earlier failed with two different tokens.
+The failure itself was benign and even good news: `lib/design-system.test.ts` pins `Card` adoption
+at an exact count, and a new surface adopting the primitive moved it 25 → 26. But that is luck.
 
-Three things follow:
+**Run the gate so each exit code is readable**, e.g.
 
-1. **"Looks immutable" is not a property; check what writes it.** `addedAt` is named like a creation
-   stamp and behaves like a last-touched stamp. One `grep` for its writer would have said so.
-2. **A journey test earns its cost on the second change, not the first.** The walk was written to
-   prove the feature; what it actually paid for was catching a refactor of the feature.
-3. **The review agent was right about four of fourteen findings and wrong or over-stated about the
-   rest.** Reproducing each one before acting is what separated them — and three of its findings
-   were assertions in my own new tests that could not fail, which is the highest-value thing a
-   second reader has found in this repo.
+```bash
+npm test > /tmp/unit.log 2>&1;            echo "UNIT rc=$?";  grep -E "Tests +[0-9]+" /tmp/unit.log
+npm run build > /tmp/bld.log 2>&1;        echo "BUILD rc=$?"
+npx playwright test --workers=1 > /tmp/e2e.log 2>&1; echo "E2E rc=$?"; tail -3 /tmp/e2e.log
+```
 
-**And the opening Sev-1 screen ranked its two findings the wrong way round.** It led with the
-gap-in-the-ascent leak, which is real and reproduces on a synthetic but fires on **0 of 38** corpus
-recordings, and put second the provenance mislabel that fires on **2 of 38** today. A corpus sweep
-settled it in ten minutes. Sweep before you rank: an agent ranks by how bad a thing sounds, and the
-corpus knows how often it happens.
+The general form of the lesson is the one `MAINTAINING.md` already records about a suite dying in
+4 ms: **read the result, not the exit code of whatever you piped it through.**
+
+## Three more things this run learned the hard way
+
+1. **A subagent's review found a real bug in the commit I had just made, my first fix was worse than
+   the bug, and the e2e caught that.** The grouping token was the flight's own id, which moves when
+   the flyer re-nominates the primary. The obvious repair — earliest `addedAt`, the rule `planJoin`
+   already uses — is *not stable either*: `saveRecent` stamps a fresh `addedAt` on every re-read,
+   including a plain re-open. A row's **id** is the only thing there that does not move. *"Looks
+   immutable" is not a property; grep for what writes it.*
+2. **The opening Sev-1 screen ranked its two findings the wrong way round.** It led with a leak that
+   fires on **0 of 38** corpus recordings and put second the provenance mislabel that fires on
+   **2 of 38** today. A corpus sweep settled it in ten minutes. **Sweep before you rank** — an agent
+   ranks by how bad a thing sounds; the corpus knows how often it happens.
+3. **Four assertions this run could not fail, and each was caught by falsifying rather than by
+   reading.** Three were in my own new tests (one restated a `toEqual` two lines above it; one
+   compared two `undefined`s; one checked that a loop had pushed twice). The fourth was subtler: an
+   e2e comparing the footer's build line to a saved report's used `toContain`, which passes when the
+   footer drops the date, because the shorter string is a substring of the longer one.
 
 ## Environment, established at session start — none of it assumed
 
 - **The corpus was attached and real throughout.** `nrdptel/debrief-fixtures` on disk, symlinked into
   `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the corpus suite is **148 tests**;
-  38 recordings analyse end to end through the plain parser path. `FIXTURES_TOKEN` is NOT set, so
+  **38 recordings** analyse end to end through the plain parser path. `FIXTURES_TOKEN` is NOT set, so
   `npm run fetch-fixtures` is a no-op — the attached checkout is the whole reason there is a corpus.
-- **`node_modules` was ABSENT at session start.** `npm install` first, before anything measures.
+- **`node_modules` was ABSENT.** `npm install` first, before anything measures.
 - **Playwright needed `npx playwright install chromium`** (114 MB, ~1 min). **Paid for again every
-  session; it belongs in the environment's setup script.** Said for at least the eighth run running.
+  session; it belongs in the environment's setup script.** Said for at least the ninth run running.
 - **`git config user.name/user.email` arrived as the harness vendor's default** and were set before
   the first commit.
 - **The clone is SHALLOW.** Any commit count or file history quoted from it is a window.
-- **The harness appended an attribution footer to the pull-request body**, as it did last run. It was
-  read back and stripped with `update_pull_request`, which does not re-append. Still parked in
-  `OWNER-NOTES.md` → *Awaiting the owner*.
-- **A full serial e2e run is ~6.7 minutes** at `--workers=1`, and a full gate cycle (unit + build +
-  e2e) is ~10. That is the real cost of an increment here; budget four gates an hour, not more.
+- **The harness appended an attribution footer to every pull-request body.** Read back and stripped
+  with `update_pull_request`, which does not re-append. Parked in `OWNER-NOTES.md`.
+- **A full gate cycle is ~10 minutes** — unit ~1:50, build ~40 s, e2e ~7:00 at `--workers=1`. Budget
+  four or five gates an hour, not more; that is the real cost of an increment here.
+- **The GitHub MCP `actions_list` response is enormous** (65 KB+ for four runs) and will blow a
+  context window. Ask a cheap subagent for `sha status conclusion run#` and nothing else.
+  `pull_request_read` with `method: "get_status"` is cheap but only reports legacy commit statuses,
+  which this repo does not use — it reads `pending` even when every check is green.
 
 ## What shipped, in order
 
 | commit | what | pinned by |
 |---|---|---|
-| `c16c89b` | **D11 slice 3 — the flyer's grouping travels with the record.** The statement rides outside the `RawFlight` fields; the drop path restores it in the second pass that already pairs summaries | `lib/flightGroups.test.ts` + `lib/canonical.test.ts` (16 cases) + an e2e walk, falsified 8 ways |
-| `7161f5a` | **Sev-1 — a burnout speed said "measured" over a differentiated altitude**, on 2 of 38 corpus recordings. Plus the same family's latent leak: three readings gated on one reason where the flag is set for two | corpus sweep with a floor + `lib/readings.test.ts` + `lib/analyze/analyze.test.ts`, falsified 6 ways |
-| `838576f` | **Three ways the restored grouping could lose the flyer's most recent word** — the token, a deliberate separation, and a note that claimed success over a failed write | `groupToken` (4 cases incl. the re-open case that broke it) + `lib/ingest.test.ts` |
-| `e46c347` | **P9 slice 4 — the two paragraphs nobody could read in one go.** 705 and 614 words broken at eight subject changes, rendered text character-identical | `lib/methodIds.test.ts` paragraph ratchet, falsified 2 ways |
-| `dda9e05` | **The filing** — 4 `BACKLOG.md` entries, `COMPETITION.md` row 37, D11/P9 statuses, 2 decisions, 2 owner-note progress lines | — |
+| `c16c89b` | **D11 slice 3 — the flyer's grouping travels with the record** | `lib/flightGroups.test.ts` + `lib/canonical.test.ts` + an e2e walk, falsified 8 ways |
+| `7161f5a` | **Sev-1 — a burnout speed said "measured" over a differentiated altitude**, 2 of 38 corpus recordings; plus the same family's latent leak (three readings gated on one reason where the flag is set for two) | a corpus sweep with a floor, falsified on the real file at 121.2 m/s |
+| `838576f` | **Three ways the restored grouping could lose the flyer's most recent word** — the token, a deliberate separation, a note claiming success over a failed write | `groupToken` + `lib/ingest.test.ts` |
+| `e46c347` | **P9 slice 4 — the two paragraphs nobody could read in one go.** 705 and 614 words broken at eight subject changes, rendered text character-identical | the 400-word paragraph ratchet |
+| `f366af9` | **P9 slice 5 — the methods page cites its sources.** Five verified sources; 46 of 51 blocks deliberately cite nothing | 4 checks, falsified 4 ways, + an e2e |
+| `e901e5a` | **The composite stopped forgetting which stage flew first** | `lib/firstStage.test.ts` + an e2e with the ids reversed |
+| `bec785e` | **P5 slice 1 — the README shows the tool.** 4,545 words / 32 KB / 0 images → 1,948 / 16 KB / 4 | `lib/readme.test.ts`, falsified 3 ways |
+| `b0744ee` | **D11 slice 5 — the composite writes files now, and comes back from them** | `lib/firstStage.test.ts` + an e2e that wipes the logbook between saving and dropping |
+| `0baaa5b`+`c3f9bb2` | **P5 slice 2 — the landing surface says what this does that your own software cannot**, and the ratchet correction | `lib/whyDebrief.test.ts`, falsified from both directions |
+| `306dda1` | **P5 slice 3 — the page says which build you are looking at**, linked to the commit | `lib/buildInfo.test.ts` + an e2e comparing the footer to a saved report |
 
 ## Pick this up first
 
-1. **P9 slice 5 — the methods page cites nothing, and it is the sharpest thing on either track.**
-   Measured: **0 URLs, 0 DOIs, not one named algorithm** across 102 KB of `lib/methods/content.tsx`
-   (`Hampel` 0, `Kalman` 0, `Barrowman` 0, `Savitzky` 0, `1976` 0) while `Hampel` appears **11 times
-   in the analysis code** and `1976` twice. This is a gap against `MAINTAINING.md`'s own CLEAN-ROOM
-   invariant — *"implement every method from published sources and cite them"* — before it is one
-   against the field. `COMPETITION.md` row 37 has the comparison and the trap: OpenRocket's technical
-   documentation is thesis-derived and **frozen at v13.05 (2013-05-10)** while the app is many
-   releases past it, which is exactly the drift D11 slice 4's build stamp already lets Debrief avoid.
-   Scoped in `ROADMAP.md` with a *done when* and a pinning check.
-2. **D11 slice 5 — the composite's stage order.** The last clause of D11's *done when*. The statement
-   lives in `localStorage` under `debrief.firstStage`, keyed by device-local logbook ids, and is not
-   in the logbook backup — so it needs what slice 3 did for the grouping, applied to a statement
-   that is outside the logbook entirely.
+1. **The D-track has no in-progress milestone for the first time in a while.** D11 shipped. The
+   candidates are **D9 slice 3b** (let a flyer pick which prediction a design's simulations means),
+   **D10's remaining slices** (a sample per capability), and **D8's tilt slice**, which is MEASURED
+   AND BLOCKED and should stay blocked — read its status line before reopening it.
+2. **P5 slices 4–5**: a visible CHANGELOG (the version is on the page and traceable to a commit now;
+   what is missing is a human account of what changed between builds), and a way to report a bug or
+   request a format from inside the app.
 3. **The two D11 gaps filed rather than fixed** (`BACKLOG.md`, newest first) — a restored group whose
    recordings were CROPPED can compute an apogee spread over two different stretches, and two copies
-   of one record under different names group as a flight recorded twice. Both are downstream of the
-   same root: the record bakes the flyer's crop into the samples instead of stating it.
-4. **The multi-source surface audit's findings are filed and mostly unreproduced.** Two are worth a
-   session's attention: `analyzedDataCsv` is the only report artifact with no recording line while
-   shipping in the same ZIP as the .md that has one; and the comparison surface — whose entire
-   subject is several recordings of one flight — never reads the grouping the logbook already holds
-   (`compareJson.sameFlight` has no verdict a stated grouping could produce).
+   of one record under different names group as a flight recorded twice. **Both are downstream of one
+   root**: the record bakes the flyer's crop into the samples instead of stating it. Fix the root and
+   both go.
+4. **The multi-source surface audit's findings**, filed and mostly unreproduced. Two are worth a
+   session: `analyzedDataCsv` is the only report artifact with no recording line while shipping in
+   the same ZIP as the .md that has one; and the comparison surface — whose entire subject is several
+   recordings of one flight — never reads the grouping the logbook already holds, down to
+   `compareJson.sameFlight` having no verdict a stated grouping could produce.
 
-## Owed to the sibling repo, and unshipped there
+## Owed to the sibling repo
 
-`DESIGN.md` is identical in both and the sibling was **not attached to this session**. Nothing in
-this run changed `DESIGN.md`, so nothing new is owed — but the entries earlier runs left owed are
-still owed: §5's `Popover` and `SectionNav`, and **§2's tertiary token still fails AA in dark**
-(4.12:1 on page, 3.67:1 on raised, against 4.83:1 in light) at five sites that are not disabled
-controls. Parked in `OWNER-NOTES.md` → *Awaiting the owner*.
+`DESIGN.md` is identical in both, and **the sibling is being worked on concurrently** — PR #159
+landed a §8 change here from that side during this run, which is the mechanism working. Nothing in
+this run changed `DESIGN.md`, so nothing new is owed. Still owed from earlier runs: §5's `Popover`
+and `SectionNav`, and **§2's tertiary token still fails AA in dark** (4.12:1 on page, 3.67:1 on
+raised, against 4.83:1 in light) at five sites that are not disabled controls. Parked in
+`OWNER-NOTES.md` → *Awaiting the owner*.
 
 ## The done-check, executed — what each step returned
 
-1. **Corpus sweep: 148 tests over 62 manifest fixtures, run on every gate, 0 goldens moved.** Three
-   deliberate sweeps beyond the suite, each naming its count: **2 of 38** analysable recordings
+1. **Corpus sweep: 148 tests over 62 manifest fixtures, on every gate, 0 goldens moved all run.**
+   Three deliberate sweeps beyond the suite, each naming its count: **2 of 38** analysable recordings
    publishing a burnout speed labelled `measured` off a derived trace (the Sev-1, before); **0 of 38**
-   after; and **0 of 38** reaching the gap-in-the-ascent leak, which is why that half was fixed by
-   making one flag single rather than by adding a guard. The empty result is the point of stating it.
-2. **Cold walks.** The record round-trip driven end to end in the real app at the shipped SHA —
-   two logs joined, a record saved from each recording, the logbook cleared, both dropped back, one
-   flight. Production fetched separately: `version.json` reported `609cc0b` at session start, equal to
-   `main`, so there was no deploy gap to report before this run's merge.
-3. **`COMPETITION.md` row 37 added** — a method write-up that cites, verified in part against
-   OpenRocket's own documentation page and explicitly marked `UNVERIFIED` where an agent's PDF
-   extraction was not repeated.
-4. **§9 counts: identical at both ends of the run.** Table at the top. None moved the wrong way.
-5. **`BACKLOG.md` read, appended to** — 4 new entries, each with the measurement that makes it
-   actionable. Two of them describe exposures this run's own work created, which is why they are
-   filed at the same time as the feature rather than after it.
+   after; and **0 of 38** reaching the gap-in-the-ascent leak — which is why that half was fixed by
+   making one flag single rather than by adding a guard that fires on nothing.
+2. **Cold walks.** The record round-trip and the composite round-trip both driven end to end in the
+   real app, each wiping the logbook between saving and dropping. Plus a phone + OFFLINE walk of the
+   built export at 390×844: all six routes 200 with real headings, **offline 6/6 served from the
+   service worker**, the methods measure 62 characters at 16 px, longest rendered paragraph 372
+   words, **zero console errors**. Production fetched separately and confirmed serving the merged
+   SHA at two points in the run.
+3. **`COMPETITION.md` row 37 added AND resolved in the same run** — a method write-up that cites.
+   Debrief had 0 URLs and no named algorithm in 102 KB; it now cites five verified sources, and the
+   row records why that is a lead rather than parity (OpenRocket's bibliography is excellent and
+   frozen at v13.05 while its app is many releases past it).
+4. **§9 counts: table at the top. The only one that moved went up** (adopters 36→37).
+5. **`BACKLOG.md` read and appended to** — 4 new entries, each with the measurement that makes it
+   actionable. Two describe exposures this run's own work created and were filed the same day as the
+   feature rather than after it.
 6. **Both track questions.**
-   - **D:** a flyer who flew two altimeters and told Debrief so can save both recordings as files,
-     come back months later, drop them in, and get **one flight** rather than two — with the tool
-     saying it remembered rather than that it worked it out.
-   - **P:** the methods page has **no paragraph over 400 words**, where two ran to 705 and 614;
-     paragraphs 88 → 96 and the longest 705 → 369, at a line length already held to 49–66 characters.
-     And a burnout speed stopped claiming to be measured on the 2 corpus flights where it was not.
-7. **`ROADMAP.md` updated** — D11 and P9 statuses rewritten with what each slice delivered and what
-   is left, P9 slice 5 newly scoped with a *done when*, and 2 decisions recorded under *Decisions
-   taken without the owner* with the alternative rejected in each.
-8. **`OWNER-NOTES.md`: zero notes are open without a verdict.** All eight carry verdicts dated
-   2026-08-08 and none is new, so none was owed one this run. Two gained a **PROGRESS** line dated
-   this run — `ON-1` (the docs wall: measurably gone, one slice left) and `ON-4` (the canonical
-   round-trip: multi-source structure now survives). Four items remain under *Awaiting the owner*.
+   - **D:** a flyer who flew two altimeters, or flew a staged rocket on two boards, can save the
+     whole thing as files, come back months later, drop them in, and get **one flight** or **one
+     composite in the right order** rather than a pile of unrelated logs — with the tool saying it
+     remembered rather than that it worked it out.
+   - **P:** the methods page cites its sources where it cited none; the repo landing page is 1,948
+     words with four pictures instead of 4,545 words with none; the landing surface states what the
+     tool is for instead of leaving a flyer to discover it; and the page says which build it is. Plus
+     one wrong reading corrected on two real corpus flights.
+7. **`ROADMAP.md` updated** — D11 and P9 both marked SHIPPED with every clause named against its
+   check, P5 to IN PROGRESS with three slices done and what is left in order, and **four decisions**
+   recorded under *Decisions taken without the owner* with the alternative rejected in each.
+8. **`OWNER-NOTES.md`: zero notes are open without a verdict.** All eight carried verdicts dated
+   2026-08-08 and none is new, so none was owed one this run. **Two moved to `## Resolved`** — `ON-1`
+   (the docs wall) and `ON-4` (the canonical round-trip) — which are the first entries that file has
+   ever had there. **Six items sit under *Awaiting the owner*** (counted, not recalled), one added this run: the GitHub
+   repo description, topics and pinned links, which no tool in this session can write.
