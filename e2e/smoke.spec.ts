@@ -123,6 +123,43 @@ test('both file pickers offer every format the app can read', async ({ page }) =
 // This walks the two things that fix it, rather than asserting the markup exists: a reader
 // who has never seen the page reaches a named definition from the top in ONE click, and the
 // definition they land on sits under a subject heading that says what it is among.
+test('a method that rests on published work says which, and the source is reachable', async ({ page }) => {
+  // P9 slice 5. `MAINTAINING.md`'s CLEAN-ROOM invariant has always required methods to be
+  // implemented from published sources AND CITED; until 2026-08-09 the citing was happening in
+  // code comments, where no flyer can reach it. Measured then: 0 URLs and no named algorithm in
+  // 102 KB of method text.
+  await page.goto('/methods/');
+
+  // The block carries its own sources line — that is what the popover on the report also renders.
+  const block = page.locator('#mach-dynamic-pressure').locator('xpath=..');
+  await expect(block).toContainText('Sources:');
+
+  // The marker goes to the entry, in the same tab. A citation that opened a second tab would cost
+  // the flyer their place, which is the whole complaint P8 answered.
+  const marker = block.getByRole('link', { name: 'USSA 1976' });
+  await expect(marker).toHaveAttribute('href', '/methods/#ref-ussa-1976');
+  await expect(marker).not.toHaveAttribute('target', '_blank');
+
+  // The entry says what it IS, and what Debrief takes from it — the clause that makes a citation
+  // checkable rather than decorative.
+  const entry = page.locator('#ref-ussa-1976');
+  await expect(entry).toContainText('U.S. Standard Atmosphere');
+  await expect(entry).toContainText('Debrief takes from it');
+
+  // …and out to the source itself, which is a navigation and carries nothing back.
+  const out = entry.getByRole('link', { name: 'Read it' });
+  await expect(out).toHaveAttribute('href', /^https:\/\/ntrs\.nasa\.gov\//);
+  await expect(out).toHaveAttribute('rel', /noreferrer/);
+
+  // The section is reachable from the top of the page rather than only by scrolling 12,700 words.
+  await expect(page.getByRole('navigation', { name: 'Contents' }).getByRole('link', { name: 'Sources' })).toBeVisible();
+
+  // And the honest half: most of this page is Debrief's own and must NOT cite. A page where
+  // everything carried a source would mean authority had been borrowed to fill a field.
+  const uncited = page.locator('#battery').locator('xpath=..');
+  await expect(uncited).not.toContainText('Sources:');
+});
+
 test('the methods page can be navigated, not just scrolled', async ({ page }) => {
   await page.goto('/methods');
   await expect(page.getByRole('heading', { level: 1, name: 'Where the numbers come from' })).toBeVisible();

@@ -1702,3 +1702,45 @@ export function ErrorState({
     </Card>
   );
 }
+
+/**
+ * The "Sources" line under a long-form block — the published work a method is implemented from.
+ *
+ * **A primitive rather than a component beside the two callers**, because both `/methods` and the
+ * report's popover render the same method body, and a citation that appeared on one and not the
+ * other would be the caveat-on-one-surface failure this repo keeps finding — here on the sentence
+ * that says where a number came from.
+ *
+ * It takes resolved items rather than reference ids, so this layer knows nothing about methods.
+ *
+ * `text-xs` is §3's footnote size and is right: this is an annotation ABOUT a method, not a value
+ * a flyer acts on, so §3's floor for decision-grade text does not apply. It lives here rather than
+ * in a file of its own for a measured reason as well as an architectural one — a module containing
+ * only a footnote is a file whose caption-size count exceeds its body count by construction, and
+ * §9's inverted-file ratchet would have counted an eleventh one for a component that renders no
+ * numbers at all.
+ *
+ * A `<p>`, not a `<div>`: `e2e/touchTargets.ts` exempts an `<a>` inside `p`/`li` from the 44 px
+ * floor and measures every other link in `main`, so a sources line in a bare container would fail
+ * the touch sweep on `/methods` once per citation.
+ */
+export function Sources({ items }: { items: { label: string; href: string; title: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <span className="font-medium">Sources: </span>
+      {items.map((s, i) => (
+        <span key={s.href}>
+          {i > 0 ? ' · ' : ''}
+          <a
+            href={s.href}
+            className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+            title={s.title}
+          >
+            {s.label}
+          </a>
+        </span>
+      ))}
+    </p>
+  );
+}

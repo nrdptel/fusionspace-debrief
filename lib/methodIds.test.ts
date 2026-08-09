@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { METHOD_IDS, METHOD_GROUPS } from './methodIds';
 import { METHOD_CONTENT } from './methods/content';
+import { REFERENCES, REFERENCE_IDS } from './methods/references';
 import { metricTiles } from './readings';
 import type { FlightMetrics } from './analyze/types';
 
@@ -233,6 +234,63 @@ describe('the methods page has a structure, and every block is in it', () => {
     expect(bodies.length, 'it actually read the paragraphs').toBeGreaterThan(90);
     const longest = Math.max(...bodies.map((b) => words(b.split(/^\s*<\/p>$/m)[0] ?? '')));
     expect(longest, 'and the longest is a real paragraph, not an empty match').toBeGreaterThan(150);
+  });
+
+  it('cites only sources that exist, and carries no source nobody cites', () => {
+    // P9 slice 5. The direction the compiler cannot check is the one that rots: a bibliography
+    // that has drifted from its text. That is not hypothetical — OpenRocket's technical
+    // documentation is the field's best citation practice AND frozen at v13.05 (2013) while the
+    // app is many releases past it (`COMPETITION.md` row 37).
+    const cited = new Set<string>();
+    for (const id of METHOD_IDS) for (const r of METHOD_CONTENT[id].cites ?? []) cited.add(r);
+    expect([...cited].sort(), 'every reference is cited by at least one block').toEqual([...REFERENCE_IDS].sort());
+    // …and the reverse is the compiler's job, so assert that it IS the compiler's job rather
+    // than duplicating it: a `ReferenceId` that is not a key of REFERENCES would not type-check.
+    for (const r of cited) expect(REFERENCES[r as keyof typeof REFERENCES]).toBeDefined();
+  });
+
+  it('cites something on every block whose method IS a published one', () => {
+    // An explicit list, because "does this method rest on published work?" is a judgement and a
+    // grep cannot make it. Each entry is here because the CODE names the published thing:
+    //   ground-baseline-altitude / altitude-of-a-reading — the standard atmosphere's
+    //     pressure-to-altitude relation (`lib/analyze/index.ts` altitudeFromPressure)
+    //   apogee / velocity-max-velocity — the Hampel filter (`lib/analyze/signal.ts:hampelFilter`)
+    //   mach-dynamic-pressure — speed of sound, Mach, and q = ½ρv²
+    // Adding a block that rests on a published method and forgetting to cite it is exactly what
+    // this catches, and the list is short enough to review.
+    const MUST_CITE = [
+      'ground-baseline-altitude',
+      'altitude-of-a-reading',
+      'apogee',
+      'velocity-max-velocity',
+      'mach-dynamic-pressure',
+    ] as const;
+    for (const id of MUST_CITE) {
+      expect(METHOD_CONTENT[id].cites?.length ?? 0, `${id} rests on published work and must name it`).toBeGreaterThan(0);
+    }
+    // The other direction, so this cannot quietly become "everything cites something": most of
+    // this page IS Debrief's own, and a block that borrowed authority it does not have would be
+    // the worse failure. Nothing outside the list above may cite.
+    const unexpected = METHOD_IDS.filter(
+      (id) => (METHOD_CONTENT[id].cites?.length ?? 0) > 0 && !(MUST_CITE as readonly string[]).includes(id),
+    );
+    expect(unexpected, 'a block citing a source without being listed above as resting on one').toEqual([]);
+  });
+
+  it('gives every reference a retrievable-looking source and a checkable claim', () => {
+    // Every field was fetched before it was written down (see `lib/methods/references.ts`). What
+    // a test can hold is the SHAPE: a real absolute URL, a year that is a year, and the "what
+    // Debrief takes from it" clause — which is the thing that makes a citation checkable rather
+    // than decorative, and the first thing a hurried edit would drop.
+    for (const id of REFERENCE_IDS) {
+      const r = REFERENCES[id];
+      expect(r.url, `${id} has an https source`).toMatch(/^https:\/\/\S+$/);
+      expect(r.year, `${id} has a plausible year`).toBeGreaterThan(1900);
+      expect(r.year).toBeLessThan(2100);
+      expect(r.what.length, `${id} says what Debrief takes from it`).toBeGreaterThan(30);
+      expect(r.short.length, `${id}'s marker is short enough to sit in prose`).toBeLessThan(24);
+      expect(r.title.length, `${id} has a real title`).toBeGreaterThan(10);
+    }
   });
 
   it('gives every group a title and a blurb that is not the title again', () => {

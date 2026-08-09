@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { MethodId } from '../methodIds';
+import type { ReferenceId } from './references';
 import { derivedPeakList } from '../derivedPeak';
 
 /**
@@ -19,7 +20,19 @@ import { derivedPeakList } from '../derivedPeak';
  * Moved verbatim on 2026-08-08. Not one word changed in the move; the built page's rendered text
  * was compared character for character before and after.
  */
-export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }> = {
+/**
+ * `cites` names the published sources a block's method is implemented FROM — typed against
+ * `lib/methods/references.ts`, so a block cannot cite a reference that does not exist.
+ *
+ * **Optional, and that is the honest shape rather than a shortcut.** Most of what Debrief reports
+ * is its own: the transonic threshold, the max-Q window, every bound measured off the corpus. A
+ * required field would push 46 blocks to `cites: []` — noise that reads as an omission — or, worse,
+ * invite a plausible citation to fill it. An uncited block is a block that rests on no published
+ * method, which is a true statement about most of this page. The direction that IS enforced is the
+ * other one: `lib/methodIds.test.ts` fails on a reference nobody cites, because a bibliography
+ * drifting from its text is the exact failure OpenRocket's frozen v13.05 document shows.
+ */
+export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; cites?: readonly ReferenceId[] }> = {
   "not-a-flight": {
     title: "When a record isn't a flight at all",
     body: (
@@ -205,6 +218,7 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
     ),
   },
   "ground-baseline-altitude": {
+    cites: ['ussa-1976', 'bosch-bmp180'],
     title: "Ground baseline & altitude",
     body: (
       <>
@@ -430,6 +444,7 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
     ),
   },
   "apogee": {
+    cites: ['pearson-2015'],
     title: "Apogee",
     body: (
       <>
@@ -456,6 +471,7 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
     ),
   },
   "altitude-of-a-reading": {
+    cites: ['ussa-1976'],
     title: "The altitude a reading happened at",
     body: (
       <>
@@ -523,6 +539,7 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
     ),
   },
   "velocity-max-velocity": {
+    cites: ['gracey-1980', 'pearson-2015'],
     title: "Velocity & max velocity",
     body: (
       <>
@@ -645,6 +662,7 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode }
     ),
   },
   "mach-dynamic-pressure": {
+    cites: ['ussa-1976', 'gracey-1980', 'talay-1975'],
     title: "Mach & dynamic pressure",
     body: (
       <>

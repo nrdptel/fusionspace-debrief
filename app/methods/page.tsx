@@ -3,7 +3,8 @@ import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import { METHOD_GROUPS, type MethodId } from '@/lib/methodIds';
 import { METHOD_CONTENT } from '@/lib/methods/content';
-import { SectionNav } from '@/components/ui';
+import { REFERENCES, REFERENCE_IDS, sourcesFor } from '@/lib/methods/references';
+import { SectionNav, Sources } from '@/components/ui';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_URL } from '@/lib/links';
 
@@ -25,10 +26,16 @@ function groupId(title: string): string {
 
 /** The strip's items. Short labels, because the strip scrolls sideways on a phone and a
  *  full subject title turns it into the wall it is meant to open up. */
-const NAV = METHOD_GROUPS.map((g) => ({
-  id: groupId(g.title),
-  label: g.title.length > 22 ? `${g.title.slice(0, 21).trimEnd()}\u2026` : g.title,
-}));
+const NAV = [
+  ...METHOD_GROUPS.map((g) => ({
+    id: groupId(g.title),
+    label: g.title.length > 22 ? `${g.title.slice(0, 21).trimEnd()}\u2026` : g.title,
+  })),
+  // Appended rather than made a twelfth `METHOD_GROUPS` entry: a group's `ids` are
+  // `readonly MethodId[]` and `lib/methodIds.test.ts` requires every group non-empty, so a
+  // references group would have to invent method ids to exist.
+  { id: 'references', label: 'Sources' },
+];
 
 
 export default function MethodsPage() {
@@ -75,6 +82,15 @@ export default function MethodsPage() {
                 <span className="text-zinc-500 dark:text-zinc-400">({g.ids.length})</span>
               </li>
             ))}
+            <li>
+              <a
+                href="#references"
+                className="text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
+              >
+                Sources
+              </a>{' '}
+              <span className="text-zinc-500 dark:text-zinc-400">({REFERENCE_IDS.length})</span>
+            </li>
           </ul>
         </nav>
 
@@ -102,6 +118,43 @@ export default function MethodsPage() {
           </section>
         ))}
 
+        {/* The aggregate index. Each block already carries its own sources line, so the popover
+            on the report is complete without this — what this adds is the other direction: what
+            a source IS, and which readings rest on it.
+
+            Every entry names what Debrief takes from it, so a reader can check the citation
+            rather than take it on trust. That clause is the difference between a bibliography and
+            a decoration. */}
+        <section id="references" className="mt-12 scroll-mt-12">
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Sources</h2>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
+            The published work the methods above are implemented from. Most of this page is
+            Debrief&apos;s own — every threshold measured off the test corpus, every bound chosen
+            here — and those blocks deliberately cite nothing rather than borrow authority they do
+            not have. These are the ones that do rest on published work.
+          </p>
+          <ul className="mt-4 max-w-[42rem] space-y-4 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
+            {REFERENCE_IDS.map((id) => {
+              const r = REFERENCES[id];
+              return (
+                <li key={id} id={`ref-${id}`} className="scroll-mt-12">
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">{r.short}</span>
+                  {' — '}
+                  {r.by}, <em>{r.title}</em>, {r.year}.{' '}
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 underline underline-offset-2 dark:text-indigo-400"
+                  >
+                    Read it
+                  </a>
+                  <span className="block text-sm">Debrief takes from it: {r.what}.</span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       </section>
 
       <p className="mt-12 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -125,7 +178,7 @@ export default function MethodsPage() {
  *  The heading is an `h3`: the group `<section>` above owns the `h2`. Before the page was
  *  grouped it had 51 sibling `h2`s and no third level at all. */
 function Method({ id }: { id: MethodId }) {
-  const { title, body } = METHOD_CONTENT[id];
+  const { title, body, cites } = METHOD_CONTENT[id];
   return (
     <div>
       <h3 id={id} className="scroll-mt-12 text-base font-medium text-zinc-800 dark:text-zinc-200">
@@ -146,6 +199,7 @@ function Method({ id }: { id: MethodId }) {
         className="mt-1 max-w-[30rem] space-y-3"
       >
         {body}
+        <Sources items={sourcesFor(cites)} />
       </div>
     </div>
   );
