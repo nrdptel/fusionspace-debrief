@@ -123,6 +123,30 @@ test('both file pickers offer every format the app can read', async ({ page }) =
 // This walks the two things that fix it, rather than asserting the markup exists: a reader
 // who has never seen the page reaches a named definition from the top in ONE click, and the
 // definition they land on sits under a subject heading that says what it is among.
+test('the landing surface says what this does that your own software cannot', async ({ page }) => {
+  // P5 slice 2. `COMPETITION.md`'s standing conclusion opens: "it is what the landing surface and
+  // the README should say, and right now they do not say it." A flyer arriving from a forum link
+  // had to discover all four by using the tool.
+  await page.goto('/');
+  const why = page.getByRole('region', { name: /your altimeter/i });
+  await expect(why).toBeVisible();
+  await expect(why.getByRole('listitem')).toHaveCount(4);
+
+  // The two claims the ledger warns must be published carefully, checked as RENDERED rather than
+  // as data — the unit test holds the strings, this holds what a flyer actually reads.
+  await expect(why, 'the cross-vendor qualifier, because overlaying one maker is no longer unique').toContainText(
+    /different makers/i,
+  );
+  await expect(why, 'a composite adds order and no reading').toContainText(/nothing is combined/i);
+
+  // No assertion here that the panel is ABSENT elsewhere, and that is deliberate rather than an
+  // omission. The report and the comparison return early and never reach this block at all, so an
+  // assertion on either would pass whatever the guard said — it did, when it was falsified by
+  // rendering the panel unconditionally. The `idle` guard is kept because a panel of claims under
+  // "there's no flight data in this file" is a tell, but it is not a thing this walk can prove,
+  // and an assertion that cannot fail is worse than none.
+});
+
 test('a method that rests on published work says which, and the source is reachable', async ({ page }) => {
   // P9 slice 5. `MAINTAINING.md`'s CLEAN-ROOM invariant has always required methods to be
   // implemented from published sources AND CITED; until 2026-08-09 the citing was happening in

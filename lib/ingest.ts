@@ -18,8 +18,9 @@ import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRa
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
 import { attachHighRateText, attachSummaryText, saveRecent, setFlightIds } from './recents';
-import { readGrouping } from './canonical';
+import { readGrouping, readStage } from './canonical';
 import { planRestoredGroupings, type RecordedGrouping } from './flightGroups';
+import { planRestoredStages, writeFirstStage, type RecordedStage } from './firstStage';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -129,6 +130,31 @@ async function restoreGroupings(results: IngestedFlight[]): Promise<string[]> {
   // Only claim it if the store actually took it. A quota abort left the sentence "put these
   // recordings back together" printed over a logbook that had not changed.
   return (await setFlightIds(changes)) ? restored : [];
+}
+
+/**
+ * Put back the flyer's PER-STAGE statement, where the records in this drop state one.
+ *
+ * The composite's twin of `restoreGroupings`, and separate from it because the two statements are
+ * different claims: a grouping says these files are one flight recorded twice, a stage set says
+ * they are different parts of one launch. `lib/composite.ts` exists because those must never be
+ * confused, so nothing here reads one as the other.
+ *
+ * It writes only the "which flew first" statement, which is the part a flyer cannot easily redo.
+ * Membership is not restored because membership is not stored: a composite is assembled by
+ * ticking rows, and doing that again is one gesture.
+ *
+ * Same "rows this drop created" rule as the grouping restore, for the same reason.
+ */
+function restoreStages(results: IngestedFlight[]): void {
+  const stated: RecordedStage[] = [];
+  for (const r of results) {
+    if (!r.savedId || r.replaced) continue;
+    const st = readStage(r.text);
+    if (!st) continue;
+    stated.push({ id: r.savedId, name: r.name, set: st.set, first: st.first });
+  }
+  for (const { ids, first } of planRestoredStages(stated)) writeFirstStage(ids, first);
 }
 
 /** Does this file name belong to the rocket a summary names? Compared on letters and digits
@@ -420,6 +446,9 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   // the same question the two above ask — it can only be answered once every file has a logbook
   // id, since the plan is written against those ids and not against the tokens in the files.
   const groupsRestored = await restoreGroupings(results);
+  // …and the per-stage statement, which is `localStorage` rather than the logbook, so it needs no
+  // await and cannot fail the drop.
+  restoreStages(results);
   for (const s of unpaired) {
     // Two different facts, and only one of them is ever true. With no flights in the drop the
     // log really isn't here. With flights in it, Debrief has one and cannot tell it is the

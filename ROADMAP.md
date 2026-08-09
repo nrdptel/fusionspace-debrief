@@ -2040,8 +2040,38 @@ exports.
 
 ## D11 (from ON-4) — One canonical file, out and back in
 
-**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED; only slice 5 (the composite's stage order)
-remains.** Slice 3 shipped 2026-08-09 (PR #156): the flyer's grouping statement now travels in the
+**Status:** SHIPPED 2026-08-09 — all five slices, and every clause of the *done when* is met and
+pinned. A canonical export round-trips losslessly (`lib/canonical.test.ts`, over the 9 committed
+fixtures AND every corpus recording, so it holds in fork CI without a token and holds harder with
+the corpus attached); **provenance survives** (the record writes the MEASUREMENT and never the
+reading, so a re-imported flight is re-analysed rather than frozen); and **multi-source structure
+survives** in both of its forms — a flight of two recordings does not flatten (slice 3), and a
+stitched composite keeps its stages (slice 5).
+
+**Slice 5 SHIPPED 2026-08-09.** The composite wrote nothing at all before it: "Copy the timeline"
+and "Copy a link" were its whole output surface while `/compare` wrote five formats and a ZIP for
+the same flyer. It now writes one canonical record per recording, zipped, each carrying the flyer's
+per-stage statement — and dropping the folder back in restores it. `CanonicalStage` is a separate
+field from `CanonicalGrouping` on purpose: a grouping says *one flight recorded twice*, a stage set
+says *different parts of one launch*, and one field for both would let a restore read either claim
+as the other. Pinned by `lib/firstStage.test.ts` (6 cases on the restore plan) and by
+`e2e/stitch.spec.ts` → *"the composite saves as records and comes back from them"*, which wipes the
+logbook between saving and dropping and was falsified in both halves.
+
+**What the milestone answered that it was really asking.** D11's notes predicted that if every
+parser is genuinely a thin producer of one model the round-trip would be nearly free, and that
+wherever it was not free a parser would be smuggling format-specific state past the model. It was
+free, first try, across the whole corpus. The two things that did NOT survive were both the
+flyer's own statements — the grouping and the stage order — and neither is in the model at all,
+which is the right answer: they are not measurements, and they now ride beside the flight rather
+than in it.
+
+**Two known gaps, filed in `BACKLOG.md` rather than fixed here**, both downstream of one root — the
+record bakes the flyer's CROP into the samples instead of stating it: a restored group whose
+recordings were cropped can compute an apogee spread over two different stretches, and two copies
+of one record under different names group as a flight recorded twice.
+
+**Slices 1, 2, 3 and 4 SHIPPED.** Slice 3 shipped 2026-08-09 (PR #156): the flyer's grouping statement now travels in the
 record, outside the `RawFlight` fields, and the drop path restores it. The *done when*'s
 multi-source clause is met for the two-recordings case and pinned twice — by
 `lib/flightGroups.test.ts` → `planRestoredGroupings` and `groupToken` (12 cases, falsified against
@@ -3261,7 +3291,22 @@ what P4 must answer, not whether it runs.
 
 ## P5 — Ready for the public
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-09**: the README shows the tool instead of
+describing it. **4,545 words, 32 KB, zero images → 1,948 words, 16 KB, four images**, with the
+first screenful a real flight read by the real app rather than three paragraphs of prose. 68% of
+the file was one 3,099-word `What it does` section duplicating — without citations — what the
+methods page now says properly, so it was cut and linked rather than paraphrased. Pinned by
+`lib/readme.test.ts` (6 cases, falsified 3 ways): a referenced image not in the repo fails, alt
+text that says "screenshot" fails, and a copy line where "upload" describes something a flyer does
+fails — the PRIVACY invariant reaches the copy, not just the code.
+
+**What is left, in order.** (a) The landing surface still does not state the three things Debrief
+does that no vendor tool does — `COMPETITION.md`'s standing conclusion is written down and reaches
+no flyer. (b) A visible changelog and a release the flyer can see in the UI; the build stamp from
+D11 slice 4 is already in every document, so the surface is the missing half rather than the data.
+(c) A working way to report a bug or request a format from inside the app. (d) The GitHub
+description, topics and pinned links — **owner-level and parked**, because no tool in this session
+can write repository settings; the README carries the message without them.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
 

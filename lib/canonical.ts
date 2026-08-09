@@ -135,6 +135,28 @@ export interface CanonicalGrouping {
 }
 
 /**
+ * The flyer's statement about a per-stage COMPOSITE: that this recording is one of several stages
+ * of one launch, and which of them flew first.
+ *
+ * **A different relation from `CanonicalGrouping`, and kept separate for that reason.** A grouping
+ * says *these files are one flight recorded twice* — same launch, same airframe, two instruments.
+ * A stage set says *these files are different PARTS of one launch*, each recording a different
+ * airframe after separation. Merging the two into one field would let a restore read one as the
+ * other, and `lib/composite.ts` exists precisely because those two claims must never be confused:
+ * a composite merges nothing and adds only ORDER, which is the one thing no single recording has.
+ *
+ * Like the grouping, this is something the flyer SAID — `lib/composite.ts`: "nothing in the
+ * records establishes that they belong to one launch" — so it rides outside the `RawFlight`
+ * fields where the analyzer cannot reach it.
+ */
+export interface CanonicalStage {
+  /** The stage set this recording belongs to. Opaque, and equal across every record of one set. */
+  set: string;
+  /** Whether the flyer said THIS recording flew as the first stage. */
+  first: boolean;
+}
+
+/**
  * How far into the file `readGrouping` looks.
  *
  * The block is written immediately after the build stamp and before `source`, so it lands in the
@@ -164,6 +186,9 @@ interface CanonicalRecord {
   /** The flyer's grouping statement. Not part of the flight — see `CanonicalGrouping`. Written
    *  here, ahead of the series, so `readGrouping` can find it without parsing the file again. */
   grouping?: CanonicalGrouping;
+  /** The flyer's per-stage statement, where this record was written from a composite. Same
+   *  placement and the same reason. See `CanonicalStage`. */
+  stage?: CanonicalStage;
   source: string;
   format: string;
   formatLabel: string;
@@ -199,13 +224,20 @@ const decodeSeries = (a: readonly Scalar[]): Float64Array => {
  * exactly (ECMA-262), so no digits are lost and no tolerance is involved. The file is therefore
  * larger than the log it came from, which is the honest cost of carrying every sample.
  */
-export function toCanonical(flight: RawFlight, grouping?: CanonicalGrouping): string {
+export function toCanonical(
+  flight: RawFlight,
+  /** The flyer's statements about this recording's place among others, where they made any. An
+   *  options object rather than positional parameters: there are two now and they are unrelated,
+   *  so a call site passing one should not have to mention the other. */
+  says: { grouping?: CanonicalGrouping; stage?: CanonicalStage } = {},
+): string {
   const record = {
     schema: CANONICAL_SCHEMA,
     ...buildFields(),
     // Presence, not truthiness: a flight of one recording states nothing, which is what every
     // record written before this existed also states, so both read back identically.
-    ...(grouping === undefined ? {} : { grouping }),
+    ...(says.grouping === undefined ? {} : { grouping: says.grouping }),
+    ...(says.stage === undefined ? {} : { stage: says.stage }),
     source: flight.source,
     format: flight.format,
     formatLabel: flight.formatLabel,
@@ -341,6 +373,25 @@ export function looksCanonical(text: string): boolean {
  * `of` is required to be at least 2 because a grouping of one recording is not a grouping, and
  * `flight` must be non-empty: an empty token would bucket every record that carries one together.
  */
+export function readStage(text: string): CanonicalStage | null {
+  // Same head window and the same ignore-rather-than-refuse rule as `readGrouping`: a statement
+  // about which files go together cannot make a flight subtly different, because it is not in
+  // the flight.
+  const m = /"stage":(\{[^{}]*\})/.exec(text.slice(0, GROUPING_HEAD));
+  if (!m) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(m[1]);
+  } catch {
+    return null;
+  }
+  if (typeof raw !== 'object' || raw === null) return null;
+  const g = raw as Partial<CanonicalStage>;
+  if (typeof g.set !== 'string' || g.set === '') return null;
+  if (typeof g.first !== 'boolean') return null;
+  return { set: g.set, first: g.first };
+}
+
 export function readGrouping(text: string): CanonicalGrouping | null {
   // The braces are excluded from the body match so this cannot run away across the whole file
   // when a record carries no grouping at all — which is nearly every record.
