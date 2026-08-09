@@ -14,6 +14,31 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — the synthetic marker is read on ONE of the two routes into the app, and the route
+  it is missing from is the one D10's remaining samples will take.** `syntheticFromRows` is called
+  only from `analyzeTable` (`lib/flight/columns.ts:639`), which only the MAPPER route reaches:
+  `lib/parsers/index.ts:128` returns `kind: 'flight'` straight from a vendor parser when one
+  detects the file, and no vendor parser looks at the metadata block. Reproduce in a minute: take
+  `lib/parsers/__fixtures__/altusmetrum-telemetrum.csv`, insert `Synthetic,"…"` as its first line,
+  drop it — the flight opens with no label anywhere. Harmless today, because the only generated
+  file is written with column names no parser claims *on purpose*. It stops being harmless at
+  D10's next slices, whose whole design is *"a generator that writes a real logger's actual file
+  format, so every sample is also a parser test"* — those go down the vendor route and lose the
+  claim silently. The fix is one read in `importFlight` after a parser succeeds, not ten reads in
+  ten parsers.
+- **2026-08-09 — `DESIGN.md` §9's spacing grep cannot see a FRACTIONAL step, and the tree uses
+  them.** The command is `grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-([0-9]+|\[[^]]+\])'`, whose
+  `[0-9]+` arm stops at the first `.`, so every half-step is invisible and the count reads 0.
+  **Measured 2026-08-09 — 87 uses across 21 distinct utilities**, by adding one alternative to the
+  existing command: `cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+\.[0-9]+'`
+  → `mt-0.5` ×16, `gap-1.5` ×13, `py-1.5` ×9, `mt-1.5` ×9, `py-0.5` ×8, `px-2.5` ×5, and 15 more.
+  **87 is not 87 violations, and that is why this is a backlog entry rather than a fix**: `py-1.5`
+  is §4's own control padding and `px-2.5` is `Button size="sm"`, deliberately (see `ON-B1`). What
+  the number establishes is that a whole family of values passes the ratchet unseen, so a real
+  drift into `mt-0.5` cannot be distinguished from a sanctioned `py-1.5`. Fixing it means deciding
+  which half-steps §4 sanctions and writing them into the subtraction, then moving
+  `offScaleSpacing` in `lib/design-system.test.ts` in the same commit. Same class of blind spot §9
+  already documents about itself twice.
 - **2026-08-09 — CORRECTION to this run's own phone-walk finding about the comparison's "Spread"
   column.** Filed earlier today as "the only content in the app that exists on a wide screen and not
   at all at 390 px". Measured rather than left standing: driven over the real two-altimeter pair

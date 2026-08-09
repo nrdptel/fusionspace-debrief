@@ -55,7 +55,8 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card, Chip, Disclosure, Figure, Frame, SectionNav } from './ui';
+import { Button, Card, Chip, Disclosure, Figure, Frame, Notice, SectionNav } from './ui';
+import { SYNTHETIC_NOTE, isSynthetic } from '@/lib/synthetic';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -138,13 +139,23 @@ export default function FlightReport({
   const notes = useMemo(
     () =>
       renderCaveats(
-        [repeatedSpanNote(flight.repeatedSpans, analysis.extent), ...flight.notes].filter(
-          (n): n is string => !!n,
-        ),
+        [
+          repeatedSpanNote(flight.repeatedSpans, analysis.extent),
+          // The synthetic sentence is HOISTED out of this list, not repeated in it — see the
+          // notice at the top of the report. A made-up flight saying so in the ninth card of a
+          // nine-screen report, between "the parser skipped a blank row" and a repeated-span
+          // note, is a footnote; the claim needs to be the first thing on the page and beside
+          // the numbers, not filed under how the file was read.
+          ...flight.notes.filter((n) => n !== SYNTHETIC_NOTE),
+        ].filter((n): n is string => !!n),
         sys,
       ),
     [flight.repeatedSpans, flight.notes, analysis.extent, sys],
   );
+
+  /** Did Debrief make this flight up? Read from the flight's own notes, so it is equally true of
+   *  a file just dropped, a saved record re-opened, and a logbook entry restored from a backup. */
+  const synthetic = isSynthetic(flight);
 
   // The descending mass is one quantity used by two recovery panels (landing
   // energy and parachute Cd), so the report owns it and feeds both — one input,
@@ -841,6 +852,15 @@ export default function FlightReport({
   return (
     <div className="space-y-8">
       <h2 className="sr-only">Flight report for {flight.source}</h2>
+      {/* A flight Debrief MADE UP says so before it says anything else, and says it on paper too.
+          Not `print:hidden` like the chrome around it: printing is how a certification package is
+          actually produced, and a printed page of numbers with the claim stripped off it is the
+          worst version of this failure rather than an acceptable one. */}
+      {synthetic && (
+        <Notice as="p" tone="warn" data-synthetic="report">
+          {SYNTHETIC_NOTE}
+        </Notice>
+      )}
       {/* `SectionNav` (`DESIGN.md` §5) since 2026-08-08. This strip was hand-rolled here, and
           `app/methods/page.tsx` — ~12,700 words in 51 blocks — had no in-page navigation at
           all, which is most of owner note ON-1. The jump targets carry a `scroll-margin-top`
@@ -1140,7 +1160,7 @@ export default function FlightReport({
         >
           Readings
         </h3>
-        <MetricGrid metrics={metrics} sys={sys} hidden={hidden} onToggle={toggleReading} />
+        <MetricGrid metrics={metrics} sys={sys} hidden={hidden} onToggle={toggleReading} synthetic={synthetic} />
       </section>
 
       {/* The ascent readings that take a figure from the flyer. Each is a sentence and one

@@ -23,14 +23,13 @@ import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers
 import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { attachHighRateText, attachSummaryText, saveRecent, setFlightIds } from './recents';
+import { attachHighRateText, attachSummaryText, fileFacts, saveRecent, setFlightIds } from './recents';
 import { readGrouping, readStage } from './canonical';
 import { planRestoredGroupings, type RecordedGrouping } from './flightGroups';
 import { planRestoredStages, writeFirstStage, type RecordedStage } from './firstStage';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
-import { apogeeCaveatFlags } from './readings';
 
 /** Far above any real flight log; a bigger file is a mistake, not a flight. */
 export const MAX_BYTES = 64 * 1024 * 1024;
@@ -442,10 +441,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
       const saved = await saveRecent({
         name: file.name,
         formatLabel: result.flight.formatLabel,
-        apogeeM: analysis.metrics.apogeeAltitude ?? null,
-        maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
-        ...(apogeeCaveatFlags(analysis.metrics) ? { apogeeCaveats: apogeeCaveatFlags(analysis.metrics)! } : {}),
-        ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
+        ...fileFacts(result.flight, analysis),
         text,
         // A raw binary download does not survive as text — keep the file itself, or the
         // logbook row reopens as mojibake. See `textIsTheFile`.

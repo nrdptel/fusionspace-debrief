@@ -7,12 +7,13 @@ import type { UnitChoice } from '@/lib/display';
 import { CROSS_CHECK_WIDE, MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX, STORAGE_WRITE_REFUSED } from '@/lib/recents';
 import { APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR } from '@/lib/readings';
-import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
+import { sortRecents, filterRecents, personalBests, logbookRowNames, provenanceCell, PROVENANCE_COLUMN, type LogbookSort } from '@/lib/logbook';
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
-import { Button, Card, Notice, Segmented, useReturnFocus } from './ui';
+import { Button, Card, Chip, Notice, Segmented, useReturnFocus } from './ui';
+import { SYNTHETIC_SHORT, SYNTHETIC_TAG } from '@/lib/synthetic';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -401,6 +402,14 @@ export default function RecentFlights({
     // flight, and which ones are not the one quoted. They only appear when a flight on screen
     // actually has more than one recording; nobody else pays for them.
     const anyGrouped = ordered.some((r) => groupOfRow(r).recordings.length > 1);
+    // A made-up flight in this selection buys the whole table a column, on the same
+    // conditional-column rule the grouping pair follows: nobody who has only flown real flights
+    // pays for it. **A COLUMN and not a caption row**, because this table's destination is a
+    // spreadsheet — a caption above the header is a cell a sort moves away from the rows it was
+    // about, where a per-row value stays attached to its own numbers through any sort, filter or
+    // partial paste. The word is `SYNTHETIC_TAG` rather than a tick so a cell that travels alone
+    // still says what it means.
+    const anySynthetic = ordered.some((r) => r.synthetic);
     const header = [
       'Flight',
       'Logger',
@@ -408,6 +417,7 @@ export default function RecentFlights({
       `Apogee (${sys === 'metric' ? 'm' : 'ft'})`,
       `Max speed (${sys === 'metric' ? 'm/s' : 'ft/s'})`,
       ...(anyGrouped ? ['Recordings', 'Also recorded by'] : []),
+      ...(anySynthetic ? [PROVENANCE_COLUMN] : []),
       'Note',
     ];
     const rows = ordered.map((r) => [
@@ -417,6 +427,7 @@ export default function RecentFlights({
       r.apogeeM != null ? fmtLength(r.apogeeM, sys) + apogeeTag(r) : '—',
       r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—',
       ...(anyGrouped ? [String(groupOfRow(r).recordings.length), groupOfRow(r).recordings.slice(1).map((x) => x.name).join('; ')] : []),
+      ...(anySynthetic ? [provenanceCell(r)] : []),
       r.note,
     ]);
     const ok = await copyTable(header, rows);
@@ -773,6 +784,38 @@ export default function RecentFlights({
                   <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                     {r.formatLabel}
                   </span>
+                  {/* A flight Debrief made up wears the tag beside the logger that "recorded" it.
+                      The row is 188 px of name at 390 px, so it is the tag and not the sentence —
+                      the report is where the sentence lives, exactly as with the apogee caveats
+                      two cells along.
+
+                      **§2's `warn` deliberately, and this is NOT the amber the previous session
+                      took OFF this row.** That one coloured a NUMBER by whether it was large — a
+                      superlative wearing the caveat hue, which §2 forbids outright. This is amber
+                      used for what §2 says amber means: a caveat, on a token whose entire content
+                      is the caveat. It IS about the readings to its right, and saying so is the
+                      point rather than a problem — below `sm` the wrapper wraps and the numbers
+                      sit beside it, which is the layout this claim most needs.
+
+                      **The sentence is `sr-only`, not a `title`.** A `title` on a `<span>` that
+                      has its own text is not used in name-from-content, so the row's accessible
+                      name would have been "… Generic CSV SYNTHETIC 173 m/s …" — a shouted word
+                      with no claim attached, and §8 forbids hover-only state besides. Same
+                      treatment the personal-best stars ten lines below already use, for the same
+                      reason. */}
+                  {r.synthetic && (
+                    <Chip
+                      tone="warn"
+                      mono={false}
+                      className="shrink-0"
+                      value={
+                        <>
+                          {SYNTHETIC_TAG}
+                          <span className="sr-only">: {SYNTHETIC_SHORT}</span>
+                        </>
+                      }
+                    />
+                  )}
                   {/* The two numbers this surface exists to be scanned down. `DESIGN.md` §3:
                       `text-sm` is the floor for anything a flyer reads to make a decision, and any
                       number compared against another number is `font-mono tabular-nums` so the

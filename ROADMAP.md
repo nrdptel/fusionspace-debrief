@@ -2046,7 +2046,9 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED.** Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a SHIPPED.** (This line read "1, 2 and 3" for a
+day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
+update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
 check that `public/sw.js`'s precache list equals the registry) and two walks in
 `e2e/analyze.spec.ts`.
@@ -2133,10 +2135,72 @@ the strip reverting to hand-written buttons, and the data CSV mis-declaring that
 4, 1 and 4 assertions fail respectively). The data-CSV exemption is now stated once, on the
 document, instead of twice in two test files.
 
+**Slice 5a SHIPPED 2026-08-09 — the label reaches the surfaces a flyer READS, and the audit that
+said which was re-run rather than believed.** Five sinks moved from `todo` to `labelled`: the report
+(a §5 `Notice` at `warn`, first thing on the page and deliberately **not** `print:hidden`), the
+metric grid (a second one, above the tiles — the report runs nine screens on a phone and the
+readings are the part that gets screenshotted), the logbook row (a `Chip` at `warn`, with the
+claim in `sr-only` text rather than a `title`), the logbook's clipboard table (a conditional
+*"Provenance"* column) and the logbook backup. The stitch composite `.zip` moved too, from
+`unreachable` rather than from `todo` — say which, because the first draft of this paragraph said
+"five sinks moved from `todo`" and one of the five had not.
+
+**The clipboard column is a per-row cell rather than a caption, and the reason is a citation
+rather than a preference.** `COMPETITION.md` row 41, opened by this run's competitive probe, is the
+measurement: NMEA 0183 marks simulation in *every sentence*, HL7 v2 in a *required field on every
+message*, DICOM on *every instance*. The shared principle is that the claim lives in a field the
+consumer must already parse to get the numbers at all — a caption above a header is a cell that a
+sort moves away from the rows it was about. That row also settles the question D10 had left open as
+*"a column or a decision"* for the data CSV: it is a column, and it is slice 5b.
+
+**Two things it found that were not on anyone's list.**
+
+- **The ★ was crownable by a flight nobody flew.** `personalBests` ranked on a bare `apogeeM`, so a
+  demonstration file wore *"Highest of your remembered flights"* — and both stars, measured in the
+  real app with the exclusion removed. It is EXCLUDED rather than blocking the set, which is the
+  opposite of the apogee-caveat rule beside it and deliberately so: a caveat says Debrief cannot
+  settle how high THIS flight went, so the runner-up must not be crowned; a synthetic flight did
+  not go higher and did not go lower, so the real flights settle it exactly as before.
+- **The 2026-08-09 audit's own record was wrong in both directions, and re-running it is what
+  found that.** `.gpx` and `.kml` were exempted as *unreachable* because "the generated flight has
+  no GPS" — a property of one generated FILE used to exempt a SINK, when the marker is a metadata
+  row any mappable CSV can carry, and both are named in this milestone's *done when*. The stitch
+  composite `.zip` was exempted as unreachable and is in fact covered (`toCanonical` writes notes
+  verbatim). The plot `.png`/`.svg` exemption claimed the image "carries no figure a reader could
+  mistake for a measurement" — it has a labelled y-axis. And three sinks were missing entirely,
+  all three outside `lib/documents.ts` and therefore invisible to a registry-driven check: the
+  channel explorer's own `.csv`, the sample table's per-column clipboard copy, and the ground
+  track's landing coordinate. `SINKS.length` **20 → 23**.
+
+Pinned by `lib/synthetic.test.ts` (17 cases: `isSynthetic` falsified two ways, a source check that
+every one of the three save sites goes through `fileFacts`, and the sink table), by
+`lib/logbookStar.test.ts` (+4 cases, falsified by removing the filter), by `lib/recents.test.ts`'s
+two `Required<>` fixtures which stop the file COMPILING when a member is added and not carried, and
+by two walks in `e2e/analyze.spec.ts` driving the real app through the mapper — both falsified by
+breaking the component and rebuilding, one of which showed the demonstration wearing both stars.
+
+**And the pre-push review found a defect the slice itself created, which is the third diff running
+that it has.** `lib/reopen.ts` rebuilds a hand-mapped flight from the stored text plus the stored
+mapping, and it passed headers, rows, mappings and `reported` — never `synthetic`. So the one route
+a generated demonstration file can take lost the claim the moment the flyer clicked its logbook row.
+It was worse than a missing notice: a reopen is a save, `fileFacts` reads the rebuilt flight, and a
+save is a replace in place, so **one click deleted the stored flag permanently**, after which the
+made-up apogee could take the ★. Nothing in the suite could see it — every other assertion builds
+its flight directly rather than through `importRecent` — and the first walk only reloaded the
+landing page. Fixed, pinned by a unit test that fails alone when the spread is removed, and the walk
+now clicks the row.
+
+**One thing this slice deliberately did not fix, filed instead:** the marker is read on the MAPPER
+route only, because `syntheticFromRows` is called from `analyzeTable` and a vendor parser never
+reaches it. Harmless while the only generated file is written with column names no parser claims —
+and a live blocker for slice (d), whose whole design is a generator writing a real logger's format.
+See `BACKLOG.md`, 2026-08-09.
+
 **What is left, in order.**
-(b) **The remaining reachable sinks**, in the order an unlabelled number would mislead: the data
-    CSV, the metric grid, the logbook row, the print card and its PNG, the comparison, the two
-    clipboard tables.
+(b) **The remaining reachable sinks** — the twelve still `todo` in `lib/synthetic.test.ts`, in the
+    order an unlabelled number would mislead: the data CSV, the print card and its PNG, the
+    comparison and its four documents, the two remaining clipboard tables, the explore CSV, the
+    plot images, `.gpx`/`.kml`, and the bundle that inherits from them.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
     tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
     single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so

@@ -3,7 +3,8 @@ import { visibleRows } from '@/lib/reportProfile';
 import { metricTiles } from '@/lib/readings';
 import ReadingChooser from './ReadingChooser';
 import { derivedPeakList } from '@/lib/derivedPeak';
-import { Button, Card, Extrapolated, Popover, Readout, Sources } from './ui';
+import { Button, Card, Extrapolated, Notice, Popover, Readout, Sources } from './ui';
+import { SYNTHETIC_SHORT } from '@/lib/synthetic';
 import { METHOD_CONTENT } from '@/lib/methods/content';
 import { sourcesFor } from '@/lib/methods/references';
 import { fmtLength, fmtTime } from '@/lib/display';
@@ -79,12 +80,33 @@ export default function MetricGrid({
   sys,
   hidden,
   onToggle,
+  synthetic,
 }: {
   metrics: FlightMetrics;
   sys: UnitChoice;
   /** Readings the flyer has turned off; undefined means the chooser isn't offered. */
   hidden?: string[];
   onToggle?: (label: string) => void;
+  /**
+   * Whether these readings come from a flight Debrief MADE UP.
+   *
+   * **A prop rather than something read off the page, and the grid pays for it rather than the
+   * report.** The report already carries the sentence at the top — but the report is nine screens
+   * on a phone, and this grid is the part of it a flyer screenshots, prints, or scrolls straight
+   * to. A claim that is true at the top of a document and absent where the numbers are is the
+   * shape `MAINTAINING.md` names as worse than either alone: a caveat on one panel and a
+   * confident figure on another.
+   *
+   * **Required, with no default, and that is the whole guard.** `synthetic = false` compiles, and
+   * it is the DEFECT value: a second call site that forgot the prop would silently render a
+   * made-up flight's readings as an ordinary flight, and nothing — not the type check, not a test
+   * — would fail. `RecentFlights`'s own `status` prop carries the same rule for the same reason,
+   * and it earned it by defaulting for exactly one commit. Every other carrier of this fact has a
+   * mechanical guard behind it (`RecentMeta.synthetic` by two `Required<>` fixtures, the note by
+   * riding in `flight.notes` where nobody has to remember it); this is the one that would revert
+   * to "a real flight" by omission, on the surface that gets screenshotted.
+   */
+  synthetic: boolean;
 }) {
   const everything = metricTiles(metrics, sys);
   const all = visibleRows(everything, (t) => t.label, hidden);
@@ -93,6 +115,15 @@ export default function MetricGrid({
 
   return (
     <div className="space-y-4">
+      {/* The SHORT form, and the report's own notice carries the sentence. Two copies of the same
+          200 characters cost ~230 px of an 844 px phone and read out twice to a screen reader;
+          what this position needs is that a screenshot of the readings cannot be mistaken for a
+          measurement, which one line does. */}
+      {synthetic && (
+        <Notice as="p" tone="warn" data-synthetic="readings">
+          {SYNTHETIC_SHORT}
+        </Notice>
+      )}
       {/* Both grids are the same tile at two weights — one `Card`, one `Readout`, `hero` on the
           readings the page exists to show. They used to be two hand-rolled treatments ten lines
           apart, the second on the middle radius that is not in the system at all, and both values

@@ -5,6 +5,10 @@
 // private-mode or storage-blocked browsers just won't remember anything.
 
 import type { FlownAt } from './flight/flownAt';
+import type { RawFlight } from './flight/types';
+import type { FlightAnalysis } from './analyze/types';
+import { apogeeCaveatFlags } from './readings';
+import { isSynthetic } from './synthetic';
 import { groupRecordings } from './flightGroups';
 
 export interface RecentMeta {
@@ -29,6 +33,17 @@ export interface RecentMeta {
    *  behaviour it had, and a re-save re-reads the file and fills it in. Storing the REASONS rather
    *  than a bare boolean so the row can say which one, the way every other surface does. */
   apogeeCaveats?: { floor?: boolean; unproven?: boolean };
+  /** Set only on a flight Debrief MADE UP — a demonstration file it generated, never a recording.
+   *
+   *  **The claim itself lives in the flight's notes** (`lib/synthetic.ts`), which is what makes it
+   *  survive a saved record, a mailed CSV and a logbook backup without any of those hops knowing
+   *  about it. This is the projection of that fact onto a LIST, for exactly the reason
+   *  `apogeeCaveats` is: the logbook renders rows, not flights, and a row that cannot see the
+   *  notes would rank a made-up apogee against real ones with nothing on screen saying so.
+   *
+   *  Absent on every real flight and on every row written before this field, which is nearly all
+   *  of them — absent means "a recording", the honest default, and a re-save fills it in. */
+  synthetic?: true;
   /** When the flight flew, where its file states it (see lib/flight/flownAt.ts). Absent on
    *  entries saved before this was read, and on files that carry no date — the logbook shows
    *  when it was opened in that case rather than inventing a launch day. */
@@ -220,7 +235,7 @@ export type IncomingFlight = Omit<RecentFlight, 'id' | 'addedAt' | 'note'>;
  * value wins — a parser that has learned something since gives a better apogee, and a flight
  * saved months ago should get it.
  */
-type FromTheFile = 'id' | 'addedAt' | 'name' | 'formatLabel' | 'apogeeM' | 'maxVelocityMs' | 'apogeeCaveats' | 'flownAt' | 'text' | 'bytes' | 'mapping';
+type FromTheFile = 'id' | 'addedAt' | 'name' | 'formatLabel' | 'apogeeM' | 'maxVelocityMs' | 'apogeeCaveats' | 'synthetic' | 'flownAt' | 'text' | 'bytes' | 'mapping';
 
 /**
  * The members that are the FLYER'S — things they decided ABOUT the file rather than things the
@@ -532,6 +547,38 @@ export async function setFlightIds(changes: { id: string; flightId: string | nul
 }
 
 /**
+ * Everything a save records ABOUT a flight that came out of the file and the analysis — in one
+ * place, because there are three save sites and they were three copies of a growing literal.
+ *
+ * **Written when the fourth fact arrived, and the shape of the near-miss is the argument for it.**
+ * `lib/ingest.ts`, `lib/mapped.ts` and `components/Analyzer.tsx` each open a flight by a different
+ * route — a launch day's folder, the column mapper, a single dropped file — and each wrote its own
+ * `apogeeM` / `maxVelocityMs` / `apogeeCaveats` / `flownAt` block. Three copies agree until one
+ * gains a member, and the one that does not gain it fails SILENTLY: the row is stored, survives a
+ * backup, and is simply missing the fact. Nothing throws, and no test that goes through the other
+ * two routes can see it. `synthetic` is the member that would have been forgotten — a flight
+ * Debrief made up, opened through the mapper, which is the ONLY route a generated demonstration
+ * file can take.
+ *
+ * `note`, `text`, `bytes`, `mapping` and the file's name stay at the call sites: those genuinely
+ * differ by route (a binary download keeps its bytes, a mapped file keeps its mapping), and
+ * folding them in here would be a signature that pretends they do not.
+ */
+export function fileFacts(
+  flight: RawFlight,
+  analysis: FlightAnalysis,
+): Pick<RecentMeta, 'apogeeM' | 'maxVelocityMs' | 'apogeeCaveats' | 'synthetic' | 'flownAt'> {
+  const caveats = apogeeCaveatFlags(analysis.metrics);
+  return {
+    apogeeM: analysis.metrics.apogeeAltitude ?? null,
+    maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
+    ...(caveats ? { apogeeCaveats: caveats } : {}),
+    ...(isSynthetic(flight) ? { synthetic: true as const } : {}),
+    ...(flight.flownAt ? { flownAt: flight.flownAt } : {}),
+  };
+}
+
+/**
  * A stored flight reduced to what the LIST needs — everything but the file itself.
  *
  * The THIRD place every member of a row has to be named, after `serializeLogbook`'s round-trip
@@ -541,7 +588,7 @@ export async function setFlightIds(changes: { id: string; flightId: string | nul
  * against a browser's IndexedDB. Pure and exported so it doesn't.
  */
 export function toMeta(rec: RecentFlight): RecentMeta {
-  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, apogeeCaveats, note, flownAt, flightId, read } = rec;
+  const { id, name, formatLabel, addedAt, apogeeM, maxVelocityMs, apogeeCaveats, synthetic, note, flownAt, flightId, read } = rec;
   return {
     id,
     name,
@@ -554,6 +601,9 @@ export function toMeta(rec: RecentFlight): RecentMeta {
     // Only where the apogee carries one — the list needs it to decide whether a flight can wear
     // the "highest" star at all, which is the whole reason it is on the projection.
     ...(apogeeCaveats ? { apogeeCaveats } : {}),
+    // Only on a flight Debrief made up. Absent is the honest default and is what every row
+    // written before this field already means.
+    ...(synthetic ? { synthetic } : {}),
     // Only where the file stated it; entries saved before this was read have none.
     ...(flownAt ? { flownAt } : {}),
     // Only where the flyer has said this file is one recording of a flight that has several.
@@ -747,6 +797,10 @@ function normalizeFlight(f: unknown): RecentFlight | null {
     // must not be able to inject a shape, and an absent one means "no caveat" which is the
     // behaviour every row written before this field had.
     ...(apogeeCaveatsOf(r.apogeeCaveats) ? { apogeeCaveats: apogeeCaveatsOf(r.apogeeCaveats)! } : {}),
+    // A made-up flight stays made up across a backup and restore. Only the literal `true`
+    // survives, so a hand-edited file cannot turn a real flight into a demonstration or —
+    // the direction that matters — leave a truthy-but-wrong value that renders as nothing.
+    ...(r.synthetic === true ? { synthetic: true as const } : {}),
     note: typeof r.note === 'string' ? r.note : '',
     // A restored backup keeps the launch day, so the logbook doesn't come back dateless.
     // Validated rather than trusted: a hand-edited file shouldn't inject a shape.

@@ -44,6 +44,49 @@ export const SYNTHETIC_NOTE =
   'It is not a recording of anything, nothing here was flown, and no figure from it means anything ' +
   'about a real rocket.';
 
+/**
+ * The short form, for a surface too narrow for the sentence — a logbook row, a table cell, a
+ * column header, a line drawn on a 1200×630 image.
+ *
+ * **A tag, never a replacement.** The sentence above is the claim; this points at it, exactly the
+ * way the logbook's apogee tags point at the report's caveat. It is deliberately a single
+ * shouted word rather than a polite phrase, because the surfaces that take it are the ones a
+ * figure travels through on its way somewhere else — a spreadsheet, a clipboard, a screenshot —
+ * where nothing else on screen will say it.
+ */
+export const SYNTHETIC_TAG = 'SYNTHETIC';
+
+/**
+ * The claim in one line, for a surface that needs the sentence but cannot spend a paragraph.
+ *
+ * **Written because the first cut spent 230 px of an 844 px phone on the same 200 characters
+ * twice** — once at the top of the report and once above the readings. The second copy earns its
+ * place (the readings grid is the part that gets screenshotted, printed and scrolled straight to,
+ * and a screenshot does not carry the top of the page) but it does not earn a second full
+ * paragraph, and a screen reader reading the identical sentence out twice is worse than the
+ * duplication looks. `DESIGN.md` §4: when in doubt, tighten.
+ */
+export const SYNTHETIC_SHORT = `${SYNTHETIC_TAG} — Debrief made this flight up. Nothing here was flown.`;
+
+/**
+ * Does this flight say Debrief made it up?
+ *
+ * **Matched on the note, which is where the claim actually lives.** `lib/flight/build.ts` puts
+ * `SYNTHETIC_NOTE` at the head of `notes` when a file carried the marker, and `toCanonical` /
+ * `fromCanonical` write notes verbatim — so this is true of a flight read from the file, of the
+ * same flight re-imported from a saved record, and of one restored from a logbook backup, without
+ * any of those hops needing to know about a new field. A dedicated boolean on `RawFlight` would
+ * have been dropped by four of the five persistence hops, which is the measurement that put the
+ * claim in the notes in the first place.
+ *
+ * Exact equality rather than a substring: the sentence returned by `syntheticFromRows` is always
+ * Debrief's own, never the file's, so nobody can weaken the claim by editing their copy — and
+ * nobody can trip this by writing the word "synthetic" in a logbook note either.
+ */
+export function isSynthetic(flight: { notes?: readonly string[] }): boolean {
+  return (flight.notes ?? []).some((n) => n === SYNTHETIC_NOTE);
+}
+
 /** One point on a generated profile. Seconds from ignition, metres AGL, metres per second. */
 export interface SynthSample {
   t: number;

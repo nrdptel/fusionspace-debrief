@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortRecents, filterRecents, personalBests, logbookRowNames } from './logbook';
+import { sortRecents, filterRecents, personalBests, logbookRowNames, provenanceCell, PROVENANCE_COLUMN } from './logbook';
 import type { RecentMeta } from './recents';
 
 const rec = (id: string, addedAt: number, apogeeM: number | null, maxVelocityMs: number | null): RecentMeta => ({
@@ -214,5 +214,41 @@ describe('logbookRowNames', () => {
     const names = logbookRowNames(same, ft, opened);
     expect(new Set(names.values()).size, `collided: ${[...names.values()].join(' / ')}`).toBe(4);
     expect(names.size).toBe(4);
+  });
+});
+
+/**
+ * **The column a made-up flight adds to the table a flyer pastes into a spreadsheet.**
+ *
+ * Here rather than left to the component, because the audit table in `lib/synthetic.test.ts` marks
+ * this sink covered and a `labelled` row whose only evidence is JSX is a claim nothing can falsify
+ * — which is exactly what the pre-push review caught it being. The header and the cell live in
+ * `lib/logbook.ts` so this file has something to address, and that table now reads this file's
+ * text to check the claim it makes.
+ *
+ * The rule is `COMPETITION.md` row 41's: per-record redundancy, on the NMEA / HL7 / DICOM
+ * precedent. A caption above the header is a cell a sort moves away from the rows it was about;
+ * a per-row value survives a sort, a filter, and a partial paste.
+ */
+describe('the logbook table says which of its rows Debrief made up', () => {
+  const synth = (id: string): RecentMeta => ({ ...rec(id, 1, 1666, 173), synthetic: true });
+
+  it('marks a made-up flight, and says so in words rather than a tick', () => {
+    // A cell that travels alone — one row pasted into an email — still has to say what it means.
+    expect(provenanceCell(synth('demo'))).toContain('SYNTHETIC');
+    expect(provenanceCell(synth('demo'))).toContain('not flown');
+  });
+
+  it('never leaves a real flight blank, because blank reads as missing rather than as recorded', () => {
+    expect(provenanceCell(rec('a', 1, 500, 80))).toBe('recorded');
+    expect(provenanceCell({ ...rec('a', 1, 500, 80), synthetic: undefined })).toBe('recorded');
+  });
+
+  it('heads the column with a fact, not a question', () => {
+    // It read `Real flight?` and answered `SYNTHETIC` / `flown`: a yes/no header answered with
+    // nouns, which in a spreadsheet cannot be filtered on the question as posed and leaves the
+    // reader to infer the polarity.
+    expect(PROVENANCE_COLUMN).toBe('Provenance');
+    expect(PROVENANCE_COLUMN.endsWith('?'), 'a column header is a field name, not a question').toBe(false);
   });
 });

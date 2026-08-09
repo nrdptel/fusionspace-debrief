@@ -37,6 +37,16 @@ export function importRecent(rec: Pick<RecentFlight, 'name' | 'text' | 'bytes' |
       dataRows: base.table.dataRows,
       mappings: rec.mapping.map((m) => ({ index: m.index, role: m.role as ColumnRole, unit: m.unit })),
       reported: base.table.reported,
+      // **The file's own statement that it is not a recording, put back.** `lib/mapped.ts` passes
+      // this on the way IN and this is the way BACK, so leaving it out means a flight Debrief made
+      // up reopens as an ordinary flight — and the mapper is the only route such a file takes, so
+      // it is the reopen that matters rather than an edge of one. The erasure went further than
+      // the screen: `fileFacts` reads the rebuilt flight, a reopen is a save, and a save is a
+      // replace in place, so one click on the logbook row would have deleted the stored
+      // `synthetic` flag for good — after which the made-up apogee could wear the ★ that says
+      // "highest of your remembered flights". Found by the pre-push review of the change that
+      // introduced the field.
+      ...(base.table.synthetic ? { synthetic: base.table.synthetic } : {}),
     });
     return withHighRate(withSummary({ kind: 'flight', flight, parser: MAPPED_BY_HAND, confidence: 1 }, rec.summaryText), rec.text, rec.highRateText);
   } catch {

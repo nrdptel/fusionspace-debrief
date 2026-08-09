@@ -537,7 +537,13 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  commit. `GpsApogee` was missed entirely until that scanner ran. It is one entry below the
    *  paragraph telling the next session that a ratchet comment is a claim like any other; the
    *  lesson is cheaper to take from here than to re-learn. */
-  Chip: 7,
+  /** 7 → 8 on 2026-08-09: `RecentFlights`, whose logbook row now wears a `Chip tone="warn"` on a
+   *  flight Debrief made up (D10 slice 5a). The file already hand-rolls the FORMAT chip beside it
+   *  (`px-1.5 py-0.5 text-[11px]`, off §4's scale and invisible to §9's spacing grep — see
+   *  `BACKLOG.md` 2026-08-09), so this is one adopter arriving next to one hand-roll that stays.
+   *  Said plainly rather than counted as a clean conversion: the row now shows a primitive chip
+   *  and a hand-rolled chip side by side, and closing that is P1 work this slice did not do. */
+  Chip: 8,
   /** 2 → 9 on 2026-08-02. The seven derived-reading panels — deploy altitude, drag coefficient,
    *  drogue Cd, ejection delay, landing energy, parachute Cd and rail exit — each hand-rolled a
    *  BYTE-IDENTICAL hero value (`font-mono text-xl font-semibold tracking-tight tabular-nums
@@ -618,7 +624,13 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   /** 5 → 6 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
    *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —
    *  every primitive it needed already existed. */
-  Notice: 6,
+  /** 6 → 8 on 2026-08-09: `FlightReport` and `MetricGrid`, both carrying the sentence a flight
+   *  Debrief made up has to say (D10 slice 5a). `warn` and not `danger`: §2 gives amber "a caveat,
+   *  a refusal, or a capability running degraded — the surface works, one thing does not", which
+   *  is exactly a report whose readings are all correct arithmetic over numbers that were never
+   *  measured. Two adopters for one sentence is deliberate, not duplication — see the prop comment
+   *  on `MetricGrid`. */
+  Notice: 8,
   /** The bordered-no-background container, lifted 2026-08-01 from the five sites that had written
    *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
    *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical
