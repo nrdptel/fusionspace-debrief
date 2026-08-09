@@ -1654,25 +1654,43 @@ real risk attached: the standalone refusal must survive it.
 **Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED 2026-08-05. Only slice 3b is left: let a
 flyer pick which simulation when a design states several.**
 
-**Scoped further 2026-08-09, by reading rather than by planning — the remaining work is a CHOICE,
-not a parse.** `lib/parsers/openrocket.ts` already reads every `<simulation>` block into a run with
-its own name, its ten stated figures in canonical SI, and its saved trace (`PredictedSeries`).
-`predictionFigures` then throws all of that away when `runs.length > 1` and returns a refusal
-naming them: *"…states 5 simulations … a flight log does not say which motor flew, so Debrief will
-not pick one"*. That refusal is honest and is the right default — what it costs is a trip back to
-OpenRocket to re-export, which is a task a flyer can complete expensively rather than one they
-cannot complete at all.
-
-So slice 3b is: return the runs instead of discarding them, offer the names, and feed the chosen
-one to the figures and the overlay. **A real test case exists**:
+**Scoped 2026-08-09 by reading rather than by planning.** `lib/parsers/openrocket.ts` already reads
+every `<simulation>` block into a run with its own name, its ten stated figures in canonical SI, and
+its saved trace (`PredictedSeries`). `predictionFigures` then throws all of that away when
+`runs.length > 1` and returns a refusal naming them: *"…states 5 simulations … a flight log does not
+say which motor flew, so Debrief will not pick one"*. That refusal is honest and is the right
+default — what it costs is a trip back to OpenRocket to re-export, which is a task a flyer can
+complete expensively rather than one they cannot complete at all. **A real test case exists**:
 `lib/parsers/__corpus__/openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork`
 states **five** simulations. It is corpus-only, so the assertion runs in CI and skips on a fork.
+
+**Corrected later the same day, and the correction is the useful part.** An earlier pass of this
+paragraph called the remaining work "a CHOICE, not a parse" and said the decision left to make was
+"a UI one". The parse half of that stands; the UI half does not, and it understates the slice by
+about two thirds. A picker is not a control over data already in hand, because **no design survives
+the drop**. The `runs` array exists only inside one `readPredictionDetail` call, made from
+`ingestFiles`'s catch block; `predictionFigures` collapses it to figures-or-a-refusal before it
+returns, `pairPredictions` merges that answer into `target.flight`, and nothing else about the `.ork`
+is retained — as the note a flyer reads says in its own words: *"unlike a device summary, it is not
+kept with the flight"* (decided 2026-08-04, below: the XML is 996 KB on the corpus fixture and the
+ten figures have no place on the logbook row yet). By the time a flyer could point at a simulation,
+the flight has already been analysed, saved and rendered.
+
+So the smallest honest shape for 3b is three things, not one: `ingestFiles` has to surface the runs
+alongside `predictionPaired`; the analyze page has to hold them for the session, which is state that
+does not exist there today; and choosing one has to re-merge its figures and its curve onto an
+already-built flight and re-render the cross-check. Plus the control itself, with §9's five states
+and the touch contract. That is why this is not the tail end of D9 to be swept up in an idle hour —
+it is a slice with its own decomposition, and it lands on the one surface where a PREDICTION sits
+beside a MEASUREMENT.
 
 **Not started deliberately, and this is the reason rather than an omission.** It changes what
 reaches the cross-check panel — the surface where a PREDICTION sits beside real readings — and
 `MAINTAINING.md`'s spine is that the two must never blur. Starting that at the end of a long run is
-how this repo's own history says a wrong claim ships. The next session should take it first: the
-data is already parsed, the fixture is already there, and the decision to make is a UI one. Slice 4 is pinned by
+how this repo's own history says a wrong claim ships. The next session should take it first, with a
+full run in front of it rather than the last hour of one: the parse is done and the fixture is
+there, and what is left is the session state, the re-merge and the control described above.
+Slice 4 is pinned by
 `lib/overlay.test.ts` (6 cases on the union time base, the sharpest of them a PROPERTY — every
 finite output sample must equal an input sample at exactly that instant, which is the difference
 between a union and a resample), by `lib/parsers/openrocket.test.ts` (the saved curve read by
