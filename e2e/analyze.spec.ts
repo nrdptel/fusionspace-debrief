@@ -2716,7 +2716,12 @@ test('a design stating several simulations lets the flyer say which flew, and sa
   // Each run is offered by name AND by its stated apogee — the thing that tells three
   // OpenRocket-default names apart.
   const group = picker.getByRole('group', { name: 'Which simulation flew' });
-  await expect(group.getByRole('button', { name: /Simulation 2 - B6-4/ })).toContainText('656 ft');
+  const sim2 = group.getByRole('button', { name: /Simulation 2 - B6-4/ });
+  await expect(sim2).toContainText('656 ft');
+  // The design's own word for how current each run is, VISIBLE rather than in a title — a chip
+  // whose freshness is hover-only says nothing at all at the pad, and picking a run the design
+  // has been edited past compares a flight against numbers that predate the edit.
+  await expect(sim2, 'the file\u2019s own status, carried verbatim').toContainText('uptodate');
 
   // Say which flew.
   await group.getByRole('button', { name: /Simulation 2 - B6-4/ }).click();

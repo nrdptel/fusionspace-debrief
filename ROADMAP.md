@@ -1651,8 +1651,44 @@ real risk attached: the standalone refusal must survive it.
 
 ## D9 — Predicted versus flown
 
-**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED 2026-08-05. Only slice 3b is left: let a
-flyer pick which simulation when a design states several.**
+**Status:** SHIPPED 2026-08-09 — **all five slices.** Slice 3b landed last and is the one the
+milestone was held open for: a flyer can now say which simulation flew when a design states
+several. Pinned by `lib/predictionChoice.test.ts` (11 cases, falsified 5 ways) and two e2e walks in
+`e2e/analyze.spec.ts` — *"a design stating several simulations lets the flyer say which flew, and
+says it was theirs"*, which drives choose → switch → reset in the real app, and *"a chosen
+simulation reaches the exports, not just the panel"*, which reads the `.md` a flyer pastes into a
+cert document rather than trusting the panel on screen.
+
+**What 3b shipped, against the shape scoped for it below.** All three parts it named:
+`ingestFiles` surfaces the runs as a `predictionOffers[]` paired to the flight the design landed
+on; the analyze page holds the offer and the choice on its `report` state for the session; and
+`applySimulationChoice` re-merges the chosen run's figures, notes and curve onto an already-built
+flight. The re-merge is **additive and needs no re-analysis** — a prediction contributes
+`reported`, `notes` and `predicted`, and nothing in `lib/analyze` reads any of them — so every
+surface downstream updates from the flight object rather than each learning about simulations.
+
+**The refusal is still the default and Debrief still never picks.** What changed is that a flyer
+may override it with a fact they have and the file does not, and that the override is attributed to
+them everywhere it appears. Three properties are asserted rather than assumed, because each is what
+keeps the control from being a one-way door: applying twice equals applying once, switching runs
+leaves nothing of the one before, and *Don't compare one* restores the ingested flight exactly.
+
+**Two things 3b settled that the scoping below did not have.**
+1. **A canonical record keeps the answer; the logbook does not.** `lib/reopen.ts` says in its own
+   words that a prediction is not persisted, but `toCanonical` writes `notes`, `reported` and
+   `predicted` verbatim — so a saved record returns the figures AND the line saying it was the
+   flyer's statement, which is right, since D11's whole point is that a flyer's statements survive.
+   The copy therefore says the design must come back to *change* the answer, rather than claiming
+   the answer is forgotten. Measured, not assumed; an earlier draft of that sentence was wrong.
+2. **The design's own word for each run's freshness was hover-only, and is now visible.** Found by
+   this run's competitive probe against OpenRocket, whose Flight Simulations table carries a status
+   per row. `PredictedRun.status` was already parsed and was rendered only in a `title=` — nothing
+   at all at the pad, which `DESIGN.md` §5 rules out before §8 does. It is shown verbatim on every
+   chip now and **interpreted nowhere**, which is the caution that field was written with: the
+   format page shows one example value and defines none, so even "warn unless it says uptodate"
+   would be a rule built on an unpublished vocabulary. `COMPETITION.md` row 38 carries the rest.
+
+**Scoped 2026-08-09 by reading rather than by planning.** `lib/parsers/openrocket.ts` already reads
 
 **Scoped 2026-08-09 by reading rather than by planning.** `lib/parsers/openrocket.ts` already reads
 every `<simulation>` block into a run with its own name, its ten stated figures in canonical SI, and

@@ -55,7 +55,8 @@ export default function SimulationChoice({
       <p className="mb-2.5 text-sm text-zinc-500 dark:text-zinc-400">
         A flight log doesn’t name the motor, so Debrief won’t choose for you. If you know which one
         flew, name it below — that one is compared beside your flight, as your statement rather than
-        a reading. Nothing here changes what Debrief measured.
+        a reading. Nothing here changes what Debrief measured. Each run shows the apogee it
+        predicted and, where the design states one, its own word for how current it is.
       </p>
       <div role="group" aria-label="Which simulation flew" className="flex flex-wrap gap-2">
         {runs.map((run) => (
@@ -65,7 +66,7 @@ export default function SimulationChoice({
             onClick={() => onChoice(choice === run.index ? null : run.index)}
             title={
               run.status
-                ? `The design states this simulation as “${run.status}”${run.hasSeries ? ', and it saved its altitude curve' : ''}`
+                ? `Your design file states this simulation as “${run.status}”. Debrief carries that word without interpreting it — OpenRocket publishes no list of what its values mean.${run.hasSeries ? ' This one also saved its altitude curve.' : ''}`
                 : undefined
             }
           >
@@ -75,6 +76,20 @@ export default function SimulationChoice({
               // defaults. `text-zinc-500` is §2's tertiary role, which is the same value in
               // both themes on purpose.
               <span className="text-zinc-500">· {fmtLength(run.apogee, sys)}</span>
+            )}
+            {run.status && (
+              // **Visible, not only a `title`.** A simulation can be one the design has since
+              // been edited past, and picking it compares a flight against numbers that predate
+              // the edit — so the file's own word for its freshness has to be readable at the
+              // pad, where there is no hover at all. `DESIGN.md` §5 rules a hover-only affordance
+              // out before §8 does, and the first version of this chip had exactly one.
+              //
+              // Shown VERBATIM for every run, never interpreted, because that is the whole
+              // caution `PredictedRun.status` was written with: OpenRocket's format page shows
+              // one example value and defines none, so any rule keyed on the vocabulary — even
+              // "warn unless it says uptodate" — would be built on a list nobody has published.
+              // Debrief repeats what the file says and leaves the reading to the flyer.
+              <span className="text-zinc-500">· {run.status}</span>
             )}
           </ChipButton>
         ))}
