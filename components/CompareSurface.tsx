@@ -8,7 +8,7 @@ import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
 import { STORAGE_WRITE_REFUSED } from '@/lib/recents';
-import { ingestFiles, highRateNote, predictionNote, unreadNote } from '@/lib/ingest';
+import { ingestFiles, groupsRestoredNote, highRateNote, predictionNote, unreadNote } from '@/lib/ingest';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
 import { flightFromMapping } from '@/lib/mapped';
@@ -149,7 +149,7 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, predictionPaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, predictionPaired, groupsRestored, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
       // A read cannot discover that writes are refused — only an attempted save can, and this is
@@ -215,6 +215,9 @@ export default function CompareSurface() {
       // no reported figures, and a prediction is never persisted, so there is no view reachable
       // from here that shows it. See `predictionNote`.
       const predNote = predictionPaired.length > 0 ? ` ${predictionNote(predictionPaired, false)}` : '';
+      // A grouping the dropped records themselves carried, put back — the flyer's own earlier
+      // statement remembered, not a grouping Debrief worked out. Its own sentence for that reason.
+      const groupNote = groupsRestored.length > 0 ? ` ${groupsRestoredNote(groupsRestored)}` : '';
       const pairedNote =
         paired.length > 0
           ? ` Read the device's own summary alongside the flight (${paired.join('; ')}) — its figures are shown beside Debrief's read as a cross-check, not merged into it.`
@@ -249,7 +252,7 @@ export default function CompareSurface() {
           : ` ${names(notKept)} ${notKept.length === 1 ? 'was' : 'were'} read but could not be kept: ${STORAGE_WRITE_REFUSED}.`;
 
       if (merged.length >= 2) {
-        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${predNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
+        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${predNote}${groupNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
         return;
       }
       setState('picking');

@@ -17,7 +17,9 @@ import { flightTimeOrigin, highRateStream, type HighRateStream } from './parsers
 import { halvesOfOneDownload, namesContradict, readHighRateOnto } from './highRate';
 import { hasMappableColumns } from './flight/columns';
 import { analyzeAsync } from './analyze/runner';
-import { attachHighRateText, attachSummaryText, saveRecent } from './recents';
+import { attachHighRateText, attachSummaryText, listRecents, saveRecent, setFlightIds } from './recents';
+import { readGrouping } from './canonical';
+import { planRestoredGroupings, type RecordedGrouping } from './flightGroups';
 import { fileToText, textIsTheFile } from './fileText';
 import type { RawFlight, ReportedValue } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -66,6 +68,14 @@ export interface IngestOutcome {
    *  happened yet, and telling a flyer Debrief "read a summary" for a design file would be wrong
    *  about what they dropped. */
   predictionPaired: string[];
+  /** "<record> + <record> → one flight", one per flight whose grouping this drop RESTORED from
+   *  the statements the records themselves carry.
+   *
+   *  Its own list rather than a line in `paired` for the same reason the two above are: nothing
+   *  was read ONTO anything here and no second measurement arrived. The flyer said months ago
+   *  that these files were one flight, and Debrief is remembering it rather than discovering it —
+   *  which is also why it is safe to do without asking, where `proposeGroups` has to ask. */
+  groupsRestored: string[];
   /** Flights this drop pushed out of the logbook. The logbook keeps a bounded window of
    *  un-noted flights (every entry holds the whole file text), and a launch day's folder is
    *  most of that window — so the third day quietly ate the first. Named now, so the flyer
@@ -80,6 +90,40 @@ export interface IngestOutcome {
    *  it named the wrong files. They are not in the logbook either — nothing read them — which the
    *  drop box's own copy promises they would be, so a surface has to be able to say so. */
   unread: string[];
+}
+
+/**
+ * Put back the flyer's own grouping, where the flight records in this drop state one.
+ *
+ * A flight record carries the statement the flyer made in the logbook — that this file is one of
+ * several recordings of one flight, and which of them reports it (`lib/canonical.ts`
+ * `CanonicalGrouping`). Without this, saving both recordings of a two-altimeter flight and
+ * dropping them back in gives two unrelated flights, and the statement is silently lost on the
+ * one export built to be read back.
+ *
+ * **A row that already states a grouping is left alone**, which is the rule `proposeGroups` also
+ * follows. Dropping a record onto a flight already in the logbook replaces it in place and
+ * inherits the flyer's current `flightId` (`replaceInPlace`'s `FLYER_OWNED`), so applying the
+ * record's older statement on top would let an archived file undo a regrouping made since — the
+ * flyer's most recent word losing to their oldest one.
+ *
+ * The logbook is read only when something in the drop actually carries a statement, so the
+ * ordinary single-file drop costs no extra storage round trip.
+ */
+async function restoreGroupings(results: IngestedFlight[]): Promise<string[]> {
+  const stated: RecordedGrouping[] = [];
+  for (const r of results) {
+    if (!r.savedId) continue;
+    const g = readGrouping(r.text);
+    if (!g) continue;
+    stated.push({ id: r.savedId, name: r.name, flight: g.flight, reports: g.reports, of: g.of });
+  }
+  if (stated.length < 2) return [];
+
+  const already = new Set((await listRecents()).filter((r) => r.flightId).map((r) => r.id));
+  const { changes, restored } = planRestoredGroupings(stated.filter((r) => !already.has(r.id)));
+  await setFlightIds(changes);
+  return restored;
 }
 
 /** Does this file name belong to the rocket a summary names? Compared on letters and digits
@@ -366,6 +410,11 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
   skipped.push(...hr.unpaired);
   for (const r of hr.remember) await attachHighRateText(r.id, r.text);
   for (const r of remember) await attachSummaryText(r.id, r.text);
+  // …and the same third pass for a grouping the records themselves state: which of these files
+  // the flyer had already said were one flight. Here rather than in the read loop because it is
+  // the same question the two above ask — it can only be answered once every file has a logbook
+  // id, since the plan is written against those ids and not against the tokens in the files.
+  const groupsRestored = await restoreGroupings(results);
   for (const s of unpaired) {
     // Two different facts, and only one of them is ever true. With no flights in the drop the
     // log really isn't here. With flights in it, Debrief has one and cannot tell it is the
@@ -390,6 +439,7 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
     paired,
     highRatePaired: hr.paired,
     predictionPaired: pred.paired,
+    groupsRestored,
     forgotten,
     unread,
   };
@@ -427,6 +477,23 @@ export function predictionNote(predictionPaired: string[], shown: boolean): stri
     `design states what its simulator expected, and it sits beside Debrief's read of what actually ` +
     `flew rather than being mixed into it. Drop the design again next time: unlike a device summary, ` +
     `it is not kept with the flight.`
+  );
+}
+
+/**
+ * What a flyer is told when a drop of flight records put their own grouping back.
+ *
+ * Says the one thing they cannot see for themselves: that this is REMEMBERED rather than worked
+ * out. Debrief inferring that two files are one flight would be a claim it is not entitled to
+ * make — `lib/flightGroups.ts` is built around refusing to — so a sentence that read like a
+ * discovery would describe the wrong tool. It also names the way out, because a restored grouping
+ * is a state the flyer did not ask for in this session.
+ */
+export function groupsRestoredNote(groupsRestored: string[]): string {
+  return (
+    `Put these recordings back together as one flight (${groupsRestored.join('; ')}) — each record ` +
+    `carries the grouping you saved it with, so Debrief remembered it rather than working it out ` +
+    `from the files. Separate them again from the flight's own list of recordings.`
   );
 }
 

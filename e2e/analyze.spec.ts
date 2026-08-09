@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 
@@ -2569,4 +2569,87 @@ test('a flight saved as a record opens again as the same flight', async ({ page 
   const secondBytes = await readFile((await again.path()) as string, 'utf8');
   expect(secondBytes.length, 'the second record is the same size').toBe(firstBytes.length);
   expect(secondBytes === firstBytes, 'writing the re-imported flight reproduces the record').toBe(true);
+});
+
+// D11 slice 3 — the *done when*'s multi-source clause, driven end to end: "a flight with two
+// recordings does not flatten into one".
+//
+// Slice 1 proved a single recording round-trips. What it could not carry is the thing the flyer
+// SAID: that these two files are one flight, flown on two altimeters. That statement lives in the
+// logbook, not in either file, so before this it was lost the moment the records left the browser
+// — save both, drop both back, get two unrelated flights and do the joining again by hand.
+test('two recordings saved as records come back as one flight, not two', async ({ page }) => {
+  await page.goto('/');
+
+  // Direct children only. A grouped row nests a second list of its recordings, so a descendant
+  // count reads 4 for one flight — which would have made this test pass for the wrong reason.
+  const flights = page.locator('ul[aria-label="Your flights"] > li');
+
+  // Two genuinely different logs, so nothing here can be an accident of deduplication: the
+  // logbook collapses two copies of one file into a single row on its own.
+  const logs = ['altusmetrum-telemetrum.csv', 'featherweight-raven-fip.csv'];
+  for (const name of logs) {
+    await page.getByLabel('Choose a flight log file').setInputFiles(path.join(__dirname, `../lib/parsers/__fixtures__/${name}`));
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  await expect(flights).toHaveCount(2);
+
+  // The flyer says they are one flight — the statement this slice has to preserve.
+  for (const name of logs) await page.getByRole('checkbox', { name: `Select ${name} to compare` }).check();
+  await page.getByRole('button', { name: /are one flight/ }).click();
+  await expect(flights, 'the two rows are one flight now').toHaveCount(1);
+
+  // Open it, and save a record from each recording. The picker is what makes the second one
+  // reachable at all, and it exists only because the flight now holds two.
+  await flights.first().getByRole('button').filter({ hasText: logs[0] }).first().click();
+  await expect(page.getByRole('heading', { name: '2 recordings of this flight' })).toBeVisible({ timeout: 20_000 });
+
+  const archive = await mkdtemp(path.join(os.tmpdir(), 'debrief-records-'));
+  const saved: string[] = [];
+  for (const name of logs) {
+    if (saved.length > 0) {
+      await page.getByRole('button', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first().click();
+      await expect(page.getByRole('heading', { name: '2 recordings of this flight' })).toBeVisible({ timeout: 20_000 });
+    }
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Save record' }).click(),
+    ]);
+    // Saved under the name the app CHOSE, not the driver's temp uuid: the sentence the flyer
+    // reads names the files, so a test that drops uuids cannot check what it says.
+    const to = path.join(archive, dl.suggestedFilename());
+    await dl.saveAs(to);
+    saved.push(to);
+  }
+  expect(saved).toHaveLength(2);
+  expect(saved.every((f) => f.endsWith('-debrief-record.json'))).toBe(true);
+
+  // Both records name the SAME flight and exactly one of them reports it. Read off the files
+  // themselves, because the file is the only thing that crosses the device boundary.
+  const tokens = await Promise.all(saved.map(async (f) => JSON.parse(await readFile(f, 'utf8')).grouping));
+  expect(tokens[0]?.flight, 'both records name one flight').toBe(tokens[1]?.flight);
+  expect(tokens.filter((g) => g?.reports), 'exactly one reports it').toHaveLength(1);
+  expect(tokens.every((g) => g?.of === 2), 'each states the flight held two recordings').toBe(true);
+
+  // Now wipe the logbook, so nothing but the two files can supply the grouping.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page.getByRole('button', { name: /^Delete/ }).click();
+  await expect(flights).toHaveCount(0);
+
+  // Drop both records at once, as a flyer would from an archive folder. Two files assemble a
+  // COMPARISON, so the sentence is read here and the logbook is checked afterwards.
+  await page.getByLabel('Choose a flight log file').setInputFiles(saved);
+  const restored = page.getByText(/carries the grouping you saved it with/).first();
+  await expect(restored, 'it says the grouping was remembered, not worked out').toBeVisible({ timeout: 30_000 });
+  // Naming the files, so the flyer can see WHICH two Debrief put together.
+  for (const f of saved) await expect(restored).toContainText(path.basename(f));
+
+  // The grouping itself: back on the logbook, one flight where two files were dropped.
+  await page.goto('/');
+  await expect(flights, 'ONE flight in the logbook, not two').toHaveCount(1, { timeout: 30_000 });
+  // …and it is one flight OF TWO RECORDINGS, not one file that lost its partner — the failure a
+  // bare count of 1 would also pass.
+  await expect(page.getByRole('button', { name: /Recorded 2 times/ }).first()).toBeVisible();
 });

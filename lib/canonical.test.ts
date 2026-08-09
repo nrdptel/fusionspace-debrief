@@ -7,7 +7,14 @@ import { ParseGuidanceError } from './parsers/types';
 import { buildFlight } from './flight/build';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
-import { CANONICAL_SCHEMA, CanonicalFormatError, fromCanonical, looksCanonical, toCanonical } from './canonical';
+import {
+  CANONICAL_SCHEMA,
+  CanonicalFormatError,
+  fromCanonical,
+  looksCanonical,
+  readGrouping,
+  toCanonical,
+} from './canonical';
 import { FLIGHT_FILE_EXTENSIONS } from './fileAccept';
 import { analyzedDataCsv } from './report';
 import { analyzeTable } from './flight/columns';
@@ -336,5 +343,122 @@ describe("Debrief's own analyzed data export is explained, not silently re-read 
     let opened = 0;
     for (const f of logFiles(FIXTURES)) if (flightFrom(f)) opened++;
     expect(opened, 'the fixtures still open').toBeGreaterThan(5);
+  });
+});
+
+/**
+ * D11 slice 3 — the multi-source clause of the *done when*: "a flight with two recordings does
+ * not flatten into one".
+ *
+ * The grouping is the flyer's STATEMENT, not a reading, so these assertions are about a
+ * statement surviving a round trip intact — and about it staying outside the flight, which is
+ * the part that would be invisible if only the happy path were pinned.
+ */
+describe('a flight with two recordings does not flatten into one', () => {
+  const flight = (): RawFlight => ({
+    source: 'two-altimeters.csv',
+    format: 'generic',
+    formatLabel: 'Generic CSV',
+    time: Float64Array.from([0, 1, 2, 3]),
+    channels: [{ kind: 'altitude', label: 'Altitude', unit: 'm', values: Float64Array.from([0, 10, 20, 5]) }],
+    meta: {},
+    notes: [],
+  });
+
+  it('carries the grouping statement out and reads it back exactly', () => {
+    const text = toCanonical(flight(), { flight: 'primary-id', reports: false, of: 2 });
+    expect(readGrouping(text)).toEqual({ flight: 'primary-id', reports: false, of: 2 });
+  });
+
+  it('keeps the statement OUT of the flight, which is the whole point of where it sits', () => {
+    // A grouping is something the flyer said, never something the instrument recorded. If it
+    // leaked into `RawFlight` the analyzer could reach it, and a record written with a grouping
+    // would analyse differently from the same record written without one.
+    const bare = fromCanonical(toCanonical(flight()));
+    const grouped = fromCanonical(toCanonical(flight(), { flight: 'p', reports: true, of: 3 }));
+    expect(grouped).toEqual(bare);
+    expect(JSON.stringify(Object.keys(grouped))).not.toContain('grouping');
+  });
+
+  it('states nothing at all for a flight of one recording', () => {
+    // The ordinary case, and it has to cost nothing: a record written with no grouping must be
+    // byte-identical to one written before this existed, so the field is absent rather than null.
+    const text = toCanonical(flight());
+    expect(text).not.toContain('grouping');
+    expect(readGrouping(text)).toBeNull();
+  });
+
+  it('reads the statement out of the head, without parsing the record again', () => {
+    // `readGrouping` looks at a bounded slice, because `importFlight` has already parsed the
+    // whole record by the time the drop path wants three short fields — and a record carries
+    // every sample of every channel. This pins that the writer keeps the block in that window
+    // for a flight big enough to matter: 40,000 samples, ~700 KB of JSON.
+    const big = flight();
+    const n = 40_000;
+    big.time = Float64Array.from({ length: n }, (_, i) => i / 100);
+    big.channels = [
+      { kind: 'altitude', label: 'Altitude', unit: 'm', values: Float64Array.from({ length: n }, (_, i) => i * 1.5) },
+    ];
+    const text = toCanonical(big, { flight: 'p', reports: true, of: 2 });
+    expect(text.length).toBeGreaterThan(400_000);
+    expect(readGrouping(text)).toEqual({ flight: 'p', reports: true, of: 2 });
+    // …and it really is only reading the head, not the file.
+    expect(readGrouping(text.slice(0, 2048))).toEqual({ flight: 'p', reports: true, of: 2 });
+  });
+
+  it('ignores a grouping it cannot trust rather than refusing the flight', () => {
+    // The opposite of `fromCanonical`, and deliberate: a grouping cannot make a flight subtly
+    // different because it is not in the flight. Dropping a bad one degrades to two flights the
+    // flyer can join in a click; refusing the file would lose the measurement.
+    const good = toCanonical(flight(), { flight: 'p', reports: true, of: 2 });
+    const broken = [
+      good.replace('"flight":"p"', '"flight":""'),
+      good.replace('"reports":true', '"reports":"yes"'),
+      good.replace('"of":2', '"of":1'),
+      good.replace('"of":2', '"of":2.5'),
+      // Valid JSON the HEAD-SLICE reader cannot parse: a token carrying a brace ends the
+      // block early for the regex. It degrades to null rather than to a mis-read token, which
+      // is the only failure mode that would matter — a wrong token buckets two unrelated
+      // flights together.
+      good.replace('"flight":"p"', '"flight":"a}b"'),
+    ];
+    for (const text of broken) {
+      expect(readGrouping(text), text.slice(0, 120)).toBeNull();
+      // …and every one of them still opens as the flight it is.
+      expect(fromCanonical(text).time.length).toBe(4);
+    }
+  });
+
+  it('does not go looking for a grouping down the length of the file', () => {
+    // The honest limit of reading the head: a hand-edited record with the block moved past the
+    // window reads as ungrouped. That is the safe direction — two flights the flyer can join —
+    // and it is pinned so a later change to the writer's field ORDER shows up here rather than
+    // as groupings that silently stop restoring.
+    const big = flight();
+    const n = 4_000;
+    big.time = Float64Array.from({ length: n }, (_, i) => i / 100);
+    big.channels = [
+      { kind: 'altitude', label: 'Altitude', unit: 'm', values: Float64Array.from({ length: n }, (_, i) => i * 1.5) },
+    ];
+    const text = toCanonical(big);
+    const moved = text.replace(/\}$/, ',"grouping":{"flight":"p","reports":true,"of":2}}');
+    expect(moved.length).toBeGreaterThan(2048);
+    expect(JSON.parse(moved).grouping.flight, 'the block really is in the file').toBe('p');
+    expect(readGrouping(moved)).toBeNull();
+    expect(fromCanonical(moved).time.length, 'and the flight still opens').toBe(n);
+  });
+
+  it('survives the real drop path: written, re-detected, re-read as the same flight', () => {
+    const text = toCanonical(flight(), { flight: 'p', reports: true, of: 2 });
+    expect(looksCanonical(text)).toBe(true);
+    const back = importFlight({ name: 'x-debrief-record.json', text, bytes: new TextEncoder().encode(text) });
+    // `kind: 'flight'` is itself the assertion that matters: the generic table path would have
+    // returned a `mapping`, which is the failure slice 1 exists to prevent.
+    expect(back.kind).toBe('flight');
+    if (back.kind !== 'flight') throw new Error('unreachable');
+    expect(back.flight.channels[0].values[2]).toBe(20);
+    // The grouping is still readable from the same bytes the parser was handed — which is how
+    // `lib/ingest.ts` gets at it, since the parser correctly refuses to put it on the flight.
+    expect(readGrouping(text)?.flight).toBe('p');
   });
 });

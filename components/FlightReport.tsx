@@ -436,7 +436,16 @@ export default function FlightReport({
   // archived flight gets every later improvement to the analysis rather than being frozen at
   // the version that wrote it.
   function downloadRecord() {
-    download(new Blob([toCanonical(flight)], { type: 'application/json' }), `${stem}-debrief-record.json`);
+    // …and the flyer's own statement that this file is one of several recordings of one flight,
+    // where they made one. It rides beside the measurement rather than in it — a grouping is
+    // something the flyer said, not something the instrument recorded — so saving both halves of
+    // a two-altimeter flight and dropping them back in returns one flight rather than two.
+    // `recordings[0]` is the primary, which is how `groupRecordings` builds the list.
+    const group =
+      recordings && recordings.length > 1 && recordingId && recordings.some((r) => r.id === recordingId)
+        ? { flight: recordings[0].id, reports: recordings[0].id === recordingId, of: recordings.length }
+        : undefined;
+    download(new Blob([toCanonical(flight, group)], { type: 'application/json' }), `${stem}-debrief-record.json`);
   }
 
   // Print a clean flight card. Force a light theme first so the canvas charts

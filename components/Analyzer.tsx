@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importFlight, ParseGuidanceError } from '@/lib/parsers';
 import { importRecent } from '@/lib/reopen';
-import { ingestFiles, highRateNote, predictionNote, unreadNote, MAX_BYTES } from '@/lib/ingest';
+import { ingestFiles, groupsRestoredNote, highRateNote, predictionNote, unreadNote, MAX_BYTES } from '@/lib/ingest';
 import type { AnalyzedTable } from '@/lib/flight/columns';
 import { buildFlight, type ColumnMapping } from '@/lib/flight/build';
 import { flightFromMapping } from '@/lib/mapped';
@@ -446,7 +446,7 @@ export default function Analyzer() {
       // One set of rules for what a launch day's folder holds — including which summary
       // belongs to which log — shared with the comparison surface so the two can't disagree
       // about it (see lib/ingest.ts).
-      const { results, skipped, mappable, paired, highRatePaired, predictionPaired, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable, paired, highRatePaired, predictionPaired, groupsRestored, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
 
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
@@ -466,6 +466,9 @@ export default function Analyzer() {
         // `shown: false` — this branch assembles a COMPARISON, and the comparison surface carries
         // no reported figures. The design was read; it is not on this screen. See `predictionNote`.
         if (predictionPaired.length > 0) notes.push(predictionNote(predictionPaired, false));
+        // A grouping the records themselves carried, put back. Neither a measurement nor half of
+        // one — it is the flyer's own earlier statement, so it says so in its own words.
+        if (groupsRestored.length > 0) notes.push(groupsRestoredNote(groupsRestored));
         if (skipped.length > 0) notes.push(skippedNote(skipped));
         // Every dropped flight went into the logbook, so this comparison HAS an address —
         // offer it rather than leaving a view that vanishes on reload.
@@ -523,6 +526,9 @@ export default function Analyzer() {
               // A design read onto the flight it predicts — a third thing that is neither a
               // summary nor the other half of a recording, so it says so in its own words.
               predictionPaired.length > 0 ? predictionNote(predictionPaired, true) : null,
+              // No grouping note here, and that is a fact about the branch rather than an
+              // omission: restoring one needs two records that both opened and both landed in the
+              // logbook, and this branch is the one where exactly one flight came back.
             ]
               .filter(Boolean)
               .join(' ') || undefined,
