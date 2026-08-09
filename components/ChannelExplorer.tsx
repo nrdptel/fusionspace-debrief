@@ -593,7 +593,24 @@ export default function ChannelExplorer({
 }
 
 const TH_NUM = 'px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400';
-const TD_NUM = 'px-3 py-1.5 text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-200';
+const TD_NUM =
+  'flex items-baseline justify-between gap-3 py-0.5 font-mono tabular-nums text-zinc-800 sm:table-cell sm:px-3 sm:py-1.5 sm:text-right dark:text-zinc-200';
+
+/** A stat cell: the number at every width, its column name only where there is no column header.
+ *
+ *  The label is the ONLY thing this layout duplicates, and it is a label rather than a reading —
+ *  `aria-hidden`, because the table's own `scope="col"` header names it to a screen reader at every
+ *  width regardless of what CSS does to the header's box. */
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <td className={TD_NUM}>
+      <span aria-hidden="true" className="font-sans text-xs uppercase tracking-wide text-zinc-500 sm:hidden dark:text-zinc-400">
+        {label}
+      </span>
+      <span className="shrink-0">{children}</span>
+    </td>
+  );
+}
 
 /** Min / max / mean / Δ / rate for each plotted channel over the visible window
  * (the current zoom). Zoom is the selection — these numbers track it. */
@@ -685,9 +702,26 @@ function Stats({
           }
         />
       )}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-separate border-spacing-0 text-sm">
-          <thead>
+      {/* ONE table, laid out two ways — the same shape `components/CompareView.tsx` took for the
+          same reason, and `ON-6`'s second named surface. Measured at 390×844 before it was
+          changed: this table renders **395 px inside a 358 px container**, so reading a channel's
+          Δ or rate meant scrolling the table sideways. Below `sm` its rows become blocks and its
+          cells labelled lines; nothing is duplicated but each cell's column NAME, and the header
+          group hides because in block form there is no column left for it to label.
+
+          Unlike the comparison's header, this one carries no controls — only the six words — so
+          hiding it below `sm` removes nothing a flyer can press. That was checked rather than
+          assumed: hiding the comparison's header deleted its reorder buttons and colour swatches
+          from the phone, which is the mistake this comment exists to stop being repeated. */}
+      <div className="sm:overflow-x-auto">
+        {/* Named, because this page carries seven tables and an unnamed one is "table" in a
+            screen reader's list of them. It also gives a test something unambiguous to address,
+            which is how the omission was noticed. */}
+        <table
+          aria-label="Channel statistics over the visible window"
+          className="block min-w-full border-separate border-spacing-0 text-sm sm:table"
+        >
+          <thead className="hidden sm:table-header-group">
             <tr>
               <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Channel
@@ -703,10 +737,10 @@ function Stats({
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block sm:table-row-group">
             {rows.map(({ c, i, s }) => (
-              <tr key={c.key} className="border-t border-zinc-100 dark:border-zinc-900">
-                <th scope="row" className="px-3 py-1.5 text-left font-normal">
+              <tr key={c.key} className="block border-t border-zinc-100 py-1.5 sm:table-row sm:py-0 dark:border-zinc-900">
+                <th scope="row" className="block px-0 pb-1 text-left font-normal sm:table-cell sm:px-3 sm:py-1.5 sm:pb-1.5">
                   <span className="flex items-center gap-1.5">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -730,18 +764,18 @@ function Stats({
                 </th>
                 {s ? (
                   <>
-                    <td className={TD_NUM}>{num(s.min)}</td>
-                    <td className={TD_NUM}>{num(s.max)}</td>
-                    <td className={TD_NUM}>{num(s.mean)}</td>
+                    <Stat label="min">{num(s.min)}</Stat>
+                    <Stat label="max">{num(s.max)}</Stat>
+                    <Stat label="mean">{num(s.mean)}</Stat>
                     {showDeltaRate && (
                       <>
-                        <td className={TD_NUM}>{num(s.delta)}</td>
-                        <td className={TD_NUM}>{num(s.rate)}</td>
+                        <Stat label="Δ">{num(s.delta)}</Stat>
+                        <Stat label="rate">{num(s.rate)}</Stat>
                       </>
                     )}
                   </>
                 ) : (
-                  <td colSpan={emptyCols} className="px-3 py-1.5 text-right text-sm text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={emptyCols} className="block py-0.5 text-sm text-zinc-500 sm:table-cell sm:px-3 sm:py-1.5 sm:text-right dark:text-zinc-400">
                     no samples in range
                   </td>
                 )}
