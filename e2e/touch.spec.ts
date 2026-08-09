@@ -464,3 +464,45 @@ test('the comparison reads down the page on a phone, and hides nothing', async (
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeVisible();
 });
+
+// P4 slice 3 — `ON-6`'s second named surface, and the same answer the comparison got.
+// Measured at 390×844 before it changed: the channel-stats table rendered 395 px inside a 358 px
+// container, so reading a channel's Δ or rate meant scrolling the table sideways. A vertical
+// layout is not a narrowed one.
+test('the channel stats read down the page on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // The stats table is the one with these six column names. As blocks its header group is gone.
+  await expect(page.getByRole('columnheader', { name: 'Channel' })).toBeHidden();
+
+  // No table on the page scrolls sideways inside its own wrapper — which is the thing a
+  // document-level overflow check cannot see, because the wrapper absorbs it.
+  const scrolling = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('table'))
+      .filter((t) => t.scrollWidth > (t.parentElement as HTMLElement).clientWidth + 1)
+      .map((t) => `${Math.round(t.scrollWidth)}px in ${Math.round((t.parentElement as HTMLElement).clientWidth)}px: ${(t.querySelector('tbody th')?.textContent ?? '').trim().slice(0, 40)}`),
+  );
+  expect(scrolling, `tables that still need a sideways scroll:\n${scrolling.join('\n')}`).toEqual([]);
+
+  // Every stat is still readable, each labelled where the column header used to say it.
+  const stats = page.getByRole('table', { name: /Channel statistics/ });
+  await expect(stats).toBeVisible();
+  // Scoped to the BODY: the hidden `thead` still holds a `<th>min</th>`, and it comes first in
+  // DOM order — the third time in this run a bare `.first()` has resolved to a hidden twin.
+  const body = stats.locator('tbody');
+  for (const label of ['min', 'max', 'mean']) {
+    await expect(body.getByText(label, { exact: true }).first(), `${label} is not labelled`).toBeVisible();
+  }
+
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px with the explorer open:\n${small.join('\n')}`).toEqual([]);
+
+  // …and at a desktop width it is a table again, with its headers back.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole('columnheader', { name: 'Channel' })).toBeVisible();
+});

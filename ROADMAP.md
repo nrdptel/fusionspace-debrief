@@ -3389,7 +3389,7 @@ load to an explained flight, and count the states a first-timer can reach that e
 
 ## P4 — The range on a phone
 
-**Status:** IN PROGRESS — **slices 1 and 2 SHIPPED.** Slice 1, 2026-08-08: the *done when*'s own pinning check now
+**Status:** IN PROGRESS — **slices 1, 2 and 3 SHIPPED.** Slice 1, 2026-08-08: the *done when*'s own pinning check now
 exists in a form that can fail. It asks for "zero controls under 44 px … pinned by a mobile-viewport
 e2e that asserts both counts", and the e2e that claimed to do that measured ONE dimension — five
 hand-kept copies of the predicate, every one asking `if (r.height < 44)`. `e2e/touchTargets.ts` is now
@@ -3398,9 +3398,10 @@ It found exactly one real violation, on every route: the footer's `Privacy` link
 
 **What is left.** The floor is only half the milestone and the sharpening from `ON-6` says so: a
 vertical layout is not a narrowed one. Of the three surfaces laid out for a wide viewport and only
-narrowed, the comparison (`components/CompareView.tsx`) is done as of slice 2; **the channel
-explorer (`components/ChannelExplorer.tsx`) and the chart legends (`components/Chart.tsx`) are
-untouched**, and each needs its own answer to the same question rather than a copy of this one. The phone walk this run also filed the concrete list into
+narrowed, the comparison (`components/CompareView.tsx`) is done as of slice 2 and the channel explorer
+(`components/ChannelExplorer.tsx`) as of slice 3. **The chart legends (`components/Chart.tsx`) are
+untouched**, and that one is genuinely a different question rather than a third table: a legend is
+not a grid, so the answer will not be this one again. The phone walk this run also filed the concrete list into
 `BACKLOG.md`, and one entry was filed as a milestone blocker: **the comparison's "Spread" column is
 `hidden … sm:table-cell`**, content that exists on a wide screen and not at 390 px.
 
@@ -3439,6 +3440,19 @@ rendered at all (not merely scrolled off), that **Max Mach** and **Flight time**
 measurement found were reachable at no narrow width — each have a block with a Spread, that the page
 does not push sideways, that no control is under 44 px, and that the table is what returns at 1280.
 Falsified two ways: reverting to the narrowed table, and dropping the Spread line from the blocks.
+
+**Slice 3 SHIPPED 2026-08-09 — the channel stats read down the page too.** `ON-6`'s second named
+surface, and the same shape slice 2 gave the first. **Measured at 390×844 before it changed: the
+stats table rendered 395 px inside a 358 px container**, so reading a channel's Δ or rate meant
+scrolling the table sideways — which a document-level overflow check cannot see, because the
+wrapper absorbs it. The new e2e checks that directly: **no table on the page scrolls inside its own
+wrapper**, which is the assertion the earlier phone sweeps were missing.
+
+Two things worth keeping. The explorer's header carries no controls — only six words — so hiding it
+below `sm` removes nothing a flyer can press; **that was checked rather than assumed**, because
+hiding the comparison's header in slice 2 deleted its reorder buttons and colour swatches from the
+phone. And the stats table had no accessible NAME on a page carrying seven tables; it has one now,
+which is how the omission was noticed at all.
 
 **Outcome.** A phone at the range is a first-class tool, not a rescaled desktop.
 
