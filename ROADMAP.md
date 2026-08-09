@@ -1996,6 +1996,20 @@ through `decodeBytes` and handed `ingest` a string, so a sample could only ever 
 file — no binary, no spreadsheet, no set. Samples build real `File` objects and go through
 `onFiles` now, which is the drop path itself; the `.pf2` sample opening at all is the proof.
 
+**Slice 2 SHIPPED 2026-08-09 — `/compare` offers a way in.** Its empty state was a task a flyer
+could not complete at all: the only exit needed two flight logs, which is exactly what a first-time
+visitor does not have, on the surface that demonstrates D3. It offers the two-board sample — a real
+pair, agreeing to about 0.4% — chosen by id rather than by position, through the same
+`sampleFiles()` + drop path the analyze page uses. Pinned by 4 cases in `lib/samples.test.ts` and an
+e2e that asserts TWO ids reach the address.
+
+**`/stitch` is deliberately NOT given one, and that is a decision rather than the slice being
+half-done.** The committed fixtures hold no genuine staged pair. `e2e/stitch.spec.ts` uses two
+unrelated real logs as stand-ins because they have the right SHAPE — fine for a test, not fine for a
+demonstration. A sample presented as a staged launch that is not one is precisely what this
+milestone's *done when* forbids about synthetic flights, without even the honesty of a label. It
+needs a synthesized staged pair, labelled, which is the same work as the rest of the list below.
+
 **What is left:** the capabilities the committed fixtures do NOT cover — a deliberately mis-scaled
 column for the mapper, a saturated accelerometer, a staged flight on two devices. Those still need
 synthesized logs, and the *done when* below governs them unchanged: labelled synthetic on every
