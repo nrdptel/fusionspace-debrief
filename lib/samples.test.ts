@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { SAMPLES, SAMPLE_FILES } from './samples';
+import { MULTI_SAMPLE, SAMPLES, SAMPLE_FILES } from './samples';
 import { importFlight } from './parsers/index';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
@@ -86,5 +86,40 @@ describe('the sample flights', () => {
       expect(s.shows.trim(), `${s.id}'s blurb is not its label`).not.toBe(s.label.trim());
       expect(s.files.length, `${s.id} has files`).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('the surfaces whose subject is more than one file offer a way in', () => {
+  const COMPARE = readFileSync(new URL('../components/CompareSurface.tsx', import.meta.url), 'utf8');
+
+  it('names a sample that really is several recordings', () => {
+    // D10: `/compare` offered nothing to a visitor who has not flown two boards — an empty state
+    // whose only exit needs something they do not have. The sample it offers has to BE a
+    // comparison, or the surface demonstrates itself with one flight.
+    expect(MULTI_SAMPLE, 'the registry still holds a multi-file sample').toBeDefined();
+    expect(MULTI_SAMPLE!.files.length).toBeGreaterThan(1);
+  });
+
+  it('chooses it by id rather than by position in the registry', () => {
+    // `SAMPLES[1]` would silently become a different flight the day someone reorders the list —
+    // on a surface that can only honestly offer a multi-recording one.
+    const src = readFileSync(new URL('./samples.ts', import.meta.url), 'utf8');
+    expect(src, 'the multi sample is found, not indexed').toMatch(/MULTI_SAMPLE.*=.*SAMPLES\.find/s);
+    expect(COMPARE, 'the surface does not index the registry itself').not.toMatch(/SAMPLES\[\d+\]/);
+  });
+
+  it('opens it through the same drop path a folder takes', () => {
+    // The defect slice 1 removed was the sample having its own import path, which is why it could
+    // only ever be one UTF-8 text file. A second surface re-introducing one would be that back.
+    expect(COMPARE).toContain('sampleFiles(sample)');
+    expect(COMPARE, 'through onDropFiles, not a private loader').toMatch(/onDropFiles\(await sampleFiles/);
+    expect(COMPARE, 'no second fetch of /samples/').not.toContain("fetch(`/samples/");
+  });
+
+  it('says what the sample shows, and what happens when it cannot be fetched', () => {
+    // §5's five states. The files come from this site, so a lost connection is the real failure
+    // and the flyer is told which one it was.
+    expect(COMPARE).toContain('title={sample.shows}');
+    expect(COMPARE).toMatch(/could not be loaded/);
   });
 });

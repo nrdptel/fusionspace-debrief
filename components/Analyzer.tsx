@@ -43,7 +43,7 @@ import {
 } from '@/lib/recents';
 import { buildComparison, MAX_COMPARE, type Comparison } from '@/lib/compare';
 import { decodeFlight, payloadFromHash } from '@/lib/share';
-import { SAMPLES, type Sample } from '@/lib/samples';
+import { SAMPLES, sampleFiles, type Sample } from '@/lib/samples';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
@@ -565,13 +565,7 @@ export default function Analyzer() {
         what: { name: sample.files.length > 1 ? `${sample.files.length} sample files` : 'the sample flight' },
       });
       try {
-        const files = await Promise.all(
-          sample.files.map(async (name) => {
-            const res = await fetch(`/samples/${name}`);
-            if (!res.ok) throw new Error(`sample missing: ${name}`);
-            return new File([await res.arrayBuffer()], name);
-          }),
-        );
+        const files = await sampleFiles(sample);
         await tick();
         await onFiles(files);
       } catch {

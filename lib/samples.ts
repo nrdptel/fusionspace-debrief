@@ -66,3 +66,30 @@ export const SAMPLES: Sample[] = [
 
 /** Every file the samples need, for the service worker's precache list. */
 export const SAMPLE_FILES: string[] = SAMPLES.flatMap((s) => s.files);
+
+/**
+ * A sample's files, as real `File` objects, ready for the drop path.
+ *
+ * **Shared rather than duplicated, and that is the point of it being here.** The analyze page
+ * fetched these inline; `/compare` needed the same three lines, and two copies of "turn a sample
+ * into files" is exactly how one surface ends up opening a sample through a path the other does
+ * not — which is the defect slice 1 removed in the first place, when the sample had its own
+ * import path and could therefore only ever be one UTF-8 text file.
+ *
+ * They are fetched from this site, so a lost connection is the one real failure. The caller says
+ * so; this throws.
+ */
+export async function sampleFiles(sample: Sample): Promise<File[]> {
+  return Promise.all(
+    sample.files.map(async (name) => {
+      const res = await fetch(`/samples/${name}`);
+      if (!res.ok) throw new Error(`sample missing: ${name}`);
+      return new File([await res.arrayBuffer()], name);
+    }),
+  );
+}
+
+/** The sample a surface should offer when its whole subject is more than one file. Named by id
+ *  rather than by position: `SAMPLES[1]` would silently become a different flight the day someone
+ *  reorders the registry, on a surface that can only honestly offer a multi-recording one. */
+export const MULTI_SAMPLE: Sample | undefined = SAMPLES.find((s) => s.files.length > 1);
