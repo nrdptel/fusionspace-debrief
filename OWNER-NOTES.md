@@ -203,14 +203,18 @@ section covers measure, prose rhythm, or the architecture of a page someone read
 That gap is why every run could correctly update one sentence and none was ever asked what the page
 had become.
 
-**PROGRESS · 2026-08-09 (PR #156) — P9 slices 2, 3 and 4 are all shipped, and the wall the note
-describes is gone as a measurable thing.** The page reads as **96 paragraphs** where it was 51 walls;
+**RESOLVED · 2026-08-09 (PR #156, PR #157) — P9 SHIPPED, all five slices.** The wall the note
+describes is gone as a measurable thing, and the last slice answered a complaint the note did not
+make but should have: the page cited nothing at all.** The page reads as **96 paragraphs** where it was 51 walls;
 the longest single paragraph is **369 words**, down from 850 when the note was filed and 705 at the
 start of this run; **nothing on the page is over 400 words**, against 11 blocks when triaged. Line
 length is 49–66 characters at every width. One slice is left and it is a different complaint the note
 did not make: the page **cites nothing** — 0 URLs and no named algorithm in 102 KB — which is scoped
-as P9 slice 5 with `COMPETITION.md` row 37 behind it. The note stays Open until that ships, because
-"a document you can read" is one you can follow out of.
+as P9 slice 5 — and it shipped in the same run, with `COMPETITION.md` row 37 opened and resolved
+behind it. Five sources, each fetched and read before it was written down, cited from the five
+blocks that rest on published work and deliberately from no others.
+
+Moved to `## Resolved`: every clause is reachable by a flyer on debrief.fusionspace.co.
 
 **The fix already exists in this repo, applied to the wrong page.** `components/FlightReport.tsx:816`
 builds a pinned "Jump to a section" strip with a you-are-here marker backed by
@@ -612,4 +616,9 @@ these are parked so they can be answered once instead of re-derived every run. N
 
 ## Resolved
 
-*Nothing yet — this file was created 2026-08-08.*
+- **`ON-1` · the docs are a wall of text** → **P9, all five slices, 2026-08-09** (PR #156, PR #157).
+  1 `h1` → 11 `h2` → 51 `h3` with a contents list and a pinned jump strip; 96 paragraphs where 51
+  blocks were 51 walls; longest paragraph 369 words against 850 at filing, and nothing over 400;
+  49–66 rendered characters at every width. And the half the note did not ask for and needed most:
+  the page **cites its sources** — five of them, fetched and read — where it had 0 URLs and no named
+  algorithm in 102 KB.

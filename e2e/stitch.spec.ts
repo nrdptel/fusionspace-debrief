@@ -113,6 +113,40 @@ test('the flyer says which recording flew first, and it orders marks without mov
   });
 });
 
+test('the statement survives reaching the same two recordings the other way round', async ({ page }) => {
+  // The two routes to a composite produce different id ORDERS for the same pair: the analyze page
+  // builds the address from the order a folder was dropped, the comparison from the order the
+  // flyer ticked. The statement was keyed on that order, so saying "this one flew first" and then
+  // arriving by the other route asked the flyer the same question again — a control that forgets,
+  // which is a named tell.
+  const ids = await idsFor(page, [BOOSTER, SUSTAINER]);
+  const reversed = ids.split(',').reverse().join(',');
+  expect(reversed, 'the two routes really do differ, or this test proves nothing').not.toBe(ids);
+
+  await page.goto(`/stitch/?ids=${ids}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: SUSTAINER, exact: true }).click();
+  await expect(page.getByRole('button', { name: SUSTAINER, exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+  // Same two recordings, reached by the other route.
+  await page.goto(`/stitch/?ids=${reversed}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+  // The PRESSED CONTROL, not the first row. Which recording sorts first can be true by accident —
+  // the marks have their own order — so a row assertion here would pass whether the statement was
+  // remembered or not. `aria-pressed` is the statement itself, rendered.
+  await expect(
+    page.getByRole('button', { name: SUSTAINER, exact: true }),
+    'the flyer is not asked which one flew first a second time',
+  ).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
+
+  // …and withdrawing it from this side withdraws it on the other, rather than leaving the
+  // original order still answering with the old statement.
+  await page.getByRole('button', { name: SUSTAINER, exact: true }).click();
+  await page.goto(`/stitch/?ids=${ids}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(0);
+});
+
 test('a set of one is refused, and the refusal offers the way on', async ({ page }) => {
   const ids = await idsFor(page, [BOOSTER, SUSTAINER]);
   // One id is not a composite. The surface says what would make it one rather than showing an

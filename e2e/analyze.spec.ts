@@ -1365,7 +1365,13 @@ test('a reading says where its definition is, and the link lands on it', async (
   // `next.config.mjs` sets `trailingSlash: true`. The hand-written anchor this replaced emitted
   // `/methods#id` and relied on the host's redirect carrying the fragment across — which is not
   // something every host does. Going through the primitive fixed that on the way past.
-  const links = panel.locator('a[href*="/methods"][href*="#"]');
+  // Scoped to the "read the whole block" link by NAME, not to the first `/methods#…` in the
+  // panel. Since 2026-08-09 a block that rests on published work also carries a sources line, so
+  // the first such href is a citation pointing at `#ref-…` — an `<li>` in the references section,
+  // which is a correct destination for a citation and a wrong one for this assertion. A locator
+  // that silently retargets is how a test starts passing for a different reason than it was
+  // written for; this one would have failed loudly, and does.
+  const links = panel.getByRole('link', { name: 'Read this on the methods page' });
   const href = (await links.first().getAttribute('href'))!;
   expect(href, 'the canonical trailing-slash form, so no redirect has to preserve the fragment').toMatch(
     /^\/methods\/#/,

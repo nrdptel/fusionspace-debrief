@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import { readFirstStage, writeFirstStage } from '@/lib/firstStage';
 import { buildComposite, fmtCompositeTime, type Composite, type CompositeRecording } from '@/lib/composite';
 import { stageTiles } from '@/lib/readings';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
@@ -42,28 +43,6 @@ import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Loa
 /** Which recording the flyer says flew first. Kept per id-set rather than per flight, because it
  *  is a statement about this ASSEMBLY — the same booster log is the first stage of one launch and
  *  just a flight on its own. */
-const FIRST_STAGE_KEY = 'debrief.firstStage';
-
-function readFirstStage(ids: string[]): string | undefined {
-  try {
-    const all = JSON.parse(window.localStorage.getItem(FIRST_STAGE_KEY) || '{}') as Record<string, string>;
-    return all[ids.join(',')];
-  } catch {
-    return undefined;
-  }
-}
-
-function writeFirstStage(ids: string[], name: string | undefined) {
-  try {
-    const all = JSON.parse(window.localStorage.getItem(FIRST_STAGE_KEY) || '{}') as Record<string, string>;
-    if (name == null) delete all[ids.join(',')];
-    else all[ids.join(',')] = name;
-    window.localStorage.setItem(FIRST_STAGE_KEY, JSON.stringify(all));
-  } catch {
-    /* a device that refuses storage still gets a composite; it just forgets the statement */
-  }
-}
-
 type State =
   | { kind: 'empty' }
   | { kind: 'loading' }

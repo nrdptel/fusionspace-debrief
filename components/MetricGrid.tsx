@@ -3,8 +3,9 @@ import { visibleRows } from '@/lib/reportProfile';
 import { metricTiles } from '@/lib/readings';
 import ReadingChooser from './ReadingChooser';
 import { derivedPeakList } from '@/lib/derivedPeak';
-import { Button, Card, Extrapolated, Popover, Readout } from './ui';
+import { Button, Card, Extrapolated, Popover, Readout, Sources } from './ui';
 import { METHOD_CONTENT } from '@/lib/methods/content';
+import { sourcesFor } from '@/lib/methods/references';
 import { fmtLength, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import type { Tile } from '@/lib/readings';
@@ -57,6 +58,12 @@ function ReadingLabel({ tile }: { tile: Tile }) {
         width="w-96"
       >
         {entry.body}
+        {/* The same sources line the page shows. A citation that appeared on `/methods` and not
+            here would be the caveat-on-one-surface failure, on the sentence that says where the
+            number came from — and this popover is where a flyer meets the reading. */}
+        <div className="mt-3">
+          <Sources items={sourcesFor(entry.cites)} />
+        </div>
         <p className="mt-3">
           <Button variant="link" href={`/methods#${tile.method}`} className="underline">
             Read this on the methods page

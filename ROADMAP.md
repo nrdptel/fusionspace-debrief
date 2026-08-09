@@ -3358,8 +3358,27 @@ content out of the page into a shared module, a pure move pinned by an unchanged
 
 ## P9 (from ON-1) — The methods page is a document you can read
 
-**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED. Slice 5 is now scoped and is the last
-one: the page cites nothing.** Slice 4 shipped 2026-08-09 (PR #156) — the two blocks that were still
+**Status:** SHIPPED 2026-08-09 — all five slices. The *done when* is met in every clause and each
+is pinned: the hierarchy and in-page navigation by `lib/methodIds.test.ts` and `e2e/smoke.spec.ts`;
+the paragraph structure by the same file's "more than one paragraph" case; the measure by
+`e2e/measure.spec.ts` (9 cases, eight widths plus a width-against-width comparison); the editorial
+half by the 400-word ratchet that walks every paragraph; and the sources by four checks — a
+reference nobody cites, a must-cite block that stops citing, a block that starts citing without
+being listed, and a reference that loses the clause saying what Debrief takes from it.
+
+**Where it ended up, measured.** 1 `h1` → 11 `h2` → 51 `h3` where it was 1 → 51 → 0. **96
+paragraphs** where 51 blocks were 51 walls; longest paragraph **369 words** against 850 when owner
+note ON-1 was filed; **nothing over 400 words** against 11 blocks. 49–66 rendered characters at
+every width, monotonic, against 46–76 with the tablet band narrower than a phone. And **five cited
+sources where there were none** — 0 URLs and no named algorithm in 102 KB before, on a page whose
+own repo requires methods to be implemented from published sources and cited.
+
+**What slice 5 deliberately did NOT do**, recorded so a later run does not read it as unfinished:
+46 of the 51 blocks cite nothing, because they rest on no published method — every threshold in
+them was measured off the corpus. A test fails if any of them starts citing. Borrowed authority
+would have been the worse outcome and the easier one.
+
+**Slices 1–4 SHIPPED. Slice 5 was scoped and shipped the same run: the page cited nothing.** Slice 4 shipped 2026-08-09 (PR #156) — the two blocks that were still
 a single paragraph, 705 and 614 words, broken at eight subject changes with the rendered text proved
 character-identical (62,797 chars). Paragraphs **88 → 96**, longest **705 → 369**, over 400 words
 **2 → 0**, pinned by a ratchet in `lib/methodIds.test.ts` that walks every paragraph rather than
