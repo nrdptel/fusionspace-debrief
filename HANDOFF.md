@@ -6,8 +6,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **Three pull requests merged: `#156`, `#157`, `#158`.** Production was confirmed serving `ada0a17` and then `592bd5d` mid-run. Re-measure before believing any of this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — and the version is now on the page footer too. |
-| **Pending on the branch** | **One increment** — the visible build stamp (`306dda1`), gated green locally, in a pull request. Everything else reached `main`. |
+| **Shipped to production** | **Four pull requests merged: `#156`, `#157`, `#158`, `#160`** — `main` at `4c8f89f`. Production was confirmed serving `ada0a17`, then `592bd5d`, then `4c8f89f`. Re-measure before believing any of this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — and the version is now on the page footer too. |
+| **Pending on the branch** | **Nothing.** Every increment reached `main`; the branch was restarted from it for the closing documentation commit. |
 | **Sev-1** | **One found, reproduced on real files, fixed.** A burnout speed labelled `measured` over a barometric derivative — **2 of 38** analysable corpus recordings, at 121.2 and 128.4 m/s, three rows under the identical figure labelled `derived`. |
 | **D — capability** | **D11 SHIPPED, all five slices.** Every clause of its *done when* is met and pinned. The D-track has no in-progress milestone: D8's tilt slice is MEASURED AND BLOCKED (unchanged), D9 has slice 3b left, D10 has slices after its first. |
 | **P — product & craft** | **P9 SHIPPED, all five slices.** **P5 IN PROGRESS** — slices 1, 2 and 3 shipped (the README, the landing claims, the visible build). |
@@ -38,7 +38,7 @@ npx playwright test --workers=1 > /tmp/e2e.log 2>&1; echo "E2E rc=$?"; tail -3 /
 The general form of the lesson is the one `MAINTAINING.md` already records about a suite dying in
 4 ms: **read the result, not the exit code of whatever you piped it through.**
 
-## Three more things this run learned the hard way
+## Four more things this run learned the hard way
 
 1. **A subagent's review found a real bug in the commit I had just made, my first fix was worse than
    the bug, and the e2e caught that.** The grouping token was the flight's own id, which moves when
@@ -55,6 +55,15 @@ The general form of the lesson is the one `MAINTAINING.md` already records about
    compared two `undefined`s; one checked that a loop had pushed twice). The fourth was subtler: an
    e2e comparing the footer's build line to a saved report's used `toContain`, which passes when the
    footer drops the date, because the shorter string is a substring of the longer one.
+4. **I scoped D9 slice 3b twice, merged the first version, and had to correct it in `ROADMAP.md`
+   an hour later.** The first pass read the PARSER, found every simulation already parsed with its
+   name, its figures and its curve, and concluded the slice was "a UI decision". It is not: the runs
+   are discarded one call deep in `ingestFiles`, and **nothing about a design is kept with the
+   flight** — a fact this repo had already decided, written down and put in front of flyers in a
+   note. Reading the file that produces a value tells you the value exists; only reading the path it
+   travels tells you whether anything downstream can still see it. *Scope along the path, not at the
+   source* — and when the correction lands after the merge, correct it in the document rather than
+   leaving the tidier wrong version standing.
 
 ## Environment, established at session start — none of it assumed
 
@@ -94,12 +103,21 @@ The general form of the lesson is the one `MAINTAINING.md` already records about
 
 ## Pick this up first
 
-1. **D9 slice 3b, and it is scoped down to a UI decision.** Read this run rather than planned:
+1. **D9 slice 3b, and it is three things rather than one.** Read this run rather than planned:
    `lib/parsers/openrocket.ts` ALREADY parses every `<simulation>` into a run with its name, its ten
    figures in canonical SI and its saved trace — and `predictionFigures` throws all of it away when
-   there is more than one, returning a refusal that names them. So the remaining work is to return
-   the runs, offer the names, and feed the chosen one to the figures and the overlay. **The fixture
-   exists**: the corpus's one `.ork` states **five** simulations.
+   there is more than one, returning a refusal that names them. **The fixture exists**: the corpus's
+   one `.ork` states **five** simulations.
+   **Correcting myself inside the same run, because I first wrote this down as "scoped to a UI
+   decision" and that was wrong by about two thirds.** A picker is not a control over data already
+   in hand: **no design survives the drop.** The `runs` array lives inside one
+   `readPredictionDetail` call made from `ingestFiles`'s catch block, `predictionFigures` collapses
+   it to figures-or-a-refusal before returning, and nothing about the `.ork` is kept — which is
+   exactly what the note a flyer reads already tells them (*"unlike a device summary, it is not kept
+   with the flight"*). By the time anyone could point at a simulation the flight is analysed, saved
+   and rendered. So the slice is: surface the runs out of `ingestFiles`; hold them for the session on
+   the analyze page, which has no such state today; re-merge the chosen run's figures and curve onto
+   an already-built flight and re-render the cross-check — plus the control, with its five states.
    **It was deliberately not started at the end of this run**, because it changes what reaches the
    cross-check panel — where a PREDICTION sits beside real readings — and that is the blur the
    safety spine exists to prevent. Take it first, with a whole session in front of it.
