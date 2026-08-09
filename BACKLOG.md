@@ -14,6 +14,46 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — a multi-simulation design dropped into a COMPARISON says nothing at all.**
+  `lib/ingest.ts:pairPredictions`. It contributes no figures, so it is never named in `paired`; it
+  finds a target, so it is never in `skipped`; `predictionOffers` is read only by `Analyzer`'s
+  single-flight branch and never by `CompareSurface`; and its refusal lands on
+  `target.flight.notes`, which `CompareView` does not render — it renders only the surface-level
+  `note` string. Net: **zero words on screen** about a file the flyer dropped. Reproduce in a
+  minute: on `/compare`, drop two logs plus an `.ork` whose `<rocket><name>` matches one log's
+  file name and which states 3 simulations. That is the *"silent nothing … which is false and is
+  the worse failure"* `predictionFigures`' own header names, and the bug class `pairSummaries`
+  records having been fixed once already for device summaries. Pre-existing rather than introduced
+  by D9 slice 3b; found by that slice's pre-push review. The fix is a `predictionUnshown` list out
+  of `ingestFiles`, rendered by both surfaces from one builder, the way `predictionNote` already
+  is.
+- **2026-08-09 — the seven airframe figures a flyer types are keyed to the DEVICE, not the
+  flight.** `components/FlightReport.tsx:153,170,187` read and write `debrief.mass.kg`,
+  `debrief.maindeploy.m` and `debrief.delay.s` as bare `localStorage` keys, deliberately —
+  the comment says *"Persisted on this device, like the unit choice."* A 2 kg descending mass typed
+  on one flight is therefore applied to the next flight opened, and landing energy is the figure an
+  RSO acts on. **Not a Sev-1, and the reason is measured rather than assumed:** the mass renders in
+  a `NumberField` on the same `LandingEnergy` card as the joules it feeds
+  (`components/LandingEnergy.tsx:104`), so the input is visible beside the output and a flyer can
+  see it is stale. The hazard is that it grows with the logbook — a unit choice cannot be wrong and
+  a mass can. The honest shape is per-flight, with the last value as the DEFAULT rather than the
+  value.
+- **2026-08-09 — resetting a figure's colour is reachable only by a double gesture, with no
+  visible control.** `components/FigureChooser.tsx:70` and `components/CompareView.tsx:848` bind
+  `onClearColor` / `clearFlightColor` to `onDoubleClick` alone; the only cue is the `aria-label`
+  and `title` reading "double-click to reset". `CompareView.tsx:1123`'s help line says "double-click
+  or double-tap", so the repo believes touch is covered — and `dblclick` IS synthesized from a
+  double-tap in current mobile browsers, so the fan-out's claim of "no tap path" is **half wrong**.
+  What is `UNVERIFIED` here, because this container has no real device: whether iOS Safari's
+  double-tap-to-zoom swallows it without `touch-action: manipulation` on the swatch. Measure on a
+  real phone before building anything; the cheap fix either way is a visible reset affordance,
+  since a gesture with no control is a feature reachable only by knowing it is there.
+- **2026-08-09 — `a.out`, a 416-byte stripped ELF relocatable, is committed at the repo root of a
+  public MIT repository.** Added by `94fa36c` (#111, 2026-08-03) as collateral from a probe, and
+  `.gitignore` covers `*-tmp.*` but not this name. `git ls-tree -r HEAD --name-only | grep '^a.out'`
+  returns it in under a second. It is the first thing above `app/` in the GitHub file listing —
+  which `ON-B2` established is a surface — and it is exactly what `MAINTAINING.md`'s *"delete probe
+  scripts when done; check the ignore glob covers the name"* exists to prevent.
 - **2026-08-09 — a RESTORED group whose recordings were cropped can print an apogee spread taken
   over two different stretches.** `lib/flightGroups.ts:recordingSpread` returns nothing when any
   recording carries a `read` window, precisely so a flyer's own crop is never painted as instrument
