@@ -6,12 +6,12 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | Re-measure before believing this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. At the last measurement in this run, production served `8714271` — level with `origin/main` before anything here merged. |
-| **Pending** | **PR #162** (D9 slice 3b, 6 commits) and **PR #163** (P5 slice 5). Both gated green locally in full. |
+| **Shipped to production** | **Three merges: `26fa023` (D9 + P5) and `f9ced22` (D10 slice 3).** Production was confirmed serving `26fa023` and `/changelog` live at 200. Re-measure before believing any of this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **PR #164** (P4 slice 2). Gated green locally in full. Everything else this run is merged and live. |
 | **Sev-1** | **None found.** The opening fan-out's two claimed Sev-1s were both reproduced by hand and both downgraded — see *The two Sev-1 claims that were not*. |
-| **D — capability** | **D9 SHIPPED, all five slices.** The D-track's remaining open milestones are D10 (slices after its second) and D8's tilt slice, which is MEASURED AND BLOCKED and should stay blocked. |
-| **P — product & craft** | **P5 SHIPPED, slices 1–5.** Only its repo-METADATA half is left, and it is owner-level — no session tool can set a repository's description, topics or pinned links. |
-| **§9 counts, start → end of run** | radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** · inverted-type files **10→10** · `Card` adopters **26→28** · `Section` **2→3** · `SectionNav` **2→3** · `Notice` **5→6**. **Every count that moved went UP.** |
+| **D — capability** | **D9 SHIPPED, all five slices. D10 slice 3 SHIPPED** — a synthetic flight says so, and says it in the file. D10's remaining slices are now decomposed in `ROADMAP.md` from a real audit rather than guessed. D8's tilt slice is MEASURED AND BLOCKED and should stay blocked. |
+| **P — product & craft** | **P5 SHIPPED, slices 1–5** (only its repo-METADATA half is left, and it is owner-level). **P4 slice 2 SHIPPED** — the comparison reads down the page on a phone. P4's other two named surfaces are untouched. |
+| **§9 counts, start → end of run** | radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** · inverted-type files **10→10** · `Card` adopters **26→28** · `Section` **2→3** · `SectionNav` **2→3** · `Notice` **5→6**. **Every count that moved went UP, and the two that tried to move DOWN were refused rather than re-baselined** — see the ratchet note below. |
 
 ## The one thing to read before anything else
 
@@ -29,12 +29,13 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 Three of those (1, 2, 6) are wrong-claim defects, not polish. **Budget for this: it cost about ninety minutes and two extra gate cycles, and it was the highest-value ninety minutes of the run.**
 
-## Four more things this run learned the hard way
+## Five more things this run learned the hard way
 
 1. **The shell's working directory is NOT stable between commands in this harness.** A backgrounded `npm run build` ran from the parent of the checkout and reported `ENOENT … /home/user/package.json`; later a bare `npx playwright test --grep` ran from the same place, found no config, scanned the whole tree and reported "No tests found" after erroring on a dozen **vitest** files. Neither output says "wrong directory". Now in `MAINTAINING.md`. **Prefix every command with `cd /home/user/fusionspace-debrief &&`.**
 2. **The harness's completion status is the trailing `echo`'s, not the work's.** `cmd > log 2>&1; echo "rc=$?"` backgrounded is announced as "exit code 0" because the echo succeeded. A build that never ran read as green for twenty minutes, and the e2e after it failed on an empty `out/` — which reads exactly like a catastrophic regression. **Write the rc to a file and read the file.** Same shape as the `tail`-swallows-a-red-suite note already in the manual.
 3. **A single e2e failure in a full run is not a red gate until you have tried to reproduce it.** `compare-page.spec.ts:104` failed once at 310/311. It passed alone, passed across all 45 compare-suite tests, and passed in a full 311/311 re-run. Recorded as a flake **after** three attempts to reproduce it, not instead of them.
-4. **The competitive probe found a defect in the surface the run was building, not in a competitor.** Aiming it at *the thing you are about to ship* rather than at the field in general is what made it pay: OpenRocket shows a status per simulation row, which is how the hover-only freshness word here was noticed at all.
+4. **A grep-based ratchet cannot tell code from prose ABOUT code.** `DESIGN.md` §9's card check scans the source for a treatment's class string, so a COMMENT quoting that string counts as the treatment. It refused P4 slice 2 twice: once correctly, for a hand-rolled fourth card, and once for the comment explaining that refusal. Describe the shape; never quote the class.
+5. **The competitive probe found a defect in the surface the run was building, not in a competitor.** Aiming it at *the thing you are about to ship* rather than at the field in general is what made it pay: OpenRocket shows a status per simulation row, which is how the hover-only freshness word here was noticed at all.
 
 ## The two Sev-1 claims that were not
 
@@ -63,6 +64,8 @@ Both were reproduced by hand before being ranked, which is the whole point of th
 | `321e90b` | **Three more from the third review lens** — a promised curve, a missing word, a doubled paragraph | 3 cases, falsified 3 ways |
 | `8578a4e` | Four ledger entries with the measurement that makes each actionable | — |
 | `413b8b6` | Two environment traps recorded in `MAINTAINING.md` | — |
+| `da70440` | **D10 slice 3 — a synthetic flight says so, and says it in the file** | `lib/synthetic.test.ts` (14 cases, falsified 5 ways) |
+| `aff686b`+`38baa07`+`e4dadfb` | **P4 slice 2 — the comparison reads down the page on a phone**, plus the two corrections its own checks forced | `e2e/touch.spec.ts`, falsified 2 ways |
 | *(P5)* | **P5 slice 5 — `/changelog`, and “Readings that changed” as its spine** | `lib/changelog.test.ts` (8 cases, falsified 6 ways) + an e2e |
 | *(P5)* | `a.out` removed — a 416-byte stripped ELF committed to a public repo root since `94fa36c` | `.gitignore` now covers it |
 

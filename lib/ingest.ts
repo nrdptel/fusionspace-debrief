@@ -562,6 +562,30 @@ export async function ingestFiles(files: File[], max: number): Promise<IngestOut
  * flyer would go looking for a table that does not exist on that page and cannot be reached from
  * it. The design WAS read, so the sentence still says so; what changes is where it sends them.
  */
+/**
+ * What a flyer is told when a design was READ, paired onto a flight, and contributed nothing —
+ * because it states several simulations and Debrief will not pick one.
+ *
+ * **This existed nowhere until 2026-08-09, and the gap was a silent nothing.** Such a design is
+ * never in `paired` (it contributed no figures), never in `skipped` (it found its flight), and its
+ * refusal lands on `flight.notes` — which the single-flight report renders and the comparison
+ * surface does not. So on `/compare` a flyer dropped a design and the page said not one word about
+ * it. `predictionFigures`' own header calls that out: a silent nothing "would read as 'this file
+ * has no prediction', which is false and is the worse failure", and `pairSummaries` records the
+ * same bug class being fixed once already for device summaries.
+ *
+ * It names the design and says where the choice can be made, because the picker is on the
+ * single-flight report and not here — the same split `predictionNote`'s `shown` argument carries.
+ */
+export function predictionUnpickedNote(offers: { file: string; prediction: { runs: unknown[] } }[]): string {
+  const which = offers.map((o) => `${o.file} states ${o.prediction.runs.length} simulations`).join('; ');
+  return (
+    `Read the design${offers.length > 1 ? 's' : ''} you dropped (${which}) — but a flight log doesn’t say which ` +
+    `motor flew, so Debrief won’t pick one, and a comparison doesn’t show a prediction either way. ` +
+    `Open that flight on its own to say which simulation flew and read it against what flew.`
+  );
+}
+
 export function predictionNote(predictionPaired: string[], shown: boolean): string {
   const which = predictionPaired.join('; ');
   if (!shown) {

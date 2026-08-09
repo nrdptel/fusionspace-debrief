@@ -8,7 +8,7 @@ import { encodeUnits } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { useLogbook } from './useLogbook';
 import { STORAGE_WRITE_REFUSED } from '@/lib/recents';
-import { ingestFiles, groupsRestoredNote, highRateNote, predictionNote, unreadNote } from '@/lib/ingest';
+import { ingestFiles, groupsRestoredNote, highRateNote, predictionNote, predictionUnpickedNote, unreadNote } from '@/lib/ingest';
 import { MULTI_SAMPLE, sampleFiles } from '@/lib/samples';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { importFlight } from '@/lib/parsers';
@@ -150,7 +150,7 @@ export default function CompareSurface() {
       if (list.length === 0) return;
       setState('loading');
       setNote(null);
-      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, predictionPaired, groupsRestored, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
+      const { results, skipped, mappable: mappableFiles, paired, highRatePaired, predictionPaired, predictionOffers, groupsRestored, forgotten, unread } = await ingestFiles(list, MAX_COMPARE);
       logbook.reportForgotten(forgotten);
       logbook.reportArrived(results.map((r) => r.savedId).filter((id): id is string => !!id));
       // A read cannot discover that writes are refused — only an attempted save can, and this is
@@ -216,6 +216,11 @@ export default function CompareSurface() {
       // no reported figures, and a prediction is never persisted, so there is no view reachable
       // from here that shows it. See `predictionNote`.
       const predNote = predictionPaired.length > 0 ? ` ${predictionNote(predictionPaired, false)}` : '';
+      // …and a design that stated SEVERAL simulations, which contributed nothing and so appears in
+      // neither `predictionPaired` nor `skipped`. Before this it produced no words anywhere on this
+      // surface: its refusal lands on `flight.notes`, which a comparison does not render, so a
+      // flyer dropped a file and the page said nothing about it at all.
+      const unpickedNote = predictionOffers.length > 0 ? ` ${predictionUnpickedNote(predictionOffers)}` : '';
       // A grouping the dropped records themselves carried, put back — the flyer's own earlier
       // statement remembered, not a grouping Debrief worked out. Its own sentence for that reason.
       const groupNote = groupsRestored.length > 0 ? ` ${groupsRestoredNote(groupsRestored)}` : '';
@@ -253,7 +258,7 @@ export default function CompareSurface() {
           : ` ${names(notKept)} ${notKept.length === 1 ? 'was' : 'were'} read but could not be kept: ${STORAGE_WRITE_REFUSED}.`;
 
       if (merged.length >= 2) {
-        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${predNote}${groupNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
+        void load(merged, true, `${leftNote}${pairedNote}${hrNote}${predNote}${unpickedNote}${groupNote}${overflowNote}${notKeptNote}${notRead}`.trim() || undefined);
         return;
       }
       setState('picking');
@@ -261,8 +266,8 @@ export default function CompareSurface() {
         results.length === 0
           ? `Nothing in that drop could be read as a flight.${leftNote}${notRead}`
           : kept.length === 0
-            ? `Read ${names(results)} — but ${STORAGE_WRITE_REFUSED}, so ${results.length === 1 ? 'it was' : 'they were'} not kept, and a comparison here is assembled from the logbook. Read ${results.length === 1 ? 'it on the analyze page' : 'them one at a time on the analyze page'} instead.${leftNote}${pairedNote}${hrNote}${predNote}${notRead}`
-            : `Added ${names(kept)} to your logbook — tick ${kept.length === 1 ? 'it' : 'them'} with another flight to compare.${notKeptNote}${leftNote}${pairedNote}${hrNote}${predNote}${notRead}`,
+            ? `Read ${names(results)} — but ${STORAGE_WRITE_REFUSED}, so ${results.length === 1 ? 'it was' : 'they were'} not kept, and a comparison here is assembled from the logbook. Read ${results.length === 1 ? 'it on the analyze page' : 'them one at a time on the analyze page'} instead.${leftNote}${pairedNote}${hrNote}${predNote}${unpickedNote}${notRead}`
+            : `Added ${names(kept)} to your logbook — tick ${kept.length === 1 ? 'it' : 'them'} with another flight to compare.${notKeptNote}${leftNote}${pairedNote}${hrNote}${predNote}${unpickedNote}${notRead}`,
       );
     },
     [load, logbook],

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupsRestoredNote, predictionNote, unreadNote, MAX_NAMED_UNREAD } from './ingest';
+import { groupsRestoredNote, predictionNote, predictionUnpickedNote, unreadNote, MAX_NAMED_UNREAD } from './ingest';
 
 // `ingestFiles` itself needs real Files and a real IndexedDB, so it is exercised end to end in
 // e2e/compare.spec.ts. The SENTENCE it hands the surfaces is pure, and it makes claims about a
@@ -128,5 +128,35 @@ describe('what a flyer is told when their own grouping came back', () => {
     const note = groupsRestoredNote([...one, 'c.json + d.json → one flight']);
     expect(note).toContain('a-debrief-record.json');
     expect(note).toContain('c.json + d.json');
+  });
+});
+
+describe('what a flyer is told when a design stated several simulations', () => {
+  const offer = (file: string, runs: number) => ({ file, prediction: { runs: new Array(runs).fill(0) } });
+
+  it('names the design and its count, and says where the choice can be made', () => {
+    // The gap this closes was a SILENT NOTHING on the comparison surface: such a design is never
+    // in `paired` (it contributed no figures), never in `skipped` (it found its flight), and its
+    // refusal lands on `flight.notes`, which a comparison does not render. A flyer dropped a file
+    // and the page said nothing about it at all — which `predictionFigures`' own header calls the
+    // worse failure, because it reads as "this file has no prediction" and that is false.
+    const note = predictionUnpickedNote([offer('rocket.ork', 5)]);
+    expect(note).toContain('rocket.ork states 5 simulations');
+    expect(note, 'says why Debrief declined').toMatch(/doesn’t say which motor flew/);
+    expect(note, 'and sends them where the choice actually lives').toMatch(/on its own/);
+  });
+
+  it('says a comparison shows no prediction either way, so the advice is not a dead end', () => {
+    // The distinction `predictionNote`'s `shown` argument carries: the cross-check a chosen
+    // simulation fills is on the single-flight report and nowhere else.
+    expect(predictionUnpickedNote([offer('r.ork', 3)])).toMatch(/a comparison doesn’t show a prediction/);
+  });
+
+  it('reads for one design and for several', () => {
+    expect(predictionUnpickedNote([offer('a.ork', 2)])).toContain('the design you dropped');
+    const two = predictionUnpickedNote([offer('a.ork', 2), offer('b.ork', 4)]);
+    expect(two).toContain('the designs you dropped');
+    expect(two).toContain('a.ork states 2 simulations');
+    expect(two).toContain('b.ork states 4 simulations');
   });
 });

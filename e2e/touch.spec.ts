@@ -418,3 +418,49 @@ test('the comparison says it sorts, and its colour swatches are thumb-sized', as
     expect(s.h, `swatch height ${s.h}`).toBeGreaterThanOrEqual(44);
   }
 });
+
+// P4 slice 2, sharpened by `ON-6`: a vertical layout is not a narrowed one. The comparison was a
+// wide table with `overflow-x-auto` — at 390 px a flyer scrolled sideways to read a metric across
+// its flights, and the Spread column was hidden outright because clipped at the edge it showed the
+// leading digit of each percentage, which reads as a number rather than as a fragment.
+//
+// Measured before this was built, over the real two-altimeter pair: the table carries 10 spreads,
+// the prose panel above restates 8 under different names, and TWO are available at no width below
+// `sm` at all. So the claim in the ledger ("nothing exists on a wide screen and not at 390 px")
+// was overstated and the code comment beside the column ("nothing is lost") was wrong; the honest
+// answer is neither, and it is this layout.
+test('the comparison reads down the page on a phone, and hides nothing', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([
+      path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'),
+      path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'),
+    ]);
+  await expect(page.getByRole('heading', { name: /Comparing/i })).toBeVisible({ timeout: 60_000 });
+
+  // The column headers are what a TABLE needs; as blocks each cell names its own flight, so the
+  // header group is gone at this width rather than scrolled off it.
+  await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeHidden();
+
+  // The Spread was `hidden … sm:table-cell` and is now a labelled line in every block. Both of
+  // the values that were reachable at NO narrow width are here, named individually rather than
+  // counted — the count is the thing the ledger got wrong.
+  for (const label of ['Max Mach', 'Flight time']) {
+    const row = page.getByRole('row', { name: new RegExp(label) }).first();
+    await expect(row, `${label} has no row on a phone`).toBeVisible();
+    await expect(row.getByText('Spread'), `${label} shows no spread on a phone`).toBeVisible();
+  }
+
+  // Nothing runs past the right edge, so no metric needs a sideways scroll to be read.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow, 'the comparison pushes the page sideways').toBeLessThanOrEqual(0);
+
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on the stacked comparison:\n${small.join('\n')}`).toEqual([]);
+
+  // …and at a desktop width the same table is a table again, with its headers back.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeVisible();
+});
