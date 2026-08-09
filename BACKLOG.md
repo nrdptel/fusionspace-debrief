@@ -4117,7 +4117,12 @@ refuted. They are written down rather than fixed because each needs its own gate
   synthesises one with `ctrlKey` false, so Enter and Space can only reach the plain toggle. A
   keyboard user can reconstruct isolate by toggling each other trace, so the capability is not lost;
   it is a branch of a control that only a pointer can take, on the very control that slice added to
-  end a pointer-only capability. Worth a decision either way rather than silence.
+  end a pointer-only capability. **Sent to adversarial verification and REFUTED as a defect, with a
+  measurement** — the verifier drove the real app and found ctrl-click and "press Enter on the other
+  row" reach the byte-identical rendered state (`show [true,false]`, `aria ["true","false"]`), so on
+  a two-trace legend the missing shortcut saves exactly zero actions and every state the isolate
+  branch can produce is reachable from the keyboard. Kept here as a decision, not a bug: the shortcut
+  is deliberately pointer-only, and a later run should not re-derive that.
 
 - **FILED 2026-08-09 — `innerText` is not a reliable test for "does this element show text", and a
   check that used it reported four working controls as broken.** Measured on the report at 390 px:
