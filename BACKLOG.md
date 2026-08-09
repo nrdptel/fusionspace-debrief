@@ -25,6 +25,13 @@ wild, ideas too big for one pass. One line each, newest first.
   fix is not to unhide the column — it did not fit, and cut off it showed the leading digit of each
   percentage, which reads as a number rather than a fragment — it is the vertical layout `ON-6`
   asks for.
+- **RESOLVED 2026-08-09 — a multi-simulation design dropped into a COMPARISON says nothing at all.**
+  Closed the same day it was filed, by `predictionUnpickedNote` in `lib/ingest.ts` read by
+  `components/CompareSurface.tsx`: the design is named, its simulation count stated, and the flyer
+  is sent to the single-flight report where the picker actually lives — because sending them
+  anywhere else would be a dead end. Pinned by 3 cases in `lib/ingest.test.ts` and an e2e on
+  `/compare` that also asserts the file is not reported as unreadable, which is the other way to
+  get this wrong. Falsified by making the surface ignore the offers again. Original entry:
 - **2026-08-09 — a multi-simulation design dropped into a COMPARISON says nothing at all.**
   `lib/ingest.ts:pairPredictions`. It contributes no figures, so it is never named in `paired`; it
   finds a target, so it is never in `skipped`; `predictionOffers` is read only by `Analyzer`'s

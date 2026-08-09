@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
+import os from 'node:os';
+import { writeFileSync } from 'node:fs';
+import { designWithSimulations } from './orkFixture';
 
 const fixture = (f: string) => path.join(__dirname, '../lib/parsers/__fixtures__', f);
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -234,3 +237,33 @@ test('a file that needs mapping joins the comparison without leaving the surface
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Comparing 3 flights' })).toBeVisible();
 });
+
+test('a design stating several simulations is not dropped in silence on /compare', async ({ page }) => {
+  // Filed as a defect the same day D9 slice 3b shipped, and closed here. Such a design is never in
+  // `paired` (it contributes no figures), never in `skipped` (it found its flight), and its refusal
+  // lands on `flight.notes` — which the single-flight report renders and this surface does not. So
+  // a flyer dropped a file and the page said nothing about it at all. `predictionFigures`' own
+  // header calls that the worse failure: a silent nothing reads as "this file has no prediction",
+  // which is false.
+  const ork = path.join(os.tmpdir(), 'compare-three-sims.ork');
+  writeFileSync(ork, designWithSimulations(3));
+
+  await page.goto('/compare');
+  await page.getByLabel('Choose flight logs to compare').setInputFiles([
+    path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'),
+    path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-gps.csv'),
+    ork,
+  ]);
+
+  // Named, counted, and told where the choice actually lives — the picker is on the single-flight
+  // report, so sending them here would be a dead end.
+  const note = page.getByText(/states 3 simulations/);
+  await expect(note).toBeVisible({ timeout: 60_000 });
+  await expect(note).toContainText('compare-three-sims.ork');
+  await expect(note).toContainText(/doesn’t say which motor flew/);
+  await expect(note).toContainText(/a comparison doesn’t show a prediction/);
+
+  // …and it is not reported as unreadable, which is the other way to get this wrong.
+  await expect(page.getByText(/couldn’t be read as a flight/)).toHaveCount(0);
+});
+
