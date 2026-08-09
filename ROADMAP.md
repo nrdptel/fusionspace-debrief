@@ -3261,7 +3261,22 @@ what P4 must answer, not whether it runs.
 
 ## P5 — Ready for the public
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-09**: the README shows the tool instead of
+describing it. **4,545 words, 32 KB, zero images → 1,948 words, 16 KB, four images**, with the
+first screenful a real flight read by the real app rather than three paragraphs of prose. 68% of
+the file was one 3,099-word `What it does` section duplicating — without citations — what the
+methods page now says properly, so it was cut and linked rather than paraphrased. Pinned by
+`lib/readme.test.ts` (6 cases, falsified 3 ways): a referenced image not in the repo fails, alt
+text that says "screenshot" fails, and a copy line where "upload" describes something a flyer does
+fails — the PRIVACY invariant reaches the copy, not just the code.
+
+**What is left, in order.** (a) The landing surface still does not state the three things Debrief
+does that no vendor tool does — `COMPETITION.md`'s standing conclusion is written down and reaches
+no flyer. (b) A visible changelog and a release the flyer can see in the UI; the build stamp from
+D11 slice 4 is already in every document, so the surface is the missing half rather than the data.
+(c) A working way to report a bug or request a format from inside the app. (d) The GitHub
+description, topics and pinned links — **owner-level and parked**, because no tool in this session
+can write repository settings; the README carries the message without them.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
 
