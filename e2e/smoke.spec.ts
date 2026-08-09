@@ -124,6 +124,28 @@ test('both file pickers offer every format the app can read', async ({ page }) =
 // This walks the two things that fix it, rather than asserting the markup exists: a reader
 // who has never seen the page reaches a named definition from the top in ONE click, and the
 // definition they land on sits under a subject heading that says what it is among.
+test('a flyer can report a problem or ask for a logger, from inside the app', async ({ page }) => {
+  // P5 — the forms have existed in `.github/ISSUE_TEMPLATE/` all along and the only link to either
+  // was one sentence on the PRIVACY page: a feature reachable only by knowing it is there, which is
+  // a named tell. A flyer whose board is not read has no reason to visit the privacy page.
+  await page.goto('/');
+  const bug = page.getByRole('link', { name: 'Report a problem' });
+  await expect(bug).toBeVisible();
+  await expect(bug).toHaveAttribute('href', /\/issues\/new\?template=bug_report\.yml$/);
+
+  // The format request is asked where the flyer DISCOVERS their logger is missing — the list of
+  // recognised ones — not only in the footer.
+  const ask = page.getByRole('link', { name: /Ask for a logger that isn.t here/ });
+  await expect(ask).toBeVisible();
+  await expect(ask).toHaveAttribute('href', /\/issues\/new\?template=format_request\.yml$/);
+
+  // On every route, because a problem is noticed where it happens.
+  await page.goto('/methods/');
+  await expect(page.getByRole('link', { name: 'Report a problem' })).toBeVisible();
+  await page.goto('/compare/');
+  await expect(page.getByRole('link', { name: 'Report a problem' })).toBeVisible();
+});
+
 test('the page says which build a flyer is looking at, and links to it', async ({ page }) => {
   // P5 — the stamp has been on every SAVED document since D11 slice 4 and on no screen. Driven on
   // the built export, where `BUILD_SHA` is real; in `npm run dev` it is 'dev' and the line is

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { GitHubIcon } from './icons';
-import { HUB_URL, REPO_URL } from '@/lib/links';
+import { BUG_REPORT_URL, FORMAT_REQUEST_URL, HUB_URL, REPO_URL } from '@/lib/links';
 import { BUILD_SHA, buildLine } from '@/lib/buildInfo';
 import { observancesForDate } from '@/lib/observances';
 
@@ -21,6 +21,22 @@ export default function SiteFooter() {
           >
             <GitHubIcon className="h-4 w-4 fill-current" />
             Source on GitHub
+          </a>
+          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+            ·
+          </span>
+          {/* A way to say something is wrong, on every route. The forms have existed in
+              `.github/ISSUE_TEMPLATE/` for a long time and the only link to either was one
+              sentence on the PRIVACY page — a feature reachable only by knowing it is there,
+              which is a named tell. `?template=` lands on the form with its questions rather
+              than an empty box. */}
+          <a
+            href={BUG_REPORT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+          >
+            Report a problem
           </a>
           <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
             ·

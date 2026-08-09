@@ -3328,10 +3328,19 @@ direction, and by an e2e on what a flyer actually reads.
 commit, using the same `buildLine()` the six saved documents carry. Pinned by `lib/buildInfo.test.ts`
 and an e2e that saves a report and compares the two.
 
+**Slice 4 SHIPPED 2026-08-09 — a flyer can tell the project something without leaving the app.**
+`.github/ISSUE_TEMPLATE/` has carried a bug report and a format request for a long time, and the
+only link to either was one sentence on the PRIVACY page — the craft bar's "a feature reachable only
+by knowing it is there", almost word for word, since a flyer whose board is not read has no reason
+to visit the privacy page. "Report a problem" is in the footer on every route; "Ask for a logger
+that isn't here" is on the recognised-loggers card, which is where a flyer DISCOVERS their board is
+missing. Both `?template=`d so they land on the form's questions rather than an empty box. Pinned by
+`lib/links.test.ts` (4 cases, falsified 3 ways — a renamed template, the wrong query parameter, and
+a hand-written URL at a call site) and an e2e over three routes.
+
 **What is left, in order.** (a) A visible CHANGELOG — the version is now on screen and traceable to a
 commit, which is the half a flyer can act on; what is still missing is a human account of what
-changed between builds. (b) A working way to report a bug or request a format from inside the app.
-(c) The GitHub description, topics and pinned links — **owner-level and parked**, because no tool in
+changed between builds. (b) The GitHub description, topics and pinned links — **owner-level and parked**, because no tool in
 this session can write repository settings; the README carries the message without them.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
