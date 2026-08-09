@@ -5,6 +5,7 @@ import Analyzer from '@/components/Analyzer';
 import MethodsPointer from '@/components/MethodsPointer';
 import { UnitsProvider } from '@/components/UnitsProvider';
 import HeaderUnits from '@/components/HeaderUnits';
+import { Disclosure } from '@/components/ui';
 
 export default function Home() {
   return (
@@ -18,11 +19,12 @@ export default function Home() {
       <div className="mx-auto w-full max-w-5xl">
         <SiteHeader current="analyze" unitsSlot={<HeaderUnits />} />
 
-      <details className="mt-6 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/50 print:hidden">
-        <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
-          How to use this
-        </summary>
-        <div className="mt-3 space-y-3 text-zinc-600 dark:text-zinc-400">
+      {/* §5's `Disclosure`. This was the app's LARGEST hand-rolled copy of it — the class string
+          and the `<summary>`'s were byte-identical to the primitive's own, on the landing route,
+          which is the one surface a first-time visitor is guaranteed to see. `mt-6` because the
+          primitive's own `mt-3` is not the spacing this position wants. */}
+      <Disclosure summary="How to use this" className="mt-6 print:hidden">
+        <div className="space-y-3 text-zinc-600 dark:text-zinc-400">
           <p>
             Drop in a flight log — or several at once to compare — and Debrief reads each into one
             clean flight: the headline numbers and the curves that matter, with liftoff, burnout,
@@ -101,7 +103,7 @@ export default function Home() {
             </li>
           </ul>
         </div>
-      </details>
+      </Disclosure>
       </div>
 
       <section className="mt-8">

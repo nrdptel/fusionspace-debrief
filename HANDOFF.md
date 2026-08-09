@@ -93,27 +93,29 @@ about the CHECKS rather than the code:
 | *(this PR)* | **D10 slice 5a — a made-up flight says so where a flyer reads it**: the report, the readings grid, the logbook row, the logbook's clipboard table and the logbook backup; and it can never wear a personal-best ★ | `lib/synthetic.test.ts` (19), `lib/logbookStar.test.ts` (+4), `lib/logbook.test.ts` (+3), `lib/recents.test.ts`'s two `Required<>` fixtures, 2 walks in `e2e/analyze.spec.ts` |
 | *(this PR)* | **The reopen erasure** — `lib/reopen.ts` dropped the marker, and a reopen is a save | `lib/synthetic.test.ts` → *"survives being REOPENED"*, falsified alone |
 | *(this PR)* | **The audit table stopped being able to lie**: `labelled` rows name a check that is read off disk, the save-site list is discovered rather than typed, `SINKS` 20 → 25 | `lib/synthetic.test.ts`, falsified 3 ways |
-| *(this PR)* | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data), `BACKLOG.md` ×2 | — |
+| *(this PR)* | **D10 slice 5b — the two spreadsheet destinations say it on every ROW**: the data CSV and the readings clipboard table each grow a `Provenance` column, and the logbook's table converts onto the same vocabulary | `lib/synthetic.test.ts` ×3, falsified both ways on both exports |
+| *(this PR)* | **P1 item 5 — the logbook's four states take §5's primitives**, and `PRIMITIVE_ADOPTERS` becomes exhaustive against `components/ui.tsx`'s exports | `lib/design-system.test.ts` (26), falsified by exporting a new primitive |
+| *(this PR)* | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data), `BACKLOG.md` ×3 | — |
 
 ## Pick this up first
 
-1. **D10 slice 5b — the documents that leave.** Twelve sinks are still `todo` in
-   `lib/synthetic.test.ts`, each with a reason worth acting on. The data CSV is first and its design
-   is decided: a per-row `Provenance` column, on `COMPETITION.md` row 41's precedent, not a header
-   comment. `lib/logbook.ts` already exports `PROVENANCE_COLUMN` and `provenanceCell` — use them
-   rather than answering the same question twice.
+1. **D10 slice 5c — the sinks that are not tables.** Nine are still `todo` in
+   `lib/synthetic.test.ts`, each with a reason worth acting on. The print card and its PNG are next
+   (`FlightCard` takes `series`/`metrics`/`stem` and no flight, so it needs a prop the way
+   `MetricGrid` did), then the comparison — `CompareFlight` carries no provenance member, and
+   `lib/compareFromLogbook.ts` builds them through `importRecent`, so the flight itself already
+   knows. `lib/synthetic.ts` exports `PROVENANCE_COLUMN` and `provenanceCell`; the three table
+   sinks already share them, and the comparison's four documents should too rather than answering
+   the same question a fourth way.
 2. **The `/stitch` composite is an unlabelled screen sink and nobody had noticed.** Added to `SINKS`
    this run by the review, not by the audit: it renders every stage's apogee and max speed by name
    on a top-level route with no report above it, and copies a timeline table. It needs the same
    required `synthetic` prop `MetricGrid` took.
-3. **A P-track slice, and the design-system audit has already found it.** The four states in
-   `components/RecentFlights.tsx` are the tightest: `loading` and `blocked` are bare `<p>`s where
-   `Loading` and `Notice` exist (and the same file uses `Notice` for the *write*-blocked twin 26
-   lines away, with a comment arguing for exactly the treatment its sibling does not use), the
-   genuine empty state and the filtered-empty state are hand-rolled where `EmptyState` exists, and
-   three of the four are `text-xs` on a message a flyer acts on. **`Loading` has no entry in
-   `PRIMITIVE_ADOPTERS` at all**, so the ratchet cannot see it move — making that list exhaustive
-   against `components/ui.tsx`'s exports is the durable half of the slice.
+3. **The next P-track slice, reproduced and ready.** `app/page.tsx:21` and
+   `components/LogDetails.tsx:29` each hand-roll `Disclosure` with a class string **byte-identical**
+   to the primitive's own (`components/ui.tsx:1043`) — `Disclosure` 3 → 5 for two one-line edits.
+   Then the seven one-glyph controls hand-rolling `IconButton`, which exists with 2 adopters, and
+   the four copies of one text input across `FlightReport` and `CompareView`.
 4. **The rest of the design audit**, reproduced before scoping: `SiteHeader`'s active nav item is a
    sixth button weight and a fourth dark surface; `app/page.tsx` and `components/LogDetails.tsx`
    each hand-roll `Disclosure` with a class string byte-identical to the primitive's own; seven

@@ -619,7 +619,14 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   /** 3 → 4 on 2026-08-01: the sample table's channel scope, which is 2 mutually exclusive
    *  options with both visible — §5's own definition of when to reach for this. */
   Segmented: 4,
-  Disclosure: 3,
+  /** 3 → 5 on 2026-08-09: `app/page.tsx` and `components/LogDetails.tsx`. Both hand-rolled the
+   *  primitive with a class string **byte-identical to its own**, `<summary>` included — and
+   *  `LogDetails` already imported from `./ui` for `Chip`, so the primitive was one word away in
+   *  the same import statement. The landing route's copy was the larger of the two, on the one
+   *  surface a first-time visitor is guaranteed to see. The two `<details>` that remain
+   *  (`ChannelExplorer`, `ReadingChooser`) are NOT hand-rolls: both bind `onToggle` to drive
+   *  state the primitive does not expose, which is a different component wearing the same tag. */
+  Disclosure: 5,
   /** 0 → 1 on 2026-08-08, from owner note `ON-3`. `UnitsControl` is the first adopter and was the
    *  hand-roll the primitive was extracted from — the one measured running to −39 px at 375 px.
    *  The second adopter is the `?` on 21 reading tiles, which is the next slice: today all 21
