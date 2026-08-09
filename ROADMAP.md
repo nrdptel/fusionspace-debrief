@@ -1652,7 +1652,27 @@ real risk attached: the standalone refusal must survive it.
 ## D9 — Predicted versus flown
 
 **Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED 2026-08-05. Only slice 3b is left: let a
-flyer pick which simulation when a design states several.** Slice 4 is pinned by
+flyer pick which simulation when a design states several.**
+
+**Scoped further 2026-08-09, by reading rather than by planning — the remaining work is a CHOICE,
+not a parse.** `lib/parsers/openrocket.ts` already reads every `<simulation>` block into a run with
+its own name, its ten stated figures in canonical SI, and its saved trace (`PredictedSeries`).
+`predictionFigures` then throws all of that away when `runs.length > 1` and returns a refusal
+naming them: *"…states 5 simulations … a flight log does not say which motor flew, so Debrief will
+not pick one"*. That refusal is honest and is the right default — what it costs is a trip back to
+OpenRocket to re-export, which is a task a flyer can complete expensively rather than one they
+cannot complete at all.
+
+So slice 3b is: return the runs instead of discarding them, offer the names, and feed the chosen
+one to the figures and the overlay. **A real test case exists**:
+`lib/parsers/__corpus__/openrocket/openrocket__example-simple-model-rocket__A-simple-model-rocket.ork`
+states **five** simulations. It is corpus-only, so the assertion runs in CI and skips on a fork.
+
+**Not started deliberately, and this is the reason rather than an omission.** It changes what
+reaches the cross-check panel — the surface where a PREDICTION sits beside real readings — and
+`MAINTAINING.md`'s spine is that the two must never blur. Starting that at the end of a long run is
+how this repo's own history says a wrong claim ships. The next session should take it first: the
+data is already parsed, the fixture is already there, and the decision to make is a UI one. Slice 4 is pinned by
 `lib/overlay.test.ts` (6 cases on the union time base, the sharpest of them a PROPERTY — every
 finite output sample must equal an input sample at exactly that instant, which is the difference
 between a union and a resample), by `lib/parsers/openrocket.test.ts` (the saved curve read by

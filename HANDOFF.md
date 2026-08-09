@@ -94,13 +94,23 @@ The general form of the lesson is the one `MAINTAINING.md` already records about
 
 ## Pick this up first
 
-1. **The D-track has no in-progress milestone for the first time in a while.** D11 shipped. The
-   candidates are **D9 slice 3b** (let a flyer pick which prediction a design's simulations means),
-   **D10's remaining slices** (a sample per capability), and **D8's tilt slice**, which is MEASURED
-   AND BLOCKED and should stay blocked — read its status line before reopening it.
-2. **P5 slices 4–5**: a visible CHANGELOG (the version is on the page and traceable to a commit now;
-   what is missing is a human account of what changed between builds), and a way to report a bug or
-   request a format from inside the app.
+1. **D9 slice 3b, and it is scoped down to a UI decision.** Read this run rather than planned:
+   `lib/parsers/openrocket.ts` ALREADY parses every `<simulation>` into a run with its name, its ten
+   figures in canonical SI and its saved trace — and `predictionFigures` throws all of it away when
+   there is more than one, returning a refusal that names them. So the remaining work is to return
+   the runs, offer the names, and feed the chosen one to the figures and the overlay. **The fixture
+   exists**: the corpus's one `.ork` states **five** simulations.
+   **It was deliberately not started at the end of this run**, because it changes what reaches the
+   cross-check panel — where a PREDICTION sits beside real readings — and that is the blur the
+   safety spine exists to prevent. Take it first, with a whole session in front of it.
+   Also open on the D-track: **D10's remaining slices** (the capabilities the committed fixtures do
+   not cover still need synthesized, labelled logs — including the `/stitch` sample this run
+   declined to fake), and **D8's tilt slice**, which is MEASURED AND BLOCKED and should stay
+   blocked — read its status line before reopening it.
+2. **P5 slice 5 — a visible CHANGELOG.** The version is on the page and traceable to a commit now,
+   and a flyer can report a bug or ask for a logger from inside the app (slices 3 and 4). What is
+   missing is a human account of what changed between builds — which is the half that cannot be
+   generated from commit subjects without becoming noise, and is worth an increment of writing.
 3. **The two D11 gaps filed rather than fixed** (`BACKLOG.md`, newest first) — a restored group whose
    recordings were CROPPED can compute an apogee spread over two different stretches, and two copies
    of one record under different names group as a flight recorded twice. **Both are downstream of one
