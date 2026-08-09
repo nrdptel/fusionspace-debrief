@@ -203,6 +203,15 @@ section covers measure, prose rhythm, or the architecture of a page someone read
 That gap is why every run could correctly update one sentence and none was ever asked what the page
 had become.
 
+**PROGRESS · 2026-08-09 (PR #156) — P9 slices 2, 3 and 4 are all shipped, and the wall the note
+describes is gone as a measurable thing.** The page reads as **96 paragraphs** where it was 51 walls;
+the longest single paragraph is **369 words**, down from 850 when the note was filed and 705 at the
+start of this run; **nothing on the page is over 400 words**, against 11 blocks when triaged. Line
+length is 49–66 characters at every width. One slice is left and it is a different complaint the note
+did not make: the page **cites nothing** — 0 URLs and no named algorithm in 102 KB — which is scoped
+as P9 slice 5 with `COMPETITION.md` row 37 behind it. The note stays Open until that ships, because
+"a document you can read" is one you can follow out of.
+
 **The fix already exists in this repo, applied to the wrong page.** `components/FlightReport.tsx:816`
 builds a pinned "Jump to a section" strip with a you-are-here marker backed by
 `components/useCurrentSection.ts`, written because the report ran nine screens on a phone. The methods
@@ -367,6 +376,15 @@ with no token.
 
 Scoped after D10 rather than before it, and that is a real ordering decision, recorded in *Decisions
 taken without the owner*.
+
+---
+
+**PROGRESS · 2026-08-09 (PR #156) — D11 slice 3 shipped, which is the second of the note's two
+constraints.** *"Multi-source structure survives"* now holds for the two-recordings case: a flyer who
+told the logbook that two files are one flight gets that statement back when they drop the saved
+records in months later, and it is stated rather than done silently. *"Provenance survives"* shipped
+with slice 1. One clause is left — a stitched composite keeping its stages — and it is slice 5. The
+note stays Open until then.
 
 ---
 
