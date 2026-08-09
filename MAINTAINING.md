@@ -388,6 +388,16 @@ with you, single-threaded. Specifically:
   silently, and the loss looks like a bug in your own code. If one genuinely must write a probe, give
   it a `*-tmp.*` name and an explicit file list — and you alone run the gate, review the diff, and
   push. Watch for a probe file still on disk when you stage.
+- **`git add -A` and a running fan-out do not belong in the same minute, and this one has already
+  cost a merge.** On 2026-08-09 two verification agents wrote `e2e/zzprobe.spec.ts` and
+  `e2e/zzprobeB.spec.ts` — both had been told in their prompt to delete the file afterwards, and
+  neither did — a `git add -A` for an unrelated one-line docs commit swept both in, and they reached
+  `main`. The prompt said `-tmp.` and the agents wrote `zz`, so the ignore glob never saw them;
+  `.gitignore` now covers `zz*.spec.ts` too. Three things follow. **An instruction to a subagent is
+  not a control**, so do not accept one as a reason to skip the check. **`git status --short` before
+  every commit, and read it** — the second file appeared in the same listing that showed the first
+  as deleted, and both were plainly visible. **Prefer naming the paths you mean** over `git add -A`
+  while agents are live.
 - A subagent reporting "I fixed it" is not verification. Reproduce the failure and the fix yourself.
 - You own everything a subagent writes — code, comments, commit text, docs. The zero-trace and
   honesty invariants apply to their output exactly as to yours; read it before it lands.

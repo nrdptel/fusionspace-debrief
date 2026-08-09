@@ -1,6 +1,13 @@
 # Throwaway probe scripts and specs (MAINTAINING.md names the convention), so a stray
 # `git add -A` can't ship one.
 *-tmp.*
+# …and the same, for the prefix the review agents actually use. The `-tmp.` convention only
+# protects a session that remembers it: on 2026-08-09 two verification agents wrote
+# `e2e/zzprobe.spec.ts` and `e2e/zzprobeB.spec.ts` while a gate was running, a `git add -A`
+# minutes later swept both in, and they reached `main`. A convention nothing enforces is a
+# convention that holds until the one time it matters.
+zz*.spec.ts
+zz*-probe.*
 
 # Written by scripts/stamp-version.mjs at build time so the deployed site can say
 # which commit it is. Generated, never committed — a checked-in copy would be stale.
