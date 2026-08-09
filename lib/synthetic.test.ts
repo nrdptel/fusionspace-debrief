@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { demoFlight, isSynthetic, syntheticFromRows, toMapperCsv, SYNTHETIC_KEY, SYNTHETIC_NOTE, SYNTHETIC_TAG } from './synthetic';
+import { demoFlight, isSynthetic, syntheticFromRows, toMapperCsv, PROVENANCE_COLUMN, SYNTHETIC_KEY, SYNTHETIC_NOTE, SYNTHETIC_TAG } from './synthetic';
 import { analyzeTable } from './flight/columns';
 import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv } from './report';
+import { analyzedDataCsv, reportTable } from './report';
 import { KEPT_DOCUMENTS, documentsCarryingProse } from './documents';
 import { toCanonical, fromCanonical } from './canonical';
 import { importRecent } from './reopen';
@@ -218,8 +218,8 @@ describe('a synthetic flight says so wherever it can go', () => {
     check?: { file: string; contains: string };
   }[] = [
     ...documentsCarryingProse().map((d) => ({ name: `${d.label} (${d.ext})`, state: 'carries' as const })),
-    { name: 'Save data .csv (.csv)', state: 'todo', why: 'a CSV has no comment syntax every reader agrees on — the same reason it carries no build stamp (D11 slice 4). `lib/documents.ts` states the exemption once, as `carriesProse: false`, so it cannot drift into being forgotten. Needs a column or a decision.' },
-    { name: 'clipboard report table', state: 'todo', why: 'reportTable() builds rows only; the label needs a caption row.' },
+    { name: 'Save data .csv (.csv)', state: 'labelled', why: 'a per-ROW `Provenance` column, first, on `COMPETITION.md` row 41\'s precedent — NMEA marks simulation in every sentence, HL7 in a required field on every message, DICOM on every instance, because the claim has to live in a field the consumer already parses. A header comment does not survive selecting the data block and pasting it, which is the gesture this export exists for. `carriesProse: false` still stands: the column is data, not prose.', check: { file: 'lib/synthetic.test.ts', contains: 'because a header comment does not survive a paste' } },
+    { name: 'clipboard report table', state: 'labelled', why: 'a third `Provenance` column on every row — the same per-record rule the data CSV and the logbook table follow, because all three land in a spreadsheet where a caption row is a cell a sort moves away from the rows it was about. The first reading of this sink proposed a caption row, which is the answer `COMPETITION.md` row 41 measured as the weak one.', check: { file: 'lib/synthetic.test.ts', contains: 'the readings a flyer copies carry it per row too' } },
     { name: 'share link', state: 'todo', why: 'SharePayload is {n,t} — name plus raw file text. The TEXT carries the marker, so a shared link re-reads it; asserting that needs the share round trip, which is its own slice.' },
     { name: 'print card', state: 'todo', why: 'FlightCard takes series/metrics/stem and no RawFlight.' },
     { name: 'card .png', state: 'todo', why: 'drawn from the same props as the print card.' },
@@ -371,12 +371,67 @@ describe('a synthetic flight says so wherever it can go', () => {
     }
   });
 
-  it('the data CSV is the one gap that would mislead, and it is named as such', () => {
-    // Recorded rather than glossed: this is the export a flyer pastes into a spreadsheet, and it
-    // is the one on this list where an unlabelled number is most likely to be read as measured.
-    // It is why the sample is NOT offered in the app yet.
+  it('the data CSV says it on EVERY ROW, because a header comment does not survive a paste', () => {
+    // **The sink the audit named as the gap that would mislead most, closed on a citation rather
+    // than a preference.** This is the export a flyer pastes into a spreadsheet, so an unlabelled
+    // number here is the likeliest of all to be read as measured — and a CSV has no comment syntax
+    // every reader agrees on, which is why `lib/documents.ts` marks it `carriesProse: false` and
+    // why it carries no build stamp either. `COMPETITION.md` row 41 settles what to do instead:
+    // NMEA 0183 marks simulation in every sentence, HL7 v2 in a required field on every message,
+    // DICOM on every instance, and the shared principle is that the claim lives in a field the
+    // consumer must already parse to get the numbers at all.
+    //
+    // So it is asserted per ROW, not once: selecting the data block and pasting it is exactly the
+    // gesture a header would not survive.
     const csv = analyzedDataCsv(flight, analysis, 'metric');
-    expect(csv).not.toContain('SYNTHETIC');
-    expect(SINKS.find((s) => s.name === 'Save data .csv (.csv)')?.state).toBe('todo');
+    // Read back with the app's OWN CSV reader rather than `split(',')`. The first cut split on
+    // commas and failed — not because the export was wrong but because the cell reads "made up by
+    // Debrief, not flown" and is correctly quoted, which a naive splitter counts as two fields.
+    // Parsing it the way a reader does is both the honest check and the stronger one: it proves a
+    // spreadsheet sees one column, which is the entire claim.
+    const rows = parseTable(csv).rows;
+    expect(rows[0][0], `header was: ${rows[0].slice(0, 3).join(' | ')}`).toBe(PROVENANCE_COLUMN.toLowerCase());
+    expect(rows.length, 'the generated flight is 5,144 samples plus a header').toBeGreaterThan(5000);
+    const unmarked = rows.slice(1).filter((r) => !r[0].includes(SYNTHETIC_TAG));
+    expect(unmarked.length, `${unmarked.length} data rows carry no provenance cell`).toBe(0);
+    // …and every row still has the header's field count, which is how a per-row marker breaks a
+    // CSV when the cell is not quoted.
+    const ragged = rows.slice(1).filter((r) => r.length !== rows[0].length);
+    expect(ragged.length, 'a provenance cell must not change the column count').toBe(0);
+    expect(SINKS.find((s) => s.name === 'Save data .csv (.csv)')?.state).toBe('labelled');
+  });
+
+  it('the readings a flyer copies carry it per row too', () => {
+    // The other spreadsheet destination, and the one a cert document is actually built from. Two
+    // columns become three, and every reading answers for itself.
+    const t = reportTable(analysis, 'metric', undefined, undefined, true);
+    expect(t.header).toEqual(['Reading', 'Value', PROVENANCE_COLUMN]);
+    expect(t.rows.length, 'a report has readings to copy').toBeGreaterThan(3);
+    expect(t.rows.every((r) => r[2].includes(SYNTHETIC_TAG)), 'every row answers for itself').toBe(true);
+    // And a real flight keeps the two-column table thousands of pastes already expect.
+    const real = reportTable(analysis, 'metric');
+    expect(real.header).toEqual(['Reading', 'Value']);
+    expect(real.rows.every((r) => r.length === 2)).toBe(true);
+  });
+
+  it('does not put a provenance column on a REAL flight', () => {
+    // The other direction, and the one that would be a silent regression: every real flight's data
+    // export gaining a column of the word "recorded" is a change to a file thousands of readers
+    // parse by position. The column exists only where there is something to say.
+    const real = buildFlight({
+      source: 'real.csv',
+      format: 'csv',
+      formatLabel: 'Generic CSV',
+      headers: ['Elapsed', 'Height'],
+      dataRows: Array.from({ length: 60 }, (_, i) => [String(i * 0.1), String(i <= 30 ? i * 20 : Math.max(0, 600 - (i - 30) * 25))]),
+      mappings: [
+        { index: 0, role: 'time' as const, unit: 's' },
+        { index: 1, role: 'altitude' as const, unit: 'm' },
+      ],
+    });
+    const csv = analyzedDataCsv(real, analyzeFlight(real), 'metric');
+    expect(csv.split('\n')[0].startsWith('time (s)')).toBe(true);
+    expect(csv).not.toContain(PROVENANCE_COLUMN.toLowerCase());
+    expect(csv).not.toContain('recorded');
   });
 });

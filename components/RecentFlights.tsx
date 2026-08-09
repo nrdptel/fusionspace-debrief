@@ -7,13 +7,13 @@ import type { UnitChoice } from '@/lib/display';
 import { CROSS_CHECK_WIDE, MAX_COMPARE } from '@/lib/compare';
 import { UNNOTED_MAX, STORAGE_WRITE_REFUSED } from '@/lib/recents';
 import { APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR } from '@/lib/readings';
-import { sortRecents, filterRecents, personalBests, logbookRowNames, provenanceCell, PROVENANCE_COLUMN, type LogbookSort } from '@/lib/logbook';
+import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { Button, Card, Chip, EmptyState, Loading, Notice, Segmented, useReturnFocus } from './ui';
-import { SYNTHETIC_SHORT, SYNTHETIC_TAG } from '@/lib/synthetic';
+import { PROVENANCE_COLUMN, provenanceCell, SYNTHETIC_SHORT, SYNTHETIC_TAG } from '@/lib/synthetic';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
  *  chrome earning nothing. Above it, finding one flight by eye starts to cost. */
@@ -481,7 +481,7 @@ export default function RecentFlights({
       r.apogeeM != null ? fmtLength(r.apogeeM, sys) + apogeeTag(r) : '—',
       r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—',
       ...(anyGrouped ? [String(groupOfRow(r).recordings.length), groupOfRow(r).recordings.slice(1).map((x) => x.name).join('; ')] : []),
-      ...(anySynthetic ? [provenanceCell(r)] : []),
+      ...(anySynthetic ? [provenanceCell(r.synthetic)] : []),
       r.note,
     ]);
     const ok = await copyTable(header, rows);

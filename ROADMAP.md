@@ -2196,11 +2196,36 @@ reaches it. Harmless while the only generated file is written with column names 
 and a live blocker for slice (d), whose whole design is a generator writing a real logger's format.
 See `BACKLOG.md`, 2026-08-09.
 
+**Slice 5b SHIPPED 2026-08-09 — the two spreadsheet destinations, on a citation rather than a
+preference.** The data CSV and the report's *"Copy readings"* table each grow a `Provenance` COLUMN
+carrying the claim on **every row**, and the logbook's clipboard table was converted to the same
+vocabulary rather than keeping its own.
+
+D10 had carried this open as *"a column or a decision"* since the sink audit. `COMPETITION.md` row
+41 settles it and the reasoning is worth not re-deriving: **NMEA 0183 marks simulation in every
+sentence** (GGA quality `8`, FAA mode `S`), **HL7 v2 in a required field on every message** (MSH-11
+Processing ID), **DICOM on every instance** (`ORIGINAL`/`DERIVED`). The shared principle is
+per-record redundancy — the claim lives in a field the consumer must already parse to get the
+numbers at all — and it is exactly right here, because a CSV has no comment syntax every reader
+agrees on (which is why this export carries no build stamp either) and because the gesture these
+exports exist for is *select the data block and paste*, which a header would not survive.
+
+Three details worth keeping. The column is **first**, so it is what a spreadsheet opens on. The
+cell is **quoted**, because it carries a comma and a data export that breaks its own column count
+is worse than a verbose one — and the first version of the check split on commas and failed for
+that reason, on a correct export, which is why it reads the file back through the app's own CSV
+parser now. And a **real flight gains nothing**: the column exists only where there is something to
+say, asserted in both directions, because adding a column of the word "recorded" to every data
+export is a change to a file readers parse by position.
+
+`PROVENANCE_COLUMN` and `provenanceCell` moved to `lib/synthetic.ts`, where the three surfaces
+answering one question share one answer.
+
 **What is left, in order.**
-(b) **The remaining reachable sinks** — the twelve still `todo` in `lib/synthetic.test.ts`, in the
-    order an unlabelled number would mislead: the data CSV, the print card and its PNG, the
-    comparison and its four documents, the two remaining clipboard tables, the explore CSV, the
-    plot images, `.gpx`/`.kml`, and the bundle that inherits from them.
+(b) **The remaining reachable sinks** — the nine still `todo` in `lib/synthetic.test.ts`: the print
+    card and its PNG, the comparison and its four documents, `/stitch`'s composite readings and its
+    timeline table, the explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`,
+    and the bundle that inherits from them.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
     tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
     single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so

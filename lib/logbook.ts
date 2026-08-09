@@ -5,39 +5,9 @@
 import type { RecentMeta } from './recents';
 import { groupRecordings } from './flightGroups';
 import { formatFlownAt } from './flight/flownAt';
-import { SYNTHETIC_TAG } from './synthetic';
 
 export type LogbookSort = 'recent' | 'flown' | 'apogee' | 'speed';
 
-/**
- * The column the logbook's clipboard table grows when a flight Debrief MADE UP is in the selection,
- * and what each row says in it.
- *
- * **A COLUMN and not a caption row**, and the precedent is not rocketry's. `COMPETITION.md` row 41
- * measures how the instrumentation world marks un-measured data: NMEA 0183 puts simulation mode in
- * *every sentence* (GGA quality `8`, FAA mode `S`), HL7 v2 makes it a required field on *every
- * message* (MSH-11 Processing ID), and DICOM marks *every instance* `ORIGINAL` or `DERIVED`. The
- * shared principle is per-record redundancy: the claim lives in a field the consumer must already
- * parse to get the numbers at all. This table's destination is a spreadsheet, where a caption above
- * the header is a cell that a sort moves away from the rows it was about; a per-row value survives
- * a sort, a filter and a partial paste.
- *
- * **The header states a fact rather than asking a question, and that was a correction.** It read
- * `Real flight?` answered with `SYNTHETIC` / `flown` — a yes/no header answered with nouns, which
- * in the destination cannot be filtered on the question as posed and leaves a reader inferring the
- * polarity.
- *
- * Here rather than in the component so the thing the audit table claims is checkable actually is:
- * a `labelled` row whose only evidence is a component's JSX is a claim, and the whole point of that
- * table is that a sink marked done is not re-checked.
- */
-export const PROVENANCE_COLUMN = 'Provenance';
-
-/** What one row says in that column. Never blank for a real flight: an empty cell reads as missing
- *  data rather than as a recording, and this column exists to be unambiguous. */
-export function provenanceCell(r: Pick<RecentMeta, 'synthetic'>): string {
-  return r.synthetic ? `${SYNTHETIC_TAG} — made up by Debrief, not flown` : 'recorded';
-}
 
 /** A copy of the list ordered by the chosen key (descending for the metrics,
  *  most-recent-first for time). Missing values sink to the bottom. */

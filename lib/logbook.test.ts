@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { sortRecents, filterRecents, personalBests, logbookRowNames, provenanceCell, PROVENANCE_COLUMN } from './logbook';
+import { sortRecents, filterRecents, personalBests, logbookRowNames } from './logbook';
+import { provenanceCell, PROVENANCE_COLUMN } from './synthetic';
 import type { RecentMeta } from './recents';
 
 const rec = (id: string, addedAt: number, apogeeM: number | null, maxVelocityMs: number | null): RecentMeta => ({
@@ -235,13 +236,13 @@ describe('the logbook table says which of its rows Debrief made up', () => {
 
   it('marks a made-up flight, and says so in words rather than a tick', () => {
     // A cell that travels alone — one row pasted into an email — still has to say what it means.
-    expect(provenanceCell(synth('demo'))).toContain('SYNTHETIC');
-    expect(provenanceCell(synth('demo'))).toContain('not flown');
+    expect(provenanceCell(synth('demo').synthetic)).toContain('SYNTHETIC');
+    expect(provenanceCell(synth('demo').synthetic)).toContain('not flown');
   });
 
   it('never leaves a real flight blank, because blank reads as missing rather than as recorded', () => {
-    expect(provenanceCell(rec('a', 1, 500, 80))).toBe('recorded');
-    expect(provenanceCell({ ...rec('a', 1, 500, 80), synthetic: undefined })).toBe('recorded');
+    expect(provenanceCell(rec('a', 1, 500, 80).synthetic)).toBe('recorded');
+    expect(provenanceCell(undefined)).toBe('recorded');
   });
 
   it('heads the column with a fact, not a question', () => {

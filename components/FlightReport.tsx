@@ -431,7 +431,7 @@ export default function FlightReport({
   // The readings as a table, for the club spreadsheet or the cert document — the same
   // paste a spreadsheet has supported forever, rather than a round trip through a file.
   async function copyReadings() {
-    const { header, rows } = reportTable(analysis, sys, reportMeta, recovery);
+    const { header, rows } = reportTable(analysis, sys, reportMeta, recovery, synthetic);
     const ok = await copyTable(header, rows);
     setCopiedTable(ok ? 'yes' : 'no');
     setTimeout(() => setCopiedTable(null), 4000);

@@ -46,6 +46,7 @@ import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
+import { isSynthetic, PROVENANCE_COLUMN, provenanceCell } from './synthetic';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import { deployCheck } from './deploy';
 import { delayCheck } from './ejection';
@@ -321,10 +322,25 @@ export function reportTable(
   sys: UnitChoice,
   meta?: ReportMeta,
   recovery?: RecoveryFigures,
+  /** Whether these readings come from a flight Debrief MADE UP. See the column below. */
+  synthetic = false,
 ): { header: string[]; rows: string[][] } {
+  // **A third COLUMN when the flight is made up, on every row** — the same rule the data CSV and
+  // the logbook's clipboard table follow, and for the same reason (`COMPETITION.md` row 41): this
+  // table's destination is a spreadsheet, an email or a cert document, and a caption row above the
+  // header is a cell that a sort moves away from the rows it was about. A reading pasted on its
+  // own still says what it is.
+  //
+  // Defaulting to `false` is safe HERE and is not safe on `MetricGrid`, which is worth stating
+  // because the two look like the same decision. This function's only caller passes the flight's
+  // own answer, and a missed call site produces a table with one column fewer — visible, and
+  // caught by the assertion on the column count. A missed prop on the grid produces a made-up
+  // flight rendered as an ordinary one, which is invisible.
+  const rows = headlineRows(analysis.metrics, sys, recovery, meta?.hidden).map(([l, v]) => [l, v]);
+  if (!synthetic) return { header: ['Reading', 'Value'], rows };
   return {
-    header: ['Reading', 'Value'],
-    rows: headlineRows(analysis.metrics, sys, recovery, meta?.hidden).map(([l, v]) => [l, v]),
+    header: ['Reading', 'Value', PROVENANCE_COLUMN],
+    rows: rows.map((r) => [...r, provenanceCell(true)]),
   };
 }
 
@@ -807,7 +823,18 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   // believable wrong number is the dangerous one. The velocity column itself stays, exactly as
   // its trace stays on screen, so a mis-scaled column can still be seen and diagnosed.
   const velUsable = !analysis.series.velocityUnusable;
+  // **A flight Debrief MADE UP says so in a column of its own, on every row.** This is the one
+  // export the sink audit named as the gap that would mislead most: it exists to be pasted into a
+  // spreadsheet, so an unlabelled number here is the likeliest of all to be read as measured — and
+  // a CSV has no comment syntax every reader agrees on, which is why it carries no build stamp
+  // either. `COMPETITION.md` row 41 is the precedent and the reason it is per-ROW: NMEA marks
+  // simulation in every sentence, HL7 in a required field on every message, DICOM on every
+  // instance, because the claim has to live in a field the consumer already parses. A header
+  // comment would not survive selecting the data block; a column survives a sort, a filter and a
+  // partial paste. FIRST, not last, so it is the column a spreadsheet opens on.
+  const synthetic = isSynthetic(flight);
   const header = [
+    ...(synthetic ? [PROVENANCE_COLUMN.toLowerCase()] : []),
     'time (s)',
     `altitude (${L.length} AGL)`,
     `velocity (${L.speed})`,
@@ -815,6 +842,10 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
     ...(velUsable ? ['mach', `dynamic pressure (${pUnit})`] : []),
     ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
   ].join(',');
+  // Quoted, because the cell carries an em dash and a comma-free sentence today but is one edit
+  // away from carrying a comma, and a data export that breaks its own column count is worse than
+  // one that is verbose.
+  const provenance = synthetic ? `${quoted(provenanceCell(true))},` : '';
   const rows = [header];
   for (let i = 0; i < time.length; i++) {
     const v = velocity[i];
@@ -822,6 +853,7 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
     const mach = Number.isFinite(sos) && sos > 0 ? v / sos : NaN;
     const q = 0.5 * airDensity[i] * v * v;
     rows.push(
+      provenance +
       [
         time[i].toFixed(3),
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
