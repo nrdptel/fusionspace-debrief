@@ -1579,7 +1579,17 @@ export function DataTable<R>({
   columns: DataColumn<R>[];
   rows: R[];
   rowKey: (row: R, i: number) => string;
-  /** Shown in place of the body when there is nothing — never "No data" (§5). */
+  /** Shown in place of the body when there is nothing — never "No data" (§5).
+   *
+   *  **Optional, and the fallback below IS the string §5 forbids — measured 2026-08-09 and left
+   *  alone deliberately, because it is reachable from zero call sites.** Both callers were
+   *  checked rather than assumed: `GpsApogee` passes a literal one-element array, and
+   *  `DeviceSummary` renders only behind `flight.reported.length > 0` in `FlightReport`, whose
+   *  groups are built from exactly those values. So neither table can render an empty body, and
+   *  giving each a bespoke sentence would be decoration nothing can trigger — the same reasoning
+   *  that withdrew the `offline` state from twenty-one surfaces (§5). Filed in `BACKLOG.md`
+   *  rather than fixed. **A third caller whose `rows` can genuinely be empty must pass `empty`**;
+   *  it is the reachability, not the prop, that decides. */
   empty?: React.ReactNode;
   copyLabel?: string;
   /** Screen-reader name for the table, so two cross-checks on one page are told apart. */

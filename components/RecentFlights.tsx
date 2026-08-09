@@ -12,7 +12,7 @@ import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSprea
 import GroupProposalBanner from './GroupProposalBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
-import { Button, Card, Chip, Notice, Segmented, useReturnFocus } from './ui';
+import { Button, Card, Chip, EmptyState, Loading, Notice, Segmented, useReturnFocus } from './ui';
 import { SYNTHETIC_SHORT, SYNTHETIC_TAG } from '@/lib/synthetic';
 
 /** Below this the list is short enough to read at a glance, so a search box would be
@@ -142,7 +142,7 @@ export default function RecentFlights({
   };
 
   // A hidden picker, shared by the header Import button and the empty-state
-  // "Restore it" link, so a backup can be brought back even on a fresh device.
+  // "Restore a logbook backup" action, so a backup can be brought back even on a fresh device.
   const filePicker = (
     <input
       ref={fileRef}
@@ -212,12 +212,20 @@ export default function RecentFlights({
   // `out/index.html`, and a flyer with fifty flights read "flights you open are remembered here on
   // this device" with an offer to restore a backup on every cold load until the bundle hydrated.
   if (status === 'loading') {
+    // §5's `Loading`, which exists and which this surface hand-rolled past. Two other surfaces
+    // (`Analyzer`, `StitchSurface`) already use it, so the logbook was the third treatment of one
+    // of the five required states.
+    //
+    // **What this conversion does and does not do, stated exactly, because the first draft of
+    // this comment credited it with a fix it did not make.** It gains the explicit `aria-live`,
+    // the pulse that marks the wait as moving rather than hung, and body-size type in place of
+    // caption size. It does NOT change the transition away: `Loading` unmounts at the same moment
+    // the bare paragraph did. What announces the resolution is the empty state's own message
+    // below, which is a separate thing and was already there.
     return (
       <div className="mt-8">
         {filePicker}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
-          Looking for flights remembered on this device…
-        </p>
+        <Loading>Looking for flights remembered on this device…</Loading>
       </div>
     );
   }
@@ -234,13 +242,34 @@ export default function RecentFlights({
             command and the analysis still works; what changed is that one capability is
             unavailable for this session, which is §2's "a caveat" rather than its "a refusal, a
             value that cannot be computed, destructive". `role="status"` for the same reason: this
-            is polite information on arrival, not an interruption. */}
-        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+            is polite information on arrival, not an interruption.
+
+            **And it is `Notice` rather than a hand-rolled amber `<p>`, which this comment argued
+            for and the markup did not do.** The write-blocked twin thirty lines below took the
+            primitive when `Notice` shipped; this one — the harder failure, reads refused as well
+            as writes — was left as the treatment `Notice` was extracted FROM. One file, one
+            meaning, two renderings. Also off `text-xs`: §3 makes `text-sm` the floor for anything
+            a flyer reads to make a decision, and this is four sentences of what to do next. */}
+        <Notice as="p" tone="warn" role="status">
           This browser won&apos;t let Debrief read or keep a logbook on this device, so flights you
           open here won&apos;t be remembered between visits. A private window or blocked site storage
           usually does it. Analysing a file still works, and every report has its own export — save
           anything you want to keep from the report itself, because this list cannot hold it.
-        </p>
+        </Notice>
+        {/* **And the surface the notice is ABOVE**, which §5 requires of a notice in as many
+            words: "a sentence about the content, above the content, never instead of it". The
+            first cut rendered the notice alone, so this state had a caveat and no surface at all —
+            which is the one thing §5 says a notice may not be. It carries NO action, and that is
+            the decision rather than an omission: `idb()` itself failed here, so a restore is a
+            write that cannot land, and a control that is always enabled and fails only when
+            pressed is a named tell in `MAINTAINING.md`. The write-blocked twin below DOES offer
+            one, because there the read works and a 200 KB backup can commit where an 11 MB flight
+            text aborted. */}
+        <EmptyState
+          className="mt-2"
+          title="No logbook on this device"
+          what="Nothing can be kept here until this browser allows site storage — a normal window usually does it."
+        />
       </div>
     );
   }
@@ -276,10 +305,19 @@ export default function RecentFlights({
     return (
       <div className="mt-8">
         {filePicker}
-        {/* `role="status"` here as well as on the loading line, because the loading line
-            UNMOUNTS at the transition: a screen reader heard "Looking for flights remembered on
-            this device…" and then, on the state it was waiting for, nothing at all. Announcing the
-            answer is the whole point of having announced the question. */}
+        {/* **The announcement is a MESSAGE, not a region wrapped round the card.** The loading
+            line above unmounts at the transition — a screen reader heard "Looking for flights
+            remembered on this device…" and then, on the state it was waiting for, nothing at all —
+            so this state has to speak. The first cut of the conversion put `role="status"` on a
+            `<div>` around the `EmptyState`, which is a live region containing a heading, a
+            paragraph AND a button: `role="status"` implies `aria-atomic`, so every mutation
+            re-reads the whole card including the control's label. `lib/design-system.test.ts`
+            records this file being fixed for that exact shape once already, on the
+            forgotten-flights banner. A visually-hidden line carries the announcement instead, and
+            the card is just a card. */}
+        <p className="sr-only" role="status">
+          No flights are remembered on this device yet.
+        </p>
         {writeCaveat ? (
           // **The PROMISE goes; the restore offer stays.** A first version replaced the whole
           // paragraph, on the reasoning that a restore is a write and so cannot succeed either.
@@ -290,26 +328,42 @@ export default function RecentFlights({
           // in the empty state (the header Import button lives in the populated branch), so
           // removing it removed importing from this state entirely and left `importMsg` below as
           // markup nothing could reach.
+          // **The same `EmptyState` as the branch below, with the caveat ABOVE it**, which is
+          // exactly what §5 says a `Notice` is for: a sentence about content that is otherwise
+          // fine and still there. These two branches were one state rendered two ways — one
+          // primitive and one caption-size paragraph with the action buried mid-sentence — and
+          // the control they share had two different accessible names, which is how a NEGATIVE
+          // assertion in `e2e/logbook.spec.ts` could have gone quietly green.
           <>
             {writeCaveat}
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              Got a logbook backup from another machine?{' '}
-              <Button variant="link" onClick={() => fileRef.current?.click()}>
-                Restore it
-              </Button>{' '}
-              — a backup is far smaller than a launch day of flight logs, so it may well be kept
-              even where a flight was not.
-            </p>
+            <EmptyState
+              className="mt-2"
+              title="No flights remembered yet"
+              // What would fill it, in the flyer's terms — which is the prop's contract, and the
+              // first cut answered a different question here (why a backup is worth trying). A
+              // restore is the only thing that can fill this list on a device that has just
+              // refused to keep the next flight, so that is what it says.
+              what="A backup from another machine can still land here — it is far smaller than a launch day of flight logs, so it may well be kept even where a flight was not."
+              action={
+                <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+                  Restore a logbook backup
+                </Button>
+              }
+            />
           </>
         ) : (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400" role="status">
-          Flights you open are remembered here on this device — never uploaded. Got a logbook backup
-          from another machine?{' '}
-          <Button variant="link" onClick={() => fileRef.current?.click()}>
-            Restore it
-          </Button>
-          .
-        </p>
+          // §5's `EmptyState`: what would fill this surface, and the one control that gets them
+          // there. It was a caption-size paragraph with the action buried mid-sentence — the state
+          // a flyer sees FIRST, hand-rolled, on the surface `EmptyState` was written for.
+          <EmptyState
+            title="No flights remembered yet"
+            what="Flights you open are remembered here on this device — never uploaded."
+            action={
+              <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+                Restore a logbook backup
+              </Button>
+            }
+          />
         )}
         {importMsg && (
           <p role="status" className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
@@ -1065,14 +1119,19 @@ export default function RecentFlights({
         })}
       </ul>
       {filtering && ordered.length === 0 && (
-        <p className="mt-3 rounded-md border border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-          No flight here matches “{query.trim()}”. Names, the logger a flight came off, and your own
-          notes are searched.{' '}
-          <Button variant="link" onClick={() => setQuery('')}>
-            Show all {flights.length}
-          </Button>
-          .
-        </p>
+        // The second empty state on this surface, and the second hand-roll of it. It also wore the
+        // CONTROL radius (`rounded-md`) on a container, which §2 gives `rounded-xl`, and `text-xs`
+        // on a message. `EmptyState` is a `Card tone="muted"`, so all three go at once.
+        <EmptyState
+          className="mt-3"
+          title={`No flight here matches “${query.trim()}”`}
+          what="Names, the logger a flight came off, and your own notes are searched."
+          action={
+            <Button variant="secondary" onClick={() => setQuery('')}>
+              Show all {flights.length} flights
+            </Button>
+          }
+        />
       )}
       {/* Announced: this line now carries a storage REFUSAL, not just a count, and a flyer
           using a screen reader has to hear that their backup did not land. */}

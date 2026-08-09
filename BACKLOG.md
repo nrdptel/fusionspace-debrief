@@ -14,6 +14,16 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — `DataTable`'s empty fallback is the string `DESIGN.md` §5 forbids, and it is
+  reachable from ZERO call sites.** `components/ui.tsx` renders `empty ?? 'Nothing to show yet.'`,
+  which is "No data" with different words, and neither of the two callers passes `empty`. Both were
+  checked rather than assumed: `GpsApogee.tsx:51` passes a literal one-element array, and
+  `DeviceSummary` renders only behind `FlightReport.tsx:1124`'s `flight.reported.length > 0`, whose
+  groups come from exactly those values — so neither table can render an empty body. Left alone
+  deliberately: writing two bespoke sentences nothing can trigger is the decoration §5 itself
+  withdrew the `offline` state over. What is worth doing is the guard, not the copy — a third
+  caller whose `rows` can genuinely be empty must pass `empty`, and nothing enforces that today.
+  Reproduce in a minute: `grep -n "empty=" components/*.tsx` returns nothing.
 - **2026-08-09 — the synthetic marker is read on ONE of the two routes into the app, and the route
   it is missing from is the one D10's remaining samples will take.** `syntheticFromRows` is called
   only from `analyzeTable` (`lib/flight/columns.ts:639`), which only the MAPPER route reaches:

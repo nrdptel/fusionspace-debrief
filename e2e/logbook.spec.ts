@@ -3,6 +3,20 @@ import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 
+/**
+ * The logbook empty state's one control, by its accessible name.
+ *
+ * Named once because five assertions across this file turn on it, and three of them are NEGATIVE
+ * (`toHaveCount(0)`, `not.toContain`) — the kind that go quietly green when the thing they name
+ * stops existing. It was `Restore it`, which read correctly mid-sentence and read as nothing at
+ * all once §5's `EmptyState` gave the action its own line.
+ */
+const RESTORE_CONTROL = 'Restore a logbook backup';
+
+/** The logbook's loading line, verbatim. One constant for the same reason as the control above:
+ *  three assertions turn on it, and one of them counts occurrences. */
+const LOADING_LINE = 'Looking for flights remembered on this device';
+
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 // The logbook backup/restore round-trip: export the remembered flights (and their
@@ -92,7 +106,7 @@ test('a logbook can be exported and restored on a cleared device', async ({ page
   await expect(page.getByRole('heading', { name: 'Recent flights' })).toHaveCount(0);
 
   // The empty state still offers a restore; importing the backup brings it back.
-  await expect(page.getByRole('button', { name: 'Restore it' })).toBeVisible();
+  await expect(page.getByRole('button', { name: RESTORE_CONTROL })).toBeVisible();
   await jsonInput(page).setInputFiles(backupPath);
 
   await expect(page.getByText('Restored 1 flight.')).toBeVisible();
@@ -836,14 +850,17 @@ test('the prerendered page does not tell a returning flyer their logbook is empt
     // blocks, so adding a full stop to one of them would have turned it green with the defect
     // fully restored. A control is what the flyer can act on and what the state is FOR.
     expect(html, `${route} must not offer to restore a backup before it has looked`).not.toContain(
-      '>Restore it<',
+      `>${RESTORE_CONTROL}<`,
     );
-    expect(html, `${route} says it is looking, exactly once`).toMatch(
-      /Looking for flights remembered on this device|Checking this device for remembered flights/,
-    );
-    const marks =
-      (html.match(/Looking for flights remembered on this device/g) ?? []).length +
-      (html.match(/Checking this device for remembered flights/g) ?? []).length;
+    // **The alternation used to carry a second wording, `Checking this device for remembered
+    // flights`, that appears nowhere in the repo** — verified by grep across `components`, `app`,
+    // `lib` and `e2e`. Half the guard and half the count below were therefore satisfiable by a
+    // string no code can produce: the copy could have been changed to that wording and both
+    // assertions would still have passed with nothing on screen matching either branch. Removed
+    // rather than kept as a hedge, which is the same wrong-reason-green shape the comment three
+    // lines above this one warns about.
+    expect(html, `${route} says it is looking, exactly once`).toContain(LOADING_LINE);
+    const marks = (html.match(new RegExp(LOADING_LINE, 'g')) ?? []).length;
     expect(marks, `${route} says it once, not once per surface`).toBe(1);
   }
 });
@@ -865,7 +882,7 @@ test('the logbook resolves out of loading into the flights it actually holds', a
   // lands on their flight rather than on an offer to restore a backup.
   await page.reload();
   await expect(page.getByText('cert.csv').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Restore it' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: RESTORE_CONTROL })).toHaveCount(0);
 });
 
 test('a browser that refuses storage says so, instead of promising to remember', async ({ page }) => {
@@ -878,7 +895,7 @@ test('a browser that refuses storage says so, instead of promising to remember',
   });
   await page.goto('/');
   await expect(page.getByText(/won.t let Debrief read or keep a logbook/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Restore it' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: RESTORE_CONTROL })).toHaveCount(0);
   // And the analysis still works — the refusal is about keeping, not about reading a file.
   await page
     .getByLabel('Choose a flight log file')
@@ -965,7 +982,7 @@ test('a restore the browser refuses does not report flights it did not keep', as
   // And the second half of this test's own name: nothing was kept. The logbook is still offering
   // to restore a backup, which is the empty state, not a list — the offer stays deliberately,
   // because a 200 KB backup can commit on a device where an 11 MB flight text aborted.
-  await expect(page.getByRole('button', { name: 'Restore it' })).toBeVisible();
+  await expect(page.getByRole('button', { name: RESTORE_CONTROL })).toBeVisible();
   // **But the PROMISE beside it must be gone.** This test used to assert "Restore it" is visible
   // while it sat inside "Flights you open are remembered here on this device" — one line under
   // "That backup could not be written". Two sentences, one viewport, opposite stories, held green

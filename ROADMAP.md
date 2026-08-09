@@ -2743,7 +2743,40 @@ the artifact rather than the tree.
    column addressed by a `col < 0` sentinel, the `view`→`[from,to]` window scan, `ROW_H`-based
    virtualisation with spacer rows, and the event jump strip. None of it generalises to a four-row
    cross-check table.
-5. **The five required states.** **Re-censused 2026-08-04 and BOTH previous figures were wrong.**
+5. **The five required states.**
+
+   **SLICE SHIPPED 2026-08-09 — the logbook, which was rendering FOUR of them by hand.** Not one
+   surface picked out of twenty-one: `components/RecentFlights.tsx` is the landing surface's whole
+   list, and it hand-rolled `loading`, the storage-`blocked` caveat, the genuine empty state and
+   the search-found-nothing state — three of them at `text-xs`, which §3 makes the floor case for
+   anything a flyer reads to decide something, and one of them wearing the CONTROL radius on a
+   container. Two things make it more than four conversions:
+
+   - **The file already contained the argument for the fix it had not made.** The `blocked`
+     branch carries a paragraph of comment reasoning that this is §2's `warn` and specifically not
+     `ErrorState` — and then renders a bare amber `<p>`, thirty lines above its `write-blocked`
+     twin, which took `Notice` when the primitive shipped. One file, one meaning, two renderings.
+   - **The two empty states named their one control two different ways**, and five assertions in
+     `e2e/logbook.spec.ts` turn on that name — three of them NEGATIVE (`toHaveCount(0)`,
+     `not.toContain`), the kind that go quietly green when the thing they name stops existing. The
+     name is one constant in the spec now.
+
+   **And the ratchet could not have caught any of it, because FOUR primitives had no entry in
+   `PRIMITIVE_ADOPTERS` at all** — `ChipButton` (§5's sixth word), `CopyTableButton`, `Loading`
+   (§5's fifth state, shipped 2026-08-05) and `Sources`. The list was hand-kept, so the omission
+   was invisible; it is now checked against `components/ui.tsx`'s own exports, and a primitive
+   that ships without a count fails the suite. Falsified by adding one.
+
+   **Counts:** `Loading` **2 → 3** · `EmptyState` **1 → 2** · four primitives **uncounted → counted**
+   (`ChipButton` 5, `CopyTableButton` 2, `Loading` 3, `Sources` 2). Nothing moved down.
+
+   **One thing measured and deliberately NOT done:** `DataTable`'s fallback is `'Nothing to show
+   yet.'`, which is the string §5 forbids — and it is reachable from **zero** call sites. Both were
+   checked: `GpsApogee` passes a literal one-element array and `DeviceSummary` renders only behind
+   a non-empty guard. Two bespoke sentences nothing can trigger is the decoration the `offline`
+   withdrawal below already refused. Filed in `BACKLOG.md` with the reproduction.
+
+   **Re-censused 2026-08-04 and BOTH previous figures were wrong.**
    The denominator is **21** data surfaces, not 15 and not 13; **0 of 21 implement all five**; and
    `StitchSurface` is *not* the only one implementing more than one — four surfaces implement three
    each (`Analyzer`, `RecentFlights`, `CompareSurface`, `StitchSurface`). The count kept moving

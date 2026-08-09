@@ -577,6 +577,15 @@ runs.
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
+- **2026-08-09 — a `DESIGN.md` change is OWED to the sibling repo and unshipped there**, because it
+  was not attached to this session. §5's `Button variant="link"` entry cited *"Got a backup?
+  **Restore it**."* as its canonical in-a-sentence example; that control no longer exists — the
+  logbook's empty state took §5's `EmptyState`, whose action is a standalone button on its own
+  line — so the example was replaced with two that do exist. Both repos carry an identical copy and
+  a change to one is owed to both in the same run; that could not be honoured here. **Proceeding
+  on: the rule is unchanged and only the example moved**, so the sibling is not wrong today, it is
+  merely citing a call site that is gone from this tree. One paste fixes it.
+
 - **2026-08-08 — this harness MANDATES the attribution footer that the zero-trace invariant forbids,
   and one artifact on GitHub is carrying one right now.** The session's own instructions say every
   comment, review and pull-request body it authors "MUST end with the Claude Code attribution

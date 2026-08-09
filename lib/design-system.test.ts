@@ -544,6 +544,29 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  Said plainly rather than counted as a clean conversion: the row now shows a primitive chip
    *  and a hand-rolled chip side by side, and closing that is P1 work this slice did not do. */
   Chip: 8,
+  /** **FOUR primitives had no entry here at all, and the ratchet could not see any of them move.**
+   *  Found 2026-08-09 by checking this list against `components/ui.tsx`'s own exports rather than
+   *  against memory — the same class of omission `lib/synthetic.test.ts` recorded about its export
+   *  sinks on the same day, and invisible for the same reason: a hand-kept list of things to count
+   *  cannot report the thing it forgot. `ChipButton` (§5's sixth word, shipped 2026-08-04),
+   *  `CopyTableButton`, `Loading` (§5's fifth state, shipped 2026-08-05) and `Sources`. Every
+   *  number below is the count MEASURED when the entry was added, not a target.
+   *
+   *  `ChipButton` — the chip that DOES something: the explorer's channel toggles, the event chips,
+   *  the figure toggles, the sample table's column picks, the simulation choice. */
+  ChipButton: 5,
+  /** `CopyTableButton` — the two tables that cannot BE a `DataTable` and still owe a flyer the way
+   *  out to a spreadsheet. Deliberately two, and the primitive's own comment says why. */
+  CopyTableButton: 2,
+  /** 2 → 3 on 2026-08-09: `RecentFlights`. The logbook's own wait was a bare `<p role="status">`,
+   *  which is the third treatment of one of the five required states in a repo where the primitive
+   *  had existed for four days — and the weakest of the three, because it announces on arrival and
+   *  not on the transition away. This entry is why the count could not have caught that: it did
+   *  not exist. */
+  Loading: 3,
+  /** `Sources` — the citation line, rendered identically by the methods page and by the popover
+   *  that quotes it, so a source cannot appear on one and be missing from the other. */
+  Sources: 2,
   /** 2 → 9 on 2026-08-02. The seven derived-reading panels — deploy altitude, drag coefficient,
    *  drogue Cd, ejection delay, landing energy, parachute Cd and rail exit — each hand-rolled a
    *  BYTE-IDENTICAL hero value (`font-mono text-xl font-semibold tracking-tight tabular-nums
@@ -579,7 +602,15 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   NumberField: 6,
   IconButton: 2,
   Extrapolated: 1,
-  EmptyState: 1,
+  /** 1 → 2 on 2026-08-09: `RecentFlights`. **This count is per FILE, so it moves by ONE while
+   *  THREE states convert** — said here rather than letting a later session read 2 as two states.
+   *  The genuine empty logbook was a caption-size paragraph with its one action buried
+   *  mid-sentence; the search-found-nothing state was a second paragraph wearing the CONTROL radius
+   *  on a container (§2 gives containers `rounded-xl`); and the storage-`blocked` state rendered a
+   *  `Notice` and no surface beneath it at all, which is the one thing §5's `Notice` entry forbids
+   *  in as many words. `EmptyState` is a `Card tone="muted"`, so the radius, the type size and the
+   *  buried action go together. */
+  EmptyState: 2,
   ErrorState: 2,
   /** 2 → 3 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
    *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —
@@ -790,6 +821,34 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
       counted[name] = ui.filter((f) => importedBy(f).has(name)).length;
     }
     expect(counted, 'adoption per primitive (see PRIMITIVE_ADOPTERS)').toEqual(PRIMITIVE_ADOPTERS);
+  });
+
+  it('counts EVERY component the primitive layer exports, so none can ship uncounted', () => {
+    // **`Loading` shipped on 2026-08-05 as §5's fifth state and was never added to
+    // `PRIMITIVE_ADOPTERS`**, so the ratchet above — the thing that stops P1's remaining increments
+    // going green while the app hand-rolls everything — could not see it move in either direction.
+    // Nothing failed, because the assertion above compares the counts it was GIVEN.
+    //
+    // A hand-kept list of things to count has the same defect as a hand-kept list of export sinks
+    // (`lib/synthetic.test.ts` records the identical lesson on the same day): the omission is
+    // invisible. So the list is checked against `components/ui.tsx`'s own exports.
+    //
+    // **Both export FORMS, and the first cut read only `export function`.** Every primitive in
+    // this file happens to be written that way today, so the narrow version passed — which is the
+    // same accidental pass that let `Loading` sit uncounted for four days, reproduced inside the
+    // test written to end it. A primitive shipped as `export const Foo = (…) => …` would have been
+    // invisible again. Hooks and helpers are excluded by the initial capital rather than by a
+    // name list: `useReturnFocus` and `cx` are not visual treatments, and a hand-kept exclusion
+    // list has exactly the defect this whole assertion exists to remove — the first draft carried
+    // one holding a name the pattern could never produce, so it excluded nothing and read as
+    // though it were doing work.
+    const src = readFileSync(new URL('../components/ui.tsx', import.meta.url), 'utf8');
+    const exported = new Set<string>();
+    for (const m of src.matchAll(/^export (?:function|const) ([A-Z][A-Za-z0-9]*)/gm)) exported.add(m[1]);
+    expect(
+      Object.keys(PRIMITIVE_ADOPTERS).sort(),
+      'a primitive exported from components/ui.tsx with no entry in PRIMITIVE_ADOPTERS is one the ratchet cannot see',
+    ).toEqual([...exported].sort());
   });
 
   it(`uses exactly ${BUDGET.offScaleType} type sizes that are off the six-size scale`, () => {
