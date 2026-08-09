@@ -366,7 +366,7 @@ describe('a flight with two recordings does not flatten into one', () => {
   });
 
   it('carries the grouping statement out and reads it back exactly', () => {
-    const text = toCanonical(flight(), { flight: 'primary-id', reports: false, of: 2 });
+    const text = toCanonical(flight(), { grouping: { flight: 'primary-id', reports: false, of: 2 } });
     expect(readGrouping(text)).toEqual({ flight: 'primary-id', reports: false, of: 2 });
   });
 
@@ -375,7 +375,7 @@ describe('a flight with two recordings does not flatten into one', () => {
     // leaked into `RawFlight` the analyzer could reach it, and a record written with a grouping
     // would analyse differently from the same record written without one.
     const bare = fromCanonical(toCanonical(flight()));
-    const grouped = fromCanonical(toCanonical(flight(), { flight: 'p', reports: true, of: 3 }));
+    const grouped = fromCanonical(toCanonical(flight(), { grouping: { flight: 'p', reports: true, of: 3 } }));
     expect(grouped).toEqual(bare);
     expect(JSON.stringify(Object.keys(grouped))).not.toContain('grouping');
   });
@@ -399,7 +399,7 @@ describe('a flight with two recordings does not flatten into one', () => {
     big.channels = [
       { kind: 'altitude', label: 'Altitude', unit: 'm', values: Float64Array.from({ length: n }, (_, i) => i * 1.5) },
     ];
-    const text = toCanonical(big, { flight: 'p', reports: true, of: 2 });
+    const text = toCanonical(big, { grouping: { flight: 'p', reports: true, of: 2 } });
     expect(text.length).toBeGreaterThan(400_000);
     expect(readGrouping(text)).toEqual({ flight: 'p', reports: true, of: 2 });
     // …and it really is only reading the head, not the file.
@@ -410,7 +410,7 @@ describe('a flight with two recordings does not flatten into one', () => {
     // The opposite of `fromCanonical`, and deliberate: a grouping cannot make a flight subtly
     // different because it is not in the flight. Dropping a bad one degrades to two flights the
     // flyer can join in a click; refusing the file would lose the measurement.
-    const good = toCanonical(flight(), { flight: 'p', reports: true, of: 2 });
+    const good = toCanonical(flight(), { grouping: { flight: 'p', reports: true, of: 2 } });
     const broken = [
       good.replace('"flight":"p"', '"flight":""'),
       good.replace('"reports":true', '"reports":"yes"'),
@@ -449,7 +449,7 @@ describe('a flight with two recordings does not flatten into one', () => {
   });
 
   it('survives the real drop path: written, re-detected, re-read as the same flight', () => {
-    const text = toCanonical(flight(), { flight: 'p', reports: true, of: 2 });
+    const text = toCanonical(flight(), { grouping: { flight: 'p', reports: true, of: 2 } });
     expect(looksCanonical(text)).toBe(true);
     const back = importFlight({ name: 'x-debrief-record.json', text, bytes: new TextEncoder().encode(text) });
     // `kind: 'flight'` is itself the assertion that matters: the generic table path would have

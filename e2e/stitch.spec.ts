@@ -1,7 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { underSizedTargets } from './touchTargets';
 import path from 'node:path';
+import os from 'node:os';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, readFile, readdir } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
+
+/** Unpack a zip Debrief wrote, and return the full paths of what was in it, sorted. */
+async function unzipToDir(zipPath: string): Promise<string[]> {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'debrief-unzip-'));
+  await run('unzip', ['-q', '-o', zipPath, '-d', dir]);
+  return (await readdir(dir)).sort().map((f) => path.join(dir, f));
+}
 
 /**
  * D4's *done when*, walked in the real app: a flyer assembles two per-stage logs into one timeline
@@ -29,12 +42,16 @@ const SUSTAINER = 'altusmetrum-telemetrum.csv';
  *  instead of the journey a flyer takes to reach a set of two recordings. */
 async function idsFor(page: import('@playwright/test').Page, files: string[]): Promise<string> {
   await page.goto('/');
+  // A bare name is a fixture; an absolute path is a file the test itself produced — a saved
+  // record on its way back in, which is the journey D11 exists for.
+  const src = (f: string) => (f.startsWith('/') ? f : fixture(f));
+  const shown = (f: string) => (f.startsWith('/') ? path.basename(f) : f);
   for (const f of files) {
-    await page.getByLabel('Choose a flight log file').setInputFiles(fixture(f));
+    await page.getByLabel('Choose a flight log file').setInputFiles(src(f));
     await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: /Analyze another flight/ }).click();
   }
-  for (const f of files) await page.getByLabel(`Select ${f} to compare`).check();
+  for (const f of files) await page.getByLabel(`Select ${shown(f)} to compare`).check();
   await page.getByRole('button', { name: /Compare 2 flights/ }).click();
   await expect(page).toHaveURL(/ids=/, { timeout: 20_000 });
   return new URL(page.url()).searchParams.get('ids') as string;
@@ -145,6 +162,65 @@ test('the statement survives reaching the same two recordings the other way roun
   await page.goto(`/stitch/?ids=${ids}`);
   await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(0);
+});
+
+test('the composite saves as records and comes back from them', async ({ page }) => {
+  // D11 slice 5 — the last clause of the milestone's *done when*: "a stitched composite keeps its
+  // stages". Before this the composite wrote NOTHING: "Copy the timeline" and "Copy a link" were
+  // its whole output, while /compare writes five formats and a ZIP for the same flyer. So the one
+  // multi-source structure that exists only here left the app as clipboard text, and the flyer's
+  // statement of which stage flew first — the thing they know that the files do not — left with it.
+  const ids = await idsFor(page, [BOOSTER, SUSTAINER]);
+  await page.goto(`/stitch/?ids=${ids}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: BOOSTER, exact: true }).click();
+  await expect(page.getByRole('button', { name: BOOSTER, exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save these records' }).click(),
+  ]);
+  const zipPath = path.join(await mkdtemp(path.join(os.tmpdir(), 'debrief-stages-')), dl.suggestedFilename());
+  await dl.saveAs(zipPath);
+  await expect(page.getByRole('status').filter({ hasText: /Saved 2 flight records/ })).toBeVisible();
+
+  // Both records name the SAME stage set and exactly one of them claims to have flown first.
+  // Read out of the zip, because the file is the only thing that crosses the device boundary.
+  const files = await unzipToDir(zipPath);
+  expect(files, 'one record per recording').toHaveLength(2);
+  const stages = await Promise.all(files.map(async (f) => JSON.parse(await readFile(f, 'utf8')).stage));
+  expect(stages[0]?.set, 'both records name one stage set').toBe(stages[1]?.set);
+  expect(stages.filter((s) => s?.first), 'exactly one flew first').toHaveLength(1);
+
+  // Wipe the logbook, so nothing but the two files can supply the statement.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await page.getByRole('button', { name: /^Delete/ }).click();
+  await expect(page.locator('ul[aria-label="Your flights"] > li')).toHaveCount(0);
+
+  // Drop the records back — BOTH AT ONCE, which is the journey: a flyer opens the folder they
+  // archived. Dropping them one at a time is a different gesture and restores nothing, because a
+  // set of one is not a set; the first version of this test did that and proved nothing.
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(files);
+  // Two files assemble a comparison, which is where a drop of two lands.
+  await expect(page.getByText(/Comparing 2 flights/)).toBeVisible({ timeout: 30_000 });
+
+  // …then reach the composite the ordinary way, from the logbook.
+  await page.goto('/');
+  for (const f of files) await page.getByLabel(`Select ${path.basename(f)} to compare`).check();
+  await page.getByRole('button', { name: /Compare 2 flights/ }).click();
+  await expect(page).toHaveURL(/ids=/, { timeout: 20_000 });
+  const back = new URL(page.url()).searchParams.get('ids') as string;
+  await page.goto(`/stitch/?ids=${back}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+  // The record keeps the recording's own stem, so the button is named for the booster's file.
+  const boosterRecord = `${BOOSTER.replace(/\.[^.]+$/, '')}-debrief-record.json`;
+  expect(files.some((f) => path.basename(f) === boosterRecord), `zip holds ${boosterRecord}`).toBe(true);
+  await expect(
+    page.getByRole('button', { name: boosterRecord, exact: true }),
+    'the flyer is not asked which stage flew first a second time',
+  ).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
 });
 
 test('a set of one is refused, and the refusal offers the way on', async ({ page }) => {

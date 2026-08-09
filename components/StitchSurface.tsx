@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-import { readFirstStage, writeFirstStage } from '@/lib/firstStage';
+import { readFirstStage, stageKey, writeFirstStage } from '@/lib/firstStage';
+import { toCanonical } from '@/lib/canonical';
+import { readRecent } from '@/lib/recents';
+import { importRecent } from '@/lib/reopen';
+import { zip, type ZipEntry } from '@/lib/zip';
+import { download } from '@/lib/download';
 import { buildComposite, fmtCompositeTime, type Composite, type CompositeRecording } from '@/lib/composite';
 import { stageTiles } from '@/lib/readings';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
@@ -71,6 +76,9 @@ export default function StitchSurface() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [ids, setIds] = useState<string[]>([]);
   const [firstStage, setFirstStage] = useState<string | undefined>(undefined);
+  /** What the last "Save records" press did. `DESIGN.md` §5's five states: a control that writes
+   *  files says whether it wrote them. */
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   const load = useCallback(async (wanted: string[]) => {
     setIds(wanted);
@@ -114,6 +122,52 @@ export default function StitchSurface() {
   }, [load]);
 
   const state1 = state.kind === 'ready' ? state : null;
+
+  /**
+   * Save one canonical flight record per recording, each carrying the flyer's per-stage
+   * statement, zipped.
+   *
+   * **This surface wrote nothing at all before.** "Copy the timeline" and "Copy a link" were the
+   * whole output, while `/compare` writes .md, .html, .json, .csv and a ZIP for the same flyer —
+   * so the one multi-source structure that only exists here left the app as clipboard text.
+   *
+   * The flights are loaded AT CLICK TIME rather than held in state. `CompareInput` deliberately
+   * carries analyses and not `RawFlight`s, because a composite of four recordings would then hold
+   * every sample of every channel in React state for the whole visit; a button press can afford
+   * one read each.
+   */
+  const saveRecords = useCallback(async () => {
+    setSaveMsg('Building records…');
+    try {
+      const set = stageKey(ids);
+      const entries: ZipEntry[] = [];
+      for (const id of ids) {
+        const { rec } = await readRecent(id);
+        if (!rec) continue;
+        const result = importRecent(rec);
+        if (result.kind !== 'flight') continue;
+        const stem = rec.name.replace(/\.[^.]+$/, '');
+        entries.push({
+          name: `${stem}-debrief-record.json`,
+          // `first` is the flyer's statement, per recording. `set` is shared by every record in
+          // the drop, which is what lets the statement be put back on a device that has never
+          // seen these ids.
+          data: toCanonical(result.flight, { stage: { set, first: rec.name === firstStage } }),
+        });
+      }
+      if (entries.length === 0) {
+        setSaveMsg('None of these recordings could be re-read from the logbook, so nothing was saved.');
+        return;
+      }
+      download(await zip(entries), 'debrief-stages.zip');
+      setSaveMsg(
+        `Saved ${entries.length} flight records${firstStage ? ', carrying which one flew first' : ''} — drop them back in together and the composite comes back.`,
+      );
+      setTimeout(() => setSaveMsg(null), 6000);
+    } catch {
+      setSaveMsg('Couldn’t build the records in this browser — each flight’s own report still has “Save record”.');
+    }
+  }, [ids, firstStage]);
 
   const chooseFirstStage = useCallback(
     (name: string | undefined) => {
@@ -415,6 +469,12 @@ export default function StitchSurface() {
 
       <div className="flex flex-wrap gap-2">
         <Button href={`/compare/?ids=${ids.join(',')}`}>Read these side by side</Button>
+        <Button onClick={saveRecords}>Save these records</Button>
+        {saveMsg && (
+          <p role="status" className="w-full text-sm text-zinc-600 dark:text-zinc-300">
+            {saveMsg}
+          </p>
+        )}
         <Button
           onClick={() => {
             const url = new URL(window.location.href);

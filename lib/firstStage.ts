@@ -78,3 +78,45 @@ export function writeFirstStage(ids: readonly string[], name: string | undefined
     /* a device that refuses storage still gets a composite; it just forgets the statement */
   }
 }
+
+/** One dropped flight record's per-stage statement, paired with where that file landed. */
+export interface RecordedStage {
+  /** The logbook id this file was just saved under. */
+  id: string;
+  /** The file's name — the value a first-stage statement is stored AS, because that is what
+   *  `buildComposite` matches its marks on. */
+  name: string;
+  /** The stage set the record states. Opaque; only equality across records matters. */
+  set: string;
+  /** Whether the record says this recording flew first. */
+  first: boolean;
+}
+
+/**
+ * The statements to put back, from a set of flight records dropped together.
+ *
+ * Returns one entry per stage set that has at least two members, because a composite of one
+ * recording is not a composite — `/stitch` refuses it — and a set with no stated first stage has
+ * no statement to restore, only membership, which is not stored anywhere and does not need to be:
+ * a composite is assembled by the flyer choosing rows, and what they cannot easily redo is saying
+ * which one flew first.
+ *
+ * Pure, so the rule is a unit test rather than a click path.
+ */
+export function planRestoredStages(records: RecordedStage[]): { ids: string[]; first: string }[] {
+  const buckets = new Map<string, RecordedStage[]>();
+  for (const r of records) {
+    const at = buckets.get(r.set);
+    if (at) at.push(r);
+    else buckets.set(r.set, [r]);
+  }
+  const out: { ids: string[]; first: string }[] = [];
+  for (const members of buckets.values()) {
+    const ids = [...new Set(members.map((m) => m.id))];
+    if (ids.length < 2) continue;
+    const lead = members.find((m) => m.first);
+    if (!lead) continue;
+    out.push({ ids, first: lead.name });
+  }
+  return out;
+}

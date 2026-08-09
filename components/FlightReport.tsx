@@ -461,7 +461,7 @@ export default function FlightReport({
             of: recordings.length,
           }
         : undefined;
-    download(new Blob([toCanonical(flight, group)], { type: 'application/json' }), `${stem}-debrief-record.json`);
+    download(new Blob([toCanonical(flight, { grouping: group })], { type: 'application/json' }), `${stem}-debrief-record.json`);
   }
 
   // Print a clean flight card. Force a light theme first so the canvas charts
