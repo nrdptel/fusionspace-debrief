@@ -2082,7 +2082,7 @@ demonstration. A sample presented as a staged launch that is not one is precisel
 milestone's *done when* forbids about synthetic flights, without even the honesty of a label. It
 needs a synthesized staged pair, labelled, which is the same work as the rest of the list below.
 
-**Slice 3 SHIPPED 2026-08-09 — a flight Debrief made up says so, and the cost of the milestone is
+**Slices 3 and 4 SHIPPED 2026-08-09.** Slice 3 — a flight Debrief made up says so, and the cost of the milestone is
 now measured rather than guessed.** `lib/synthetic.ts` generates a deterministic demonstration
 flight and writes it as a CSV the COLUMN MAPPER must handle; the marker rides **in the file**, in
 the same metadata block a logger's own summary block occupies, and `analyzeTable` lifts it onto the
@@ -2114,11 +2114,26 @@ spreadsheet, where an unlabelled number is most likely to be read as measured �
 that matters. Offering a sample before that is closed is exactly what this milestone's *done when*
 forbids.
 
+**Slice 4 SHIPPED 2026-08-09 — the export registry, which slice 3 named as the remaining cost.**
+`lib/documents.ts` is the one list of every document a flyer keeps. The report's save strip renders
+from it — six hand-written `<Button>`s and six near-identical `downloadX` closures are gone — and
+both ratchets enumerate it instead of keeping their own copies. So **a document with a button is a
+document the checks reach**: a seventh export cannot get a button without also getting a build-stamp
+assertion and a synthetic-label assertion.
+
+Two things that made it more than a move. The registry's `build` takes an optional `DocumentContext`
+rather than `(flight, analysis, sys)` — the naive signature compiles and **silently drops the
+flyer's own label and notes, the recovery figures they typed, and the grouping statement** from
+every saved document, which is a regression with no error message. And the two ratchets now address
+documents by a stable `id` rather than by display name, because keying on a name meant renaming a
+button silently un-checked a document.
+
+Pinned by `lib/documents.test.ts` (4 cases, falsified 3 ways: a seventh document carrying nothing,
+the strip reverting to hand-written buttons, and the data CSV mis-declaring that it carries prose —
+4, 1 and 4 assertions fail respectively). The data-CSV exemption is now stated once, on the
+document, instead of twice in two test files.
+
 **What is left, in order.**
-(a) **The export registry** — one list in source that the report's download strip renders from and
-    the check enumerates, replacing the hand-maintained list now sitting in `lib/synthetic.test.ts`.
-    `lib/buildInfo.test.ts` has the right shape (thunk list, generated cases, explicit negative
-    exemptions) and the wrong home: its list is in the test and covers 5 of the 26.
 (b) **The remaining reachable sinks**, in the order an unlabelled number would mislead: the data
     CSV, the metric grid, the logbook row, the print card and its PNG, the comparison, the two
     clipboard tables.

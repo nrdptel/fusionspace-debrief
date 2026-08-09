@@ -4,7 +4,8 @@ import { analyzeTable } from './flight/columns';
 import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
 import { analyzeFlight } from './analyze';
-import { summaryText, summaryMarkdown, summaryHtml, analysisJson, analyzedDataCsv } from './report';
+import { analyzedDataCsv } from './report';
+import { KEPT_DOCUMENTS, documentsCarryingProse } from './documents';
 import { toCanonical, fromCanonical } from './canonical';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
@@ -97,14 +98,13 @@ describe('a flight Debrief made up', () => {
 describe('a synthetic flight says so wherever it can go', () => {
   const { flight, analysis } = synthetic();
 
-  /** Sinks that a MAPPED single flight can actually reach, and that carry text. */
-  const CARRIES: { name: string; text: () => string }[] = [
-    { name: '.txt summary', text: () => summaryText(flight, analysis, 'metric') },
-    { name: '.md summary', text: () => summaryMarkdown(flight, analysis, 'metric') },
-    { name: '.html report', text: () => summaryHtml(flight, analysis, 'metric') },
-    { name: '.json analysis', text: () => analysisJson(flight, analysis, 'metric') },
-    { name: 'canonical flight record', text: () => toCanonical(flight) },
-  ];
+  /** Enumerated from `lib/documents.ts` — the same list the report's download strip renders from,
+   *  which is what `ROADMAP.md`'s D10 asks for and what a list kept in this file could never be.
+   *  A seventh export gets a button and a check in the same commit, or neither. */
+  const CARRIES = documentsCarryingProse().map((d) => ({
+    name: `${d.label} (${d.ext})`,
+    text: () => d.build(flight, analysis, 'metric'),
+  }));
 
   for (const sink of CARRIES) {
     it(`${sink.name} says the flight is synthetic`, () => {
@@ -144,12 +144,8 @@ describe('a synthetic flight says so wherever it can go', () => {
    * question gets asked, until a registry exists to ask it automatically.
    */
   const SINKS: { name: string; state: 'carries' | 'unreachable' | 'todo'; why?: string }[] = [
-    { name: '.txt summary', state: 'carries' },
-    { name: '.md summary', state: 'carries' },
-    { name: '.html report', state: 'carries' },
-    { name: '.json analysis', state: 'carries' },
-    { name: 'canonical flight record', state: 'carries' },
-    { name: '.csv analyzed data', state: 'todo', why: 'a CSV has no comment syntax every reader agrees on — the same reason it carries no build stamp (D11 slice 4). Needs a column or a decision.' },
+    ...documentsCarryingProse().map((d) => ({ name: `${d.label} (${d.ext})`, state: 'carries' as const })),
+    { name: 'Save data .csv (.csv)', state: 'todo', why: 'a CSV has no comment syntax every reader agrees on — the same reason it carries no build stamp (D11 slice 4). `lib/documents.ts` states the exemption once, as `carriesProse: false`, so it cannot drift into being forgotten. Needs a column or a decision.' },
     { name: 'clipboard report table', state: 'todo', why: 'reportTable() builds rows only; the label needs a caption row.' },
     { name: 'share link', state: 'todo', why: 'SharePayload is {n,t} — name plus raw file text. The TEXT carries the marker, so a shared link re-reads it; asserting that needs the share round trip, which is its own slice.' },
     { name: 'print card', state: 'todo', why: 'FlightCard takes series/metrics/stem and no RawFlight.' },
@@ -176,9 +172,13 @@ describe('a synthetic flight says so wherever it can go', () => {
         expect((s.why ?? '').length, `${s.name}'s reason is too thin to act on`).toBeGreaterThan(40);
       }
     }
-    // The ones claimed as covered are exactly the ones asserted above, in the same order.
+    // The ones claimed as covered are exactly the ones asserted above, in the same order — and
+    // both come from `lib/documents.ts`, so neither list can drift from the app's own.
     expect(SINKS.filter((s) => s.state === 'carries').map((s) => s.name)).toEqual(
       CARRIES.map((s) => s.name),
+    );
+    expect(CARRIES.length, 'every prose document in the registry is checked').toBe(
+      KEPT_DOCUMENTS.filter((d) => d.carriesProse).length,
     );
   });
 
@@ -188,6 +188,6 @@ describe('a synthetic flight says so wherever it can go', () => {
     // It is why the sample is NOT offered in the app yet.
     const csv = analyzedDataCsv(flight, analysis, 'metric');
     expect(csv).not.toContain('SYNTHETIC');
-    expect(SINKS.find((s) => s.name === '.csv analyzed data')?.state).toBe('todo');
+    expect(SINKS.find((s) => s.name === 'Save data .csv (.csv)')?.state).toBe('todo');
   });
 });

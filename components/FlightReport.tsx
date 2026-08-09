@@ -20,6 +20,7 @@ import { MAX_REASONABLE_MASS_KG } from '@/lib/landing';
 import { MAX_REASONABLE_DEPLOY_M } from '@/lib/deploy';
 import { MAX_REASONABLE_DELAY_S } from '@/lib/ejection';
 import { download } from '@/lib/download';
+import { KEPT_DOCUMENTS, type KeptDocument, type DocumentContext } from '@/lib/documents';
 import { plotSvg } from '@/lib/svgChart';
 import { zip, type ZipEntry } from '@/lib/zip';
 import { useIsDark } from './useIsDark';
@@ -425,58 +426,48 @@ export default function FlightReport({
     setTimeout(() => setCopiedTable(null), 4000);
   }
 
-  function downloadSummary() {
-    download(new Blob([summaryText(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'text/plain' }), `${stem}-debrief.txt`);
-  }
-
-  function downloadMarkdown() {
-    download(new Blob([summaryMarkdown(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'text/markdown' }), `${stem}-debrief.md`);
-  }
-
-  function downloadData() {
-    download(new Blob([analyzedDataCsv(flight, analysis, sys)], { type: 'text/csv' }), `${stem}-debrief.csv`);
-  }
-
-  function downloadJson() {
-    download(
-      new Blob([analysisJson(flight, analysis, sys, analyzedAt, reportMeta, recovery)], { type: 'application/json' }),
-      `${stem}-debrief.json`,
-    );
-  }
-
-  // The flight itself, not Debrief's read of it — every sample of every channel the logger
-  // recorded, in canonical SI, which Debrief can open again as the same flight. The two JSON
-  // files on this strip are deliberately different documents: `-debrief.json` is what Debrief
-  // CONCLUDED, in the units on screen, and it cannot be re-opened; this one is what the
-  // instrument RECORDED, and re-analyses from scratch when it is dropped back in — so an
-  // archived flight gets every later improvement to the analysis rather than being frozen at
-  // the version that wrote it.
-  function downloadRecord() {
-    // …and the flyer's own statement that this file is one of several recordings of one flight,
-    // where they made one. It rides beside the measurement rather than in it — a grouping is
-    // something the flyer said, not something the instrument recorded — so saving both halves of
-    // a two-altimeter flight and dropping them back in returns one flight rather than two.
-    //
-    // **The token is the EARLIEST-ADDED recording's id, deliberately not the flight's own id.**
-    // A flight's id is its current primary's, and the primary MOVES: "report by this one"
-    // rewrites every row's `flightId`, and deleting the primary promotes the next survivor. Two
-    // records saved either side of that would carry different tokens, bucket separately and
-    // restore nothing — silently, because the failure looks exactly like two ordinary flights.
-    // Opening order is a property of the SET rather than of whichever member currently speaks
-    // for it, and it is the same rule `planJoin` already picks a primary by.
-    //
-    // `reports` still reads the current primary, because that is what it is a statement about:
-    // which recording the flight is reported by, now. `recordings[0]` is that one, which is how
-    // `groupRecordings` builds the list.
-    const group =
-      recordings && recordings.length > 1 && recordingId && recordings.some((r) => r.id === recordingId)
-        ? {
-            flight: groupToken(recordings),
-            reports: recordings[0].id === recordingId,
-            of: recordings.length,
-          }
-        : undefined;
-    download(new Blob([toCanonical(flight, { grouping: group })], { type: 'application/json' }), `${stem}-debrief-record.json`);
+  /**
+   * Save one kept document, chosen from `lib/documents.ts`.
+   *
+   * **One function and one list, replacing six near-identical `downloadX` closures.** The strip
+   * below renders from the same list, so a document with a button is a document the checks
+   * enumerate — which is what `ROADMAP.md`'s D10 asks for and what a list kept inside a test file
+   * could never give: adding a seventh export used to leave both ratchets green and the new
+   * document unstamped.
+   *
+   * The context is assembled per document rather than always, because two pieces of it are not
+   * free: rendering the figure SVGs costs a pass over the charts, and the grouping is a statement
+   * read out of the logbook.
+   */
+  function saveDocument(doc: KeptDocument) {
+    const ctx: DocumentContext = { analyzedAt, meta: reportMeta, recovery };
+    if (doc.id === 'html') ctx.figures = figureSvgs().map((f) => ({ title: f.title, svg: f.svg }));
+    if (doc.id === 'record') {
+      // The flyer's own statement that this file is one of several recordings of one flight, where
+      // they made one. It rides beside the measurement rather than in it — a grouping is something
+      // the flyer said, not something the instrument recorded — so saving both halves of a
+      // two-altimeter flight and dropping them back in returns one flight rather than two.
+      //
+      // **The token is the EARLIEST-ADDED recording's id, deliberately not the flight's own id.**
+      // A flight's id is its current primary's, and the primary MOVES: "report by this one"
+      // rewrites every row's `flightId`, and deleting the primary promotes the next survivor. Two
+      // records saved either side of that would carry different tokens, bucket separately and
+      // restore nothing — silently, because the failure looks exactly like two ordinary flights.
+      // Opening order is a property of the SET rather than of whichever member currently speaks
+      // for it, and it is the same rule `planJoin` already picks a primary by.
+      //
+      // `reports` still reads the current primary, because that is what it is a statement about:
+      // which recording the flight is reported by, now. `recordings[0]` is that one, which is how
+      // `groupRecordings` builds the list.
+      if (recordings && recordings.length > 1 && recordingId && recordings.some((r) => r.id === recordingId)) {
+        ctx.grouping = {
+          flight: groupToken(recordings),
+          reports: recordings[0].id === recordingId,
+          of: recordings.length,
+        };
+      }
+    }
+    download(new Blob([doc.build(flight, analysis, sys, ctx)], { type: doc.mime }), `${stem}-debrief${doc.ext}`);
   }
 
   // Print a clean flight card. Force a light theme first so the canvas charts
@@ -670,14 +661,6 @@ export default function FlightReport({
   // One self-contained HTML file — the numbers, events, cross-check and caveats plus the
   // charts inline as vector SVG — a flyer can save, email, print or archive without
   // re-running Debrief. Report-grade output as a single portable document.
-  function downloadHtml() {
-    const figures = figureSvgs().map((f) => ({ title: f.title, svg: f.svg }));
-    download(
-      new Blob([summaryHtml(flight, analysis, sys, analyzedAt, reportMeta, recovery, figures)], { type: 'text/html' }),
-      `${stem}-debrief.html`,
-    );
-  }
-
   // Package the report-grade artifacts a flyer needs — the Markdown write-up (with
   // the logger's own cross-check), the analyzed series as CSV, and the headline
   // figures as SVG — into one ZIP, so a cert doc or forum post is a single download
@@ -980,49 +963,23 @@ export default function FlightReport({
                 leftover: the strip scrolls horizontally on a phone, and a button allowed to
                 compress clips its own label. It used to be baked into a `SAVE_BTN` constant that
                 carried this comment; the constant is gone and the reason is not. */}
-            <Button size="sm" onClick={downloadSummary} title="Download the summary as a text file" className="shrink-0">
-              Save .txt
-            </Button>
-            <Button
-              size="sm"
-              onClick={downloadMarkdown}
-              title="Download a Markdown report — metrics and events as tables, ready for a write-up or a forum post"
-              className="shrink-0"
-            >
-              Save .md
-            </Button>
-            <Button
-              size="sm"
-              onClick={downloadHtml}
-              title="Download a self-contained HTML report — numbers, events, the logger cross-check and the charts inline, in one file you can open, print, email or archive anywhere (nothing uploaded)"
-              className="shrink-0"
-            >
-              Save .html
-            </Button>
-            <Button
-              size="sm"
-              onClick={downloadData}
-              title="Download the whole flight as CSV — Debrief's derived series (altitude, velocity, acceleration, Mach, dynamic pressure) plus every channel the logger recorded (battery, temperature, GPS, tilt …)"
-              className="shrink-0"
-            >
-              Save .csv
-            </Button>
-            <Button
-              size="sm"
-              onClick={downloadJson}
-              title="Download the full analysis — metrics, events and provenance — as structured JSON, in the chosen units, for a script or another tool"
-              className="shrink-0"
-            >
-              Save .json
-            </Button>
-            <Button
-              size="sm"
-              onClick={downloadRecord}
-              title="Download the flight record — every sample of every channel the logger recorded, in SI units, in one file Debrief can open again as this same flight. Unlike the analysis .json this is the measurement rather than the read, so re-opening it re-analyses from scratch. It carries everything the log did, including any GPS position."
-              className="shrink-0"
-            >
-              Save record
-            </Button>
+            {/* Rendered FROM `lib/documents.ts`, not written out six times. That is what makes
+                "a document with a button is a document the checks enumerate" true rather than
+                aspirational: a seventh export cannot get a button without also getting a build
+                stamp assertion and a synthetic-label assertion. `shrink-0` is load-bearing — the
+                strip scrolls horizontally on a phone and a button allowed to compress clips its
+                own label. */}
+            {KEPT_DOCUMENTS.map((doc) => (
+              <Button
+                key={doc.id}
+                size="sm"
+                onClick={() => saveDocument(doc)}
+                title={doc.title}
+                className="shrink-0"
+              >
+                {doc.label}
+              </Button>
+            ))}
             <Button
               size="sm"
               onClick={saveChartSvg}

@@ -5,6 +5,7 @@ import { importFlight } from './parsers/index';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
 import { BUILD_SHA, buildFields, buildLine } from './buildInfo';
+import { KEPT_DOCUMENTS, documentsCarryingProse } from './documents';
 import { toCanonical } from './canonical';
 import { analysisJson, analyzedDataCsv, summaryHtml, summaryMarkdown, summaryText } from './report';
 
@@ -33,14 +34,19 @@ function sample() {
 describe('every document a flyer keeps names the build that wrote it', () => {
   const { flight, analysis } = sample();
 
-  /** The documents that carry the stamp, and the one that deliberately does not. */
-  const DOCUMENTS: { name: string; text: () => string }[] = [
-    { name: '.txt summary', text: () => summaryText(flight, analysis, 'metric') },
-    { name: '.md summary', text: () => summaryMarkdown(flight, analysis, 'metric') },
-    { name: '.html report', text: () => summaryHtml(flight, analysis, 'metric') },
-    { name: '.json analysis', text: () => analysisJson(flight, analysis, 'metric') },
-    { name: 'canonical flight record', text: () => toCanonical(flight) },
-  ];
+  /** The documents that carry the stamp, and the one that deliberately does not.
+   *
+   *  **Enumerated from `lib/documents.ts` rather than listed here, since 2026-08-09.** This used to
+   *  be a hand-kept array in this file, and a list in a test cannot fail for the thing it exists to
+   *  catch: a seventh export added without a line here left the test green and the document
+   *  unstamped. The registry is what the report's download strip renders from, so a document with a
+   *  button is a document that is checked. */
+  const DOCUMENTS = documentsCarryingProse().map((d) => ({
+    id: d.id,
+    name: `${d.label} (${d.ext})`,
+    text: () => d.build(flight, analysis, 'metric'),
+  }));
+  const byId = (id: string) => DOCUMENTS.find((d) => d.id === id)!;
 
   for (const doc of DOCUMENTS) {
     it(`${doc.name} carries the build`, () => {
@@ -54,7 +60,11 @@ describe('every document a flyer keeps names the build that wrote it', () => {
     // rather than on the call site, because a second phrasing would still compile.
     const line = buildLine();
     expect(line).toContain(BUILD_SHA);
-    for (const doc of DOCUMENTS.slice(0, 3)) {
+    // The PROSE documents by id, not by position: `slice(0, 3)` said the same thing while the
+    // list was hand-kept in this file and would quietly mean something else the moment the
+    // registry's order changed.
+    for (const id of ['txt', 'md', 'html']) {
+      const doc = byId(id);
       expect(doc.text(), `${doc.name} uses the shared wording`).toContain(line);
     }
   });
@@ -62,10 +72,10 @@ describe('every document a flyer keeps names the build that wrote it', () => {
   it('puts it in the machine-readable documents as data, not as prose', () => {
     const fields = buildFields();
     expect(fields.build).toBe(BUILD_SHA);
-    for (const name of ['.json analysis', 'canonical flight record']) {
-      const doc = DOCUMENTS.find((d) => d.name === name)!;
+    for (const id of ['json', 'record']) {
+      const doc = byId(id);
       const parsed = JSON.parse(doc.text()) as Record<string, unknown>;
-      expect(parsed.build, `${name} carries a machine-readable build field`).toBe(BUILD_SHA);
+      expect(parsed.build, `${doc.name} carries a machine-readable build field`).toBe(BUILD_SHA);
     }
   });
 
