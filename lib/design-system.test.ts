@@ -493,7 +493,11 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  out of `<details>` plus its own absolute positioning. `Popover` owns that now, and still
    *  renders a `Card` underneath — so the treatment did not leave the system, it stopped being
    *  assembled at a call site. Read the two numbers together: `Popover` 0 → 1. */
-  Card: 25,
+  /** 25 → 26 on 2026-08-09: `WhyDebrief`, the landing surface's statement of what Debrief does
+   *  that a flyer's own altimeter software cannot (P5 slice 2). A NEW surface taking the primitive
+   *  on the pass that creates it, which is the cheap direction — the expensive ones in this list
+   *  are all conversions. */
+  Card: 26,
   /** 18 → 19 on 2026-08-03 with §5's fifth weight. `Analyzer` is the new adopter: its "← Analyze
    *  another flight" was one of eight hand-rolled indigo-text controls across four files, which is
    *  the vocabulary having been short a word rather than four files having been careless. The
