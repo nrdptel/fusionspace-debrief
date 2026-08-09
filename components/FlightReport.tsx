@@ -29,6 +29,8 @@ import MetricGrid from './MetricGrid';
 import type { RecentMeta } from '@/lib/recents';
 import FlightPicker from './FlightPicker';
 import RecordingPicker from './RecordingPicker';
+import SimulationChoice from './SimulationChoice';
+import type { PredictionOffer, SimulationChoice as SimulationChoiceValue } from '@/lib/predictionChoice';
 import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
@@ -75,6 +77,9 @@ export default function FlightReport({
   recordings,
   recordingId,
   onRecording,
+  simulationOffer,
+  simulationChoice,
+  onSimulationChoice,
 }: {
   flight: RawFlight;
   analysis: FlightAnalysis;
@@ -107,6 +112,16 @@ export default function FlightReport({
   recordingId?: string;
   /** Open another recording of this flight. */
   onRecording?: (id: string) => void;
+  /** A design dropped beside this flight that states SEVERAL simulations, so Debrief declined to
+   *  pick one. Absent on every flight without one, and then nothing about this page changes.
+   *  See `lib/predictionChoice.ts`. */
+  simulationOffer?: PredictionOffer;
+  /** Which one the flyer said flew; `null` or absent is Debrief's own default of picking none. */
+  simulationChoice?: SimulationChoiceValue;
+  /** Say which flew — or take it back. Absent where the surface cannot re-render the flight
+   *  (a shared link, the print card), in which case the control is not offered rather than
+   *  offered and dead. */
+  onSimulationChoice?: (choice: SimulationChoiceValue) => void;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -788,7 +803,16 @@ export default function FlightReport({
   const plotChannels = useMemo(() => buildPlotChannels(flight, series, metrics), [flight, series, metrics]);
 
   // A per-flight key links the three charts' hover cursor and zoom range.
-  const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [flight]);
+  //
+  // **Keyed on the ANALYSIS, not on the flight object.** Regenerating it tears down and rebuilds
+  // all three uPlot instances, which throws away the flyer's zoom and snaps the preset row back to
+  // "Flight" — right when the reading being shown is genuinely a different one, and wrong
+  // otherwise. Every path that used to hand this a new `flight` handed it a new `analysis` in the
+  // same breath (a load, a crop, another recording), so this is the same key it always was for all
+  // of them. What changed is that a flyer picking which simulation flew now rewrites the flight —
+  // additively, with no re-analysis — and losing a zoom you set to compare two traces, because you
+  // asked to see the other trace, is the "controls that forget" tell.
+  const syncKey = useMemo(() => `flight-${Math.random().toString(36).slice(2)}`, [analysis]);
 
   const eventSummary = events.map((e) => `${e.label.toLowerCase()} at ${fmtTime(e.time)}`).join(', ');
   // The predicted curve is a second line on this chart, so the text alternative has to carry it —
@@ -1108,6 +1132,17 @@ export default function FlightReport({
       </p>
 
       <LogDetails flight={flight} />
+
+      {/* Directly above the cross-check it fills, so the choice and its effect are one glance
+          apart rather than a scroll apart. */}
+      {simulationOffer && onSimulationChoice && (
+        <SimulationChoice
+          offer={simulationOffer}
+          choice={simulationChoice ?? null}
+          onChoice={onSimulationChoice}
+          sys={sys}
+        />
+      )}
 
       {flight.reported && flight.reported.length > 0 && (
         <DeviceSummary reported={flight.reported} metrics={metrics} events={events} sys={sys} />

@@ -7,7 +7,7 @@ export const dynamic = 'force-static';
 
 /** Every indexable page. Debrief is a small static tool: the analyzer, the
  * comparison surface, the composite surface for a staged flight, the methods
- * write-up, the validation page, and privacy. */
+ * write-up, the validation page, privacy, and what changed between builds. */
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${SITE_URL}/`, changeFrequency: 'monthly', priority: 1 },
@@ -16,5 +16,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/methods/`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${SITE_URL}/validation/`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${SITE_URL}/privacy/`, changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${SITE_URL}/changelog/`, changeFrequency: 'weekly', priority: 0.4 },
   ];
 }

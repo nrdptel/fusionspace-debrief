@@ -6,184 +6,86 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **Four pull requests merged: `#156`, `#157`, `#158`, `#160`** — `main` at `4c8f89f`. Production was confirmed serving `ada0a17`, then `592bd5d`, then `4c8f89f`. Re-measure before believing any of this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — and the version is now on the page footer too. |
-| **Pending on the branch** | **Nothing.** Every increment reached `main`; the branch was restarted from it for the closing documentation commit. |
-| **Sev-1** | **One found, reproduced on real files, fixed.** A burnout speed labelled `measured` over a barometric derivative — **2 of 38** analysable corpus recordings, at 121.2 and 128.4 m/s, three rows under the identical figure labelled `derived`. |
-| **D — capability** | **D11 SHIPPED, all five slices.** Every clause of its *done when* is met and pinned. The D-track has no in-progress milestone: D8's tilt slice is MEASURED AND BLOCKED (unchanged), D9 has slice 3b left, D10 has slices after its first. |
-| **P — product & craft** | **P9 SHIPPED, all five slices.** **P5 IN PROGRESS** — slices 1, 2 and 3 shipped (the README, the landing claims, the visible build). |
-| **§9 counts, start → end of run** | radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** · inverted-type files **10→10** · `ui` adopters **36→37**. **The only count that moved went UP.** `Card` adopters 25→26 in the ratchet. |
-| **Another session merged into `main` during this run** | `9698d04` (PR #159), a `DESIGN.md` §8 rule about scale drawings, mirrored from the sibling tool. It adds no compliance count and Debrief has no scale drawing, so nothing here changed — but **the sibling repo is being worked on concurrently**, which is new information and bears on everything below marked "owed to the sibling". |
+| **Shipped to production** | Re-measure before believing this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. At the last measurement in this run, production served `8714271` — level with `origin/main` before anything here merged. |
+| **Pending** | **PR #162** (D9 slice 3b, 6 commits) and **PR #163** (P5 slice 5). Both gated green locally in full. |
+| **Sev-1** | **None found.** The opening fan-out's two claimed Sev-1s were both reproduced by hand and both downgraded — see *The two Sev-1 claims that were not*. |
+| **D — capability** | **D9 SHIPPED, all five slices.** The D-track's remaining open milestones are D10 (slices after its second) and D8's tilt slice, which is MEASURED AND BLOCKED and should stay blocked. |
+| **P — product & craft** | **P5 SHIPPED, slices 1–5.** Only its repo-METADATA half is left, and it is owner-level — no session tool can set a repository's description, topics or pinned links. |
+| **§9 counts, start → end of run** | radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** · inverted-type files **10→10** · `Card` adopters **26→28** · `Section` **2→3** · `SectionNav` **2→3** · `Notice` **5→6**. **Every count that moved went UP.** |
 
 ## The one thing to read before anything else
 
-**I pushed a commit with a red unit suite, and the reason was the shape of my gate command.**
+**The pre-push review found seven real defects in a diff that had already passed the full gate, and it is the reason this run shipped something honest rather than something green.**
 
-It was `npm test 2>&1 | tail -3 && npm run build && npx playwright test`. A shell pipeline's exit
-status is the LAST command's, so `tail` returning 0 made a red suite look green to the `&&` — and
-`tail -3` cut off the "Tests N failed" line that would have said so. Build and e2e then ran and
-passed, and the summary read as three greens. CI caught it (`0baaa5b` → failure, run #748) and the
-fix was one commit later.
+`MAINTAINING.md` asks for one fresh agent on the `git diff` before every push. This run gave three, with different lenses — React correctness, the safety spine, and can-a-flyer-actually-use-it. Every one of the seven had shipped past 1,299 unit tests, a clean build and 309 e2e:
 
-The failure itself was benign and even good news: `lib/design-system.test.ts` pins `Card` adoption
-at an exact count, and a new surface adopting the primitive moved it 25 → 26. But that is luck.
+1. A saved record that already named its simulation got the refusal stapled on beside it, and the picker opened showing *Don't compare one* over a populated Predicted column — reachable by doing exactly what Debrief's own note tells a flyer to do.
+2. Two designs claiming one flight were offered a picker that would delete one of them.
+3. Both notes said "below" about a control that renders above them, and about nothing at all in an export.
+4. The picker printed onto the cert document.
+5. Every chip press reset all three charts' zoom, including presses that changed nothing.
+6. The chip promised an altitude curve for designs whose curve Debrief cannot draw — it keyed on `hasSeries` (a `databranch` exists) rather than on a trace that could be read out of it.
+7. The design's freshness word was missing in the one case where **Debrief** rather than the flyer does the picking.
 
-**Run the gate so each exit code is readable**, e.g.
-
-```bash
-npm test > /tmp/unit.log 2>&1;            echo "UNIT rc=$?";  grep -E "Tests +[0-9]+" /tmp/unit.log
-npm run build > /tmp/bld.log 2>&1;        echo "BUILD rc=$?"
-npx playwright test --workers=1 > /tmp/e2e.log 2>&1; echo "E2E rc=$?"; tail -3 /tmp/e2e.log
-```
-
-The general form of the lesson is the one `MAINTAINING.md` already records about a suite dying in
-4 ms: **read the result, not the exit code of whatever you piped it through.**
+Three of those (1, 2, 6) are wrong-claim defects, not polish. **Budget for this: it cost about ninety minutes and two extra gate cycles, and it was the highest-value ninety minutes of the run.**
 
 ## Four more things this run learned the hard way
 
-1. **A subagent's review found a real bug in the commit I had just made, my first fix was worse than
-   the bug, and the e2e caught that.** The grouping token was the flight's own id, which moves when
-   the flyer re-nominates the primary. The obvious repair — earliest `addedAt`, the rule `planJoin`
-   already uses — is *not stable either*: `saveRecent` stamps a fresh `addedAt` on every re-read,
-   including a plain re-open. A row's **id** is the only thing there that does not move. *"Looks
-   immutable" is not a property; grep for what writes it.*
-2. **The opening Sev-1 screen ranked its two findings the wrong way round.** It led with a leak that
-   fires on **0 of 38** corpus recordings and put second the provenance mislabel that fires on
-   **2 of 38** today. A corpus sweep settled it in ten minutes. **Sweep before you rank** — an agent
-   ranks by how bad a thing sounds; the corpus knows how often it happens.
-3. **Four assertions this run could not fail, and each was caught by falsifying rather than by
-   reading.** Three were in my own new tests (one restated a `toEqual` two lines above it; one
-   compared two `undefined`s; one checked that a loop had pushed twice). The fourth was subtler: an
-   e2e comparing the footer's build line to a saved report's used `toContain`, which passes when the
-   footer drops the date, because the shorter string is a substring of the longer one.
-4. **I scoped D9 slice 3b twice, merged the first version, and had to correct it in `ROADMAP.md`
-   an hour later.** The first pass read the PARSER, found every simulation already parsed with its
-   name, its figures and its curve, and concluded the slice was "a UI decision". It is not: the runs
-   are discarded one call deep in `ingestFiles`, and **nothing about a design is kept with the
-   flight** — a fact this repo had already decided, written down and put in front of flyers in a
-   note. Reading the file that produces a value tells you the value exists; only reading the path it
-   travels tells you whether anything downstream can still see it. *Scope along the path, not at the
-   source* — and when the correction lands after the merge, correct it in the document rather than
-   leaving the tidier wrong version standing.
+1. **The shell's working directory is NOT stable between commands in this harness.** A backgrounded `npm run build` ran from the parent of the checkout and reported `ENOENT … /home/user/package.json`; later a bare `npx playwright test --grep` ran from the same place, found no config, scanned the whole tree and reported "No tests found" after erroring on a dozen **vitest** files. Neither output says "wrong directory". Now in `MAINTAINING.md`. **Prefix every command with `cd /home/user/fusionspace-debrief &&`.**
+2. **The harness's completion status is the trailing `echo`'s, not the work's.** `cmd > log 2>&1; echo "rc=$?"` backgrounded is announced as "exit code 0" because the echo succeeded. A build that never ran read as green for twenty minutes, and the e2e after it failed on an empty `out/` — which reads exactly like a catastrophic regression. **Write the rc to a file and read the file.** Same shape as the `tail`-swallows-a-red-suite note already in the manual.
+3. **A single e2e failure in a full run is not a red gate until you have tried to reproduce it.** `compare-page.spec.ts:104` failed once at 310/311. It passed alone, passed across all 45 compare-suite tests, and passed in a full 311/311 re-run. Recorded as a flake **after** three attempts to reproduce it, not instead of them.
+4. **The competitive probe found a defect in the surface the run was building, not in a competitor.** Aiming it at *the thing you are about to ship* rather than at the field in general is what made it pay: OpenRocket shows a status per simulation row, which is how the hover-only freshness word here was noticed at all.
+
+## The two Sev-1 claims that were not
+
+Both were reproduced by hand before being ranked, which is the whole point of the rule.
+
+- **"Airframe figures are keyed to the device, not the flight."** True — `debrief.mass.kg` and its two siblings are device-global `localStorage`, deliberately. **Not a Sev-1**, because the mass renders in a `NumberField` on the same `LandingEnergy` card as the joules it feeds, so the stale input is visible beside the output. Filed with that reasoning, because the next run will find it again.
+- **"Colour reset has no touch path."** Half wrong: `dblclick` *is* synthesized from a double-tap in current mobile browsers, and the repo's own help line says "double-click or double-tap". What remains unverified — and is marked `UNVERIFIED` in the ledger rather than guessed — is whether iOS Safari's double-tap-to-zoom swallows it without `touch-action: manipulation`. Needs a real device.
 
 ## Environment, established at session start — none of it assumed
 
-- **The corpus was attached and real throughout.** `nrdptel/debrief-fixtures` on disk, symlinked into
-  `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the corpus suite is **148 tests**;
-  **38 recordings** analyse end to end through the plain parser path. `FIXTURES_TOKEN` is NOT set, so
-  `npm run fetch-fixtures` is a no-op — the attached checkout is the whole reason there is a corpus.
-- **`node_modules` was ABSENT.** `npm install` first, before anything measures.
-- **Playwright needed `npx playwright install chromium`** (114 MB, ~1 min). **Paid for again every
-  session; it belongs in the environment's setup script.** Said for at least the ninth run running.
-- **`git config user.name/user.email` arrived as the harness vendor's default** and were set before
-  the first commit.
-- **The clone is SHALLOW.** Any commit count or file history quoted from it is a window.
-- **The harness appended an attribution footer to every pull-request body.** Read back and stripped
-  with `update_pull_request`, which does not re-append. Parked in `OWNER-NOTES.md`.
-- **A full gate cycle is ~10 minutes** — unit ~1:50, build ~40 s, e2e ~7:00 at `--workers=1`. Budget
-  four or five gates an hour, not more; that is the real cost of an increment here.
-- **The GitHub MCP `actions_list` response is enormous** (65 KB+ for four runs) and will blow a
-  context window. Ask a cheap subagent for `sha status conclusion run#` and nothing else.
-  `pull_request_read` with `method: "get_status"` is cheap but only reports legacy commit statuses,
-  which this repo does not use — it reads `pending` even when every check is green.
+- **The corpus was attached and real throughout.** `nrdptel/debrief-fixtures` on disk, symlinked into `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the corpus suite is **149 tests**. `FIXTURES_TOKEN` is NOT set, so `npm run fetch-fixtures` is a no-op — the attached checkout is the whole reason there is a corpus.
+- **`node_modules` was ABSENT.** `npm install` first.
+- **Playwright needed `npx playwright install chromium`** (114 MB, ~1 min). **Paid for again every session; it belongs in the environment's setup script.** Said for at least the tenth run running.
+- **`git config user.name/user.email` arrived as the harness vendor's default** and were set before the first commit. Note the GLOBAL config is still the vendor default — only the repo-local one is corrected, which is enough but is worth knowing.
+- **The clone is SHALLOW** — 70 commits, 2026-08-03 to 2026-08-09. Any history claim is a window.
+- **The harness appended an attribution footer to the pull-request body.** Read back and stripped with `update_pull_request`. Still parked in `OWNER-NOTES.md`.
+- **A full gate cycle is ~12 minutes** — unit ~2:05, build ~50 s, e2e ~8:00 at `--workers=1` — and roughly doubles while subagents are running. Four cores. **Do not run a large fan-out and a gate at the same time and then wonder why the suite crawled.**
 
 ## What shipped, in order
 
 | commit | what | pinned by |
 |---|---|---|
-| `c16c89b` | **D11 slice 3 — the flyer's grouping travels with the record** | `lib/flightGroups.test.ts` + `lib/canonical.test.ts` + an e2e walk, falsified 8 ways |
-| `7161f5a` | **Sev-1 — a burnout speed said "measured" over a differentiated altitude**, 2 of 38 corpus recordings; plus the same family's latent leak (three readings gated on one reason where the flag is set for two) | a corpus sweep with a floor, falsified on the real file at 121.2 m/s |
-| `838576f` | **Three ways the restored grouping could lose the flyer's most recent word** — the token, a deliberate separation, a note claiming success over a failed write | `groupToken` + `lib/ingest.test.ts` |
-| `e46c347` | **P9 slice 4 — the two paragraphs nobody could read in one go.** 705 and 614 words broken at eight subject changes, rendered text character-identical | the 400-word paragraph ratchet |
-| `f366af9` | **P9 slice 5 — the methods page cites its sources.** Five verified sources; 46 of 51 blocks deliberately cite nothing | 4 checks, falsified 4 ways, + an e2e |
-| `e901e5a` | **The composite stopped forgetting which stage flew first** | `lib/firstStage.test.ts` + an e2e with the ids reversed |
-| `bec785e` | **P5 slice 1 — the README shows the tool.** 4,545 words / 32 KB / 0 images → 1,948 / 16 KB / 4 | `lib/readme.test.ts`, falsified 3 ways |
-| `b0744ee` | **D11 slice 5 — the composite writes files now, and comes back from them** | `lib/firstStage.test.ts` + an e2e that wipes the logbook between saving and dropping |
-| `0baaa5b`+`c3f9bb2` | **P5 slice 2 — the landing surface says what this does that your own software cannot**, and the ratchet correction | `lib/whyDebrief.test.ts`, falsified from both directions |
-| `306dda1` | **P5 slice 3 — the page says which build you are looking at**, linked to the commit | `lib/buildInfo.test.ts` + an e2e comparing the footer to a saved report |
+| `357e342` | **D9 slice 3b — a flyer can say which simulation flew** | `lib/predictionChoice.test.ts` + 2 e2e walks, falsified 5 ways |
+| `766be0f` | D9 marked SHIPPED; the design's freshness word made visible | `COMPETITION.md` row 38 |
+| `ffbfc1e` | **Four ways the picker could contradict the panel beside it** | 3 cases + 2 e2e, falsified 4 ways |
+| `321e90b` | **Three more from the third review lens** — a promised curve, a missing word, a doubled paragraph | 3 cases, falsified 3 ways |
+| `8578a4e` | Four ledger entries with the measurement that makes each actionable | — |
+| `413b8b6` | Two environment traps recorded in `MAINTAINING.md` | — |
+| *(P5)* | **P5 slice 5 — `/changelog`, and “Readings that changed” as its spine** | `lib/changelog.test.ts` (8 cases, falsified 6 ways) + an e2e |
+| *(P5)* | `a.out` removed — a 416-byte stripped ELF committed to a public repo root since `94fa36c` | `.gitignore` now covers it |
 
 ## Pick this up first
 
-1. **D9 slice 3b, and it is three things rather than one.** Read this run rather than planned:
-   `lib/parsers/openrocket.ts` ALREADY parses every `<simulation>` into a run with its name, its ten
-   figures in canonical SI and its saved trace — and `predictionFigures` throws all of it away when
-   there is more than one, returning a refusal that names them. **The fixture exists**: the corpus's
-   one `.ork` states **five** simulations.
-   **Correcting myself inside the same run, because I first wrote this down as "scoped to a UI
-   decision" and that was wrong by about two thirds.** A picker is not a control over data already
-   in hand: **no design survives the drop.** The `runs` array lives inside one
-   `readPredictionDetail` call made from `ingestFiles`'s catch block, `predictionFigures` collapses
-   it to figures-or-a-refusal before returning, and nothing about the `.ork` is kept — which is
-   exactly what the note a flyer reads already tells them (*"unlike a device summary, it is not kept
-   with the flight"*). By the time anyone could point at a simulation the flight is analysed, saved
-   and rendered. So the slice is: surface the runs out of `ingestFiles`; hold them for the session on
-   the analyze page, which has no such state today; re-merge the chosen run's figures and curve onto
-   an already-built flight and re-render the cross-check — plus the control, with its five states.
-   **It was deliberately not started at the end of this run**, because it changes what reaches the
-   cross-check panel — where a PREDICTION sits beside real readings — and that is the blur the
-   safety spine exists to prevent. Take it first, with a whole session in front of it.
-   Also open on the D-track: **D10's remaining slices** (the capabilities the committed fixtures do
-   not cover still need synthesized, labelled logs — including the `/stitch` sample this run
-   declined to fake), and **D8's tilt slice**, which is MEASURED AND BLOCKED and should stay
-   blocked — read its status line before reopening it.
-2. **P5 slice 5 — a visible CHANGELOG.** The version is on the page and traceable to a commit now,
-   and a flyer can report a bug or ask for a logger from inside the app (slices 3 and 4). What is
-   missing is a human account of what changed between builds — which is the half that cannot be
-   generated from commit subjects without becoming noise, and is worth an increment of writing.
-3. **The two D11 gaps filed rather than fixed** (`BACKLOG.md`, newest first) — a restored group whose
-   recordings were CROPPED can compute an apogee spread over two different stretches, and two copies
-   of one record under different names group as a flight recorded twice. **Both are downstream of one
-   root**: the record bakes the flyer's crop into the samples instead of stating it. Fix the root and
-   both go.
-4. **The multi-source surface audit's findings**, filed and mostly unreproduced. Two are worth a
-   session: `analyzedDataCsv` is the only report artifact with no recording line while shipping in
-   the same ZIP as the .md that has one; and the comparison surface — whose entire subject is several
-   recordings of one flight — never reads the grouping the logbook already holds, down to
-   `compareJson.sameFlight` having no verdict a stated grouping could produce.
+1. **D10's remaining slices.** The committed fixtures cover a single flight, two boards on one flight, and a log beside its board's summary. Still needing SYNTHESIZED, labelled logs: a deliberately mis-scaled column for the mapper, a saturated accelerometer, and a staged flight on two devices — the last of which is also why `/stitch` still has no sample. The *done when*'s hardest clause is unchanged: **labelled synthetic on every surface that can carry it out of the app**, pinned by an asymmetry check rather than a per-surface list.
+2. **A multi-simulation design dropped into a COMPARISON says nothing at all.** Filed this run with the repro. It contributes no figures so it is never in `paired`; it finds a target so it is never in `skipped`; `predictionOffers` is read only by the analyze page; and its refusal lands on `flight.notes`, which `CompareView` does not render. That is the *"silent nothing … which is false and is the worse failure"* `predictionFigures` names in its own header. The fix is a `predictionUnshown` list out of `ingestFiles`, rendered by both surfaces from one builder, the way `predictionNote` already is.
+3. **P-track: P1, P2, P3 or P4.** P4 (*The range on a phone*) is `NOT STARTED` and sharpened by `ON-6` to name three surfaces to answer *"laid out vertically, not merely narrowed"* against: the comparison table, the channel explorer, and the chart legends. This run's phone lens filed several supporting measurements in `BACKLOG.md`.
+4. **The design-system audit's output**, which had never been run before this session and now has been. It returned ~20 divergences — hand-rolled `Disclosure` in two files with `Disclosure`'s own class string byte-for-byte, `SampleTable` reaching past `DataTable` and `IconButton`, `NumberField` bypassed in `CropControl`. **Reproduce each before scoping**: one was sent to adversarial verification this run and was refuted on all three of its claims.
 
 ## Owed to the sibling repo
 
-`DESIGN.md` is identical in both, and **the sibling is being worked on concurrently** — PR #159
-landed a §8 change here from that side during this run, which is the mechanism working. Nothing in
-this run changed `DESIGN.md`, so nothing new is owed. Still owed from earlier runs: §5's `Popover`
-and `SectionNav`, and **§2's tertiary token still fails AA in dark** (4.12:1 on page, 3.67:1 on
-raised, against 4.83:1 in light) at five sites that are not disabled controls. Parked in
-`OWNER-NOTES.md` → *Awaiting the owner*.
+`DESIGN.md` is identical in both and **nothing in this run changed it**, so nothing new is owed. Still owed from earlier runs: §5's `Popover` and `SectionNav`, and **§2's tertiary token still fails AA in dark** (4.12:1 on page, 3.67:1 on raised) at five sites that are not disabled controls. Parked in `OWNER-NOTES.md` → *Awaiting the owner*.
 
 ## The done-check, executed — what each step returned
 
-1. **Corpus sweep: 148 tests over 62 manifest fixtures, on every gate, 0 goldens moved all run.**
-   Three deliberate sweeps beyond the suite, each naming its count: **2 of 38** analysable recordings
-   publishing a burnout speed labelled `measured` off a derived trace (the Sev-1, before); **0 of 38**
-   after; and **0 of 38** reaching the gap-in-the-ascent leak — which is why that half was fixed by
-   making one flag single rather than by adding a guard that fires on nothing.
-2. **Cold walks.** The record round-trip and the composite round-trip both driven end to end in the
-   real app, each wiping the logbook between saving and dropping. Plus a phone + OFFLINE walk of the
-   built export at 390×844: all six routes 200 with real headings, **offline 6/6 served from the
-   service worker**, the methods measure 62 characters at 16 px, longest rendered paragraph 372
-   words, **zero console errors**. Production fetched separately and confirmed serving the merged
-   SHA at two points in the run.
-3. **`COMPETITION.md` row 37 added AND resolved in the same run** — a method write-up that cites.
-   Debrief had 0 URLs and no named algorithm in 102 KB; it now cites five verified sources, and the
-   row records why that is a lead rather than parity (OpenRocket's bibliography is excellent and
-   frozen at v13.05 while its app is many releases past it).
-4. **§9 counts: table at the top. The only one that moved went up** (adopters 36→37).
-5. **`BACKLOG.md` read and appended to** — 4 new entries, each with the measurement that makes it
-   actionable. Two describe exposures this run's own work created and were filed the same day as the
-   feature rather than after it.
+1. **Corpus sweep: 149 tests over 62 manifest fixtures, on every gate, 0 goldens moved all run.** No independent sweep beyond the suite was needed: this run shipped no calculation change. Said plainly rather than dressed up — an empty result is a result.
+2. **Cold walks.** Five e2e walks drive the picker end to end in the real app, including one that wipes the logbook between saving a record and dropping it back. Production fetched separately and confirmed serving `8714271`.
+3. **`COMPETITION.md`: row 38 added and resolved, row 14 resolved.** Row 38 is how the field handles "which simulation, and is it current" — verified from OpenRocket's own source and issue tracker, with one claim marked `UNVERIFIED`. Row 14 closes P5's whole subject.
+4. **§9 counts: table at the top. Four moved and all four went UP.**
+5. **`BACKLOG.md` read and appended to** — 4 new entries, each with the measurement that makes it actionable, and each recording what was checked rather than assumed.
 6. **Both track questions.**
-   - **D:** a flyer who flew two altimeters, or flew a staged rocket on two boards, can save the
-     whole thing as files, come back months later, drop them in, and get **one flight** or **one
-     composite in the right order** rather than a pile of unrelated logs — with the tool saying it
-     remembered rather than that it worked it out.
-   - **P:** the methods page cites its sources where it cited none; the repo landing page is 1,948
-     words with four pictures instead of 4,545 words with none; the landing surface states what the
-     tool is for instead of leaving a flyer to discover it; and the page says which build it is. Plus
-     one wrong reading corrected on two real corpus flights.
-7. **`ROADMAP.md` updated** — D11 and P9 both marked SHIPPED with every clause named against its
-   check, P5 to IN PROGRESS with three slices done and what is left in order, and **four decisions**
-   recorded under *Decisions taken without the owner* with the alternative rejected in each.
-8. **`OWNER-NOTES.md`: zero notes are open without a verdict.** All eight carried verdicts dated
-   2026-08-08 and none is new, so none was owed one this run. **Two moved to `## Resolved`** — `ON-1`
-   (the docs wall) and `ON-4` (the canonical round-trip) — which are the first entries that file has
-   ever had there. **Six items sit under *Awaiting the owner*** (counted, not recalled), one added this run: the GitHub
-   repo description, topics and pinned links, which no tool in this session can write.
+   - **D:** a flyer whose design holds several simulations can say which one flew and see it compared beside their flight — where before they had to go back to OpenRocket and re-export a design with one simulation in it.
+   - **P:** the tool can now tell a flyer what changed between builds, and specifically **which builds moved a number** — the question a saved cert report could pose and nothing could answer. Plus `Card`/`Section`/`SectionNav`/`Notice` adoption up, and a stray binary off the public repo root.
+7. **`ROADMAP.md` updated** — D9 SHIPPED with every clause named against its check, P5 slices 1–5 SHIPPED with the owner-level remainder named.
+8. **`OWNER-NOTES.md`: zero notes are open without a verdict.** All eight carry verdicts dated 2026-08-08 and none is new, so none was owed one this run. **Six items sit under *Awaiting the owner*** (counted, not recalled) — unchanged by this run.

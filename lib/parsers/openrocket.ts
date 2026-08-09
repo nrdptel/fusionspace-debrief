@@ -339,45 +339,117 @@ export function readPrediction(xml: string): Prediction | null {
  * and why it declined. A silent nothing would read as "this file has no prediction", which is
  * false and is the worse failure.
  *
- * Recorded under *Decisions taken without the owner* in `ROADMAP.md`. The obvious alternative —
- * let the flyer pick which simulation — is the better product answer and is filed as the next
- * slice; it is not this one, because a picker is a control with its own state, persistence and
- * touch contract, and shipping the unambiguous case first is what gets the capability in front of
- * a flyer this run.
+ * Recorded under *Decisions taken without the owner* in `ROADMAP.md`.
+ *
+ * **The refusal is still the DEFAULT, and that did not change when the picker shipped.** What a
+ * flyer can now do is state which simulation flew, which is a fact they have and the file does
+ * not; Debrief never picks one on their behalf and never picks one silently. So this function is
+ * unchanged in what it returns — the choice is applied afterwards, by `lib/predictionChoice.ts`,
+ * and only ever because somebody said so.
  */
-export function predictionFigures(
-  xml: string,
-): { rocket: string; reported: ReportedValue[]; notes: string[]; series?: PredictedSeries } | null {
+export function predictionFigures(xml: string): PredictionContribution | null {
   const { prediction } = readPredictionDetail(xml);
   if (!prediction) return null;
+  return predictionFiguresFrom(prediction);
+}
 
+/** What a design contributes to the flight it was dropped beside. */
+export interface PredictionContribution {
+  rocket: string;
+  reported: ReportedValue[];
+  notes: string[];
+  series?: PredictedSeries;
+}
+
+/** The same answer as `predictionFigures`, from an already-read `Prediction`.
+ *
+ *  Split out because `lib/ingest.ts` needs BOTH halves of one read — the contribution, and the
+ *  runs themselves, so a flyer can be offered the choice this function declines to make. The
+ *  corpus's `.ork` is 996 KB of XML; reading it twice to get two views of one answer is a cost
+ *  with no reason behind it. */
+export function predictionFiguresFrom(prediction: Prediction): PredictionContribution {
+  const rocket = prediction.rocket ?? 'this design';
+  if (prediction.runs.length > 1) {
+    return { rocket, reported: [], notes: [predictionRefusal(prediction)] };
+  }
+  return figuresForRun(prediction, prediction.runs[0]);
+}
+
+/** Debrief's own words for declining to pick, when a design states several simulations.
+ *
+ *  Exported because the refusal has to be REVERSIBLE. Once a flyer says which simulation flew,
+ *  this sentence is no longer true of their flight and has to come back off it — and taking a
+ *  note off by matching the string that put it on is only sound if both sides call the same
+ *  function. See `lib/predictionChoice.ts`. */
+export function predictionRefusal(prediction: Prediction): string {
   const rocket = prediction.rocket ?? 'this design';
   const by = prediction.creator ? ` by ${prediction.creator}` : '';
+  const named = prediction.runs.map((r) => r.name ?? 'an unnamed simulation');
+  return (
+    `“${rocket}” states ${prediction.runs.length} simulations${by} — ${named.join(', ')} — and a flight log does not say which motor flew, ` +
+    `so Debrief will not pick one to compare against. Tell Debrief which one flew, or save the design with only that simulation and drop it in again.`
+  );
+}
 
-  if (prediction.runs.length > 1) {
-    const named = prediction.runs.map((r) => r.name ?? 'an unnamed simulation');
-    return {
-      rocket,
-      reported: [],
-      notes: [
-        `“${rocket}” states ${prediction.runs.length} simulations${by} — ${named.join(', ')} — and a flight log does not say which motor flew, ` +
-          `so Debrief will not pick one to compare against. Save the design with only the simulation you flew, or drop it in again once that is the one it holds.`,
-      ],
-    };
-  }
+/** The opening of the sentence that records a FLYER's pick, and the only place it is written.
+ *
+ *  It is a constant rather than a literal because two things have to agree about it: the note that
+ *  states the pick, and `flyerChoseSimulation`, which is how a machine-readable export says a human
+ *  chose the run instead of leaving a consumer to parse English. A reworded sentence must not be
+ *  able to leave the detector matching the old one. */
+const FLYER_CHOSE = 'You said';
 
-  const run = prediction.runs[0];
+/**
+ * Does this flight's own account say a FLYER picked which simulation flew?
+ *
+ * Exists so `analysisJson` can carry the fact as data — the same reason `read.chosenBy` does. A
+ * predicted figure a human selected and one a design stated on its own are different provenance,
+ * and a script reading ten numbers out of `doc.prediction` should not have to read a paragraph to
+ * tell them apart.
+ */
+export function flyerChoseSimulation(notes: readonly string[]): boolean {
+  return notes.some((n) => n.startsWith(FLYER_CHOSE) && n.includes('is the one that flew'));
+}
+
+/**
+ * The figures ONE simulation contributes, and the sentences that go with them.
+ *
+ * `chosenByFlyer` changes only who is said to have picked — never what is compared. That
+ * distinction is the whole reason a flyer may pick at all: Debrief still cannot tell which motor
+ * flew, so when a run is compared on the flyer's word the surface has to say it was the flyer's
+ * word. A design stating exactly one simulation is not a choice anybody made, and gets no such
+ * line.
+ */
+export function figuresForRun(
+  prediction: Prediction,
+  run: PredictedRun,
+  chosenByFlyer = false,
+): PredictionContribution {
+  const rocket = prediction.rocket ?? 'this design';
+  const by = prediction.creator ? ` by ${prediction.creator}` : '';
   const which = run.name ? ` (${run.name})` : '';
   return {
     rocket,
     reported: run.values,
-    // Only the single-simulation branch carries a curve. A design stating several is refused
-    // above and contributes nothing but its refusal, so there is no curve to choose between —
-    // the same reason it contributes no figures.
     ...(run.series ? { series: run.series } : {}),
     notes: [
+      ...(chosenByFlyer
+        ? [
+            `${FLYER_CHOSE} ${run.name ? `“${run.name}”` : 'this simulation'} is the one that flew. Debrief cannot read that from a flight log, ` +
+              `so it is your statement rather than a reading — the design states ${prediction.runs.length} simulations and the other ` +
+              `${prediction.runs.length - 1} are not compared. Debrief doesn’t keep the design in your logbook, so changing your mind ` +
+              `later means dropping the design in again beside this flight.`,
+          ]
+        : []),
       `Predicted figures read from “${rocket}”${which}${by}. These are a simulation of a flight that had not happened yet — ` +
-        `where they differ from what was flown, the flight is the measurement and the prediction is what missed it.`,
+        `where they differ from what was flown, the flight is the measurement and the prediction is what missed it.` +
+        // The design's own word for whether this simulation still matches the rocket, carried into
+        // the NOTE and not only onto the picker's chips — because the picker only exists when a
+        // design states several, and the single-simulation case is the one where DEBRIEF does the
+        // choosing. A simulation the flyer has since edited past would otherwise populate the
+        // cross-check with nothing anywhere saying so, which is the worse of the two hazards.
+        // Verbatim, uninterpreted, for the reason `PredictedRun.status` records.
+        (run.status ? ` The design states this simulation as “${run.status}”.` : ''),
       // The one caveat a flyer cannot work out from the table. Debrief reports the SPECIFIC FORCE
       // an accelerometer measures — 1 g on the pad — and a device that reports acceleration net
       // of gravity instead is named as such, because the corpus proves that convention on every

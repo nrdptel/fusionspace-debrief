@@ -26,6 +26,7 @@ import {
 } from './display';
 import type { UnitChoice } from './display';
 import { compareReported, predictionVerdict, renderReported, reportedByMetric } from './flight/reported';
+import { flyerChoseSimulation } from './parsers/openrocket';
 import { formatFlownAt } from './flight/flownAt';
 import {
   crossCheck,
@@ -1571,6 +1572,14 @@ export function analysisJson(
       flewPct: c.signedPct == null ? null : round(c.signedPct, 1),
       verdict: predictionVerdict(c),
     }));
+    // …and WHO decided these ten figures are the right ones to compare against, as data rather
+    // than as English inside `howThisFileWasRead`. The same reason `read.chosenBy` above exists: a
+    // design stating one simulation contributes its figures on its own, while a design stating
+    // several contributes nothing until a FLYER says which flew — and those are different
+    // provenance for the same numbers. A consumer should not have to parse a sentence to tell them
+    // apart, and under the measurement-not-simulation spine this is exactly the distinction that
+    // must not be lost on the way out of the app.
+    doc.predictionChosenBy = flyerChoseSimulation(flight.notes) ? 'flyer' : 'the design';
   }
 
   // Figures a flyer supplied on-screen: landing energy (½·m·v² off the measured descent

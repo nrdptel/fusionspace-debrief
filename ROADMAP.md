@@ -1651,8 +1651,42 @@ real risk attached: the standalone refusal must survive it.
 
 ## D9 — Predicted versus flown
 
-**Status:** IN PROGRESS — **slices 1, 2, 3 and 4 SHIPPED 2026-08-05. Only slice 3b is left: let a
-flyer pick which simulation when a design states several.**
+**Status:** SHIPPED 2026-08-09 — **all five slices.** Slice 3b landed last and is the one the
+milestone was held open for: a flyer can now say which simulation flew when a design states
+several. Pinned by `lib/predictionChoice.test.ts` (11 cases, falsified 5 ways) and two e2e walks in
+`e2e/analyze.spec.ts` — *"a design stating several simulations lets the flyer say which flew, and
+says it was theirs"*, which drives choose → switch → reset in the real app, and *"a chosen
+simulation reaches the exports, not just the panel"*, which reads the `.md` a flyer pastes into a
+cert document rather than trusting the panel on screen.
+
+**What 3b shipped, against the shape scoped for it below.** All three parts it named:
+`ingestFiles` surfaces the runs as a `predictionOffers[]` paired to the flight the design landed
+on; the analyze page holds the offer and the choice on its `report` state for the session; and
+`applySimulationChoice` re-merges the chosen run's figures, notes and curve onto an already-built
+flight. The re-merge is **additive and needs no re-analysis** — a prediction contributes
+`reported`, `notes` and `predicted`, and nothing in `lib/analyze` reads any of them — so every
+surface downstream updates from the flight object rather than each learning about simulations.
+
+**The refusal is still the default and Debrief still never picks.** What changed is that a flyer
+may override it with a fact they have and the file does not, and that the override is attributed to
+them everywhere it appears. Three properties are asserted rather than assumed, because each is what
+keeps the control from being a one-way door: applying twice equals applying once, switching runs
+leaves nothing of the one before, and *Don't compare one* restores the ingested flight exactly.
+
+**Two things 3b settled that the scoping below did not have.**
+1. **A canonical record keeps the answer; the logbook does not.** `lib/reopen.ts` says in its own
+   words that a prediction is not persisted, but `toCanonical` writes `notes`, `reported` and
+   `predicted` verbatim — so a saved record returns the figures AND the line saying it was the
+   flyer's statement, which is right, since D11's whole point is that a flyer's statements survive.
+   The copy therefore says the design must come back to *change* the answer, rather than claiming
+   the answer is forgotten. Measured, not assumed; an earlier draft of that sentence was wrong.
+2. **The design's own word for each run's freshness was hover-only, and is now visible.** Found by
+   this run's competitive probe against OpenRocket, whose Flight Simulations table carries a status
+   per row. `PredictedRun.status` was already parsed and was rendered only in a `title=` — nothing
+   at all at the pad, which `DESIGN.md` §5 rules out before §8 does. It is shown verbatim on every
+   chip now and **interpreted nowhere**, which is the caution that field was written with: the
+   format page shows one example value and defines none, so even "warn unless it says uptodate"
+   would be a rule built on an unpublished vocabulary. `COMPETITION.md` row 38 carries the rest.
 
 **Scoped 2026-08-09 by reading rather than by planning.** `lib/parsers/openrocket.ts` already reads
 every `<simulation>` block into a run with its own name, its ten stated figures in canonical SI, and
@@ -3343,8 +3377,9 @@ what P4 must answer, not whether it runs.
 
 ## P5 — Ready for the public
 
-**Status:** IN PROGRESS — **slice 1 SHIPPED 2026-08-09**: the README shows the tool instead of
-describing it. **4,545 words, 32 KB, zero images → 1,948 words, 16 KB, four images**, with the
+**Status:** IN PROGRESS — **slices 1–5 all SHIPPED 2026-08-09.** Only the repo METADATA half of
+`ON-B2` is outstanding, and it is owner-level: no tool in a session can set a repository's
+description, topics or pinned links. Slice 1 shipped the README — **4,545 words, 32 KB, zero images → 1,948 words, 16 KB, four images**, with the
 first screenful a real flight read by the real app rather than three paragraphs of prose. 68% of
 the file was one 3,099-word `What it does` section duplicating — without citations — what the
 methods page now says properly, so it was cut and linked rather than paraphrased. Pinned by
@@ -3376,10 +3411,22 @@ missing. Both `?template=`d so they land on the form's questions rather than an 
 `lib/links.test.ts` (4 cases, falsified 3 ways — a renamed template, the wrong query parameter, and
 a hand-written URL at a call site) and an e2e over three routes.
 
-**What is left, in order.** (a) A visible CHANGELOG — the version is now on screen and traceable to a
-commit, which is the half a flyer can act on; what is still missing is a human account of what
-changed between builds. (b) The GitHub description, topics and pinned links — **owner-level and parked**, because no tool in
-this session can write repository settings; the README carries the message without them.
+**Slice 5 SHIPPED 2026-08-09 — `/changelog`, and the half of it that earns the page.**
+`lib/buildInfo.ts` made a saved report traceable to the code that wrote it; a build identifier says
+WHICH code ran and cannot say what that code did differently, so a flyer whose report disagreed with
+today's read had a SHA and no account of why. The page answers that, and its spine is **“Readings
+that changed”** — first in each release rather than last, because a number that moved is the one
+thing a flyer holding an old cert package has to know about, and it is the entry a generic
+Added/Changed/Fixed template has no place for. **3 of 8 releases so far moved a reading**, and the
+five that did not say so in as many words rather than omitting the heading, which would leave a
+reader working out whether nothing moved or nobody checked. Pinned by `lib/changelog.test.ts` (8
+cases, falsified 6 ways: a post-dated release, a release out of order, copy where “upload” describes
+something a flyer does, a dropped footer link, a dropped service-worker precache entry, and an entry
+that is a bare commit subject) and an e2e that walks in from the footer on another route.
+
+**What is left.** The GitHub description, topics and pinned links — **owner-level and parked**,
+because no tool in this session can write repository settings; the README carries the message
+without them. Everything else in the *done when* is met.
 
 **Outcome.** Someone can find Debrief, understand it, use it, trust it, and tell someone else.
 

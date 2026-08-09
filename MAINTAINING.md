@@ -113,6 +113,22 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   regression. `playwright.config.ts` now compares the revisions and throws with that reason, so
   trust the error over the old advice: run `npx playwright install chromium` when the image's
   build doesn't match, rather than forcing the mismatched one.
+- **The shell's working directory is NOT stable between commands in this harness, and a command
+  that runs from the wrong one fails in a way that reads as a broken repo.** Measured 2026-08-09:
+  `npm run build` launched in the background reported `ENOENT … /home/user/package.json` — the
+  parent of the checkout — while a foreground `pwd` in the same session said the repo. Later, a
+  bare `npx playwright test --grep …` ran from `/home/user`, found no `playwright.config.ts`, fell
+  back to scanning the whole tree and reported "No tests found" after erroring on a dozen VITEST
+  files. Neither says "wrong directory" anywhere in its output. **Prefix every command with
+  `cd /home/user/fusionspace-debrief &&`** — or use absolute paths throughout — and never trust a
+  relative one. The tell is an error naming a path one level above the repo, or a test runner
+  discovering files it has no business reading.
+- **And read the LOG, not the harness's exit status.** A backgrounded `cmd > log 2>&1; echo "rc=$?"`
+  reports the exit code of the trailing `echo`, so a compound command whose real work failed is
+  announced as "completed (exit code 0)". That is how the phantom build above was believed for
+  twenty minutes. Write the rc to a file and read it; the general form is the one this manual
+  already records about `tail` swallowing a red suite — **read the result, not the exit code of
+  whatever you piped it through.**
 - **Throwaway probes** are named `*-tmp.*` and gitignored. Check the glob covers the exact name you
   chose, and delete them before you finish. **Gitignored is not unchecked:** `prebuild` runs
   `tsc --noEmit` over the whole repo, so a probe with a type error turns `npm run build` RED while

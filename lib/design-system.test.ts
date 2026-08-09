@@ -497,7 +497,13 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  that a flyer's own altimeter software cannot (P5 slice 2). A NEW surface taking the primitive
    *  on the pass that creates it, which is the cheap direction — the expensive ones in this list
    *  are all conversions. */
-  Card: 26,
+  /** 26 → 27 on 2026-08-09: `SimulationChoice`, the control that lets a flyer say which of a
+   *  design's several simulations flew (D9 slice 3b). Another NEW surface built on the primitive
+   *  rather than converted onto it — which is the point of P1 having gone first. */
+  /** 27 → 28 on 2026-08-09: `app/changelog/page.tsx`, whose "Readings that changed" block is a
+   *  `Card tone="warn"` (P5 slice 5). A ROUTE adopting the primitive, which is why this count
+   *  reads `ui` rather than `components` — see the note above the assertion. */
+  Card: 28,
   /** 18 → 19 on 2026-08-03 with §5's fifth weight. `Analyzer` is the new adopter: its "← Analyze
    *  another flight" was one of eight hand-rolled indigo-text controls across four files, which is
    *  the vocabulary having been short a word rather than four files having been careless. The
@@ -569,7 +575,10 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   Extrapolated: 1,
   EmptyState: 1,
   ErrorState: 2,
-  Section: 2,
+  /** 2 → 3 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
+   *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —
+   *  every primitive it needed already existed. */
+  Section: 3,
   /** 3 → 4 on 2026-08-01: the sample table's channel scope, which is 2 mutually exclusive
    *  options with both visible — §5's own definition of when to reach for this. */
   Segmented: 4,
@@ -586,7 +595,10 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   /** 0 → 2 on 2026-08-08. Lifted out of `FlightReport`, where it was hand-rolled, and given to
    *  `app/methods/page.tsx`, which is longer than the report and had no in-page navigation at
    *  all. Both adopters landed in the same commit as the primitive. */
-  SectionNav: 2,
+  /** 2 → 3 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
+   *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —
+   *  every primitive it needed already existed. */
+  SectionNav: 3,
   /** §5's "every table is this one", started 2026-08-01 on the two cross-check tables — the two
    *  surfaces §6 exists for and the ones a cert document most wants to lift. `SampleTable` and
    *  `CompareView` are deliberately NOT counted here and are not meant to be: one is transposed
@@ -603,7 +615,10 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  enumerating `div|section|aside|li|ul` found three and missed the three written as `<p>` — the
    *  same mistake as the chip census's `<span>`-only pass, made twice in one run. It was caught by
    *  cross-checking against a colour grep rather than by trusting the scanner. */
-  Notice: 5,
+  /** 5 → 6 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
+   *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —
+   *  every primitive it needed already existed. */
+  Notice: 6,
   /** The bordered-no-background container, lifted 2026-08-01 from the five sites that had written
    *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
    *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical
