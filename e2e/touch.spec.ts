@@ -440,33 +440,27 @@ test('the comparison reads down the page on a phone, and hides nothing', async (
     ]);
   await expect(page.getByRole('heading', { name: /Comparing/i })).toBeVisible({ timeout: 60_000 });
 
-  // The wide table is not rendered at all here — not merely scrolled off. Its own header cell is
-  // the tell, because the stacked layout has no column headers.
+  // The column headers are what a TABLE needs; as blocks each cell names its own flight, so the
+  // header group is gone at this width rather than scrolled off it.
   await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeHidden();
 
-  // Every metric is its own block, and the Spread the table hides is a labelled line in each.
-  const apogee = page.getByRole('region', { name: 'Apogee', exact: true });
-  await expect(apogee).toBeVisible();
-  await expect(apogee.getByText('Spread')).toBeVisible();
-
-  // …including the two that were reachable at NO narrow width before this: Max Mach and Flight
-  // time. Named individually rather than counted, because the count was the thing that was wrong.
+  // The Spread was `hidden … sm:table-cell` and is now a labelled line in every block. Both of
+  // the values that were reachable at NO narrow width are here, named individually rather than
+  // counted — the count is the thing the ledger got wrong.
   for (const label of ['Max Mach', 'Flight time']) {
-    const block = page.getByRole('region', { name: label, exact: true });
-    await expect(block, `${label} has no block on a phone`).toBeVisible();
-    await expect(block.getByText('Spread')).toBeVisible();
+    const row = page.getByRole('row', { name: new RegExp(label) }).first();
+    await expect(row, `${label} has no row on a phone`).toBeVisible();
+    await expect(row.getByText('Spread'), `${label} shows no spread on a phone`).toBeVisible();
   }
 
-  // Nothing runs past the right edge, and nothing needs a sideways scroll to be read.
+  // Nothing runs past the right edge, so no metric needs a sideways scroll to be read.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow, 'the comparison pushes the page sideways').toBeLessThanOrEqual(0);
 
-  // The sort control on each block is a real target, not a table header shrunk.
   const small = await page.evaluate(underSizedTargets);
   expect(small, `controls under 44 px on the stacked comparison:\n${small.join('\n')}`).toEqual([]);
 
-  // And at a desktop width the table is what renders, from the same rows.
+  // …and at a desktop width the same table is a table again, with its headers back.
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole('columnheader', { name: 'Metric' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Apogee', exact: true })).toBeHidden();
 });

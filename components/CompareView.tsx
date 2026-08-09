@@ -773,84 +773,43 @@ export default function CompareView({
         );
       })()}
 
-      {/* Side-by-side metrics.
+      {/* Side-by-side metrics — ONE table, laid out two ways.
 
-          **Two shapes, one data set, and that is the whole design.** `metricRows` is computed once
-          and both renders below read it, so the phone and the desktop cannot disagree about a
-          number — the failure mode a second layout invites. What differs is the AXIS: a wide
-          screen reads a metric across its flights, a narrow one reads a flight down its metrics.
+          **`ON-6`: a vertical layout is not a narrowed one.** P4's *done when* is two floors —
+          nothing under 44 px, nothing hover-only — and a floor is satisfiable by a desktop layout
+          that has merely been made touch-safe, which is what this was: `overflow-x-auto`, so at
+          390 px a flyer scrolled sideways to read a metric across its flights, and the Spread
+          column was hidden outright because clipped at the edge it showed the leading digit of each
+          percentage, which reads as a number rather than a fragment.
 
-          `ON-6` is why the narrow one exists at all. P4's *done when* is two floors — nothing under
-          44 px, nothing hover-only — and a floor is satisfiable by a desktop layout that has merely
-          been made touch-safe, which is exactly what this surface was. The table below is
-          `overflow-x-auto`: at 390 px with three flights a flyer scrolls sideways to read a row,
-          and the Spread column was hidden outright because cut off at the edge it showed the
-          leading digit of each percentage, which reads as a number rather than as a fragment.
-          Measured 2026-08-09 over the real two-altimeter pair: 10 spreads in the table, 8 restated
-          in the prose above, **2 available at no width below `sm` at all** — Max Mach and Flight
-          time. The stacked layout carries all ten. */}
-      <div className="space-y-3 sm:hidden">
-        {metricRows.map((row) => (
-          <Card key={row.label} as="section" tone="sunken" aria-label={row.label}>
-            <button
-              type="button"
-              onClick={() => cycleSort(row.label)}
-              title={`Order the flights by ${row.label.toLowerCase()}`}
-              className={`touch-area mb-2 flex w-full items-center gap-1 text-left text-sm font-medium transition ${
-                sort?.label === row.label ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-600 dark:text-zinc-400'
-              }`}
-            >
-              {row.label}
-              {/* Standing, never hover-revealed: this renders only where the pointer is coarse. */}
-              <span aria-hidden="true" className={sort?.label === row.label ? '' : 'opacity-40'}>
-                {sort?.label === row.label && sort.dir === 'asc' ? '▲' : '▼'}
-              </span>
-            </button>
-            <dl className="space-y-1">
-              {flights.map((f, i) => (
-                <div key={f.id} className="flex items-baseline justify-between gap-3">
-                  <dt className="min-w-0 truncate text-sm text-zinc-500 dark:text-zinc-400">
-                    {columnLabels[i]}
-                  </dt>
-                  <dd
-                    className={`shrink-0 font-mono text-sm tabular-nums text-zinc-900 dark:text-zinc-100 ${
-                      i === row.best ? 'font-semibold' : ''
-                    }`}
-                  >
-                    {i === row.best && (
-                      <span className="mr-0.5" title="Highest of the flights being compared">
-                        ★
-                      </span>
-                    )}
-                    {row.cells[i]}
-                    {i === row.best && <span className="sr-only"> (highest)</span>}
-                  </dd>
-                </div>
-              ))}
-              {spread && (
-                // The column the table hides below `sm`. Here it is a labelled line rather than a
-                // cell at the edge, so it cannot be clipped into looking like a reading.
-                <div className="flex items-baseline justify-between gap-3 border-t border-zinc-200 pt-1 dark:border-zinc-800">
-                  <dt className="text-sm text-zinc-500 dark:text-zinc-400">Spread</dt>
-                  <dd className="shrink-0 font-mono text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
-                    {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </Card>
-        ))}
-      </div>
+          **The first attempt rendered a second, stacked component beside the table, and that was
+          wrong structurally rather than cosmetically.** Two trees carrying the same numbers means
+          every existing `getByText(...).first()` in the suite starts resolving to whichever copy is
+          hidden at that width — five e2e cases broke on exactly that, and the ones that did not
+          would have been luck. Worse, it is two places one value is rendered, which is the
+          disagreement this surface exists to prevent.
 
-      <div className="hidden overflow-x-auto sm:block">
-        <table className="min-w-full border-separate border-spacing-0 text-sm">
-          <thead>
-            <tr>
+          So the table itself changes shape. Below `sm` its rows become blocks and its cells become
+          labelled lines, each carrying the flight's name in a `sm:hidden` span — the only thing
+          duplicated, and a LABEL rather than a reading. One DOM, one set of value cells, and every
+          query in the suite keeps meaning what it meant. */}
+      <div className="sm:overflow-x-auto">
+        <table className="block min-w-full border-separate border-spacing-0 text-sm sm:table">
+          {/* **NOT hidden below `sm`, and the first version of this change hid it — which
+              deleted the column-reorder buttons and the colour swatches from the phone entirely,
+              the exact capability-missing-on-one-form-factor failure this slice exists to fix.
+              `e2e/touch.spec.ts` caught it.** As a block it stops being a header ROW and becomes
+              what a vertical layout actually wants: the flights, with their controls, above the
+              metrics that follow. */}
+          <thead className="block sm:table-header-group">
+            <tr className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 pb-2 sm:table-row sm:gap-0 sm:pb-0">
               <th
                 scope="col"
-                className="sticky left-0 bg-white py-2 pr-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 sm:pr-4 dark:bg-zinc-950 dark:text-zinc-400"
+                className="block py-0 pr-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 sm:sticky sm:left-0 sm:table-cell sm:bg-white sm:py-2 sm:pr-4 dark:text-zinc-400 dark:sm:bg-zinc-950"
               >
-                Metric{' '}
+                {/* The word labels a COLUMN, and below `sm` there is no column to label — but the
+                    control beside it is a real affordance and stays at every width. */}
+                <span className="hidden sm:inline">Metric</span>{' '}
                 {(sort || manual) && (
                   <Button
                     variant="link"
@@ -867,7 +826,7 @@ export default function CompareView({
                 )}
               </th>
               {flights.map((f, i) => (
-                <th key={f.id} scope="col" className="px-1.5 py-2 text-right align-bottom sm:px-3">
+                <th key={f.id} scope="col" className="block text-right align-bottom sm:table-cell sm:px-3 sm:py-2">
                   {flights.length > 1 && (
                     <span className="mb-0.5 flex items-center justify-end gap-0.5 print:hidden">
                       {/* Buttons, not drag handles: a thumb on a phone and a keyboard both
@@ -962,13 +921,16 @@ export default function CompareView({
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block sm:table-row-group">
             {metricRows.map((row) => (
-              <tr key={row.label} className="border-t border-zinc-100 dark:border-zinc-900">
+              <tr
+                key={row.label}
+                className="mb-3 block rounded-xl border-hairline bg-sunken p-3 sm:mb-0 sm:table-row sm:rounded-none sm:border-0 sm:border-t sm:border-zinc-100 sm:bg-transparent sm:p-0 dark:sm:border-zinc-900"
+              >
                 <th
                   scope="row"
                   aria-sort={sort?.label === row.label ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}
-                  className="sticky left-0 bg-white py-2 pr-2 text-left font-medium text-zinc-600 sm:pr-4 dark:bg-zinc-950 dark:text-zinc-400"
+                  className="block pb-1 text-left font-medium text-zinc-600 sm:sticky sm:left-0 sm:table-cell sm:bg-white sm:py-2 sm:pr-4 sm:pb-2 dark:text-zinc-400 dark:sm:bg-zinc-950"
                 >
                   <button
                     type="button"
@@ -1012,26 +974,46 @@ export default function CompareView({
                        glyph and the other a colour.
                        Every cell is §2's PRIMARY text, because every one of them is a number being
                        read; the previous `zinc-800/zinc-200` was not a §2 text token at all. */
-                    className={`px-1.5 py-2 text-right font-mono tabular-nums text-zinc-900 sm:px-3 dark:text-zinc-100 ${
+                    className={`flex items-baseline justify-between gap-3 py-0.5 font-mono tabular-nums text-zinc-900 sm:table-cell sm:px-3 sm:py-2 sm:text-right dark:text-zinc-100 ${
                       i === row.best ? 'font-semibold' : ''
                     }`}
                   >
-                    {i === row.best && (
-                      <span className="mr-0.5" title="Highest of the flights being compared">
-                        ★
-                      </span>
-                    )}
-                    {row.cells[i]}
-                    {i === row.best && <span className="sr-only"> (highest)</span>}
+                    {/* The only thing this layout duplicates, and it is a LABEL rather than a
+                        reading: as blocks there is no column header above the value to say which
+                        flight it belongs to. `aria-hidden` because the table's own `scope="col"`
+                        header already names it to a screen reader at every width. */}
+                    <span
+                      aria-hidden="true"
+                      className="min-w-0 truncate font-sans font-normal text-zinc-500 sm:hidden dark:text-zinc-400"
+                    >
+                      {columnLabels[i]}
+                    </span>
+                    <span className="shrink-0">
+                      {i === row.best && (
+                        <span className="mr-0.5" title="Highest of the flights being compared">
+                          ★
+                        </span>
+                      )}
+                      {row.cells[i]}
+                      {i === row.best && <span className="sr-only"> (highest)</span>}
+                    </span>
                   </td>
                 ))}
-                {/* Hidden on a phone, where it is the column that doesn't fit: cut off at the
-                    edge it showed the first digit of each percentage, which reads as a number
-                    rather than as a fragment. Nothing is lost — the cross-check panel above
-                    states every one of these spreads in prose. */}
+                {/* It USED to be `hidden … sm:table-cell`, with a comment claiming "nothing is
+                    lost — the cross-check panel above states every one of these spreads in prose".
+                    Measured 2026-08-09 over the real two-altimeter pair: the table carries 10
+                    spreads and that panel restates 8, under different names. Max Mach and Flight
+                    time were available at no width below `sm` at all. As a labelled line rather
+                    than a cell at the edge it cannot be clipped into looking like a reading, so
+                    there is nothing left to hide. */}
                 {spread && (
-                  <td className="hidden px-1.5 py-2 text-right font-mono tabular-nums text-zinc-500 sm:table-cell sm:px-3 dark:text-zinc-400">
-                    {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
+                  <td className="mt-1 flex items-baseline justify-between gap-3 border-t border-zinc-200 pt-1 font-mono tabular-nums text-zinc-500 sm:mt-0 sm:table-cell sm:border-0 sm:px-3 sm:py-2 sm:text-right dark:border-zinc-800 dark:text-zinc-400">
+                    <span aria-hidden="true" className="font-sans sm:hidden">
+                      Spread
+                    </span>
+                    <span className="shrink-0">
+                      {row.spreadPct != null ? `${row.spreadPct.toFixed(row.spreadPct < 1 ? 1 : 0)}%` : '—'}
+                    </span>
                   </td>
                 )}
               </tr>
