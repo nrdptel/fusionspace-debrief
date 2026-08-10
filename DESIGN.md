@@ -293,9 +293,16 @@ hand-rolls it instead is not done.
   Toolbar and in-table actions only.
 - **`Button variant="danger"`** — secondary geometry, `danger` text and border. Removal only.
 - **`Button variant="link"`** — `accent` text, no border, no fill, **no control padding**. The one
-  weight that sits INSIDE a sentence: *"Got a backup? **Restore it**."*, *"← Analyze another
-  flight"*, a **clear sort** beside a column header. Underline on hover, never at rest in prose, so
-  it does not compete with a real link in the same paragraph.
+  weight that sits INSIDE a sentence: *"← Analyze another flight"*, **report this flight** beside a
+  recording in the logbook's own list, a **clear sort** beside a column header. Underline on hover,
+  never at rest in prose, so it does not compete with a real link in the same paragraph.
+
+  **The canonical example used to be *"Got a backup? **Restore it**."* and it was deleted on
+  2026-08-09** — the logbook's empty state took §5's `EmptyState`, whose action is a standalone
+  control on its own line, and a `link` weight standing alone is a sentence fragment with no
+  sentence. Replaced rather than removed, because an example naming a call site that no longer
+  exists is how a binding document stops being checkable. The rule is unchanged; what moved is
+  which real control demonstrates it.
 
   **This heading read "three button weights, and only three" while listing four, and one app had
   independently hand-rolled a fifth at eight call sites across four components** — measured

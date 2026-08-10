@@ -99,3 +99,69 @@ describe('the logbook does not crown an apogee Debrief has qualified', () => {
     expect(personalBests([row({ id: 'a', apogeeM: 500 }), toMeta(stored)]).apogeeId).toBeNull();
   });
 });
+
+/**
+ * **A flight Debrief made up is not one of your flights, and the star says "your flights".**
+ *
+ * This is the opposite treatment to the caveated apogee above and the difference is the point. A
+ * caveat says Debrief cannot settle how high THIS flight went — so it might have been the highest,
+ * and the whole set stops ranking. A synthetic flight was never flown: it did not go higher and it
+ * did not go lower, so it drops out and the real flights rank against each other exactly as they
+ * did before it was opened.
+ *
+ * Both directions are asserted, because getting this wrong in the second direction — a
+ * demonstration file quietly suppressing a real flyer's personal best — is the version nobody
+ * would notice.
+ */
+describe('the logbook does not crown a flight Debrief made up', () => {
+  it('never gives the star to a synthetic flight, on either metric', () => {
+    // Two REAL flights, because a best-of-one is not a record on either metric — the synthetic
+    // one must not be allowed to make up the numbers either.
+    const best = personalBests([
+      row({ id: 'small', apogeeM: 300, maxVelocityMs: 60 }),
+      row({ id: 'real', apogeeM: 500, maxVelocityMs: 90 }),
+      row({ id: 'demo', apogeeM: 1666, maxVelocityMs: 173, synthetic: true }),
+    ]);
+    expect(best.apogeeId, 'a made-up apogee cannot be the highest of your remembered flights').toBe('real');
+    expect(best.speedId, 'nor the fastest').toBe('real');
+  });
+
+  it('does not let a demonstration file suppress a real flyer’s best', () => {
+    // Without the exclusion this set has two finite apogees and the synthetic one wins; with a
+    // whole-set block (the caveat rule) nobody wins and the flyer silently loses a star they had.
+    // Dropped instead, so the two real flights settle it between themselves.
+    const best = personalBests([
+      row({ id: 'a', apogeeM: 500 }),
+      row({ id: 'b', apogeeM: 2115 }),
+      row({ id: 'demo', apogeeM: 99_999, synthetic: true }),
+    ]);
+    expect(best.apogeeId).toBe('b');
+  });
+
+  it('a set of one real flight beside a demonstration still crowns nothing', () => {
+    // `uniqueMaxId` needs two finite values: a best-of-one is not a record. The synthetic flight
+    // must not be the second one that makes it look like a set.
+    const best = personalBests([
+      row({ id: 'a', apogeeM: 500 }),
+      row({ id: 'demo', apogeeM: 1666, synthetic: true }),
+    ]);
+    expect(best.apogeeId).toBeNull();
+  });
+
+  it('survives the projection the list actually reads', () => {
+    const stored = {
+      id: 'demo',
+      name: 'demo-mapper-flight.csv',
+      formatLabel: 'Mapped by hand',
+      addedAt: 1,
+      apogeeM: 1666,
+      maxVelocityMs: 173,
+      synthetic: true,
+      note: '',
+      text: 'T,Alt\n0,0\n',
+    } as RecentFlight;
+    expect(toMeta(stored).synthetic).toBe(true);
+    const best = personalBests([row({ id: 'a', apogeeM: 500 }), row({ id: 'b', apogeeM: 700 }), toMeta(stored)]);
+    expect(best.apogeeId).toBe('b');
+  });
+});

@@ -44,6 +44,84 @@ export const SYNTHETIC_NOTE =
   'It is not a recording of anything, nothing here was flown, and no figure from it means anything ' +
   'about a real rocket.';
 
+/**
+ * The short form, for a surface too narrow for the sentence — a logbook row, a table cell, a
+ * column header, a line drawn on a 1200×630 image.
+ *
+ * **A tag, never a replacement.** The sentence above is the claim; this points at it, exactly the
+ * way the logbook's apogee tags point at the report's caveat. It is deliberately a single
+ * shouted word rather than a polite phrase, because the surfaces that take it are the ones a
+ * figure travels through on its way somewhere else — a spreadsheet, a clipboard, a screenshot —
+ * where nothing else on screen will say it.
+ */
+export const SYNTHETIC_TAG = 'SYNTHETIC';
+
+/**
+ * The claim in one line, for a surface that needs the sentence but cannot spend a paragraph.
+ *
+ * **Written because the first cut spent 230 px of an 844 px phone on the same 200 characters
+ * twice** — once at the top of the report and once above the readings. The second copy earns its
+ * place (the readings grid is the part that gets screenshotted, printed and scrolled straight to,
+ * and a screenshot does not carry the top of the page) but it does not earn a second full
+ * paragraph, and a screen reader reading the identical sentence out twice is worse than the
+ * duplication looks. `DESIGN.md` §4: when in doubt, tighten.
+ */
+export const SYNTHETIC_SHORT = `${SYNTHETIC_TAG} — Debrief made this flight up. Nothing here was flown.`;
+
+/**
+ * Does this flight say Debrief made it up?
+ *
+ * **Matched on the note, which is where the claim actually lives.** `lib/flight/build.ts` puts
+ * `SYNTHETIC_NOTE` at the head of `notes` when a file carried the marker, and `toCanonical` /
+ * `fromCanonical` write notes verbatim — so this is true of a flight read from the file, of the
+ * same flight re-imported from a saved record, and of one restored from a logbook backup, without
+ * any of those hops needing to know about a new field. A dedicated boolean on `RawFlight` would
+ * have been dropped by four of the five persistence hops, which is the measurement that put the
+ * claim in the notes in the first place.
+ *
+ * Exact equality rather than a substring: the sentence returned by `syntheticFromRows` is always
+ * Debrief's own, never the file's, so nobody can weaken the claim by editing their copy — and
+ * nobody can trip this by writing the word "synthetic" in a logbook note either.
+ */
+export function isSynthetic(flight: { notes?: readonly string[] }): boolean {
+  return (flight.notes ?? []).some((n) => n === SYNTHETIC_NOTE);
+}
+
+/**
+ * The column a table grows when one of its rows is a flight Debrief MADE UP, and what each row
+ * says in it.
+ *
+ * **A COLUMN and not a caption row**, and the precedent is not rocketry's. `COMPETITION.md` row 41
+ * measures how the instrumentation world marks un-measured data: NMEA 0183 puts simulation mode in
+ * *every sentence* (GGA quality `8`, FAA mode `S`), HL7 v2 makes it a required field on *every
+ * message* (MSH-11 Processing ID), and DICOM marks *every instance* `ORIGINAL` or `DERIVED`. The
+ * shared principle is **per-record redundancy**: the claim lives in a field the consumer must
+ * already parse to get the numbers at all. Both destinations here are a spreadsheet, where a
+ * caption above the header is a cell that a sort moves away from the rows it was about; a per-row
+ * value survives a sort, a filter, and a partial paste.
+ *
+ * That is also what settles the data CSV, which `ROADMAP.md`'s D10 had carried open as *"a column
+ * or a decision"*: a CSV has no comment syntax every reader agrees on — a leading `#` breaks a
+ * spreadsheet's column detection, which is why that export carries no build stamp either — so the
+ * marker cannot ride in a header. A column is a thing every CSV reader already parses.
+ *
+ * **The header states a fact rather than asking a question, and that was a correction.** It read
+ * `Real flight?` answered with `SYNTHETIC` / `flown` — a yes/no header answered with nouns, which
+ * in the destination cannot be filtered on the question as posed and leaves a reader inferring the
+ * polarity.
+ *
+ * Here rather than beside either caller, because the logbook's clipboard table and the flight's
+ * data CSV are two surfaces answering one question, and two answers to one question is how a
+ * caveat ends up phrased two ways.
+ */
+export const PROVENANCE_COLUMN = 'Provenance';
+
+/** What one row says in that column. Never blank for a real flight: an empty cell reads as missing
+ *  data rather than as a recording, and this column exists to be unambiguous. */
+export function provenanceCell(synthetic: boolean | undefined): string {
+  return synthetic ? `${SYNTHETIC_TAG} — made up by Debrief, not flown` : 'recorded';
+}
+
 /** One point on a generated profile. Seconds from ignition, metres AGL, metres per second. */
 export interface SynthSample {
   t: number;

@@ -1,6 +1,6 @@
 import type { RawFlight } from '@/lib/flight/types';
 import { describeLog } from '@/lib/logInfo';
-import { Chip } from './ui';
+import { Chip, Disclosure } from './ui';
 
 function fmtDuration(s: number): string {
   if (!Number.isFinite(s) || s <= 0) return '—';
@@ -26,11 +26,12 @@ export default function LogDetails({ flight }: { flight: RawFlight }) {
   for (const m of info.meta) rows.push({ label: m.key, value: m.value });
 
   return (
-    <details className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/50 print:hidden">
-      <summary className="cursor-pointer select-none font-medium text-zinc-700 dark:text-zinc-300">
-        Log details
-      </summary>
-      <div className="mt-3 space-y-3">
+    // §5's `Disclosure`. The class string here was BYTE-IDENTICAL to the primitive's own, down to
+    // the `<summary>`'s — and this file already imported from `./ui` for `Chip`, so the primitive
+    // was one word away in the same import statement. `mt-0` because the primitive carries `mt-3`
+    // and this instance is positioned by its parent.
+    <Disclosure summary="Log details" className="mt-0 print:hidden">
+      <div className="space-y-3">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
           {rows.map((r) => (
             <div key={r.label}>
@@ -68,6 +69,6 @@ export default function LogDetails({ flight }: { flight: RawFlight }) {
           </div>
         )}
       </div>
-    </details>
+    </Disclosure>
   );
 }

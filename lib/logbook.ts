@@ -8,6 +8,7 @@ import { formatFlownAt } from './flight/flownAt';
 
 export type LogbookSort = 'recent' | 'flown' | 'apogee' | 'speed';
 
+
 /** A copy of the list ordered by the chosen key (descending for the metrics,
  *  most-recent-first for time). Missing values sink to the bottom. */
 export function sortRecents(recents: RecentMeta[], sort: LogbookSort): RecentMeta[] {
@@ -91,7 +92,17 @@ function uniqueMaxId(recents: RecentMeta[], get: (r: RecentMeta) => number | nul
  * measurement.
  */
 export function personalBests(recents: RecentMeta[]): { apogeeId: string | null; speedId: string | null } {
-  const flights = groupRecordings(recents).map((g) => g.primary);
+  // **A flight Debrief made up never enters the competition, and it is EXCLUDED rather than
+  // blocking the set.** That is the opposite treatment to a caveated apogee below, and the
+  // difference is what each one means. A caveat says Debrief cannot settle how high THIS flight
+  // went — so it might have been the highest, and crowning the runner-up would be a stronger
+  // claim than the data supports. A synthetic flight is not a flight: nothing was flown, so it
+  // did not go higher and it did not go lower, and dropping it out leaves the real flights
+  // ranking against each other exactly as they did before it was opened. Ranking it would put a
+  // made-up number on a star that says "Highest of your remembered flights".
+  const flights = groupRecordings(recents)
+    .map((g) => g.primary)
+    .filter((r) => !r.synthetic);
   // **A star is a ranking, and a ranking needs a number the app is willing to stand behind.** The
   // report prints a caveated apogee as "(at least)" or "unproven"; the comparison refuses its
   // crown outright (`rankBlocked`). The logbook was the last surface still ranking on the bare

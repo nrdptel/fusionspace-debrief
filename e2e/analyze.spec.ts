@@ -2822,3 +2822,175 @@ test('two designs claiming one flight are not offered a picker that would delete
   // The design stating several still says so, so the drop is still accounted for in full.
   await expect(page.getByText(/will not pick one to compare against/)).toBeVisible();
 });
+
+/**
+ * A flight Debrief MADE UP has to say so where the numbers are, on every surface a figure can
+ * travel out through — `ROADMAP.md`'s D10, and the hardest clause of it.
+ *
+ * The file is the shape `lib/synthetic.ts#toMapperCsv` writes: a `Synthetic` row in the metadata
+ * block ahead of the header, and column names no parser claims, so it arrives through the COLUMN
+ * MAPPER — which is the only route a generated demonstration file takes and therefore the only
+ * route this can be walked on.
+ *
+ * Built here rather than imported from `lib/` on purpose: this spec is what would catch the
+ * marker being read at parse time and then dropped on the way to a surface, and a fixture that
+ * shares the producer cannot see a change to the consumer.
+ */
+const SYNTH_SENTENCE = 'This flight is SYNTHETIC';
+/** The tail of the full sentence — present at the top of the report, deliberately absent from
+ *  the readings grid, which carries the one-line form. */
+const SYNTH_TAIL = 'no figure from it means anything';
+const SYNTH_SHORT = 'SYNTHETIC — Debrief made this flight up';
+
+function madeUpCsv(): string {
+  const rows: string[] = [
+    'Synthetic,"This flight is SYNTHETIC — numbers Debrief made up to demonstrate what it can read. It is not a recording of anything, nothing here was flown, and no figure from it means anything about a real rocket."',
+    'Demonstrates,"the column mapper"',
+    '',
+    'Elapsed,Height,Rate',
+  ];
+  // A boost, a coast to a single apogee and a two-rate descent — enough shape for the analysis
+  // to produce readings worth labelling, and short enough to drop instantly.
+  let alt = 0;
+  let v = 0;
+  for (let i = 0; i < 400; i++) {
+    const t = i * 0.05;
+    const a = t < 1.6 ? 108.2 : -9.80665;
+    if (v >= 0) {
+      v += a * 0.05;
+      alt = Math.max(0, alt + v * 0.05);
+    } else {
+      v = alt > 150 ? -7.5 : -4.2;
+      alt = Math.max(0, alt + v * 0.05);
+    }
+    rows.push(`${t.toFixed(2)},${alt.toFixed(2)},${v.toFixed(2)}`);
+    if (alt <= 0 && t > 5) break;
+  }
+  return rows.join('\n') + '\n';
+}
+
+async function openMadeUpFlight(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'demo-mapper-flight.csv', mimeType: 'text/csv', buffer: Buffer.from(madeUpCsv()) });
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
+  await page.getByLabel('Role for the Elapsed column').selectOption('time');
+  await page.getByLabel('Role for the Height column').selectOption('altitude');
+  await page.getByLabel('Role for the Rate column').selectOption('velocity');
+  await page.getByLabel('Unit for the Height column').selectOption('m');
+  await page.getByLabel('Unit for the Rate column').selectOption('m/s');
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+}
+
+test('a flight Debrief made up says so at the top of the report AND beside the readings', async ({ page }) => {
+  await openMadeUpFlight(page);
+
+  // Two notices, not one, and the second is the load-bearing half: the report runs nine screens
+  // on a phone, and the readings grid is the part that gets screenshotted, printed and scrolled
+  // straight to. A claim true at the top of a document and absent where the numbers are is the
+  // shape `MAINTAINING.md` names as worse than either alone.
+  await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
+  await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_TAIL);
+  // The readings carry the SHORT form, and that is asserted as a difference rather than as a
+  // second copy: two renderings of the same 200 characters cost ~230 px of an 844 px phone and
+  // read out twice to a screen reader. Swapping one for the other has to be a failure.
+  await expect(page.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);
+  await expect(
+    page.locator('[data-synthetic="readings"]'),
+    'the readings carry the short form, not the whole paragraph again',
+  ).not.toContainText(SYNTH_TAIL);
+
+  // …and it is not merely present, it is ABOVE the numbers it qualifies.
+  const readings = page.locator('[data-synthetic="readings"]');
+  const firstTile = page.locator('[data-reading]').first();
+  const noticeBox = await readings.boundingBox();
+  const tileBox = await firstTile.boundingBox();
+  expect(noticeBox && tileBox && noticeBox.y < tileBox.y, 'the notice sits above the first reading').toBe(true);
+
+  // It stays on the page a printer sees. Everything else in this strip is `print:hidden`, and a
+  // printed page of made-up numbers with the claim stripped off is the worst version of this.
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('[data-synthetic="report"]')).toBeVisible();
+  await page.emulateMedia({ media: 'screen' });
+});
+
+test('the file a made-up flight exports says so on every row, not just on screen', async ({ page }) => {
+  // **The walk the unit tests cannot do: that the BUTTON is wired to the labelled writer.** The
+  // per-row `Provenance` column is asserted over `analyzedDataCsv` directly in
+  // `lib/synthetic.test.ts`; nothing there proves the report's save strip calls it with the flight
+  // that knows. This is the export a flyer pastes into a spreadsheet, so the gap between "the
+  // function is right" and "the button reaches the function" is the whole risk.
+  await openMadeUpFlight(page);
+
+  const [csv] = await Promise.all([
+    page.waitForEvent('download'),
+    // Two controls on this page carry the visible label "Save .csv" — the report's data export
+    // and the channel explorer's plotted-data export, which is a separate sink still marked `todo`
+    // in the audit table. Addressed by its title; the label collision is filed in `BACKLOG.md`.
+    page.getByTitle(/Download the whole flight as CSV/).click(),
+  ]);
+  const text = await readFile(await csv.path(), 'utf8');
+  const lines = text.trim().split('\n');
+  expect(lines[0].startsWith('provenance,'), `header was: ${lines[0].slice(0, 60)}`).toBe(true);
+  // The walk's own generated flight is ~400 samples (the module's is 5,144); this bound is about
+  // the export not being a stub, so it is set from what this file actually holds.
+  expect(lines.length, 'a whole flight of samples, not a stub').toBeGreaterThan(300);
+  // Every DATA row, because select-the-block-and-paste is the gesture this file exists for.
+  expect(lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC')).length).toBe(0);
+});
+
+test('a flight Debrief made up is tagged in the logbook and never wears its star', async ({ page }) => {
+  await openMadeUpFlight(page);
+
+  // Two REAL flights beside it, so the star has a set it could settle — and 1,666 m of made-up
+  // apogee that would beat both of them.
+  // Two REAL flights beside it, and they are chosen rather than arbitrary: both are ≈1,000 ft
+  // where the made-up flight reads ≈5,459 ft, so the demonstration WOULD hold the crown if it
+  // were allowed to compete. Pick two higher fixtures and this assertion passes on a broken
+  // exclusion — which is the version of this test that proves nothing.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([
+      path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'),
+      path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'),
+    ]);
+  await expect(page.getByRole('heading', { name: /Comparing 2 flights/i })).toBeVisible({ timeout: 60_000 });
+
+  // Back to the landing surface, by RELOADING rather than by a button: the row has to come out of
+  // storage carrying the tag, not out of the render that wrote it.
+  await page.goto('/');
+  const logbook = page.getByRole('list', { name: 'Your flights' });
+  const row = logbook.getByRole('listitem').filter({ hasText: 'demo-mapper-flight.csv' }).first();
+  await expect(row).toContainText('SYNTHETIC');
+  // The star is the claim that must never land on it: "highest of your remembered flights" about
+  // a flight nobody flew.
+  await expect(row).not.toContainText('★');
+  // …and the set is genuinely rankable, so this is the star going elsewhere rather than the star
+  // being absent. Without this the assertion above passes on a logbook that crowns nothing.
+  await expect(logbook.getByText('★').first()).toBeVisible();
+
+  // **REOPEN it, which is the hop the first cut of this feature lost the claim on.** A hand-mapped
+  // flight is rebuilt from the stored text plus the stored mapping, so nothing about the reopened
+  // report comes from the render that wrote the row — and a reopen is also a SAVE, so an erasure
+  // here would be permanent rather than cosmetic. Walked as well as unit-tested because the unit
+  // test stops at `importRecent` and this is the click a flyer actually makes.
+  await row.getByRole('button').first().click();
+  await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
+  await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_TAIL);
+  // The readings carry the SHORT form, and that is asserted as a difference rather than as a
+  // second copy: two renderings of the same 200 characters cost ~230 px of an 844 px phone and
+  // read out twice to a screen reader. Swapping one for the other has to be a failure.
+  await expect(page.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);
+  await expect(
+    page.locator('[data-synthetic="readings"]'),
+    'the readings carry the short form, not the whole paragraph again',
+  ).not.toContainText(SYNTH_TAIL);
+  await page.goto('/');
+  await expect(
+    page.getByRole('list', { name: 'Your flights' }).getByRole('listitem').filter({ hasText: 'demo-mapper-flight.csv' }).first(),
+    'and the row still wears the tag after the reopen saved it back',
+  ).toContainText('SYNTHETIC');
+});

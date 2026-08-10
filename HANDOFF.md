@@ -6,146 +6,169 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **Five merges: `26fa023` (D9 + P5), `f9ced22` (D10 s3), `f97c173` (P4 s2 + the compare silent-nothing fix), `780b51b` (D10 s4), `91e7b7f` (P4 s3).** A sixth (P4 s4+s5) was on its way through CI when this was written — check it. Re-measure before believing any of this: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Sev-1** | **None found.** The opening fan-out's two claimed Sev-1s were both reproduced by hand and both downgraded — see *The two Sev-1 claims that were not*. |
-| **D — capability** | **D9 SHIPPED, all five slices. D10 slices 3 and 4 SHIPPED** — a synthetic flight says so and says it in the file, and every document a flyer keeps is now one registry (`lib/documents.ts`) that the report's save strip renders FROM. D8's tilt slice is MEASURED AND BLOCKED and should stay blocked. |
-| **P — product & craft** | **P5 SHIPPED, slices 1–5** (only its repo-METADATA half is left, and it is owner-level). **P4 SHIPPED, slices 1–5** — all three of `ON-6`'s surfaces read down the page, and the milestone's own acceptance sentence is finally walked by a check. |
-| **§9 counts, start → end of run** | radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** · inverted-type files **10→10** · `Card` adopters **26→28** · `Section` **2→3** · `SectionNav` **2→3** · `Notice` **5→6**. **Every count that moved went UP, and the two that tried to move DOWN were refused rather than re-baselined.** |
+| **Shipped to production** | **See *What shipped, in order*.** Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1334/1334 with the corpus attached, build clean, e2e 317 passed. One Sev-1-shaped defect was *created and caught inside this run*; see below. |
+| **D — capability** | **D10 slice 5a SHIPPED.** A flight Debrief made up now says so on every surface a flyer READS. Slice 5b (the documents that leave) is next and its open design question is now settled by a citation rather than a preference. |
+| **P — product & craft** | **P1 is the live milestone.** See *Pick this up first* — the design-system audit ran this run and its output is a ranked, reproduced list rather than a hunch. |
 
 ## The one thing to read before anything else
 
-**Run the pre-push review. It has now found real defects in three separate diffs that had already
-passed the full gate, and this run it found the defect that the slice itself created.**
+**Run the pre-push review, with three lenses, and give it the diff and nothing else. It has now
+found real defects in four consecutive diffs that had already passed the full gate — and this run
+it found a defect that was strictly worse than the one the slice was fixing.**
 
-`MAINTAINING.md` asks for one fresh agent on the `git diff` before every push. Give it three, with
-different lenses. On the D9 diff it found seven (see last run's list). On this run's legend diff it
-found the thing the change had just made possible: **making the chart legend keyboard-reachable
-handed a screen-reader user the ability to hide a trace — and the chart's arrow-key reading still
-announced the hidden trace's value.** Only a mouse user could hide a trace before, and a mouse user
-does not listen to that announcement. Nobody sitting inside the change would have found it, because
-it is not a bug in the code written; it is a bug the code written made reachable.
+The slice added `RecentMeta.synthetic` and a shared `fileFacts()` over the three logbook save sites.
+`lib/reopen.ts` rebuilds a hand-mapped flight from its stored text plus its stored mapping, and it
+passed headers, rows, mappings and `reported` — never `synthetic`. So:
 
-Two more from the same review are filed rather than fixed, with the reasoning, in `BACKLOG.md`.
+1. the one route a generated demonstration file can take lost its label on reopen; and
+2. **a reopen is a save**, `fileFacts` reads the rebuilt flight, and a save is a replace in place —
+   so one click on the logbook row **deleted the stored flag permanently**, after which the made-up
+   apogee could take the ★ that says *"Highest of your remembered flights"*.
+
+Nothing in the suite could see it: every other assertion builds its flight directly rather than
+through `importRecent`, and the first walk only reloaded the landing page. **The extraction is what
+introduced the erasure** — before it, the field did not exist. Fixed, pinned by a unit test that
+fails alone when the one-line spread is removed, and the walk now clicks the row.
+
+Eight more findings from the same review were acted on, and three are worth naming because they are
+about the CHECKS rather than the code:
+
+- **`labelled` was a state the suite was structurally incapable of falsifying.** The audit table's
+  own docblock claimed every `labelled` row's reason "names the check that actually holds it"; two
+  of five named none, and nothing could tell. Every such row now carries `check: { file, contains }`
+  and the assertion reads the file off disk.
+- **The save-site check iterated three literal paths** while its docblock claimed to cover *every*
+  route — blind to precisely the fourth save site the refactor exists to prevent. It walks the tree
+  now. Falsified by adding a fourth caller: it is named, with no list to update first.
+- **The SINKS docblock said "adding an exporter without adding it here fails the count"**, which is
+  true only inside `lib/documents.ts` — and this run's own three additions disproved it three lines
+  above where it was written.
 
 ## Five things this run learned the hard way
 
-1. **A floor check only reaches controls somebody has already NAMED as controls.** `e2e/touchTargets.ts`
-   enumerates roles — `button, [role=button], nav a …`. uPlot's legend rows toggle their traces and
-   ship as bare `<th>` with `cursor: pointer`, so they were 30×67 px, keyboard-unreachable, and
-   **invisible to every touch sweep this repo has ever run**. The paired falsification is the one
-   that proves it: delete the 44 px rule *and* the selector entry and the sweep goes green on a
-   broken page. Any third-party widget dropped in here can open the same hole.
-2. **`innerText` is not a reliable test for "does this element show text".** Measured: the sample
-   table's sort button returns `textContent` of `"Time (s)▼"` and `innerText` of `""`, stably, on a
-   visible button with a non-zero box. A first cut of `e2e/hoverOnly.ts` reported four working
-   controls as broken because of it. Walk the tree and subtract `display: none`, `visibility: hidden`
-   and the `sr-only` clip. Several existing `e2e/` assertions use `innerText` and none was audited.
-3. **A milestone's acceptance sentence needs a check, or the milestone closes on a claim.** P4 has
-   asked for "zero controls under 44 px **and** zero states reachable only by hover" since it was
-   written. Only the first count had ever been asserted. The first run of the second count found
-   three live cases — including the same shape D9 shipped and a competitive probe caught.
-4. **An exemption list must assert the thing it points at.** The hover-only check tolerates four
-   cases, each with a reason naming where the fact appears as text. Two of those reasons name a
-   sentence this run added — so the walk asserts those sentences are on the page. Without that, the
-   exemption keeps the check green after someone deletes the fix it describes.
-5. **The competitive probe's most valuable output was a correction to our own framing, not a gap.**
-   `COMPETITION.md` row 39 verdicts the phone reading surface `BETTER` — and then says why that is
-   nearly worthless: none of the field needs Debrief to get data off the board, and **Debrief cannot
-   do that for any board**. Debrief's phone case is post-recovery. P4's title reads wider than that,
-   and `ROADMAP.md` now says so beside it.
-
-## The two Sev-1 claims that were not
-
-Both were reproduced by hand before being ranked, which is the whole point of the rule.
-
-- **"Airframe figures are keyed to the device, not the flight."** True — `debrief.mass.kg` and its two
-  siblings are device-global `localStorage`, deliberately. **Not a Sev-1**, because the mass renders
-  in a `NumberField` on the same `LandingEnergy` card as the joules it feeds, so the stale input is
-  visible beside the output. Filed with that reasoning, because the next run will find it again.
-- **"Colour reset has no touch path."** Half wrong: `dblclick` *is* synthesized from a double-tap in
-  current mobile browsers. What remains `UNVERIFIED` is whether iOS Safari's double-tap-to-zoom
-  swallows it without `touch-action: manipulation`. Needs a real device. **Partly closed this run**
-  for a different reason: the *instruction* was hover-only, and both surfaces now say it in text.
+1. **A shared helper over N copied literals can DELETE data the copies preserved.** `fileFacts` is
+   correct and the extraction was right; what made it dangerous is that a member it owns is
+   *recomputed* on a path where the input cannot reproduce it. Before extracting, ask of every
+   member: is this derivable on **every** path that calls the helper, including the reopen path?
+2. **`git checkout <file>` on an UNCOMMITTED file destroys it.** Used mid-falsification to undo a
+   deliberate break, it took the new tests with it. Copy to the scratchpad and copy back; the
+   backup files were already there for the other two falsifications and this one skipped them.
+3. **The rc file from a previous gate run reads exactly like a phase that has already passed.**
+   Three phases reported green before the current run had reached any of them. The gate script
+   clears its rc files first now — same class as reading the harness's exit code instead of the log.
+4. **`--grep` without `cd` into the repo scans the whole tree.** Costs a full minute and reports
+   "No tests found" after erroring on a dozen vitest files. `MAINTAINING.md` already records it;
+   it happened anyway.
+5. **A competitive probe answered a design question the roadmap had been carrying open for a day.**
+   D10 asked for "a column or a decision" on the data CSV. `COMPETITION.md` row 41 measures how the
+   instrumentation world marks un-measured data — NMEA per sentence, HL7 per message, DICOM per
+   instance — and the shared principle (the claim lives in a field the consumer must already parse)
+   settles it. Aim one probe at the thing you are about to decide, not only at the thing you built.
 
 ## Environment, established at session start — none of it assumed
 
-- **The corpus was attached and real throughout.** `nrdptel/debrief-fixtures` on disk, symlinked into
-  `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the corpus suite is **149 tests**.
-  `FIXTURES_TOKEN` is NOT set, so `npm run fetch-fixtures` is a no-op.
+- **The corpus was attached and real throughout.** `nrdptel/debrief-fixtures` on disk, symlinked
+  into `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the corpus suite runs 16
+  regression cases plus the cross-file sweeps, and `lib/canonical.test.ts` round-trips **50 corpus
+  recordings**. `FIXTURES_TOKEN` is NOT set, so `npm run fetch-fixtures` is a no-op.
 - **`node_modules` was ABSENT.** `npm install` first.
 - **Playwright needed `npx playwright install chromium`** (114 MB, ~1 min). **Paid for again every
-  session; it belongs in the environment's setup script.** Said for at least the tenth run running.
+  session; it belongs in the environment's setup script.** Said for at least the eleventh run.
 - **`git config user.name/user.email` arrived as the harness vendor's default** and were set before
   the first commit: `Neer Patel <135655563+nrdptel@users.noreply.github.com>`. The GLOBAL config is
   still the vendor default — only the repo-local one is corrected.
 - **The clone is SHALLOW** — any history claim is a window.
-- **The harness appended an attribution footer to every pull-request body.** Read back and stripped
-  with `update_pull_request`, every time. Still parked in `OWNER-NOTES.md`.
-- **A full gate cycle is ~11 minutes** — unit ~2:05, build ~50 s, e2e ~7:24 at `--workers=1` — and
-  roughly doubles while subagents are running. Four cores. **Do not run a large fan-out and a gate at
-  the same time and then wonder why the suite crawled.**
+- **A full gate cycle is ~11 minutes** — unit ~4 min with the corpus, build ~50 s, e2e ~6 min — and
+  **the subagent concurrency cap here is 2** (four cores), so a six-agent fan-out runs in three
+  waves and takes 25+ minutes. Size fan-outs for two-at-a-time, and do not run one during a gate.
 - **The shell's working directory is NOT stable between commands.** Prefix with
   `cd /home/user/fusionspace-debrief &&`. And **the harness's completion status is the trailing
-  `echo`'s, not the work's** — write the rc to a file and read the file. Both in `MAINTAINING.md`.
+  `echo`'s, not the work's** — write the rc to a file, and delete last run's rc first.
 
 ## What shipped, in order
 
 | commit | what | pinned by |
 |---|---|---|
-| `26fa023` | **D9 — which simulation flew** (all five slices) + **P5 slice 5 — `/changelog`** | `lib/predictionChoice.test.ts`, `lib/changelog.test.ts`, 5 e2e walks |
-| `f9ced22` | **D10 slice 3 — a synthetic flight says so, in the file** | `lib/synthetic.test.ts` (14 cases, falsified 5 ways) |
-| `f97c173` | **P4 slice 2 — the comparison reads down the page**, + the compare surface's silent nothing | `e2e/touch.spec.ts`, falsified 2 ways |
-| `780b51b` | **D10 slice 4 — one registry for every document a flyer keeps** | `lib/documents.test.ts` |
-| `91e7b7f` | **P4 slice 3 — the channel stats read down the page** | `e2e/touch.spec.ts` |
-| *(this PR)* | **P4 slices 4 + 5 — the chart legends, and the acceptance sentence walked** | `e2e/touch.spec.ts` ×2, `e2e/hoverOnly.ts`, falsified 11 ways |
-| *(this PR)* | `COMPETITION.md` row 39, and P4 scoped to what it can be | — |
+| *(this PR)* | **D10 slice 5a — a made-up flight says so where a flyer reads it**: the report, the readings grid, the logbook row, the logbook's clipboard table and the logbook backup; and it can never wear a personal-best ★ | `lib/synthetic.test.ts` (19), `lib/logbookStar.test.ts` (+4), `lib/logbook.test.ts` (+3), `lib/recents.test.ts`'s two `Required<>` fixtures, 2 walks in `e2e/analyze.spec.ts` |
+| *(this PR)* | **The reopen erasure** — `lib/reopen.ts` dropped the marker, and a reopen is a save | `lib/synthetic.test.ts` → *"survives being REOPENED"*, falsified alone |
+| *(this PR)* | **The audit table stopped being able to lie**: `labelled` rows name a check that is read off disk, the save-site list is discovered rather than typed, `SINKS` 20 → 25 | `lib/synthetic.test.ts`, falsified 3 ways |
+| *(this PR)* | **D10 slice 5b — the two spreadsheet destinations say it on every ROW**: the data CSV and the readings clipboard table each grow a `Provenance` column, and the logbook's table converts onto the same vocabulary | `lib/synthetic.test.ts` ×3, falsified both ways on both exports |
+| *(this PR)* | **P1 item 5 — the logbook's four states take §5's primitives**, and `PRIMITIVE_ADOPTERS` becomes exhaustive against `components/ui.tsx`'s exports | `lib/design-system.test.ts` (26), falsified by exporting a new primitive |
+| *(this PR)* | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data), `BACKLOG.md` ×3 | — |
 
 ## Pick this up first
 
-1. **D10's remaining slices.** Still needing SYNTHESIZED, labelled logs: a deliberately mis-scaled
-   column for the mapper, a saturated accelerometer, and a staged flight on two devices — the last of
-   which is also why `/stitch` still has no sample. `lib/documents.ts` now exists, so the *done
-   when*'s hardest clause has the registry it asked for; what is left is the comparison's own
-   registry, which `lib/documents.ts`'s header names and deliberately does not invent.
-2. **A P-track milestone: P1, P2 or P3.** P4 and P5 are both done bar P5's owner-level metadata half.
-   **P1 (one design system, adopted)** is the largest structural gap and `COMPETITION.md` row 2 is the
-   measurement behind it.
-3. **The hover-only count on the surfaces it has never been measured on.** `e2e/hoverOnly.ts` runs on
-   the analyze report and the comparison only. `/stitch`, `/methods`, `/validation` and the column
-   mapper have never been checked, and the mapper is a dense form full of `title`s.
-4. **The design-system audit's ~20 divergences.** **Reproduce each before scoping**: one was sent to
-   adversarial verification and was refuted on all three of its claims.
-
-## Owed to the sibling repo
-
-`DESIGN.md` is identical in both and **nothing in this run changed it**, so nothing new is owed. Still
-owed from earlier runs: §5's `Popover` and `SectionNav`, and **§2's tertiary token still fails AA in
-dark** (4.12:1 on page, 3.67:1 on raised) at five sites that are not disabled controls. Parked in
-`OWNER-NOTES.md` → *Awaiting the owner*.
+1. **D10 slice 5c — the sinks that are not tables.** Nine are still `todo` in
+   `lib/synthetic.test.ts`, each with a reason worth acting on. The print card and its PNG are next
+   (`FlightCard` takes `series`/`metrics`/`stem` and no flight, so it needs a prop the way
+   `MetricGrid` did), then the comparison — `CompareFlight` carries no provenance member, and
+   `lib/compareFromLogbook.ts` builds them through `importRecent`, so the flight itself already
+   knows. `lib/synthetic.ts` exports `PROVENANCE_COLUMN` and `provenanceCell`; the three table
+   sinks already share them, and the comparison's four documents should too rather than answering
+   the same question a fourth way.
+2. **The `/stitch` composite is an unlabelled screen sink and nobody had noticed.** Added to `SINKS`
+   this run by the review, not by the audit: it renders every stage's apogee and max speed by name
+   on a top-level route with no report above it, and copies a timeline table. It needs the same
+   required `synthetic` prop `MetricGrid` took.
+3. **The next P-track slice, reproduced and ready.** `app/page.tsx:21` and
+   `components/LogDetails.tsx:29` each hand-roll `Disclosure` with a class string **byte-identical**
+   to the primitive's own (`components/ui.tsx:1043`) — `Disclosure` 3 → 5 for two one-line edits.
+   Then the seven one-glyph controls hand-rolling `IconButton`, which exists with 2 adopters, and
+   the four copies of one text input across `FlightReport` and `CompareView`.
+4. **The rest of the design audit**, reproduced before scoping: `SiteHeader`'s active nav item is a
+   sixth button weight and a fourth dark surface; `app/page.tsx` and `components/LogDetails.tsx`
+   each hand-roll `Disclosure` with a class string byte-identical to the primitive's own; seven
+   one-glyph controls hand-roll `IconButton`, which exists with 2 adopters; four copies of one text
+   input across two files; `max-w-prose` at three sites that §3 names by name as the trap.
 
 ## The done-check, executed — what each step returned
 
-1. **Corpus sweep: 149 tests over 62 manifest fixtures, on every gate, 0 goldens moved all run.** No
-   independent sweep beyond the suite was needed: this run shipped no calculation change. Said plainly
-   rather than dressed up — an empty result is a result.
-2. **Cold walks.** Every slice this run is driven end to end in the real app by an e2e at 390×844,
-   including one that cuts the network first. Production fetched separately and confirmed serving the
-   shipped SHA with `/changelog` at 200.
-3. **`COMPETITION.md`: row 39 added and resolved** — the phone reading surface against AltosDroid,
-   Featherweight FIP, Eggtimer WiFi, Jolly Logic AltimeterThree, PerfectFlite and a spreadsheet.
-   `BETTER`, with a counter-note that undercuts most of the claim and is the useful half of the row.
-4. **§9 counts: table at the top. Nothing moved down.**
-5. **`BACKLOG.md` read and appended to** — 4 new entries, each with the measurement that makes it
-   actionable and each naming what was NOT checked.
+1. **Corpus sweep: the full suite on every gate, 1,349 unit tests over 62 manifest fixtures, and 0
+   goldens moved all run.** No calculation changed, so no independent recompute was owed. Said
+   plainly: an empty sweep is a result.
+2. **Cold walks.** Every slice is driven end to end in the real app: a made-up flight through the
+   column mapper (the only route one can take), its logbook row, its reopen, and — the walk added
+   last — the actual **download**, because the per-row column being right in `analyzedDataCsv` does
+   not prove the save strip calls it with the flight that knows. Production fetched separately and
+   reported below.
+3. **`COMPETITION.md` rows 40 and 41 added.** Row 41 is the one that paid: it answered a design
+   question the roadmap had been carrying open, from outside rocketry.
+4. **§9's six shell counts, measured against `origin/main` in a worktree rather than recalled:**
+   radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** ·
+   inverted-type files **10→10** · ui adopters **38→38**. **None moved, in either direction** —
+   this run's craft work was per-primitive adoption, which the shell block cannot see. The ratchet
+   that can: `Chip` **7→8** · `Notice` **6→8** · `EmptyState` **1→2** · `Disclosure` **3→5** ·
+   `Loading` **uncounted→3** · `ChipButton`, `CopyTableButton`, `Sources` **uncounted→counted**.
+   Nothing moved down.
+5. **`BACKLOG.md` read and appended to — five new entries**, each with the measurement that makes
+   it actionable, and each naming what was *not* checked.
 6. **Both track questions.**
-   - **D:** a flyer whose design holds several simulations can say which one flew; a flight Debrief
-     made up says so in the file, everywhere it can go; and every document a flyer keeps is one list,
-     so a seventh export gets a button and a check in the same commit or neither.
-   - **P:** the range on a phone is done — the comparison, the channel stats and the chart legends all
-     read down the page, hiding a trace is no longer a mouse-only capability, and the milestone's
-     acceptance sentence is walked by a check instead of asserted by a status line.
-7. **`ROADMAP.md` updated** — P4 SHIPPED with every clause named against its check; P4's framing
-   scoped by the competitive row; D10 and P5 statuses carried forward.
-8. **`OWNER-NOTES.md`: zero notes are open without a verdict.** All eight carry verdicts dated
-   2026-08-08 and none is new, so none was owed one this run. **Six items sit under *Awaiting the
-   owner*** (counted, not recalled) — unchanged by this run.
+   - **D:** a flyer who opens a flight Debrief made up can no longer mistake it for a recording —
+     it says so on the report, beside the readings, on its logbook row, in the CSV they paste into
+     a spreadsheet, in the readings they copy into a cert document, and in the backup they restore
+     six months later; and it can never wear a personal best.
+   - **P:** the landing surface's list stopped rendering four of §5's five required states by hand,
+     the app's two byte-identical copies of `Disclosure` became one primitive, and the ratchet that
+     is supposed to make P1 mechanical went from blind to four of its own primitives to exhaustive
+     against the file it measures.
+7. **`ROADMAP.md` updated** — D10 5a and 5b recorded against the *done when* with what is left
+   named in order; P1 item 5 records the slice, the counts, and the one thing measured and
+   deliberately not done.
+8. **`OWNER-NOTES.md`: zero notes are open without a verdict, and the count is now honest.** Eight
+   notes carry verdicts dated 2026-08-08/09; none is new, so none was owed one this run. Two
+   (`ON-1`, `ON-4`) had been marked RESOLVED a day ago and left sitting in `## Open` in full, so
+   the inbox read as eight open when six are — they are collapsed into `## Resolved` with the
+   owner's verbatim words carried across. **Seven items sit under *Awaiting the owner***, one added
+   this run.
+
+## Owed to the sibling repo
+
+**One change this run, and it is owed.** §5's `Button variant="link"` entry cited *"Got a backup?
+**Restore it**."* as its canonical in-a-sentence example, and that control no longer exists — the
+logbook's empty state took `EmptyState`, whose action is a standalone button. The example was
+replaced with two that do exist; the rule is unchanged. Parked in `OWNER-NOTES.md`.
+
+Still owed from earlier runs: §5's `Popover` and `SectionNav`, and **§2's tertiary token still fails
+AA in dark** (4.12:1 on page, 3.67:1 on raised) at five sites that are not disabled controls. Parked
+in `OWNER-NOTES.md` → *Awaiting the owner*.

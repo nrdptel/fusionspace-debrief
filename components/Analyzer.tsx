@@ -27,6 +27,7 @@ import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import GroupProposalBanner from './GroupProposalBanner';
 import {
+  fileFacts,
   saveRecent,
   saveCaption,
   saveReadWindow,
@@ -49,7 +50,6 @@ import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
 import { Button, ErrorState, Loading, Notice } from './ui';
-import { apogeeCaveatFlags } from '@/lib/readings';
 
 type State =
   | { phase: 'idle' }
@@ -294,10 +294,7 @@ export default function Analyzer() {
           void saveRecent({
             name,
             formatLabel: result.flight.formatLabel,
-            apogeeM: analysis.metrics.apogeeAltitude ?? null,
-            maxVelocityMs: Number.isFinite(analysis.metrics.maxVelocity) ? analysis.metrics.maxVelocity : null,
-        ...(apogeeCaveatFlags(analysis.metrics) ? { apogeeCaveats: apogeeCaveatFlags(analysis.metrics)! } : {}),
-            ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
+            ...fileFacts(result.flight, analysis),
             ...(mapping ? { mapping } : {}),
             text,
             // The bytes reach the PARSERS on every file — that is what lets a binary format be
