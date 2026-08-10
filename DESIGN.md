@@ -782,6 +782,21 @@ offline posture, the MIT licence.
 Where the apps genuinely need different components — a rocket diagram, a flight chart — they still
 share tokens, scale, states and vocabulary.
 
+**A digest holds the shared span, in both repos, as of 2026-08-09.** *"The fix lands in both repos in
+the same run"* was a rule with nothing behind it, and the two copies of this file had drifted 12 hunks
+apart while both apps called it binding. `lib/design-shared.test.ts` computes a SHA-256 over
+**§4, §6, §7, §8 and §10** — the sections that are shared by nature and were already byte-identical,
+9,944 bytes of them — and compares it against a constant committed in both repos. A change to one
+copy that is not made to the other fails that repo's gate rather than drifting silently.
+
+**The span is deliberately narrow, and it can only grow.** §5 and §9 are excluded because the two
+apps genuinely ship different primitives and count different treatments — this repo deleted `Chip`
+and the sibling defines it — so demanding identity there would demand a lie. §1, §2, §3 and §11
+differ only in clauses one copy has and the other has not yet taken, so they are the next to join.
+**Widening the span is what "reconciled" means here**: move a section into the list, make both copies
+identical, and update the digest in both, in one change.
+
+
 ### The suite is THREE tools, and the reference is whichever one meets this file
 
 **Named here because until 2026-08-08 this section named none, and "shared and non-negotiable" with no
