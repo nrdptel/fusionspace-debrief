@@ -2253,11 +2253,21 @@ not. One row claiming all five would have been exactly the half-truth the table 
 Those three want one builder rather than a fourth answer to one question — a refactor before it is
 a label, and the next slice.
 
+**Slice 5e SHIPPED 2026-08-09 — `/stitch`'s composite readings, the one SCREEN sink the audit
+missed entirely.** Found by the pre-push review of the slice that was supposed to have found all of
+them, which is the useful half: `/stitch` is a top-level route printing every stage's apogee, max
+speed and burn by name, and unlike the report there is no surface above it to carry a caveat, so a
+composite assembled from made-up recordings read exactly like a launch. The assembled state carries
+the fact; `compareFromLogbook` reads it off the flight itself, so it needs no logbook field and
+works on a row saved before one existed.
+
 **What is left, in order.**
-(b) **The remaining reachable sinks** — the seven still `todo` in `lib/synthetic.test.ts`: the
-    comparison's `.md`/`.html`/`.json`, `/stitch`'s composite readings and its timeline table, the
-    explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`, and the bundle that
-    inherits from them.
+(b) **The remaining reachable sinks** — the six still `todo` in `lib/synthetic.test.ts`, and the
+    first of them is a REFACTOR before it is a label: the comparison's `.md`/`.html`/`.json` each
+    build their own table in `lib/report.ts` instead of reading the one builder the screen, the
+    `.csv` and the clipboard share, which is exactly why they did not come along with slice 5d.
+    Give them one builder and all three gain the row at once. Then `/stitch`'s timeline table, the
+    explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`, and the bundle.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
     tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
     single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so

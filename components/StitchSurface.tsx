@@ -16,7 +16,8 @@ import type { StitchRefusal } from '@/lib/stitch';
 import { fmtLength } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { EVENT_COLOR } from '@/lib/eventStyle';
-import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Loading, Readout } from './ui';
+import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Loading, Notice, Readout } from './ui';
+import { SYNTHETIC_SHORT } from '@/lib/synthetic';
 
 /**
  * One timeline across several per-stage recordings of one launch.
@@ -56,7 +57,10 @@ type State =
   /** `recordings` carries each one's whole analysis, not a formatted reading: the units control
    *  sits on this surface too, and tiles built at load time would have kept whichever system was
    *  chosen when the composite was assembled. */
-  | { kind: 'ready'; composite: Composite; names: string[]; recordings: CompositeRecording[] };
+  /** `synthetic` is whether ANY recording in the composite is a flight Debrief made up. Carried
+   *  on the state rather than recomputed at render, because the recordings are re-read from the
+   *  logbook here and the answer belongs to the assembly. */
+  | { kind: 'ready'; composite: Composite; names: string[]; recordings: CompositeRecording[]; synthetic: boolean };
 
 export default function StitchSurface() {
   const { sys } = useUnits();
@@ -109,7 +113,15 @@ export default function StitchSurface() {
       setState({ kind: 'refused', refusal: built.refusal });
       return;
     }
-    setState({ kind: 'ready', composite: built.composite, names: inputs.map((i) => i.name), recordings });
+    setState({
+      kind: 'ready',
+      composite: built.composite,
+      names: inputs.map((i) => i.name),
+      recordings,
+      // `compareFromLogbook` reads it off the flight itself, so this works on a logbook row
+      // saved before the field existed.
+      synthetic: inputs.some((i) => i.synthetic),
+    });
   }, []);
 
   // Follow the address bar rather than keeping a private idea of what is on screen — the same
@@ -248,7 +260,7 @@ export default function StitchSurface() {
     );
   }
 
-  const { composite, names, recordings } = state1!;
+  const { composite, names, recordings, synthetic } = state1!;
   // Built at render, so a unit switch reaches every stage's numbers — the same contract every
   // other reading on every other surface has.
   const stages = recordings.map((r) => ({
@@ -414,6 +426,17 @@ export default function StitchSurface() {
           aria-labelledby="per-stage-heading"
           title={<span id="per-stage-heading">What each recording read on its own</span>}
         >
+          {/* **The one screen sink the 2026-08-09 audit missed entirely**, found by the pre-push
+              review of the slice that was supposed to have found all of them. `/stitch` is a
+              top-level route that prints every stage's apogee, max speed and burn by name, and
+              unlike the report there is no surface above it to carry a caveat — so a composite
+              assembled from made-up recordings read exactly like a launch. The short form, above
+              the readings, which is where §5 says a `Notice` goes. */}
+          {synthetic && (
+            <Notice as="p" tone="warn" data-synthetic="composite" className="mb-3">
+              {SYNTHETIC_SHORT}
+            </Notice>
+          )}
           <p className="-mt-1 mb-3 text-sm text-zinc-600 dark:text-zinc-400">
             Each of these is one board&apos;s own reading of the part of the launch it flew, on its own
             pad datum and its own clock — <strong className="font-medium">never combined</strong>. A
