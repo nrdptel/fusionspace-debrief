@@ -6,7 +6,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **`fd18f3a` is LIVE** — merged from PR #169 and confirmed serving at 00:07 UTC, five commits covering D10 slices 5a and 5b and P1 item 5. **PR #171 is open and green-pending** with slice 5c and the backlog corrections. Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Shipped to production** | **THREE pull requests merged and confirmed LIVE** — `fd18f3a` (#169, five commits: D10 5a + 5b, P1 item 5), `3b62dac` (#171: D10 5c), `2988ba1` (#172: D10 5d). Production was fetched after each and served the shipped SHA. **Nothing is pending on a branch.** Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
 | **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1334/1334 with the corpus attached, build clean, e2e 317 passed. One Sev-1-shaped defect was *created and caught inside this run*; see below. |
 | **D — capability** | **D10 slice 5a SHIPPED.** A flight Debrief made up now says so on every surface a flyer READS. Slice 5b (the documents that leave) is next and its open design question is now settled by a citation rather than a preference. |
 | **P — product & craft** | **P1 is the live milestone.** See *Pick this up first* — the design-system audit ran this run and its output is a ranked, reproduced list rather than a hunch. |
@@ -96,19 +96,22 @@ about the CHECKS rather than the code:
 | `fd18f3a` | **D10 slice 5b — the two spreadsheet destinations say it on every ROW**: the data CSV and the readings clipboard table each grow a `Provenance` column, and the logbook's table converts onto the same vocabulary | `lib/synthetic.test.ts` ×3, falsified both ways on both exports |
 | `fd18f3a` | **P1 item 5 — the logbook's four states take §5's primitives**, and `PRIMITIVE_ADOPTERS` becomes exhaustive against `components/ui.tsx`'s exports | `lib/design-system.test.ts` (26), falsified by exporting a new primitive |
 | `fd18f3a` | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data) | — |
-| *(PR #171)* | **D10 slice 5c — the shareable card says it in a BAND drawn on the canvas**, and the `.png` and clipboard image are the same pixels. Walked by reading the pixels back, not the DOM | `e2e/analyze.spec.ts` → *"the shareable card carries it as a band"*, falsified by passing `synthetic={false}` |
-| *(PR #171)* | `BACKLOG.md` ×7, including a CORRECTION to the design audit's own icon-button count | — |
+| `3b62dac` | **D10 slice 5c — the shareable card says it in a BAND drawn on the canvas**, and the `.png` and clipboard image are the same pixels. Walked by reading the pixels back, not the DOM | `e2e/analyze.spec.ts` → *"the shareable card carries it as a band"*, falsified by passing `synthetic={false}` |
+| `3b62dac` | `BACKLOG.md` ×7, including a CORRECTION to the design audit's own icon-button count | — |
+| `2988ba1` | **D10 slice 5d — the comparison carries which of its flights Debrief made up.** `CompareFlight` had no provenance member at all; a ROW here where the other tables take a COLUMN, because this one is transposed | `lib/compare.test.ts` (+2), falsified by dropping the carry-through |
 
 ## Pick this up first
 
-1. **D10 slice 5c — the sinks that are not tables.** Nine are still `todo` in
-   `lib/synthetic.test.ts`, each with a reason worth acting on. The print card and its PNG are next
-   (`FlightCard` takes `series`/`metrics`/`stem` and no flight, so it needs a prop the way
-   `MetricGrid` did), then the comparison — `CompareFlight` carries no provenance member, and
-   `lib/compareFromLogbook.ts` builds them through `importRecent`, so the flight itself already
-   knows. `lib/synthetic.ts` exports `PROVENANCE_COLUMN` and `provenanceCell`; the three table
-   sinks already share them, and the comparison's four documents should too rather than answering
-   the same question a fourth way.
+1. **D10 slice 5e — and it is a REFACTOR before it is a label.** Seven sinks are still `todo` in
+   `lib/synthetic.test.ts`. The three comparison documents (`compareMarkdown`, `compareHtml`,
+   `compareJson` in `lib/report.ts`) each build their own table instead of reading the one builder
+   the screen, the `.csv` and the clipboard share — which is exactly why they did not come along
+   with slice 5d. Give them one builder and they all gain the row at once; add the row to each of
+   them and you have written the same answer a fourth, fifth and sixth time. Then `/stitch`'s
+   composite readings and its timeline table (it needs the required `synthetic` prop `MetricGrid`
+   and `FlightCard` took), then the explore CSV and the sample-table column copy.
+   `lib/synthetic.ts` exports `PROVENANCE_COLUMN` and `provenanceCell` — four surfaces share them
+   already.
 2. **The `/stitch` composite is an unlabelled screen sink and nobody had noticed.** Added to `SINKS`
    this run by the review, not by the audit: it renders every stage's apogee and max speed by name
    on a top-level route with no report above it, and copies a timeline table. It needs the same
