@@ -8,6 +8,7 @@ import { flightCardStats } from '@/lib/flightCard';
 import { recordingLine, type ReportMeta } from '@/lib/report';
 import { download } from '@/lib/download';
 import { Button, Frame } from './ui';
+import { SYNTHETIC_SHORT } from '@/lib/synthetic';
 
 // The card is drawn on white at a fixed social-friendly size, regardless of the
 // app's theme, so it reads cleanly wherever it's pasted.
@@ -33,9 +34,16 @@ function drawCard(
     /** The readings this flyer has turned off — the card honours the same list the grid
      *  and every report do, so a hidden reading does not reappear on the shareable image. */
     hidden?: string[];
+    /** Whether these numbers come from a flight Debrief MADE UP.
+     *
+     *  **This is the sink where an unlabelled figure travels furthest.** The card exists to be
+     *  posted to a club chat or a forum: it leaves the device as a picture, with no report around
+     *  it, no file to re-read and no metadata block a reader will open. Every other surface can
+     *  point at something; an image has to carry the whole claim itself. */
+    synthetic: boolean;
   },
 ) {
-  const { stem, formatLabel, series, metrics, sys, xRange, hidden, recording } = data;
+  const { stem, formatLabel, series, metrics, sys, xRange, hidden, recording, synthetic } = data;
   const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -91,11 +99,30 @@ function drawCard(
     ctx.fillText(recordingLine(recording), PAD, PAD + 76);
   }
 
+  // **A flight Debrief made up says so ON the image**, in §2's caveat amber, in a filled band
+  // rather than a line of text — a picture is skimmed, and a grey sentence under a 56 px apogee
+  // is not read. Drawn before the stats so it sits above them, and the stat block is pushed down
+  // by exactly its height so nothing overlaps at any recording/synthetic combination.
+  const SYNTH_BAND = 46;
+  if (synthetic) {
+    const bandY = PAD + (recording ? 92 : 66);
+    ctx.fillStyle = '#fffbeb'; // amber-50, the same wash §2 gives a caveat on screen
+    roundRect(ctx, PAD, bandY, W - PAD * 2, SYNTH_BAND - 8, 8);
+    ctx.fill();
+    ctx.strokeStyle = '#fcd34d'; // amber-300
+    ctx.lineWidth = 2;
+    roundRect(ctx, PAD, bandY, W - PAD * 2, SYNTH_BAND - 8, 8);
+    ctx.stroke();
+    ctx.fillStyle = '#b45309'; // amber-700
+    ctx.font = `700 20px ${sans}`;
+    ctx.fillText(SYNTHETIC_SHORT, PAD + 14, bandY + 26);
+  }
+
   // Stat blocks.
   const stats = flightCardStats(metrics, sys, hidden);
   const cols = stats.length;
   const blockW = (W - PAD * 2) / cols;
-  const statTop = PAD + (recording ? 132 : 110);
+  const statTop = PAD + (recording ? 132 : 110) + (synthetic ? SYNTH_BAND : 0);
   stats.forEach((s, i) => {
     const x = PAD + i * blockW;
     ctx.fillStyle = MUTED;
@@ -255,6 +282,7 @@ export default function FlightCard({
   xRange,
   hidden,
   recording,
+  synthetic,
 }: {
   series: FlightSeries;
   metrics: FlightMetrics;
@@ -270,14 +298,19 @@ export default function FlightCard({
   /** Which recording of the flight this is, when the flyer has said it was recorded more than
    *  once — so two cards of ONE launch cannot go out to a forum as two launches. */
   recording?: ReportMeta['recording'];
+  /** Whether these numbers come from a flight Debrief MADE UP. Required, with no default, for the
+   *  same reason `MetricGrid`'s is: the safe-looking default is the DEFECT value, and this is the
+   *  one surface that leaves the device as a picture with nothing around it to correct a wrong
+   *  answer. */
+  synthetic: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange, hidden, recording });
-  }, [series, metrics, sys, stem, formatLabel, xRange, hidden, recording]);
+    if (canvas) drawCard(canvas, { stem, formatLabel, series, metrics, sys, xRange, hidden, recording, synthetic });
+  }, [series, metrics, sys, stem, formatLabel, xRange, hidden, recording, synthetic]);
 
   const save = useCallback(() => {
     canvasRef.current?.toBlob((blob) => blob && download(blob, `${stem}-card.png`));

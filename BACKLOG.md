@@ -14,6 +14,20 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-09 — six one-glyph controls hand-roll `IconButton`, which exists, and they are SIX
+  DIFFERENT geometries rather than six copies of one.** Measured exactly, because the design audit
+  that raised it said "seven identical" and cited line numbers that had already moved:
+  `grep -n "items-center justify-center rounded-md text-zinc-400" components/*.tsx` returns
+  **`ChannelExplorer` ×2 (`h-5 w-5`, `h-6 w-6`), `CompareView` ×2 (`h-11 w-11` with
+  `enabled:`/`disabled:` variants), `RecentFlights` ×1 (`h-11 w-11 shrink-0`)**, plus
+  `SampleTable.tsx:78`, which does not match that grep at all because it drifted to
+  `px-1 py-1` with `hover:bg-zinc-200`. **All six wear `text-zinc-400`, which is not `ghost`'s tint
+  (`text-zinc-600 … dark:hover:text-zinc-100`)** — so six controls share a hue the vocabulary does
+  not define. **Not converted, and the reason is a decision somebody has to take rather than work
+  somebody has to do:** `IconButton` is `px-2 py-1` plus the square touch target, so adopting it
+  changes the geometry of all six, and two of them are 44 px hit targets already sized by hand for
+  the touch floor. Either §5 gains a size on `IconButton` — which is config surface — or the six
+  accept one geometry. Worth an increment; not worth a half-conversion.
 - **2026-08-09 — two controls on the report carry the identical visible label `Save .csv`.** The
   report's data export (`lib/documents.ts` → `analyzedDataCsv`) and the channel explorer's
   plotted-data export (`components/ChannelExplorer.tsx` → `exploreCsv`) are different files with

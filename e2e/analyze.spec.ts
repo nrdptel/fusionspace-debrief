@@ -2941,6 +2941,43 @@ test('the file a made-up flight exports says so on every row, not just on screen
   expect(lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC')).length).toBe(0);
 });
 
+test('the shareable card carries it as a band, and the .png is the same pixels', async ({ page }) => {
+  // **The sink where an unlabelled figure travels furthest.** The card exists to be posted to a
+  // club chat or a forum: it leaves the device as a picture, with no report around it, no file to
+  // re-read and no metadata block anyone will open. So the claim is drawn ON the canvas — asserted
+  // here by reading the pixels back, because a DOM assertion would pass on a card that renders the
+  // sentence beside the image and exports without it, which is exactly the failure to avoid.
+  await openMadeUpFlight(page);
+  await expect(page.getByRole('button', { name: 'Save card' })).toBeVisible();
+
+  // §2's amber-50 band (#fffbeb) must actually be painted, and the caveat text drawn in amber-700.
+  // The CARD's canvas by its accessible name — the report also draws uPlot charts onto canvases,
+  // and `locator('canvas').first()` picked one of those, which is a check that would have
+  // reported the band missing while it was painted perfectly.
+  const painted = await page.getByRole('img', { name: /Shareable flight card/ }).evaluate((el) => {
+    const c = el as HTMLCanvasElement;
+    const ctx = c.getContext('2d')!;
+    const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+    let amber = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      // amber-50 fill and amber-300 border: red high, blue clearly lower — a band, not the white
+      // card and not the indigo chip.
+      if (data[i] > 230 && data[i + 1] > 200 && data[i + 2] < 200) amber++;
+    }
+    return { amber, px: width * height };
+  });
+  expect(painted.amber, 'the caveat band is painted on the canvas itself').toBeGreaterThan(2000);
+
+  // …and the file a flyer actually posts is that canvas.
+  const [png] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save card' }).click(),
+  ]);
+  expect(png.suggestedFilename()).toMatch(/-card\.png$/);
+  const bytes = await readFile(await png.path());
+  expect(bytes.length, 'a real image, not an empty canvas').toBeGreaterThan(10_000);
+});
+
 test('a flight Debrief made up is tagged in the logbook and never wears its star', async ({ page }) => {
   await openMadeUpFlight(page);
 

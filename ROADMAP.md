@@ -2221,11 +2221,24 @@ export is a change to a file readers parse by position.
 `PROVENANCE_COLUMN` and `provenanceCell` moved to `lib/synthetic.ts`, where the three surfaces
 answering one question share one answer.
 
+**Slice 5c SHIPPED 2026-08-09 — the shareable card, which is where an unlabelled figure travels
+furthest.** The card exists to be posted to a club chat or a forum: it leaves the device as a
+picture, with no report around it, no file to re-read and no metadata block anyone will open. So
+the claim is drawn ON the canvas — §2's caveat amber as a filled BAND above the stats, not a line
+of grey text under a 56 px apogee — and the `.png` download and the clipboard image are
+`toBlob()` over the same draw, so all three are one answer.
+
+Walked by reading the **pixels** back rather than the DOM, deliberately: a DOM assertion passes on
+a card that renders the sentence beside the image and exports without it, which is the failure
+this sink is most likely to have. The first version of the walk read `locator('canvas').first()`
+and got one of uPlot's chart canvases — it reported the band missing while it was painted
+perfectly, which is a check that would have sent a session hunting a defect that was not there.
+
 **What is left, in order.**
-(b) **The remaining reachable sinks** — the nine still `todo` in `lib/synthetic.test.ts`: the print
-    card and its PNG, the comparison and its four documents, `/stitch`'s composite readings and its
-    timeline table, the explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`,
-    and the bundle that inherits from them.
+(b) **The remaining reachable sinks** — the seven still `todo` in `lib/synthetic.test.ts`: the
+    comparison and its four documents, `/stitch`'s composite readings and its timeline table, the
+    explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`, and the bundle that
+    inherits from them.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
     tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
     single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so
