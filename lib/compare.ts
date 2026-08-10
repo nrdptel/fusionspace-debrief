@@ -38,6 +38,11 @@ export interface CompareInput {
   /** When the flight flew, where its file stated it — carried through so a launch day's
    *  comparison can label its columns by date rather than by file name alone. */
   flownAt?: FlownAt;
+  /** Whether this is a flight Debrief MADE UP. Carried through because `CompareFlight` is the
+   *  shape every comparison surface and every comparison document reads, and it had no provenance
+   *  member at all — so a demonstration could sit in a column beside three real flights with
+   *  nothing saying which was which. See `lib/synthetic.ts`. */
+  synthetic?: boolean;
 }
 
 export interface CompareFlight {
@@ -47,6 +52,9 @@ export interface CompareFlight {
   color: string;
   /** When it flew, where the file said (see lib/flight/flownAt.ts). */
   flownAt?: FlownAt;
+  /** Set only on a flight Debrief MADE UP — absent on every recording, which is the honest
+   *  default and what every comparison built before this member already means. */
+  synthetic?: boolean;
   /** Altitude (m AGL) resampled onto the shared grid; NaN outside the flight. */
   altitude: Float64Array;
   /** Velocity (m/s) resampled onto the shared grid; NaN outside the flight. */
@@ -173,6 +181,7 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       name: it.name,
       formatLabel: it.formatLabel,
       ...(it.flownAt ? { flownAt: it.flownAt } : {}),
+      ...(it.synthetic ? { synthetic: true as const } : {}),
       color: COMPARE_PALETTE[idx % COMPARE_PALETTE.length],
       altitude: resample(rels[idx], series.altitude, grid),
       velocity: resample(rels[idx], series.velocity, grid),
