@@ -6,7 +6,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **See *What shipped, in order*.** Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Shipped to production** | **`fd18f3a` is LIVE** — merged from PR #169 and confirmed serving at 00:07 UTC, five commits covering D10 slices 5a and 5b and P1 item 5. **PR #171 is open and green-pending** with slice 5c and the backlog corrections. Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
 | **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1334/1334 with the corpus attached, build clean, e2e 317 passed. One Sev-1-shaped defect was *created and caught inside this run*; see below. |
 | **D — capability** | **D10 slice 5a SHIPPED.** A flight Debrief made up now says so on every surface a flyer READS. Slice 5b (the documents that leave) is next and its open design question is now settled by a citation rather than a preference. |
 | **P — product & craft** | **P1 is the live milestone.** See *Pick this up first* — the design-system audit ran this run and its output is a ranked, reproduced list rather than a hunch. |
@@ -90,12 +90,14 @@ about the CHECKS rather than the code:
 
 | commit | what | pinned by |
 |---|---|---|
-| *(this PR)* | **D10 slice 5a — a made-up flight says so where a flyer reads it**: the report, the readings grid, the logbook row, the logbook's clipboard table and the logbook backup; and it can never wear a personal-best ★ | `lib/synthetic.test.ts` (19), `lib/logbookStar.test.ts` (+4), `lib/logbook.test.ts` (+3), `lib/recents.test.ts`'s two `Required<>` fixtures, 2 walks in `e2e/analyze.spec.ts` |
-| *(this PR)* | **The reopen erasure** — `lib/reopen.ts` dropped the marker, and a reopen is a save | `lib/synthetic.test.ts` → *"survives being REOPENED"*, falsified alone |
-| *(this PR)* | **The audit table stopped being able to lie**: `labelled` rows name a check that is read off disk, the save-site list is discovered rather than typed, `SINKS` 20 → 25 | `lib/synthetic.test.ts`, falsified 3 ways |
-| *(this PR)* | **D10 slice 5b — the two spreadsheet destinations say it on every ROW**: the data CSV and the readings clipboard table each grow a `Provenance` column, and the logbook's table converts onto the same vocabulary | `lib/synthetic.test.ts` ×3, falsified both ways on both exports |
-| *(this PR)* | **P1 item 5 — the logbook's four states take §5's primitives**, and `PRIMITIVE_ADOPTERS` becomes exhaustive against `components/ui.tsx`'s exports | `lib/design-system.test.ts` (26), falsified by exporting a new primitive |
-| *(this PR)* | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data), `BACKLOG.md` ×3 | — |
+| `fd18f3a` | **D10 slice 5a — a made-up flight says so where a flyer reads it**: the report, the readings grid, the logbook row, the logbook's clipboard table and the logbook backup; and it can never wear a personal-best ★ | `lib/synthetic.test.ts` (19), `lib/logbookStar.test.ts` (+4), `lib/logbook.test.ts` (+3), `lib/recents.test.ts`'s two `Required<>` fixtures, 2 walks in `e2e/analyze.spec.ts` |
+| `fd18f3a` | **The reopen erasure** — `lib/reopen.ts` dropped the marker, and a reopen is a save | `lib/synthetic.test.ts` → *"survives being REOPENED"*, falsified alone |
+| `fd18f3a` | **The audit table stopped being able to lie**: `labelled` rows name a check that is read off disk, the save-site list is discovered rather than typed, `SINKS` 20 → 25 | `lib/synthetic.test.ts`, falsified 3 ways |
+| `fd18f3a` | **D10 slice 5b — the two spreadsheet destinations say it on every ROW**: the data CSV and the readings clipboard table each grow a `Provenance` column, and the logbook's table converts onto the same vocabulary | `lib/synthetic.test.ts` ×3, falsified both ways on both exports |
+| `fd18f3a` | **P1 item 5 — the logbook's four states take §5's primitives**, and `PRIMITIVE_ADOPTERS` becomes exhaustive against `components/ui.tsx`'s exports | `lib/design-system.test.ts` (26), falsified by exporting a new primitive |
+| `fd18f3a` | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data) | — |
+| *(PR #171)* | **D10 slice 5c — the shareable card says it in a BAND drawn on the canvas**, and the `.png` and clipboard image are the same pixels. Walked by reading the pixels back, not the DOM | `e2e/analyze.spec.ts` → *"the shareable card carries it as a band"*, falsified by passing `synthetic={false}` |
+| *(PR #171)* | `BACKLOG.md` ×7, including a CORRECTION to the design audit's own icon-button count | — |
 
 ## Pick this up first
 
