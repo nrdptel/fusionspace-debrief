@@ -11,6 +11,7 @@
 
 import { readRecent, STORAGE_REFUSED } from './recents';
 import { importRecent } from './reopen';
+import { isSynthetic } from './synthetic';
 import { analyzeAsync } from './analyze/runner';
 import { buildComparison, MAX_COMPARE, type Comparison, type CompareInput } from './compare';
 
@@ -62,6 +63,9 @@ export async function compareFromLogbook(ids: string[]): Promise<LogbookComparis
         formatLabel: result.flight.formatLabel,
         analysis: await analyzeAsync(result.flight),
         ...(result.flight.flownAt ? { flownAt: result.flight.flownAt } : {}),
+        // The flight itself knows, because `importRecent` puts the marker back — so this needs no
+        // logbook field of its own and works on a row saved before `RecentMeta.synthetic` existed.
+        ...(isSynthetic(result.flight) ? { synthetic: true } : {}),
       });
     } catch {
       skipped.push({ name, why: 'couldn’t be read as a flight' });

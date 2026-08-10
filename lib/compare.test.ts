@@ -706,3 +706,43 @@ describe('the palette and the cap are separate decisions', () => {
     expect(built.flights.every((f) => /^#[0-9a-f]{6}$/i.test(f.color))).toBe(true);
   });
 });
+
+
+/**
+ * **A comparison had no provenance member at all**, so a flight Debrief made up could sit in a
+ * column beside three real ones with nothing saying which was which — on the surface whose entire
+ * job is putting flights next to each other.
+ *
+ * Named here rather than in `lib/synthetic.test.ts` because what is being checked is the
+ * COMPARISON's shape: that `buildComparison` carries the fact through, and that it is absent by
+ * default. The rendering of it is `components/CompareView.tsx`'s `metricsTable()`, which the
+ * screen, the `.csv` and the clipboard all read from.
+ */
+describe('a made-up flight in a comparison is carried through as one', () => {
+  const input = (id: string, synthetic?: boolean): CompareInput =>
+    ({
+      id,
+      name: `${id}.csv`,
+      formatLabel: 'Generic CSV',
+      analysis: {
+        series: { time: new Float64Array([0, 1, 2]), altitude: new Float64Array([0, 10, 0]), velocity: new Float64Array([0, 10, -10]), acceleration: new Float64Array([0, 0, 0]), airDensity: new Float64Array([1.2, 1.2, 1.2]), speedOfSoundProfile: new Float64Array([340, 340, 340]) },
+        events: [],
+        metrics: { apogeeAltitude: 10, maxVelocity: 10 },
+        warnings: [],
+      },
+      ...(synthetic ? { synthetic: true } : {}),
+    }) as unknown as CompareInput;
+
+  it('carries the fact from the input onto the flight the surfaces read', () => {
+    const c = buildComparison([input('real'), input('demo', true)]);
+    expect(c.flights[0].synthetic, 'a recording is not marked').toBeUndefined();
+    expect(c.flights[1].synthetic, 'a made-up flight is').toBe(true);
+  });
+
+  it('is ABSENT rather than false on a comparison of real flights', () => {
+    // Absent means "a recording", which is what every comparison built before this member already
+    // means — and what a surface branching on presence needs.
+    const c = buildComparison([input('a'), input('b')]);
+    expect(c.flights.every((f) => !('synthetic' in f)), 'nothing extra came along').toBe(true);
+  });
+});

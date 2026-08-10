@@ -2234,9 +2234,28 @@ this sink is most likely to have. The first version of the walk read `locator('c
 and got one of uPlot's chart canvases — it reported the band missing while it was painted
 perfectly, which is a check that would have sent a session hunting a defect that was not there.
 
+**Slice 5d SHIPPED 2026-08-09 — the comparison, which had no provenance member at all.** A flight
+Debrief made up could sit in a column beside three real ones with nothing saying which was which, on
+the surface whose entire job is putting flights next to each other. `CompareFlight` gains
+`synthetic`, populated from the flight itself in `lib/compareFromLogbook.ts` — so it works on a
+logbook row saved before `RecentMeta.synthetic` existed, because `importRecent` puts the marker
+back.
+
+**A ROW here where the logbook and the data CSV take a COLUMN, and it is the same rule.** This table
+is metric-per-row and flight-per-COLUMN, so the per-record unit is the column and one cell per
+flight is what makes each column answer for itself. The shape follows the table; the principle does
+not move.
+
+**The sink row SPLIT rather than being claimed whole**, which is the honest half: the screen table,
+its `.csv` and its clipboard all read one builder (`metricsTable()`) and moved together, while
+`compareMarkdown`, `compareHtml` and `compareJson` build their own tables in `lib/report.ts` and did
+not. One row claiming all five would have been exactly the half-truth the table exists to stop.
+Those three want one builder rather than a fourth answer to one question — a refactor before it is
+a label, and the next slice.
+
 **What is left, in order.**
 (b) **The remaining reachable sinks** — the seven still `todo` in `lib/synthetic.test.ts`: the
-    comparison and its four documents, `/stitch`'s composite readings and its timeline table, the
+    comparison's `.md`/`.html`/`.json`, `/stitch`'s composite readings and its timeline table, the
     explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`, and the bundle that
     inherits from them.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and

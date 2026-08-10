@@ -9,6 +9,7 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
+import { PROVENANCE_COLUMN, provenanceCell } from '@/lib/synthetic';
 import { savePlotPng } from '@/lib/plotPng';
 import { derivedPeakCaveat } from '@/lib/derivedPeak';
 import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
@@ -456,13 +457,27 @@ export default function CompareView({
   const spread = flights.length >= 2;
   /** The table as header + rows — one shape, so the CSV, the clipboard and anything after
    *  them can't disagree about what the table says. */
+  /** Whether any flight in this comparison is one Debrief MADE UP. */
+  const anySynthetic = flights.some((f) => f.synthetic);
   const metricsTable = (): { header: string[]; rows: string[][] } => ({
     header: ['Metric', ...flights.map((f) => stem(f.name)), ...(spread ? ['Spread (%)'] : [])],
-    rows: metricRows.map((r) => [
-      r.label,
-      ...r.cells,
-      ...(spread ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
-    ]),
+    rows: [
+      // **A ROW here, where the logbook and the data CSV take a COLUMN — same principle, applied
+      // to a table that is transposed.** This one is metric-per-row and flight-per-COLUMN, so the
+      // per-record unit is the column, and one cell per flight is what makes each column answer
+      // for itself. `COMPETITION.md` row 41 is the rule; the shape follows the table.
+      //
+      // FIRST, so it is read before the numbers rather than after them, and only when there is
+      // something to say — a comparison of real flights gains no row.
+      ...(anySynthetic
+        ? [[PROVENANCE_COLUMN, ...flights.map((f) => provenanceCell(f.synthetic)), ...(spread ? [''] : [])]]
+        : []),
+      ...metricRows.map((r) => [
+        r.label,
+        ...r.cells,
+        ...(spread ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
+      ]),
+    ],
   });
   const metricsCsv = (): string => {
     const { header, rows } = metricsTable();
