@@ -262,6 +262,23 @@ describe('a synthetic flight says so wherever it can go', () => {
     }
   });
 
+  it('states its own tally, so a prose count of what is left cannot drift from the file', () => {
+    // **Added 2026-08-09 because the roadmap's count of what was left went wrong three slices
+    // running** — nine, then seven, then six, each derived by subtracting from the last rather
+    // than by counting the file, which actually held ten. That is the same failure this whole
+    // table exists to prevent, committed about the table itself.
+    //
+    // Asserted as an exact split rather than a total: a total moves for two reasons and says
+    // which for neither, so a sink converted and a sink deleted read identically.
+    const by = (st: string) => SINKS.filter((s) => s.state === st).length;
+    expect({ carries: by('carries'), labelled: by('labelled'), todo: by('todo'), unreachable: by('unreachable') }).toEqual({
+      carries: 5,
+      labelled: 11,
+      todo: 10,
+      unreachable: 0,
+    });
+  });
+
   it('accounts for every sink the audit found — none silently forgotten', () => {
     // 25 rows. It was 20, and the five that arrived are the useful half of re-running the audit
     // rather than trusting the record — three from the re-run (the channel explorer's own `.csv`,
