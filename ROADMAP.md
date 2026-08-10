@@ -2261,13 +2261,27 @@ composite assembled from made-up recordings read exactly like a launch. The asse
 the fact; `compareFromLogbook` reads it off the flight itself, so it needs no logbook field and
 works on a row saved before one existed.
 
-**What is left, in order.**
-(b) **The remaining reachable sinks** — the six still `todo` in `lib/synthetic.test.ts`, and the
-    first of them is a REFACTOR before it is a label: the comparison's `.md`/`.html`/`.json` each
-    build their own table in `lib/report.ts` instead of reading the one builder the screen, the
-    `.csv` and the clipboard share, which is exactly why they did not come along with slice 5d.
-    Give them one builder and all three gain the row at once. Then `/stitch`'s timeline table, the
-    explore CSV, the sample-table column copy, the plot images, `.gpx`/`.kml`, and the bundle.
+**What is left, in order — and the count in this paragraph was WRONG three slices running before
+it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
+last rather than by counting the file. `grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l`
+returns **10**, against 11 `labelled` and 5 `carries` for `SINKS.length` 26. Corrected 2026-08-09,
+and recorded rather than quietly fixed because it is the same failure the milestone is about: a
+number nobody re-measured.
+
+(b) **The ten still `todo`**, and the first is a REFACTOR before it is a label:
+    1. the comparison's `.md`/`.html`/`.json` — each builds its own table in `lib/report.ts`
+       instead of reading the one builder the screen, the `.csv` and the clipboard share, which is
+       exactly why they did not come along with slice 5d. One builder gains all three at once;
+       adding the row to each writes the same answer three more times;
+    2. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
+    3. the explore `.csv` and the sample-table column copy — both outside `lib/documents.ts`,
+       which is why the registry-driven check cannot see them;
+    4. the plot `.png`/`.svg` — the SVG has a title slot; the PNG is rasterised from the same draw;
+    5. `.gpx` and `.kml` — named in this milestone's own *done when*, and `trackGpx` already writes
+       a `<desc>` a sentence can ride in;
+    6. the `.zip` bundle, which inherits from its entries;
+    7. the share link, which carries the raw file text and therefore the marker — what is missing
+       is the assertion, not the behaviour.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
     tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
     single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so

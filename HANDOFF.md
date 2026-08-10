@@ -8,7 +8,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 |---|---|
 | **Shipped to production** | **FIVE pull requests merged and confirmed LIVE**, each fetched from `debrief.fusionspace.co` after its merge: `fd18f3a` (#169, five commits — D10 5a + 5b, P1 item 5, the `Disclosure` pair), `3b62dac` (#171 — D10 5c), `2988ba1` (#172 — D10 5d), `1b10bfd` (#173 — docs), `cd8c39c` (#174 — D10 5e). **Nothing is pending on a branch.** Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
 | **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1334/1334 with the corpus attached, build clean, e2e 317 passed. One Sev-1-shaped defect was *created and caught inside this run*; see below. |
-| **D — capability** | **D10 slices 5a–5e SHIPPED.** A flight Debrief made up now says so on **twelve** sinks: the report, the readings grid, the logbook row and its backup, three spreadsheet tables, the shareable card and its two image forms, the comparison, and `/stitch`'s composite. `SINKS` **20 → 26**, of which **6 remain `todo`** — and the first of those is a refactor before it is a label. |
+| **D — capability** | **D10 slices 5a–5e SHIPPED.** A flight Debrief made up now says so on **twelve** sinks: the report, the readings grid, the logbook row and its backup, three spreadsheet tables, the shareable card and its two image forms, the comparison, and `/stitch`'s composite. `SINKS` **20 → 26**: **5 `carries`** (the registry documents, checked by building them), **11 `labelled`** (each naming a check read off disk), **10 `todo`**. That last number was quoted as 9, then 7, then 6 across three slices before anybody counted the file — corrected, and the correction is in `ROADMAP.md` beside the list. |
 | **P — product & craft** | **P1 item 5 SHIPPED on the logbook**, and two byte-identical copies of `Disclosure` became one primitive. The ratchet that makes P1 mechanical went from blind to four of its own primitives to exhaustive against `components/ui.tsx`. See *Pick this up first* — the design-system audit ran this run, and its output is reproduced rather than trusted: one of its claims was measured and found stale, and the correction is in `BACKLOG.md`. |
 
 ## The one thing to read before anything else
@@ -103,8 +103,10 @@ about the CHECKS rather than the code:
 
 ## Pick this up first
 
-1. **D10 slice 5e — and it is a REFACTOR before it is a label.** Seven sinks are still `todo` in
-   `lib/synthetic.test.ts`. The three comparison documents (`compareMarkdown`, `compareHtml`,
+1. **D10 slice 5f — and it is a REFACTOR before it is a label.** TEN sinks are still `todo` in
+   `lib/synthetic.test.ts` — count them with
+   `grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` rather than subtracting from the last
+   number, which is how the roadmap's own count went wrong three slices running. The three comparison documents (`compareMarkdown`, `compareHtml`,
    `compareJson` in `lib/report.ts`) each build their own table instead of reading the one builder
    the screen, the `.csv` and the clipboard share — which is exactly why they did not come along
    with slice 5d. Give them one builder and they all gain the row at once; add the row to each of
