@@ -6,10 +6,17 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **Pending re-check at the time of writing.** Work lands on `claude/ultracode-maintenance-h5n564` (a harness-pinned branch name this run could not choose) and reaches production only through a pull request into `main`. Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Shipped to production** | **FOUR commits, one pull request — `#177`.** `84874ac` (D10 5f), `39c791e` (D10 5g), `de47580` (P1 contrast), `906fb36` (D10 5h + the CI fix). Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. Production was serving `a66676b` when this run started, which was `origin/main` exactly. |
 | **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1354/1354 with the corpus attached (9 committed fixtures, 50 corpus recordings), build clean, e2e 321 passed. |
-| **D — capability** | **D10 slices 5f and 5g SHIPPED.** The comparison is now one table builder, and it no longer contradicts itself. `SINKS` **26 → 27**, `labelled` **11 → 12**, `todo` **10** (a new sink was found in the same breath as one was closed). |
-| **P — product & craft** | **Not yet started this run at the time of this refresh.** The next P slice is scoped and measured — see *Pick this up first*. |
+| **D — capability** | **D10 slices 5f, 5g, 5h SHIPPED.** The comparison is one table builder, it no longer crowns a flight nobody flew, and it no longer claims two recordings agree when one of them is made up. `SINKS` **26 → 27** (a sink was found in the same breath as one was closed), `labelled` **11 → 12**, `todo` **10**. |
+| **P — product & craft** | **P1: every ENABLED grey in `components` and `app` clears WCAG AA in both themes**, held by a check that did not exist — §9 had been naming two commands that were fiction. §2's `tertiary` token was the defect: symmetric across two asymmetric surfaces, 4.12:1 and 3.67:1 in dark. |
+
+## The corpus sweep, stated plainly
+
+**Ran, and found nothing.** `lib/parsers/corpus.test.ts` names its own count — **9 committed fixtures
+and 50 corpus recordings** — and the full unit suite finished **1366 passed across 91 files** with it
+attached. An empty sweep is a result, not a stop condition; the number is here so the next session
+can tell it apart from a suite that skipped itself.
 
 ## The one thing to read before anything else
 
@@ -58,30 +65,50 @@ bolded in the `.md` and `class="best"` in the `.html`. That became slice 5g.
 
 ## Pick this up first
 
-**The P-track slice, scoped and measured this run but not built.** `DESIGN.md` §9's compliance
-block — the thing P1's *done when* is written against — has holes that were measured rather than
-guessed:
+**The D-track continues inside D10**, whose remaining `todo` sinks are listed in `ROADMAP.md` with
+the code that has to change. The next one is the cheapest and closes two rows at once: both
+`exploreCsv` call sites — the explorer's `<flight>-explore.csv` and the comparison's
+`compare-data.csv` — want the claim threaded the same way, and neither receives a flight today.
 
-- **§9's contrast block names two checks and NEITHER EXISTS.** `e2e/contrast.spec.ts` is not in the
-  tree (`ls` says so), and no test titled *"class half of the dark variant"* exists anywhere
-  (`grep -rn` over `lib/` and `e2e/` returns nothing). §9's own words: *"A compliance command that
-  cannot fail is worse than none, because a session runs it, sees the target, and moves on."*
-- **The inverted-type count never measures a ROUTE.** The ratchet reads `components` only. Adding
-  `app/**/*.tsx` finds two real ones — `app/validation/page.tsx` (1/0) and `app/privacy/page.tsx`
-  (4/3) — confirmed by re-running the loop this run, exactly as §9 predicted.
-- **Two counts read COMMENTS as code.** `invertedTypeFiles` and `uiAdopters` both grep raw text.
-  Live today: `components/ui.tsx:267-271` carries `text-sm` twice and `text-xs` once inside one
-  docblock, and those count toward that file's totals.
-- **Three ratchet regexes are narrower than §9's own greps** — radius names a single value where §9
-  subtracts a sanctioned set, and spacing and type have no arbitrary-value (`[13px]`, `[0.9rem]`)
-  branch. Note honestly: widening them moves **no count today** (measured: radius 0, spacing 0,
-  type 1). It is a guard against the next drift, not a discovery, and should be reported as such.
+**The P-track's next slice is named by the check this run wrote.** `DESIGN.md` §9 now records two
+gaps in its REACH, both measured and neither closed:
 
-**Then, in `BACKLOG.md` and ranked there:** the comparison's cross-check panel states an agreement
-figure over a flight nobody flew, above the row that says so; the logbook's ★ *"Fastest"* ranks a
-baro-derived peak against a device-measured one while the comparison refuses that exact crown by
-name; and three of the report's jump chips scroll to sections that unmount, eleven lines under a
-comment naming that pattern as the tell to avoid.
+- **`lib/report.ts` writes the exported HTML report's palette as literal hex, and two rules are
+  sub-AA** — `thead th #71717a` on `body #f4f4f5` is **4.40:1**, `footer a #6366f1` is **4.47:1**.
+  That document goes in a cert package, so it is read by people who never open the app. The source
+  check cannot see it: not a Tailwind class, not under `components`/`app`.
+- **Only the zinc ramp is rated**, so the logbook's enabled `text-indigo-500` note button at
+  **4.47:1** is invisible to it.
+
+Both want the RENDERED check §9 describes and nobody has written — rasterising computed colours onto
+a 1×1 canvas rather than parsing them, since Chromium reports `lab()`/`oklab()`. That one check
+covers hand-written CSS and non-zinc hues at once, where enumerating palettes will not.
+
+**Then, in `BACKLOG.md` and ranked there**, three verified findings this run did not take:
+
+1. **The logbook's ★ *"Fastest of your remembered flights"* ranks a baro-DERIVED peak against a
+   device-MEASURED one** (`lib/logbook.ts:119`), which `compareMetricRows` refuses by name one file
+   over with the reason written down. Not a withheld-figure leak — `lib/recents.ts:574` stores
+   `null` for a non-finite peak. The larger half is that `RecentFlights.tsx:898` prints the peak
+   BARE beside an apogee that carries its qualifier, and fixing that needs a `maxVelocitySource` on
+   `RecentMeta`.
+2. **Three of the report's jump chips scroll to sections that unmount** — `Timeline` and `Explore`
+   are listed unconditionally and `Recovery` is guarded more weakly than `GroundTrack` unmounts —
+   eleven lines under a comment naming that exact pattern as the tell to avoid. One predicate per
+   section, shared by the chip and the section.
+3. **`Readout`'s label wears `tertiary` for a role §2 assigns to `secondary`** (`ui.tsx:1374`),
+   found by a verifier REFUTING a filed finding rather than confirming one. One line, AA-passing
+   already, so it is role consistency rather than legibility.
+
+## What a fifth thing to know looks like
+
+**Two of this run's own findings were REFUTED by the adversarial verify pass, and acting on the
+unrefuted form would have been wrong.** A reviewer filed that the metric grid's `?` now
+out-contrasts the label it annotates; the verifier showed §2 assigns *"labels … help"* to ONE role,
+so sharing a token is the specification, and that the real deviation is in the label. Another filed
+that lifting the greys inverted the logbook's amber warning; the verifier showed that is true in
+LIGHT only — in dark, amber-400 (11.92:1) leads zinc-400 (7.76:1) whichever value the neutral takes.
+The docs were corrected to say "in light". **Send findings to be refuted, not confirmed.**
 
 ## The corpus
 
