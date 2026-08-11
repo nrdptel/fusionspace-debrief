@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-11 — `Readout`'s label wears `tertiary` for a role §2 assigns to `secondary`, and it is
+  the last inconsistency in the tile heading.** `components/ui.tsx:1374` is
+  `text-zinc-500 dark:text-zinc-400` on a reading NAME, where §2's table gives *"labels, units,
+  captions, help"* to `secondary` (`text-zinc-600 dark:text-zinc-400`) — and the same file's `Chip`
+  label was moved to `secondary` on 2026-08-11 while this one was not. Found by an adversarial
+  verifier REFUTING a filed finding rather than confirming one: the claim was that the metric
+  grid's `?` now out-contrasts its label, and the true reading is the reverse — the `?` is right
+  and the label is the pre-existing deviation. It passes AA at 4.83:1, so this is role consistency
+  rather than legibility, and it is one line. `Readout`'s `sub` at `ui.tsx:1386` carries the same
+  pair and is genuinely a caption, so it should stay.
+
 - **2026-08-11 — the EXPORTED HTML report's hand-written palette has two sub-AA rules, and no check
   can see them.** `lib/report.ts` writes that document's CSS as literal hex, so it is neither a
   Tailwind class nor under `components`/`app` — the contrast census added this run reaches neither.

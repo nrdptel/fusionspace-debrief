@@ -704,7 +704,33 @@ export default function CompareView({
       {/* Cross-check: how closely the readings agree, as independent measurements. */}
       {(() => {
         const agree = crossCheck(flights);
-        if (agree.length === 0) return null;
+        /**
+         * **A cross-check withheld says WHY, rather than leaving a gap where a panel was.**
+         * `crossCheck` excludes a flight Debrief made up — it is not an independent measurement,
+         * so it can neither corroborate a recording nor contradict one — and on the set a
+         * demonstration is most often opened in (one real flight beside it) that leaves a single
+         * recording and no agreement to report. Falling silent there is the failure the
+         * MEASUREMENT invariant names: a withheld number that explains nothing looks exactly like
+         * a number the tool forgot to compute.
+         *
+         * Only when a made-up flight is the REASON. A comparison of real flights that share no
+         * metric still renders nothing, because there the absence is ordinary.
+         */
+        if (agree.length === 0) {
+          const madeUp = flights.filter((f) => f.synthetic).length;
+          if (madeUp === 0) return null;
+          const recorded = flights.length - madeUp;
+          return (
+            <Notice as="p" tone="warn" data-synthetic="cross-check">
+              No cross-check:{' '}
+              {madeUp === flights.length
+                ? 'every flight here is one Debrief made up.'
+                : `${recorded === 1 ? 'only one of these is a recording' : `only ${recorded} of these are recordings`}, and ${madeUp === 1 ? 'the other is a flight Debrief made up' : `the other ${madeUp} are flights Debrief made up`}.`}{' '}
+              A demonstration is not an independent measurement, so it can neither agree with a
+              recording nor disagree with one. Drop a second real log to compare them.
+            </Notice>
+          );
+        }
         const recoveryNote = recoveryDisagreement(flights, agree);
         // The files can refute the premise this panel rests on: recordings dated days apart
         // are not one flight, so the same numbers mean something else and are introduced as

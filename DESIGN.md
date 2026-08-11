@@ -811,10 +811,16 @@ move off the failing values, so the hierarchy each one sat in survives:
 **The `zinc-600` version of this fix was written first and was WRONG, which is worth more than the
 fix.** Lifting these to §2's `secondary` clears AA by a wider margin — and inverts hierarchies the
 greys were carrying. In the logbook, the neutral cross-check spread would have become 7.73:1 against
-its own amber "these may not be one flight" sibling at 5.02:1: **the warning quieter than the
-non-warning**, which is a safety signal read backwards. The `?` would have out-contrasted the reading
-name it annotates. The stitch annotation would have become byte-identical to its parent heading.
-`tertiary`-corrected is 4.83:1 — above AA, still below amber — so every ordering holds.
+its own amber "these may not be one flight" sibling at 5.02:1: **in LIGHT, the warning quieter than
+the non-warning** — a safety signal read backwards. `tertiary`-corrected is 4.83:1: above AA, still
+below amber, so the ordering holds.
+
+**Qualified to LIGHT deliberately, because the first draft of this paragraph said it unconditionally
+and that was wrong.** In dark the warning is the more prominent branch either way — amber-400 is
+11.92:1 against zinc-400's 7.76:1 on the page — so only the light theme ever showed the inversion.
+An adversarial verifier caught the overstatement, and the correction is kept rather than smoothed
+away: a claim about a safety signal that is true in one theme and stated for both is the same
+species of error as a caveat on one surface and a confident claim on another.
 
 **Four holes in the check itself, all found by a pre-push review, all of the same shape: an
 exemption written as a loose text match exempts far more than it names.**

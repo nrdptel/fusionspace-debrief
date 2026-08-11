@@ -3044,6 +3044,11 @@ test('a flight Debrief made up is tagged in the logbook and never wears its star
  * sink `labelled` and pointed at a unit test that only checks `buildComparison` copies a member.
  */
 test('a made-up flight is marked in the comparison table a flyer looks at', async ({ page }) => {
+  // Three analyses and a comparison in one walk — the mapper flow, a second real flight, then
+  // `/compare` rebuilding both out of storage. CI timed the first cut out at the default 30 s
+  // while the app was working correctly, and an `expect` timeout longer than the TEST timeout
+  // cannot save it: the test clock fires first. `e2e/pwa.spec.ts` sets this the same way.
+  test.setTimeout(120_000);
   await openMadeUpFlight(page);
 
   // One REAL flight beside it, so the row has both cells to tell apart. A comparison of one
@@ -3052,14 +3057,26 @@ test('a made-up flight is marked in the comparison table a flyer looks at', asyn
   await page
     .getByLabel('Choose a flight log file')
     .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'));
+  // Waits for the REPORT, and "Analyze another flight" is the right signal for it despite looking
+  // like the wrong one: the click above returns the app to the drop zone, so that button is gone
+  // when this starts and its reappearance means the Pnut's own report has rendered. A wait on the
+  // file name instead — which reads like the more specific assertion — matches while the drop zone
+  // is still reading the file, so it proceeds too early and the flight is never saved. Measured
+  // both ways.
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
 
   // Out of STORAGE rather than out of the render that wrote it — the same reason the logbook
   // walk reloads: `compareFromLogbook` rebuilds the flight, and that is the hop a marker gets
   // dropped on.
   await page.goto('/');
+  // …and the control has to be THERE before it can be ticked, because the save is an IndexedDB
+  // write and the list paints once storage answers. Waited on the CHECKBOX rather than on the row:
+  // a `listitem` filtered by the file name looks like the more natural assertion and does not
+  // match, so it fails on a logbook that is rendering the flight perfectly.
+  const pnutBox = page.getByLabel('Select perfectflite-pnut.pf2 to compare');
+  await expect(pnutBox).toBeVisible({ timeout: 30_000 });
   await page.getByLabel('Select demo-mapper-flight.csv to compare').check();
-  await page.getByLabel('Select perfectflite-pnut.pf2 to compare').check();
+  await pnutBox.check();
   await page.getByRole('button', { name: /Compare 2 flights/ }).click();
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 60_000 });
 
@@ -3099,8 +3116,23 @@ test('a made-up flight is marked in the comparison table a flyer looks at', asyn
     'no flight in this comparison wears the highest mark, because only one of them was flown',
   ).toHaveCount(0);
 
-  // The other direction — a comparison of REAL flights gains no such row — is asserted in
-  // `e2e/compare.spec.ts`'s two-real-flights walk rather than rebuilt here. Adding a third
-  // flight to this one to prove an absence is a longer path to a weaker check, on a walk whose
-  // subject is the positive case.
+  // **And the cross-check is WITHHELD, saying why.** The panel above the table opens "If these are
+  // recordings of the same flight, the independent readings agree to within X%" — a claim about
+  // independent measurements, over a set where only one of the two is a measurement. `crossCheck`
+  // excludes a made-up flight, which on this set leaves one recording and nothing to compare, so
+  // the surface has to say that rather than fall silent: an absent panel and a panel the tool
+  // forgot to compute look identical.
+  const withheld = page.locator('[data-synthetic="cross-check"]');
+  await expect(withheld).toBeVisible();
+  await expect(withheld).toContainText('No cross-check');
+  await expect(withheld).toContainText('not an independent measurement');
+  await expect(
+    page.getByText('agree to within'),
+    'the confident cross-check sentence is gone, not merely pushed below the fold',
+  ).toHaveCount(0);
+
+  // The other direction — a comparison of REAL flights gains no such row, and DOES get its
+  // cross-check — is asserted in `e2e/compare.spec.ts`'s two-real-flights walk rather than rebuilt
+  // here. Adding a third flight to this one to prove an absence is a longer path to a weaker
+  // check, on a walk whose subject is the positive case.
 });

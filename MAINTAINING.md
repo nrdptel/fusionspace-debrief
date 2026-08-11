@@ -147,6 +147,12 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   suite testing whatever was there before, which is the same sub-second-failure signature this file
   already warns about two bullets up.
 
+  **It RECURS, so treat `rm -rf .next` as part of the gate rather than as a remedy.** It struck three
+  times in the run that first diagnosed it (2026-08-11), always on a rebuild over a warm cache and
+  never on a cold one. `rm -rf .next && npm run build` costs about five seconds more than an
+  incremental build and removes a failure mode that reads as a broken tree every time it appears.
+  If a future session finds the cache behaving, this is cheap to keep anyway.
+
 - **Throwaway probes** are named `*-tmp.*` and gitignored. Check the glob covers the exact name you
   chose, and delete them before you finish. **Gitignored is not unchecked:** `prebuild` runs
   `tsc --noEmit` over the whole repo, so a probe with a type error turns `npm run build` RED while

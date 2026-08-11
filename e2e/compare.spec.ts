@@ -66,6 +66,14 @@ test('compare two flights from the recents list', async ({ page }) => {
     page.getByRole('rowheader', { name: 'Provenance', exact: true }),
     'a comparison of recordings gains nothing',
   ).toHaveCount(0);
+  // …and two real recordings still GET their cross-check. The exclusion of made-up flights from
+  // `crossCheck` must not cost a real pair the panel — the same second direction the star and the
+  // crown are each asserted in, and the reason blocking was the wrong tool for all three.
+  await expect(
+    page.locator('[data-synthetic="cross-check"]'),
+    'nothing is withheld from a comparison of recordings',
+  ).toHaveCount(0);
+  await expect(page.getByText(/agree to within|differ by/).first()).toBeVisible();
 
   // The engineering metrics are in the table too.
   await expect(page.getByRole('rowheader', { name: 'Max Mach', exact: true })).toBeVisible();

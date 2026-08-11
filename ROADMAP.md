@@ -2046,7 +2046,7 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5g SHIPPED.** (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5h SHIPPED.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2374,6 +2374,30 @@ real flight — because the version of this test that uses a lower made-up apoge
 exclusion. Walked too: the e2e asserts no ★ anywhere in that table, where the demonstration reads
 ~5,459 ft against the Pnut's ~1,025 ft.
 
+**Slice 5h SHIPPED 2026-08-11 — a made-up flight is not an independent measurement, and the
+cross-check says so instead of falling silent.** Filed by slice 5g's pre-push review and taken as
+its own increment because it needed a decision the crown did not. `lib/compare.ts#crossCheck` had no
+synthetic guard, so the panel ABOVE the metrics table — and the `## Cross-check` section ahead of
+`## Metrics` in the `.md` and the `.html` — opened *"If these are recordings of the same flight, the
+independent readings agree to within X%"* over a set containing a flight nothing measured. A flyer
+read the confident sentence before reading the row that says one column is made up.
+
+**Excluded, like the crown and the ★ — and the empty state is the half that needed thinking about.**
+On the set a demonstration is most often opened in (one real flight beside it) excluding it leaves a
+single recording and no agreement to report, so the panel would simply not render. That is the
+failure the MEASUREMENT invariant names: *a withheld number says why it is withheld*, because an
+absent panel and a panel the tool forgot to compute look identical. `/compare` now renders a §5
+`Notice` at `warn` naming which flights are recordings, which are made up, and why one cannot
+corroborate the other — and it appears ONLY when a made-up flight is the reason, since a comparison
+of real flights sharing no metric is an ordinary absence.
+
+Pinned by 2 cases in `lib/compare.test.ts`, falsified both ways: remove the exclusion and the
+one-recording set reports three agreements; block the whole cross-check when any flight is made up
+and a real pair loses the panel a demonstration should never have cost them. The real pair's spread
+is asserted byte-identical to the same pair compared alone, against a demonstration five times
+higher that would wreck the number if it were contributing. Walked on both surfaces: the notice on
+the mixed set, and its ABSENCE plus a live cross-check on two real recordings.
+
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
 last rather than by counting the file. Re-counted 2026-08-11 after slice 5f:
@@ -2619,10 +2643,12 @@ means, and the subject of owner note `ON-3`. Fixed in the token (`dark:text-zinc
 so no session has to remember which role is safe where.
 
 **The `zinc-600` version was written first and was wrong, and that is the more useful half.** Lifting
-the ten to §2's `secondary` clears AA by more — and inverts hierarchies the greys were carrying: the
+the ten to §2's `secondary` clears AA by more — and inverts a hierarchy the greys were carrying: the
 logbook's neutral cross-check spread would have gone to 7.73:1 against its own amber *"these may not
-be one flight"* sibling at 5.02:1, **the warning quieter than the non-warning**. Corrected `tertiary`
-is 4.83:1: above AA, still below amber.
+be one flight"* sibling at 5.02:1, **in LIGHT the warning quieter than the non-warning**. Corrected
+`tertiary` is 4.83:1: above AA, still below amber. Qualified to light because the first statement of
+this was unconditional and an adversarial verifier refuted it — in dark, amber-400 (11.92:1) is more
+prominent than zinc-400 (7.76:1) whichever value the neutral takes.
 
 **Pinned by 4 cases** in `lib/design-system.test.ts` (*"meets WCAG AA in BOTH themes"*) — ratios
 computed from hex, the arithmetic self-rated against 21:1 and 1:1 first, then a census over every
