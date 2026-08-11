@@ -225,15 +225,16 @@ describe('a synthetic flight says so wherever it can go', () => {
     { name: 'card .png', state: 'labelled', why: 'the `.png` download and the clipboard image are `canvas.toBlob()` over the same draw as the print card, so all three are one answer — which is why the claim is drawn onto the CANVAS and not rendered beside it in the DOM.', check: { file: 'e2e/analyze.spec.ts', contains: 'the shareable card carries it as a band' } },
     { name: 'plot .png / .svg', state: 'todo', why: 'CORRECTED 2026-08-09. The old reason read "carries no figure a reader could mistake for a measurement", and that is false: `lib/svgChart.ts` draws a labelled y-axis in the flyer\'s length unit and a title, and the image travels without the report. The SVG has a title slot; the PNG is rasterised from the same draw.' },
     { name: 'explore .csv', state: 'todo', why: '`lib/explore.ts#exploreCsv` emits a header of column names and nothing else, and `ChannelExplorer` offers it on every report — a second data export, missed by the 2026-08-09 audit entirely because it is not in `lib/documents.ts`.' },
+    { name: 'comparison overlay .csv (compare-data.csv)', state: 'todo', why: 'ADDED 2026-08-11. **`exploreCsv` has TWO call sites and this table named one of them.** `CompareView.tsx:460#overlayCsv` writes `compare-data.csv` — every compared flight\'s curve for one channel on the shared time base — while the "explore .csv" row above describes `ChannelExplorer.tsx:282`. A row that names a COMPONENT cannot stand in for a row that names an EXPORT, which is why this one was invisible; it is also not in `lib/documents.ts`, so the registry-driven check cannot reach it either. (The first draft of this reason said "a THIRD call site" and counted the definition and an import line as call sites — corrected by the pre-push review, and left visible because miscounting by reading a grep instead of its hits is the exact failure this table keeps committing.) Found while shipping slice 5f, on the very surface that slice was about. Both call sites want one fix in `lib/explore.ts` rather than two answers, since neither receives a flight today.' },
     { name: 'sample-table column copy', state: 'todo', why: '`SampleTable#copyColumn` calls `copyTable([label], out)` — the clipboard header is the bare channel name, so a column of made-up altitudes pastes into a spreadsheet with nothing attached. Also missed by the audit.' },
     { name: 'landing-coordinate copy', state: 'todo', why: '`GroundTrack` writes a bare lat/lon pair with `clipboard.writeText`. **Reachable today, and the first draft of this reason said it was not** — repeating, two lines above the correction that names it, the exact mistake the .gpx row is in the middle of correcting. The mapper has `latitude` and `longitude` roles (`lib/flight/columns.ts`), so a mapped CSV carrying the marker and lat/lon columns needs no new generator at all.' },
-    { name: '.zip bundle', state: 'todo', why: 'its entries are the .md/.csv/.json above; it inherits whatever they do.' },
+    { name: '.zip bundle', state: 'todo', why: 'TWO bundles, and this row described one of them until the 2026-08-11 review. The single-flight `debrief-<stem>.zip` packs `summaryMarkdown` / `analyzedDataCsv` / `analysisJson`, all three of which already carry the claim, so its only bare entries are the figure SVGs — it resolves when `plot .png / .svg` does. The comparison\'s `compare-debrief.zip` (`CompareView#saveBundle`) packs `compare-summary.md`, `compare-metrics.csv`, `compare.json` — all now labelled — PLUS `compare-data.csv` and one `compare-<metric>.svg` per chosen figure, which are the two rows above still `todo`. A bundle inherits from its entries, so this row closes when those two do and not before.' },
     { name: 'metric grid (screen)', state: 'labelled', why: '`MetricGrid` takes a REQUIRED `synthetic` prop and renders §5 `Notice` at `warn` above the tiles — the short form, because the report carries the sentence at the top and two copies of 200 characters cost ~230 px of an 844 px phone. Two notices and not one because a screenshot of the readings does not carry the top of the page.', check: { file: 'e2e/analyze.spec.ts', contains: 'the notice sits above the first reading' } },
     { name: 'logbook row', state: 'labelled', why: '`RecentMeta.synthetic`, written by `fileFacts` at every save site, rendered as a §5 `Chip` at `warn` beside the logger with the claim in `sr-only` text rather than a `title` — and excluded from `personalBests`, so a made-up apogee cannot wear the star that says "highest of your remembered flights".', check: { file: 'e2e/analyze.spec.ts', contains: 'never wears its star' } },
     { name: 'logbook backup .json', state: 'labelled', why: '`normalizeFlight` carries `synthetic` explicitly, and the `Required<RecentFlight>` fixture stops that file COMPILING if a member is added and not carried — so the backup round trip cannot silently drop it.', check: { file: 'lib/recents.test.ts', contains: 'a backup carries every member of a flight' } },
     { name: 'logbook clipboard table', state: 'labelled', why: 'a conditional `Provenance` COLUMN, on the same rule as the grouping pair beside it and on the NMEA/HL7/DICOM precedent in `COMPETITION.md` row 41 — a per-row cell survives a sort, a filter and a partial paste into a spreadsheet where a caption row does not. The header and the cell are `lib/logbook.ts` rather than JSX precisely so this row has something to point at.', check: { file: 'lib/logbook.test.ts', contains: 'provenanceCell' } },
-    { name: 'comparison table + its .csv and clipboard', state: 'labelled', why: '`CompareFlight` gained a `synthetic` member, populated from the flight itself in `lib/compareFromLogbook.ts` (so it works on a logbook row saved before `RecentMeta.synthetic` existed). The table is metric-per-row and flight-per-COLUMN, so the per-record unit is the column and the marker is a ROW with one cell per flight — the same rule as the logbook table, in the shape this table actually has. `metricsTable()` is the one builder the screen, the `.csv` and the clipboard all read, so all three move together.', check: { file: 'lib/compare.test.ts', contains: 'a made-up flight in a comparison' } },
-    { name: 'comparison .md/.html/.json', state: 'todo', why: 'these three build their own tables in `lib/report.ts` (`compareMarkdown`, `compareHtml`, `compareJson`) rather than reading `metricsTable()`, which is why they did not come along with the screen table and its CSV. They should read one builder rather than a fourth answer to one question — that is the slice, and it is a refactor before it is a label.' },
+    { name: 'comparison table + its .csv and clipboard', state: 'labelled', why: '**CORRECTED 2026-08-11, and the correction is the lesson this table exists to teach.** This row previously read "`metricsTable()` is the one builder the screen, the `.csv` and the clipboard all read, so all three move together" — and the SCREEN was not among them. `CompareView` rendered `compareMetricRows` directly while `metricsTable()` (which held the provenance row) fed only the two exports, so a made-up flight sat unlabelled in the rendered table while the CSV saved from that same screen said it was made up. The `check` named a `lib/compare.test.ts` case that only asserts `buildComparison` copies a member onto `CompareFlight`; it renders nothing, so it could not have failed. The screen, the `.csv` and the clipboard all read `compareTableRows()` in `lib/report.ts` now — as do the `.md` and the `.html` in the row below — and the check is a walk of the real table.', check: { file: 'e2e/analyze.spec.ts', contains: 'a made-up flight is marked in the comparison table a flyer looks at' } },
+    { name: 'comparison .md/.html/.json', state: 'labelled', why: 'the `.md` and `.html` take the provenance ROW from the same `compareTableRows()` the screen and the `.csv` read — one builder decides which rows the comparison has, so a fifth surface gets it by construction rather than by a fourth copy of the same answer. The `.json` takes it as a `synthetic` field on each FLIGHT record instead: a consumer reads the flight objects, not a rendering of them, so the claim rides on the record it is about — the same per-record rule as `COMPETITION.md` row 41, in the shape that document actually has. Emitted on every flight rather than only the made-up ones, because a key present only when true reads as absent-means-unknown.', check: { file: 'lib/report.test.ts', contains: 'a made-up flight is labelled on every comparison surface, from one builder' } },
     { name: 'composite readings (screen, /stitch)', state: 'labelled', why: 'the assembled state carries `synthetic` — `compareFromLogbook` reads it off the flight itself, so it works on a logbook row saved before the field existed — and the per-stage readings section renders §5 `Notice` at `warn` above them. Above rather than beside, which is where §5 says a notice goes, and it matters more here than on the report: `/stitch` is a top-level route with no surface above it to carry a caveat.', check: { file: 'components/StitchSurface.tsx', contains: 'data-synthetic="composite"' } },
     { name: 'composite timeline clipboard table', state: 'todo', why: 'ADDED 2026-08-09 by the pre-push review. `/stitch`\'s "Copy the timeline" writes marks with altitudes through `copyTable` and carries nothing — the same shape as the logbook table, and it wants the same `Provenance` column from `lib/logbook.ts` rather than a second answer to one question.' },
     { name: '.gpx track', state: 'todo', why: 'CORRECTED 2026-08-09, and the correction is the lesson. The old reason — "the generated flight has no GPS" — exempted a SINK on a property of one generated FILE. The marker is a metadata row any mappable CSV can carry, including one with lat/lon columns, so the sink is reachable the moment such a file exists. `trackGpx` already writes a `<desc>` a sentence can ride in. D10\'s own *done when* names .gpx explicitly, so this was an exemption against the milestone\'s text.' },
@@ -273,7 +274,7 @@ describe('a synthetic flight says so wherever it can go', () => {
     const by = (st: string) => SINKS.filter((s) => s.state === st).length;
     expect({ carries: by('carries'), labelled: by('labelled'), todo: by('todo'), unreachable: by('unreachable') }).toEqual({
       carries: 5,
-      labelled: 11,
+      labelled: 12,
       todo: 10,
       unreachable: 0,
     });
@@ -291,7 +292,11 @@ describe('a synthetic flight says so wherever it can go', () => {
     // one builder and moved together, while its `.md`/`.html`/`.json` build their own tables in
     // `lib/report.ts` and did not. One row claiming all five would have been the kind of
     // half-truth this table exists to stop, so it is two rows with two states.
-    expect(SINKS.length, 'a new exporter must be added to SINKS').toBe(26);
+    // 27, 2026-08-11: the comparison's OVERLAY csv (`compare-data.csv`). `exploreCsv` has TWO call
+    // sites — `ChannelExplorer.tsx:282` and `CompareView.tsx:460` — and this table named the first
+    // by its COMPONENT, so it read as covering the function while it covered one caller. A row that
+    // names a component cannot stand in for a row that names an export.
+    expect(SINKS.length, 'a new exporter must be added to SINKS').toBe(27);
     for (const s of SINKS) {
       if (s.state !== 'carries') {
         expect(s.why, `${s.name} is not covered and gives no reason`).toBeTruthy();
@@ -351,6 +356,67 @@ describe('a synthetic flight says so wherever it can go', () => {
     }
     return null;
   };
+
+  /**
+   * **Every route INTO a comparison carries the fact, and there are two.** Found by the pre-push
+   * review of the slice that built the one shared table builder, which is the useful half: the
+   * builder can only label what the input told it, so a `CompareInput` assembled without
+   * `synthetic` produces an unlabelled row on all five comparison surfaces no matter how careful
+   * the renderer is. `lib/compareFromLogbook.ts` set it; `components/Analyzer.tsx` — the drop
+   * route, which is the one most flyers take — did not.
+   *
+   * **Not reachable today, and asserted anyway.** The marker is read on the MAPPER route only
+   * (`syntheticFromRows` is called from `analyzeTable`, and a vendor parser never reaches it), and
+   * the mapper takes one file at a time, so a made-up flight cannot currently arrive in a
+   * multi-file drop. It becomes reachable the moment a generator writes a real logger's format,
+   * which is D10 slice (d) — and a hole that opens when an unrelated slice ships is exactly the
+   * kind this file exists to hold shut in advance.
+   *
+   * DISCOVERED rather than typed in, for the same reason the save-site check below is: the failure
+   * being prevented is a THIRD route, and a hard-coded list is blind to precisely that.
+   *
+   * Falsified two ways: drop the spread from `Analyzer.tsx` (that file is named), and add a third
+   * `buildComparison(` caller anywhere in the tree (named, with no list to update first).
+   */
+  it('every route into a comparison carries whether the flight was made up', () => {
+    const roots = ['lib', 'components'];
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })) {
+        if (e.name.startsWith('__') || e.name.startsWith('.')) continue;
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (/\.tsx?$/.test(e.name) && !e.name.includes('.test.')) files.push(rel);
+      }
+    };
+    for (const r of roots) walk(r);
+
+    // `lib/compare.ts` DEFINES `buildComparison`; it is excluded by name rather than by pattern,
+    // the same way the save-site check excludes the module that owns `saveRecent`.
+    const callers = files.filter(
+      (f) => f !== 'lib/compare.ts' && readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').includes('buildComparison('),
+    );
+    expect(
+      [...callers].sort(),
+      'the comparison entry points are discovered, so this list moving is a new route into a comparison',
+    ).toEqual(['components/Analyzer.tsx', 'lib/compareFromLogbook.ts']);
+
+    for (const file of callers) {
+      // Comments STRIPPED before the match, and that is not tidiness. This repo has been bitten
+      // twice by a source check reading prose as code — `DESIGN.md` §9 records a single comment
+      // line taking a file off the inverted-type list with no glyph changing size — and the
+      // paragraph above this test names `isSynthetic` and `synthetic: true` in English, so a
+      // file-wide grep would find them in the explanation of the rule rather than in the code
+      // obeying it. That is a check that passes on the file that documents the violation.
+      const src = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+      expect(
+        /isSynthetic\(/.test(src) && /synthetic: true/.test(src),
+        `${file} assembles a comparison without carrying whether the flight was made up`,
+      ).toBe(true);
+    }
+  });
 
   it('every route into the logbook writes the file’s facts from one place', () => {
     const roots = ['lib', 'components'];

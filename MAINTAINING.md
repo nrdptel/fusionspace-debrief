@@ -129,6 +129,24 @@ npm run fetch-fixtures          # the real flight-log corpus (needs FIXTURES_TOK
   twenty minutes. Write the rc to a file and read it; the general form is the one this manual
   already records about `tail` swallowing a red suite — **read the result, not the exit code of
   whatever you piped it through.**
+- **A `next build` that dies inside `bundle5.js` is a POISONED `.next` CACHE, and the fix is
+  `rm -rf .next`.** Measured 2026-08-11. The crash is
+  `TypeError: Cannot read properties of undefined (reading 'length')` at
+  `WasmHash._updateWithBuffer`, followed by `Next.js build worker exited with code: 1`. Three things
+  make it expensive to diagnose:
+  - **`prebuild` has already passed**, so `tsc --noEmit` is green and the log opens with
+    `version.json: … (dirty tree)` — it reads like the type-check endorsed the tree and the app is
+    broken. It did, and it is not.
+  - **It dumps the whole of webpack's bundled source into the log — 2.2 MB** — so `tail` and any
+    naive grep land in minified vendor code. The real error is the LAST ~10 lines; read those.
+  - **It is not a flake and re-running does not clear it.** It reproduced on two consecutive builds
+    of a tree whose immediately preceding build was green, which reads exactly like "my last change
+    broke the build" and is not that. Disk was 29 GB free, so it is not space either.
+  Clear the cache and rebuild; it comes back green in one go. **And check `out/` before believing an
+  e2e run taken after a red build** — `npm run test:e2e` serves `out/`, so a failed build leaves the
+  suite testing whatever was there before, which is the same sub-second-failure signature this file
+  already warns about two bullets up.
+
 - **Throwaway probes** are named `*-tmp.*` and gitignored. Check the glob covers the exact name you
   chose, and delete them before you finish. **Gitignored is not unchecked:** `prebuild` runs
   `tsc --noEmit` over the whole repo, so a probe with a type error turns `npm run build` RED while

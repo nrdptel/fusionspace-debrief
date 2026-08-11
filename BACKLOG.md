@@ -14,6 +14,45 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-11 — the logbook's ★ "Fastest of your remembered flights" ranks a BARO-DERIVED peak
+  against a DEVICE-MEASURED one, which the comparison on the next surface over refuses to do by
+  name.** `lib/logbook.ts:119` is `speedId: uniqueMaxId(flights, (r) => r.maxVelocityMs)` — no
+  guard — while `apogeeId` three lines above is gated on `apogeeUnrankable`, and the comment
+  between them explains exactly why ("a ranking needs a number the app is willing to stand
+  behind"). `lib/report.ts`'s `compareMetricRows` blocks the same crown with
+  `rankBlocked: velMixed` and states the reason: *"a derived peak reads high, so 'highest' would go
+  to whichever flight happened to be measured the softer way."* **Not a withheld-figure leak** —
+  `lib/recents.ts:574` stores `null` for a non-finite peak, so a refused speed prints `—`. Two
+  parts to the fix and the second is the larger: (a) mirror `apogeeUnrankable` for speed; (b)
+  `RecentFlights.tsx:898` prints `fmtSpeed(r.maxVelocityMs, sys)` **bare**, immediately beside an
+  apogee cell carrying `apogeeTag(r)` — so the row itself is the caveat-on-one-surface asymmetry.
+  (b) needs a `maxVelocitySource` member on `RecentMeta`, which the `Required<RecentFlight>`
+  fixtures in `lib/recents.test.ts` will force through every persistence hop.
+
+- **2026-08-11 — three of the report's jump chips scroll to a section that is not on the page, and
+  the code says so about itself eleven lines earlier.** `FlightReport.tsx:840`'s comment names this
+  exact pattern as *"the 'control that fails only when pressed' this manual warns about"*, then
+  lists `Timeline` and `Explore` unconditionally and guards `Recovery` more weakly than its section
+  unmounts: `FlightTimeline.tsx:31` returns null on `phases.length < 2 || total <= 0`,
+  `ChannelExplorer.tsx:249` on `selected.length === 0`, and `GroundTrack.tsx:484` on
+  `!track || !stats` while the chip asks only `gpsLat && gpsLon`. Reproduce with a flight that has
+  no burnout and a record ending in the air — one phase, so the Timeline chip is live and its
+  target is gone. The durable fix is one predicate per section shared by the chip and the section,
+  not three more guards; `MAINTAINING.md`'s own list calls a chip that names something not on the
+  page a craft-bar tell.
+
+- **2026-08-11 — CORRECTION to the 2026-08-09 entries that treated the comparison's provenance
+  marker as shipped on the screen: it was not, and the check that said so could not fail.** The
+  provenance row was assembled in `components/CompareView.tsx`'s `metricsTable()`, which feeds the
+  `.csv` and the clipboard; the rendered table mapped `compareMetricRows` directly and carried
+  nothing. `lib/synthetic.test.ts`'s sink row claimed *"`metricsTable()` is the one builder the
+  screen, the `.csv` and the clipboard all read"* and pointed its `check` at
+  `lib/compare.test.ts` → "a made-up flight in a comparison", which asserts only that
+  `buildComparison` copies a member and renders no table. Fixed in D10 slice 5f
+  (`compareTableRows()`), and the general lesson is filed rather than the instance: **a `check`
+  that names a test which never exercises the surface is a green light nobody can switch off.**
+  Two other `labelled` rows name unit tests — audit them the same way before trusting them.
+
 - **2026-08-09 — six one-glyph controls hand-roll `IconButton`, which exists, and they are SIX
   DIFFERENT geometries rather than six copies of one.** Measured exactly, because the design audit
   that raised it said "seven identical" and cited line numbers that had already moved:

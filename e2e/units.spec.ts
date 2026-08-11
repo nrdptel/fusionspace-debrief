@@ -16,7 +16,14 @@ const panel = (page: import('@playwright/test').Page) =>
 async function sampleFlight(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
-  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  // **An explicit wait, because the default 5 s is inside the noise on this one.** Measured
+  // 2026-08-11: this helper takes ~5.6 s standalone — fetch the sample, parse it, analyse it and
+  // render the explorer — so under a loaded parallel run it goes red on the clock while the app is
+  // working correctly. It failed exactly once in a full suite and passed alone immediately after,
+  // which is the signature. Every other spec that waits on an analysis already names 60 s; this
+  // one was the exception rather than the rule, and a false red costs a session more than the
+  // wait costs the suite.
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible({ timeout: 60_000 });
 }
 
 test('a unit can be chosen per quantity, and it reaches every surface', async ({ page }) => {

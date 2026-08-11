@@ -58,6 +58,15 @@ test('compare two flights from the recents list', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Apogee', exact: true })).toBeVisible();
 
+  // Two REAL recordings gain no provenance row: it exists only where there is something to say,
+  // because a row of the word "recorded" on every comparison is a change to a table readers parse
+  // by position, for no information. The positive direction — a made-up flight IS marked here —
+  // is walked in `e2e/analyze.spec.ts`; this is the half that stops the row becoming noise.
+  await expect(
+    page.getByRole('rowheader', { name: 'Provenance', exact: true }),
+    'a comparison of recordings gains nothing',
+  ).toHaveCount(0);
+
   // The engineering metrics are in the table too.
   await expect(page.getByRole('rowheader', { name: 'Max Mach', exact: true })).toBeVisible();
   await expect(page.getByRole('rowheader', { name: 'Max Q', exact: true })).toBeVisible();

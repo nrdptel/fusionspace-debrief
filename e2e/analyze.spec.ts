@@ -3031,3 +3031,65 @@ test('a flight Debrief made up is tagged in the logbook and never wears its star
     'and the row still wears the tag after the reopen saved it back',
   ).toContainText('SYNTHETIC');
 });
+
+/**
+ * The comparison is where an unlabelled made-up flight does the most damage: the surface exists
+ * to put flights in columns beside each other, so a demonstration reads as one more recording.
+ *
+ * **Walked because the SCREEN was the surface that was actually broken, and no unit test could
+ * see it.** The provenance row was assembled inside `metricsTable()` in `CompareView`, which the
+ * `.csv` and the clipboard read and the rendered table did not — the table rendered
+ * `compareMetricRows` directly. So a flyer looking at the comparison saw nothing, while the CSV
+ * saved from that same screen said "made up by Debrief, not flown". The audit table called this
+ * sink `labelled` and pointed at a unit test that only checks `buildComparison` copies a member.
+ */
+test('a made-up flight is marked in the comparison table a flyer looks at', async ({ page }) => {
+  await openMadeUpFlight(page);
+
+  // One REAL flight beside it, so the row has both cells to tell apart. A comparison of one
+  // made-up flight alone could pass a weaker assertion that never renders the word "recorded".
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // Out of STORAGE rather than out of the render that wrote it — the same reason the logbook
+  // walk reloads: `compareFromLogbook` rebuilds the flight, and that is the hop a marker gets
+  // dropped on.
+  await page.goto('/');
+  await page.getByLabel('Select demo-mapper-flight.csv to compare').check();
+  await page.getByLabel('Select perfectflite-pnut.pf2 to compare').check();
+  await page.getByRole('button', { name: /Compare 2 flights/ }).click();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 60_000 });
+
+  // FIRST in the table, so it is read before the numbers rather than after them.
+  const table = page.locator('table').filter({ has: page.getByRole('rowheader', { name: 'Apogee', exact: true }) });
+  const provenance = table
+    .getByRole('row')
+    .filter({ has: page.getByRole('rowheader', { name: 'Provenance', exact: true }) });
+  await expect(provenance).toBeVisible();
+  // EXACTLY ONE cell wears the claim and exactly one says "recorded" — the row's whole job is
+  // telling the two apart, and an assertion on the made-up cell alone passes on a row that says
+  // the same thing about every flight.
+  //
+  // Counted rather than positional, and that is what the first cut of this walk got wrong: the
+  // column order follows the logbook, not the order the files were opened in, so `.first()`
+  // pinned whichever flight happened to sort first. Each cell also carries the phone layout's
+  // `aria-hidden` column label, so it is `hasText`, never `toHaveText`.
+  const cells = provenance.getByRole('cell');
+  await expect(cells.filter({ hasText: 'made up by Debrief, not flown' })).toHaveCount(1);
+  await expect(cells.filter({ hasText: /recorded/ })).toHaveCount(1);
+
+  // Not sortable, and not just visually: the readings all carry a sort button in their row
+  // header, and a provenance row that grew one would offer to order flights by a sentence.
+  await expect(
+    provenance.getByRole('rowheader').getByRole('button'),
+    'the provenance row header offers no sort control',
+  ).toHaveCount(0);
+
+  // The other direction — a comparison of REAL flights gains no such row — is asserted in
+  // `e2e/compare.spec.ts`'s two-real-flights walk rather than rebuilt here. Adding a third
+  // flight to this one to prove an absence is a longer path to a weaker check, on a walk whose
+  // subject is the positive case.
+});

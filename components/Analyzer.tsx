@@ -49,6 +49,7 @@ import { SAMPLES, sampleFiles, type Sample } from '@/lib/samples';
 import { fileToText, textIsTheFile } from '@/lib/fileText';
 import { download } from '@/lib/download';
 import { MAPPING_BUSY } from '@/lib/dropCopy';
+import { isSynthetic } from '@/lib/synthetic';
 import { Button, ErrorState, Loading, Notice } from './ui';
 
 type State =
@@ -494,7 +495,15 @@ export default function Analyzer() {
       if (results.some((r) => !r.savedId)) logbook.reportWriteRefused();
       logbook.refresh();
       if (results.length >= 2) {
-        const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}) }));
+        // `synthetic` rides in from the flight itself, exactly as `lib/compareFromLogbook.ts`
+        // does it — because there are TWO routes into a comparison and this was the one that
+        // did not carry the fact. A flight Debrief made up, dropped alongside real ones, reached
+        // the table, the `.csv`, the clipboard, the `.md` and the `.html` with nothing saying so,
+        // however carefully the row was assembled downstream: the builder can only label what the
+        // input told it. Not reachable today — the marker is read on the mapper route only, and
+        // the mapper takes one file at a time — and landed now rather than left for the slice
+        // that makes it reachable, which is a generator writing a real logger's format.
+        const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}), ...(isSynthetic(r.flight) ? { synthetic: true } : {}) }));
         const notes: string[] = [];
         // What the cap held back, from `ingestFiles` itself rather than recomputed here. The
         // two surfaces each worked this out their own way, which is what this module exists to

@@ -2046,7 +2046,7 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a SHIPPED.** (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5f SHIPPED.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2261,25 +2261,117 @@ composite assembled from made-up recordings read exactly like a launch. The asse
 the fact; `compareFromLogbook` reads it off the flight itself, so it needs no logbook field and
 works on a row saved before one existed.
 
+**Slice 5f SHIPPED 2026-08-11 — one table builder for the comparison, and the SCREEN was not
+labelled at all.**
+
+**First, a correction to how this slice was queued, because the framing was wrong and a session
+acting on it would have gone looking for the wrong thing.** Item (b)1 read *"each builds its own
+table in `lib/report.ts` instead of reading the one builder"* — and that is not what was
+happening. `compareMarkdown` and `compareHtml` **already** called `compareMetricRows(flights, sys,
+meta?.hidden, meta?.order)`, the same row builder everything else read. What they did not share was
+the row **LIST**: the provenance row was assembled one level up, in `metricsTable()` inside
+`components/CompareView.tsx`. So this was never three duplicated table builders; it was one row
+builder, one row-list assembly living in a component, and four renderers — which makes the fix
+about fifteen lines rather than a refactor, and makes *where the list is assembled* the whole
+defect.
+
+**Because reading the code to do it found that the screen was never in that set either.** `metricsTable()` in
+`components/CompareView.tsx` assembled the provenance row and fed only the two exports; the
+rendered table mapped `compareMetricRows` directly. So a made-up flight sat in a column beside
+real ones with **nothing on screen saying which was which**, on the surface whose entire job is
+putting flights next to each other — while the `.csv` saved from that same screen said *"made up
+by Debrief, not flown"*. That is this repo's named worst failure, a caveat on one surface and a
+confident claim on another, and slice 5d's own entry asserted the opposite in writing.
+
+**The pre-push review then found the half the slice had missed, one level up from anything it had
+touched.** `compareTableRows()` can only label what its INPUT told it, and there are **two routes
+into a comparison**: `lib/compareFromLogbook.ts` set `synthetic` on each `CompareInput`, and
+`components/Analyzer.tsx` — the DROP route, the one most flyers take — did not. So a made-up
+flight dropped alongside real ones would have reached all five surfaces bare, however carefully the
+row was assembled downstream. Fixed by carrying it from the flight at that call site too, and
+pinned by a DISCOVERED check (`lib/synthetic.test.ts` → *"every route into a comparison carries
+whether the flight was made up"*) that walks `lib/` and `components/` for `buildComparison(`
+callers rather than holding a typed list, because the failure it exists to prevent is a THIRD
+route. It strips comments before matching — this repo has twice been caught by a source check
+reading its own explanation as code.
+
+**Honest about reachability: it is not reachable today.** The marker is read on the mapper route
+only, and the mapper takes one file at a time, so a made-up flight cannot currently arrive in a
+multi-file drop. It becomes live the moment slice (d) ships a generator writing a real logger's
+format. Landed now rather than left for that slice to remember.
+
+**The audit table could not have caught it, and that is the second half of the fix.** The sink
+row's `check` pointed at `lib/compare.test.ts` → *"a made-up flight in a comparison"*, which
+asserts only that `buildComparison` copies the member onto `CompareFlight`. It renders no table,
+so it would have passed on every version of this defect. The row is corrected in place rather than
+quietly re-pointed, and its check is now a walk of the real table.
+
+`compareTableRows()` in `lib/report.ts` is the one builder: the readings, plus the provenance row
+first when any flight in the set is made up. Five surfaces read it — the screen, the `.csv`, the
+clipboard, the `.md` and the `.html`. The `.json` takes the claim as a `synthetic` field on each
+FLIGHT record instead, because a consumer reads the flight objects rather than a rendering of
+them; that is `COMPETITION.md` row 41's per-record rule in the shape that document has, and it is
+emitted on every flight because a key present only when true reads as absent-means-unknown.
+
+Pinned by 4 cases in `lib/report.test.ts` (*"a made-up flight is labelled on every comparison
+surface, from one builder"*, falsified 3 ways: reverting Markdown to the metric-only builder fails
+1, dropping the JSON field fails 2, and prepending the row unconditionally fails the
+gains-nothing-on-real-flights case) and by an `e2e/analyze.spec.ts` walk that drives the real
+comparison through the logbook and asserts that **exactly one** cell carries the claim and exactly
+one says *"recorded"*, and that the row's header offers no sort control. The walk was falsified by
+making `compareTableRows` never prepend the row: it goes red while the rest of the suite stays
+green.
+
+**Counted rather than positional, because the first cut of that walk asserted the wrong thing and
+went red on correct code.** It pinned the recording to the FIRST column; the column order follows
+the logbook, not the order the files were opened in, so it failed against a table that was
+labelling perfectly. Each cell also carries the phone layout's `aria-hidden` column label, so an
+exact-text assertion could not have matched either. The negative direction — two real recordings
+gain no row — lives in `e2e/compare.spec.ts`'s existing two-real-flights walk rather than being
+rebuilt here: adding a third flight to prove an absence is a longer path to a weaker check. `SINKS` **labelled 11 → 12**;
+`todo` stayed at **10** and `SINKS.length` went **26 → 27**, because the slice also found a sink no
+audit had ever named — see below. Re-measured from the file rather than subtracted, which is how
+the extra one was noticed at all.
+
+**And it found a 27th sink, on the surface it was already standing on.**
+`components/CompareView.tsx:460#overlayCsv` writes `compare-data.csv` — every compared flight's
+curve for one channel on the shared time base — through `lib/explore.ts#exploreCsv`. That function
+has **two** call sites and the audit table held one row for them, named *"explore .csv"* and
+described as *"`ChannelExplorer` offers it on every report"*. **A row that names a COMPONENT
+cannot stand in for a row that names an EXPORT** — so a data file full of made-up numbers left the
+comparison surface with a header of bare channel names. Filed as `todo` rather than fixed here:
+both call sites want one answer in `lib/explore.ts`, and neither receives a flight today, so it is
+a slice rather than a line.
+
+(The first draft of this paragraph said "a THIRD call site" and "grep returns three sites",
+counting the definition and an import line among the hits. Corrected by the pre-push review and
+recorded rather than silently fixed, because reading a grep's line count instead of its hits is
+the same species of error as the count this milestone has already got wrong three times.)
+
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
-last rather than by counting the file. `grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l`
-returns **10**, against 11 `labelled` and 5 `carries` for `SINKS.length` 26. Corrected 2026-08-09,
-and recorded rather than quietly fixed because it is the same failure the milestone is about: a
-number nobody re-measured.
+last rather than by counting the file. Re-counted 2026-08-11 after slice 5f:
+`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **10**, against 12 `labelled` and
+5 `carries` for `SINKS.length` **27** — and the suite asserts that exact split, so the number here
+and the number in the file fail together rather than drifting.
 
-(b) **The ten still `todo`**, and the first is a REFACTOR before it is a label:
-    1. the comparison's `.md`/`.html`/`.json` — each builds its own table in `lib/report.ts`
-       instead of reading the one builder the screen, the `.csv` and the clipboard share, which is
-       exactly why they did not come along with slice 5d. One builder gains all three at once;
-       adding the row to each writes the same answer three more times;
-    2. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
-    3. the explore `.csv` and the sample-table column copy — both outside `lib/documents.ts`,
-       which is why the registry-driven check cannot see them;
-    4. the plot `.png`/`.svg` — the SVG has a title slot; the PNG is rasterised from the same draw;
-    5. `.gpx` and `.kml` — named in this milestone's own *done when*, and `trackGpx` already writes
+(b) **The ten still `todo`:**
+    1. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
+    2. **the two `exploreCsv` exports — the explorer's `<flight>-explore.csv` and the
+       comparison's `compare-data.csv` — plus the sample-table column copy.** All three sit
+       outside `lib/documents.ts`, which is why the registry-driven check cannot see them, and the
+       first two are one fix in `lib/explore.ts` rather than two: neither call site receives a
+       flight today, so both need the claim threaded in the same way;
+    3. the plot `.png`/`.svg` — the SVG has a title slot; the PNG is rasterised from the same draw;
+    4. `.gpx` and `.kml` — named in this milestone's own *done when*, and `trackGpx` already writes
        a `<desc>` a sentence can ride in;
-    6. the `.zip` bundle, which inherits from its entries;
+    5. the `.zip` bundles — **two of them**, and the sink row described one until the 2026-08-11
+       review: the single-flight `debrief-<stem>.zip`, whose only bare entries are now the figure
+       SVGs, and the comparison's `compare-debrief.zip`, which also packs `compare-data.csv` and a
+       `compare-<metric>.svg` per figure. Both close when items 2 and 3 do, and not before;
+    6. the landing-coordinate copy — `GroundTrack` writes a bare lat/lon pair, and the mapper
+       already has `latitude`/`longitude` roles, so a mapped CSV carrying the marker reaches it
+       with no new generator;
     7. the share link, which carries the raw file text and therefore the marker — what is missing
        is the assertion, not the behaviour.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
