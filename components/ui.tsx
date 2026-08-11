@@ -934,7 +934,7 @@ export function Chip({
         className,
       )}
     >
-      {label != null && <span className="text-zinc-500 dark:text-zinc-500">{label}</span>}
+      {label != null && <span className="text-zinc-500 dark:text-zinc-400">{label}</span>}
       <span
         className={cx(
           mono && 'font-mono tabular-nums',
@@ -1009,7 +1009,7 @@ export function ChipButton({
         // An unpressed toggle recedes; a pressed one and a plain action read as present. The
         // ramp is `Chip`'s own so the two primitives cannot drift apart in the same row.
         off
-          ? 'border-zinc-300 bg-transparent text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'
+          ? 'border-zinc-300 bg-transparent text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'
           : tone === 'accent'
             ? CHIP_TONES.accent
             : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',

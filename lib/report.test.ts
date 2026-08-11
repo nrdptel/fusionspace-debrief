@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasClippedAccel, recordingLine } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasClippedAccel, recordingLine } from './report';
 import { buildComparison, type CompareInput } from './compare';
+import { PROVENANCE_COLUMN, provenanceCell } from './synthetic';
 import { landingRateIsWholeDescent } from './readings';
 
 function tinyFlight(): RawFlight {
@@ -952,6 +953,105 @@ describe('comparison report', () => {
   it('compareJson omits pairwise differences for a non-pair comparison', () => {
     const three = buildComparison([input('a', 300), input('b', 315), input('c', 330)]);
     expect(JSON.parse(compareJson(three, 'metric')).differences).toBeUndefined();
+  });
+
+  /**
+   * D10 — a flight Debrief MADE UP says so on every surface that can carry it out of the app,
+   * and the comparison is where an unlabelled one is most dangerous: its whole job is putting
+   * a made-up flight in a column beside real ones.
+   *
+   * **The asymmetry these assertions exist for was live, and the audit table did not see it.**
+   * `metricsTable()` in `components/CompareView.tsx` assembled the provenance row, and only the
+   * `.csv` and the clipboard read it — the SCREEN rendered `compareMetricRows` directly, and
+   * the `.md`, `.html` and `.json` each built their own table. So a made-up flight sat unlabelled
+   * in the rendered table while the CSV saved from that same screen said "made up by Debrief,
+   * not flown". `compareTableRows()` is the one builder now, and these run over all four.
+   */
+  describe('a made-up flight is labelled on every comparison surface, from one builder', () => {
+    const demo = (id: string, peak: number): CompareInput => ({ ...input(id, peak), synthetic: true });
+    const mixed = buildComparison([input('real', 300), demo('made-up', 315)]);
+    const realOnly = buildComparison([input('a', 300), input('b', 315)]);
+
+    it('puts the provenance row FIRST, with one cell per flight, and marks it not-a-reading', () => {
+      const rows = compareTableRows(mixed.flights, 'metric');
+      expect(rows[0].label).toBe(PROVENANCE_COLUMN);
+      expect(rows[0].provenance).toBe(true);
+      expect(rows[0].cells).toEqual([provenanceCell(undefined), provenanceCell(true)]);
+      // Not a reading: nothing to crown, nothing to spread. `best: -1` is what stops the
+      // Markdown and HTML renderers emphasizing a cell of prose as the winning figure.
+      expect(rows[0].best).toBe(-1);
+      expect(rows[0].spreadPct).toBeNull();
+      // …and it is EXTRA, not a replacement: every reading the metric builder produced is
+      // still there, in its order.
+      expect(rows.slice(1).map((r) => r.label)).toEqual(compareMetricRows(mixed.flights, 'metric').map((r) => r.label));
+    });
+
+    it('gains nothing at all on a comparison of real flights', () => {
+      // A row of the word "recorded" on every export is a change to a table readers parse
+      // by position, for no information. Asserted in both directions on purpose.
+      expect(compareTableRows(realOnly.flights, 'metric')).toEqual(compareMetricRows(realOnly.flights, 'metric'));
+      expect(compareMarkdown(realOnly, 'metric')).not.toContain(PROVENANCE_COLUMN);
+      expect(compareHtml(realOnly, 'metric')).not.toContain(PROVENANCE_COLUMN);
+      expect(JSON.parse(compareJson(realOnly, 'metric')).flights.every((f: { synthetic: boolean }) => f.synthetic === false)).toBe(true);
+    });
+
+    it('reaches the .md and the .html as a row of the metrics table', () => {
+      const md = compareMarkdown(mixed, 'metric');
+      expect(md).toContain(`| ${PROVENANCE_COLUMN} |`);
+      expect(md).toContain(provenanceCell(true));
+      // In the table, not loose in the prose above it: the row has to travel with the
+      // numbers it is about, which is the whole per-record argument.
+      expect(md.indexOf(PROVENANCE_COLUMN)).toBeGreaterThan(md.indexOf('## Metrics'));
+      // The claim is never bolded as a winning cell — `best: -1` proved above, asserted here
+      // on the rendered output rather than on the row that feeds it.
+      expect(md).not.toContain(`**${provenanceCell(true)}**`);
+
+      const html = compareHtml(mixed, 'metric');
+      expect(html).toContain(`<td>${PROVENANCE_COLUMN}</td>`);
+      expect(html).toContain(provenanceCell(true));
+      // Prose, so it does not take the tabular-figures class that makes a column of numbers
+      // scan — applied to a sentence that is a ragged column pretending to be data.
+      expect(html).toContain(`<td>${provenanceCell(true)}</td>`);
+    });
+
+    it('never crowns a flight nobody flew, and never lets one suppress a real best', () => {
+      // The table said two things at once: a row reading "made up by Debrief, not flown", and two
+      // rows under it a ★ titled "Highest of the flights being compared" on that same column,
+      // with the cell bolded in the .md and class="best" in the .html. `lib/logbook.ts` had
+      // already ruled on this for the logbook's star; the comparison had no equivalent guard.
+      //
+      // EXCLUDED, not blocked — and the second direction is the one that makes it a real rule
+      // rather than a filter. `lib/logbookStar.test.ts` asserts the same pair on the other
+      // surface, by name.
+      const rows = compareTableRows(mixed.flights, 'metric');
+      const apogee = rows.find((r) => r.label === 'Apogee')!;
+      // The made-up flight peaks higher (315 vs 300), so it WOULD hold the crown if it were
+      // allowed to compete — pick the numbers the other way and this assertion passes on a
+      // broken exclusion, which is the version of this test that proves nothing.
+      expect(apogee.values[1]).toBeGreaterThan(apogee.values[0]);
+      expect(apogee.best, 'one real flight beside a demonstration crowns nothing').toBe(-1);
+      // …and the exports carry no crown either, on either of the two ways they draw one.
+      expect(compareMarkdown(mixed, 'metric')).not.toContain(`**${apogee.cells[1]}**`);
+      expect(compareHtml(mixed, 'metric')).not.toContain('class="num best"');
+
+      // The other direction: a demonstration must not take the crown AWAY from a real set. Three
+      // flights, two of them real and genuinely rankable, one made up — the real winner still
+      // wins, and it is the real one.
+      const three = buildComparison([input('a', 300), input('b', 315), demo('made-up', 900)]);
+      const apo3 = compareTableRows(three.flights, 'metric').find((r) => r.label === 'Apogee')!;
+      expect(apo3.best, 'the higher REAL flight still wins, and the demonstration is not it').toBe(1);
+    });
+
+    it('reaches the .json on the flight record itself, not as a table row', () => {
+      // A consumer of this document reads the flight objects, not a rendering of them, so the
+      // claim rides on the record it is about — `COMPETITION.md` row 41's per-record rule, in
+      // the shape THIS document has.
+      const doc = JSON.parse(compareJson(mixed, 'metric'));
+      expect(doc.flights.map((f: { synthetic: boolean }) => f.synthetic)).toEqual([false, true]);
+      // Emitted on every flight rather than only the made-up ones: a key that appears only
+      // when true is one a consumer reads as absent-means-unknown.
+      expect(doc.flights.every((f: Record<string, unknown>) => 'synthetic' in f)).toBe(true);
+    });
   });
 });
 

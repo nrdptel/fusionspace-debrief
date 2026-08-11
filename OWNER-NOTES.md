@@ -482,6 +482,22 @@ runs.
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
+- **2026-08-11 — a `DESIGN.md` §2 and §9 change is OWED to the sibling repo and unshipped there**,
+  because it was not attached to this session. §2's `tertiary` row gains a hard restriction —
+  *nothing a flyer reads* — with the measurement behind it (4.12:1 on the dark page, 3.67:1 on dark
+  `raised`, against AA's 4.5:1; it passes in light, and WCAG 1.4.3 exempts genuinely inactive text,
+  which is what the role is for). §9's contrast block **named two commands that do not exist in
+  either tree** — `e2e/contrast.spec.ts` and a `-t "class half of the dark variant"` test — and now
+  names one that does. **This one matters more to the sibling than to Debrief**, because the note
+  that started it (`ON-5`, cross-applied from loft) was the owner reporting the SIBLING's docs as
+  "grey in dark mode, incredibly hard to read" while every §9 number there was at target. The check
+  is the thing that would have caught it, and it is `lib/design-system.test.ts`,
+  *"meets WCAG AA in BOTH themes"* — self-rating, computed from hex, with three narrow exemptions.
+  Neither section is in `lib/design-shared.test.ts`'s digest span, so nothing fails in either repo
+  today; the drift is silent, which is exactly the condition that span exists to end. **Proceeding
+  on: Debrief ships it now and the sibling inherits it in the first run that has both attached** —
+  one paste of the two blocks plus the test's `describe`.
+
 - **2026-08-09 — a `DESIGN.md` change is OWED to the sibling repo and unshipped there**, because it
   was not attached to this session. §5's `Button variant="link"` entry cited *"Got a backup?
   **Restore it**."* as its canonical in-a-sentence example; that control no longer exists — the

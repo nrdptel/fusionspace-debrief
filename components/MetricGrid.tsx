@@ -54,7 +54,7 @@ function ReadingLabel({ tile }: { tile: Tile }) {
         // §5's weight for a control that sits inside a sentence: no control padding, so the
         // tile's heading still reads as one line rather than a label with a button after it.
         triggerVariant="link"
-        triggerClassName="touch-area font-normal text-zinc-400 no-underline hover:text-indigo-600 dark:text-zinc-500 dark:hover:text-indigo-400"
+        triggerClassName="touch-area font-normal text-zinc-500 no-underline hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400"
         align="start"
         width="w-96"
       >

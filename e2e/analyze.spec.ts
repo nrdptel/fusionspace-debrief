@@ -3031,3 +3031,112 @@ test('a flight Debrief made up is tagged in the logbook and never wears its star
     'and the row still wears the tag after the reopen saved it back',
   ).toContainText('SYNTHETIC');
 });
+
+/**
+ * The comparison is where an unlabelled made-up flight does the most damage: the surface exists
+ * to put flights in columns beside each other, so a demonstration reads as one more recording.
+ *
+ * **Walked because the SCREEN was the surface that was actually broken, and no unit test could
+ * see it.** The provenance row was assembled inside `metricsTable()` in `CompareView`, which the
+ * `.csv` and the clipboard read and the rendered table did not — the table rendered
+ * `compareMetricRows` directly. So a flyer looking at the comparison saw nothing, while the CSV
+ * saved from that same screen said "made up by Debrief, not flown". The audit table called this
+ * sink `labelled` and pointed at a unit test that only checks `buildComparison` copies a member.
+ */
+test('a made-up flight is marked in the comparison table a flyer looks at', async ({ page }) => {
+  // Three analyses and a comparison in one walk — the mapper flow, a second real flight, then
+  // `/compare` rebuilding both out of storage. CI timed the first cut out at the default 30 s
+  // while the app was working correctly, and an `expect` timeout longer than the TEST timeout
+  // cannot save it: the test clock fires first. `e2e/pwa.spec.ts` sets this the same way.
+  test.setTimeout(120_000);
+  await openMadeUpFlight(page);
+
+  // One REAL flight beside it, so the row has both cells to tell apart. A comparison of one
+  // made-up flight alone could pass a weaker assertion that never renders the word "recorded".
+  // **Ingested by the two-file drop, which is the path already proven green on CI** — the walk
+  // directly above this one uses exactly it. Three single-file variants were tried first and each
+  // passed here and failed on CI: waiting for "Analyze another flight" (the report we just left is
+  // already showing it), waiting for the file name (matches while the drop zone is still READING
+  // the file), and asserting the button had gone first (still lost the race on a slower runner).
+  // The heading below is the signal none of those were: a comparison exists only once BOTH files
+  // are parsed, analysed and saved, so there is nothing left in flight when it appears.
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([
+      path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'),
+      path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'),
+    ]);
+  await expect(page.getByRole('heading', { name: /Comparing 2 flights/i })).toBeVisible({ timeout: 60_000 });
+
+  // Out of STORAGE rather than out of the render that wrote it — the same reason the logbook
+  // walk reloads: `compareFromLogbook` rebuilds the flight, and that is the hop a marker gets
+  // dropped on.
+  await page.goto('/');
+  // …and the control has to be THERE before it can be ticked, because the save is an IndexedDB
+  // write and the list paints once storage answers. Waited on the CHECKBOX rather than on the row:
+  // a `listitem` filtered by the file name looks like the more natural assertion and does not
+  // match, so it fails on a logbook that is rendering the flight perfectly.
+  const pnutBox = page.getByLabel('Select perfectflite-pnut.pf2 to compare');
+  await expect(pnutBox).toBeVisible({ timeout: 30_000 });
+  await page.getByLabel('Select demo-mapper-flight.csv to compare').check();
+  await pnutBox.check();
+  await page.getByRole('button', { name: /Compare 2 flights/ }).click();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 60_000 });
+
+  // FIRST in the table, so it is read before the numbers rather than after them.
+  const table = page.locator('table').filter({ has: page.getByRole('rowheader', { name: 'Apogee', exact: true }) });
+  const provenance = table
+    .getByRole('row')
+    .filter({ has: page.getByRole('rowheader', { name: 'Provenance', exact: true }) });
+  await expect(provenance).toBeVisible();
+  // EXACTLY ONE cell wears the claim and exactly one says "recorded" — the row's whole job is
+  // telling the two apart, and an assertion on the made-up cell alone passes on a row that says
+  // the same thing about every flight.
+  //
+  // Counted rather than positional, and that is what the first cut of this walk got wrong: the
+  // column order follows the logbook, not the order the files were opened in, so `.first()`
+  // pinned whichever flight happened to sort first. Each cell also carries the phone layout's
+  // `aria-hidden` column label, so it is `hasText`, never `toHaveText`.
+  const cells = provenance.getByRole('cell');
+  await expect(cells.filter({ hasText: 'made up by Debrief, not flown' })).toHaveCount(1);
+  await expect(cells.filter({ hasText: /recorded/ })).toHaveCount(1);
+
+  // Not sortable, and not just visually: the readings all carry a sort button in their row
+  // header, and a provenance row that grew one would offer to order flights by a sentence.
+  await expect(
+    provenance.getByRole('rowheader').getByRole('button'),
+    'the provenance row header offers no sort control',
+  ).toHaveCount(0);
+
+  // **And nothing in this table crowns the flight it just called made up.** The demonstration
+  // reads ~5,459 ft against the Pnut's ~1,025 ft, so it would hold every "highest" mark in the
+  // table if it were allowed to compete — which is what makes this assertion mean something
+  // rather than passing on a table that crowns nobody. Walked as well as unit-tested because the
+  // ★ is drawn in the component, and a row saying "not flown" two rows above a ★ titled "Highest
+  // of the flights being compared" is a table contradicting itself where a flyer reads it.
+  await expect(
+    table.getByText('★'),
+    'no flight in this comparison wears the highest mark, because only one of them was flown',
+  ).toHaveCount(0);
+
+  // **And the cross-check is WITHHELD, saying why.** The panel above the table opens "If these are
+  // recordings of the same flight, the independent readings agree to within X%" — a claim about
+  // independent measurements, over a set where only one of the two is a measurement. `crossCheck`
+  // excludes a made-up flight, which on this set leaves one recording and nothing to compare, so
+  // the surface has to say that rather than fall silent: an absent panel and a panel the tool
+  // forgot to compute look identical.
+  const withheld = page.locator('[data-synthetic="cross-check"]');
+  await expect(withheld).toBeVisible();
+  await expect(withheld).toContainText('No cross-check');
+  await expect(withheld).toContainText('not an independent measurement');
+  await expect(
+    page.getByText('agree to within'),
+    'the confident cross-check sentence is gone, not merely pushed below the fold',
+  ).toHaveCount(0);
+
+  // The other direction — a comparison of REAL flights gains no such row, and DOES get its
+  // cross-check — is asserted in `e2e/compare.spec.ts`'s two-real-flights walk rather than rebuilt
+  // here. Adding a third flight to this one to prove an absence is a longer path to a weaker
+  // check, on a walk whose subject is the positive case.
+});

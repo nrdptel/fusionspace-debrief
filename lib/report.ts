@@ -887,6 +887,10 @@ export interface CompareMetricRow {
    *  of their mean — how closely several recordings of one flight agree, or how much the
    *  flights differ from each other. Null when fewer than two of them have the value. */
   spreadPct: number | null;
+  /** Set on the provenance row, which is not a reading. A surface that wants to treat it
+   *  differently — a header cell rather than a number, no sort — asks this rather than
+   *  matching the label string, which is a caption a translation or a rename would move. */
+  provenance?: true;
 }
 
 /** The side-by-side comparison table as labelled rows — the single source both the
@@ -1076,6 +1080,24 @@ export function compareMetricRows(
       let finite = 0;
       let ties = 0;
       flights.forEach((f, i) => {
+        /** **A flight Debrief MADE UP never enters the competition, and it is EXCLUDED rather
+         *  than blocking the set.** `lib/logbook.ts#personalBests` already ruled this for the
+         *  logbook's ★ and the reasoning transfers unchanged: a CAVEAT says Debrief cannot settle
+         *  how high this flight went — so it might have been the highest, and crowning the
+         *  runner-up would claim more than the data supports, which is why `rankBlocked` withholds
+         *  the crown from the whole row. A synthetic flight is not a flight. Nothing was flown, so
+         *  it did not go higher and it did not go lower, and dropping it out leaves the real
+         *  flights ranking against each other exactly as they did before it was opened.
+         *
+         *  So NOT `rankBlocked`: blocking would let a demonstration file suppress a real flyer's
+         *  best, which `lib/logbookStar.test.ts` asserts against by name on the other surface.
+         *
+         *  Without this the comparison contradicted itself inside one table — the provenance row
+         *  saying "made up by Debrief, not flown" two rows above a ★ titled "Highest of the
+         *  flights being compared", with the same cell bolded in the .md and the .html. The ★ was
+         *  deliberately made the logbook's own glyph so the two surfaces that rank flights would
+         *  say it the same way; they now also refuse it the same way. */
+        if (f.synthetic) return;
         const v = s.value(f.metrics);
         if (!Number.isFinite(v)) return;
         finite++;
@@ -1115,6 +1137,51 @@ export function compareMetricRows(
   // The flyer's own choice and order of readings, applied at the one place every
   // comparison surface and export reads from — the same profile as the single flight's.
   return orderRows(visibleRows(built, (r) => r.label, hidden), (r) => r.label, order);
+}
+
+/**
+ * The comparison table as every surface renders it: the metric rows, and — first — the
+ * provenance row, when any flight in the set is one Debrief MADE UP.
+ *
+ * **This exists because four surfaces were answering one question four ways.** The screen
+ * table, its `.csv` and its clipboard read one builder in `components/CompareView.tsx` and
+ * gained the provenance row together; `compareMarkdown`, `compareHtml` and `compareJson`
+ * each assembled their own table from {@link compareMetricRows} and so did not — which is
+ * how a made-up flight could sit in a saved `.md` beside three real ones with nothing
+ * saying which was which. Adding the row to each of the three would have written the same
+ * answer three more times; the row moves to the builder instead, and a fifth surface gets
+ * it by construction.
+ *
+ * **A ROW here where the logbook and the data CSV take a COLUMN, and it is the same rule.**
+ * This table is metric-per-row and flight-per-COLUMN, so the per-record unit is the column
+ * and one cell per flight is what makes each column answer for itself — `COMPETITION.md`
+ * row 41. The shape follows the table; the principle does not move.
+ *
+ * A comparison of real flights gains nothing: the row exists only where there is something
+ * to say, because adding a row of the word "recorded" to every export is a change to a
+ * table readers parse by position.
+ */
+export function compareTableRows(
+  flights: CompareFlight[],
+  sys: UnitChoice,
+  hidden?: string[],
+  order?: string[],
+): CompareMetricRow[] {
+  const rows = compareMetricRows(flights, sys, hidden, order);
+  if (!flights.some((f) => f.synthetic)) return rows;
+  return [
+    {
+      label: PROVENANCE_COLUMN,
+      cells: flights.map((f) => provenanceCell(f.synthetic)),
+      // Not a reading: nothing to rank, nothing to spread, and `best: -1` is what keeps
+      // the Markdown and HTML renderers from emphasizing a cell of prose as a winner.
+      values: flights.map(() => NaN),
+      best: -1,
+      spreadPct: null,
+      provenance: true,
+    },
+    ...rows,
+  ];
 }
 
 /** Whether any compared flight tags a metric "(baro)", so the footnote explaining the tag is
@@ -1209,7 +1276,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     );
   }
 
-  const rows = compareMetricRows(flights, sys, meta?.hidden, meta?.order);
+  const rows = compareTableRows(flights, sys, meta?.hidden, meta?.order);
   // The comparison carries a Spread column: how far apart the recordings are on
   // each metric — the redundant-altimeter agreement, or the flight-to-flight change.
   const spread = flights.length >= 2;
@@ -1297,13 +1364,23 @@ export function compareHtml(
     crossHtml = `<section><h2>${otherDays ? 'Flight to flight' : 'Cross-check'}</h2><p class="lede">${lede}</p>${foot}</section>`;
   }
 
-  const rows = compareMetricRows(flights, sys, meta?.hidden, meta?.order);
+  const rows = compareTableRows(flights, sys, meta?.hidden, meta?.order);
   const spread = flights.length >= 2;
   const head = `<tr><th>Metric</th>${flights.map((f) => `<th>${esc(nameStem(f.name))}</th>`).join('')}${spread ? '<th>Spread</th>' : ''}</tr>`;
   const body = rows
     .map((r) => {
-      const cells = r.cells.map((c, i) => `<td class="num${i === r.best ? ' best' : ''}">${esc(c)}</td>`).join('');
-      const diff = spread ? `<td class="num">${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'}</td>` : '';
+      // The provenance row carries a sentence per flight, not a figure, so it does not take
+      // `num` — that class right-aligns and tabular-figures a cell, which turns the claim into
+      // a ragged column of prose pretending to be data.
+      const cells = r.cells
+        .map((c, i) => {
+          const cls = [r.provenance ? '' : 'num', i === r.best ? 'best' : ''].filter(Boolean).join(' ');
+          return `<td${cls ? ` class="${cls}"` : ''}>${esc(c)}</td>`;
+        })
+        .join('');
+      const diff = spread
+        ? `<td class="num">${r.spreadPct != null ? `${r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0)}%` : '—'}</td>`
+        : '';
       return `<tr><td>${esc(r.label)}</td>${cells}${diff}</tr>`;
     })
     .join('');
@@ -1666,6 +1743,14 @@ export function compareJson(comparison: Comparison, sys: UnitChoice, note?: stri
       // The stamp exactly as the file stated it, with whose clock it is; null where the
       // file carried no date. Never re-projected into another zone.
       flownAt: f.flownAt ? { stamp: f.flownAt.stamp, clock: f.flownAt.zone } : null,
+      /** Whether Debrief MADE THIS FLIGHT UP. A row in a table is the right shape for the
+       *  `.md` and `.html` siblings and the wrong one here: a consumer of this document reads
+       *  the flight objects, not a rendering of them, so the claim rides on the record it is
+       *  about — the same per-record rule `COMPETITION.md` row 41 takes from NMEA 0183, HL7 and
+       *  DICOM. Emitted on EVERY flight rather than only the made-up ones, because a key that
+       *  appears only when true is one a consumer reads as absent-means-unknown; here it is
+       *  a fact Debrief always knows. */
+      synthetic: f.synthetic === true,
       metrics: jsonMetrics(f.metrics, sys),
     })),
     // What the spread figures below MEAN — the same thing the screen and the written

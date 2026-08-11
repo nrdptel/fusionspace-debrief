@@ -326,7 +326,7 @@ export default function ChannelExplorer({
                 onClick={() => setYKeys((ks) => ks.filter((k) => k !== c.key))}
                 aria-label={`Remove ${c.label} from the plot`}
                 title="Remove"
-                className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               >
                 ✕
               </button>
@@ -414,7 +414,7 @@ export default function ChannelExplorer({
               onClick={() => setPresets(deletePreset(p.name))}
               aria-label={`Forget the ${p.name} view`}
               title="Forget this view"
-              className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
             >
               ✕
             </button>
@@ -436,7 +436,7 @@ export default function ChannelExplorer({
                 }
               }}
               placeholder="Boost check"
-              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
             />
             <Button size="sm" onClick={commitPreset}>
               Save

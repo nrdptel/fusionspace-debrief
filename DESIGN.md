@@ -75,7 +75,31 @@ inside it is `control`.
 |---|---|---|
 | `primary` | `text-zinc-900 dark:text-zinc-100` | values, headings, anything being read |
 | `secondary` | `text-zinc-600 dark:text-zinc-400` | labels, units, captions, help |
-| `tertiary` | `text-zinc-500 dark:text-zinc-500` | disabled, placeholder, timestamps |
+| `tertiary` | `text-zinc-500 dark:text-zinc-400` | placeholders, timestamps, a quiet glyph affordance |
+
+**`tertiary` was `text-zinc-500 dark:text-zinc-500` until 2026-08-11, and the symmetry was the bug.**
+One value for both themes looks like consistency and is not, because the two surfaces are not
+mirror images: measured, that pair is 4.83:1 on the light page and 4.63:1 on light `sunken` — both
+pass — but **4.12:1 on the dark page and 3.67:1 on dark `raised`, which fail WCAG AA.** The role was
+carrying real text at those ratios, including the metric grid's `?` — the only affordance that
+explains what a reading MEANS, and the subject of an owner note asking flyers to click it.
+
+The fix is the token, not a restriction on its use: `dark:text-zinc-400` makes it **7.76:1** on the
+dark page and **6.91:1** on dark `raised`. Every level of the ramp now clears AA on every surface it
+can sit on, so no session has to remember which role is safe where.
+
+**The general rule this leaves, and it is the one worth carrying:** a light value with **no `dark:`
+partner is a tertiary in disguise** — it renders unchanged in dark. That is how three simulation
+annotations, one of them an apogee, sat at 3.67:1 while looking like ordinary code.
+
+**The one exemption is genuinely inactive text**, which WCAG 1.4.3 excludes from any contrast
+requirement: `ReadingChooser`'s always-shown reading greys with an input that really is
+`disabled={locked}`. It is named by file in the check rather than matched by the word "disabled",
+because the first draft of that check matched the Tailwind VARIANT `disabled:opacity-30` and so
+exempted two enabled reorder buttons rendering at 2.56:1.
+
+Checked, not intended: `lib/design-system.test.ts`, *"lets no ENABLED element in either surface tree
+wear a sub-AA grey"*. §9 records what it found and what it took to make it trustworthy.
 
 ### Accent and meaning
 
@@ -756,17 +780,94 @@ this file is shared and because the first hand-written rule anyone adds is the o
 it.
 
 ```bash
-# the rendered check, once this app has any hand-written colour to protect
-npx playwright test e2e/contrast.spec.ts        # target: 0 nodes below WCAG AA
-
-# the source check — no hand-written rule may answer the class clause alone
-npx vitest run lib/design-system.test.ts -t "class half of the dark variant"   # target: green
+# the source check — every grey an ENABLED element wears, rated against §2's own surfaces
+npx vitest run lib/design-system.test.ts -t "meets WCAG AA in BOTH themes"    # target: green
 ```
 
-Colours are **rasterised onto a 1×1 canvas, never parsed**: Chromium reports computed colours as
-`lab()`/`oklab()`, and a digit match over `lab(2.51 0.24 -0.89)` yields confident nonsense. And each
-case asserts its own sample count first — a walk that examined nothing reports zero unreadable nodes
-and prints exactly like a pass.
+**Both commands this block used to name were fiction, and that is worth recording rather than
+quietly replacing.** It listed `npx playwright test e2e/contrast.spec.ts` — a spec that has never
+existed in either tree — and `npx vitest run … -t "class half of the dark variant"`, a test title
+that matched nothing anywhere. So this section had, since it was written, been telling every session
+that contrast was covered by two commands that could not fail. Its own paragraph four above says
+what that is worth: *a compliance command that cannot fail is worse than none, because a session runs
+it, sees the target, and moves on.* Replaced 2026-08-11 with one command that exists and does fail.
+
+**What the real check does, and what it found the day it was written.** It computes WCAG ratios from
+the hex values rather than asserting remembered numbers, rates its own arithmetic against 21:1 and
+1:1 before trusting itself, then walks every `text-zinc-*` in `components` and `app` and rates it —
+with its `dark:` partner where there is one, and against the LIGHT value in both themes where there
+is not, because that asymmetry is the defect. It named **ten enabled sites**, every one of them
+real, and all ten took §2's corrected `tertiary` (`text-zinc-500 dark:text-zinc-400`) — the smallest
+move off the failing values, so the hierarchy each one sat in survives:
+
+| site | wore | rendered | why it mattered |
+|---|---|---|---|
+| the metric grid's `?` help affordance | `text-zinc-400 dark:text-zinc-500` | **2.56:1** light · 4.12:1 dark | the only affordance that explains what a reading means |
+| five hand-rolled icon glyphs (explorer ×2, logbook ×2, sample table) | `text-zinc-400`, no `dark:` partner | **2.46:1** on `sunken` | enabled controls |
+| two comparison reorder buttons (◀ ▶) | `text-zinc-400`, no `dark:` partner | **2.46:1** on `sunken` | **the check's own first draft exempted these** — see below |
+| three simulation-run annotations, one an apogee | `text-zinc-500`, no `dark:` partner | **3.67:1** dark | a reading a flyer compares against their own |
+| the logbook's cross-check spread, `Chip`'s key, the stitch annotation, two placeholders | `dark:text-zinc-500` | **3.67:1** dark | text, in dark |
+
+**The `zinc-600` version of this fix was written first and was WRONG, which is worth more than the
+fix.** Lifting these to §2's `secondary` clears AA by a wider margin — and inverts hierarchies the
+greys were carrying. In the logbook, the neutral cross-check spread would have become 7.73:1 against
+its own amber "these may not be one flight" sibling at 5.02:1: **in LIGHT, the warning quieter than
+the non-warning** — a safety signal read backwards. `tertiary`-corrected is 4.83:1: above AA, still
+below amber, so the ordering holds.
+
+**Qualified to LIGHT deliberately, because the first draft of this paragraph said it unconditionally
+and that was wrong.** In dark the warning is the more prominent branch either way — amber-400 is
+11.92:1 against zinc-400's 7.76:1 on the page — so only the light theme ever showed the inversion.
+An adversarial verifier caught the overstatement, and the correction is kept rather than smoothed
+away: a claim about a safety signal that is true in one theme and stated for both is the same
+species of error as a caveat on one surface and a confident claim on another.
+
+**Four holes in the check itself, all found by a pre-push review, all of the same shape: an
+exemption written as a loose text match exempts far more than it names.**
+
+1. `/\bdisabled\b/` on the line matched the Tailwind VARIANT `disabled:opacity-30`, exempting two
+   ENABLED reorder buttons at 2.56:1 — a real defect hidden by the check written to find it.
+2. The `print:` exemption was **inverted for the dominant case**. There are 33 `print:hidden` against
+   2 `print:block`: `print:hidden` is hidden ON PAPER and visible ON SCREEN, i.e. exactly what a
+   screen check must rate. Only paper-only text is exempt.
+3. Both exemptions read a 4-line WINDOW, so one decorative icon exempted the three lines after it.
+4. There was no sample-count assertion, so a renamed directory would have reported a perfectly
+   accessible app that was never read.
+
+The fix for 1–3 was to stop guessing at line proximity and ask the ELEMENT: `openingTag()` was
+already in that file for the chip census, it skips comments and strings, and it answers exactly the
+question these exemptions need. Then a fifth correction on top: **rate per class-string LITERAL, not
+per tag.** `SiteHeader`'s nav link is one tag holding a ternary with two complete class lists, and
+matching over the whole tag paired the inactive branch's TEXT with the active branch's FILL —
+reporting 2.29:1 on a control that renders at about 15:1.
+
+**Two limits, stated rather than hidden.** A fill set by an ANCESTOR is still rated against the page,
+because a check that walked the DOM would be guessing; and dark `sunken` is modelled as solid
+`zinc-900` where §2 defines `dark:bg-zinc-900/50`, which composites DARKER — so the model
+under-reports contrast there and never over-reports it.
+
+**And the check needed the fix it exists to enforce.** Its first draft read COMMENTS as code and
+named two lines that quote a failing class in order to explain why it was replaced — the same
+species of bug this section already records twice, about the chip census and the inverted-type loop,
+committed a third time by the check written to cover what those two miss. It blanks comments to
+spaces now, so reported line numbers stay true.
+
+**Two gaps in the source check's REACH, both measured, neither closed here.**
+
+- **This app already has a hand-written palette, and the check cannot see it.** `lib/report.ts`
+  writes the exported HTML report's CSS as literal hex — so it is neither a Tailwind class nor under
+  `components`/`app` — and two of its rules are below AA: `thead th { color: #71717a }` on
+  `body { background: #f4f4f5 }` is **4.40:1**, and `footer a { color: #6366f1 }` on the same ground
+  is **4.47:1**. That is a document a flyer puts in a cert package. This section previously said a
+  rendered check was "the thing to add when this app grows a hand-written colour"; it had one when
+  that sentence was written.
+- **Only the zinc ramp is rated.** `text-indigo-500` on white is **4.47:1** — three hundredths under
+  AA — and it is the logbook's enabled "this flight has a note" button. `indigo-600` is 6.29:1.
+
+A RENDERED check — rasterising computed colours onto a 1×1 canvas rather than parsing them, since
+Chromium reports `lab()`/`oklab()` and a digit match over those yields confident nonsense — is the
+thing that would cover both without enumerating palettes. Still worth having, still not written;
+both gaps are in `BACKLOG.md` with their numbers.
 
 ---
 

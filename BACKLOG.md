@@ -14,6 +14,87 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-11 — `Readout`'s label wears `tertiary` for a role §2 assigns to `secondary`, and it is
+  the last inconsistency in the tile heading.** `components/ui.tsx:1374` is
+  `text-zinc-500 dark:text-zinc-400` on a reading NAME, where §2's table gives *"labels, units,
+  captions, help"* to `secondary` (`text-zinc-600 dark:text-zinc-400`) — and the same file's `Chip`
+  label was moved to `secondary` on 2026-08-11 while this one was not. Found by an adversarial
+  verifier REFUTING a filed finding rather than confirming one: the claim was that the metric
+  grid's `?` now out-contrasts its label, and the true reading is the reverse — the `?` is right
+  and the label is the pre-existing deviation. It passes AA at 4.83:1, so this is role consistency
+  rather than legibility, and it is one line. `Readout`'s `sub` at `ui.tsx:1386` carries the same
+  pair and is genuinely a caption, so it should stay.
+
+- **2026-08-11 — the EXPORTED HTML report's hand-written palette has two sub-AA rules, and no check
+  can see them.** `lib/report.ts` writes that document's CSS as literal hex, so it is neither a
+  Tailwind class nor under `components`/`app` — the contrast census added this run reaches neither.
+  Measured: `thead th { color: #71717a }` on `body { background: #f4f4f5 }` = **4.40:1**, and
+  `footer a { color: #6366f1 }` on the same ground = **4.47:1**, against AA's 4.5:1. This is the
+  artifact a flyer puts in a cert package, so it is read by people who never open the app.
+  `#52525b` (7.41:1 there) is the drop-in for the first; `#4f46e5` (6.29:1) for the second. The
+  durable fix is the RENDERED check `DESIGN.md` §9 describes and nobody has written — it would cover
+  hand-written CSS and non-zinc hues at once, where enumerating palettes will not.
+
+- **2026-08-11 — the logbook's "this flight has a note" button is `text-indigo-500` on white =
+  4.47:1**, three hundredths under WCAG AA, at `components/RecentFlights.tsx:931`. The contrast
+  census added this run rates the zinc ramp only, so nothing catches it. `indigo-600` is 6.29:1 and
+  is already §2's fill value for the accent. Not fixed with the greys because it is a question about
+  the ACCENT ramp — §2 gives `indigo-500` for "interactive, selected, the focus ring", and moving
+  the text weight to 600 is a change to that row in a file both repos carry.
+
+- **2026-08-11 — the comparison's cross-check panel states an agreement figure over a flight
+  nobody flew, ABOVE the row that says so.** `lib/compare.ts#crossCheck` has no synthetic guard
+  (`grep -n synthetic lib/compare.ts` returns only the type member and `buildComparison`'s copy),
+  and the panel renders at `components/CompareView.tsx:728` while the metrics table — and D10's
+  provenance row — start below it. So a flyer reads *"If these are recordings of the same flight,
+  the independent readings agree to within X%"* before reading that one of them is a
+  demonstration; the same sentence is emitted into the `.md` and the `.html` under `## Cross-check`,
+  ahead of `## Metrics`. Reproduce by comparing the generated demo file with any real log. Related
+  and deliberately NOT bundled with slice 5g, because the fix needs a decision the crown did not:
+  excluding a made-up flight leaves a two-flight comparison with ONE recording, so the panel has
+  nothing to cross-check and needs an empty state rather than a filter. `/compare` also carries no
+  §5 `Notice` at all, where `/stitch` was given one for being a top-level route with nothing above
+  it to hold a caveat — the same argument applies here.
+
+- **2026-08-11 — the logbook's ★ "Fastest of your remembered flights" ranks a BARO-DERIVED peak
+  against a DEVICE-MEASURED one, which the comparison on the next surface over refuses to do by
+  name.** `lib/logbook.ts:119` is `speedId: uniqueMaxId(flights, (r) => r.maxVelocityMs)` — no
+  guard — while `apogeeId` three lines above is gated on `apogeeUnrankable`, and the comment
+  between them explains exactly why ("a ranking needs a number the app is willing to stand
+  behind"). `lib/report.ts`'s `compareMetricRows` blocks the same crown with
+  `rankBlocked: velMixed` and states the reason: *"a derived peak reads high, so 'highest' would go
+  to whichever flight happened to be measured the softer way."* **Not a withheld-figure leak** —
+  `lib/recents.ts:574` stores `null` for a non-finite peak, so a refused speed prints `—`. Two
+  parts to the fix and the second is the larger: (a) mirror `apogeeUnrankable` for speed; (b)
+  `RecentFlights.tsx:898` prints `fmtSpeed(r.maxVelocityMs, sys)` **bare**, immediately beside an
+  apogee cell carrying `apogeeTag(r)` — so the row itself is the caveat-on-one-surface asymmetry.
+  (b) needs a `maxVelocitySource` member on `RecentMeta`, which the `Required<RecentFlight>`
+  fixtures in `lib/recents.test.ts` will force through every persistence hop.
+
+- **2026-08-11 — three of the report's jump chips scroll to a section that is not on the page, and
+  the code says so about itself eleven lines earlier.** `FlightReport.tsx:840`'s comment names this
+  exact pattern as *"the 'control that fails only when pressed' this manual warns about"*, then
+  lists `Timeline` and `Explore` unconditionally and guards `Recovery` more weakly than its section
+  unmounts: `FlightTimeline.tsx:31` returns null on `phases.length < 2 || total <= 0`,
+  `ChannelExplorer.tsx:249` on `selected.length === 0`, and `GroundTrack.tsx:484` on
+  `!track || !stats` while the chip asks only `gpsLat && gpsLon`. Reproduce with a flight that has
+  no burnout and a record ending in the air — one phase, so the Timeline chip is live and its
+  target is gone. The durable fix is one predicate per section shared by the chip and the section,
+  not three more guards; `MAINTAINING.md`'s own list calls a chip that names something not on the
+  page a craft-bar tell.
+
+- **2026-08-11 — CORRECTION to the 2026-08-09 entries that treated the comparison's provenance
+  marker as shipped on the screen: it was not, and the check that said so could not fail.** The
+  provenance row was assembled in `components/CompareView.tsx`'s `metricsTable()`, which feeds the
+  `.csv` and the clipboard; the rendered table mapped `compareMetricRows` directly and carried
+  nothing. `lib/synthetic.test.ts`'s sink row claimed *"`metricsTable()` is the one builder the
+  screen, the `.csv` and the clipboard all read"* and pointed its `check` at
+  `lib/compare.test.ts` → "a made-up flight in a comparison", which asserts only that
+  `buildComparison` copies a member and renders no table. Fixed in D10 slice 5f
+  (`compareTableRows()`), and the general lesson is filed rather than the instance: **a `check`
+  that names a test which never exercises the surface is a green light nobody can switch off.**
+  Two other `labelled` rows name unit tests — audit them the same way before trusting them.
+
 - **2026-08-09 — six one-glyph controls hand-roll `IconButton`, which exists, and they are SIX
   DIFFERENT geometries rather than six copies of one.** Measured exactly, because the design audit
   that raised it said "seven identical" and cited line numbers that had already moved:

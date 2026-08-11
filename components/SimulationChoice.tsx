@@ -96,7 +96,7 @@ export default function SimulationChoice({
               // The apogee is what tells five runs apart when the names are OpenRocket's own
               // defaults. `text-zinc-500` is §2's tertiary role, which is the same value in
               // both themes on purpose.
-              <span className="text-zinc-500">· {fmtLength(run.apogee, sys)}</span>
+              <span className="text-zinc-500 dark:text-zinc-400">· {fmtLength(run.apogee, sys)}</span>
             )}
             {run.curve === 'unreadable' && (
               // **The one curve fact that has to be VISIBLE**, because it is the one that
@@ -107,7 +107,7 @@ export default function SimulationChoice({
               // never appears for any design exported from a localized OpenRocket 24.12.
               //
               // A curve that WILL be drawn needs no announcement: picking the run draws it.
-              <span className="text-zinc-500">· curve unreadable</span>
+              <span className="text-zinc-500 dark:text-zinc-400">· curve unreadable</span>
             )}
             {run.status && (
               // **Visible, not only a `title`.** A simulation can be one the design has since
@@ -121,7 +121,7 @@ export default function SimulationChoice({
               // one example value and defines none, so any rule keyed on the vocabulary — even
               // "warn unless it says uptodate" — would be built on a list nobody has published.
               // Debrief repeats what the file says and leaves the reading to the flyer.
-              <span className="text-zinc-500">· {run.status}</span>
+              <span className="text-zinc-500 dark:text-zinc-400">· {run.status}</span>
             )}
           </ChipButton>
         ))}

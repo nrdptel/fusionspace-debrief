@@ -745,4 +745,50 @@ describe('a made-up flight in a comparison is carried through as one', () => {
     const c = buildComparison([input('a'), input('b')]);
     expect(c.flights.every((f) => !('synthetic' in f)), 'nothing extra came along').toBe(true);
   });
+
+  /**
+   * **A cross-check is a claim about INDEPENDENT MEASUREMENTS agreeing, and a made-up flight is
+   * not a measurement of anything.** The panel opens *"If these are recordings of the same flight,
+   * the independent readings agree to within X%"* — over a set that included a demonstration, and
+   * ABOVE the provenance row that says so, in the Markdown and the HTML as well as on screen.
+   *
+   * Excluded, exactly like the crown in `compareMetricRows` and the ★ in `lib/logbook.ts`. Two
+   * real recordings still cross-check each other with a demonstration in the same comparison;
+   * what changes is that one recording beside one made-up flight now yields nothing, which is
+   * true.
+   */
+  describe('a made-up flight is not an independent measurement', () => {
+    const withApogee = (id: string, apogee: number, synthetic?: boolean): CompareInput =>
+      ({
+        id,
+        name: `${id}.csv`,
+        formatLabel: 'Generic CSV',
+        analysis: {
+          series: { time: new Float64Array([0, 1, 2]), altitude: new Float64Array([0, apogee, 0]), velocity: new Float64Array([0, 10, -10]), acceleration: new Float64Array([0, 0, 0]), airDensity: new Float64Array([1.2, 1.2, 1.2]), speedOfSoundProfile: new Float64Array([340, 340, 340]) },
+          events: [],
+          metrics: { apogeeAltitude: apogee, maxVelocity: 10, timeToApogee: 1 },
+          warnings: [],
+        },
+        ...(synthetic ? { synthetic: true } : {}),
+      }) as unknown as CompareInput;
+
+    it('yields NO agreement for one recording beside one made-up flight', () => {
+      const c = buildComparison([withApogee('real', 1000), withApogee('demo', 1200, true)]);
+      expect(crossCheck(c.flights), 'there is nothing to cross-check').toEqual([]);
+    });
+
+    it('still cross-checks two real recordings when a demonstration sits beside them', () => {
+      // The exclusion must not cost a real pair its cross-check — the same second direction
+      // `lib/logbookStar.test.ts` asserts about the star, and the reason `rankBlocked` was the
+      // wrong tool for this job.
+      const withDemo = buildComparison([withApogee('a', 1000), withApogee('b', 1040), withApogee('demo', 5000, true)]);
+      const realOnly = buildComparison([withApogee('a', 1000), withApogee('b', 1040)]);
+      const apo = crossCheck(withDemo.flights).find((x) => x.key === 'apogee')!;
+      expect(apo.count, 'two contributors, not three').toBe(2);
+      // …and byte-for-byte the spread the two real flights have on their own. A demonstration
+      // 5× higher than both would wreck this number if it were contributing.
+      expect(apo.spreadPct).toBeCloseTo(crossCheck(realOnly.flights).find((x) => x.key === 'apogee')!.spreadPct, 10);
+      expect(apo.max).toBe(1040);
+    });
+  });
 });

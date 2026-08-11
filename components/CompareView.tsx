@@ -9,7 +9,6 @@ import { exploreCsv } from '@/lib/explore';
 import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
-import { PROVENANCE_COLUMN, provenanceCell } from '@/lib/synthetic';
 import { savePlotPng } from '@/lib/plotPng';
 import { derivedPeakCaveat } from '@/lib/derivedPeak';
 import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
@@ -19,7 +18,7 @@ import FigureChooser from './FigureChooser';
 import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, compareHasUnprovenApogee, type ReportMeta } from '@/lib/report';
+import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, compareHasUnprovenApogee, type ReportMeta } from '@/lib/report';
 import { captionKey, loadMemory, memoryCarriedForward, rememberCompare, rememberShown, EMPTY, type CompareMemory, type CompareSort } from '@/lib/compareMemory';
 import { plotSvg } from '@/lib/svgChart';
 import { loadSeriesColors, saveSeriesColors, withSeriesColors } from '@/lib/seriesColor';
@@ -311,6 +310,19 @@ export default function CompareView({
     () => compareMetricRows(flights, sys, hidden, order),
     [flights, sys, hidden, order],
   );
+  /** The rows the TABLE renders — the readings, plus the provenance row when one of these
+   *  flights is made up.
+   *
+   *  **The screen used to render `metricRows` while only the CSV and the clipboard went
+   *  through the table builder, so the provenance row reached both exports and never the
+   *  table a flyer looks at.** A made-up flight sat in a column beside real ones with
+   *  nothing on screen saying which was which, on the surface whose entire job is putting
+   *  flights next to each other — while the CSV saved from that same screen said
+   *  "made up by Debrief, not flown". One builder decides the rows now. */
+  const tableRows = useMemo(
+    () => compareTableRows(flights, sys, hidden, order),
+    [flights, sys, hidden, order],
+  );
   const moveReadingBy = useCallback(
     (label: string, delta: -1 | 1) => {
       setOrder((prev) => {
@@ -456,28 +468,19 @@ export default function CompareView({
   // flyer flies triple redundancy — two agreeing says nothing if the third is 8% out.
   const spread = flights.length >= 2;
   /** The table as header + rows — one shape, so the CSV, the clipboard and anything after
-   *  them can't disagree about what the table says. */
-  /** Whether any flight in this comparison is one Debrief MADE UP. */
-  const anySynthetic = flights.some((f) => f.synthetic);
+   *  them can't disagree about what the table says.
+   *
+   *  The provenance row used to be assembled here, which is why the `.md`, `.html` and `.json`
+   *  exports never got one: they build their tables from `lib/report.ts` and this row lived in
+   *  the component. It comes from `compareTableRows()` now — one builder decides which rows the
+   *  comparison has, and every surface that renders the table gets the same answer. */
   const metricsTable = (): { header: string[]; rows: string[][] } => ({
     header: ['Metric', ...flights.map((f) => stem(f.name)), ...(spread ? ['Spread (%)'] : [])],
-    rows: [
-      // **A ROW here, where the logbook and the data CSV take a COLUMN — same principle, applied
-      // to a table that is transposed.** This one is metric-per-row and flight-per-COLUMN, so the
-      // per-record unit is the column, and one cell per flight is what makes each column answer
-      // for itself. `COMPETITION.md` row 41 is the rule; the shape follows the table.
-      //
-      // FIRST, so it is read before the numbers rather than after them, and only when there is
-      // something to say — a comparison of real flights gains no row.
-      ...(anySynthetic
-        ? [[PROVENANCE_COLUMN, ...flights.map((f) => provenanceCell(f.synthetic)), ...(spread ? [''] : [])]]
-        : []),
-      ...metricRows.map((r) => [
-        r.label,
-        ...r.cells,
-        ...(spread ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
-      ]),
-    ],
+    rows: tableRows.map((r) => [
+      r.label,
+      ...r.cells,
+      ...(spread ? [r.spreadPct != null ? r.spreadPct.toFixed(r.spreadPct < 1 ? 1 : 0) : ''] : []),
+    ]),
   });
   const metricsCsv = (): string => {
     const { header, rows } = metricsTable();
@@ -701,7 +704,33 @@ export default function CompareView({
       {/* Cross-check: how closely the readings agree, as independent measurements. */}
       {(() => {
         const agree = crossCheck(flights);
-        if (agree.length === 0) return null;
+        /**
+         * **A cross-check withheld says WHY, rather than leaving a gap where a panel was.**
+         * `crossCheck` excludes a flight Debrief made up — it is not an independent measurement,
+         * so it can neither corroborate a recording nor contradict one — and on the set a
+         * demonstration is most often opened in (one real flight beside it) that leaves a single
+         * recording and no agreement to report. Falling silent there is the failure the
+         * MEASUREMENT invariant names: a withheld number that explains nothing looks exactly like
+         * a number the tool forgot to compute.
+         *
+         * Only when a made-up flight is the REASON. A comparison of real flights that share no
+         * metric still renders nothing, because there the absence is ordinary.
+         */
+        if (agree.length === 0) {
+          const madeUp = flights.filter((f) => f.synthetic).length;
+          if (madeUp === 0) return null;
+          const recorded = flights.length - madeUp;
+          return (
+            <Notice as="p" tone="warn" data-synthetic="cross-check">
+              No cross-check:{' '}
+              {madeUp === flights.length
+                ? 'every flight here is one Debrief made up.'
+                : `${recorded === 1 ? 'only one of these is a recording' : `only ${recorded} of these are recordings`}, and ${madeUp === 1 ? 'the other is a flight Debrief made up' : `the other ${madeUp} are flights Debrief made up`}.`}{' '}
+              A demonstration is not an independent measurement, so it can neither agree with a
+              recording nor disagree with one. Drop a second real log to compare them.
+            </Notice>
+          );
+        }
         const recoveryNote = recoveryDisagreement(flights, agree);
         // The files can refute the premise this panel rests on: recordings dated days apart
         // are not one flight, so the same numbers mean something else and are introduced as
@@ -858,7 +887,7 @@ export default function CompareView({
                         disabled={i === 0}
                         aria-label={`Move ${stem(f.name)} left`}
                         title="Move left"
-                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-500 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:text-zinc-400 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
                       >
                         ◀
                       </button>
@@ -868,7 +897,7 @@ export default function CompareView({
                         disabled={i === flights.length - 1}
                         aria-label={`Move ${stem(f.name)} right`}
                         title="Move right"
-                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-500 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:text-zinc-400 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
                       >
                         ▶
                       </button>
@@ -938,7 +967,7 @@ export default function CompareView({
             </tr>
           </thead>
           <tbody className="block sm:table-row-group">
-            {metricRows.map((row) => (
+            {tableRows.map((row) => (
               // A separator, NOT a card. The first version of this gave each metric block the
               // sunken card treatment by hand, and DESIGN.md §9's card ratchet refused it as a
               // FOURTH hand-rolled card — correctly, and it could not have been the `Card`
@@ -955,9 +984,23 @@ export default function CompareView({
               >
                 <th
                   scope="row"
-                  aria-sort={sort?.label === row.label ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}
+                  /* The provenance row is not a reading, so it is not sortable and carries no
+                     sort state: `aria-sort` on a row that cannot be ordered announces an
+                     affordance that isn't there. */
+                  aria-sort={
+                    row.provenance
+                      ? undefined
+                      : sort?.label === row.label
+                        ? sort.dir === 'desc'
+                          ? 'descending'
+                          : 'ascending'
+                        : 'none'
+                  }
                   className="block pb-1 text-left font-medium text-zinc-600 sm:sticky sm:left-0 sm:table-cell sm:bg-white sm:py-2 sm:pr-4 sm:pb-2 dark:text-zinc-400 dark:sm:bg-zinc-950"
                 >
+                  {row.provenance ? (
+                    row.label
+                  ) : (
                   <button
                     type="button"
                     onClick={() => cycleSort(row.label)}
@@ -982,6 +1025,7 @@ export default function CompareView({
                       {sort?.label === row.label && sort.dir === 'asc' ? '▲' : '▼'}
                     </span>
                   </button>
+                  )}
                 </th>
                 {flights.map((f, i) => (
                   <td
@@ -1000,9 +1044,26 @@ export default function CompareView({
                        glyph and the other a colour.
                        Every cell is §2's PRIMARY text, because every one of them is a number being
                        read; the previous `zinc-800/zinc-200` was not a §2 text token at all. */
-                    className={`flex items-baseline justify-between gap-3 py-0.5 font-mono tabular-nums text-zinc-900 sm:table-cell sm:px-3 sm:py-2 sm:text-right dark:text-zinc-100 ${
-                      i === row.best ? 'font-semibold' : ''
-                    }`}
+                    /* The provenance row carries a sentence per flight, not a figure, so it
+                       drops the monospace tabular treatment and the right alignment that make a
+                       column of numbers scan — applied to prose those turn the claim into a
+                       ragged column pretending to be data. It takes §2's `warn` text instead,
+                       the same meaning the logbook row's `Chip tone="warn"` gives the same
+                       claim, so the two surfaces say it in one vocabulary. */
+                    className={
+                      row.provenance
+                        ? `flex items-baseline justify-between gap-3 py-0.5 sm:table-cell sm:px-3 sm:py-2 ${
+                            // Amber is §2's `warn`, and only the made-up column is a caveat. A
+                            // cell reading "recorded" in caveat amber would say the opposite of
+                            // what it means, on the row that exists to tell the two apart.
+                            f.synthetic
+                              ? 'font-medium text-amber-700 dark:text-amber-400'
+                              : 'text-zinc-500 dark:text-zinc-400'
+                          }`
+                        : `flex items-baseline justify-between gap-3 py-0.5 font-mono tabular-nums text-zinc-900 sm:table-cell sm:px-3 sm:py-2 sm:text-right dark:text-zinc-100 ${
+                            i === row.best ? 'font-semibold' : ''
+                          }`
+                    }
                   >
                     {/* The only thing this layout duplicates, and it is a LABEL rather than a
                         reading: as blocks there is no column header above the value to say which

@@ -416,7 +416,27 @@ export function crossCheckLede(agree: Agreement[]): 'agree to within' | 'differ 
   return agree.some((a) => a.spreadPct > CROSS_CHECK_WIDE) ? 'differ by' : 'agree to within';
 }
 
+/**
+ * **A flight Debrief MADE UP never enters a cross-check, and this is the one place that has to
+ * say so.** The panel this feeds opens *"If these are recordings of the same flight, the
+ * independent readings agree to within X%"* — a sentence about INDEPENDENT MEASUREMENTS. A
+ * generated demonstration is not a measurement of anything, so it cannot corroborate a recording
+ * and it cannot contradict one; a spread computed against it is a number about arithmetic, not
+ * about a rocket.
+ *
+ * Filtered HERE rather than at the three call sites that render the sentence — the screen panel,
+ * the Markdown write-up and the HTML report — for the reason the docblock above `crossCheckLede`
+ * already gives about itself: three copies of one idea drift, and this one would drift into three
+ * different answers about what "agreement" means.
+ *
+ * It is an EXCLUSION, exactly as in `compareMetricRows` and `lib/logbook.ts#personalBests`: two
+ * real recordings still cross-check each other normally when a demonstration is sitting in the
+ * same comparison. What changes is that a set of one recording plus one made-up flight now yields
+ * NO agreements, which is true — there is nothing to cross-check — and the surface says that
+ * rather than falling silent.
+ */
 export function crossCheck(flights: CompareFlight[]): Agreement[] {
+  const recorded = flights.filter((f) => !f.synthetic);
   const specs: {
     key: string;
     label: string;
@@ -513,7 +533,7 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
   for (const s of specs) {
     // Keep each contributing flight's value with its measurement source, so the
     // spread and the mixed-source flag are read off exactly the same set.
-    const contrib = flights
+    const contrib = recorded
       .map((f) => ({
         v: s.get(f.metrics),
         src: s.source?.(f.metrics),
