@@ -4244,6 +4244,30 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-08-11 — a made-up flight is EXCLUDED from every ranking and cross-check, never allowed to
+  BLOCK one.** Three surfaces asked the same question this run — the comparison's "highest" crown,
+  its cross-check panel, and (already decided) the logbook's ★ — and all three take exclusion.
+  *Rejected:* `rankBlocked`-style whole-set blocking, which is right for a CAVEAT (Debrief cannot
+  settle how high THIS flight went, so the runner-up must not be crowned either) and wrong here: a
+  synthetic flight did not go higher and did not go lower, so blocking would let a demonstration
+  file suppress a real flyer's best. Reversal cost: one filter each, and the tests assert both
+  directions so the reversal would be visible immediately.
+
+- **2026-08-11 — §2's `tertiary` token was CHANGED rather than its use restricted.** The role was
+  `text-zinc-500 dark:text-zinc-500`, failing AA in dark at 4.12:1 and 3.67:1. *Rejected:* leaving
+  the token and forbidding it on anything a flyer reads, which was the first draft — it keeps a
+  known-unreadable value in the system and makes every future session remember which role is safe
+  on which surface. *Also rejected:* lifting the ten failing sites to `secondary` (`zinc-600`),
+  which clears AA by more and, in LIGHT, inverts the logbook's amber cross-check warning below its
+  neutral sibling. Reversal cost: one table row in `DESIGN.md` and one sed over ten call sites.
+
+- **2026-08-11 — the comparison's `.json` carries the made-up claim as a per-flight FIELD, not as a
+  table row like its `.md` and `.html` siblings.** *Rejected:* a `Provenance` row in a rendered
+  table, for consistency with the other two. A consumer of that document reads the flight objects
+  rather than a rendering of them, so the claim rides on the record it is about — `COMPETITION.md`
+  row 41's per-record rule in the shape that document actually has. Emitted on every flight, not
+  only made-up ones, because a key present only when true reads as absent-means-unknown.
+
 - **2026-08-09 — the grouping token in a flight record is the smallest logbook id in the set, not
   the flight's own id and not opening order.** Two records of one flight must agree on a token or
   the restore silently does nothing, and "silently" is the problem: the failure is two ordinary

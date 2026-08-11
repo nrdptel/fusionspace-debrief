@@ -42,6 +42,12 @@ wild, ideas too big for one pass. One line each, newest first.
   the ACCENT ramp — §2 gives `indigo-500` for "interactive, selected, the focus ring", and moving
   the text weight to 600 is a change to that row in a file both repos carry.
 
+- **RESOLVED 2026-08-11 by D10 slice 5h, the same day it was filed** — kept rather than deleted,
+  because the entry is the record of a defect this run both found and closed, and because the
+  decision it was waiting on is worth not re-deriving: excluding a made-up flight from a two-flight
+  comparison leaves ONE recording, so the panel needed an empty state rather than a filter.
+  `/compare` now renders a §5 `Notice` at `warn` naming which flights are recordings and why a
+  demonstration cannot corroborate one. Original entry follows.
 - **2026-08-11 — the comparison's cross-check panel states an agreement figure over a flight
   nobody flew, ABOVE the row that says so.** `lib/compare.ts#crossCheck` has no synthetic guard
   (`grep -n synthetic lib/compare.ts` returns only the type member and `buildComparison`'s copy),
