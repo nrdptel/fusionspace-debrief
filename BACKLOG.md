@@ -14,6 +14,20 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-11 — the comparison's cross-check panel states an agreement figure over a flight
+  nobody flew, ABOVE the row that says so.** `lib/compare.ts#crossCheck` has no synthetic guard
+  (`grep -n synthetic lib/compare.ts` returns only the type member and `buildComparison`'s copy),
+  and the panel renders at `components/CompareView.tsx:728` while the metrics table — and D10's
+  provenance row — start below it. So a flyer reads *"If these are recordings of the same flight,
+  the independent readings agree to within X%"* before reading that one of them is a
+  demonstration; the same sentence is emitted into the `.md` and the `.html` under `## Cross-check`,
+  ahead of `## Metrics`. Reproduce by comparing the generated demo file with any real log. Related
+  and deliberately NOT bundled with slice 5g, because the fix needs a decision the crown did not:
+  excluding a made-up flight leaves a two-flight comparison with ONE recording, so the panel has
+  nothing to cross-check and needs an empty state rather than a filter. `/compare` also carries no
+  §5 `Notice` at all, where `/stitch` was given one for being a top-level route with nothing above
+  it to hold a caveat — the same argument applies here.
+
 - **2026-08-11 — the logbook's ★ "Fastest of your remembered flights" ranks a BARO-DERIVED peak
   against a DEVICE-MEASURED one, which the comparison on the next surface over refuses to do by
   name.** `lib/logbook.ts:119` is `speedId: uniqueMaxId(flights, (r) => r.maxVelocityMs)` — no

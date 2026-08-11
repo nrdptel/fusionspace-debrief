@@ -2046,7 +2046,7 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5f SHIPPED.** (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5g SHIPPED.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2347,6 +2347,32 @@ a slice rather than a line.
 counting the definition and an import line among the hits. Corrected by the pre-push review and
 recorded rather than silently fixed, because reading a grep's line count instead of its hits is
 the same species of error as the count this milestone has already got wrong three times.)
+
+**Slice 5g SHIPPED 2026-08-11 — the table stopped contradicting itself.** Found by the pre-push
+review of 5f, and it is the sharper half of that slice: putting the provenance row on the screen
+made a defect LEGIBLE that had been there since the comparison learned to rank. The row says
+*"made up by Debrief, not flown"*, and two rows under it the same column wore a ★ titled
+*"Highest of the flights being compared"* — bolded in the `.md`, `class="best"` in the `.html`.
+`lib/logbook.ts#personalBests` had already refused exactly this for the logbook's ★; the
+comparison had no equivalent guard, on any of Apogee, Max velocity, Max Mach, Max Q or Max
+acceleration.
+
+**EXCLUDED from the competition, never blocking it — and that distinction is the whole rule.** A
+caveat says Debrief cannot settle how high THIS flight went, so the runner-up must not be crowned
+either: that is `rankBlocked`, whole-set. A synthetic flight is not a flight — nothing was flown,
+so it did not go higher and it did not go lower, and dropping it out leaves the real flights
+ranking against each other exactly as before. Blocking instead would let a demonstration file
+suppress a real flyer's best, which is the failure `lib/logbookStar.test.ts` already asserts
+against by name on the other surface. The two surfaces that rank flights now refuse the crown the
+same way, as well as drawing it with the same glyph.
+
+Pinned by `lib/report.test.ts` → *"never crowns a flight nobody flew, and never lets one suppress
+a real best"*, **falsified in both directions**: removing the exclusion crowns the made-up flight
+(fails), and blocking the row instead of excluding costs a real three-flight set its winner (also
+fails). The fixture is chosen so the demonstration WOULD hold the crown — it peaks higher than the
+real flight — because the version of this test that uses a lower made-up apogee passes on a broken
+exclusion. Walked too: the e2e asserts no ★ anywhere in that table, where the demonstration reads
+~5,459 ft against the Pnut's ~1,025 ft.
 
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the

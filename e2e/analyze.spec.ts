@@ -3088,6 +3088,17 @@ test('a made-up flight is marked in the comparison table a flyer looks at', asyn
     'the provenance row header offers no sort control',
   ).toHaveCount(0);
 
+  // **And nothing in this table crowns the flight it just called made up.** The demonstration
+  // reads ~5,459 ft against the Pnut's ~1,025 ft, so it would hold every "highest" mark in the
+  // table if it were allowed to compete — which is what makes this assertion mean something
+  // rather than passing on a table that crowns nobody. Walked as well as unit-tested because the
+  // ★ is drawn in the component, and a row saying "not flown" two rows above a ★ titled "Highest
+  // of the flights being compared" is a table contradicting itself where a flyer reads it.
+  await expect(
+    table.getByText('★'),
+    'no flight in this comparison wears the highest mark, because only one of them was flown',
+  ).toHaveCount(0);
+
   // The other direction — a comparison of REAL flights gains no such row — is asserted in
   // `e2e/compare.spec.ts`'s two-real-flights walk rather than rebuilt here. Adding a third
   // flight to this one to prove an absence is a longer path to a weaker check, on a walk whose

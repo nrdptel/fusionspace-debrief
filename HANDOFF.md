@@ -6,177 +6,94 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **FIVE pull requests merged and confirmed LIVE**, each fetched from `debrief.fusionspace.co` after its merge: `fd18f3a` (#169, five commits — D10 5a + 5b, P1 item 5, the `Disclosure` pair), `3b62dac` (#171 — D10 5c), `2988ba1` (#172 — D10 5d), `1b10bfd` (#173 — docs), `cd8c39c` (#174 — D10 5e). **Nothing is pending on a branch.** Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1334/1334 with the corpus attached, build clean, e2e 317 passed. One Sev-1-shaped defect was *created and caught inside this run*; see below. |
-| **D — capability** | **D10 slices 5a–5e SHIPPED.** A flight Debrief made up now says so on **twelve** sinks: the report, the readings grid, the logbook row and its backup, three spreadsheet tables, the shareable card and its two image forms, the comparison, and `/stitch`'s composite. `SINKS` **20 → 26**: **5 `carries`** (the registry documents, checked by building them), **11 `labelled`** (each naming a check read off disk), **10 `todo`**. That last number was quoted as 9, then 7, then 6 across three slices before anybody counted the file — corrected, and the correction is in `ROADMAP.md` beside the list. |
-| **P — product & craft** | **P1 item 5 SHIPPED on the logbook**, and two byte-identical copies of `Disclosure` became one primitive. The ratchet that makes P1 mechanical went from blind to four of its own primitives to exhaustive against `components/ui.tsx`. See *Pick this up first* — the design-system audit ran this run, and its output is reproduced rather than trusted: one of its claims was measured and found stale, and the correction is in `BACKLOG.md`. |
+| **Shipped to production** | **Pending re-check at the time of writing.** Work lands on `claude/ultracode-maintenance-h5n564` (a harness-pinned branch name this run could not choose) and reaches production only through a pull request into `main`. Re-measure before believing any of it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched — unit 1354/1354 with the corpus attached (9 committed fixtures, 50 corpus recordings), build clean, e2e 321 passed. |
+| **D — capability** | **D10 slices 5f and 5g SHIPPED.** The comparison is now one table builder, and it no longer contradicts itself. `SINKS` **26 → 27**, `labelled` **11 → 12**, `todo` **10** (a new sink was found in the same breath as one was closed). |
+| **P — product & craft** | **Not yet started this run at the time of this refresh.** The next P slice is scoped and measured — see *Pick this up first*. |
 
 ## The one thing to read before anything else
 
-**Run the pre-push review, with three lenses, and give it the diff and nothing else. It has now
-found real defects in four consecutive diffs that had already passed the full gate — and this run
-it found a defect that was strictly worse than the one the slice was fixing.**
+**The pre-push review earned its place again, and this time it found the defect one level ABOVE
+everything the slice had touched.** Slice 5f made `compareTableRows()` the single builder that
+decides which rows a comparison has, and every renderer read it. The review pointed out that a
+builder can only label what its INPUT told it — and there are **two routes into a comparison**.
+`lib/compareFromLogbook.ts` set `synthetic` on each `CompareInput`; `components/Analyzer.tsx`, the
+DROP route, did not. A made-up flight dropped alongside real ones would have reached all five
+surfaces bare no matter how careful the row assembly was.
 
-The slice added `RecentMeta.synthetic` and a shared `fileFacts()` over the three logbook save sites.
-`lib/reopen.ts` rebuilds a hand-mapped flight from its stored text plus its stored mapping, and it
-passed headers, rows, mappings and `reported` — never `synthetic`. So:
+It is pinned by a **discovered** check rather than a typed list — `lib/synthetic.test.ts` →
+*"every route into a comparison carries whether the flight was made up"* walks `lib/` and
+`components/` for `buildComparison(` callers — because the failure it exists to prevent is a THIRD
+route. It strips comments before matching, because the paragraph documenting the rule names the
+very symbols the rule looks for, and a file-wide grep would have passed on the file that documents
+the violation.
 
-1. the one route a generated demonstration file can take lost its label on reopen; and
-2. **a reopen is a save**, `fileFacts` reads the rebuilt flight, and a save is a replace in place —
-   so one click on the logbook row **deleted the stored flag permanently**, after which the made-up
-   apogee could take the ★ that says *"Highest of your remembered flights"*.
+**Then the same review found that the slice had made an OLDER defect legible rather than causing
+it.** Putting the provenance row on screen meant the table now said *"made up by Debrief, not
+flown"* two rows above a ★ titled *"Highest of the flights being compared"*, with the same cell
+bolded in the `.md` and `class="best"` in the `.html`. That became slice 5g.
 
-Nothing in the suite could see it: every other assertion builds its flight directly rather than
-through `importRecent`, and the first walk only reloaded the landing page. **The extraction is what
-introduced the erasure** — before it, the field did not exist. Fixed, pinned by a unit test that
-fails alone when the one-line spread is removed, and the walk now clicks the row.
+## Four things this run learned the hard way
 
-Eight more findings from the same review were acted on, and three are worth naming because they are
-about the CHECKS rather than the code:
-
-- **`labelled` was a state the suite was structurally incapable of falsifying.** The audit table's
-  own docblock claimed every `labelled` row's reason "names the check that actually holds it"; two
-  of five named none, and nothing could tell. Every such row now carries `check: { file, contains }`
-  and the assertion reads the file off disk.
-- **The save-site check iterated three literal paths** while its docblock claimed to cover *every*
-  route — blind to precisely the fourth save site the refactor exists to prevent. It walks the tree
-  now. Falsified by adding a fourth caller: it is named, with no list to update first.
-- **The SINKS docblock said "adding an exporter without adding it here fails the count"**, which is
-  true only inside `lib/documents.ts` — and this run's own three additions disproved it three lines
-  above where it was written.
-
-## Five things this run learned the hard way
-
-1. **A shared helper over N copied literals can DELETE data the copies preserved.** `fileFacts` is
-   correct and the extraction was right; what made it dangerous is that a member it owns is
-   *recomputed* on a path where the input cannot reproduce it. Before extracting, ask of every
-   member: is this derivable on **every** path that calls the helper, including the reopen path?
-2. **`git checkout <file>` on an UNCOMMITTED file destroys it.** Used mid-falsification to undo a
-   deliberate break, it took the new tests with it. Copy to the scratchpad and copy back; the
-   backup files were already there for the other two falsifications and this one skipped them.
-3. **The rc file from a previous gate run reads exactly like a phase that has already passed.**
-   Three phases reported green before the current run had reached any of them. The gate script
-   clears its rc files first now — same class as reading the harness's exit code instead of the log.
-4. **`--grep` without `cd` into the repo scans the whole tree.** Costs a full minute and reports
-   "No tests found" after erroring on a dozen vitest files. `MAINTAINING.md` already records it;
-   it happened anyway.
-5. **A competitive probe answered a design question the roadmap had been carrying open for a day.**
-   D10 asked for "a column or a decision" on the data CSV. `COMPETITION.md` row 41 measures how the
-   instrumentation world marks un-measured data — NMEA per sentence, HL7 per message, DICOM per
-   instance — and the shared principle (the claim lives in a field the consumer must already parse)
-   settles it. Aim one probe at the thing you are about to decide, not only at the thing you built.
-
-## Environment, established at session start — none of it assumed
-
-- **The corpus was attached and real throughout.** `nrdptel/debrief-fixtures` on disk, symlinked
-  into `lib/parsers/__corpus__`. `manifest.csv` carries **62 fixtures**; the corpus suite runs 16
-  regression cases plus the cross-file sweeps, and `lib/canonical.test.ts` round-trips **50 corpus
-  recordings**. `FIXTURES_TOKEN` is NOT set, so `npm run fetch-fixtures` is a no-op.
-- **`node_modules` was ABSENT.** `npm install` first.
-- **Playwright needed `npx playwright install chromium`** (114 MB, ~1 min). **Paid for again every
-  session; it belongs in the environment's setup script.** Said for at least the eleventh run.
-- **`git config user.name/user.email` arrived as the harness vendor's default** and were set before
-  the first commit: `Neer Patel <135655563+nrdptel@users.noreply.github.com>`. The GLOBAL config is
-  still the vendor default — only the repo-local one is corrected.
-- **The clone is SHALLOW** — any history claim is a window.
-- **A full gate cycle is ~11 minutes** — unit ~4 min with the corpus, build ~50 s, e2e ~6 min — and
-  **the subagent concurrency cap here is 2** (four cores), so a six-agent fan-out runs in three
-  waves and takes 25+ minutes. Size fan-outs for two-at-a-time, and do not run one during a gate.
-- **The shell's working directory is NOT stable between commands.** Prefix with
-  `cd /home/user/fusionspace-debrief &&`. And **the harness's completion status is the trailing
-  `echo`'s, not the work's** — write the rc to a file, and delete last run's rc first.
-
-## What shipped, in order
-
-| commit | what | pinned by |
-|---|---|---|
-| `fd18f3a` | **D10 slice 5a — a made-up flight says so where a flyer reads it**: the report, the readings grid, the logbook row, the logbook's clipboard table and the logbook backup; and it can never wear a personal-best ★ | `lib/synthetic.test.ts` (19), `lib/logbookStar.test.ts` (+4), `lib/logbook.test.ts` (+3), `lib/recents.test.ts`'s two `Required<>` fixtures, 2 walks in `e2e/analyze.spec.ts` |
-| `fd18f3a` | **The reopen erasure** — `lib/reopen.ts` dropped the marker, and a reopen is a save | `lib/synthetic.test.ts` → *"survives being REOPENED"*, falsified alone |
-| `fd18f3a` | **The audit table stopped being able to lie**: `labelled` rows name a check that is read off disk, the save-site list is discovered rather than typed, `SINKS` 20 → 25 | `lib/synthetic.test.ts`, falsified 3 ways |
-| `fd18f3a` | **D10 slice 5b — the two spreadsheet destinations say it on every ROW**: the data CSV and the readings clipboard table each grow a `Provenance` column, and the logbook's table converts onto the same vocabulary | `lib/synthetic.test.ts` ×3, falsified both ways on both exports |
-| `fd18f3a` | **P1 item 5 — the logbook's four states take §5's primitives**, and `PRIMITIVE_ADOPTERS` becomes exhaustive against `components/ui.tsx`'s exports | `lib/design-system.test.ts` (26), falsified by exporting a new primitive |
-| `fd18f3a` | `COMPETITION.md` rows **40** (demonstration data across the field) and **41** (how the world marks un-measured data) | — |
-| `3b62dac` | **D10 slice 5c — the shareable card says it in a BAND drawn on the canvas**, and the `.png` and clipboard image are the same pixels. Walked by reading the pixels back, not the DOM | `e2e/analyze.spec.ts` → *"the shareable card carries it as a band"*, falsified by passing `synthetic={false}` |
-| `3b62dac` | `BACKLOG.md` ×7, including a CORRECTION to the design audit's own icon-button count | — |
-| `2988ba1` | **D10 slice 5d — the comparison carries which of its flights Debrief made up.** `CompareFlight` had no provenance member at all; a ROW here where the other tables take a COLUMN, because this one is transposed | `lib/compare.test.ts` (+2), falsified by dropping the carry-through |
-| `cd8c39c` | **D10 slice 5e — `/stitch`'s composite readings**, the one SCREEN sink the audit missed entirely, found by the review of the slice meant to have found all of them | `lib/synthetic.test.ts`'s named-check assertion, reading `components/StitchSurface.tsx` off disk |
+1. **A `next build` that dies inside `bundle5.js` is a poisoned `.next` cache, not your code.**
+   `TypeError: Cannot read properties of undefined (reading 'length')` at
+   `WasmHash._updateWithBuffer`. It cost real time because `prebuild` had already passed — so
+   `tsc --noEmit` was green and the log opened with a version stamp — and because it dumps **2.2 MB
+   of minified webpack source** into the log, so `tail` and any naive grep land in vendor code. It
+   is **not** a flake: it reproduced on two consecutive builds whose immediate predecessor was
+   green, which reads exactly like "my last change broke the build". Disk was 29 GB free.
+   `rm -rf .next` fixes it in one go. Now written into `MAINTAINING.md`.
+2. **And a red build silently poisons the e2e run after it**, because `npm run test:e2e` serves
+   `out/`. The suite then reports a failure in whatever you changed last, against a stale export.
+   Check the build's rc before reading a single e2e failure.
+3. **An e2e assertion that pins a POSITION in the comparison table is wrong.** The column order
+   follows the logbook, not the order files were opened in, so `.first()` pinned whichever flight
+   happened to sort first — the walk went red against a table that was labelling perfectly. Count
+   the cells that carry the claim instead. Each cell also carries the phone layout's `aria-hidden`
+   column label, so it is `hasText`, never `toHaveText`.
+4. **`e2e/units.spec.ts`'s sample wait sat inside the default 5 s timeout.** Measured 5.6 s
+   standalone; it went red once in a full parallel run and passed alone immediately after. Every
+   other spec that waits on an analysis already names 60 s. Fixed, and it is the signature to
+   recognise: one failure in a full suite that passes in isolation is a clock, not a defect.
 
 ## Pick this up first
 
-1. **D10 slice 5f — and it is a REFACTOR before it is a label.** TEN sinks are still `todo` in
-   `lib/synthetic.test.ts` — count them with
-   `grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` rather than subtracting from the last
-   number, which is how the roadmap's own count went wrong three slices running. The three comparison documents (`compareMarkdown`, `compareHtml`,
-   `compareJson` in `lib/report.ts`) each build their own table instead of reading the one builder
-   the screen, the `.csv` and the clipboard share — which is exactly why they did not come along
-   with slice 5d. Give them one builder and they all gain the row at once; add the row to each of
-   them and you have written the same answer a fourth, fifth and sixth time. Then `/stitch`'s
-   composite readings and its timeline table (it needs the required `synthetic` prop `MetricGrid`
-   and `FlightCard` took), then the explore CSV and the sample-table column copy.
-   `lib/synthetic.ts` exports `PROVENANCE_COLUMN` and `provenanceCell` — four surfaces share them
-   already.
-2. **The `/stitch` composite is an unlabelled screen sink and nobody had noticed.** Added to `SINKS`
-   this run by the review, not by the audit: it renders every stage's apogee and max speed by name
-   on a top-level route with no report above it, and copies a timeline table. It needs the same
-   required `synthetic` prop `MetricGrid` took.
-3. **The next P-track slice, reproduced and ready.** `app/page.tsx:21` and
-   `components/LogDetails.tsx:29` each hand-roll `Disclosure` with a class string **byte-identical**
-   to the primitive's own (`components/ui.tsx:1043`) — `Disclosure` 3 → 5 for two one-line edits.
-   Then the seven one-glyph controls hand-rolling `IconButton`, which exists with 2 adopters, and
-   the four copies of one text input across `FlightReport` and `CompareView`.
-4. **The rest of the design audit**, reproduced before scoping: `SiteHeader`'s active nav item is a
-   sixth button weight and a fourth dark surface; `app/page.tsx` and `components/LogDetails.tsx`
-   each hand-roll `Disclosure` with a class string byte-identical to the primitive's own; seven
-   one-glyph controls hand-roll `IconButton`, which exists with 2 adopters; four copies of one text
-   input across two files; `max-w-prose` at three sites that §3 names by name as the trap.
+**The P-track slice, scoped and measured this run but not built.** `DESIGN.md` §9's compliance
+block — the thing P1's *done when* is written against — has holes that were measured rather than
+guessed:
 
-## The done-check, executed — what each step returned
+- **§9's contrast block names two checks and NEITHER EXISTS.** `e2e/contrast.spec.ts` is not in the
+  tree (`ls` says so), and no test titled *"class half of the dark variant"* exists anywhere
+  (`grep -rn` over `lib/` and `e2e/` returns nothing). §9's own words: *"A compliance command that
+  cannot fail is worse than none, because a session runs it, sees the target, and moves on."*
+- **The inverted-type count never measures a ROUTE.** The ratchet reads `components` only. Adding
+  `app/**/*.tsx` finds two real ones — `app/validation/page.tsx` (1/0) and `app/privacy/page.tsx`
+  (4/3) — confirmed by re-running the loop this run, exactly as §9 predicted.
+- **Two counts read COMMENTS as code.** `invertedTypeFiles` and `uiAdopters` both grep raw text.
+  Live today: `components/ui.tsx:267-271` carries `text-sm` twice and `text-xs` once inside one
+  docblock, and those count toward that file's totals.
+- **Three ratchet regexes are narrower than §9's own greps** — radius names a single value where §9
+  subtracts a sanctioned set, and spacing and type have no arbitrary-value (`[13px]`, `[0.9rem]`)
+  branch. Note honestly: widening them moves **no count today** (measured: radius 0, spacing 0,
+  type 1). It is a guard against the next drift, not a discovery, and should be reported as such.
 
-1. **Corpus sweep: the full suite on every gate, 1,349 unit tests over 62 manifest fixtures, and 0
-   goldens moved all run.** No calculation changed, so no independent recompute was owed. Said
-   plainly: an empty sweep is a result.
-2. **Cold walks.** Every slice is driven end to end in the real app: a made-up flight through the
-   column mapper (the only route one can take), its logbook row, its reopen, and — the walk added
-   last — the actual **download**, because the per-row column being right in `analyzedDataCsv` does
-   not prove the save strip calls it with the flight that knows. Production fetched separately and
-   reported below.
-3. **`COMPETITION.md` rows 40 and 41 added.** Row 41 is the one that paid: it answered a design
-   question the roadmap had been carrying open, from outside rocketry.
-4. **§9's six shell counts, measured against `origin/main` in a worktree rather than recalled:**
-   radius **0→0** · card treatments **3→3** · off-scale spacing **0→0** · off-scale type **1→1** ·
-   inverted-type files **10→10** · ui adopters **38→38**. **None moved, in either direction** —
-   this run's craft work was per-primitive adoption, which the shell block cannot see. The ratchet
-   that can: `Chip` **7→8** · `Notice` **6→8** · `EmptyState` **1→2** · `Disclosure` **3→5** ·
-   `Loading` **uncounted→3** · `ChipButton`, `CopyTableButton`, `Sources` **uncounted→counted**.
-   Nothing moved down.
-5. **`BACKLOG.md` read and appended to — five new entries**, each with the measurement that makes
-   it actionable, and each naming what was *not* checked.
-6. **Both track questions.**
-   - **D:** a flyer who opens a flight Debrief made up can no longer mistake it for a recording —
-     it says so on the report, beside the readings, on its logbook row, in the CSV they paste into
-     a spreadsheet, in the readings they copy into a cert document, and in the backup they restore
-     six months later; and it can never wear a personal best.
-   - **P:** the landing surface's list stopped rendering four of §5's five required states by hand,
-     the app's two byte-identical copies of `Disclosure` became one primitive, and the ratchet that
-     is supposed to make P1 mechanical went from blind to four of its own primitives to exhaustive
-     against the file it measures.
-7. **`ROADMAP.md` updated** — D10 5a and 5b recorded against the *done when* with what is left
-   named in order; P1 item 5 records the slice, the counts, and the one thing measured and
-   deliberately not done.
-8. **`OWNER-NOTES.md`: zero notes are open without a verdict, and the count is now honest.** Eight
-   notes carry verdicts dated 2026-08-08/09; none is new, so none was owed one this run. Two
-   (`ON-1`, `ON-4`) had been marked RESOLVED a day ago and left sitting in `## Open` in full, so
-   the inbox read as eight open when six are — they are collapsed into `## Resolved` with the
-   owner's verbatim words carried across. **Seven items sit under *Awaiting the owner***, one added
-   this run.
+**Then, in `BACKLOG.md` and ranked there:** the comparison's cross-check panel states an agreement
+figure over a flight nobody flew, above the row that says so; the logbook's ★ *"Fastest"* ranks a
+baro-derived peak against a device-measured one while the comparison refuses that exact crown by
+name; and three of the report's jump chips scroll to sections that unmount, eleven lines under a
+comment naming that pattern as the tell to avoid.
 
-## Owed to the sibling repo
+## The corpus
 
-**One change this run, and it is owed.** §5's `Button variant="link"` entry cited *"Got a backup?
-**Restore it**."* as its canonical in-a-sentence example, and that control no longer exists — the
-logbook's empty state took `EmptyState`, whose action is a standalone button. The example was
-replaced with two that do exist; the rule is unchanged. Parked in `OWNER-NOTES.md`.
+Attached as a second repository and symlinked, which is the intended path:
+`ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. Confirm it took by reading the
+suite's own count — it names **9 committed fixtures and 50 corpus recordings**. A run that cannot
+say those numbers did not have a corpus.
 
-Still owed from earlier runs: §5's `Popover` and `SectionNav`, and **§2's tertiary token still fails
-AA in dark** (4.12:1 on page, 3.67:1 on raised) at five sites that are not disabled controls. Parked
-in `OWNER-NOTES.md` → *Awaiting the owner*.
+## Environment
+
+`npx playwright install chromium` is needed every session: the image ships chromium-1194 and this
+Playwright wants 1228, and `playwright.config.ts` refuses the mismatch on purpose. It succeeds
+through the proxy in about a minute. Do **not** set `PLAYWRIGHT_CHROMIUM_PATH` afterwards — plain
+`npx playwright test` is what runs green. This is the standing candidate for the environment's
+setup script.

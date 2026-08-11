@@ -1080,6 +1080,24 @@ export function compareMetricRows(
       let finite = 0;
       let ties = 0;
       flights.forEach((f, i) => {
+        /** **A flight Debrief MADE UP never enters the competition, and it is EXCLUDED rather
+         *  than blocking the set.** `lib/logbook.ts#personalBests` already ruled this for the
+         *  logbook's ★ and the reasoning transfers unchanged: a CAVEAT says Debrief cannot settle
+         *  how high this flight went — so it might have been the highest, and crowning the
+         *  runner-up would claim more than the data supports, which is why `rankBlocked` withholds
+         *  the crown from the whole row. A synthetic flight is not a flight. Nothing was flown, so
+         *  it did not go higher and it did not go lower, and dropping it out leaves the real
+         *  flights ranking against each other exactly as they did before it was opened.
+         *
+         *  So NOT `rankBlocked`: blocking would let a demonstration file suppress a real flyer's
+         *  best, which `lib/logbookStar.test.ts` asserts against by name on the other surface.
+         *
+         *  Without this the comparison contradicted itself inside one table — the provenance row
+         *  saying "made up by Debrief, not flown" two rows above a ★ titled "Highest of the
+         *  flights being compared", with the same cell bolded in the .md and the .html. The ★ was
+         *  deliberately made the logbook's own glyph so the two surfaces that rank flights would
+         *  say it the same way; they now also refuse it the same way. */
+        if (f.synthetic) return;
         const v = s.value(f.metrics);
         if (!Number.isFinite(v)) return;
         finite++;

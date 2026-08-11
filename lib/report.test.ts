@@ -1014,6 +1014,34 @@ describe('comparison report', () => {
       expect(html).toContain(`<td>${provenanceCell(true)}</td>`);
     });
 
+    it('never crowns a flight nobody flew, and never lets one suppress a real best', () => {
+      // The table said two things at once: a row reading "made up by Debrief, not flown", and two
+      // rows under it a ★ titled "Highest of the flights being compared" on that same column,
+      // with the cell bolded in the .md and class="best" in the .html. `lib/logbook.ts` had
+      // already ruled on this for the logbook's star; the comparison had no equivalent guard.
+      //
+      // EXCLUDED, not blocked — and the second direction is the one that makes it a real rule
+      // rather than a filter. `lib/logbookStar.test.ts` asserts the same pair on the other
+      // surface, by name.
+      const rows = compareTableRows(mixed.flights, 'metric');
+      const apogee = rows.find((r) => r.label === 'Apogee')!;
+      // The made-up flight peaks higher (315 vs 300), so it WOULD hold the crown if it were
+      // allowed to compete — pick the numbers the other way and this assertion passes on a
+      // broken exclusion, which is the version of this test that proves nothing.
+      expect(apogee.values[1]).toBeGreaterThan(apogee.values[0]);
+      expect(apogee.best, 'one real flight beside a demonstration crowns nothing').toBe(-1);
+      // …and the exports carry no crown either, on either of the two ways they draw one.
+      expect(compareMarkdown(mixed, 'metric')).not.toContain(`**${apogee.cells[1]}**`);
+      expect(compareHtml(mixed, 'metric')).not.toContain('class="num best"');
+
+      // The other direction: a demonstration must not take the crown AWAY from a real set. Three
+      // flights, two of them real and genuinely rankable, one made up — the real winner still
+      // wins, and it is the real one.
+      const three = buildComparison([input('a', 300), input('b', 315), demo('made-up', 900)]);
+      const apo3 = compareTableRows(three.flights, 'metric').find((r) => r.label === 'Apogee')!;
+      expect(apo3.best, 'the higher REAL flight still wins, and the demonstration is not it').toBe(1);
+    });
+
     it('reaches the .json on the flight record itself, not as a table row', () => {
       // A consumer of this document reads the flight objects, not a rendering of them, so the
       // claim rides on the record it is about — `COMPETITION.md` row 41's per-record rule, in
