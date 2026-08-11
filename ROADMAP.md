@@ -2604,6 +2604,47 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
+**2026-08-11 — §9's contrast block named two checks that DID NOT EXIST, and the token they should
+have been guarding failed AA in dark.** P1's *done when* is "`DESIGN.md`'s compliance block (§9) runs
+clean and is **pinned by a test**", and on contrast it was pinned by fiction: the block listed
+`npx playwright test e2e/contrast.spec.ts`, a spec absent from both trees, and
+`npx vitest run … -t "class half of the dark variant"`, a title matching nothing anywhere. §9's own
+words four paragraphs above them: *a compliance command that cannot fail is worse than none.*
+
+**§2's `tertiary` was `text-zinc-500 dark:text-zinc-500`, and the symmetry was the bug** — one value
+for two surfaces that are not mirror images. Measured: 4.83:1 / 4.63:1 in light (pass), **4.12:1 and
+3.67:1 in dark (fail)**. Ten enabled sites were carrying real text at those ratios, the sharpest
+being the metric grid's `?` at **2.56:1 in light** — the only affordance that explains what a reading
+means, and the subject of owner note `ON-3`. Fixed in the token (`dark:text-zinc-400` → 7.76 / 6.91),
+so no session has to remember which role is safe where.
+
+**The `zinc-600` version was written first and was wrong, and that is the more useful half.** Lifting
+the ten to §2's `secondary` clears AA by more — and inverts hierarchies the greys were carrying: the
+logbook's neutral cross-check spread would have gone to 7.73:1 against its own amber *"these may not
+be one flight"* sibling at 5.02:1, **the warning quieter than the non-warning**. Corrected `tertiary`
+is 4.83:1: above AA, still below amber.
+
+**Pinned by 4 cases** in `lib/design-system.test.ts` (*"meets WCAG AA in BOTH themes"*) — ratios
+computed from hex, the arithmetic self-rated against 21:1 and 1:1 first, then a census over every
+`text-zinc-*` in `components` and `app`. Falsified three ways: regress any adopter and it is named
+with a line number; break the sRGB linearisation and the self-rating case catches it; point the walk
+at an empty directory and the sample-count assertion fires.
+
+**A pre-push review then found four holes in that check, every one letting a real failure through**,
+and they are recorded in §9 because the shape repeats: an exemption written as a loose text match
+exempts far more than it names. `/\bdisabled\b/` matched the Tailwind variant `disabled:opacity-30`
+and so exempted two ENABLED reorder buttons at 2.56:1; the `print:` exemption was inverted for the
+dominant case (33 `print:hidden` against 2 `print:block`); both read a 4-line window, so one
+decorative icon exempted the three lines after it; and there was no sample-count assertion at all.
+Rebuilt around `openingTag()` — already in that file for the chip census — and then rated per class
+-string LITERAL rather than per tag, because `SiteHeader`'s nav link is one tag holding a ternary
+with two complete class lists, and tag-wide matching paired one branch's text with the other's fill.
+
+**Two reach gaps filed rather than closed**, both measured: `lib/report.ts` writes the exported HTML
+report's palette as literal hex and two rules are sub-AA (4.40:1, 4.47:1); and only the zinc ramp is
+rated, so the logbook's `text-indigo-500` note button at 4.47:1 is invisible. Both want the RENDERED
+check §9 describes.
+
 **2026-08-08 — the app's ONLY hand-rolled primary fill converted, and §5 gained the check that
 would have caught it.** `components/CompareSurface.tsx`'s "Choose flight logs" — the comparison
 surface's single most prominent control — was a styled `<label>` carrying `rounded-md bg-indigo-600

@@ -1138,6 +1138,212 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
   });
 });
 
+/**
+ * **§9's blind spot, and the one it names about itself: every count above matches a class NAME, and
+ * readability is a rendered COLOUR.** All of them can read zero while text on a live route is
+ * unreadable — which is what the sibling app's owner reported, with every §9 number at target.
+ *
+ * **§9 already claimed this was checked, and it was not.** Its contrast block named two commands:
+ * `npx playwright test e2e/contrast.spec.ts`, a spec that does not exist in this tree, and
+ * `npx vitest run lib/design-system.test.ts -t "class half of the dark variant"`, a test title that
+ * matched nothing anywhere. §9's own words two paragraphs earlier: *"A compliance command that
+ * cannot fail is worse than none, because a session runs it, sees the target, and moves on."* This
+ * block is that command made real, and §9 now names it instead.
+ *
+ * Ratios are COMPUTED from the hex values, never asserted as remembered numbers, so the check moves
+ * with the palette rather than with somebody's notes.
+ */
+describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH themes', () => {
+  /** Tailwind's zinc ramp, the only greys §2 spends. */
+  const ZINC: Record<string, string> = {
+    '100': '#f4f4f5', '200': '#e4e4e7', '300': '#d4d4d8', '400': '#a1a1aa', '500': '#71717a',
+    '600': '#52525b', '700': '#3f3f46', '800': '#27272a', '900': '#18181b', '950': '#09090b',
+    '50': '#fafafa',
+  };
+  const WHITE = '#ffffff';
+
+  const channel = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  const contrast = (fg: string, bg: string) => {
+    const [a, b] = [luminance(fg), luminance(bg)];
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  };
+
+  const AA = 4.5;
+  /** §2's three surface levels, per theme — what any text can actually land on. */
+  const SURFACES = {
+    light: [['page', WHITE], ['sunken', ZINC['50']], ['raised', WHITE]],
+    dark: [['page', ZINC['950']], ['sunken', ZINC['900']], ['raised', ZINC['900']]],
+  } as const;
+
+  it('rates its own arithmetic against known WCAG values before trusting it', () => {
+    // A contrast checker that is quietly wrong reports a compliant app that is not one. Black on
+    // white is exactly 21:1 and a colour against itself is exactly 1:1, by definition.
+    expect(contrast('#000000', WHITE)).toBeCloseTo(21, 5);
+    expect(contrast(ZINC['500'], ZINC['500'])).toBeCloseTo(1, 5);
+    // And one hand-checked mid value, so a sign or gamma error cannot hide between the extremes.
+    expect(contrast(ZINC['600'], WHITE)).toBeCloseTo(7.73, 1);
+  });
+
+  it('gives every text role §2 defines a passing ratio on every surface it can sit on', () => {
+    // Read off §2's own table. `tertiary` is deliberately absent from this list and gets its own
+    // case below, because its role is what exempts it.
+    const ROLES: Record<string, { light: string; dark: string }> = {
+      primary: { light: ZINC['900'], dark: ZINC['100'] },
+      secondary: { light: ZINC['600'], dark: ZINC['400'] },
+    };
+    const failures: string[] = [];
+    for (const [role, v] of Object.entries(ROLES)) {
+      for (const theme of ['light', 'dark'] as const) {
+        for (const [name, bg] of SURFACES[theme]) {
+          const r = contrast(v[theme], bg);
+          if (r < AA) failures.push(`${role} on ${theme} ${name}: ${r.toFixed(2)}:1`);
+        }
+      }
+    }
+    expect(failures, `§2 text roles below AA:\n${failures.join('\n')}`).toEqual([]);
+  });
+
+  it('is why `tertiary` may not carry text a flyer reads, and says so with the number', () => {
+    // **This is not a bug in the token — it is the reason the token is restricted.** §2 gives
+    // `tertiary` to "disabled, placeholder, timestamps", and WCAG 1.4.3 exempts text that is part
+    // of an INACTIVE component from any contrast requirement. On an ENABLED control the same grey
+    // is a failure, and that is exactly how it went wrong here: the metric grid's `?` — the one
+    // affordance that explains what a reading means — wore `text-zinc-400 dark:text-zinc-500` and
+    // rendered at 2.56:1 in light and 4.12:1 in dark.
+    expect(contrast(ZINC['500'], ZINC['950'])).toBeLessThan(AA);
+    expect(contrast(ZINC['400'], WHITE)).toBeLessThan(AA);
+    // …and the replacement genuinely clears it, in both themes, so the fix is not a smaller
+    // failure. Asserted rather than assumed: `secondary` is the role these sites should have had.
+    expect(contrast(ZINC['600'], WHITE)).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ZINC['400'], ZINC['950'])).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ZINC['400'], ZINC['900'])).toBeGreaterThanOrEqual(AA);
+  });
+
+  it('lets no ENABLED element in either surface tree wear a sub-AA grey', () => {
+    /**
+     * The census, and its first draft was wrong in four ways that a pre-push review caught — every
+     * one of them a hole that let a REAL failure through, which is worth recording because the
+     * shape repeats: **an exemption written as a loose text match exempts far more than it names.**
+     *
+     *  1. `/\bdisabled\b/` on the line matched the Tailwind VARIANT `disabled:opacity-30`, so it
+     *     exempted `components/CompareView.tsx`'s two ◀/▶ reorder buttons — enabled controls
+     *     rendering at 2.56:1 — while claiming to exempt only inactive text.
+     *  2. `/\bprint:/` was inverted for the dominant case. There are 33 `print:hidden` against 2
+     *     `print:block`: `print:hidden` means hidden ON PAPER and visible ON SCREEN, which is
+     *     exactly the text a screen contrast check exists to rate. Only paper-only text is exempt.
+     *  3. Both exemptions read a 4-LINE WINDOW, so one decorative icon exempted the three lines of
+     *     real text after it.
+     *  4. There was no sample-count assertion, so a renamed directory would have reported a
+     *     perfectly accessible app that was never read.
+     *
+     * The fix for 1–3 is to stop guessing at line proximity and ask the ELEMENT: `openingTag()` is
+     * already in this file for the chip census, it skips comments and strings, and it answers
+     * exactly the question these exemptions need — is THIS tag decorative, paper-only, or disabled?
+     */
+    const files = uiSources(['components', 'app'], ['.tsx']);
+    // A denominator, for hole 4. Every sibling census in this file asserts its own sample size.
+    expect(files.length, 'the contrast census found no sources to read').toBeGreaterThan(40);
+
+    const failures: string[] = [];
+    let rated = 0;
+    for (const f of files) {
+      // **Comments blanked, and the first draft of this very check needed it.** It named
+      // `MetricGrid.tsx:58` and `SimulationChoice.tsx:97` — both COMMENTS quoting the failing
+      // class to explain why it was replaced. A contrast check that reads its own explanation as
+      // a violation is the same species of bug §9 records twice already. Blanked to spaces rather
+      // than deleted so reported line numbers stay true to the file.
+      const text = f.text
+        .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+        .replace(/(^|[^:])\/\/[^\n]*/g, (m, pre) => pre + ' '.repeat(m.length - pre.length));
+
+      for (const open of [...text.matchAll(/</g)].map((m) => m.index ?? 0)) {
+        const tag = openingTag(text, open, open + 1);
+        if (!/text-zinc-/.test(tag)) continue;
+
+        // Decorative: hidden from assistive tech, carrying no meaning a sighted reader loses.
+        // `SiteFooter`'s `·` separators are `text-zinc-300`, 1.42:1, and are not text.
+        if (/aria-hidden/.test(tag)) continue;
+        // Genuinely inactive text, which WCAG 1.4.3 exempts outright. The tag must be
+        // unconditionally disabled — a `disabled:` variant on some other property is not a licence
+        // for the resting colour, and reading it as one is how the first draft exempted
+        // `CompareView`'s two ◀/▶ reorder buttons at 2.56:1.
+        if (/\bdisabled(?:=\{true\})?[\s>]/.test(tag)) continue;
+        // `ReadingChooser`'s always-shown reading is the one genuinely-disabled ternary BRANCH in
+        // the tree — its input really is `disabled={locked}` and the label greys with it. Named by
+        // file so the exemption cannot quietly grow to cover anything else.
+        if (f.path === 'components/ReadingChooser.tsx' && /locked \?/.test(tag)) continue;
+        // Paper-only text renders on WHITE in either theme; `print:hidden` is the OPPOSITE and is
+        // deliberately not exempt — it is screen text, and there are 33 of those against 2 of
+        // these. Read from the element and its immediate container, because print scope is
+        // routinely set on a wrapper (`FlightReport`'s masthead is a `<p>` inside a
+        // `hidden print:block` div). Bounded at one level: a fixed stated depth is checkable where
+        // "somewhere above it" is the fuzziness this rewrite exists to remove.
+        const parentOpen = open > 0 ? text.lastIndexOf('<', open - 1) : -1;
+        const parentTag = parentOpen < 0 ? '' : openingTag(text, parentOpen, parentOpen + 1);
+        if (/print:(?:block|flex|inline)/.test(tag + parentTag)) continue;
+
+        /**
+         * **Rated per STRING LITERAL, not per tag, and that correction is the whole difference
+         * between a check and a guess.** `SiteHeader`'s nav link is one tag holding a ternary with
+         * two complete class lists: the active branch is `bg-zinc-900 … text-white` and the
+         * inactive one is `text-zinc-600 … hover:bg-zinc-100`. Matching over the whole tag paired
+         * the inactive branch's TEXT with the active branch's FILL and reported 2.29:1 on a control
+         * that renders at about 15:1. Each literal is one set of classes that ship together, so
+         * each is rated on its own.
+         */
+        for (const lit of tag.match(/'[^']*'|"[^"]*"|`[^`]*`/g) ?? []) {
+          const lightShade = (lit.match(/(?<!dark:)(?<![\w:-])text-zinc-(\d{2,3})\b/) ?? [])[1];
+          if (!lightShade || !ZINC[lightShade]) continue;
+          const darkShade = (lit.match(/dark:text-zinc-(\d{2,3})\b/) ?? [])[1];
+
+          // An element that sets its OWN fill is rated against that fill. The known limit is
+          // stated rather than hidden: a fill set by an ANCESTOR is still rated against the page,
+          // because a check that walked the DOM would be guessing.
+          const bgOf = (theme: 'light' | 'dark'): string | null => {
+            const re = theme === 'dark'
+              ? /dark:bg-(zinc-\d{2,3}|white)\b/
+              : /(?<!dark:)(?<![\w:-])bg-(zinc-\d{2,3}|white)\b/;
+            const hit = (lit.match(re) ?? [])[1];
+            if (!hit) return null;
+            return hit === 'white' ? WHITE : (ZINC[hit.slice(5)] ?? null);
+          };
+          const lightBg = bgOf('light');
+          const darkBg = bgOf('dark') ?? lightBg;
+
+          rated++;
+          const line = text.slice(0, open).split('\n').length;
+          const lr = lightBg
+            ? contrast(ZINC[lightShade], lightBg)
+            : Math.min(...SURFACES.light.map(([, bg]) => contrast(ZINC[lightShade], bg)));
+          if (lr < AA) {
+            failures.push(`${f.path}:${line} text-zinc-${lightShade} → ${lr.toFixed(2)}:1 in light`);
+            continue;
+          }
+          // No `dark:` partner means the LIGHT value renders in dark too — the asymmetry §2's
+          // `tertiary` row is about. Say which case it is rather than printing a `dark:` class the
+          // file does not contain, which is what the first draft did.
+          const shade = darkShade && ZINC[darkShade] ? darkShade : lightShade;
+          const dr = darkBg
+            ? contrast(ZINC[shade], darkBg)
+            : Math.min(...SURFACES.dark.map(([, bg]) => contrast(ZINC[shade], bg)));
+          if (dr < AA) {
+            failures.push(
+              `${f.path}:${line} ${darkShade ? `dark:text-zinc-${shade}` : `text-zinc-${lightShade} with no dark: partner`} → ${dr.toFixed(2)}:1 in dark`,
+            );
+          }
+        }
+      }
+    }
+    // Hole 4 again, one level in: the walk must have RATED something, not merely opened files.
+    expect(rated, 'the contrast census rated no elements').toBeGreaterThan(60);
+    expect(failures, `enabled text below WCAG AA:\n${[...new Set(failures)].join('\n')}`).toEqual([]);
+  });
+});
+
 describe('DESIGN.md §5 — the fifth button weight', () => {
   /**
    * Eight `<button>` elements across four files hand-rolled the same treatment — indigo text, no

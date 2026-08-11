@@ -24,7 +24,7 @@ export default function FusionSpaceBadge({ className = '' }: { className?: strin
       />
       <span
         aria-hidden="true"
-        className="text-xs text-zinc-400 opacity-0 transition group-hover:opacity-100 dark:text-zinc-500"
+        className="text-xs text-zinc-500 opacity-0 transition group-hover:opacity-100 dark:text-zinc-400"
       >
         ↗
       </span>

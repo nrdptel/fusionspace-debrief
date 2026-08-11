@@ -861,7 +861,7 @@ export default function CompareView({
                         disabled={i === 0}
                         aria-label={`Move ${stem(f.name)} left`}
                         title="Move left"
-                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-500 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:text-zinc-400 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
                       >
                         ◀
                       </button>
@@ -871,7 +871,7 @@ export default function CompareView({
                         disabled={i === flights.length - 1}
                         aria-label={`Move ${stem(f.name)} right`}
                         title="Move right"
-                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-400 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
+                        className="flex h-11 w-11 items-center justify-center rounded-md text-zinc-500 transition enabled:hover:bg-zinc-100 enabled:hover:text-zinc-700 dark:text-zinc-400 disabled:opacity-30 sm:h-6 sm:w-6 dark:enabled:hover:bg-zinc-800 dark:enabled:hover:text-zinc-200"
                       >
                         ▶
                       </button>

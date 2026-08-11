@@ -747,7 +747,7 @@ export default function RecentFlights({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, logger or note…"
-            className="min-h-[2.25rem] w-full max-w-xs rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            className="min-h-[2.25rem] w-full max-w-xs rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
           />
           {filtering && (
             <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400" role="status">
@@ -928,7 +928,7 @@ export default function RecentFlights({
                   aria-label={`${note.note ? 'Edit' : 'Add'} note for ${rowName(r)}`}
                   title={note.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 ${
-                    note.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                    note.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
                   }`}
                 >
                   ✎
@@ -946,7 +946,7 @@ export default function RecentFlights({
                       : `Remove ${rowName(r)} from recent flights`
                   }
                   title={others.length > 0 ? `Remove this flight — all ${group.recordings.length} recordings` : 'Remove'}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 sm:h-7 sm:w-7 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 >
                   ✕
                 </button>
@@ -1029,7 +1029,7 @@ export default function RecentFlights({
                       return (
                         <span
                           key={sp.label}
-                          className={`shrink-0 font-normal ${wide ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`}
+                          className={`shrink-0 font-normal ${wide ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`}
                           title={
                             `The full range between ${sp.count === group.recordings.length ? 'all' : sp.count} of this flight's ${group.recordings.length} recordings, ` +
                             `as a share of what they read on average — a measure of how far apart the instruments are, not a reading of its own. ` +

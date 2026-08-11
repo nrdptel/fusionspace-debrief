@@ -14,6 +14,23 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-11 — the EXPORTED HTML report's hand-written palette has two sub-AA rules, and no check
+  can see them.** `lib/report.ts` writes that document's CSS as literal hex, so it is neither a
+  Tailwind class nor under `components`/`app` — the contrast census added this run reaches neither.
+  Measured: `thead th { color: #71717a }` on `body { background: #f4f4f5 }` = **4.40:1**, and
+  `footer a { color: #6366f1 }` on the same ground = **4.47:1**, against AA's 4.5:1. This is the
+  artifact a flyer puts in a cert package, so it is read by people who never open the app.
+  `#52525b` (7.41:1 there) is the drop-in for the first; `#4f46e5` (6.29:1) for the second. The
+  durable fix is the RENDERED check `DESIGN.md` §9 describes and nobody has written — it would cover
+  hand-written CSS and non-zinc hues at once, where enumerating palettes will not.
+
+- **2026-08-11 — the logbook's "this flight has a note" button is `text-indigo-500` on white =
+  4.47:1**, three hundredths under WCAG AA, at `components/RecentFlights.tsx:931`. The contrast
+  census added this run rates the zinc ramp only, so nothing catches it. `indigo-600` is 6.29:1 and
+  is already §2's fill value for the accent. Not fixed with the greys because it is a question about
+  the ACCENT ramp — §2 gives `indigo-500` for "interactive, selected, the focus ring", and moving
+  the text weight to 600 is a change to that row in a file both repos carry.
+
 - **2026-08-11 — the comparison's cross-check panel states an agreement figure over a flight
   nobody flew, ABOVE the row that says so.** `lib/compare.ts#crossCheck` has no synthetic guard
   (`grep -n synthetic lib/compare.ts` returns only the type member and `buildComparison`'s copy),

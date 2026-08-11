@@ -452,7 +452,7 @@ export default function StitchSurface() {
                 <h3 className="font-mono text-xs break-all text-zinc-600 dark:text-zinc-400">
                   {s.name}
                   {firstStage === s.name && (
-                    <span className="ml-2 font-sans text-zinc-500 dark:text-zinc-500">· you said this flew first</span>
+                    <span className="ml-2 font-sans text-zinc-500 dark:text-zinc-400">· you said this flew first</span>
                   )}
                 </h3>
                 {s.tiles.length > 0 ? (
