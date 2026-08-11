@@ -3053,17 +3053,21 @@ test('a made-up flight is marked in the comparison table a flyer looks at', asyn
 
   // One REAL flight beside it, so the row has both cells to tell apart. A comparison of one
   // made-up flight alone could pass a weaker assertion that never renders the word "recorded".
+  // **Ingested by the two-file drop, which is the path already proven green on CI** — the walk
+  // directly above this one uses exactly it. Three single-file variants were tried first and each
+  // passed here and failed on CI: waiting for "Analyze another flight" (the report we just left is
+  // already showing it), waiting for the file name (matches while the drop zone is still READING
+  // the file), and asserting the button had gone first (still lost the race on a slower runner).
+  // The heading below is the signal none of those were: a comparison exists only once BOTH files
+  // are parsed, analysed and saved, so there is nothing left in flight when it appears.
   await page.getByRole('button', { name: /Analyze another flight/ }).click();
   await page
     .getByLabel('Choose a flight log file')
-    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'));
-  // Waits for the REPORT, and "Analyze another flight" is the right signal for it despite looking
-  // like the wrong one: the click above returns the app to the drop zone, so that button is gone
-  // when this starts and its reappearance means the Pnut's own report has rendered. A wait on the
-  // file name instead — which reads like the more specific assertion — matches while the drop zone
-  // is still reading the file, so it proceeds too early and the flight is never saved. Measured
-  // both ways.
-  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+    .setInputFiles([
+      path.join(__dirname, '../lib/parsers/__fixtures__/perfectflite-pnut.pf2'),
+      path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-raven-fip.csv'),
+    ]);
+  await expect(page.getByRole('heading', { name: /Comparing 2 flights/i })).toBeVisible({ timeout: 60_000 });
 
   // Out of STORAGE rather than out of the render that wrote it — the same reason the logbook
   // walk reloads: `compareFromLogbook` rebuilds the flight, and that is the hop a marker gets
