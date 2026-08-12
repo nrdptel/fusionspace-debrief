@@ -67,7 +67,18 @@ wild, ideas too big for one pass. One line each, newest first.
   rather than legibility, and it is one line. `Readout`'s `sub` at `ui.tsx:1386` carries the same
   pair and is genuinely a caption, so it should stay.
 
-- **2026-08-11 — the EXPORTED HTML report's hand-written palette has two sub-AA rules, and no check
+- **RESOLVED 2026-08-12 by P1's contrast slice** — kept rather than deleted, and **two of its own
+  numbers were wrong, which is the part worth keeping.** There were THREE failing rules, not two:
+  `footer` carries the same `#71717a` as `thead th`. `footer a` on `#f4f4f5` is **4.06:1**, not the
+  4.47 recorded below — 4.47 is that colour on WHITE, the same carried-across error `DESIGN.md` §9
+  had made. And the drop-in offered below, `#52525b` at "7.41:1 there", is 7.03:1 on `#f4f4f5`
+  (7.41 is its ratio on `#fafafa`) — and it was the wrong choice anyway, because `#52525b` is
+  already spent on `.src` and `h2`, so taking it would have collapsed the sheet's three ink levels
+  to two. Shipped as `#5f5f68` (5.75:1 screen, 6.32:1 paper) and `#4338ca` (7.19:1), held by a
+  RENDERED check: `e2e/a11y.spec.ts` now opens the saved report over `file://` and runs the same axe
+  audit the app's routes get, on screen and under print. Original entry follows.
+
+  **2026-08-11 — the EXPORTED HTML report's hand-written palette has two sub-AA rules, and no check
   can see them.** `lib/report.ts` writes that document's CSS as literal hex, so it is neither a
   Tailwind class nor under `components`/`app` — the contrast census added this run reaches neither.
   Measured: `thead th { color: #71717a }` on `body { background: #f4f4f5 }` = **4.40:1**, and
@@ -77,7 +88,15 @@ wild, ideas too big for one pass. One line each, newest first.
   durable fix is the RENDERED check `DESIGN.md` §9 describes and nobody has written — it would cover
   hand-written CSS and non-zinc hues at once, where enumerating palettes will not.
 
-- **2026-08-11 — the logbook's "this flight has a note" button is `text-indigo-500` on white =
+- **RESOLVED 2026-08-12 by P1's contrast slice, and the entry below is measured against the wrong
+  Tailwind** — kept because that is the lesson. This repo ships Tailwind **4**, whose `indigo-500`
+  renders `#615fff` at **4.58:1 on white, which PASSES**; the 4.47:1 below is Tailwind 3's
+  `#6366f1`. The button does fail, at **4.38:1 on `sunken`**, which is the ground the logbook
+  actually sits on — so the fix stands and the stated reason did not. It is `indigo-600` now
+  (6.46:1), §2's accent row moved with it, and every ramp in the census is rasterised from the
+  `oklch()` the built stylesheet emits rather than remembered. Original entry follows.
+
+  **2026-08-11 — the logbook's "this flight has a note" button is `text-indigo-500` on white =
   4.47:1**, three hundredths under WCAG AA, at `components/RecentFlights.tsx:931`. The contrast
   census added this run rates the zinc ramp only, so nothing catches it. `indigo-600` is 6.29:1 and
   is already §2's fill value for the accent. Not fixed with the greys because it is a question about

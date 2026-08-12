@@ -2702,6 +2702,57 @@ computed from hex, the arithmetic self-rated against 21:1 and 1:1 first, then a 
 with a line number; break the sRGB linearisation and the self-rating case catches it; point the walk
 at an empty directory and the sample-count assertion fires.
 
+**2026-08-12 — both of §9's recorded REACH gaps are CLOSED, and each was worse than the note.**
+That entry named two: a hand-written palette no source check can see, and a census that rates only
+the zinc ramp. Closing them found **three** failing rules in the palette rather than two (`footer`
+carried the same `#71717a` as `thead th`), corrected §9's own number for the third (`footer a` on
+`#f4f4f5` is **4.06:1**, not the recorded 4.47 — that is the same colour on WHITE, carried across
+from the other gap), and turned up an outright failure the ramp gap had not predicted:
+**`text-amber-600` at 3.20:1 light / 3.07:1 on `sunken`**, at three sites including a marginal
+rail-exit warning and the column mapper's live region telling a flyer what to set to continue. §9
+had named only a near-miss on a note button. A near-miss and a warning a flyer cannot read are not
+the same finding.
+
+**And the near-miss itself was measured against the wrong Tailwind, which a pre-push review caught
+and which is the durable lesson of the slice.** §9's "`text-indigo-500` at 4.47:1, three hundredths
+under AA" is Tailwind 3's `#6366f1`; this repo ships Tailwind **4**, whose `indigo-500` renders
+`#615fff` at **4.58:1 — passing** on the page ground. It fails on `sunken` (4.38:1), where the
+logbook's note button actually sits, so the fix stands and the reason did not. Every ramp in the
+census — zinc included, which had also been v3 — is now **rasterised from the `oklch()` the built
+stylesheet emits**, onto a 1×1 canvas in a real Chromium, and carries exactly what that build
+shipped: a purged shade is absent by design, and using one again FAILS naming the remedy rather than
+skipping in silence, which is what the first cut did over §2's own `emerald-600` at 3.65:1.
+
+**§2's binding token table moved in the same change, because three of its four semantic values were
+sub-AA as text** — `warn` `amber-600` (3.20:1), `good` `emerald-600` (3.65:1), `accent`
+`indigo-500` on `sunken` (4.38:1). A row the gate rejects is the worst possible state: a component
+written to spec turns the suite red and its author has to disbelieve either the doc or the check.
+`indigo-500` survives as the focus ring and as a fill, where 1.4.11's 3:1 applies rather than
+1.4.3's 4.5:1.
+
+**The rendered check turned out to be cheaper than §9 imagined, and that is the transferable half.**
+§9 asked for rasterising computed colours onto a 1×1 canvas because Chromium reports `lab()`. **axe
+already does that** — `color-contrast` is inside the `wcag2aa` tag every audit in `e2e/a11y.spec.ts`
+already ran, with no rule disabled anywhere. What had never happened was opening the FILE: six e2e
+sites download the HTML report and every one asserts the filename and discards the bytes. The check
+is `dl.saveAs()` with a real `.html` name and `page.goto('file://…')`, audited on **both media**,
+because each hides what the other catches — measured both ways, not reasoned about.
+
+**Extending the ramp exposed two holes in the census walk itself**, and they are worth more than the
+colours. It iterated every `<` as a tag opener, and `<` is also less-than: `ui.tsx`'s
+`Math.abs(v) < 100` opened a "tag" the scanner ran forward through real JSX, fabricating **two**
+failures out of one span — an `indigo-700` and an `amber-700` each paired with another element's
+fill, at 1.77:1 and 2.34:1, on text that renders above 7:1 and 5:1. Fixed at the scanner, not
+exempted. And **widening the hue pattern silently NARROWED the check**: the per-literal match took
+the first text class, a template literal swallows both arms of a ternary, and eight sites lost their
+grey rating with the `rated` counter unmoved because the hue rating replaced it one for one. It
+rates every resting class per literal now, with a per-hue floor — reverting to zinc-only had left
+`rated` at 359 against a `> 60` assertion, and green.
+
+The ordering trap §9 documents was checked with numbers rather than assumed: `amber-700` is 5.02:1
+light and 4.81:1 on `sunken` against its zinc-500 neighbours at 4.83 and 4.63, so the warning still
+leads the neutral beside it; in dark amber-400 (11.92) leads zinc-400 (7.76) as before.
+
 **A pre-push review then found four holes in that check, every one letting a real failure through**,
 and they are recorded in §9 because the shape repeats: an exemption written as a loose text match
 exempts far more than it names. `/\bdisabled\b/` matched the Tailwind variant `disabled:opacity-30`

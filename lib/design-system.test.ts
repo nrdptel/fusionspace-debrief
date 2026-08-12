@@ -1154,13 +1154,57 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
  * with the palette rather than with somebody's notes.
  */
 describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH themes', () => {
-  /** Tailwind's zinc ramp, the only greys §2 spends. */
+  /** Tailwind's zinc ramp, the only greys §2 spends — as this app RENDERS them.
+   *
+   *  Re-measured 2026-08-12 and it moved: these were Tailwind 3 hex (`#a1a1aa`, `#71717a`,
+   *  `#52525b`, `#3f3f46`) and the repo ships Tailwind 4, whose ramps are `oklch()`. On zinc the
+   *  two agree to about one unit per channel, which is why this map has been quietly right for
+   *  months — and is exactly why extending the census to other hues, where they do NOT agree,
+   *  is what exposed it. No verdict in this file changes; the premise does. See `HUES` below for
+   *  how these were obtained. */
   const ZINC: Record<string, string> = {
-    '100': '#f4f4f5', '200': '#e4e4e7', '300': '#d4d4d8', '400': '#a1a1aa', '500': '#71717a',
-    '600': '#52525b', '700': '#3f3f46', '800': '#27272a', '900': '#18181b', '950': '#09090b',
-    '50': '#fafafa',
+    '50': '#fafafa', '100': '#f4f4f5', '200': '#e4e4e7', '300': '#d4d4d8', '400': '#9f9fa9',
+    '500': '#71717b', '600': '#52525c', '700': '#3f3f47', '800': '#27272a', '900': '#18181b',
+    '950': '#09090b',
   };
   const WHITE = '#ffffff';
+
+  /**
+   * **The other hues this app puts TEXT in — the values the BROWSER renders, not the ones a
+   * palette table remembers.**
+   *
+   * §9 recorded "only the zinc ramp is rated" as a gap in this check's REACH. Closing it exposed a
+   * larger problem that a pre-push review caught, and this comment exists so it cannot recur:
+   * **the first cut of this table was Tailwind 3 hex, and this app ships Tailwind 4** (`^4.1.0`,
+   * 4.3.1 installed), whose ramps are `oklch()`. zinc agrees between the two to about a unit per
+   * channel, which is why `ZINC` above was silently fine; on indigo the difference DECIDES an AA
+   * verdict. v3 `indigo-500` is `#6366f1` — 4.47:1 on white, the "three hundredths under AA"
+   * §9 recorded — and v4's is `#615fff`, which is **4.58:1 and passes**. A check that rates a
+   * remembered palette invents failures the app does not have and misses ones it does.
+   *
+   * **So every value here was MEASURED, by the technique §9 describes.** The `oklch()` strings were
+   * read out of the built stylesheet (`out/_next/static/css/*.css`, `--color-<hue>-<shade>`) and
+   * rasterised onto a 1×1 canvas in a real Chromium — `ctx.fillStyle = '<the oklch string>'`, then
+   * `getImageData` — because parsing `oklch()` by hand is the confident nonsense §9 warns about.
+   * Re-measure the same way when the Tailwind major moves; never hand-edit an entry.
+   *
+   * **It carries exactly what that build emitted, and nothing else** — so `amber-600` and
+   * `emerald-600` are deliberately ABSENT: Tailwind purged them, because no source file uses them
+   * any more. That is not a gap, it is the point. A shade the tree starts using again reappears in
+   * the stylesheet, is missing here, and the census FAILS naming it, rather than skipping it in
+   * silence the way the first cut did.
+   */
+  const HUES: Record<string, Record<string, string>> = {
+    zinc: ZINC,
+    amber: { '50': '#fffbeb', '100': '#fef3c6', '200': '#fee685', '300': '#ffd230', '400': '#ffb900',
+      '500': '#fe9a00', '700': '#bb4d00', '800': '#973c00', '900': '#7b3306', '950': '#461901' },
+    emerald: { '400': '#00d492', '500': '#00bc7d', '700': '#007a55' },
+    indigo: { '50': '#eef2ff', '100': '#e0e7ff', '200': '#c6d2ff', '300': '#a3b3ff', '400': '#7c86ff',
+      '500': '#615fff', '600': '#4f39f6', '700': '#432dd7', '900': '#312c85', '950': '#1e1a4d' },
+    red: { '50': '#fef2f2', '200': '#ffc9c9', '300': '#ffa2a2', '400': '#ff6467', '500': '#fb2c36',
+      '600': '#e7000b', '700': '#c10007', '800': '#9f0712' },
+  };
+  const HUE_NAMES = Object.keys(HUES).join('|');
 
   const channel = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
   const luminance = (hex: string) => {
@@ -1250,6 +1294,12 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
 
     const failures: string[] = [];
     let rated = 0;
+    /** Per HUE, because one global counter cannot see the reach being removed. Measured by the
+     *  pre-push review: reverting `HUE_NAMES` to `'zinc'` — deleting the whole capability this
+     *  check exists to add — left `rated` at 359, comfortably over its `> 60` floor, and the suite
+     *  stayed green. A check whose new coverage can be dropped without anything going red is
+     *  unenforced, which is the same species as a compliance command that cannot fail. */
+    const ratedByHue = new Map<string, number>();
     for (const f of files) {
       // **Comments blanked, and the first draft of this very check needed it.** It named
       // `MetricGrid.tsx:58` and `SimulationChoice.tsx:97` — both COMMENTS quoting the failing
@@ -1260,9 +1310,16 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
         .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
         .replace(/(^|[^:])\/\/[^\n]*/g, (m, pre) => pre + ' '.repeat(m.length - pre.length));
 
-      for (const open of [...text.matchAll(/</g)].map((m) => m.index ?? 0)) {
+      // **A `<` is only a tag opener when a NAME follows it**, and that was a latent hole in this
+      // walk rather than a new one. `<` also means less-than: `ui.tsx`'s
+      // `Math.abs(v) < 100 ? 1 : 0` opened a "tag" that `openingTag` then scanned forward through
+      // real JSX, pairing an `indigo-700` from one element with a fill from another and reporting
+      // 1.77:1 on text that renders at 7.19:1. It never fired while the walk read only
+      // `text-zinc-`, because the garbage span happened not to contain one — which is exactly the
+      // kind of luck an exemption list is built out of. Fixed at the scanner, not exempted.
+      for (const open of [...text.matchAll(/<[A-Za-z]/g)].map((m) => m.index ?? 0)) {
         const tag = openingTag(text, open, open + 1);
-        if (!/text-zinc-/.test(tag)) continue;
+        if (!new RegExp(`text-(?:${HUE_NAMES})-`).test(tag)) continue;
 
         // Decorative: hidden from assistive tech, carrying no meaning a sighted reader loses.
         // `SiteFooter`'s `·` separators are `text-zinc-300`, 1.42:1, and are not text.
@@ -1296,50 +1353,98 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
          * each is rated on its own.
          */
         for (const lit of tag.match(/'[^']*'|"[^"]*"|`[^`]*`/g) ?? []) {
-          const lightShade = (lit.match(/(?<!dark:)(?<![\w:-])text-zinc-(\d{2,3})\b/) ?? [])[1];
-          if (!lightShade || !ZINC[lightShade]) continue;
-          const darkShade = (lit.match(/dark:text-zinc-(\d{2,3})\b/) ?? [])[1];
+          /**
+           * **EVERY resting text class in the literal, not the first — and taking the first was a
+           * REGRESSION this change introduced and a pre-push review measured.** A template literal
+           * swallows both arms of a ternary (`` `… ${on ? 'text-indigo-600 …' : 'text-zinc-500 …'}` ``),
+           * so widening the hue pattern let indigo win a race zinc used to win alone, and **eight
+           * sites silently lost their grey rating** — RecentFlights ×3, CropControl, CompareView,
+           * FlightPicker, RecordingPicker, FlightReport. Demonstrated by injecting `text-zinc-400`
+           * (2.46:1) into two of those else-branches: the zinc-only walk named both, the widened
+           * one named neither, and `rated` did not move because the hue rating replaced the grey
+           * rating one for one. A change whose whole purpose is extending REACH narrowed it.
+           */
+          const lightHits = [...lit.matchAll(new RegExp(`(?<!dark:)(?<![\\w:-])text-(${HUE_NAMES})-(\\d{2,3})\\b`, 'g'))];
+          const darkHit = lit.match(new RegExp(`dark:text-(${HUE_NAMES})-(\\d{2,3})\\b`));
+          const [, darkHue, darkShade] = darkHit ?? [];
+          for (const [, lightHue, lightShade] of lightHits) {
+          // **An unknown SHADE is a FAILURE, not a skip.** It was a skip, and that was safe only
+          // while the ramp was zinc-only: `ZINC` holds all eleven, so an unknown zinc shade could
+          // not happen. The hue ramps hold exactly what the last build EMITTED, so a shade the
+          // tree starts using again is precisely the case that must be loud — write
+          // `text-emerald-600` (§2's own `good` token, 3.65:1 on white) and the old code rated
+          // nothing and went green.
+          if (!HUES[lightHue]) { failures.push(`${f.path} text-${lightHue}-${lightShade}: hue not in the measured ramp`); continue; }
+          if (!HUES[lightHue][lightShade]) {
+            failures.push(
+              `${f.path}:${text.slice(0, open).split('\n').length} text-${lightHue}-${lightShade} is not in the measured ramp — re-measure it from the built stylesheet and add it`,
+            );
+            continue;
+          }
 
           // An element that sets its OWN fill is rated against that fill. The known limit is
           // stated rather than hidden: a fill set by an ANCESTOR is still rated against the page,
           // because a check that walked the DOM would be guessing.
           const bgOf = (theme: 'light' | 'dark'): string | null => {
+            // Coloured fills read too, added with the hue ramps: §5's `Notice` and `Chip` put
+            // amber text on `bg-amber-50`, and rating that against the PAGE is a different
+            // question from the one on screen.
+            //
+            // **A `/NN` opacity suffix is REFUSED rather than read as the solid colour**, and the
+            // first cut read it — `\b` sits happily between `500` and `/`, so `bg-amber-500/10`
+            // resolved to solid `#fe9a00` and would have reported 2.34:1 on text that renders
+            // around 5:1. That is a false FAILURE on compliant code, which is worse than the gap:
+            // the `(?![\d/])` tail drops the element back to being rated against the page
+            // surfaces, which under-reports contrast and never over-reports it.
             const re = theme === 'dark'
-              ? /dark:bg-(zinc-\d{2,3}|white)\b/
-              : /(?<!dark:)(?<![\w:-])bg-(zinc-\d{2,3}|white)\b/;
-            const hit = (lit.match(re) ?? [])[1];
-            if (!hit) return null;
-            return hit === 'white' ? WHITE : (ZINC[hit.slice(5)] ?? null);
+              ? new RegExp(`dark:bg-(?:((?:${HUE_NAMES})-\\d{2,3})|(white))\\b(?![\\d/])`)
+              : new RegExp(`(?<!dark:)(?<![\\w:-])bg-(?:((?:${HUE_NAMES})-\\d{2,3})|(white))\\b(?![\\d/])`);
+            const m = lit.match(re);
+            if (!m) return null;
+            if (m[2]) return WHITE;
+            const [h, sh] = m[1].split('-');
+            return HUES[h]?.[sh] ?? null;
           };
           const lightBg = bgOf('light');
           const darkBg = bgOf('dark') ?? lightBg;
 
           rated++;
+          ratedByHue.set(lightHue, (ratedByHue.get(lightHue) ?? 0) + 1);
           const line = text.slice(0, open).split('\n').length;
+          const lightFg = HUES[lightHue][lightShade];
           const lr = lightBg
-            ? contrast(ZINC[lightShade], lightBg)
-            : Math.min(...SURFACES.light.map(([, bg]) => contrast(ZINC[lightShade], bg)));
+            ? contrast(lightFg, lightBg)
+            : Math.min(...SURFACES.light.map(([, bg]) => contrast(lightFg, bg)));
           if (lr < AA) {
-            failures.push(`${f.path}:${line} text-zinc-${lightShade} → ${lr.toFixed(2)}:1 in light`);
+            failures.push(`${f.path}:${line} text-${lightHue}-${lightShade} → ${lr.toFixed(2)}:1 in light`);
             continue;
           }
           // No `dark:` partner means the LIGHT value renders in dark too — the asymmetry §2's
           // `tertiary` row is about. Say which case it is rather than printing a `dark:` class the
           // file does not contain, which is what the first draft did.
-          const shade = darkShade && ZINC[darkShade] ? darkShade : lightShade;
+          const paired = darkShade && HUES[darkHue]?.[darkShade];
+          const [hue, shade] = paired ? [darkHue, darkShade] : [lightHue, lightShade];
+          const darkFg = HUES[hue][shade];
           const dr = darkBg
-            ? contrast(ZINC[shade], darkBg)
-            : Math.min(...SURFACES.dark.map(([, bg]) => contrast(ZINC[shade], bg)));
+            ? contrast(darkFg, darkBg)
+            : Math.min(...SURFACES.dark.map(([, bg]) => contrast(darkFg, bg)));
           if (dr < AA) {
             failures.push(
-              `${f.path}:${line} ${darkShade ? `dark:text-zinc-${shade}` : `text-zinc-${lightShade} with no dark: partner`} → ${dr.toFixed(2)}:1 in dark`,
+              `${f.path}:${line} ${paired ? `dark:text-${hue}-${shade}` : `text-${lightHue}-${lightShade} with no dark: partner`} → ${dr.toFixed(2)}:1 in dark`,
             );
+          }
           }
         }
       }
     }
     // Hole 4 again, one level in: the walk must have RATED something, not merely opened files.
     expect(rated, 'the contrast census rated no elements').toBeGreaterThan(60);
+    // …and it must have rated each hue it claims to cover. `zinc` and `indigo` are the two the
+    // tree spends everywhere; `amber` carries §2's warnings. Naming them individually is what
+    // makes deleting a ramp a failure rather than a quieter pass.
+    for (const hue of ['zinc', 'indigo', 'amber']) {
+      expect(ratedByHue.get(hue) ?? 0, `the census rated no ${hue} text — its reach has been removed`).toBeGreaterThan(0);
+    }
     expect(failures, `enabled text below WCAG AA:\n${[...new Set(failures)].join('\n')}`).toEqual([]);
   });
 });

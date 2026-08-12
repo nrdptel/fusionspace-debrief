@@ -665,6 +665,29 @@ function esc(s: string): string {
 
 // One inlined stylesheet for every HTML export — no external asset, script or font, so the
 // file opens anywhere offline and stays a static document. Light theme, tuned to read and print.
+//
+// **Every colour here clears WCAG AA against the ground it sits on, and until 2026-08-12 three did
+// not.** `DESIGN.md` §9 recorded this palette as a gap in the source check's REACH — it is neither
+// a Tailwind class nor under `components`/`app`, so the census that rates every grey in the app
+// cannot see one character of it. Measured: `thead th` and `footer` were `#71717a` on the `#f4f4f5`
+// body, **4.40:1**, and `footer a` was `#6366f1`, **4.06:1**. §9 named two of those three and put
+// the link at 4.47:1, which is that colour's ratio on WHITE — a number carried across from the
+// other gap it records, and wrong for the ground the link actually sits on.
+//
+// **The greys went to `#5f5f68` (5.75:1 screen, 6.32:1 on paper) rather than to `#52525b`, and a
+// pre-push review is why.** The first fix reached for a value already in this sheet — and `#52525b`
+// is already spent twice, on `.src` and `h2`. Taking it would have collapsed the sheet's three ink
+// levels to two: a column header and a section heading rendered in the same grey, both uppercase,
+// separated only by 12px against 15px. This is the identical trade §9 records getting right on the
+// app's own greys — "the smallest move off the failing value, so the hierarchy each one sat in
+// survives" — and the report sheet had reached for the version §9 rejected. `footer a` takes
+// `#4338ca` (7.19:1), which IS a new entry in this sheet rather than an existing one; the sheet's
+// only other indigo is the `#6366f1` header rule, which is a BORDER and carries no text.
+//
+// The check that holds it is RENDERED, not a source match: `e2e/a11y.spec.ts` opens the saved file
+// and runs the same axe audit the app's own routes get. That is what §9 asked for and what could
+// not be written by enumerating hex — and it covers the `@media print` branch and the inline SVG,
+// neither of which any string check can see.
 const REPORT_STYLE = `<style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -682,15 +705,15 @@ const REPORT_STYLE = `<style>
   .metrics th { width: 42%; font-weight: 600; color: #3f3f46; }
   .metrics td, td.num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   td.best { font-weight: 700; }
-  thead th { border-top: none; border-bottom: 1px solid #d4d4d8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: #71717a; }
+  thead th { border-top: none; border-bottom: 1px solid #d4d4d8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: #5f5f68; }
   figure { margin: 16px 0 0; }
   figcaption { font-size: 13px; font-weight: 600; color: #3f3f46; margin-bottom: 4px; }
   .chart { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 6px; overflow-x: auto; }
   .chart svg { max-width: 100%; height: auto; display: block; }
   ul.notes { margin: 0; padding-left: 18px; color: #3f3f46; }
   ul.notes li { margin: 3px 0; }
-  footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #e4e4e7; font-size: 12px; color: #71717a; }
-  footer a { color: #6366f1; }
+  footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid #e4e4e7; font-size: 12px; color: #5f5f68; }
+  footer a { color: #4338ca; }
   @media print { body { background: #fff; } .chart { border-color: #d4d4d8; } main { padding-top: 8px; } }
 </style>`;
 

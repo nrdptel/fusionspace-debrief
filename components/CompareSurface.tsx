@@ -421,7 +421,7 @@ export default function CompareSurface() {
           altimeters that flew the same rocket — and read their curves and numbers side by side.
           Independent measurements stay independent: they&apos;re shown next to each other, never
           averaged into one figure.{' '}
-          <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+          <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
             Reading a single flight lives on the analyze page
           </Link>
           .
@@ -536,7 +536,7 @@ export default function CompareSurface() {
         />
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           Reading one flight, and mapping a file Debrief doesn&apos;t recognize, live on the{' '}
-          <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+          <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
             analyze page
           </Link>
           .
