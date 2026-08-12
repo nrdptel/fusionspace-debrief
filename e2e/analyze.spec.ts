@@ -2974,6 +2974,46 @@ test('the channel explorer is a second data export, and it says so too', async (
   ).toBe(0);
 });
 
+test('a figure of a made-up flight carries the claim ON the image', async ({ page }, testInfo) => {
+  // **The sink an unlabelled figure travels furthest through.** A `.svg` or `.png` of a plot goes
+  // into a forum post or a cert document with no report around it, no file to re-read and no
+  // metadata block anyone will open — so a caveat beside the image on screen reaches none of it.
+  await openMadeUpFlight(page);
+  await expect(page.getByTitle(/Save the plotted data/)).toBeVisible({ timeout: 60_000 });
+
+  const [svgDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/Save the plot as a vector SVG/).click(),
+  ]);
+  const svg = await readFile(await svgDl.path(), 'utf8');
+  expect(svg.startsWith('<svg') || svg.includes('<svg')).toBe(true);
+  expect(svg, 'the claim is drawn into the figure').toContain(SYNTH_SHORT);
+  expect(svg, "in §2's caveat wash, as a band rather than a line of grey text").toContain('#fffbeb');
+
+  // **And the PNG grew by the band rather than having it painted over the plot** — a chart's
+  // top-left is where the first series' peak is drawn, so an overlay would cover the trace the
+  // figure exists to show. Read out of the PNG's own IHDR (bytes 16..24) rather than by decoding
+  // the image: the height against the live canvas's is the whole claim, and it needs no library.
+  const [pngDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/Save the current plot as a PNG/).click(),
+  ]);
+  const png = await readFile(await pngDl.path());
+  expect(png.subarray(1, 4).toString('latin1'), 'a real PNG').toBe('PNG');
+  const pngH = png.readUInt32BE(20);
+  // The EXPLORER's chart specifically. `canvas` alone matched the shareable card at 1200x630 and
+  // reported the PNG as shorter than the plot it composites — a red on a feature that was working.
+  // The charts are the `role="img"` hosts; the explorer's is the last one on the report.
+  const canvasH = await page.evaluate(() => {
+    const hosts = document.querySelectorAll('[role="img"][tabindex="0"]');
+    const c = hosts[hosts.length - 1]?.querySelector('canvas') as HTMLCanvasElement | null;
+    return c ? c.height : 0;
+  });
+  expect(canvasH, 'the explorer chart has drawn').toBeGreaterThan(0);
+  expect(pngH, `the PNG is taller than the plot it composites (${pngH} vs ${canvasH})`).toBeGreaterThan(canvasH);
+  void testInfo;
+});
+
 test('the window stats a cert document quotes carry it too', async ({ page }) => {
   // **The explorer's THIRD export, and the one the slice that closed the other two missed.** Found
   // by a pre-push review: `Copy these stats` puts min/max/mean/Δ/rate for every plotted channel on

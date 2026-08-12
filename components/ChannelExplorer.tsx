@@ -24,7 +24,7 @@ import { savePlotPng } from '@/lib/plotPng';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitChoice } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
-import { syntheticHeader } from '@/lib/synthetic';
+import { syntheticHeader, syntheticBandLine } from '@/lib/synthetic';
 import EventChips, { eventTypesPresent } from './EventChips';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
@@ -286,6 +286,8 @@ export default function ChannelExplorer({
 
   // Export exactly what's plotted — the CSV is the displayed data in the chosen
   // units; the PNG is the current chart. Both stay on-device (no upload).
+  // Every channel in this panel is one flight's, so the figure carries the whole claim or none.
+  const bandNote = syntheticBandLine(synthetic ? 1 : 0, 1);
   const saveCsv = () => {
     // Every column here is one flight's, x included — unlike the comparison's shared clock — so a
     // made-up flight marks the whole file: the header of each column, and a `Provenance` cell on
@@ -295,7 +297,7 @@ export default function ChannelExplorer({
     download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `${stem}-explore.csv`);
   };
   const savePng = () => {
-    savePlotPng(chartRef.current, { dark, filename: `${stem}-explore.png` });
+    savePlotPng(chartRef.current, { dark, filename: `${stem}-explore.png`, syntheticNote: bandNote });
   };
   // A vector version of the same plot — crisp at any size for a report or slide.
   const saveSvg = () => {
@@ -306,6 +308,7 @@ export default function ChannelExplorer({
       leftLabel: leftUnit ?? '',
       rightLabel: rightUnit,
       dark: figureDark,
+      syntheticNote: bandNote,
     });
     download(new Blob([svg], { type: 'image/svg+xml' }), `${stem}-explore.svg`);
   };

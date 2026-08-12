@@ -2046,7 +2046,7 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5i SHIPPED.** (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5j SHIPPED.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2444,27 +2444,65 @@ byte-identical case; unwiring each of the four call sites fails its own walk and
 tagging only the x column fails the walk's per-column count, which was the review's other catch —
 that assertion read `toContain` under a message claiming "every column".
 
+**Slice 5j SHIPPED 2026-08-12 — the figure images, and the two bundles that were waiting on them.**
+A `.png` or `.svg` of a plot is the sink an unlabelled figure travels furthest through: it goes into
+a forum post or a cert document with no report around it, no file to re-read and no metadata block
+anyone will open, so a caveat that lives beside the image on screen reaches none of that. Both
+renderers now draw `SYNTHETIC_BAND` — **one answer, three renderers with the shareable card**, which
+is §5's rule that two surfaces doing one job share a module rather than a resemblance.
+
+Two decisions were load-bearing and neither was the obvious one. **The plot MOVES DOWN by the band's
+height rather than the band being overlaid** — a chart's top-left is where uPlot draws the first
+series' peak, so an overlay covers the very trace the figure exists to show; asserted as a change in
+the plot's own geometry, not by eye. And **the PNG scales the band by the canvas's own device-pixel
+ratio**, because `canvas.width` is device pixels while `clientWidth` is CSS pixels — a band sized in
+CSS pixels renders half-height on a 2× display, legible on the machine that wrote it and not on a
+laptop.
+
+**The comparison's figure names WHICH rather than how many, and the first cut had it backwards.** It
+counted — *"1 of these 3 flights is one Debrief made up"* — while the overlay CSV packed in the SAME
+`compare-debrief.zip` deliberately does not: `PROVENANCE_MIXED`'s docblock says *"It names no
+count… the tagged headers already answer which."* Two documents in one bundle answering one question
+two contradictory ways is the failure this milestone exists to prevent, and a count is the less
+useful half anyway: a reader told one of three traces is fabricated, with no way to tell which, is
+worse off than one told to read the legend. The legend now carries `syntheticHeader` on each made-up
+series, from the same helper the CSV tags its columns with.
+
+**And both `.zip` bundles closed by CONSTRUCTION in the same change, which is why that row was
+written to wait rather than to be fixed.** `FlightReport#figureSvgs` is one definition feeding the
+single Save .svg button and the bundle, and the comparison's bundle packs `overlayCsv()` and
+`overlaySvg()` — the same builders the individual buttons call. A bundle inherits from its entries;
+asserting the ZIP separately would assert the same builders twice. `SINKS` **labelled 16 → 18**,
+`todo` **7 → 5**.
+
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
-last rather than by counting the file. Re-counted 2026-08-12 after slice 5i:
-`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **7**, against 16 `labelled` and
-5 `carries` for `SINKS.length` **28** — and the suite asserts that exact split, so the number here
-and the number in the file fail together rather than drifting. Note what that split does NOT say:
-the total went UP by one this slice while three rows closed, because the review found a sink the
-audit had never enumerated. A `todo` count is a floor.
+last rather than by counting the file. Re-counted 2026-08-12 after slice 5j:
+`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **5**, against 18 `labelled` for
+`SINKS.length` **28** — and the suite asserts that exact split, so the number here and the number in
+the file fail together rather than drifting. (The 5 `carries` are not greppable the same way: they
+come from the `documentsCarryingProse()` spread, so the grep above returns 2 for that state. Said
+because presenting one grep as *the* way to count is how this paragraph goes wrong.)
 
-(b) **The seven still `todo`:**
+**Two things the split does not say, and both are the point.** Slice 5i closed three rows and the
+TOTAL went UP, because its pre-push review found a sink the audit had never enumerated — a `todo`
+count is a floor. Slice 5j then closed two rows and added none. This paragraph carried 5i's
+attribution and its "the total went UP by one this slice" gloss for one commit after 5j landed,
+which is the same derive-rather-than-count drift it exists to shame, committed one line below the
+shaming. Caught by a pre-push review.
+
+(b) **The five still `todo`:**
     1. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
     2. ~~the two `exploreCsv` exports plus the sample-table column copy~~ **SHIPPED 2026-08-12** as
        slice 5i above;
-    3. the plot `.png`/`.svg` — the SVG has a title slot; the PNG is rasterised from the same draw;
+    3. ~~the plot `.png`/`.svg`~~ **SHIPPED 2026-08-12** as slice 5j above;
     4. `.gpx` and `.kml` — named in this milestone's own *done when*, and `trackGpx` already writes
        a `<desc>` a sentence can ride in;
     5. the `.zip` bundles — **two of them**, and the sink row described one until the 2026-08-11
        review: the single-flight `debrief-<stem>.zip`, whose only bare entries are now the figure
        SVGs, and the comparison's `compare-debrief.zip`, which also packs `compare-data.csv` and a
-       `compare-<metric>.svg` per figure. `compare-data.csv` is labelled as of slice 5i, so both
-       bundles now wait on item 3 alone;
+       `compare-<metric>.svg` per figure. ~~Both wait on item 3.~~ **SHIPPED 2026-08-12** with
+       slice 5j, by construction — both read the same builders the individual buttons do;
     6. the landing-coordinate copy — `GroundTrack` writes a bare lat/lon pair, and the mapper
        already has `latitude`/`longitude` roles, so a mapped CSV carrying the marker reaches it
        with no new generator;

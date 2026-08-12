@@ -56,7 +56,7 @@ import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
 import { Button, Card, Chip, Disclosure, Figure, Frame, Notice, SectionNav } from './ui';
-import { SYNTHETIC_NOTE, isSynthetic } from '@/lib/synthetic';
+import { SYNTHETIC_NOTE, isSynthetic, syntheticBandLine } from '@/lib/synthetic';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -156,6 +156,9 @@ export default function FlightReport({
   /** Did Debrief make this flight up? Read from the flight's own notes, so it is equally true of
    *  a file just dropped, a saved record re-opened, and a logbook entry restored from a backup. */
   const synthetic = isSynthetic(flight);
+  // Every figure this surface writes is this one flight's, so the band is all-or-nothing here —
+  // unlike the comparison's, which counts. Computed once: three SVGs and a PNG read it.
+  const bandNote = syntheticBandLine(synthetic ? 1 : 0, 1);
 
   // The descending mass is one quantity used by two recovery panels (landing
   // energy and parachute Cd), so the report owns it and feeds both — one input,
@@ -528,7 +531,7 @@ export default function FlightReport({
   }
 
   function saveChartPng() {
-    savePlotPng(altChartRef.current, { dark, filename: `${stem}-altitude.png` });
+    savePlotPng(altChartRef.current, { dark, filename: `${stem}-altitude.png`, syntheticNote: bandNote });
   }
 
   // One-click zoom presets that frame all three charts to a flight phase — and the
@@ -597,6 +600,7 @@ export default function FlightReport({
           leftLabel: `${unitsOf(sys).length} AGL`,
           markers: markerDefs,
           dark: figureDark,
+          syntheticNote: bandNote,
           ...(chartRange ? { xRange: chartRange } : {}),
         }),
       },
@@ -612,6 +616,7 @@ export default function FlightReport({
           leftLabel: unitsOf(sys).speed,
           markers: markerDefs,
           dark: figureDark,
+          syntheticNote: bandNote,
           ...(chartRange ? { xRange: chartRange } : {}),
         }),
       });
@@ -634,6 +639,7 @@ export default function FlightReport({
           leftLabel: unitsOf(sys).accel,
           markers: markerDefs,
           dark: figureDark,
+          syntheticNote: bandNote,
           ...(chartRange ? { xRange: chartRange } : {}),
         }),
       });
@@ -644,7 +650,7 @@ export default function FlightReport({
     // Ordered as the flyer arranged it, then minus what they turned off — the same two
     // steps, in the same order, as the comparison's `documentFigures`.
     return orderRows(figs, (f) => f.title, figureOrder).filter((f) => !hiddenFigures.includes(f.title));
-  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures, figureOrder, figureColors]);
+  }, [series, events, sys, figureDark, stem, chartRange, hiddenFigures, figureOrder, figureColors, bandNote]);
 
   /** Every figure this flight could carry, chosen or not — what the chooser lists. */
   const figureTitles = useMemo(() => {

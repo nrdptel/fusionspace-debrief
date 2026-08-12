@@ -21,9 +21,17 @@ function eggtimerCsv(): string {
 }
 
 // Reaching the report (not the column mapper) proves the file auto-detected.
+//
+// **60 s, because these sat inside Playwright's default 5 s and that is a CLOCK, not a budget.**
+// Measured 2026-08-12: two of this file's cases went red in a loaded full-suite run — one here and
+// one on the ejection-delay panel below — and both passed in isolation immediately after, at 2.3 s
+// and 3.9 s. Waiting on an ANALYSIS means waiting on a parse, a full analyze and a paint; every
+// other spec in this suite that does so already names 20–60 s, and this file was left on the
+// default. The tell to recognise: one or two failures in a full run that pass alone is a clock, and
+// the same signature cost a previous session a wrong diagnosis on `e2e/units.spec.ts`.
 const reachesReport = async (page: import('@playwright/test').Page) => {
-  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
-  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 60_000 });
 };
 
 for (const file of [
@@ -387,7 +395,8 @@ test('frames the coast time as the ideal ejection delay and checks a flown delay
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
 
   const panel = page.getByRole('region', { name: 'Ejection delay' });
-  await expect(panel.getByRole('heading', { name: 'Ejection delay' })).toBeVisible();
+  // 60 s for the same reason `reachesReport` above names one: this waits on a whole analysis.
+  await expect(panel.getByRole('heading', { name: 'Ejection delay' })).toBeVisible({ timeout: 60_000 });
   // The ideal delay (the measured coast to apogee) is always shown, e.g. "18.5 s".
   await expect(panel.getByText('ideal delay (coast to apogee)', { exact: true })).toBeVisible();
   await expect(panel.getByText(/^\d+(\.\d+)?\s*s$/)).toBeVisible();

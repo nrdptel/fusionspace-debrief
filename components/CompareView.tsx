@@ -10,6 +10,7 @@ import { toCsv } from '@/lib/csv';
 import { download } from '@/lib/download';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
+import { syntheticBandLine, syntheticHeader } from '@/lib/synthetic';
 import { derivedPeakCaveat } from '@/lib/derivedPeak';
 import { loadFigureOrder, loadHidden, loadHiddenFigures, loadOrder, moveReading, orderRows, saveFigureOrder, saveHidden, saveHiddenFigures, saveOrder, toggleHidden } from '@/lib/reportProfile';
 import { loadCompareChannel, saveCompareChannel, loadHiddenEvents, saveHiddenEvents } from '@/lib/plotView';
@@ -448,6 +449,12 @@ export default function CompareView({
   // Every overlaid channel for every flight, grouped by channel so a reader can line one
   // quantity up across the recordings — the whole reconciliation in one file, not just the
   // curve currently on screen. All on the shared, liftoff-aligned grid.
+  // A comparison figure can hold a demonstration beside a recording, so one sentence claiming the
+  // whole image is made up would be false about the curve next to it. The band says so and the
+  // LEGEND says which — `syntheticHeader` on each made-up flight's series label, the same helper
+  // the overlay CSV tags its columns with, so the two documents in one bundle answer one question
+  // one way. The first cut named a COUNT instead, which the CSV's own constant rejects by name.
+  const bandNote = syntheticBandLine(flights.filter((f) => f.synthetic).length, flights.length);
   const overlayCsv = (): string => {
     const x = { label: 'time after liftoff', unit: 's', values: time };
     const ys = metrics.flatMap((m) =>
@@ -503,7 +510,7 @@ export default function CompareView({
     download(new Blob([metricsCsv()], { type: 'text/csv' }), 'compare-metrics.csv');
   };
   const savePng = () => {
-    savePlotPng(chartRef.current, { dark, filename: `compare-${metric}.png` });
+    savePlotPng(chartRef.current, { dark, filename: `compare-${metric}.png`, syntheticNote: bandNote });
   };
   // Vector version of an overlay — every flight's curve for one channel on the
   // liftoff-aligned grid, crisp at any size for a report (and recolourable there).
@@ -512,7 +519,7 @@ export default function CompareView({
     plotSvg({
       x: time,
       series: flights.map((f) => ({
-        label: stem(f.name),
+        label: syntheticHeader(stem(f.name), f.synthetic),
         color: f.color,
         axis: 'left' as const,
         values: Array.from(m.get(f), (v) => m.toDisplay(v)),
@@ -521,6 +528,7 @@ export default function CompareView({
       leftLabel: m.unit ? `${m.label} (${m.unit})` : m.label,
       markers: markers.map((mk) => ({ x: mk.x, label: mk.label, color: mk.color })),
       dark: figureDark,
+      syntheticNote: bandNote,
     });
   const saveChartSvg = () => {
     download(new Blob([overlaySvg(active)], { type: 'image/svg+xml' }), `compare-${metric}.svg`);
