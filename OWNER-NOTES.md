@@ -230,6 +230,16 @@ app, never counted in any accuracy or validation figure.** The surface audit is 
 than trusted from memory, because this repo's own history is that a caveat lands on one panel and a
 confident claim on another.
 
+PROGRESS · 2026-08-12 — still open, and here is the honest state of the hard half. Of the sinks a
+made-up figure can leave through, **21 of 28 now carry the claim** (5 by prose, 16 by a named check),
+against 24 of 27 a run ago. **The count went UP by one while three closed**, because a pre-push
+review found a whole export the audit had never enumerated — the channel explorer's window-stats
+clipboard table, whose own code comment calls those figures *"the numbers a cert document quotes"*.
+That is the answer to the question this note really asks: the labelling is not nearly done, and the
+thing standing between here and offering you a sample is the seven remaining sinks, not the
+generator, which has been written and tested since 2026-08-09. The `.gpx`, `.kml` and plot-image
+sinks are next.
+
 One correction to the note's framing: the sample path is **not** a bypass of the parser — but it
 was a second path, and that mattered. It fetched one URL, ran the bytes through `decodeBytes` and
 handed `ingest` a string, where a dropped file goes through `fileToText(name, bytes)` (which unzips

@@ -1518,7 +1518,7 @@ export default function FlightReport({
       )}
 
       <div className="print:hidden">
-        <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} />
+        <ChannelExplorer channels={plotChannels} time={series.time} events={events} sys={sys} stem={stem} synthetic={synthetic} />
       </div>
 
       {/* The shareable card closes the report, once everything it summarizes is shown. */}

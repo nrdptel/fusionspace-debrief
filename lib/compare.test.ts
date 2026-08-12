@@ -455,18 +455,41 @@ describe('undatedNote — the files that state nothing', () => {
   it('says how many files carry no date, so the count adds up', () => {
     // Comparing three flights where only two are dated, the panel named two days beside
     // three columns and left the third to be wondered about.
-    const split = statedDaySplit([
-      flight('a.csv', '2021-10-30T20:07'),
-      flight('b.csv', '2024-05-11T14:09'),
-      flight('c.csv'),
-    ])!;
-    expect(undatedNote(split, 3)).toMatch(/other file states no date/);
-    expect(undatedNote(split, 4)).toMatch(/other 2 files state no date/);
+    const three = [flight('a.csv', '2021-10-30T20:07'), flight('b.csv', '2024-05-11T14:09'), flight('c.csv')];
+    const split = statedDaySplit(three)!;
+    expect(undatedNote(split, three)).toMatch(/other file states no date/);
+    expect(undatedNote(split, [...three, flight('d.csv')])).toMatch(/other 2 files state no date/);
   });
 
   it('says nothing at all when every compared file is dated', () => {
-    const split = statedDaySplit([flight('a.csv', '2021-10-30T20:07'), flight('b.csv', '2024-05-11T14:09')])!;
-    expect(undatedNote(split, 2)).toBe('');
+    const two = [flight('a.csv', '2021-10-30T20:07'), flight('b.csv', '2024-05-11T14:09')];
+    expect(undatedNote(statedDaySplit(two)!, two)).toBe('');
+  });
+
+  it('does not count a flight Debrief made up among the files stating no date', () => {
+    // The sentence ends "not evidence either way", and a demonstration is not on either side of
+    // that — it is not a file that failed to state a day, it is not a file. This took the flights
+    // rather than a COUNT for exactly this reason: the count shape had all three callers passing
+    // `flights.length`, so one fix here covers the screen, the `.md` and the `.html` at once.
+    const two = [flight('a.csv', '2021-10-30T20:07'), flight('b.csv', '2024-05-11T14:09')];
+    const madeUp = { ...flight('demo.csv'), synthetic: true } as CompareFlight;
+    expect(undatedNote(statedDaySplit(two)!, [...two, madeUp]), 'the demonstration is not counted').toBe('');
+    // …and a real undated file still is, so this is an exclusion rather than a blanket silence.
+    expect(undatedNote(statedDaySplit(two)!, [...two, madeUp, flight('c.csv')])).toMatch(/other file states no date/);
+  });
+
+  it('never reads a made-up flight as one of the days a file states', () => {
+    // `statedDaySplit` decides whether the whole panel says "Flight to flight" instead of
+    // "Cross-check" — a claim about what the flyer's own files record. A demonstration cannot
+    // put a day on that. The generator writes no date column today, so this is unreachable
+    // through it; that is a property of one generated FILE, not of this sink, and the marker
+    // rides in a metadata row any mappable CSV can carry.
+    const oneReal = [flight('a.csv', '2021-10-30T20:07')];
+    const madeUpDated = { ...flight('demo.csv', '2024-05-11T14:09'), synthetic: true } as CompareFlight;
+    expect(
+      statedDaySplit([...oneReal, madeUpDated]),
+      'one recording and a demonstration is one stated day, which is not a split',
+    ).toBeNull();
   });
 });
 
@@ -616,6 +639,58 @@ describe('recoveryDisagreement', () => {
       f('b', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.4 }),
     ];
     expect(recoveryDisagreement(bothWhole, [])).toBe('');
+  });
+
+  // **A flight Debrief MADE UP is not a recording, and this sentence is entirely about what the
+  // RECORDINGS did.** D10 slice 5h excluded made-up flights from `crossCheck` for exactly this
+  // reason — a demonstration can neither agree with a recording nor disagree with one — and left
+  // this sentence, in the same panel, reading the unfiltered list. The result was the strongest
+  // form of the error the MEASUREMENT invariant names: a claim about the flyer's own recovery
+  // system, counting a flight nothing recorded as evidence for it.
+  const madeUp = (id: string, m: Partial<FlightMetrics>) =>
+    ({ ...f(id, m), synthetic: true }) as unknown as CompareFlight;
+
+  it('never counts a flight Debrief made up as a recording that resolved anything', () => {
+    // The demonstration `lib/synthetic.ts` generates resolves both legs — a drogue at 7.5 m/s to
+    // 150 m and a main at 4.2 — so it lands in `resolved` and is the one that makes this sentence
+    // appear at all. Two real flights that AGREE, plus the demonstration: without the exclusion
+    // the flyer is told their recordings differ about the recovery when they do not.
+    const twoAgreeingRecordings = [
+      f('pnut', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.7 }),
+      f('raven', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.4 }),
+    ];
+    expect(
+      recoveryDisagreement([...twoAgreeingRecordings, madeUp('demo', { drogueDescentRate: 7.5, mainDescentRate: 4.2, wholeDescentRate: null })], []),
+      'a demonstration cannot manufacture a disagreement between two recordings that agree',
+    ).toBe('');
+
+    // The other direction, on the set a demonstration is most often opened in: one recording and
+    // one made-up flight. Excluding the demonstration leaves one recording, and one recording
+    // cannot disagree with itself.
+    expect(
+      recoveryDisagreement(
+        [f('pnut', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.7 }), madeUp('demo', { drogueDescentRate: 7.5, mainDescentRate: 4.2, wholeDescentRate: null })],
+        [],
+      ),
+      'one recording plus a demonstration is one recording',
+    ).toBe('');
+  });
+
+  it('still speaks up about two REAL recordings when a made-up flight is in the same comparison', () => {
+    // The half that stops the fix being a blanket silence — the same second direction slice 5h's
+    // cross-check exclusion is asserted in. A demonstration sitting in the comparison must not
+    // cost the real pair a note about their own recovery.
+    const real = [
+      f('blueraven', { drogueDescentRate: null, mainDescentRate: null, wholeDescentRate: 16.7 }),
+      f('fwgps', { drogueDescentRate: 22.7, mainDescentRate: 6.2, wholeDescentRate: null }),
+    ];
+    const alone = recoveryDisagreement(real, []);
+    expect(alone).toMatch(/differ in what Debrief could resolve/);
+    // Byte-identical, so the demonstration contributes to neither count in the sentence.
+    expect(
+      recoveryDisagreement([...real, madeUp('demo', { drogueDescentRate: 7.5, mainDescentRate: 4.2, wholeDescentRate: null })], []),
+      'the sentence a real pair gets is the sentence they get alone',
+    ).toBe(alone);
   });
 });
 

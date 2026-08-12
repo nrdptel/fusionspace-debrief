@@ -287,7 +287,14 @@ export interface StatedDay {
  * not a test this corpus supports, and every surface says the reading is the dates' alone.
  */
 export function statedDaySplit(flights: CompareFlight[]): StatedDay[] | null {
+  // Made-up flights excluded, on the same rule as `crossCheck` and `recoveryDisagreement`: the
+  // whole paragraph this feeds is about what the FILES state, and a demonstration states nothing
+  // about a day anybody flew. The generator writes no date column today, so this is not reachable
+  // through it — but that is a property of one generated FILE, not of this sink, and the marker
+  // rides in a metadata row any mappable CSV can carry, date column included. The SINKS table
+  // already records exempting a sink on that reasoning once, about `.gpx`, and having to correct it.
   const stated = flights
+    .filter((f) => !f.synthetic)
     .map((f) => ({ name: f.name, day: f.flownAt?.stamp.slice(0, 10) }))
     .filter((s): s is { name: string; day: string } => !!s.day && /^\d{4}-\d{2}-\d{2}$/.test(s.day));
   if (stated.length < 2) return null;
@@ -335,9 +342,14 @@ export function statedDayCount(days: StatedDay[]): number {
  * the corpus measurement behind that claim is recorded.
  */
 /** "…and the third states none", where some of the compared files carry no date. Empty when
- *  every one of them does, so the common case reads exactly as before. */
-export function undatedNote(days: StatedDay[], flights: number): string {
-  const undated = flights - statedDayCount(days);
+ *  every one of them does, so the common case reads exactly as before.
+ *
+ *  Takes the FLIGHTS rather than a count, so the made-up ones can be dropped here instead of at
+ *  each of the three callers — the sentence ends "not evidence either way", and a flight nothing
+ *  recorded is not on either side of that. The count parameter it replaced was the shape that let
+ *  a demonstration be counted as a file stating no date on all three surfaces at once. */
+export function undatedNote(days: StatedDay[], flights: CompareFlight[]): string {
+  const undated = flights.filter((f) => !f.synthetic).length - statedDayCount(days);
   if (undated <= 0) return '';
   return ` The other ${undated === 1 ? 'file states' : `${undated} files state`} no date, so ${undated === 1 ? 'it is' : 'they are'} not evidence either way.`;
 }
@@ -364,8 +376,14 @@ export function recoveryDisagreement(flights: CompareFlight[], agree: Agreement[
   // Only where the split is what silenced it. If a descent row was cross-checked, the panel
   // is already saying something and this would be a second voice on the same point.
   if (agree.some((a) => /descent/i.test(a.key))) return '';
-  const resolved = flights.filter((f) => f.metrics.mainDescentRate != null || f.metrics.drogueDescentRate != null);
-  const whole = flights.filter(
+  // **A flight Debrief made up is not a recording, and every word of this sentence is about the
+  // RECORDINGS.** The exclusion is here rather than at the caller for the reason `crossCheck`'s is:
+  // a second caller must not be able to reintroduce it. Slice 5h excluded made-up flights from
+  // `crossCheck` and left this sentence — in the same panel, off the same list — reading the raw
+  // one, so a demonstration could manufacture a disagreement between two recordings that agree.
+  const recorded = flights.filter((f) => !f.synthetic);
+  const resolved = recorded.filter((f) => f.metrics.mainDescentRate != null || f.metrics.drogueDescentRate != null);
+  const whole = recorded.filter(
     (f) => f.metrics.mainDescentRate == null && f.metrics.drogueDescentRate == null && f.metrics.wholeDescentRate != null,
   );
   if (resolved.length === 0 || whole.length === 0) return '';

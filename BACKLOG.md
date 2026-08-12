@@ -14,6 +14,48 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-12 — `recoveryDisagreement` is on the SCREEN only, so the saved comparison is silent
+  about a recovery split the panel calls out.** `components/CompareView.tsx:738` renders the
+  sentence; `compareMarkdown` (`lib/report.ts:1253`), `compareHtml` (:1340) and `compareJson`
+  (:1772) each build the cross-check block and none emits it. Reproduce by comparing two recordings
+  where one resolves a main and the other reads a single descent (the `trf-f1-jan18` shape), then
+  grepping the saved `.md` for *"differ in what Debrief could resolve"* — absent. The artifact that
+  goes in the cert package loses the half of the flight the note exists to stop being passed over.
+  Filed rather than fixed because the synthetic exclusion shipped this run was the Sev-1 half and
+  this is a fourth surface for one sentence — its own slice, and it wants the same
+  one-builder treatment slice 5f gave the metrics table.
+
+- **2026-08-12 — the recordings strip prints a sibling recording's peak speed and apogee BARE, and
+  it is in no `SINKS` row.** `components/RecordingPicker.tsx:91-92` renders `fmtLength(rec.apogeeM)`
+  and the peak with no `apogeeTag(rec)` and no measured/derived qualifier, where
+  `RecentFlights.tsx` appends the apogee tag at all three of its own sites (:481 clipboard, :912
+  row, :1065 per-recording). **The originally-filed form was REFUTED 3/3 by the verify pass and the
+  refutation is the useful half**: `RecordingPicker.tsx:88-89` deliberately withholds every figure
+  for the recording you are *reading* (`{here ? 'the readings below' : …}`), so the filed repro —
+  "the strip below the tile prints the same number clean" — does not happen. What survives is the
+  SIBLING rows, which do print bare, and the separate fact that this third `RecentMeta` renderer is
+  absent from `lib/synthetic.test.ts`'s sink table, so a made-up sibling's numbers are unlabelled
+  there too. `apogeeTag` is module-private at `RecentFlights.tsx:53`; sharing it is the fix.
+
+- **2026-08-12 — the logbook row's ✕ deletes a flight's typed NOTE with no confirm, and only the
+  note.** `components/RecentFlights.tsx:942` fires `group.recordings.forEach((rec) => onRemove(rec.id))`
+  with no armed state, against `Clear`'s counting confirm two controls over. **Filed at reduced
+  severity because 2 of 3 verifiers refuted the one-way-door framing**: `useLogbook.ts:121`'s
+  `remove` is `removeRecent(id)` alone — it never calls `clearCaptions()`, the hand-made column
+  mapping survives in `localStorage` keyed by header signature (`lib/mappingTemplates.ts:37`) and
+  auto-reapplies, the caption survives, and `restoreGroupings` (`lib/ingest.ts:134`) re-reads the
+  pairing from the file text. So re-dropping the file restores everything except the note. A
+  one-line loss on a re-droppable record, not the un-reconstructable door as filed.
+
+- **2026-08-12 — `composite`'s simultaneity grouping chains transitively, so marks 1.7 s apart are
+  labelled "within a second of the mark above".** `lib/composite.ts:148`'s
+  `while (marks[j].t - marks[j-1].t < SIMULTANEITY_S) j++` joins a chain of consecutive sub-1 s
+  gaps, and the docblock two lines above warns that "within a second of" is not transitive.
+  Reproduce with marks at 0.0, 0.9 and 1.7 s where the 1.7 s mark is the stated first stage: the
+  `firstStage` hoist at :150-155 then reorders them T+2, T+0, T+1 and :157 stamps the rest
+  `tiedWithPrevious`. `lib/composite.test.ts` only ever exercises 2-mark groups. `/stitch`'s single
+  product is ORDER, and this prints marks out of time order on screen and in the clipboard table.
+
 - **2026-08-11 — `Readout`'s label wears `tertiary` for a role §2 assigns to `secondary`, and it is
   the last inconsistency in the tile heading.** `components/ui.tsx:1374` is
   `text-zinc-500 dark:text-zinc-400` on a reading NAME, where §2's table gives *"labels, units,
