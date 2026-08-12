@@ -6,8 +6,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **TWO squashed commits, both merged and LIVE** — `f6ce4db` (PR #179, D10 slice 5i + a Sev-1) and `1537fa2` (PR #180, P1's contrast slice). Re-measure before believing it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — it read `1537fa2`, which was `origin/main` exactly, so the gap was zero. Production was serving `cc48363` when this run started. |
-| **Pending on the branch** | **D10 slice 5j** (PR #181), gated green locally at the time this was written. |
+| **Shipped to production** | **THREE squashed commits, all merged** — `f6ce4db` (PR #179, D10 slice 5i + a Sev-1), `1537fa2` (PR #180, P1's contrast slice) and `88e27f1` (PR #181, D10 slice 5j). Each was green on CI's own two jobs, corpus half included, before merging. Production was serving `cc48363` when this run started and `1537fa2` when `88e27f1` merged, so **re-measure the last one before believing it is live**: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **Nothing.** The branch is `origin/main` plus this correction. |
 | **Sev-1** | **One INHERITED, found by the opening sweep and fixed in `f6ce4db`** — see below. The baseline gate itself was green before anything was touched: unit 1354→1366 with the corpus attached, build clean, e2e 323. |
 | **D — capability** | **D10 slices 5i and 5j.** The channel explorer's four data exports carry the made-up claim, then the plot figures and both `.zip` bundles. `SINKS` **27 → 28**, `labelled` **12 → 18**, `todo` **10 → 5**. |
 | **P — product & craft** | **P1: both of `DESIGN.md` §9's recorded REACH gaps CLOSED** — the exported report's hand-written palette, and a census that rated only zinc. Three of §2's four semantic tokens turned out to be sub-AA as text; §2 moved with the sites. |
@@ -97,6 +97,15 @@ and that is the step that found all three.
    a "tag" it ran forward through real JSX, fabricating two failures at 1.77:1 and 2.34:1 on text
    that renders above 7:1 and 5:1. It had never fired only because that span happened to contain no
    `text-zinc-`. Fixed at the scanner, not exempted.
+
+## One process lesson, because it cost an hour
+
+**Do not push four times in three minutes to a branch with an open pull request.** `test.yml` fires
+on every `pull_request` synchronize with no `concurrency:` group, so four pushes queued four full
+runs — unit + the 116-test corpus half + e2e, each — and they starved each other on shared runners.
+The run that mattered took **~6 minutes of work and about an hour of waiting**. Batch the docs
+commits with the code commit, or push once and amend; and if a `concurrency: cancel-in-progress`
+group ever goes into that workflow, this is the measurement that justifies it.
 
 ## Two clocks, fixed rather than re-diagnosed
 
