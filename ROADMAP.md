@@ -4379,6 +4379,35 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-08-12 — a made-up flight's FIGURE grows the image rather than having the band drawn over
+  the plot.** *Rejected:* a fixed canvas with the plot squeezed to fit, which is what `FlightCard`
+  does and what `plotSvg`'s first cut did by accident — it compressed the plot 380 → 346 px and
+  rescaled every gridline, so a demonstration's figure was a differently-shaped plot rather than the
+  real one with a caveat on it, and a flyer comparing a sample against their own flight would have
+  been comparing aspect ratios. Reversal cost: one line in each renderer. The card keeps its fixed
+  1200×630 because that size is the artifact.
+
+- **2026-08-12 — the comparison figure's band names WHICH flight is made up, not how many.**
+  *Rejected:* a count ("1 of these 3 flights is one Debrief made up"), which the first cut shipped.
+  The overlay CSV packed in the same `compare-debrief.zip` deliberately refuses a count —
+  `PROVENANCE_MIXED`'s docblock says so by name — and two documents in one bundle answering one
+  question two ways is the failure this milestone exists to prevent. A count is also the less useful
+  half: a reader told one of three traces is fabricated, with no way to tell which, is worse off than
+  one told to read the legend. Reversal cost: one function, `syntheticBandLine`.
+
+- **2026-08-12 — the exported HTML report's failing greys took `#5f5f68`, a value from no Tailwind
+  ramp.** *Rejected:* `#52525b`, which the ledger proposed and which is already spent twice in that
+  same 25-line sheet, on `.src` and `h2` — taking it would have collapsed three ink levels to two, a
+  column header and a section heading in one grey. Also rejected: `#6b6b75` at 4.79:1, which clears
+  AA by 0.29 and is fragile to any future change of ground. That stylesheet is hand-written and
+  already diverges from the app's ramp, so a non-Tailwind value costs nothing there. Reversal cost:
+  two declarations.
+
+- **2026-08-12 — `indigo-500` stays in `DESIGN.md` §2 for the focus ring and fills, and moved only
+  as TEXT.** *Rejected:* removing it from the token table entirely. WCAG rates non-text contrast at
+  3:1 (1.4.11) rather than 4.5:1, which it clears comfortably, and §2 is carried by both repos so a
+  larger edit there is a larger debt to the sibling. Reversal cost: one table row.
+
 - **2026-08-11 — a made-up flight is EXCLUDED from every ranking and cross-check, never allowed to
   BLOCK one.** Three surfaces asked the same question this run — the comparison's "highest" crown,
   its cross-check panel, and (already decided) the logbook's ★ — and all three take exclusion.
