@@ -1271,7 +1271,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     out.push('', otherDays ? '## Flight to flight' : '## Cross-check', '');
     out.push(
       otherDays
-        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights.length)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}${partial}`
+        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}${partial}`
         : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}${partial}`,
     );
   }
@@ -1359,7 +1359,7 @@ export function compareHtml(
     // `phrase` is already escaped label by label, so the lede is assembled from escaped
     // parts rather than escaped again — which would double-encode it.
     const lede = otherDays
-      ? `The files date these on different days — ${esc(statedDaysPhrase(otherDays, nameStem))}${esc(undatedNote(otherDays, flights.length))} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${esc(DIFFERENT_DAYS_CAVEAT)}`
+      ? `The files date these on different days — ${esc(statedDaysPhrase(otherDays, nameStem))}${esc(undatedNote(otherDays, flights))} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${esc(DIFFERENT_DAYS_CAVEAT)}`
       : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.`;
     crossHtml = `<section><h2>${otherDays ? 'Flight to flight' : 'Cross-check'}</h2><p class="lede">${lede}</p>${foot}</section>`;
   }

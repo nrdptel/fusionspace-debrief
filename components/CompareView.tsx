@@ -455,6 +455,10 @@ export default function CompareView({
         label: `${stem(f.name)} — ${m.label}`,
         unit: m.unit,
         values: Float64Array.from(m.get(f), (v) => m.toDisplay(v)),
+        // Per column, because a comparison is exactly where a made-up flight sits beside a
+        // recording: the table above says which is which per COLUMN, and this file's columns are
+        // the same flights. The shared time base is left unmarked — it belongs to no one flight.
+        synthetic: f.synthetic,
       })),
     );
     return exploreCsv(x, ys);
@@ -746,7 +750,7 @@ export default function CompareView({
               {otherDays ? (
                 <>
                   The files date these on different days — {statedDaysPhrase(otherDays, stem)}
-                  {undatedNote(otherDays, flights.length)} — so
+                  {undatedNote(otherDays, flights)} — so
                   what follows is how far apart they are, not how closely two recordings of one
                   flight agree. They differ by{' '}
                 </>

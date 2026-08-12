@@ -2926,9 +2926,9 @@ test('the file a made-up flight exports says so on every row, not just on screen
 
   const [csv] = await Promise.all([
     page.waitForEvent('download'),
-    // Two controls on this page carry the visible label "Save .csv" — the report's data export
-    // and the channel explorer's plotted-data export, which is a separate sink still marked `todo`
-    // in the audit table. Addressed by its title; the label collision is filed in `BACKLOG.md`.
+    // Two controls on this page carry the visible label "Save .csv" — the report's data export and
+    // the channel explorer's plotted-data export, which is a separate sink with its own walk below.
+    // Addressed by its title; the label collision is filed in `BACKLOG.md`.
     page.getByTitle(/Download the whole flight as CSV/).click(),
   ]);
   const text = await readFile(await csv.path(), 'utf8');
@@ -2939,6 +2939,89 @@ test('the file a made-up flight exports says so on every row, not just on screen
   expect(lines.length, 'a whole flight of samples, not a stub').toBeGreaterThan(300);
   // Every DATA row, because select-the-block-and-paste is the gesture this file exists for.
   expect(lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC')).length).toBe(0);
+});
+
+test('the channel explorer is a second data export, and it says so too', async ({ page }) => {
+  // **The sink the 2026-08-09 audit missed entirely**, because it is not in `lib/documents.ts` and
+  // the registry-driven check cannot reach what is not registered. `ChannelExplorer` writes its own
+  // `<stem>-explore.csv` of exactly what is plotted, on every report, from a different writer
+  // (`lib/explore.ts#exploreCsv`) than the report's data CSV — so the walk above passing said
+  // nothing at all about this one.
+  await openMadeUpFlight(page);
+
+  // Addressed by its title, like the report's export above: both controls read "Save .csv".
+  const save = page.getByTitle(/Save the plotted data/);
+  await expect(save).toBeVisible({ timeout: 60_000 });
+
+  const [csv] = await Promise.all([page.waitForEvent('download'), save.click()]);
+  const lines = (await readFile(await csv.path(), 'utf8')).trim().split('\n');
+  // FIRST, so it is the column a spreadsheet opens on — and on the HEADER too, because
+  // `SampleTable` beside it copies one column out on its own and nothing else travels with it.
+  expect(lines[0].startsWith('"Provenance",'), `header was: ${lines[0].slice(0, 80)}`).toBe(true);
+  // EVERY column, counted — not "at least one". A regression that tagged the x column and dropped
+  // the series would satisfy a `toContain`, and the walk claiming to cover this is the one a future
+  // session will trust over the unit cases.
+  const cols = lines[0].split('","').length - 1; // the leading `Provenance` is not a data column
+  expect(
+    lines[0].split('","').filter((h) => h.includes('SYNTHETIC — ')).length,
+    `only some columns tagged in ${lines[0].slice(0, 200)}`,
+  ).toBe(cols);
+  expect(cols, 'a time column and at least one channel').toBeGreaterThan(1);
+  expect(lines.length, 'the plotted data, not a stub').toBeGreaterThan(300);
+  expect(
+    lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC — made up by Debrief, not flown",')).length,
+    'every data row carries it, because a pasted block leaves the header behind',
+  ).toBe(0);
+});
+
+test('the window stats a cert document quotes carry it too', async ({ page }) => {
+  // **The explorer's THIRD export, and the one the slice that closed the other two missed.** Found
+  // by a pre-push review: `Copy these stats` puts min/max/mean/Δ/rate for every plotted channel on
+  // the clipboard, and the code comment above that button calls them "the numbers a cert document
+  // quotes". It was in no row of D10's sink audit, so nothing could have gone red about it.
+  await openMadeUpFlight(page);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  const copy = page.getByRole('button', { name: /Copy these stats/ });
+  await expect(copy).toBeVisible({ timeout: 60_000 });
+  await copy.click();
+  await expect(page.getByText(/Copied|copied/).first()).toBeVisible({ timeout: 30_000 });
+
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  const rows = text.trim().split('\n').slice(1); // past the header
+  expect(rows.length, 'a row per plotted channel').toBeGreaterThan(0);
+  // In the CHANNEL cell, where this table already carries the withheld-speed caveat — so it
+  // survives a paste that takes only the first two columns.
+  expect(
+    rows.filter((r) => !r.startsWith('SYNTHETIC — ')).length,
+    `every channel row carries it; got: ${rows[0]?.slice(0, 80)}`,
+  ).toBe(0);
+});
+
+test('one channel copied out of the sample table carries the claim in its header', async ({ page }) => {
+  // **The narrowest sink there is: one column, one header cell, nothing else.** The sample table's
+  // per-column copy exists precisely so a flyer does not have to save the CSV and delete the other
+  // columns — so the export that carries the claim in a *different* column cannot help here, and
+  // the header is the only cell that travels.
+  await openMadeUpFlight(page);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  // The table is collapsed by default — the chart is the answer most of the time.
+  await expect(page.getByTitle(/Save the plotted data/)).toBeVisible({ timeout: 60_000 });
+  // The `summary` specifically: the report also EXPLAINS the control in prose ("…show the
+  // samples…" in an `em`), so the plain text locator matches two elements and fails strict mode.
+  await page.locator('summary').filter({ hasText: 'Show the samples' }).click();
+  const copy = page.getByRole('button', { name: /^Copy the .+ column$/ }).first();
+  await expect(copy).toBeVisible({ timeout: 60_000 });
+  await copy.click();
+  // The announcement first — the copy is async, and reading the clipboard in the next statement
+  // races the write.
+  await expect(page.getByText(/copied — [\d,]+ rows/)).toBeVisible({ timeout: 30_000 });
+
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  const [header] = text.split('\n');
+  expect(header.startsWith('SYNTHETIC — '), `clipboard header was: ${header}`).toBe(true);
+  expect(text.trim().split('\n').length, 'the column itself, not just a header').toBeGreaterThan(50);
 });
 
 test('the shareable card carries it as a band, and the .png is the same pixels', async ({ page }) => {
@@ -3134,6 +3217,39 @@ test('a made-up flight is marked in the comparison table a flyer looks at', asyn
     page.getByText('agree to within'),
     'the confident cross-check sentence is gone, not merely pushed below the fold',
   ).toHaveCount(0);
+
+  // **And the overlay CSV saved from this screen tells the two flights apart by COLUMN.** This is
+  // the export `exploreCsv`'s other call site writes, and the shape that made it a separate sink:
+  // its columns are the flights, so the per-row `Provenance` cell the single-flight exports carry
+  // cannot say which one is made up — only the column header can. The row-level cell is still
+  // there, pointing at the headers, because selecting the data block leaves the header behind.
+  const [overlay] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTitle(/Save every overlaid channel/).click(),
+  ]);
+  const overlayLines = (await readFile(await overlay.path(), 'utf8')).trim().split('\n');
+  const head = overlayLines[0];
+  expect(head.startsWith('"Provenance",'), `header was: ${head.slice(0, 80)}`).toBe(true);
+  // EXACTLY the made-up flight's columns, and not the recording's — the same both-directions
+  // assertion the provenance ROW gets above, for the same reason: a tag on every column would
+  // pass a weaker check while saying the recording was made up too.
+  const heads = head.split('","');
+  const demoCols = heads.filter((h) => h.includes('demo-mapper-flight'));
+  expect(demoCols.length, `no demo columns in ${head.slice(0, 200)}`).toBeGreaterThan(0);
+  expect(
+    demoCols.filter((h) => !h.includes('SYNTHETIC — ')).length,
+    `EVERY made-up column, not just one: ${demoCols.slice(0, 3).join(' | ')}`,
+  ).toBe(0);
+  expect(
+    heads.filter((h) => h.includes('perfectflite-pnut') && h.includes('SYNTHETIC')),
+    'the recording beside it is not tagged',
+  ).toEqual([]);
+  // The shared clock belongs to no one flight, so it is left alone even here.
+  expect(head).toContain('"time after liftoff (s)"');
+  expect(
+    overlayLines[1].startsWith('"SYNTHETIC — some of these columns'),
+    `first data row was: ${overlayLines[1].slice(0, 100)}`,
+  ).toBe(true);
 
   // The other direction — a comparison of REAL flights gains no such row, and DOES get its
   // cross-check — is asserted in `e2e/compare.spec.ts`'s two-real-flights walk rather than rebuilt

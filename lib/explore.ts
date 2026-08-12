@@ -8,6 +8,7 @@ import type { FlightSeries, FlightMetrics } from './analyze/types';
 import { withheldReason } from './readings';
 import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, unitsOf, type UnitChoice, accelIn } from './display';
 import { formulaGuard } from './csv';
+import { PROVENANCE_COLUMN, PROVENANCE_MIXED, provenanceCell, syntheticHeader } from './synthetic';
 
 export interface PlotChannel {
   key: string;
@@ -52,28 +53,70 @@ function display(unit: string): Pick<PlotChannel, 'toDisplay' | 'unitLabel'> {
 
 const hasData = (v: Float64Array) => v.some((x) => Number.isFinite(x));
 
-interface CsvColumn {
+export interface CsvColumn {
   label: string;
   unit: string;
   values: Float64Array;
+  /** Did Debrief MAKE UP the flight these numbers came from?
+   *
+   *  Per column rather than per call because the comparison overlay writes one column per flight,
+   *  so a single file can hold a made-up flight beside a recording. */
+  synthetic?: boolean;
 }
 
-function csvHeader({ label, unit }: CsvColumn): string {
-  // The label is file-derived (a logger's column name, or a flight's file name),
-  // so defang any spreadsheet-formula text before quoting it.
-  const h = formulaGuard(unit ? `${label} (${unit})` : label);
-  return `"${h.replace(/"/g, '""')}"`;
+function quoted(s: string): string {
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function csvHeader({ label, unit, synthetic }: CsvColumn): string {
+  // The label is file-derived (a logger's column name, or a flight's file name), so defang any
+  // spreadsheet-formula text — BEFORE tagging it, not after. `formulaGuard` inspects the first
+  // character only, so a `SYNTHETIC — ` prefix in front of it hides a leading `=` and the guard
+  // silently stops applying to exactly the columns this slice added. Found by the pre-push review.
+  return quoted(syntheticHeader(formulaGuard(unit ? `${label} (${unit})` : label), synthetic));
 }
 
 /** CSV of exactly what the explorer is plotting (X column then each Y series),
  * in the displayed units — the data an engineer would otherwise re-derive by
- * hand. Values are trimmed to 6 significant figures; gaps are blank. */
+ * hand. Values are trimmed to 6 significant figures; gaps are blank.
+ *
+ * **A column whose flight Debrief made up says so twice, and the two say different things.** This
+ * writer has two call sites of opposite shape — one flight's channels (`ChannelExplorer`) and one
+ * column per flight per channel on a shared clock (`CompareView`'s `compare-data.csv`) — so the
+ * claim goes on both axes a flight can vary along: the column HEADER carries it for a column that
+ * travels alone (`SampleTable` copies exactly one), and a leading `Provenance` column carries it
+ * for a block of rows selected without the header, which is the case `lib/synthetic.ts` documents
+ * at length and `lib/report.ts`'s data CSV already answers this way. FIRST, like that one, so it is
+ * the column a spreadsheet opens on.
+ *
+ * A file with no made-up column is byte-identical to what this wrote before the claim existed: the
+ * column appears only where there is something to say, so a real flight's export is not reshaped
+ * for a demonstration's sake.
+ *
+ * The comparison's shared clock is left untagged by its caller, because a liftoff-aligned time base
+ * is nobody's recording — but it is counted like any other column here, so nothing about the rule
+ * depends on which column a caller decides that is. */
 export function exploreCsv(x: CsvColumn, ys: CsvColumn[]): string {
   const n = ys.reduce((m, y) => Math.min(m, y.values.length), x.values.length);
   const cell = (v: number) => (Number.isFinite(v) ? Number(v.toPrecision(6)) : '');
-  const rows = [[csvHeader(x), ...ys.map(csvHeader)].join(',')];
+  // **Every column counts the same way, x included, and the sentence says "all" only when every
+  // one of them is made up.** The first cut asked two independent questions — "is any y made up"
+  // for whether to write the column, "madeUp === ys.length" for which sentence — and the second was
+  // vacuously true at `ys.length === 0`, so the two could disagree about one file. Counting columns
+  // once answers both. It also gives the right words for free on a comparison whose flights are ALL
+  // made up: the shared clock is nobody's, so it is untagged, so "some of these columns" is what is
+  // literally true of that file.
+  const cols = [x, ...ys];
+  const madeUp = cols.filter((c) => c.synthetic).length;
+  // Quoted because both sentences carry a comma — `provenanceCell(true)` ends "made up by Debrief,
+  // not flown" — and an unquoted comma in a data cell breaks the file's own column count for every
+  // reader. Load-bearing today, not defensive against a future edit.
+  const provenance = madeUp > 0 ? quoted(madeUp === cols.length ? provenanceCell(true) : PROVENANCE_MIXED) : null;
+  const lead = provenance ? `${quoted(PROVENANCE_COLUMN)},` : '';
+  const rows = [lead + [csvHeader(x), ...ys.map(csvHeader)].join(',')];
   for (let i = 0; i < n; i++) {
-    rows.push([cell(x.values[i]), ...ys.map((y) => cell(y.values[i]))].join(','));
+    const row = [cell(x.values[i]), ...ys.map((y) => cell(y.values[i]))].join(',');
+    rows.push(provenance ? `${provenance},${row}` : row);
   }
   return rows.join('\n');
 }

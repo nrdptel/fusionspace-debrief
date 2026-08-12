@@ -6,6 +6,7 @@ import type { PlotChannel } from '@/lib/explore';
 import type { UnitChoice } from '@/lib/display';
 import type { FlightEvent } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import { syntheticHeader } from '@/lib/synthetic';
 import { ChipButton, Frame } from './ui';
 
 // The numbers themselves. AltosUI has a data tab and Excel *is* one, and a measurement
@@ -94,6 +95,7 @@ export default function SampleTable({
   view,
   events,
   eventX,
+  synthetic,
 }: {
   channels: PlotChannel[];
   /** Display-unit values, one array per plotted channel — the same numbers the chart drew. */
@@ -109,6 +111,12 @@ export default function SampleTable({
   /** Where an event sits on the current x axis — its time, or the plotted channel's value
    *  at that sample when something other than time is on x. Null when it can't be placed. */
   eventX: (e: FlightEvent) => number | null;
+  /** Did Debrief make this flight up? A single channel goes to the clipboard from here with only
+   *  its own header attached, so the claim has to ride in that header — nothing else travels.
+   *
+   *  Required, with no default, on `MetricGrid`'s stated rule: an omitted prop here produces a
+   *  clipboard column byte-identical to its pre-D10 form, which is the invisible failure. */
+  synthetic: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -207,7 +215,11 @@ export default function SampleTable({
       const i = order ? order[k] : from + k;
       out.push([fmt(src[i])]);
     }
-    const ok = await copyTable([label], out);
+    // The header is the only cell that travels with a lone column, so a made-up flight's channel
+    // carries the tag there or nowhere — the report's `Provenance` column is a different export.
+    // The toast keeps the plain label: it names what was copied, and the flyer is looking at a
+    // screen that already says the flight is made up.
+    const ok = await copyTable([syntheticHeader(label, synthetic)], out);
     setCopied(ok ? `${label} copied — ${out.length.toLocaleString('en-US')} rows` : 'This browser wouldn’t let Debrief write to the clipboard.');
     window.setTimeout(() => setCopied(null), 4000);
   };

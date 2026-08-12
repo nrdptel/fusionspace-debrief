@@ -122,6 +122,37 @@ export function provenanceCell(synthetic: boolean | undefined): string {
   return synthetic ? `${SYNTHETIC_TAG} — made up by Debrief, not flown` : 'recorded';
 }
 
+/**
+ * What that column says when a table's flights run along its COLUMNS and only some are made up.
+ *
+ * **The claim goes on whichever axis the flight varies along, and a wide export has two.** Every
+ * sink above puts one flight on a row, so `provenanceCell` per row answers the whole question. A
+ * channel export is the other shape: the comparison overlay writes one column per flight per
+ * channel over a shared time base, so a row is an instant that several flights share and cannot
+ * carry a single answer. There the per-flight cell is the column HEADER — `syntheticHeader` below —
+ * and this sentence is the row-level pointer to it, so the claim still survives selecting the data
+ * block without the header row, which is the failure `PROVENANCE_COLUMN` exists to prevent.
+ *
+ * It names no count. "2 of 5 are made up" would be a second thing to keep true when a flyer hides
+ * a flight, and the tagged headers already answer *which*.
+ */
+export const PROVENANCE_MIXED =
+  `${SYNTHETIC_TAG} — some of these columns are flights Debrief made up, not flown; ` +
+  'each one is tagged in its own column header';
+
+/**
+ * A column header for data that came from a flight Debrief made up.
+ *
+ * **Because a column is the unit that travels.** `SampleTable` copies one channel to the clipboard
+ * on its own, and a spreadsheet user selects a column before they select a block — so a made-up
+ * column that carries the claim only in a *different* column arrives bare at the place it is read.
+ * The tag rather than the sentence: a header is the narrowest cell in the file, and
+ * `SYNTHETIC_TAG` is what `SYNTHETIC_SHORT` and the logbook's own cells already point with.
+ */
+export function syntheticHeader(label: string, synthetic: boolean | undefined): string {
+  return synthetic ? `${SYNTHETIC_TAG} — ${label}` : label;
+}
+
 /** One point on a generated profile. Seconds from ignition, metres AGL, metres per second. */
 export interface SynthSample {
   t: number;

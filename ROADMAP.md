@@ -2046,7 +2046,7 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5h SHIPPED.** (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5i SHIPPED.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2398,27 +2398,73 @@ is asserted byte-identical to the same pair compared alone, against a demonstrat
 higher that would wreck the number if it were contributing. Walked on both surfaces: the notice on
 the mixed set, and its ABSENCE plus a live cross-check on two real recordings.
 
+**Slice 5i SHIPPED 2026-08-12 — the channel explorer's FOUR data exports, and the rule that settles
+where a claim goes on a WIDE export.** `exploreCsv` had two call sites of opposite shape, which is why the
+audit table needed two rows for one function: `ChannelExplorer` writes one FLIGHT's channels, so the
+flight is constant down the file; `CompareView`'s `compare-data.csv` writes one column per flight per
+channel on a shared clock, so the flight varies ACROSS it and a row is an instant several flights
+share. Neither could be answered by the per-row `Provenance` column every other CSV sink carries —
+the second one cannot say *which* column is made up.
+
+**So the claim goes on whichever axis the flight varies along, and a wide export has two.** The
+column HEADER carries it per flight (`syntheticHeader`), and the leading `Provenance` column carries
+it per row — stating the claim outright when every column is made up, and pointing at the tagged
+headers when only some are. The header half is not belt-and-braces: `SampleTable#copyColumn` puts
+exactly ONE column on the clipboard, so a column that carries the claim only in a *different* column
+arrives bare, and that gesture exists precisely so a flyer does not have to save the CSV and delete
+the other columns. That closed the third sink in the same change.
+
+**Then the pre-push review found a FOURTH export in the same panel, missing from the sink audit
+entirely — and the slice had just written that the claim "rides on every column this panel writes
+out".** `ChannelExplorer`'s *"Copy these stats"* puts min/max/mean/Δ/rate per plotted channel on the
+clipboard, and the comment four lines above it calls them *"the numbers a cert document quotes"*. It
+was in no `SINKS` row, so nothing could go red about it; the walk that now holds it prints
+`Altitude (AGL) ft -8 5,459 3,574` when the wiring is removed. The claim rides in the CHANNEL cell
+beside the withheld-speed caveat already there, on that cell's own stated argument — it survives a
+paste that takes only the first two columns. **The lesson is the audit's, not the code's: a sink row
+named after one EXPORT cannot stand in for the other exports of the same component**, which is
+verbatim the correction the comparison row recorded on 2026-08-11 about a row named after a
+component. `SINKS.length` **27 → 28**, `labelled` **12 → 16**, `todo` **10 → 7**.
+
+The same review caught four more, all fixed here: `synthetic` was OPTIONAL on the two new props, so
+an omitted one is invisible — `exploreCsv` is byte-identical to its pre-D10 output in that state, so
+no type error and no test can fail; it is required now, on `MetricGrid`'s stated rule. `formulaGuard`
+ran AFTER the tag, and it inspects the first character only, so the injection guard silently stopped
+covering exactly the columns this slice added. Two independent expressions decided whether to write
+the column and which sentence to write, and one was vacuously true at `ys.length === 0`; counting
+every column once answers both. And a comment copied from `lib/report.ts` called the quoting
+defensive against a comma the cell "does not carry today" — both cells carry one, so it is
+load-bearing, and the false sentence now existed in two files reading as verified by repetition.
+
+A comparison of recordings is byte-identical to what it wrote before, asserted against the literal
+text — the column exists only where there is something to say. Pinned by 7 cases in
+`lib/explore.test.ts` and 4 walks in `e2e/analyze.spec.ts`, each falsified: dropping the header tag
+fails three unit cases and leaves the negative one green; forcing the column on always fails the
+byte-identical case; unwiring each of the four call sites fails its own walk and no other; and
+tagging only the x column fails the walk's per-column count, which was the review's other catch —
+that assertion read `toContain` under a message claiming "every column".
+
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
-last rather than by counting the file. Re-counted 2026-08-11 after slice 5f:
-`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **10**, against 12 `labelled` and
-5 `carries` for `SINKS.length` **27** — and the suite asserts that exact split, so the number here
-and the number in the file fail together rather than drifting.
+last rather than by counting the file. Re-counted 2026-08-12 after slice 5i:
+`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **7**, against 16 `labelled` and
+5 `carries` for `SINKS.length` **28** — and the suite asserts that exact split, so the number here
+and the number in the file fail together rather than drifting. Note what that split does NOT say:
+the total went UP by one this slice while three rows closed, because the review found a sink the
+audit had never enumerated. A `todo` count is a floor.
 
-(b) **The ten still `todo`:**
+(b) **The seven still `todo`:**
     1. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
-    2. **the two `exploreCsv` exports — the explorer's `<flight>-explore.csv` and the
-       comparison's `compare-data.csv` — plus the sample-table column copy.** All three sit
-       outside `lib/documents.ts`, which is why the registry-driven check cannot see them, and the
-       first two are one fix in `lib/explore.ts` rather than two: neither call site receives a
-       flight today, so both need the claim threaded in the same way;
+    2. ~~the two `exploreCsv` exports plus the sample-table column copy~~ **SHIPPED 2026-08-12** as
+       slice 5i above;
     3. the plot `.png`/`.svg` — the SVG has a title slot; the PNG is rasterised from the same draw;
     4. `.gpx` and `.kml` — named in this milestone's own *done when*, and `trackGpx` already writes
        a `<desc>` a sentence can ride in;
     5. the `.zip` bundles — **two of them**, and the sink row described one until the 2026-08-11
        review: the single-flight `debrief-<stem>.zip`, whose only bare entries are now the figure
        SVGs, and the comparison's `compare-debrief.zip`, which also packs `compare-data.csv` and a
-       `compare-<metric>.svg` per figure. Both close when items 2 and 3 do, and not before;
+       `compare-<metric>.svg` per figure. `compare-data.csv` is labelled as of slice 5i, so both
+       bundles now wait on item 3 alone;
     6. the landing-coordinate copy — `GroundTrack` writes a bare lat/lon pair, and the mapper
        already has `latitude`/`longitude` roles, so a mapped CSV carrying the marker reaches it
        with no new generator;

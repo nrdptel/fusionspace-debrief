@@ -24,6 +24,7 @@ import { savePlotPng } from '@/lib/plotPng';
 import type { FlightEvent } from '@/lib/analyze/types';
 import type { UnitChoice } from '@/lib/display';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import { syntheticHeader } from '@/lib/synthetic';
 import EventChips, { eventTypesPresent } from './EventChips';
 import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
@@ -55,6 +56,7 @@ export default function ChannelExplorer({
   events,
   sys,
   stem,
+  synthetic,
 }: {
   channels: PlotChannel[];
   time: Float64Array;
@@ -62,6 +64,14 @@ export default function ChannelExplorer({
   sys: UnitChoice;
   /** Filesystem-safe stem of the source file, for export filenames. */
   stem: string;
+  /** Did Debrief make this flight up? Every channel here is that flight's, so it rides on all
+   *  THREE things this panel puts in a flyer's hands: the plotted-data CSV, the sample table's
+   *  per-column clipboard copy, and the window-stats table.
+   *
+   *  Required, with no default, on `MetricGrid`'s stated rule — a default is only safe where a
+   *  missed call site is VISIBLE, and here it is invisible: the exports are byte-identical to
+   *  their pre-D10 form, so no type error, no unit test and no walk can fail. */
+  synthetic: boolean;
 }) {
   const dark = useIsDark();
   const [figureDark, toggleFigureDark] = useFigureDark();
@@ -277,8 +287,11 @@ export default function ChannelExplorer({
   // Export exactly what's plotted — the CSV is the displayed data in the chosen
   // units; the PNG is the current chart. Both stay on-device (no upload).
   const saveCsv = () => {
-    const x = { label: xName, unit: xUnit, values: xVals };
-    const ys = selected.map((c, i) => ({ label: c.label, unit: c.unitLabel(sys), values: seriesData[i] }));
+    // Every column here is one flight's, x included — unlike the comparison's shared clock — so a
+    // made-up flight marks the whole file: the header of each column, and a `Provenance` cell on
+    // every row for a block pasted without its headers.
+    const x = { label: xName, unit: xUnit, values: xVals, synthetic };
+    const ys = selected.map((c, i) => ({ label: c.label, unit: c.unitLabel(sys), values: seriesData[i], synthetic }));
     download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `${stem}-explore.csv`);
   };
   const savePng = () => {
@@ -535,6 +548,7 @@ export default function ChannelExplorer({
         time={time}
         sys={sys}
         view={view}
+        synthetic={synthetic}
         xName={xName}
         xUnit={xUnit}
         showDeltaRate={xIsTime}
@@ -578,6 +592,7 @@ export default function ChannelExplorer({
           view={view}
           events={events}
           eventX={eventX}
+          synthetic={synthetic}
         />
       </details>
 
@@ -624,6 +639,7 @@ function Stats({
   xName,
   xUnit,
   showDeltaRate,
+  synthetic,
 }: {
   channels: PlotChannel[];
   seriesData: Float64Array[];
@@ -638,6 +654,10 @@ function Stats({
   xUnit: string;
   // Δ and rate only mean something on a monotonic time axis; hidden otherwise.
   showDeltaRate: boolean;
+  /** Did Debrief make this flight up? Required, with no default, for the reason `MetricGrid`'s is:
+   *  the safe-looking default is the defect value, and an omitted prop here ships a made-up
+   *  flight's figures to a cert document reading exactly like a recording's. */
+  synthetic: boolean;
 }) {
   const [lo, hi] = view ?? [-Infinity, Infinity];
   const rows = useMemo(
@@ -693,7 +713,15 @@ function Stats({
               // survives a paste into a spreadsheet that only takes the first two columns — and
               // so a figure Debrief refused on the report cannot reach a cert document from here
               // wearing no qualifier at all.
-              c.caveat ? `${c.label} — ${c.caveat}` : c.label,
+              //
+              // **The made-up claim rides in the same cell, and it took a pre-push review to find
+              // that it did not.** This panel's third export was missing from D10's sink audit
+              // entirely: the slice that labelled the plotted-data CSV and the per-column copy
+              // wrote, four lines from here, that the claim "rides on every column this panel
+              // writes out" — while these figures, which the comment above calls the ones a cert
+              // document quotes, went to the clipboard bare. Same cell as the caveat because it is
+              // the same argument, and the synthetic claim is the stronger of the two.
+              syntheticHeader(c.caveat ? `${c.label} — ${c.caveat}` : c.label, synthetic),
               c.unitLabel(sys),
               ...(s
                 ? [num(s.min), num(s.max), num(s.mean), ...(showDeltaRate ? [num(s.delta), num(s.rate)] : [])]

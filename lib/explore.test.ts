@@ -284,3 +284,88 @@ describe('exploreCsv', () => {
     expect(csv.split('\n')[0]).toBe('"Time (s)","\'=HYPERLINK(""http://evil"")"');
   });
 });
+
+/**
+ * `exploreCsv` has TWO call sites of opposite shape, and D10's sink audit named them as two rows
+ * because they need two different answers to one question: `ChannelExplorer` writes one FLIGHT's
+ * channels, so the flight is constant down the file; `CompareView`'s `compare-data.csv` writes one
+ * column per flight per channel on a shared clock, so the flight varies ACROSS the file and a row
+ * is an instant several flights share.
+ *
+ * So the claim goes on both axes a flight can vary along — the column header, and a leading
+ * `Provenance` column — and these cases assert each is on the axis that carries it.
+ */
+describe('exploreCsv — a flight Debrief made up', () => {
+  const t = { label: 'Time', unit: 's', values: Float64Array.from([0, 1]) };
+  const col = (label: string, synthetic?: boolean) => ({
+    label,
+    unit: 'ft',
+    values: Float64Array.from([10, 20]),
+    synthetic,
+  });
+
+  it('marks one made-up flight in every column header and in a Provenance cell on every row', () => {
+    // The explorer's shape: every column is the same made-up flight, x included.
+    const lines = exploreCsv({ ...t, synthetic: true }, [col('Altitude', true), col('Velocity', true)]).split('\n');
+    expect(lines[0]).toBe(
+      '"Provenance","SYNTHETIC — Time (s)","SYNTHETIC — Altitude (ft)","SYNTHETIC — Velocity (ft)"',
+    );
+    // Every DATA row, because select-the-block-and-paste is the gesture a data CSV exists for and
+    // it leaves the header behind — the same reason `lib/report.ts`'s data CSV is per-row.
+    expect(lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC — made up by Debrief, not flown",'))).toEqual([]);
+    expect(lines).toHaveLength(3);
+  });
+
+  it('marks only the made-up columns when a comparison mixes them with recordings', () => {
+    // The comparison's shape. The shared time base is NOT tagged: it belongs to no one flight, and
+    // tagging it would say the recording's own timestamps were made up.
+    const lines = exploreCsv(t, [col('demo — altitude', true), col('pnut — altitude', false)]).split('\n');
+    expect(lines[0]).toBe(
+      '"Provenance","Time (s)","SYNTHETIC — demo — altitude (ft)","pnut — altitude (ft)"',
+    );
+    // The row-level cell points at the headers rather than claiming the whole file is made up,
+    // which on this set would be false about the column beside it.
+    expect(lines[1]).toBe(
+      '"SYNTHETIC — some of these columns are flights Debrief made up, not flown; each one is tagged in its own column header",0,10,10',
+    );
+  });
+
+  it('leaves a comparison of recordings byte-identical to what it wrote before the claim existed', () => {
+    // The other direction, and the one that stops the column becoming noise: a file with nothing
+    // to say is not reshaped for a demonstration's sake. Asserted against the literal text rather
+    // than against a second call, so a bug that adds the column everywhere cannot pass both ways.
+    const csv = exploreCsv(t, [col('pnut — altitude', false), col('raven — altitude', undefined)]);
+    expect(csv).toBe('"Time (s)","pnut — altitude (ft)","raven — altitude (ft)"\n0,10,10\n1,20,20');
+  });
+
+  it('says "some of these columns" when every FLIGHT is made up but the shared clock is not', () => {
+    // A comparison of two demonstrations. The clock is left untagged by `CompareView` because a
+    // liftoff-aligned time base is nobody's recording — so "some of these columns" is what is
+    // literally true of the file, and the whole-file sentence would not be. The counting rule
+    // gives that for free rather than needing a case of its own.
+    const lines = exploreCsv(t, [col('demoA — altitude', true), col('demoB — altitude', true)]).split('\n');
+    expect(lines[0]).toBe('"Provenance","Time (s)","SYNTHETIC — demoA — altitude (ft)","SYNTHETIC — demoB — altitude (ft)"');
+    expect(lines[1].startsWith('"SYNTHETIC — some of these columns')).toBe(true);
+  });
+
+  it('counts the x column like any other, so one flight\'s whole file says so outright', () => {
+    // The explorer tags x as well, because there every column IS the one flight. Asserted through
+    // the degenerate call rather than through the UI: `ChannelExplorer` renders nothing with no
+    // channel selected, so this pins the COUNTING RULE — every column made up ⇒ the whole-file
+    // sentence — not a state a flyer can reach. Said plainly because the first version of this
+    // case claimed the latter, and a test whose stated reason is false is the shape this repo
+    // keeps having to correct.
+    const lines = exploreCsv({ ...t, synthetic: true }, []).split('\n');
+    expect(lines[0]).toBe('"Provenance","SYNTHETIC — Time (s)"');
+    expect(lines[1]).toBe('"SYNTHETIC — made up by Debrief, not flown",0');
+  });
+
+  it('still defangs a formula-injected label on a made-up column', () => {
+    // **The tag is applied AFTER the guard, and it has to be.** `formulaGuard` inspects the first
+    // character only, so tagging first hides a leading `=` from it and the guard silently stops
+    // covering exactly the columns this slice added. Found by the pre-push review; the untagged
+    // case above could never have caught it.
+    const csv = exploreCsv(t, [{ label: '=HYPERLINK("http://evil")', unit: '', values: Float64Array.from([1, 2]), synthetic: true }]);
+    expect(csv.split('\n')[0]).toBe('"Provenance","Time (s)","SYNTHETIC — \'=HYPERLINK(""http://evil"")"');
+  });
+});
