@@ -6,10 +6,10 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **ONE squashed commit, `f6ce4db` (PR #179), merged and LIVE.** Re-measure before believing it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — it read `f6ce4db` at 04:17Z, which was `origin/main` exactly, so the gap was zero. Production was serving `cc48363` when this run started. |
-| **Pending on the branch** | **The P-track contrast slice**, gated green locally and NOT yet merged at the time this was written. |
+| **Shipped to production** | **TWO squashed commits, both merged and LIVE** — `f6ce4db` (PR #179, D10 slice 5i + a Sev-1) and `1537fa2` (PR #180, P1's contrast slice). Re-measure before believing it: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"` — it read `1537fa2`, which was `origin/main` exactly, so the gap was zero. Production was serving `cc48363` when this run started. |
+| **Pending on the branch** | **D10 slice 5j** (PR #181), gated green locally at the time this was written. |
 | **Sev-1** | **One INHERITED, found by the opening sweep and fixed in `f6ce4db`** — see below. The baseline gate itself was green before anything was touched: unit 1354→1366 with the corpus attached, build clean, e2e 323. |
-| **D — capability** | **D10 slice 5i SHIPPED.** The channel explorer's four data exports carry the made-up claim. `SINKS` **27 → 28**, `labelled` **12 → 16**, `todo` **10 → 7**. |
+| **D — capability** | **D10 slices 5i and 5j.** The channel explorer's four data exports carry the made-up claim, then the plot figures and both `.zip` bundles. `SINKS` **27 → 28**, `labelled` **12 → 18**, `todo` **10 → 5**. |
 | **P — product & craft** | **P1: both of `DESIGN.md` §9's recorded REACH gaps CLOSED** — the exported report's hand-written palette, and a census that rated only zinc. Three of §2's four semantic tokens turned out to be sub-AA as text; §2 moved with the sites. |
 
 ## The corpus sweep, stated plainly
@@ -55,6 +55,23 @@ all three callers passing the wrong number from one line each).
 **Send findings to be refuted, not confirmed.** Three of this run's own conclusions were overturned
 that way, and one of them was the headline number of the P-track slice.
 
+## The pattern this run kept hitting, and it is the most useful thing here
+
+**Every one of the three pre-push reviews rejected work that the full gate had passed**, and in two
+cases the reason was that the check itself could not fail:
+
+- slice 5i's SINKS rows pointed at unit tests of the *writer*; delete the button's wiring and the
+  named check stayed green.
+- slice 5j's geometry assertion compared the band's own rect in one figure against the plot frame in
+  the other, so it asserted only "a band was drawn". **Three independent lenses each built the
+  mutant and showed it passing**, and two SINKS rows cited that string as their evidence.
+- the P-track census was extended to new hues and *narrowed* in the same edit; the counter that
+  should have seen it did not move, because the new rating replaced the old one for one.
+
+The gate going green is not evidence a check works. **Build the mutant.** Every assertion this run
+shipped was falsified by breaking the thing it names and watching it go red for the right reason —
+and that is the step that found all three.
+
 ## Four things this run learned the hard way
 
 1. **This repo ships Tailwind 4, and every palette table in it was Tailwind 3.** `lib/design-system.test.ts`'s
@@ -81,6 +98,19 @@ that way, and one of them was the headline number of the P-track slice.
    that renders above 7:1 and 5:1. It had never fired only because that span happened to contain no
    `text-zinc-`. Fixed at the scanner, not exempted.
 
+## Two clocks, fixed rather than re-diagnosed
+
+Both were pre-existing and both read as a broken tree. `lib/canonical.test.ts`'s corpus round-trip
+ran **29,814 ms against `vitest.config.ts`'s 30,000 ms** and went red at 31,890 ms under load — that
+config's own reasoning ("30 s is ~12× the slowest test that runs on this default") had been overtaken
+by the corpus growing. `e2e/audit3.spec.ts` waited on a whole analysis at Playwright's **5 s** default
+where every sibling spec names 20–60 s. Both now name a timeout.
+
+**One or two failures in a full run that pass in isolation is a clock, not a defect.** Check what
+else is running before reading a line of the diff — a review workflow with three agents is enough
+load to do it, and a vitest run under that also emitted `[vitest-worker]: Timeout calling
+"onTaskUpdate"` twice and exited 1 with all 1,381 tests passing.
+
 ## Pick this up first
 
 **The P-track's next slice is named by §9's own new limits section**, and it is cheaper than it
@@ -94,10 +124,17 @@ TABLES are not read at all** because `CARD_TONES` / `CHIP_TONES` / `NOTICE_TONES
 literals rather than opening tags. §5 is where the hue vocabulary is supposed to live, and the
 census cannot see it.
 
-**The D-track continues inside D10**, whose seven remaining `todo` sinks are listed in `ROADMAP.md`
-with the code that has to change. The next is the plot `.png`/`.svg` — the SVG has a title slot, the
-PNG rasterises from the same draw, and **both `.zip` bundles close the moment it does** and not
-before.
+**The D-track continues inside D10**, whose FIVE remaining `todo` sinks are listed in `ROADMAP.md`
+with the code that has to change: `/stitch`'s timeline clipboard table (wants `PROVENANCE_COLUMN`
+from `lib/logbook.ts`, not a second answer), `.gpx` and `.kml` (both named in D10's own *done when*;
+`trackGpx` already writes a `<desc>` a sentence can ride in and `trackKml` has two `<name>` slots),
+the landing-coordinate copy, and the share link — where the behaviour is already right and only the
+assertion is missing.
+
+**Then (c): offer the mapper sample.** The generated file has been written and tested since
+2026-08-09 and is held back, not missing. Note the trap recorded in `ROADMAP.md`:
+`lib/samples.test.ts` asserts every single-file sample auto-detects as a flight, which a mapper
+sample cannot do by definition — that needs a second KIND, not a loosened assertion.
 
 **Then, in `BACKLOG.md` and ranked there**, four verified findings this run filed and did not take,
 newest first: `recoveryDisagreement` is on the SCREEN only, so the saved `.md`/`.html`/`.json`

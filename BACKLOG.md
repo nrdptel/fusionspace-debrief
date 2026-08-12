@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-12 — a compare figure's legend lists a flight that drew no curve, and the band now
+  points at that legend.** `lib/svgChart.ts:233` walks `opts.series` for the legend while the path
+  loop at :212 emits nothing for an all-non-finite series, so a flight whose peak speed was withheld
+  appears in `compare-mach.svg`'s legend with a colour swatch and no trace. Pre-existing, and slice
+  5j raised the stakes: the synthetic band says "each is tagged in the legend", so a made-up flight
+  with no data for the chosen metric is tagged on a legend entry a reader cannot match to any line.
+  Reproduce by comparing a baro-only flight (Mach withheld) with one that has it and saving the Mach
+  figure. Two defensible fixes and they differ: drop undrawn series from the legend, or keep them
+  and mark them "no data for this channel" — the second is more honest about what was compared and
+  is probably right, since a silently absent column is the failure this repo keeps recording.
+
 - **2026-08-12 — `recoveryDisagreement` is on the SCREEN only, so the saved comparison is silent
   about a recovery split the panel calls out.** `components/CompareView.tsx:738` renders the
   sentence; `compareMarkdown` (`lib/report.ts:1253`), `compareHtml` (:1340) and `compareJson`

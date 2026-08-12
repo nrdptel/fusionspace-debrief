@@ -8,7 +8,7 @@ import { flightCardStats } from '@/lib/flightCard';
 import { recordingLine, type ReportMeta } from '@/lib/report';
 import { download } from '@/lib/download';
 import { Button, Frame } from './ui';
-import { SYNTHETIC_SHORT } from '@/lib/synthetic';
+import { SYNTHETIC_BAND, SYNTHETIC_SHORT } from '@/lib/synthetic';
 
 // The card is drawn on white at a fixed social-friendly size, regardless of the
 // app's theme, so it reads cleanly wherever it's pasted.
@@ -103,17 +103,23 @@ function drawCard(
   // rather than a line of text — a picture is skimmed, and a grey sentence under a 56 px apogee
   // is not read. Drawn before the stats so it sits above them, and the stat block is pushed down
   // by exactly its height so nothing overlaps at any recording/synthetic combination.
+  //
+  // The colours come from `SYNTHETIC_BAND` rather than from literals here, and that was a
+  // correction: this reading was extracted into that constant for the plot figures and THIS file,
+  // the renderer it was extracted from, was left on its own copy — which is the §5 failure the
+  // extraction was justified by. The values are identical, so nothing moved; what changes is that
+  // the next edit to the band cannot reach two renderers and miss the third.
   const SYNTH_BAND = 46;
   if (synthetic) {
     const bandY = PAD + (recording ? 92 : 66);
-    ctx.fillStyle = '#fffbeb'; // amber-50, the same wash §2 gives a caveat on screen
+    ctx.fillStyle = SYNTHETIC_BAND.fill;
     roundRect(ctx, PAD, bandY, W - PAD * 2, SYNTH_BAND - 8, 8);
     ctx.fill();
-    ctx.strokeStyle = '#fcd34d'; // amber-300
+    ctx.strokeStyle = SYNTHETIC_BAND.edge;
     ctx.lineWidth = 2;
     roundRect(ctx, PAD, bandY, W - PAD * 2, SYNTH_BAND - 8, 8);
     ctx.stroke();
-    ctx.fillStyle = '#b45309'; // amber-700
+    ctx.fillStyle = SYNTHETIC_BAND.ink;
     ctx.font = `700 20px ${sans}`;
     ctx.fillText(SYNTHETIC_SHORT, PAD + 14, bandY + 26);
   }

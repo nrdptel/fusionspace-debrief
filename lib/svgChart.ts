@@ -4,6 +4,8 @@
 // PNG. Pure and framework-free: it takes the same series the on-screen chart draws
 // and returns an SVG string; nothing here touches the DOM or the network.
 
+import { SYNTHETIC_BAND } from './synthetic';
+
 export interface SvgSeries {
   label: string;
   color: string;
@@ -30,6 +32,10 @@ export interface SvgChartOpts {
   width?: number;
   height?: number;
   dark?: boolean;
+  /** The claim a made-up flight's figure carries, drawn as a band across the top — see
+   *  `lib/synthetic.ts#syntheticBandLine`, which decides the wording for a mixed set. Null or
+   *  absent draws exactly what this wrote before the claim existed. */
+  syntheticNote?: string | null;
   /** The x-window to draw, when the figure should frame something narrower than the
    *  whole series — a flight inside a record that also holds the pad wait. Without it
    *  the figure spans the data, which is what the explorer and the compare overlay want.
@@ -84,7 +90,6 @@ function fmt(v: number, step: number): string {
 /** Render a line chart of `series` against `x` to an SVG document string. */
 export function plotSvg(opts: SvgChartOpts): string {
   const width = opts.width ?? 900;
-  const height = opts.height ?? 460;
   const dark = opts.dark ?? false;
   const ink = dark ? '#e4e4e7' : '#27272a';
   const faint = dark ? '#3f3f46' : '#e4e4e7';
@@ -95,9 +100,22 @@ export function plotSvg(opts: SvgChartOpts): string {
   const right = opts.series.filter((s) => s.axis === 'right');
   const hasRight = right.length > 0;
 
+  // **The band is drawn ABOVE everything and the plot is pushed down by exactly its height**, so
+  // no combination of title and band can overlap — the same arithmetic `FlightCard` does, for the
+  // same reason. An image is the sink where an unlabelled figure travels furthest: it leaves with
+  // no report around it and no metadata anyone will open.
+  const band = opts.syntheticNote ?? null;
+  const BAND_H = band ? 34 : 0;
+  // **The FIGURE grows by the band; the plot keeps its height.** The first cut grew `mT` and left
+  // `height` alone, which silently compressed the plot by 9% (frame 380 → 346 px) and rescaled every
+  // gridline — so a demonstration's figure was not the real figure with a band on it, it was a
+  // differently-shaped plot, and the `.svg` and `.png` of one chart in one bundle disagreed about
+  // aspect ratio. Caught by a pre-push review that built the mutant; the assertion that was supposed
+  // to catch it compared the band's own rect against the plain figure's plot frame and could not.
+  const height = (opts.height ?? 460) + BAND_H;
   const mL = 62;
   const mR = hasRight ? 62 : 22;
-  const mT = opts.title ? 52 : 34;
+  const mT = (opts.title ? 52 : 34) + BAND_H;
   const mB = 46;
   const plotL = mL;
   const plotT = mT;
@@ -119,8 +137,20 @@ export function plotSvg(opts: SvgChartOpts): string {
   };
   const lExt = finiteExtent(left.map((s) => inWindow(s.values)));
   const rExt = finiteExtent(right.map((s) => inWindow(s.values)));
+  // Emitted from one place, because BOTH exits have to carry it. The degenerate return below is a
+  // live path — a channel that is entirely non-finite draws no trace — and the first cut left it
+  // returning a bare document, so a made-up flight's figure could leave with no claim on it at all.
+  // Vertically centred on the rect (`dominant-baseline`), which is also what the PNG does; the
+  // first cut placed the two differently in a band the shared constant claims to own.
+  const bandParts = band
+    ? [
+        `<rect x="10" y="8" width="${Math.max(1, width - 20)}" height="${BAND_H - 10}" rx="6" fill="${SYNTHETIC_BAND.fill}" stroke="${SYNTHETIC_BAND.edge}" stroke-width="2"/>`,
+        `<text x="22" y="${8 + (BAND_H - 10) / 2}" dominant-baseline="central" font-size="14" font-weight="700" fill="${SYNTHETIC_BAND.ink}">${xmlEscape(band)}</text>`,
+      ]
+    : [];
+
   if (!xExt || (!lExt && !rExt)) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${bg}"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${bg}"/>${bandParts.join('')}</svg>`;
   }
   // Clamp the requested window to the data — a range wider than the record would draw
   // the trace into a corner, and one that misses it entirely would draw nothing.
@@ -132,7 +162,8 @@ export function plotSvg(opts: SvgChartOpts): string {
   const parts: string[] = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="sans-serif">`);
   parts.push(`<rect width="${width}" height="${height}" fill="${bg}"/>`);
-  if (opts.title) parts.push(`<text x="${mL}" y="26" font-size="15" font-weight="600" fill="${ink}">${xmlEscape(opts.title)}</text>`);
+  parts.push(...bandParts);
+  if (opts.title) parts.push(`<text x="${mL}" y="${26 + BAND_H}" font-size="15" font-weight="600" fill="${ink}">${xmlEscape(opts.title)}</text>`);
 
   const sx = (v: number) => plotL + ((v - xMin) / (xMax - xMin || 1)) * plotW;
   const syFor = (ext: [number, number]) => (v: number) => plotT + plotH - ((v - ext[0]) / (ext[1] - ext[0] || 1)) * plotH;
@@ -198,7 +229,7 @@ export function plotSvg(opts: SvgChartOpts): string {
 
   // Legend.
   let lx = plotL;
-  const ly = opts.title ? 40 : 22;
+  const ly = (opts.title ? 40 : 22) + BAND_H;
   for (const s of opts.series) {
     parts.push(`<rect x="${lx}" y="${ly - 9}" width="12" height="12" rx="2" fill="${s.color}"/>`);
     parts.push(`<text x="${lx + 17}" y="${ly + 1}" font-size="11" fill="${ink}">${xmlEscape(s.label)}</text>`);

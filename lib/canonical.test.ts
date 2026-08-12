@@ -197,7 +197,16 @@ describe('a canonical flight record round-trips the model it was written from', 
     // count and fail if the corpus is present but yielded nothing.
     expect(checked, 'corpus recordings that produced a flight').toBeGreaterThan(20);
     console.log(`canonical round-trip: ${checked} corpus recordings`);
-  });
+    // **300 s, because this case had grown into the suite's own default and cleared it by 186 ms.**
+    // Measured 2026-08-12: 29,814 ms alone against `vitest.config.ts`'s 30,000 ms — and 31,890 ms
+    // in a whole-suite run with other work on the machine, where it went RED and nothing was
+    // wrong. That config's stated reasoning is "30 s is ~12x the slowest test that runs on this
+    // default"; the corpus grew and this one became 0.99x of it, which is the same drift the file
+    // records 15 other declarations escaping. It re-analyses every corpus recording TWICE (once
+    // as read, once round-tripped) and digests both, so it is legitimately the slowest thing here.
+    // The tell to recognise: one failure in a full run that passes in isolation is a clock, not a
+    // defect.
+  }, 300_000);
 
   it('carries a NaN gap across as a gap, not as a zero', () => {
     // The single most damaging thing a naive JSON does to this model. `altitudeGps` is NaN

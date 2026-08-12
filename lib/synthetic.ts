@@ -153,6 +153,62 @@ export function syntheticHeader(label: string, synthetic: boolean | undefined): 
   return synthetic ? `${SYNTHETIC_TAG} — ${label}` : label;
 }
 
+/**
+ * The band a made-up flight wears on an IMAGE, and the one place its geometry and colours live.
+ *
+ * **A picture is skimmed, so the claim is a filled band rather than a line of text** — the reading
+ * `FlightCard` arrived at first, and this is that decision shared rather than resembled. An image
+ * is the sink where an unlabelled figure travels furthest: a `.png` or `.svg` of a plot goes into a
+ * forum post or a cert document with no report around it, no file to re-read and no metadata block
+ * anyone will open, so a caveat that lives beside the image on screen reaches none of that.
+ *
+ * §2's caveat wash, in the values THIS APP RENDERS — the v4 ramp, measured out of the built
+ * stylesheet the same way `lib/design-system.test.ts`'s ramps are. The first cut carried Tailwind
+ * 3's `#b45309` / `#fcd34d` and justified keeping them with "`e2e/analyze.spec.ts` reads the card's
+ * band back by exact value, so converge when that assertion is next touched". **A pre-push review
+ * checked: no such assertion exists.** The card walk reads pixels back by CHANNEL THRESHOLDS
+ * (`r > 230 && g > 200 && b < 200`), which both the v3 and v4 borders satisfy — so the stated
+ * blocker was imaginary and the divergence had no reason to survive a single commit. Converged
+ * here. The ink is rated rather than assumed: `#bb4d00` on `#fffbeb` is 4.85:1, above AA.
+ */
+export const SYNTHETIC_BAND = {
+  /** amber-50, the same wash §2 gives a caveat on screen. */
+  fill: '#fffbeb',
+  /** amber-300, as this app renders it (Tailwind 3's was `#fcd34d`). */
+  edge: '#ffd230',
+  /** amber-700 — 4.85:1 on the wash above. */
+  ink: '#bb4d00',
+} as const;
+
+/**
+ * What the band says over a figure drawn from N flights, of which `madeUp` were invented.
+ *
+ * **It names WHICH, not how many — the same answer `PROVENANCE_MIXED` gives, and for the same
+ * reason.** The first cut counted ("1 of these 3 flights is one Debrief made up"), and a pre-push
+ * review pointed out that the sibling export packed in the SAME `compare-debrief.zip` does the
+ * opposite on purpose: that docblock says *"It names no count… the tagged headers already answer
+ * which."* Two documents in one bundle phrasing one question two contradictory ways is the exact
+ * failure this module exists to prevent, so the figure tags its LEGEND — `syntheticHeader` on each
+ * made-up flight's series label — and the band points at it. A count also answers the less useful
+ * half: a reader told one of three traces is fabricated, with no way to tell which, is worse off
+ * than one told to read the legend.
+ *
+ * Returns null when there is nothing to say, so a figure of real flights is drawn exactly as it was
+ * before this existed.
+ */
+export function syntheticBandLine(madeUp: number, total: number): string | null {
+  if (madeUp <= 0) return null;
+  // The singular sentence is about ONE flight, and a figure can hold several. Saying "Debrief made
+  // this flight up" over a two-trace image is a false singular claim — caught by the same review,
+  // and the plural branch below already existed one line away.
+  if (madeUp >= total) {
+    return total > 1
+      ? `${SYNTHETIC_TAG} — all ${total} of these flights are ones Debrief made up, not flown.`
+      : SYNTHETIC_SHORT;
+  }
+  return `${SYNTHETIC_TAG} — some of these flights are ones Debrief made up, not flown; each is tagged in the legend.`;
+}
+
 /** One point on a generated profile. Seconds from ignition, metres AGL, metres per second. */
 export interface SynthSample {
   t: number;
