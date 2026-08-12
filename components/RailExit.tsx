@@ -139,7 +139,7 @@ export default function RailExit({
         </p>
       )}
       {marginal && (
-        <p className="mt-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+        <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
           That’s on the low side. A rocket that leaves the rail slowly has less airflow over its fins to hold it
           straight — many fliers look for more margin than this. It’s your call, not a rule.
         </p>

@@ -299,7 +299,7 @@ export default function ColumnMapper({
         <Button onClick={onCancel}>Choose a different file</Button>
         {/* A persistent live region: announces when the file becomes analysable
             (or a role is doubled up) as the user changes the selects above. */}
-        <span role="status" aria-live="polite" className="text-sm text-amber-600 dark:text-amber-400">
+        <span role="status" aria-live="polite" className="text-sm text-amber-700 dark:text-amber-400">
           {!ready
             ? 'Set a time column and an altitude or pressure column to continue.'
             : duplicated.length > 0

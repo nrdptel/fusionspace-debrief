@@ -326,3 +326,57 @@ test('every chart is reachable by keyboard, not just the first', async ({ page }
     expect(label, `chart ${i} says how to read it with a keyboard`).toContain('arrow keys');
   }
 });
+
+/**
+ * **The exported HTML report, RENDERED and audited — the gap `DESIGN.md` §9 recorded and could not
+ * close.** That document's palette is written as literal hex in `lib/report.ts`, so it is neither a
+ * Tailwind class nor under `components`/`app`: the source census that rates every grey in the app
+ * cannot see one character of it. §9 called for "a rendered check — rasterising computed colours
+ * onto a 1×1 canvas rather than parsing them, since Chromium reports `lab()`/`oklab()`".
+ *
+ * **This is that check, and it is cheaper than the one §9 imagined, because axe already does the
+ * rasterising.** The `color-contrast` rule is in `wcag2aa`, which every audit in this file already
+ * runs; nothing was disabled. The thing that had never happened is opening the FILE. Six e2e sites
+ * download this report and every one of them asserts the filename and throws the bytes away.
+ *
+ * It found three failing rules where §9 recorded two, and disagreed with §9's number for the third:
+ * `thead th` and `footer` were `#71717a` on the `#f4f4f5` body (**4.40:1**), and `footer a` was
+ * `#6366f1` (**4.06:1**, not the 4.47:1 §9 records — that is the same colour's ratio on WHITE,
+ * carried across from the other gap that section names).
+ *
+ * Served over `file://` deliberately: that is how a flyer opens it out of a cert package, months
+ * later, offline. A document whose promise is that it opens anywhere with nothing to fetch should
+ * be audited with nothing fetched.
+ */
+test('a11y: the exported HTML report a flyer files away', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible({ timeout: 60_000 });
+
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save .html' }).click(),
+  ]);
+  // Saved with a real `.html` name into the test's own output directory, not opened at the raw
+  // download path: that temp file has no extension, and Chromium then offers it as a download
+  // instead of rendering it — a `file://` goto that "succeeds" onto an empty page, which is how a
+  // rendered audit passes over nothing at all.
+  const file = testInfo.outputPath('flight-debrief.html');
+  await dl.saveAs(file);
+
+  await page.goto(`file://${file}`);
+  // The document really is the report, not an error page — otherwise a clean audit means nothing.
+  await expect(page.locator('table').first()).toBeVisible();
+  await expect(page.locator('footer')).toBeVisible();
+  await audit(page, 'exported HTML report (screen)');
+
+  // **And on PAPER**, which is a different palette: `@media print` repaints the body white, so
+  // every ratio in the document changes — and each medium hides something the other catches.
+  // MEASURED both ways rather than reasoned about: put `#71717a` back on `thead th` and `footer`
+  // and the PRINT audit passes while the screen one names 7 nodes (4.40:1 → 4.83:1 on white); put
+  // `#6366f1` back on `footer a` and print fails on exactly the one `<a>` (4.06:1 → 4.47:1, still
+  // under AA). One audit over one medium would have been a partial answer in both directions.
+  await page.emulateMedia({ media: 'print' });
+  await audit(page, 'exported HTML report (print)');
+  await page.emulateMedia({ media: 'screen' });
+});

@@ -594,7 +594,7 @@ export default function CompareView({
             <a
               href={`/stitch/?ids=${stitchIds}`}
               title="Stages of one launch read as one timeline — every mark in order on the clock they share, each naming the recording it came from. Nothing is merged into a single reading."
-              className="inline-flex items-center pointer-coarse:min-h-11 text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+              className="inline-flex items-center pointer-coarse:min-h-11 text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
             >
               Read them as one timeline →
             </a>
@@ -603,7 +603,7 @@ export default function CompareView({
             <a
               href={permalink}
               title="Open this comparison at its own address — reloadable, bookmarkable, and it can sit in a second tab beside one flight's report. The flights are already in this browser's logbook; the link names them by id and carries no flight data."
-              className="inline-flex items-center pointer-coarse:min-h-11 text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+              className="inline-flex items-center pointer-coarse:min-h-11 text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
             >
               Give this comparison an address →
             </a>
@@ -951,7 +951,7 @@ export default function CompareView({
                   )}
                   {!f.liftoffDetected && (
                     <span
-                      className="mt-0.5 block text-[11px] font-normal text-amber-600 dark:text-amber-400"
+                      className="mt-0.5 block text-[11px] font-normal text-amber-700 dark:text-amber-400"
                       title="No liftoff was detected, so this flight is aligned at its first sample rather than a true t=0."
                     >
                       ≈ est. liftoff

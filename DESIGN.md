@@ -105,10 +105,28 @@ wear a sub-AA grey"*. §9 records what it found and what it took to make it trus
 
 | Role | Value | Means |
 |---|---|---|
-| `accent` | `indigo-500` (focus, `600` fill) | interactive, selected, the focus ring |
-| `warn` | `amber-600` / `amber-50` bg | an estimate outside its envelope, an extrapolation, a caveat |
+| `accent` | **`indigo-600`** text (`500` focus ring, `600` fill) | interactive, selected, the focus ring |
+| `warn` | **`amber-700`** / `amber-50` bg | an estimate outside its envelope, an extrapolation, a caveat |
 | `danger` | `red-600` / `red-50` bg | a refusal, a value that cannot be computed, destructive |
-| `good` | `emerald-600` | agreement between independent sources, a passing check |
+| `good` | **`emerald-700`** | agreement between independent sources, a passing check |
+
+**Three of those four values changed on 2026-08-12, and they changed here FIRST because this table is
+binding.** §9's contrast census was extended past the zinc ramp and rated them: as TEXT, `amber-600`
+is **3.20:1** on the page ground and 3.07:1 on `sunken`, `emerald-600` is **3.65:1 / 3.50:1**, and
+`indigo-500` is 4.58:1 on the page but **4.38:1 on `sunken`**. All three are below AA somewhere a
+flyer reads them, and the `warn` one is the sharpest: it is the ink §5 puts on a marginal rail-exit
+note. The replacements clear AA on every surface — `amber-700` 5.03:1 / 4.82:1, `emerald-700`
+5.36:1 / 5.14:1, `indigo-600` 6.46:1 / 6.19:1 — and the ordering §9 warns about was checked rather
+than assumed: `amber-700` still leads its zinc-500 neighbour (4.83:1 / 4.62:1) in light, and
+`amber-400` (11.55:1) still leads `zinc-400` (7.59:1) in dark, so the warning stays the louder of
+the pair in both themes.
+
+**A row here that the check rejects is the worst possible state**, because a component written to
+spec turns the gate red and its author has to disbelieve either this file or the test. That was the
+state for one commit, and it is why the table moves in the same change as the sites.
+
+**`indigo-500` survives as the FOCUS RING and as a fill**, where WCAG's 4.5:1 text rule does not
+apply — non-text contrast is 3:1 (1.4.11), which it clears comfortably. Only its use as TEXT moved.
 
 **Never colour a number by whether it is large.** Colour carries a claim; a claim needs a basis. Green
 on a number a flyer would act on reads as endorsement, and the SAFETY invariant forbids a verdict.
@@ -852,22 +870,100 @@ species of bug this section already records twice, about the chip census and the
 committed a third time by the check written to cover what those two miss. It blanks comments to
 spaces now, so reported line numbers stay true.
 
-**Two gaps in the source check's REACH, both measured, neither closed here.**
+**Both gaps in the source check's REACH are CLOSED, 2026-08-12 — and each was worse than this
+section recorded.** The two commands that hold them:
 
-- **This app already has a hand-written palette, and the check cannot see it.** `lib/report.ts`
-  writes the exported HTML report's CSS as literal hex — so it is neither a Tailwind class nor under
-  `components`/`app` — and two of its rules are below AA: `thead th { color: #71717a }` on
-  `body { background: #f4f4f5 }` is **4.40:1**, and `footer a { color: #6366f1 }` on the same ground
-  is **4.47:1**. That is a document a flyer puts in a cert package. This section previously said a
-  rendered check was "the thing to add when this app grows a hand-written colour"; it had one when
-  that sentence was written.
-- **Only the zinc ramp is rated.** `text-indigo-500` on white is **4.47:1** — three hundredths under
-  AA — and it is the logbook's enabled "this flight has a note" button. `indigo-600` is 6.29:1.
+```bash
+# the source check, now over every hue the tree puts TEXT in, not just zinc
+npx vitest run lib/design-system.test.ts -t "meets WCAG AA in BOTH themes"    # target: green
+# the RENDERED check — the exported HTML report opened as a file and audited, screen and print
+npx playwright test e2e/a11y.spec.ts -g "exported HTML report"                # target: green
+```
 
-A RENDERED check — rasterising computed colours onto a 1×1 canvas rather than parsing them, since
-Chromium reports `lab()`/`oklab()` and a digit match over those yields confident nonsense — is the
-thing that would cover both without enumerating palettes. Still worth having, still not written;
-both gaps are in `BACKLOG.md` with their numbers.
+- **The hand-written palette had THREE failing rules, not two, and one recorded number was wrong.**
+  `lib/report.ts` writes the exported HTML report's CSS as literal hex — neither a Tailwind class
+  nor under `components`/`app`. `thead th { color: #71717a }` **and** `footer { color: #71717a }`
+  on `body { background: #f4f4f5 }` are each **4.40:1**; this section named only the first. And
+  `footer a { color: #6366f1 }` on that ground is **4.06:1**, not the 4.47:1 recorded here — 4.47
+  is the same colour's ratio on WHITE, carried across from the second gap below. All three now take
+  values already in that sheet's vocabulary: `#52525b` (7.03:1) and `#4338ca` (7.19:1).
+- **Rating only the zinc ramp hid an outright failure — and this section's own number for the
+  near-miss was from the wrong Tailwind.** `text-indigo-500` is recorded here as "4.47:1, three
+  hundredths under AA". That is Tailwind **3**'s `#6366f1`; this repo ships Tailwind **4**
+  (`^4.1.0`), whose `indigo-500` renders `#615fff` at **4.58:1 on the page ground — passing**. It
+  fails on `sunken` (**4.38:1**), which is where the logbook's note button sits, so the move to
+  `indigo-600` stands; the stated reason did not. Extending the census then turned up a failure the
+  near-miss had not predicted: `text-amber-600` at **3.20:1 on the page ground and 3.07:1 on
+  `sunken`**, at three sites — the column mapper's live region telling a flyer what to set to
+  continue, the comparison's *"≈ est. liftoff"* caveat, and **a marginal rail-exit warning**. A
+  near-miss on a note button and a safety-shaped warning a flyer cannot read are not the same
+  finding. All three are `amber-700` now, and the ordering trap this section documents was checked
+  with numbers rather than assumed: amber-700 is **5.03:1** light / **4.82:1** on `sunken` against
+  its zinc-500 neighbours at 4.83 and 4.62, so the warning still leads the neutral beside it, and in
+  dark amber-400 (11.55) leads zinc-400 (7.59) as before.
+
+- **The palette table itself is now MEASURED rather than remembered, and that is the durable half.**
+  Every hex in `lib/design-system.test.ts`'s ramps — zinc included, which had also been v3 — is
+  rasterised from the `oklch()` values the BUILT stylesheet emits, onto a 1×1 canvas in a real
+  Chromium. It carries exactly what that build shipped and nothing else, so a purged shade is
+  absent by design: use one again and the census FAILS naming it and telling you to re-measure,
+  where the first cut skipped an unknown shade in silence and went green over §2's own
+  `emerald-600` at 3.65:1.
+
+**Extending the ramp exposed two holes in the walk itself, and those are the more useful half.**
+
+1. The census iterated every `<` as a tag opener. `<` is also less-than: `ui.tsx`'s
+   `Math.abs(v) < 100` opened a "tag" that the scanner ran forward through real JSX, producing
+   **two** fabricated failures out of one span — `text-indigo-700` paired with `CHIP_TONES.accent`'s
+   fill at 1.77:1, and `text-amber-700` with the `warn` fill at 2.34:1 — on text that renders above
+   7:1 and 5:1 respectively. It had never fired only because that garbage span happened to contain
+   no `text-zinc-`. Fixed at the scanner (`/<[A-Za-z]/`), not exempted; an exemption there would
+   have been built out of that luck.
+2. **Widening the hue pattern silently NARROWED the check, which is the opposite of its purpose.**
+   The per-literal match took the FIRST text class, and a template literal swallows both arms of a
+   ternary — so indigo won a race zinc used to win alone and **eight sites lost their grey rating**.
+   Demonstrated by injecting `text-zinc-400` (2.51:1) into two of those else-branches: the zinc-only
+   walk named both, the widened one named neither, and the `rated` counter did not move because the
+   hue rating replaced the grey rating one for one. It rates every resting class in a literal now,
+   and each ramp has a floor of its own, because one global counter could not see reach being
+   removed — reverting to zinc-only left `rated` at 359 against a `> 60` assertion, and green.
+
+**The rendered check is cheaper than this section imagined, and that is worth recording.** It called
+for "rasterising computed colours onto a 1×1 canvas rather than parsing them, since Chromium reports
+`lab()`/`oklab()`". **axe already does exactly that**, its `color-contrast` rule is inside the
+`wcag2aa` tag every audit in `e2e/a11y.spec.ts` already runs, and no rule is disabled anywhere. What
+had never happened was opening the FILE: six e2e sites download that report and every one asserts
+the filename and discards the bytes. Saving it with a real `.html` name and doing `page.goto('file://…')`
+is the whole check. Both media are audited, and the honest account of what that buys is narrower than the first draft
+of this paragraph claimed. Measured: with `#71717a` restored the PRINT audit passes while the screen
+one names 7 nodes (4.40 → 4.83 on white); with `#6366f1` restored print fails on the one `<a>` (4.06
+→ 4.47, still under). So for CONTRAST the print pass is dominated by the screen pass — `@media print`
+only lightens the ground, which cannot lower a ratio, and the screen audit throws first anyway. It
+earns its place as a guard against a FUTURE print rule that lightens ink or hides structure, not as
+a second opinion on today's palette, and saying otherwise would be the same species of overclaim
+this section exists to record.
+
+**The remaining limits, stated rather than hidden — and the list is longer than the first draft
+admitted.** The source census reads only what a JSX opening tag carries:
+
+- a fill set by an ANCESTOR is rated against the page, because a check that walked the DOM would be
+  guessing;
+- a `/NN` opacity suffix is REFUSED rather than resolved, which drops the element back to the page
+  surfaces. That is deliberate and it was a bug first: `bg-amber-500/10` read as solid `#fe9a00`
+  reports 2.34:1 on text that renders near 5:1 — a false failure on compliant code, which is worse
+  than the gap. Refusing under-reports contrast and never over-reports it;
+- **the `ui.tsx` tone TABLES are not read at all** — `CARD_TONES`, `CHIP_TONES`, `NOTICE_TONES` and
+  the `Button` variants are `const` object literals, not opening tags, so every hue routed through
+  a §5 primitive is invisible to this walk even though §5 is where the hue vocabulary is supposed to
+  live. This is the largest one and it is unclosed;
+- variant-prefixed states (`hover:`, `focus:`, `sm:`) are not rated — the lookbehind rejects them by
+  design, since a hover hint is not the resting colour. The five `hover:text-indigo-500` links this
+  run found by hand rather than by check are what that limit costs.
+
+The RENDERED check has none of these limits and should grow to cover the app's own routes in the
+states nothing audits today — an unmapped column, a marginal rail exit, an undetected liftoff. That
+is the next slice, and it is cheaper than it looks: `color-contrast` is already inside the `wcag2aa`
+tag every audit runs, so it is reaching those states, not writing a checker.
 
 ---
 

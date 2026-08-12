@@ -928,7 +928,7 @@ export default function RecentFlights({
                   aria-label={`${note.note ? 'Edit' : 'Add'} note for ${rowName(r)}`}
                   title={note.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 ${
-                    note.note ? 'text-indigo-500 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    note.note ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
                   }`}
                 >
                   ✎

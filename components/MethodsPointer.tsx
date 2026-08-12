@@ -29,7 +29,7 @@ export default function MethodsPointer() {
             `TOUCH_TARGET` documents itself as being for exactly these. */}
         <Link
           href="/methods"
-          className={`inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 ${TOUCH_TARGET}`}
+          className={`inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 ${TOUCH_TARGET}`}
         >
           Read the methods &rarr;
         </Link>
