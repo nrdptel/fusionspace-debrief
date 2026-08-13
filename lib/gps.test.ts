@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { padOrigin, groundTrack, recoveryStats, compass, trackGpx, descentWind, ascentLean, windProfile, trackKml } from './gps';
+import { SYNTHETIC_NOTE, SYNTHETIC_SHORT, SYNTHETIC_TAG } from './synthetic';
 
 describe('groundTrack', () => {
   it('projects lat/lon to metres about the pad, with east/north signs right', () => {
@@ -56,7 +57,7 @@ describe('recoveryStats', () => {
 describe('trackGpx', () => {
   const lat = Float64Array.from([34.1, NaN, 34.2]);
   const lon = Float64Array.from([-116.1, NaN, -116.2]);
-  const gpx = trackGpx('rocket & co', lat, lon, 2);
+  const gpx = trackGpx('rocket & co', lat, lon, 2, true, false);
 
   it('emits a valid GPX with a Landing waypoint and skips gaps', () => {
     expect(gpx).toContain('<gpx version="1.1"');
@@ -69,6 +70,39 @@ describe('trackGpx', () => {
 
   it('escapes XML in the track name', () => {
     expect(gpx).toContain('<name>rocket &amp; co</name>');
+  });
+
+  it('says nothing about being made up when the flight was flown', () => {
+    // The other half of the case below, and the one that makes it able to fail: a real
+    // recording has to come out exactly as it did before this label existed.
+    expect(gpx).not.toContain(SYNTHETIC_TAG);
+    expect(gpx).not.toContain('<metadata>');
+  });
+
+  it('marks a flight Debrief made up in the names a receiver shows AND in the file’s own header', () => {
+    const made = trackGpx('rocket & co', lat, lon, 2, true, true);
+    // The waypoint name, because a handheld's "go to" list shows a name and nothing else — this
+    // is the export somebody physically walks to.
+    expect(made).toContain(`<name>${SYNTHETIC_TAG} — Landing</name>`);
+    // The track name, for a viewer that lists tracks.
+    expect(made).toContain(`<name>${SYNTHETIC_TAG} — rocket &amp; co</name>`);
+    // The document header, ahead of every wpt and trk — GPX 1.1 schema order.
+    expect(made.indexOf('<metadata>')).toBeLessThan(made.indexOf('<wpt '));
+    // Verbatim: `xmlEscape` touches < > & ' " and nothing else, so the sentence survives whole.
+    expect(made).toContain(SYNTHETIC_NOTE);
+    // And the track description, which still says the height thing it always said.
+    expect(made).toContain('Ground track only');
+    expect(made).toContain(SYNTHETIC_SHORT);
+    // The coordinates are untouched: the label is added, never a fix changed.
+    expect((made.match(/<trkpt /g) ?? []).length).toBe(2);
+    expect(made).toContain('<trkpt lat="34.100000" lon="-116.100000"/>');
+  });
+
+  it('names the last fix honestly on a record that ends in the air, made up or not', () => {
+    // The landing claim and the made-up claim are independent, and a file can need both.
+    const air = trackGpx('r', lat, lon, 2, false, true);
+    expect(air).toContain(`<name>${SYNTHETIC_TAG} — Last fix (record ends in the air)</name>`);
+    expect(air).not.toContain('>Landing<');
   });
 });
 
@@ -173,7 +207,7 @@ describe('trackKml — the flight in Google Earth', () => {
     // The one thing that is easy to get wrong and impossible to see afterwards: KML is
     // longitude first, which is the reverse of every other coordinate in this codebase.
     // A swapped pair puts a Mojave launch in the Indian Ocean and still opens fine.
-    const kml = trackKml('flight', lat, lon, alt, 2);
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false);
     expect(kml).toContain('-116.957700,34.494900,0.0');
     expect(kml).toContain('-116.957100,34.495200,812.3');
     expect(kml).toContain('<altitudeMode>relativeToGround</altitudeMode>');
@@ -185,16 +219,45 @@ describe('trackKml — the flight in Google Earth', () => {
   });
 
   it('flattens a flight with no altitude channel rather than refusing one', () => {
-    const kml = trackKml('flight', lat, lon, undefined, -1);
+    const kml = trackKml('flight', lat, lon, undefined, -1, true, false);
     expect(kml).toContain('-116.957100,34.495200,0.0');
     expect(kml).not.toContain('Landing');
   });
 
   it('skips fixes the receiver never made, and escapes the name', () => {
     const gappy = Float64Array.from([34.4949, NaN, 34.4958]);
-    const kml = trackKml('a & b', gappy, lon, alt, -1);
+    const kml = trackKml('a & b', gappy, lon, alt, -1, true, false);
     expect(kml).toContain('<name>a &amp; b</name>');
     expect(kml.match(/,34\./g)?.length).toBe(2);
+  });
+
+  it('says nothing about being made up when the flight was flown', () => {
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, 'the barometer drew the height');
+    expect(kml).not.toContain(SYNTHETIC_TAG);
+    // The altitude note still gets the description to itself, exactly as before.
+    expect(kml).toContain('<description>the barometer drew the height</description>');
+  });
+
+  it('marks a made-up flight on every name Google Earth draws, and in one description', () => {
+    const kml = trackKml('flight', lat, lon, alt, 2, true, true, 'the barometer drew the height');
+    // Three names: the document, the landing placemark, and the track placemark. Each is a label
+    // Earth writes on the sidebar or on the ground, and each is a place a reader might look.
+    expect((kml.match(new RegExp(`<name>${SYNTHETIC_TAG} — `, 'g')) ?? []).length).toBe(3);
+    expect(kml).toContain(`<name>${SYNTHETIC_TAG} — Landing</name>`);
+    // ONE description element, carrying both sentences — KML allows one per feature and a second
+    // would be dropped by a strict reader without saying so.
+    expect((kml.match(/<description>/g) ?? []).length).toBe(1);
+    expect(kml).toContain(`<description>${SYNTHETIC_NOTE} the barometer drew the height</description>`);
+    // The trajectory itself is untouched.
+    expect(kml).toContain('-116.957100,34.495200,812.3');
+  });
+
+  it('still carries the claim when there is no altitude note to carry it beside', () => {
+    // The description used to exist only when an altitude note did, so the made-up sentence had
+    // to be able to open it on its own — a flight with no GPS altitude to disagree about is the
+    // common case, not the exception.
+    const kml = trackKml('flight', lat, lon, alt, 2, true, true);
+    expect(kml).toContain(`<description>${SYNTHETIC_NOTE}</description>`);
   });
 });
 
@@ -250,7 +313,7 @@ describe('an exported track says which instrument drew which part of it', () => 
     // The defect this closes: the file drew a 3D trajectory whose horizontal came from the
     // receiver and whose vertical came from the barometer, and said nothing at all. Measured over
     // the corpus, nine flights carry both altitudes and they differ by 197-1,771 m on average.
-    const kml = trackKml('flight', lat, lon, alt, 2, true, 'Positions are the GPS receiver’s. Heights are the barometer’s.');
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, 'Positions are the GPS receiver’s. Heights are the barometer’s.');
     expect(kml, 'the note reaches the file').toContain('<description>');
     expect(kml).toContain('Heights are the barometer');
     // Inside the Document, so Google Earth shows it against the whole track rather than a point.
@@ -259,12 +322,12 @@ describe('an exported track says which instrument drew which part of it', () => 
   });
 
   it('a KML written without a note is unchanged, so nothing claims a provenance it was not given', () => {
-    const kml = trackKml('flight', lat, lon, alt, 2);
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false);
     expect(kml).not.toContain('<description>');
   });
 
   it('the note is escaped like every other value that reaches the file', () => {
-    const kml = trackKml('flight', lat, lon, alt, 2, true, 'baro & GPS <not> merged');
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, 'baro & GPS <not> merged');
     expect(kml).toContain('baro &amp; GPS &lt;not&gt; merged');
     expect(kml, 'no raw angle bracket from the note').not.toContain('<not>');
   });
@@ -274,7 +337,7 @@ describe('an exported track says which instrument drew which part of it', () => 
     // track had a height. GPX elevation means height above the ELLIPSOID and Debrief's height is
     // above the pad, so writing one would put a correct number under a label meaning something
     // else. The refusal is stated rather than left to be noticed.
-    const gpx = trackGpx('flight', lat, lon, 2);
+    const gpx = trackGpx('flight', lat, lon, 2, true, false);
     expect(gpx, 'still no elevation element').not.toContain('<ele>');
     expect(gpx, 'and it says so').toContain('<desc>');
     expect(gpx).toContain('above the ellipsoid');

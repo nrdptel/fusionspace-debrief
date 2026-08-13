@@ -1943,8 +1943,8 @@ describe('a last GPS fix is only a landing if the record reached the ground', ()
     expect(stats, 'the track still has a last fix — that part is real').toBeTruthy();
 
     const landed = landedInRecord(a.metrics);
-    const gpx = trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, landed);
-    const kml = trackKml('x', lat!.values, lon!.values, undefined, stats!.landingIndex, landed);
+    const gpx = trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, landed, false);
+    const kml = trackKml('x', lat!.values, lon!.values, undefined, stats!.landingIndex, landed, false);
     expect(gpx, 'the GPX waypoint does not claim a landing').not.toMatch(/<name>Landing<\/name>/);
     expect(kml, 'nor does the KML placemark').not.toMatch(/<name>Landing<\/name>/);
     expect(gpx, 'and says what the point actually is').toMatch(/Last fix \(record ends in the air\)/);
@@ -1952,7 +1952,7 @@ describe('a last GPS fix is only a landing if the record reached the ground', ()
 
     // The other direction: a flight that did reach the ground still gets a Landing waypoint,
     // so this is a distinction rather than a blanket removal.
-    expect(trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, true)).toMatch(/<name>Landing<\/name>/);
+    expect(trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, true, false)).toMatch(/<name>Landing<\/name>/);
   });
 });
 

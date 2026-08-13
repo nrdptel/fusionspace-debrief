@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { underSizedTargets } from './touchTargets';
+import { dropMadeUpFile, mapMadeUpColumns, MADE_UP_NAME, SYNTH_SHORT, SYNTH_TAG } from './madeUp';
 import path from 'node:path';
 import os from 'node:os';
 import { readFileSync } from 'node:fs';
@@ -52,6 +53,29 @@ async function idsFor(page: import('@playwright/test').Page, files: string[]): P
     await page.getByRole('button', { name: /Analyze another flight/ }).click();
   }
   for (const f of files) await page.getByLabel(`Select ${shown(f)} to compare`).check();
+  await page.getByRole('button', { name: /Compare 2 flights/ }).click();
+  await expect(page).toHaveURL(/ids=/, { timeout: 20_000 });
+  return new URL(page.url()).searchParams.get('ids') as string;
+}
+
+/** The same journey with the FIRST stage a flight Debrief made up — dropped as a mapper file,
+ *  mapped, then the real sustainer beside it. Kept separate from `idsFor` rather than folded into
+ *  it: the made-up file takes the column mapper and a real fixture does not, and a helper that
+ *  branched on the file name would be the thing under test. */
+async function idsForMixed(page: import('@playwright/test').Page): Promise<string> {
+  await page.goto('/');
+  // Run it to the ground so the composite has a full set of marks to line up, and no GPS: this
+  // walk is about the timeline, and the fixes would only make the file bigger.
+  await dropMadeUpFile(page, { toGround: true });
+  await mapMadeUpColumns(page);
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+  await page.getByLabel('Choose a flight log file').setInputFiles(fixture(SUSTAINER));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+  await page.getByLabel(`Select ${MADE_UP_NAME} to compare`).check();
+  await page.getByLabel(`Select ${SUSTAINER} to compare`).check();
   await page.getByRole('button', { name: /Compare 2 flights/ }).click();
   await expect(page).toHaveURL(/ids=/, { timeout: 20_000 });
   return new URL(page.url()).searchParams.get('ids') as string;
@@ -364,6 +388,62 @@ test('the composite timeline copies as a real table, on the common clock', async
   expect(new Set(body.map((l) => l.split('\t')[2]))).toEqual(new Set([BOOSTER, SUSTAINER]));
   expect(clip['text/html']).toContain('<th>Recording</th>');
   expect(clip['text/html']).not.toContain('<span');
+  // A composite of two real recordings grows no Provenance column at all — the other half of the
+  // walk below, and the half that stops it from passing against a mutant that labels everything.
+  expect(head).not.toContain('Provenance');
+});
+
+/**
+ * D10, on the surface where the per-row answer is not a convention but a requirement.
+ *
+ * A composite is the only table in this app whose rows come from DIFFERENT flights, so "is this
+ * made up" has a different answer per row. One stage here is a flight Debrief invented and the
+ * other is a real corpus recording, which is the only shape that can prove the cell says WHICH —
+ * a walk over an all-made-up composite passes against a mutant that labels every row, and a walk
+ * over an all-real one passes against a mutant that labels none.
+ *
+ * It also holds the two things on SCREEN. The timeline card is what a cert write-up quotes and
+ * what a flyer screenshots, and it sits above the per-stage readings, so until this slice a
+ * made-up composite read as a launch until you scrolled past the table.
+ */
+test('the timeline says WHICH recording Debrief made up, on screen and in the clipboard', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const ids = await idsForMixed(page);
+  await page.goto(`/stitch/?ids=${ids}`);
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+  // Both notices, and the timeline's is the one this slice added — above the table rather than
+  // below it, which is where a screenshot of the marks would have lost it.
+  await expect(page.locator('[data-synthetic="timeline"]')).toContainText(SYNTH_SHORT);
+  await expect(page.locator('[data-synthetic="composite"]')).toContainText(SYNTH_SHORT);
+  const notice = await page.locator('[data-synthetic="timeline"]').boundingBox();
+  const table = await page.getByRole('table').first().boundingBox();
+  expect(notice && table && notice.y < table.y, 'the notice sits above the marks it qualifies').toBe(true);
+
+  await page.getByRole('button', { name: 'Copy the timeline' }).click();
+  // The announcement first — the copy is async and reading the clipboard in the next statement
+  // races the write. See the walk above.
+  await expect(page.getByRole('status').filter({ hasText: /Copied/ })).toBeVisible();
+  const text = await page.evaluate(() => navigator.clipboard.readText());
+  const lines = text.split('\n');
+  const head = lines[0].split('\t');
+  const col = head.indexOf('Provenance');
+  expect(col, `no Provenance column in: ${lines[0]}`).toBeGreaterThan(-1);
+
+  const body = lines.slice(1).filter(Boolean);
+  expect(body.length, 'a whole timeline, not a stub').toBeGreaterThan(4);
+  const made = body.filter((l) => l.split('\t')[2] === MADE_UP_NAME);
+  const real = body.filter((l) => l.split('\t')[2] === SUSTAINER);
+  expect(made.length, 'the made-up recording marked the timeline').toBeGreaterThan(0);
+  expect(real.length, 'and so did the real one').toBeGreaterThan(0);
+  // BOTH directions, per row. A `toContain('SYNTHETIC')` over the whole clipboard passes against
+  // a mutant that labels the real recording too, which is the wrong claim in the direction that
+  // matters: it would tell a flyer their own flight was invented.
+  for (const l of made) expect(l.split('\t')[col], `made-up row: ${l}`).toContain(SYNTH_TAG);
+  for (const l of real) expect(l.split('\t')[col], `real row: ${l}`).toBe('recorded');
 });
 
 /**

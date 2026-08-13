@@ -230,6 +230,20 @@ app, never counted in any accuracy or validation figure.** The surface audit is 
 than trusted from memory, because this repo's own history is that a caveat lands on one panel and a
 confident claim on another.
 
+PROGRESS · 2026-08-13 — **the hard half is done, and the thing standing between you and a sample is
+now the samples themselves rather than the labelling.** Every sink this audit has found carries the
+claim: **24 of 29 by a named check, 5 by prose in the document itself, 0 left open**, against 21 of
+28 a run ago. The three that closed this run are the ones a figure does not get *read* through but
+*walked to* — the `.gpx` a handheld navigates by, the `.kml` Google Earth draws, and the landing
+coordinate you paste into a maps app — plus `/stitch`'s timeline and the share link. Two cautions,
+because a round number invites more confidence than it has earned. **`todo: 0` means nothing KNOWN is
+open, not that nothing is**: three of the last four slices each found a sink the audit had never
+enumerated, one of them on the very surface that slice was about. And one row was marked covered by a
+check that read its own source file, so it could not have failed — found and fixed this run, and it
+is the third time this ledger has recorded that shape of mistake. **What is next on this note is (c):
+offer the mapper sample.** The generated file has been written and tested since 2026-08-09 and is
+held back, not missing.
+
 PROGRESS · 2026-08-12 — still open, and here is the honest state of the hard half. Of the sinks a
 made-up figure can leave through, **21 of 28 now carry the claim** (5 by prose, 16 by a named check),
 against 24 of 27 a run ago. **The count went UP by one while three closed**, because a pre-push

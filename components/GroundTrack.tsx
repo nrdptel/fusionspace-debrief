@@ -8,6 +8,7 @@ import type { FlightEvent } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
+import { provenanceCell } from '@/lib/synthetic';
 import { useIsDark } from './useIsDark';
 import { Button, Card, Frame } from './ui';
 
@@ -64,6 +65,7 @@ export default function GroundTrack({
   apogeeAltitude,
   landed,
   events,
+  synthetic,
 }: {
   lat: Float64Array;
   lon: Float64Array;
@@ -96,6 +98,17 @@ export default function GroundTrack({
    *  by leg — each leg takes the colour of the event that began it, the same token the
    *  charts mark that event with — and give the readout something to name a fix by. */
   events?: FlightEvent[];
+  /** Whether this is a flight Debrief MADE UP. Required with no default, for the reason
+   *  `MetricGrid`'s and `FlightCard`'s are: on a panel whose three exports are coordinates
+   *  somebody walks to, the safe-looking default is the defect value.
+   *
+   *  It reaches the three sinks and not the screen. The report above already carries the
+   *  sentence and the readings grid carries the short form, and `DESIGN.md` §5 puts a notice
+   *  above the surface rather than beside every control on it — the same reading
+   *  `SampleTable`'s copy button follows, where the claim rides on the clipboard and the toast
+   *  keeps its plain label. `/stitch` is the case that differs, because it is a top-level route
+   *  with nothing above it. */
+  synthetic: boolean;
 }) {
   const dark = useIsDark();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -485,6 +498,12 @@ export default function GroundTrack({
 
   const bearing = Math.round(stats.landingBearing);
   const coords = `${lat[stats.landingIndex].toFixed(5)}, ${lon[stats.landingIndex].toFixed(5)}`;
+  /** What the clipboard gets. The pair stays FIRST and unchanged so a maps app still resolves it
+   *  — the claim rides in a trailing parenthetical, which is the one placement that labels the
+   *  coordinate without breaking the paste it exists for. The screen keeps the bare pair: the
+   *  report above it carries the sentence, and this is the same split `SampleTable`'s per-column
+   *  copy settled on, where the clipboard travels and the toast does not. */
+  const coordsToCopy = synthetic ? `${coords} (${provenanceCell(true)})` : coords;
   const ariaLabel = landed
     ? `Ground track: landed ${fmtLength(stats.landingDistance, sys)} from the pad, bearing ${bearing} degrees ${compass(
         stats.landingBearing,
@@ -641,7 +660,7 @@ export default function GroundTrack({
         <Button
           size="sm"
           onClick={() => {
-            navigator.clipboard?.writeText(coords).then(
+            navigator.clipboard?.writeText(coordsToCopy).then(
               () => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1600);
@@ -657,7 +676,9 @@ export default function GroundTrack({
           size="sm"
           onClick={() =>
             download(
-              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed)], { type: 'application/gpx+xml' }),
+              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed, synthetic)], {
+                type: 'application/gpx+xml',
+              }),
               `${stem}-track.gpx`,
             )
           }
@@ -673,7 +694,7 @@ export default function GroundTrack({
           size="sm"
           onClick={() =>
             download(
-              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed, kmlAltitudeNote)], {
+              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed, synthetic, kmlAltitudeNote)], {
                 type: 'application/vnd.google-earth.kml+xml',
               }),
               `${stem}-track.kml`,

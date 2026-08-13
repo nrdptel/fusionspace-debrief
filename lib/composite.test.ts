@@ -151,6 +151,50 @@ describe('buildComposite', () => {
       ['burns', 'marks', 'method', 'offsets', 'silent', 'verified'].sort(),
     );
   });
+
+  it('carries whether each mark’s own recording is one Debrief made up, per mark', () => {
+    // A composite is the one table in this app whose rows come from DIFFERENT flights, so the
+    // question "is this made up" has a different answer per row and a blanket flag can only
+    // label everything or nothing.
+    const out = buildComposite([{ ...BOOSTER, synthetic: true }, SUSTAINER]);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    const boosterMarks = out.composite.marks.filter((m) => m.recording === 'booster.csv');
+    const sustainerMarks = out.composite.marks.filter((m) => m.recording === 'sustainer.csv');
+    expect(boosterMarks.length).toBeGreaterThan(0);
+    expect(sustainerMarks.length).toBeGreaterThan(0);
+    expect(boosterMarks.every((m) => m.synthetic)).toBe(true);
+    // BOTH directions: labelling the real recording too is the mutant a one-sided assertion
+    // passes against, and it is the wrong claim in the more damaging direction.
+    expect(sustainerMarks.every((m) => m.synthetic === false)).toBe(true);
+  });
+
+  it('reads an unstated recording as recorded rather than as unknown', () => {
+    // `synthetic` is optional on the input because a caller that was never told cannot honestly
+    // claim either way — but the MARK is always a boolean, so no surface downstream has to decide
+    // what `undefined` means in a cell a flyer reads.
+    const out = buildComposite([BOOSTER, SUSTAINER]);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.composite.marks.every((m) => m.synthetic === false)).toBe(true);
+  });
+
+  it('labels by the recording that drew the mark, not by its name', () => {
+    // Two logbook rows can share a file name — two launch days both holding a `data.csv` — so a
+    // name-keyed lookup would label the real one as made up. Positional cannot.
+    const same = rec('data.csv', [
+      { type: 'liftoff', time: 0.2, alt: 0 },
+      { type: 'apogee', time: 19.4, alt: 1500 },
+    ]);
+    const out = buildComposite([{ ...BOOSTER, name: 'data.csv', synthetic: true }, same]);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    const apogees = out.composite.marks.filter((m) => m.type === 'apogee');
+    // Same name on both, and exactly one of them is the made-up one.
+    expect(apogees.map((m) => m.recording)).toEqual(['data.csv', 'data.csv']);
+    expect(apogees.filter((m) => m.synthetic).length).toBe(1);
+    expect(apogees.find((m) => m.synthetic)!.altitudeM).toBe(2973);
+  });
 });
 
 describe('fmtCompositeTime', () => {

@@ -45,6 +45,15 @@ export interface CompositeMark {
   /** Which recording this mark came from — the only provenance a composite row can honestly
    *  carry, and the reason every row has it. */
   recording: string;
+  /** Whether that recording is a flight Debrief MADE UP.
+   *
+   *  **On the MARK rather than looked up by name at render**, which is the whole reason it is a
+   *  field. A composite is the one table in this app whose rows come from different flights, so a
+   *  blanket "one of these is made up" can only label everything or nothing — and a name-keyed
+   *  lookup cross-labels the moment two recordings share a file name, which is reachable (two
+   *  launch days both holding a `data.csv`). Set positionally from the recording that produced the
+   *  mark, so neither failure is possible. */
+  synthetic: boolean;
   /** That recording's own altitude at the mark, in metres AGL on its own pad datum. Never
    *  compared across recordings by this module: two stages' data are two different heights above
    *  two different reference samples, and a reader who wants them compared has `/compare`. */
@@ -83,6 +92,11 @@ export const SIMULTANEITY_S = 1;
 export interface CompositeRecording {
   name: string;
   analysis: FlightAnalysis;
+  /** Whether this recording is a flight Debrief made up. Optional because a caller that has not
+   *  been told cannot honestly claim either way, and `false` is the reading of "not stated" that
+   *  every other surface here takes — the marker rides in the flight's own notes, so a caller with
+   *  the flight always knows. */
+  synthetic?: boolean;
 }
 
 /** Whole seconds, with a sign, for a composite clock whose zero is the launch.
@@ -119,6 +133,7 @@ export function buildComposite(recordings: CompositeRecording[], firstStage?: st
         type: e.type,
         label: e.label,
         recording: rec.name,
+        synthetic: rec.synthetic === true,
         altitudeM: Number.isFinite(rec.analysis.series.altitude[e.index])
           ? rec.analysis.series.altitude[e.index]
           : null,

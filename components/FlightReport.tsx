@@ -1520,6 +1520,7 @@ export default function FlightReport({
           apogeeIndex={events.find((e) => e.type === 'apogee')?.index}
           apogeeAltitude={metrics.apogeeAltitude}
           events={events}
+          synthetic={synthetic}
         />
       )}
 

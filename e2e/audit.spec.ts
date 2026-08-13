@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { mapMadeUpColumns, openMadeUpFlight, SYNTH_SENTENCE, SYNTH_SHORT } from './madeUp';
 
 // A broad audit of the features that the focused specs (analyze/compare) don't
 // already cover: the column-mapper path, theme + units controls, the share
@@ -171,6 +172,44 @@ test('share link round-trips a small flight through the URL fragment', async ({ 
   await fresh.goto(url);
   await expect(fresh.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
   await expect(fresh.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await fresh.close();
+});
+
+/**
+ * D10's last sink, and the one where the behaviour was already right — which is exactly why it
+ * needed an assertion.
+ *
+ * `SharePayload` is `{n, t}`: the file's name and its RAW text. So a recipient re-reads the
+ * `Synthetic` marker out of the metadata block and the claim arrives by construction, with no
+ * code anywhere deciding to carry it. Nothing held that shut. The plausible future change is a
+ * payload optimisation — trim the metadata block, re-serialise the numbers, anything to fit under
+ * `MAX_SHARE_URL` — and it would strip the marker while every unit case in `lib/share.test.ts`
+ * (which round-trips `encodeFlight`/`decodeFlight` on its own strings) went on passing.
+ *
+ * The 400-sample file is deliberate and measured: it encodes to about 5,000 characters against
+ * the 16,000 limit, where the full-descent version reaches 63,202 and the report offers "Too big
+ * to link" instead of a button.
+ */
+test('a shared link carries the made-up claim to whoever opens it', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openMadeUpFlight(page);
+
+  await page.getByRole('button', { name: 'Share link' }).click();
+  await expect(page.getByText(/Link copied/)).toBeVisible();
+  const url = await page.evaluate(() => navigator.clipboard.readText());
+  expect(url).toMatch(/#f=/);
+
+  // A FRESH page, because a fragment-only navigation on this one would not reload — this is the
+  // in-browser decode-on-load a recipient actually hits.
+  const fresh = await context.newPage();
+  await fresh.goto(url);
+  // The recipient lands in the column mapper, same as the sender did: the shared payload is the
+  // file, and this file is one no parser claims.
+  await mapMadeUpColumns(fresh);
+  // Asserted on the recipient's REPORT, not merely that they reached one. Reaching a report is
+  // what a stripped payload would also do.
+  await expect(fresh.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
+  await expect(fresh.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);
   await fresh.close();
 });
 

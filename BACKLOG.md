@@ -14,6 +14,28 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-13 — a throwaway probe in the repo root fails `npm test`, not just `npm run build`, and
+  `git status` stays clean while it does.** `MAINTAINING.md` records the `tsc --noEmit` half of this
+  (a probe with a type error turns the build red over an apparently clean tree); the vitest half is
+  the same trap and was measured this run — an investigation agent's `probe-refute-tmp.test.ts` gave
+  `Test Files 1 failed | 91 passed (92)` with **1390 of 1390 real tests passing**, which reads as a
+  broken suite until you look at the file name. `vitest.config.ts` has no `exclude` entry for the
+  `*-tmp.*` / `probe-*` convention `.gitignore` already knows about, so the ignore glob protects the
+  repository and not the gate. One line in that config removes a failure mode every parallel session
+  pays for; not taken here because it is unqueued work and the run's quota was spent on the milestone.
+  Workaround while it is open: `npx vitest run lib` scopes to where all 91 test files actually live.
+
+- **2026-08-13 — `e2e/compare.spec.ts:384` waits on Playwright's 5 s default for a two-file
+  analysis, and that is the third instance of the clock this repo has now measured.** It failed the
+  baseline run at **15.9 s** with `element(s) not found — waiting for getByRole('heading', { name:
+  'Comparing 2 flights' })` and passed **in 1.5 s** re-run alone
+  (`npx playwright test e2e/compare.spec.ts --grep "readings can be reordered" --workers=1`), on a
+  4-CPU container with investigation agents running. Same shape as `e2e/audit3.spec.ts`, which was
+  given an explicit timeout on 2026-08-12 for exactly this: every sibling spec that waits on an
+  analysis names 20–60 s and this line names none. One-line fix, not taken here because the run's
+  quota was spent on queued work. Grep the suite for `toBeVisible()` with no timeout on a heading
+  that only appears after `ingest`, rather than fixing this one line.
+
 - **2026-08-12 — a compare figure's legend lists a flight that drew no curve, and the band now
   points at that legend.** `lib/svgChart.ts:233` walks `opts.series` for the legend while the path
   loop at :212 emits nothing for an all-non-finite series, so a flight whose peak speed was withheld
