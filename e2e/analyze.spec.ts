@@ -2842,44 +2842,65 @@ const SYNTH_SENTENCE = 'This flight is SYNTHETIC';
 const SYNTH_TAIL = 'no figure from it means anything';
 const SYNTH_SHORT = 'SYNTHETIC — Debrief made this flight up';
 
-function madeUpCsv(): string {
+/** The pad these made-up fixes start over, when the walk asks for GPS. A real place on the map
+ *  and a real distance to walk, so the recovery panel has something to measure. */
+const MADE_UP_PAD = { lat: 34.49, lon: -116.95 };
+
+function madeUpCsv(gps = false): string {
   const rows: string[] = [
     'Synthetic,"This flight is SYNTHETIC — numbers Debrief made up to demonstrate what it can read. It is not a recording of anything, nothing here was flown, and no figure from it means anything about a real rocket."',
     'Demonstrates,"the column mapper"',
     '',
-    'Elapsed,Height,Rate',
+    gps ? 'Elapsed,Height,Rate,Lat,Lon' : 'Elapsed,Height,Rate',
   ];
   // A boost, a coast to a single apogee and a two-rate descent — enough shape for the analysis
   // to produce readings worth labelling, and short enough to drop instantly.
   let alt = 0;
   let v = 0;
-  for (let i = 0; i < 400; i++) {
+  let apogeeAt = 0;
+  // 400 samples is 20 s — a boost and the start of a descent, which is all the other walks need.
+  // The GPS walk runs to the GROUND instead, because "Landing" versus "Last fix (record ends in
+  // the air)" is a real distinction in both exports and the landing coordinate is the whole point
+  // of the copy button. That costs ~4,800 samples at 20 Hz, about what the real generator writes.
+  const maxSamples = gps ? 6000 : 400;
+  for (let i = 0; i < maxSamples; i++) {
     const t = i * 0.05;
     const a = t < 1.6 ? 108.2 : -9.80665;
     if (v >= 0) {
       v += a * 0.05;
       alt = Math.max(0, alt + v * 0.05);
+      apogeeAt = t;
     } else {
       v = alt > 150 ? -7.5 : -4.2;
       alt = Math.max(0, alt + v * 0.05);
     }
-    rows.push(`${t.toFixed(2)},${alt.toFixed(2)},${v.toFixed(2)}`);
+    // Straight up, then drifting east-north-east under canopy — a walkback of a few hundred
+    // metres, which is what makes the landing coordinate worth copying at all.
+    const drift = Math.max(0, t - apogeeAt);
+    const cols = gps
+      ? `,${(MADE_UP_PAD.lat + drift * 0.00001).toFixed(6)},${(MADE_UP_PAD.lon + drift * 0.00002).toFixed(6)}`
+      : '';
+    rows.push(`${t.toFixed(2)},${alt.toFixed(2)},${v.toFixed(2)}${cols}`);
     if (alt <= 0 && t > 5) break;
   }
   return rows.join('\n') + '\n';
 }
 
-async function openMadeUpFlight(page: import('@playwright/test').Page) {
+async function openMadeUpFlight(page: import('@playwright/test').Page, gps = false) {
   await page.goto('/');
   await page
     .getByLabel('Choose a flight log file')
-    .setInputFiles({ name: 'demo-mapper-flight.csv', mimeType: 'text/csv', buffer: Buffer.from(madeUpCsv()) });
+    .setInputFiles({ name: 'demo-mapper-flight.csv', mimeType: 'text/csv', buffer: Buffer.from(madeUpCsv(gps)) });
   await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
   await page.getByLabel('Role for the Elapsed column').selectOption('time');
   await page.getByLabel('Role for the Height column').selectOption('altitude');
   await page.getByLabel('Role for the Rate column').selectOption('velocity');
   await page.getByLabel('Unit for the Height column').selectOption('m');
   await page.getByLabel('Unit for the Rate column').selectOption('m/s');
+  if (gps) {
+    await page.getByLabel('Role for the Lat column').selectOption('latitude');
+    await page.getByLabel('Role for the Lon column').selectOption('longitude');
+  }
   await page.getByRole('button', { name: 'Analyze flight' }).click();
   await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
 }
@@ -2972,6 +2993,47 @@ test('the channel explorer is a second data export, and it says so too', async (
     lines.slice(1).filter((l) => !l.startsWith('"SYNTHETIC — made up by Debrief, not flown",')).length,
     'every data row carries it, because a pasted block leaves the header behind',
   ).toBe(0);
+});
+
+test('the three exports a flyer navigates by say the flight was made up', async ({ page }) => {
+  // **The sink where an unlabelled figure is not read but WALKED TO.** A `.gpx` goes into a
+  // handheld, a `.kml` into Google Earth, and the coordinate pair into a maps app — three files
+  // that leave with no report around them and whose whole purpose is to send somebody to a place.
+  // Everything below is read back out of the real download or the real clipboard, so a call site
+  // that passes `synthetic={false}` fails here even though every unit case still passes.
+  await openMadeUpFlight(page, true);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  const saveGpx = page.getByRole('button', { name: 'Save GPX' });
+  await expect(saveGpx).toBeVisible({ timeout: 60_000 });
+
+  const [gpxDl] = await Promise.all([page.waitForEvent('download'), saveGpx.click()]);
+  const gpx = await readFile(await gpxDl.path(), 'utf8');
+  // The waypoint NAME, because a receiver's go-to list shows a name and nothing else.
+  expect(gpx, `gpx was: ${gpx.slice(0, 300)}`).toContain('<name>SYNTHETIC — Landing</name>');
+  // The document header, ahead of the waypoint — GPX 1.1 schema order, not preference.
+  expect(gpx.indexOf('<metadata>')).toBeGreaterThan(-1);
+  expect(gpx.indexOf('<metadata>')).toBeLessThan(gpx.indexOf('<wpt '));
+  expect(gpx).toContain(SYNTH_SENTENCE);
+  // …and it is still a track with fixes in it, not a labelled stub.
+  expect((gpx.match(/<trkpt /g) ?? []).length, 'a whole track, not a stub').toBeGreaterThan(100);
+
+  const [kmlDl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save KML' }).click(),
+  ]);
+  const kml = await readFile(await kmlDl.path(), 'utf8');
+  // Every name Google Earth draws — the document, the landing pin, the track — counted rather
+  // than "at least one", because tagging the document and leaving the pin bare is the regression
+  // this walk exists to catch.
+  expect((kml.match(/<name>SYNTHETIC — /g) ?? []).length, `kml names: ${kml.slice(0, 400)}`).toBe(3);
+  expect(kml).toContain(SYNTH_SENTENCE);
+
+  await page.getByRole('button', { name: 'Copy coords' }).click();
+  await expect(page.getByRole('button', { name: 'Copied ✓' })).toBeVisible();
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  // The pair first and unchanged, so pasting it into a maps app still resolves — then the claim.
+  expect(clip, `clipboard was: ${clip}`).toMatch(/^-?\d+\.\d+, -?\d+\.\d+ \(SYNTHETIC — made up by Debrief, not flown\)$/);
 });
 
 test('a figure of a made-up flight carries the claim ON the image', async ({ page }, testInfo) => {

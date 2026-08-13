@@ -2475,10 +2475,38 @@ single Save .svg button and the bundle, and the comparison's bundle packs `overl
 asserting the ZIP separately would assert the same builders twice. `SINKS` **labelled 16 → 18**,
 `todo` **7 → 5**.
 
+**Slice 5k SHIPPED 2026-08-13 — the three exports a flyer does not read but WALKS TO.** The `.gpx`,
+the `.kml` and the landing-coordinate copy are the only sinks in this table whose purpose is to send
+a person to a place, and all three left bare. A `.gpx` goes into a handheld whose go-to list shows a
+NAME and nothing else; a `.kml` goes into Google Earth, which draws names in the sidebar and on the
+ground and shows a description only on a click; the coordinate pair goes into a maps app. So the
+placement is decided by what each reader actually displays rather than by one answer repeated three
+times: the GPX takes the tag on its `<trk>` and `<wpt>` names, the sentence in a `<metadata><desc>`
+(ahead of both — GPX 1.1 schema order) and the short form on the track `<desc>` it already had;
+the KML takes the tag on **all three** names — document, landing placemark, track placemark, counted
+in the walk rather than asserted once, because tagging the document and leaving the pin bare is the
+regression worth catching — and the sentence joined into its ONE `<Document><description>`, since
+KML allows one per feature and a strict reader drops a second in silence.
+
+**The coordinate copy is the interesting one, and it is a two-way constraint.** The pair exists to be
+pasted into a maps app, so a claim that breaks the paste destroys the control to label it. The pair
+stays first and unchanged and the claim rides in a trailing parenthetical — a maps app resolves a
+leading pair and ignores a trailing note. The SCREEN keeps the bare pair, on the split
+`SampleTable`'s per-column copy already settled: the clipboard is what travels, and the toast beside
+it sits on a page that carries the sentence twice already.
+
+Two smaller things went with it. `trackGpx`/`trackKml` lost the `landed = true` default in the same
+edit — this milestone's own rule that a safe-looking default is the defect value, and that parameter
+already had a Sev-1 behind it (a waypoint called "Landing" over the pad, on a record that ends at
+apogee, sends a flyer to walk ten feet for a rocket 3,548 ft up). And the walk that pins all three
+is the first to drive a made-up flight with GPS: `madeUpCsv(gps)` adds `Lat`/`Lon` columns the mapper
+maps by role, which is exactly the "no new generator" this table's own reason predicted.
+`SINKS` **labelled 18 → 21**, `todo` **5 → 2**.
+
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
-last rather than by counting the file. Re-counted 2026-08-12 after slice 5j:
-`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **5**, against 18 `labelled` for
+last rather than by counting the file. Re-counted 2026-08-13 after slice 5k:
+`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **2**, against 21 `labelled` for
 `SINKS.length` **28** — and the suite asserts that exact split, so the number here and the number in
 the file fail together rather than drifting. (The 5 `carries` are not greppable the same way: they
 come from the `documentsCarryingProse()` spread, so the grep above returns 2 for that state. Said
@@ -2491,21 +2519,20 @@ attribution and its "the total went UP by one this slice" gloss for one commit a
 which is the same derive-rather-than-count drift it exists to shame, committed one line below the
 shaming. Caught by a pre-push review.
 
-(b) **The five still `todo`:**
+(b) **The two still `todo`:**
     1. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
     2. ~~the two `exploreCsv` exports plus the sample-table column copy~~ **SHIPPED 2026-08-12** as
        slice 5i above;
     3. ~~the plot `.png`/`.svg`~~ **SHIPPED 2026-08-12** as slice 5j above;
-    4. `.gpx` and `.kml` — named in this milestone's own *done when*, and `trackGpx` already writes
-       a `<desc>` a sentence can ride in;
+    4. ~~`.gpx` and `.kml`~~ **SHIPPED 2026-08-13** as slice 5k above — both were named in this
+       milestone's own *done when*;
     5. the `.zip` bundles — **two of them**, and the sink row described one until the 2026-08-11
        review: the single-flight `debrief-<stem>.zip`, whose only bare entries are now the figure
        SVGs, and the comparison's `compare-debrief.zip`, which also packs `compare-data.csv` and a
        `compare-<metric>.svg` per figure. ~~Both wait on item 3.~~ **SHIPPED 2026-08-12** with
        slice 5j, by construction — both read the same builders the individual buttons do;
-    6. the landing-coordinate copy — `GroundTrack` writes a bare lat/lon pair, and the mapper
-       already has `latitude`/`longitude` roles, so a mapped CSV carrying the marker reaches it
-       with no new generator;
+    6. ~~the landing-coordinate copy~~ **SHIPPED 2026-08-13** as slice 5k above, and the mapper's
+       `latitude`/`longitude` roles were indeed the whole route — no new generator;
     7. the share link, which carries the raw file text and therefore the marker — what is missing
        is the assertion, not the behaviour.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and

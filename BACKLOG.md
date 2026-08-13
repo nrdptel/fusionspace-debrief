@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-13 — `e2e/compare.spec.ts:384` waits on Playwright's 5 s default for a two-file
+  analysis, and that is the third instance of the clock this repo has now measured.** It failed the
+  baseline run at **15.9 s** with `element(s) not found — waiting for getByRole('heading', { name:
+  'Comparing 2 flights' })` and passed **in 1.5 s** re-run alone
+  (`npx playwright test e2e/compare.spec.ts --grep "readings can be reordered" --workers=1`), on a
+  4-CPU container with investigation agents running. Same shape as `e2e/audit3.spec.ts`, which was
+  given an explicit timeout on 2026-08-12 for exactly this: every sibling spec that waits on an
+  analysis names 20–60 s and this line names none. One-line fix, not taken here because the run's
+  quota was spent on queued work. Grep the suite for `toBeVisible()` with no timeout on a heading
+  that only appears after `ingest`, rather than fixing this one line.
+
 - **2026-08-12 — a compare figure's legend lists a flight that drew no curve, and the band now
   points at that legend.** `lib/svgChart.ts:233` walks `opts.series` for the legend while the path
   loop at :212 emits nothing for an all-non-finite series, so a flight whose peak speed was withheld

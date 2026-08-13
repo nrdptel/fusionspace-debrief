@@ -3,6 +3,8 @@
 // A small-area equirectangular projection is plenty here: a hobby flight drifts a
 // few hundred metres, where the flat-earth error is millimetres.
 
+import { SYNTHETIC_NOTE, SYNTHETIC_SHORT, syntheticHeader } from './synthetic';
+
 const M_PER_DEG_LAT = 111320; // metres per degree of latitude (near enough everywhere)
 
 export interface GroundTrack {
@@ -128,6 +130,13 @@ function xmlEscape(s: string): string {
   return s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]!);
 }
 
+/** What the `<trk><desc>` says about the height this file does NOT carry. Extracted so the
+ *  synthetic claim can be prefixed to it without restating it. */
+const GPX_TRACK_DESC =
+  'Ground track only — where the rocket was, not how high. GPX elevation means height above the ' +
+  'ellipsoid, and the height Debrief measured is above the pad; the KML export carries the ' +
+  'trajectory and names the instrument that drew it.';
+
 /** A GPX 1.1 document for the flight: the ground track as a <trk>, plus a
  *  <wpt> at the last fix so a phone/handheld can navigate straight to it.
  *  Lat/lon only (the recovery walk is on the ground); gaps in the fix are skipped.
@@ -135,8 +144,26 @@ function xmlEscape(s: string): string {
  *  `landed` says whether that last fix is a landing. On a record that stops in the air it
  *  is not: a log that ends at apogee still has a last fix, and it sits directly over the
  *  pad — a waypoint called "Landing" there sends a flyer to walk ten feet for a rocket that
- *  was 3,548 ft up. The point is still worth exporting, under the name it has earned. */
-export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, landingIndex: number, landed = true): string {
+ *  was 3,548 ft up. The point is still worth exporting, under the name it has earned.
+ *
+ *  `synthetic` says the flight is one Debrief MADE UP — `ROADMAP.md`'s D10, and this is the
+ *  sink where an unlabelled coordinate does the most damage: a GPX is the one export whose
+ *  whole purpose is to be walked to. Both booleans are required with no default, because on a
+ *  file that says where to go the safe-looking default is the defect value.
+ *
+ *  **The claim lands in three places, each for a different reader**, on the per-record rule
+ *  `lib/synthetic.ts#PROVENANCE_COLUMN` records: `<metadata><desc>` for a viewer that lists the
+ *  file, the `<trk>` and `<wpt>` NAMES for a handheld that shows nothing but a name in its
+ *  waypoint list, and the track `<desc>` for a reader who opens the track's properties. Only the
+ *  names travel into a receiver, which is why the tag rather than the sentence goes there. */
+export function trackGpx(
+  name: string,
+  lat: Float64Array,
+  lon: Float64Array,
+  landingIndex: number,
+  landed: boolean,
+  synthetic: boolean,
+): string {
   const n = Math.min(lat.length, lon.length);
   const fix = (v: number) => v.toFixed(6);
   const pts: string[] = [];
@@ -144,22 +171,26 @@ export function trackGpx(name: string, lat: Float64Array, lon: Float64Array, lan
     if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
     pts.push(`      <trkpt lat="${fix(lat[i])}" lon="${fix(lon[i])}"/>`);
   }
+  const wptName = syntheticHeader(landed ? 'Landing' : 'Last fix (record ends in the air)', synthetic);
   const wpt =
     landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
-      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${landed ? 'Landing' : 'Last fix (record ends in the air)'}</name>\n  </wpt>\n`
+      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${xmlEscape(wptName)}</name>\n  </wpt>\n`
       : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<gpx version="1.1" creator="Debrief" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+    // GPX 1.1 puts `<metadata>` first, ahead of every `<wpt>` and `<trk>` — schema order, not
+    // preference.
+    (synthetic ? `  <metadata>\n    <desc>${xmlEscape(SYNTHETIC_NOTE)}</desc>\n  </metadata>\n` : '') +
     wpt +
-    `  <trk>\n    <name>${xmlEscape(name)}</name>\n` +
+    `  <trk>\n    <name>${xmlEscape(syntheticHeader(name, synthetic))}</name>\n` +
     // Deliberately no `<ele>`. GPX defines elevation as metres above the WGS-84 ellipsoid, and the
     // height Debrief has for these fixes is barometric height above the PAD — writing it into an
     // `<ele>` would put a correct number under a label that means something else, which is how a
     // reader gets a wrong answer from an honest file. The KML carries the trajectory instead, and
     // says there what drew it. This `<desc>` exists so the two exports of one flight do not
     // silently disagree about whether the track has a height.
-    `    <desc>Ground track only — where the rocket was, not how high. GPX elevation means height above the ellipsoid, and the height Debrief measured is above the pad; the KML export carries the trajectory and names the instrument that drew it.</desc>\n` +
+    `    <desc>${xmlEscape(synthetic ? `${SYNTHETIC_SHORT} ${GPX_TRACK_DESC}` : GPX_TRACK_DESC)}</desc>\n` +
     `    <trkseg>\n` +
     pts.join('\n') +
     '\n    </trkseg>\n  </trk>\n</gpx>\n'
@@ -188,7 +219,12 @@ export function trackKml(
   altitudeM: Float64Array | undefined,
   landingIndex: number,
   /** Whether the last fix is a landing — see `trackGpx`. */
-  landed = true,
+  landed: boolean,
+  /** Whether this is a flight Debrief MADE UP — see `trackGpx`. Google Earth shows a document's
+   *  name and each placemark's name in its sidebar and on the ground, and shows a description
+   *  only when something is clicked, so the tag goes on all three names and the sentence goes in
+   *  the document description beside the altitude note. */
+  synthetic: boolean,
   /** What drew the HEIGHT of each fix, in the flyer's words. The geometry in this file is
    *  measured by two independent instruments — the receiver put each fix on the map, the
    *  barometer put it at a height — and a document that shows a trajectory without saying so is
@@ -210,23 +246,29 @@ export function trackKml(
     const h = altitudeM && Number.isFinite(altitudeM[i]) ? Math.max(0, altitudeM[i]) : 0;
     coords.push(`${lon[i].toFixed(6)},${lat[i].toFixed(6)},${h.toFixed(1)}`);
   }
+  const placemarkName = syntheticHeader(landed ? 'Landing' : 'Last fix (record ends in the air)', synthetic);
   const placemark =
     landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
-      ? `    <Placemark>\n      <name>${landed ? 'Landing' : 'Last fix (record ends in the air)'}</name>\n      <Point><coordinates>${lon[landingIndex].toFixed(6)},${lat[landingIndex].toFixed(6)},0</coordinates></Point>\n    </Placemark>\n`
+      ? `    <Placemark>\n      <name>${xmlEscape(placemarkName)}</name>\n      <Point><coordinates>${lon[landingIndex].toFixed(6)},${lat[landingIndex].toFixed(6)},0</coordinates></Point>\n    </Placemark>\n`
       : '';
+  // One `<description>`, built from what there is to say: the made-up claim first, because it
+  // qualifies everything after it, then the altitude note. Joined rather than written twice —
+  // KML allows one description per feature, and a second element would be dropped silently by
+  // whichever reader parses strictly.
+  const description = [synthetic ? SYNTHETIC_NOTE : null, altitudeNote].filter(Boolean).join(' ');
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<kml xmlns="http://www.opengis.net/kml/2.2">\n' +
     '  <Document>\n' +
-    `    <name>${xmlEscape(name)}</name>\n` +
-    (altitudeNote ? `    <description>${xmlEscape(altitudeNote)}</description>\n` : '') +
+    `    <name>${xmlEscape(syntheticHeader(name, synthetic))}</name>\n` +
+    (description ? `    <description>${xmlEscape(description)}</description>\n` : '') +
     '    <Style id="track">\n' +
     '      <LineStyle><color>ff5e63e0</color><width>2</width></LineStyle>\n' +
     '      <PolyStyle><color>335e63e0</color></PolyStyle>\n' +
     '    </Style>\n' +
     placemark +
     '    <Placemark>\n' +
-    `      <name>${xmlEscape(name)}</name>\n` +
+    `      <name>${xmlEscape(syntheticHeader(name, synthetic))}</name>\n` +
     '      <styleUrl>#track</styleUrl>\n' +
     '      <LineString>\n' +
     '        <extrude>1</extrude>\n' +
