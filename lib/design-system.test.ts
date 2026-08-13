@@ -563,7 +563,13 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  had existed for four days — and the weakest of the three, because it announces on arrival and
    *  not on the transition away. This entry is why the count could not have caught that: it did
    *  not exist. */
-  Loading: 3,
+  /** 3 → 4 on 2026-08-13: `CompareSurface`, found by the design-system audit rather than by this
+   *  count — an adoption ratchet cannot see a surface that never imported the primitive at all.
+   *  `/compare` re-reads and re-analyses several whole files at once, which is the longest wait in
+   *  the app, and it was the one surface showing no working indicator while it did: a hand-rolled
+   *  `<p role="status">` with neither the pulse that marks a wait as moving nor the `aria-live`
+   *  that makes it announce. */
+  Loading: 4,
   /** `Sources` — the citation line, rendered identically by the methods page and by the popover
    *  that quotes it, so a source cannot appear on one and be missing from the other. */
   Sources: 2,

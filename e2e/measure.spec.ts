@@ -111,3 +111,63 @@ test('the measure does not get WORSE as the screen gets wider', async ({ page })
     phone,
   );
 });
+
+/**
+ * The other surface that carries a `SectionNav` strip, and the one that took the primitive
+ * without its contract.
+ *
+ * `SectionNav`'s own docblock says *"targets need a `scroll-margin-top` so a heading lands below
+ * the strip rather than under it"*; `app/globals.css` states that clearance once, for the report's
+ * eight blocks and — since 2026-08-13 — for `/methods` through `.section-strip-target`. Before
+ * that this page carried `scroll-mt-12`, 48 px against a strip that is **62 px on a touch phone**,
+ * so a jumped-to heading landed 14 px UNDERNEATH it on all 51 of its heading ids, while 21
+ * readings in the app link into this page by id.
+ *
+ * **Measured on a COARSE pointer, because that is the only place it bit.** `globals.css`'s
+ * `@media (pointer: coarse)` block holds every link in the strip to the 44 px touch floor, which
+ * is what makes the strip 62 px rather than 42 — and Playwright's default context is a fine
+ * pointer at any viewport width, so a walk that only narrows the window measures the wrong strip
+ * and passes over the defect.
+ */
+test('a subject jumped to on the methods page lands clear of the pinned strip, on a phone', async ({
+  browser,
+}) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  try {
+    await page.goto('/methods');
+    const nav = page.locator('nav[aria-label="Jump to a subject on this page"]');
+    await expect(nav).toBeVisible();
+    expect(
+      await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches),
+      'this context is a touch device — the strip is only at its tallest here',
+    ).toBe(true);
+
+    const ids = await page.locator('h3[id]').evaluateAll((els) => els.map((e) => e.id));
+    expect(ids.length, 'the page still has a subject list worth jumping into').toBeGreaterThan(20);
+
+    // Three targets across the page rather than one: the first is above the strip's resting
+    // place, and the deep ones are the ones a reader actually jumps to.
+    for (const id of [ids[0], ids[Math.floor(ids.length / 2)], ids[ids.length - 1]]) {
+      await page.evaluate((target) => {
+        window.location.hash = `#${target}`;
+      }, id);
+      await page.waitForTimeout(250);
+      const m = await page.evaluate((target) => {
+        const el = document.getElementById(target)!;
+        const strip = document.querySelector('nav[aria-label="Jump to a subject on this page"]')!;
+        const sb = strip.getBoundingClientRect();
+        const eb = el.getBoundingClientRect();
+        return { stripH: Math.round(sb.height), stripBottom: Math.round(sb.bottom), top: Math.round(eb.top) };
+      }, id);
+      // At or below the strip's bottom edge. Stated as the same comparison the report's walk
+      // makes, so the two surfaces are held to one rule rather than to two numbers.
+      expect(
+        m.top,
+        `#${id} lands clear of the pinned strip (heading at ${m.top}, strip ${m.stripH} px ending at ${m.stripBottom})`,
+      ).toBeGreaterThanOrEqual(m.stripBottom);
+    }
+  } finally {
+    await ctx.close();
+  }
+});
