@@ -6,11 +6,25 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **One squashed commit, merged** — `d7dee41` (PR #183), carrying D10 slices **5k and 5l**. Both CI jobs were green on it, corpus half included, before the merge. Re-measure before believing anything is live: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | Whatever sits on the working branch above `origin/main` — measure it, do not trust this line: `git rev-list --count origin/main..HEAD`. |
+| **Shipped to production** | **THREE squashed commits, all merged, all live.** `d7dee41` (PR #183, D10 slices 5k+5l), `6a4340d` (PR #184, four Sev-1s + P1's contrast slice) and `40aa74a` (PR #185, D10 (c) + the methods anchors). Each was green on CI's own two jobs, corpus half included, before merging. Measured at the end of the run: `version.json` served **`40aa74a`**, which was `origin/main`'s head. Re-measure before believing anything: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | Whatever sits on the working branch above `origin/main` — measure it, do not trust this line: `git rev-list --count origin/main..HEAD`. At the end of this run that was **one commit**: the track exports' `<src>` / `<ExtendedData>`, gated green and pushed. |
 | **Sev-1** | **None inherited.** The baseline gate was green before anything was touched: unit 1,381 with the corpus attached, build clean, e2e 327. **Two Sev-1s were FOUND by the opening sweep and one is fixed** (the comparison's apogee cross-check, below); **two more survived refutation and are fixed too** — see below. Four Sev-1s found, four fixed. |
 | **D — capability** | **D10's labelling half is DONE.** `SINKS` reads **24 labelled · 5 carries · 0 todo across 29 rows**, from 18/5/5 across 28. What is left of D10 is (c) and (d): OFFERING the samples, which is the half a flyer can see. |
 | **P — product & craft** | **P1: the RENDERED contrast check reaches the states and the themes nothing audited** — 15 audits → 26, over 13 states × 2 themes. And **the design-system audit `MAINTAINING.md` asks for every long run was finally RUN**: 11 divergences, all queued into P1 in `ROADMAP.md`. |
+
+## The done-check, and the one thing it caught
+
+`DESIGN.md` §9's compliance block, run on the shipped tree — radius drift **0**, off-scale spacing
+**0**, off-scale type **1** (the brand wordmark, §10's non-negotiable floor), card treatments **3**
+(one `Card` plus the two named non-card primitives), inverted files **10** of 51 (the sanctioned
+`Chip`-built surfaces — read `lib/design-system.test.ts`'s note before treating that as a defect
+total), components importing `./ui` **39 of 51**. Nothing moved the wrong way this run.
+
+The cold walk over what changed found one thing no test did: **the mapper sample's offer said
+"apogee at 5,467 ft" and the report reads 5,462 ft.** The first is the generator's own curve
+maximum; the second is Debrief analysing what the file contains, which is the whole job. Five feet
+apart, one click apart, and two numbers for one apogee. The button describes the curve's shape now
+and carries no figure. Every test passed on both numbers — a walk is what found it.
 
 ## The corpus sweep, stated plainly
 
@@ -75,6 +89,11 @@ trivially rebuildable, so it is friction rather than a one-way door.
   `/compare`'s loading state taking §5's `Loading`. The design-system audit's top two rows, and the
   first was half wrong until it was measured: 14 px under on a COARSE pointer, 6 px clear on a
   fine one.
+- **`4406cf0` — the two track exports say which instrument drew them.** `COMPETITION.md` row 44's
+  action, taken the day the row was added: `<src>` on the `<trk>` and the `<wpt>`, `<ExtendedData>`
+  on the `<Document>`, and a `creator` that names the build. Both in schema order, and the tests
+  assert the ORDERING rather than just the presence, because a validating reader rejects either
+  element anywhere else.
 - **D10 (c) — the mapper sample is OFFERED.** The first flight in the app Debrief made up, which
   is what the twelve labelling slices were for — and the run's best argument for the check it
   shipped one increment earlier: the sample's `warn` chip is the first one ever to appear on an
@@ -141,6 +160,23 @@ Three more of the same shape, all found by pointing the sweep at one surface:
   HTML notes — while the four tags around it had all three.
 - **The channel explorer published a bare apogee**: its stats table takes each plotted channel's max,
   and the max of the altitude IS the apogee.
+
+## What a flyer can DO, and what is measurably better
+
+Both halves, because they are different questions and a run that only answers one has usually only
+done one.
+
+**What a flyer can DO that they could not before (D-track).** Open the column mapper in one click
+without supplying a file — the mapper had been a shipped capability with **no demonstration at
+all**, because a file a parser recognises cannot demonstrate it. And hand somebody a `.gpx` or a
+`.kml` that says which board recorded it, in the field each schema reserves for exactly that.
+
+**What is measurably better (P-track).** The rendered contrast check went from **9 states in one
+theme to 13 states in both** — 15 audits to 26 — and caught a real §5 token failure (`CHIP_TONES.warn`
+at 4.45:1) within a day of shipping. `/methods`'s 51 heading anchors land clear of the strip on a
+touch phone instead of 14 px under it. `SINKS` reads 24 labelled / 0 todo across 29 rows, from
+18/5/5 across 28. Four Sev-1s found and four fixed, two of them one-way doors that were losing a
+flyer's own work.
 
 ## Pick this up first
 

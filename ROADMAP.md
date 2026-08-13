@@ -3826,6 +3826,15 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — the done-check's cold walk caught two numbers for one apogee, and the fix is a
+deletion.** The mapper sample's offer read *"apogee at 5,467 ft"* — the GENERATOR's own curve
+maximum, taken from `lib/synthetic.ts`'s docblock — while the app reads **5,462 ft** off the same
+file, because Debrief analyses what the file contains rather than what wrote it. Five feet apart is
+small, and it is still two numbers for one apogee on two surfaces a flyer sees within one click of
+each other, which is the shape `MAINTAINING.md` names as worse than either alone. The button now
+describes the SHAPE of the curve and no figure; the report is where the number belongs. Worth
+recording because the walk is what found it — every test passed, on both numbers.
+
 **2026-08-13 — `COMPETITION.md` row 44's action, taken: the two track exports say which instrument
 drew them, in the field each schema reserves for exactly that.** GPX 1.1's `<src>` is annotated
 verbatim *"Source of data. Included to give user some idea of reliability and accuracy of data"* and

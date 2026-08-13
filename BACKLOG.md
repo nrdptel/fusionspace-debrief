@@ -151,8 +151,18 @@ wild, ideas too big for one pass. One line each, newest first.
   comparison leaves ONE recording, so the panel needed an empty state rather than a filter.
   `/compare` now renders a §5 `Notice` at `warn` naming which flights are recordings and why a
   demonstration cannot corroborate one. Original entry follows.
-- **2026-08-11 — the comparison's cross-check panel states an agreement figure over a flight
-  nobody flew, ABOVE the row that says so.** `lib/compare.ts#crossCheck` has no synthetic guard
+- **~~2026-08-11 — the comparison's cross-check panel states an agreement figure over a flight
+  nobody flew~~ — FIXED, and this entry was stale when read on 2026-08-13.** `crossCheck` opens
+  `const recorded = flights.filter((f) => !f.synthetic)` and every spread is computed over that
+  list, so the panel has excluded made-up flights since the run that filtered them internally
+  "where a second caller cannot reintroduce it". The remark below about `/compare` carrying no §5
+  `Notice` of its own is a separate and still-open observation; the empty-state question the entry
+  reasons about never arose, because the filter is per-flight rather than per-panel. Corrected
+  rather than deleted, since the reasoning about what excluding a flight would cost is the useful
+  half and it is what the 2026-08-13 apogee fix consulted before deciding NOT to drop a qualified
+  contributor. Original text follows.
+
+  ~~`lib/compare.ts#crossCheck` has no synthetic guard
   (`grep -n synthetic lib/compare.ts` returns only the type member and `buildComparison`'s copy),
   and the panel renders at `components/CompareView.tsx:728` while the metrics table — and D10's
   provenance row — start below it. So a flyer reads *"If these are recordings of the same flight,
@@ -163,7 +173,7 @@ wild, ideas too big for one pass. One line each, newest first.
   excluding a made-up flight leaves a two-flight comparison with ONE recording, so the panel has
   nothing to cross-check and needs an empty state rather than a filter. `/compare` also carries no
   §5 `Notice` at all, where `/stitch` was given one for being a top-level route with nothing above
-  it to hold a caveat — the same argument applies here.
+  it to hold a caveat — the same argument applies here.~~
 
 - **2026-08-11 — the logbook's ★ "Fastest of your remembered flights" ranks a BARO-DERIVED peak
   against a DEVICE-MEASURED one, which the comparison on the next surface over refuses to do by
