@@ -9,6 +9,7 @@ import { analyzedDataCsv, reportTable } from './report';
 import { KEPT_DOCUMENTS, documentsCarryingProse } from './documents';
 import { toCanonical, fromCanonical } from './canonical';
 import { importRecent } from './reopen';
+import { importFlight } from './parsers/index';
 import type { RawFlight } from './flight/types';
 import type { FlightAnalysis } from './analyze/types';
 
@@ -118,6 +119,37 @@ describe('a flight Debrief made up', () => {
     expect(isSynthetic({ notes: ['SYNTHETIC'] })).toBe(false);
     expect(isSynthetic({ notes: ['This flight is SYNTHETIC — numbers Debrief made up'] })).toBe(false);
     expect(isSynthetic({})).toBe(false);
+  });
+
+  it('carries the marker through a NAMED PARSER, not only through the mapper', () => {
+    // **The hole this closes, and it was in the labelling chain rather than in one surface.**
+    // `syntheticFromRows` is called from exactly one place — `analyzeTable`, the column-mapper
+    // path — so a made-up flight written in a format Debrief RECOGNISES arrived with no marker at
+    // all, and `isSynthetic` (which every surface branches on) returned false for it.
+    //
+    // Measured before the fix by prepending the marker to three real fixtures: all three still
+    // auto-detected, and all three came back `isSynthetic === false`. Not reachable until now
+    // because every generated file was a mapper file by construction — and it becomes reachable
+    // the moment a generated flight is written in a real logger's format, which is what D10's
+    // staged pair needs: a pair cannot go through the mapper, which takes one file at a time.
+    const fixture = readFileSync(new URL('./parsers/__fixtures__/altusmetrum-telemetrum.csv', import.meta.url), 'utf8');
+    const marked = `${SYNTHETIC_KEY},${JSON.stringify(SYNTHETIC_NOTE)}\n${fixture}`;
+
+    const plain = importFlight({ name: 'altusmetrum-telemetrum.csv', text: fixture });
+    expect(plain.kind, 'the fixture is one a named parser claims').toBe('flight');
+    if (plain.kind !== 'flight') return;
+    expect(isSynthetic(plain.flight), 'and a real recording is never claimed to be made up').toBe(false);
+
+    const made = importFlight({ name: 'altusmetrum-telemetrum.csv', text: marked });
+    // BOTH halves: the parser still recognises it (a marker that broke detection would send a
+    // generated file to the mapper and demonstrate the wrong thing), and the marker survives.
+    expect(made.kind, 'the marker does not break the parser’s own signature').toBe('flight');
+    if (made.kind !== 'flight') return;
+    expect(isSynthetic(made.flight), 'and the flight says it was made up').toBe(true);
+    // FIRST, ahead of whatever the parser had to say — the same position `buildFlight` gives it.
+    expect(made.flight.notes[0]).toBe(SYNTHETIC_NOTE);
+    // The parser's own notes are kept rather than replaced.
+    expect(made.flight.notes.length).toBeGreaterThanOrEqual(plain.flight.notes.length);
   });
 
   it('reads the marker by KEY, and returns Debrief’s words rather than the file’s', () => {
