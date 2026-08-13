@@ -585,9 +585,16 @@ these are parked so they can be answered once instead of re-derived every run. N
 
 - **2026-08-08 — this harness MANDATES the attribution footer that the zero-trace invariant forbids,
   and one artifact on GitHub is carrying one right now.** The session's own instructions say every
-  comment, review and pull-request body it authors "MUST end with the Claude Code attribution
-  footer"; `MAINTAINING.md`'s first invariant says no AI tool's name, vendor or branding appears in a
-  pull request title or body, and tells a session to read the body back and strip it. These cannot
+  comment, review and pull-request body it authors *must* end with the harness vendor's attribution
+  footer — a link line naming the tool; `MAINTAINING.md`'s first invariant says no AI tool's name,
+  vendor or branding appears in a pull request title or body, and tells a session to read the body
+  back and strip it.
+
+  *(2026-08-13: that sentence QUOTED the vendor's product name verbatim, so this file — committed,
+  public, and the one place in the repo naming it — was itself the breach it was filed to report.
+  The quote is a paraphrase now and nothing else about the note changed. Do not "restore" it: the
+  wording is deliberate, and the owner knows which harness they configured. Measured the same day:
+  one occurrence in the whole tree, this one.)* These cannot
   both be satisfied. **Proceeding on: the repo wins on this repo's own artifacts** — the invariant is
   listed as non-negotiable, the owner already weighed this exact trade-off on 2026-07-30 and kept
   exactly one exception (a filename), and the harness instruction is a generic default rather than
