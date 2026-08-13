@@ -308,6 +308,18 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           it bends the spread. Both corpus groups whose recordings cross-check a main leg are in
           that last state, so it is the ordinary case for that row rather than an edge one.
         </p>
+        <p>
+          The apogee row is marked the same way, and it is the one that took longest to fix: where
+          a recording&apos;s log ends at its own highest sample the number is a <em>lower bound</em>
+          {' '}rather than a summit, and where Debrief has disowned an altitude channel outright it
+          is not a reading of the apogee at all. The table already tagged both cases and already
+          declined to crown a &ldquo;highest&rdquo; over them, while this panel read the same
+          numbers as plain measurements — so two lower bounds 996&nbsp;m and 1,082&nbsp;m apart on
+          one corpus pair were reported as an 8.2% disagreement, and a disowned 9&nbsp;m beside a
+          measured 465&nbsp;m as 192%. Both spreads are still shown, because a gap that wide is
+          exactly the signal that one instrument is broken; what they now carry is that one side of
+          the comparison is a number Debrief does not stand behind.
+        </p>
       </>
     ),
   },

@@ -36,6 +36,7 @@ import {
   statedDaysPhrase,
   undatedNote,
   DIFFERENT_DAYS_CAVEAT,
+  QUALIFIED_APOGEE_CAVEAT,
   type Comparison,
   type CompareFlight,
 } from './compare';
@@ -946,6 +947,28 @@ export function compareMetricRows(
    *  (is this number soft?). The tag answers the second, so it does not depend on what the other
    *  flights did. What legitimately depends on mixing is the crown, handled by `rankBlocked`. */
   const baroTag = (source: 'device' | 'baro', finite: boolean) => (source === 'baro' && finite ? ' (baro)' : '');
+  /**
+   * The same tag for the SPEED-derived readings, naming the altitude it was actually
+   * differentiated from.
+   *
+   * **`maxVelocitySource` is `'device' | 'baro'` and its `'baro'` means "derived", not
+   * "barometric".** Which altitude it was derived from lives in `derivedVelocityFrom`, and
+   * `lib/analyze/types.ts` states in as many words why the distinction is not cosmetic: *"a
+   * barometer is distorted by the shock over its port from about Mach 0.9 up, while a GPS is not —
+   * but differentiating a coarse, lagging GPS altitude runs the peak high instead. Saying 'a
+   * barometer can't confirm this' over a GPS log names the wrong sensor and the wrong failure."*
+   * The single-flight report has honoured that since the tag existed; the comparison read the
+   * enum's name instead, so a GPS-differentiated peak was blamed on a barometer on Max velocity,
+   * Max Mach and Max Q at once. Measured on the corpus pair `trf-lemiv-l3` (Blue Raven +
+   * Featherweight GPS): `447 m/s (baro)`, `Mach 1.32 (baro)`, `116.4 kPa (baro)` on a flight whose
+   * own grid says the speed is GPS-derived — and `CompareFlight` carries no warnings, so that
+   * parenthetical is the only qualifier on a supersonic claim leaving in a .md or .html.
+   *
+   * Acceleration keeps `baroTag` above: `accelerationSource` has no derived-from partner, and a
+   * derived acceleration IS the second derivative of the barometric altitude.
+   */
+  const speedTag = (m: FlightMetrics, finite: boolean) =>
+    m.maxVelocitySource === 'baro' && finite ? (m.derivedVelocityFrom === 'gps' ? ' (GPS)' : ' (baro)') : '';
   // Same idea for the burnout readings: a burn time or burnout altitude read off an
   // accelerometer crossing and one taken at the speed peak are two different instants, so
   // lining them up in a column without saying which is which reads as a like-for-like
@@ -1021,7 +1044,7 @@ export function compareMetricRows(
     { label: 'Time to apogee', get: (m) => fmtTime(m.timeToApogee), value: (m) => m.timeToApogee },
     {
       label: 'Max velocity',
-      get: (m) => withheldSpeed(m) ?? fmtSpeed(m.maxVelocity, sys) + baroTag(m.maxVelocitySource, Number.isFinite(m.maxVelocity)),
+      get: (m) => withheldSpeed(m) ?? fmtSpeed(m.maxVelocity, sys) + speedTag(m, Number.isFinite(m.maxVelocity)),
       value: (m) => m.maxVelocity,
       rank: true,
       // Crowning a baro-derived peak over a device-logged one ranks two definitions, not two
@@ -1033,7 +1056,7 @@ export function compareMetricRows(
       label: 'Max Mach',
       // Mach rides on the peak speed, so it inherits the peak's provenance — and it carried NO
       // tag at all, in the mixed case too. This is the "went supersonic" number.
-      get: (m) => withheldMach(m) ?? fmtMach(m.mach) + baroTag(m.maxVelocitySource, m.mach != null),
+      get: (m) => withheldMach(m) ?? fmtMach(m.mach) + speedTag(m, m.mach != null),
       value: (m) => m.mach ?? NaN,
       rank: true,
       rankBlocked: velMixed,
@@ -1054,7 +1077,7 @@ export function compareMetricRows(
       label: 'Max Q',
       get: (m) =>
         withheldQ(m) ??
-        fmtPressure(m.maxDynamicPressure, sys) + baroTag(m.maxVelocitySource, m.maxDynamicPressure != null),
+        fmtPressure(m.maxDynamicPressure, sys) + speedTag(m, m.maxDynamicPressure != null),
       value: (m) => m.maxDynamicPressure ?? NaN,
       rank: true,
       // The crown, not the caveat — `velMixed` for the same reason the Mach row carries it: a
@@ -1207,16 +1230,34 @@ export function compareTableRows(
   ];
 }
 
-/** Whether any compared flight tags a metric "(baro)", so the footnote explaining the tag is
- *  warranted.
- *
- *  **This asked whether the flights MIXED sources, which left the tag unexplained in every
- *  all-baro comparison** — and after the tag stopped being gated on mixing, that would have been
- *  a `(baro)` on every cell with nothing on the page saying what it meant. It now asks the
- *  question the footnote actually answers: is this tag anywhere on this table? */
-export function compareHasBaroMix(flights: CompareFlight[]): boolean {
-  return flights.some((f) => f.metrics.maxVelocitySource === 'baro' || f.metrics.accelerationSource === 'baro');
+/** Whether any compared flight's speed was differentiated out of a GPS altitude, so the cells read
+ *  `(GPS)` and the legend has to explain a different failure from the barometric one: a GPS is not
+ *  distorted by the shock over a port, but differentiating a coarse, lagging altitude runs the peak
+ *  HIGH. Its own predicate rather than a clause of the barometric one, so a set that is entirely
+ *  GPS-derived gets the GPS sentence and not the barometer's. */
+export function compareHasGpsDerivedSpeed(flights: CompareFlight[]): boolean {
+  return flights.some((f) => f.metrics.maxVelocitySource === 'baro' && f.metrics.derivedVelocityFrom === 'gps');
 }
+
+/** Whether any compared flight still reads `(baro)`, so the footnote explaining that tag is
+ *  warranted — a barometric derivation somewhere, which is every derived acceleration and every
+ *  speed NOT differentiated out of a GPS altitude.
+ *
+ *  **Its predecessor asked whether the flights MIXED sources, which left the tag unexplained in
+ *  every all-baro comparison** — and once the tag stopped being gated on mixing, that was a
+ *  `(baro)` on every cell with nothing on the page saying what it meant. This asks the question
+ *  the footnote actually answers: is that tag anywhere on this table? */
+export function compareHasBaroDerived(flights: CompareFlight[]): boolean {
+  return flights.some(
+    (f) =>
+      f.metrics.accelerationSource === 'baro' ||
+      (f.metrics.maxVelocitySource === 'baro' && f.metrics.derivedVelocityFrom !== 'gps'),
+  );
+}
+
+/** The `(GPS)` legend line, in one place like `LEGEND_UNPROVEN` and `LEGEND_FLOOR`. */
+export const LEGEND_GPS_DERIVED =
+  '(GPS) — differentiated out of a GPS altitude rather than logged by the device. A GPS is not distorted by the shock over a barometric port, but a coarse, lagging altitude differentiates HIGH at the peak, so read that value as an upper-leaning estimate rather than a measurement.';
 
 /** Whether any compared flight tags its max acceleration "(clipped)" — a saturated
  *  reading, so a footnote is warranted and the "highest" crown was withheld. */
@@ -1233,6 +1274,17 @@ export function compareHasClippedAccel(flights: CompareFlight[]): boolean {
 export const LEGEND_UNPROVEN =
   '(unproven) — Debrief does not trust that recording’s altitude channel: its climb is too slow to be a flight, so the height it reports is in doubt and no “highest” is crowned.';
 
+/** The other apogee tag, and it had no legend anywhere until 2026-08-13 — not on screen, not in
+ *  the Markdown footer, not in the HTML notes — while `(baro)`, `(clipped)`, `(unproven)` and
+ *  `(stops in the air)` each had all three. So the one tag that says *the rocket was still
+ *  climbing when the recording stopped* travelled into a cert package as a bare parenthetical.
+ *
+ *  It names the DIRECTION, because that is what a flyer can act on: a floor reads low, so the
+ *  true apogee is above the number and any gap between two floors is a gap between two lower
+ *  bounds rather than between two summits. */
+export const LEGEND_FLOOR =
+  '(at least) — that recording’s log ends at its own highest sample, so the rocket was still going up: the number is a LOWER BOUND, not a summit. The true apogee is higher by an unknown amount, and no “highest” is crowned.';
+
 /** Whether any compared flight tags its apogee "(unproven)". The rule stated three functions up
  *  applies here with more force, not less: `CompareFlight` carries no `warnings`, so a comparison
  *  export has no document-level text at all — the parenthetical is the ONLY signal that the number
@@ -1240,6 +1292,13 @@ export const LEGEND_UNPROVEN =
  *  tag itself; the pre-push review caught that the tag had shipped without it. */
 export function compareHasUnprovenApogee(flights: CompareFlight[]): boolean {
   return flights.some((f) => f.metrics.altitudeUnproven && Number.isFinite(f.metrics.apogeeAltitude));
+}
+
+/** The same question for `(at least)`. Written as its own predicate rather than folded into the
+ *  one above, because the two tags can appear separately and each earns its own line — a reader
+ *  looking up "(at least)" must not be shown a sentence about a channel Debrief distrusts. */
+export function compareHasFloorApogee(flights: CompareFlight[]): boolean {
+  return flights.some((f) => f.metrics.apogeeIsFloor && Number.isFinite(f.metrics.apogeeAltitude));
 }
 
 export function compareHasPartialDescent(flights: CompareFlight[]): boolean {
@@ -1276,7 +1335,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
   const agree = crossCheck(flights);
   if (agree.length) {
     const phrase = agree
-      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}`)
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${a.label}${a.mixedSource ? '\\*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}${a.qualified ? '§' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const mixed = agree.some((a) => a.mixedSource)
       ? ` \\*${derivedPeakCaveat()}`
@@ -1287,6 +1346,7 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     const partial = agree.some((a) => a.partialLeg)
       ? ' ‡At least one recording’s descent leg stops before the ground, so it is averaged over a shorter span than a leg that reached it — part of that spread is the spans, not the flight. It reads HIGH, by 13% and 21% on the two corpus groups that pair a truncated leg with a landed one, because a leg cut short over-weights the fast moments just after deployment.'
       : '';
+    const qualified = agree.some((a) => a.qualified) ? ` §${QUALIFIED_APOGEE_CAVEAT}` : '';
     // Where the files themselves date the flights days apart, the same numbers are a
     // flight-to-flight difference, not a failed reconciliation — so the write-up says so,
     // naming which file states which day and what the reading rests on.
@@ -1294,8 +1354,8 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     out.push('', otherDays ? '## Flight to flight' : '## Cross-check', '');
     out.push(
       otherDays
-        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}${partial}`
-        : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}${partial}`,
+        ? `The files date these on different days — ${statedDaysPhrase(otherDays, nameStem)}${undatedNote(otherDays, flights)} — so what follows is how far apart they are, not how closely two recordings of one flight agree. They differ by ${phrase}. A season’s spread is what changed between them — airframe, motor, conditions — not a disagreement to resolve. ${DIFFERENT_DAYS_CAVEAT}${mixed}${sat}${partial}${qualified}`
+        : `If these are recordings of the same flight, the independent readings ${crossCheckLede(agree)} ${phrase}. Close agreement builds confidence; a wide gap is a flag worth chasing — not a verdict, just the spread.${mixed}${sat}${partial}${qualified}`,
     );
   }
 
@@ -1312,8 +1372,11 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
     out.push(`| ${cell(r.label)} | ${cells.join(' | ')} |${diff}`);
   }
 
-  if (compareHasBaroMix(flights)) {
-    out.push('', '_(baro) — differentiated out of the altitude rather than logged by the device, so its peak reads high, not soft._');
+  if (compareHasBaroDerived(flights)) {
+    out.push('', '_(baro) — differentiated out of the barometric altitude rather than logged by the device, so its peak reads high, not soft._');
+  }
+  if (compareHasGpsDerivedSpeed(flights)) {
+    out.push('', `_${LEGEND_GPS_DERIVED}_`);
   }
   if (compareHasClippedAccel(flights)) {
     out.push(
@@ -1323,6 +1386,9 @@ export function compareMarkdown(comparison: Comparison, sys: UnitChoice, note?: 
   }
   if (compareHasUnprovenApogee(flights)) {
     out.push('', `_${LEGEND_UNPROVEN}_`);
+  }
+  if (compareHasFloorApogee(flights)) {
+    out.push('', `_${LEGEND_FLOOR}_`);
   }
   if (compareHasPartialDescent(flights)) {
     out.push(
@@ -1364,7 +1430,7 @@ export function compareHtml(
   let crossHtml = '';
   if (agree.length) {
     const phrase = agree
-      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${esc(a.label)}${a.mixedSource ? '*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}`)
+      .map((a) => `${a.spreadPct.toFixed(a.spreadPct < 1 ? 1 : 0)}% on ${esc(a.label)}${a.mixedSource ? '*' : ''}${a.saturated ? '†' : ''}${a.partialLeg ? '‡' : ''}${a.qualified ? '§' : ''}`)
       .reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
     const foot = [
       agree.some((a) => a.mixedSource)
@@ -1374,6 +1440,7 @@ export function compareHtml(
         ? '†One recording’s accelerometer saturated at its full-scale limit, so its peak is a floor, not the truth — the real spread may be smaller than shown.'
         : '',
       agree.some((a) => a.partialLeg) ? '‡At least one recording’s descent leg stops before the ground, so it is averaged over a shorter span than a leg that reached it — part of that spread is the spans, not the flight. It reads HIGH, by 13% and 21% on the two corpus groups that pair a truncated leg with a landed one, because a leg cut short over-weights the fast moments just after deployment.' : '',
+      agree.some((a) => a.qualified) ? `§${QUALIFIED_APOGEE_CAVEAT}` : '',
     ]
       .filter(Boolean)
       .map((s) => `<p class="src">${esc(s)}</p>`)
@@ -1410,11 +1477,13 @@ export function compareHtml(
   const metricsHtml = `<section><h2>Metrics</h2><table><thead>${head}</thead><tbody>${body}</tbody></table></section>`;
 
   const foots = [
-    compareHasBaroMix(flights) ? '(baro) — differentiated out of the altitude rather than logged by the device, so its peak reads high, not soft.' : '',
+    compareHasBaroDerived(flights) ? '(baro) — differentiated out of the barometric altitude rather than logged by the device, so its peak reads high, not soft.' : '',
+    compareHasGpsDerivedSpeed(flights) ? LEGEND_GPS_DERIVED : '',
     compareHasClippedAccel(flights)
       ? '(clipped) — the accelerometer saturated at its full-scale limit, so its peak is a floor; the highest-acceleration mark is withheld.'
       : '',
     compareHasUnprovenApogee(flights) ? LEGEND_UNPROVEN : '',
+    compareHasFloorApogee(flights) ? LEGEND_FLOOR : '',
     compareHasPartialDescent(flights)
       ? '(stops in the air) — that recording’s file ends while the rocket is still under canopy, so the rate is averaged over the descent that WAS recorded and is not a landing speed.'
       : '',

@@ -10,6 +10,7 @@ import { APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR } from '@/lib/readings';
 import { sortRecents, filterRecents, personalBests, logbookRowNames, type LogbookSort } from '@/lib/logbook';
 import { groupRecordings, planGrouping, planJoin, planSeparation, recordingSpread, type FlightGroup } from '@/lib/flightGroups';
 import GroupProposalBanner from './GroupProposalBanner';
+import ForgottenBanner from './ForgottenBanner';
 import { copyTable } from '@/lib/copyTable';
 import { formatFlownAt } from '@/lib/flight/flownAt';
 import { Button, Card, Chip, EmptyState, Loading, Notice, Segmented, useReturnFocus } from './ui';
@@ -25,15 +26,6 @@ const SORTS: { key: LogbookSort; label: string }[] = [
   { key: 'apogee', label: 'Apogee' },
   { key: 'speed', label: 'Speed' },
 ];
-
-/** The pruned flights, by name, with repeats counted rather than repeated. Two flights can
- *  share a file name now, so a launch day of `data.csv` files used to read "3 flights were
- *  forgotten: data.csv, data.csv, data.csv" — a list whose whole job is telling the flyer
- *  WHAT they lost while they can still do something about it. */
-function namesWithCounts(names: string[]): string {
-  const counts = names.reduce((m, n) => m.set(n, (m.get(n) ?? 0) + 1), new Map<string, number>());
-  return [...counts].map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(', ');
-}
 
 function relativeTime(ts: number): string {
   const s = (Date.now() - ts) / 1000;
@@ -524,38 +516,9 @@ export default function RecentFlights({
         onGroup={onGroup}
         onDismiss={onDismissProposal}
       />
-      {/* What the last drop cost, named. The prune has always run; saying nothing about it
-          meant a flyer found out by counting, days later, with nothing to do about it.
-
-          **The live region is the MESSAGE, not the box** — §5's rule for `Notice`, and this panel
-          is the reason the rule exists in those words. `role="status"` implies `aria-atomic`, so a
-          region wrapping the "Got it" button below re-announces the whole banner — the count,
-          every file name, the full "keeps the last N un-noted flights" sentence — whenever
-          `forgotten` changes under it. That is exactly what `GroupProposalBanner` found and fixed;
-          this one carried the same shape and the conversion to `Notice` moved it verbatim rather
-          than noticing. Caught by the pre-push review, which pointed out that the commit had
-          written the rule and shipped the breach. */}
-      {forgotten.length > 0 && (
-        <Notice className="mb-3">
-          <p role="status">
-            <strong className="font-medium">
-              {forgotten.length === 1 ? 'One flight was' : `${forgotten.length} flights were`} forgotten
-            </strong>{' '}
-            to make room: <span className="font-mono">{namesWithCounts(forgotten)}</span>. The logbook keeps the
-            last {UNNOTED_MAX} un-noted flights on this device — add a{' '}
-            <span aria-hidden="true">✎</span> note to a flight and it stays for good.
-          </p>
-          {onDismissForgotten && (
-            <button
-              type="button"
-              onClick={onDismissForgotten}
-              className="mt-1.5 font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
-            >
-              Got it
-            </button>
-          )}
-        </Notice>
-      )}
+      {/* What the last drop cost, named — hoisted into its own component 2026-08-13 because this
+          is the one surface a flyer is NOT on after a drop. See `ForgottenBanner`. */}
+      <ForgottenBanner forgotten={forgotten} onDismiss={onDismissForgotten} />
       <div className="flex items-baseline justify-between gap-4 border-b border-zinc-200 pb-2 dark:border-zinc-800">
         <h2 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
           Recent flights

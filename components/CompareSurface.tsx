@@ -19,6 +19,7 @@ import ColumnMapper from './ColumnMapper';
 import RecentFlights from './RecentFlights';
 import CompareView from './CompareView';
 import GroupProposalBanner from './GroupProposalBanner';
+import ForgottenBanner from './ForgottenBanner';
 import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { emptyFolderMessage } from './Analyzer';
@@ -393,6 +394,7 @@ export default function CompareSurface() {
           onGroup={logbook.group}
           onDismiss={logbook.clearArrived}
         />
+        <ForgottenBanner forgotten={logbook.forgotten} onDismiss={logbook.clearForgotten} />
         <CompareView
           comparison={comparison}
           note={note ?? undefined}

@@ -3815,6 +3815,85 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — `Notice` adopters 9 → 10, and the count moved for a Sev-1 rather than for a
+conversion.** `ForgottenBanner` is the logbook's prune notice hoisted out of `RecentFlights`,
+because the report and compare branches return without the logbook and so a flyer told a flight had
+been deleted was only ever told it on the one screen a drop does not leave them on. The ratchet
+caught the count itself: the suite went red on `Notice: 9` in the same run that earned the tenth,
+which is exactly what §9's exact-match adopter table is for.
+
+**2026-08-13 — the RENDERED contrast check reaches the states and the themes nothing audited, which
+was §9's own named next slice.** Two gaps, and the second was not in the brief: the four state
+audits §9 asked for (an unmapped column, a marginal rail exit, an undetected liftoff, a flight with
+a note) plus **the theme half of the contract** — every audit in `e2e/a11y.spec.ts` except the
+four-route loop ran in ONE theme, because `playwright.config.ts` sets no `colorScheme` and
+Playwright's default is light. So the report, the mapper, the comparison and the logbook had been
+rated at half of what §9 defines the check as, for as long as they have been audited.
+
+**Audits 15 → 26, over 13 states × 2 themes.** Every state is written once and run in both. The
+three reached by a fixture rather than by hand are the useful part: the mapper's blocking live
+region only renders when the guess FAILS (its headers are guessed, so `ready` is true on arrival and
+the region renders an empty string); the marginal rail exit needed a fixture reading 15.2 m/s at 8 ft
+against a bundled sample that reads 29.4 and is never marginal at any rail length; and no fixture
+anywhere reaches `liftoffDetected === false`, so the walk builds one by keeping a real record from
+its own apogee onward.
+
+**Falsified by putting a failing value back and watching exactly ONE audit go red** — `amber-600` on
+the rail caution reddens *a marginal rail exit (light)* while the report, the mapper and the dark run
+stay green; on the mapper's live region it reddens *nothing mapped yet (light)* while *column mapper
+(light)*, the ready state that already existed, passes. That pair is what proves the walks reach the
+STATE rather than the route.
+
+**And falsifying it found a blind spot in the rendered check itself.** Injecting `text-zinc-400`
+(2.51:1) into the logbook note's resting class left the audit GREEN: the saved note renders where
+the Save button was, so the click leaves the pointer on it and `hover:text-zinc-900` applies — axe
+rated the hover value at about 16:1. **A walk that ends on a click rates whatever the cursor is
+sitting on.** One `page.mouse.move(0, 0)` closes it, and with it in place the same mutant reddens.
+Recorded in §9 beside the source census's own variant-prefix limit, which is the identical blind spot
+from the other side.
+
+**The DESIGN-SYSTEM AUDIT `MAINTAINING.md` has asked for every long run was finally RUN, 2026-08-13,
+and it is queued P1 work rather than a defect ledger.** Eleven divergences, every one confirmed by
+opening the file, and the headline is what they have in common: `npx vitest run
+lib/design-system.test.ts` is green 30/30 and every §9 grep is at target, so **all eleven are drift
+the ratchet structurally cannot see**. Ranked by what a flyer meets:
+
+1. **`app/methods/page.tsx:98` — every anchor on the longest surface in the app lands UNDER the
+   header.** Targets carry `scroll-mt-12` (48 px) beneath a strip measured at **62 px** at 390 px
+   coarse, against §5 `SectionNav`'s own contract that *"targets carry a scroll-margin-top so a
+   heading lands below it rather than under it"*. It is not one link: 51 `h3` ids, 11 group
+   sections, and **21 readings link into this page by id**, so every `?` a flyer presses — which is
+   owner note `ON-3`'s whole subject — arrives at a heading hidden behind the bar.
+2. **`components/CompareSurface.tsx:431` — `/compare` hand-rolls `<p role="status">Reading the
+   flights…</p>`** where §5's `Loading` exists and three other surfaces use it. The working
+   indicator `/` and `/stitch` show while files parse is absent on the one surface that re-reads
+   several files at once.
+3. **`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`** where
+   `NumberField` is the primitive that owns the refusal behaviour, at `h-11 w-28 px-2` with no `py`
+   against §4's `px-3 py-1.5`, and the unit baked into the label string.
+4. `components/ChannelExplorer.tsx:330` and `:416` — two hand-rolled chips at two different
+   heights beside real `ChipButton`s, which §5 names outright.
+5. `components/ChannelExplorer.tsx:513` — the explorer's chart is a bare `Card` plus a
+   hand-written axis line where §5's `Figure` owns exactly that row.
+6. `components/ChannelExplorer.tsx:259` — `if (selected.length === 0) return null;` deletes the
+   whole Explore-the-data section, heading included, with no `EmptyState`.
+7. `components/SampleTable.tsx:262`, `:271`, `:275` — `text-[11px]` on body text and on a live
+   region, where §3 reserves that size for axis ticks.
+8. `components/ChannelExplorer.tsx:424` — `Button variant="link"` re-adds control padding at the
+   call site, which is the one thing that weight is defined by not having.
+9. `components/ChannelExplorer.tsx:345` and six more — seven one-glyph controls hand-roll
+   `IconButton` across **five** geometries, and none wears `ghost`'s tint.
+10. `components/ChannelExplorer.tsx:751` (and `StitchSurface:377`, `CompareView:854`,
+    `ColumnMapper:186`) — four hand-rolled tables that cannot be sorted.
+11. `components/FlightReport.tsx:1256` — the range picker hand-rolls a one-of-N chip where
+    `Segmented` is the primitive.
+
+**What the list is really saying, and it belongs in the ratchet rather than in prose:** every count
+in §9 matches a class NAME or a variant STRING, so a primitive re-padded at its call site (8), a
+geometry that never reaches a primitive at all (9), and a `return null` where a state belongs (6)
+are all invisible to it. Rows 1–3 are the next P1 slices; 4–11 are one sweep of `ChannelExplorer`
+plus two small ones.
+
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
 
@@ -4447,6 +4526,38 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-13 — the prune notice was hoisted into its own component rather than duplicated into
+  the two branches that were missing it.** *Rejected:* pasting the JSX into the report and compare
+  branches, which is what the fastest fix looks like and would have made four copies of one
+  sentence about a flyer's deleted data. `GroupProposalBanner` set the precedent one file away, on
+  the identical argument. Reversal cost: inline it again.
+
+- **2026-08-13 — a dropped comparison's flight id is the LOGBOOK's, with the positional
+  `${name}-${i}` kept as a fallback.** *Rejected:* using `savedId` unconditionally, which is
+  cleaner and breaks the case the positional form was silently covering — a device that refused the
+  logbook write has no id at all, and two files in one drop can share a name, so the index is what
+  keeps them distinct. Reversal cost: drop the `??`.
+
+- **2026-08-13 — a qualified apogee stays IN the cross-check spread and carries a footnote, rather
+  than being dropped from it.** *Rejected:* excluding a contributor whose apogee is `(unproven)`,
+  which is what "a number Debrief does not stand behind is not a measurement" argues for on its own
+  terms. It loses more than it protects: a two-recording group would fall to one contributor and
+  print no apogee row at all, so a flyer whose second altimeter recorded garbage would be told
+  nothing — when a 192% gap is exactly the signal that one instrument is broken. The disagreement is
+  real; what was missing is that one side of it is disowned. Reversal cost: one `.filter()` in
+  `crossCheck`.
+
+- **2026-08-13 — the made-up claim rides in a trailing parenthetical on the copied landing
+  coordinate.** *Rejected:* a leading tag, which labels it more loudly and breaks the paste into a
+  maps app that the control exists for; and labelling only the screen, which is the surface that
+  does not travel. Reversal cost: one line in `GroundTrack`.
+
+- **2026-08-13 — `(GPS)` is its own tag and its own legend line rather than a clause of `(baro)`.**
+  *Rejected:* one tag reading "(derived)" for both. `lib/analyze/types.ts` already records why the
+  distinction is not cosmetic — a barometer is distorted by the shock over its port from about Mach
+  0.9 while a GPS is not, but a coarse, lagging GPS altitude differentiates HIGH instead — so one
+  tag would name a failure mode that is wrong half the time. Reversal cost: merge two predicates.
 
 - **2026-08-12 — a made-up flight's FIGURE grows the image rather than having the band drawn over
   the plot.** *Rejected:* a fixed canvas with the plot squeezed to fit, which is what `FlightCard`

@@ -26,6 +26,7 @@ import { useWindowFileDrop } from './useWindowFileDrop';
 import { useLogbook } from './useLogbook';
 import CompareView from './CompareView';
 import GroupProposalBanner from './GroupProposalBanner';
+import ForgottenBanner from './ForgottenBanner';
 import {
   fileFacts,
   saveRecent,
@@ -503,7 +504,20 @@ export default function Analyzer() {
         // input told it. Not reachable today — the marker is read on the mapper route only, and
         // the mapper takes one file at a time — and landed now rather than left for the slice
         // that makes it reachable, which is a generator writing a real logger's format.
-        const inputs = results.map((r, i) => ({ id: `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}), ...(isSynthetic(r.flight) ? { synthetic: true } : {}) }));
+        // **The id is the LOGBOOK's, not a position in this drop, and that was a Sev-1.** It read
+        // `${r.name}-${i}` while `r.savedId` — the real id — sat four lines below feeding the
+        // permalink this same screen offers. `lib/compareMemory.ts` keys everything a flyer builds
+        // on top of a comparison by `captionKey(ids)`, so the label, the notes, the hand-made
+        // column order, the metric sort and the per-flight colours were all filed under a key
+        // nothing can read back: pressing "Give this comparison an address →" reloaded the same
+        // flights under their real ids and came back blank, and the orphaned entry permanently
+        // burned one of `MAX_KEPT`'s 40 slots. Write-up work on a cert package, lost on the one
+        // navigation the screen sanctions.
+        //
+        // The positional form stays as the FALLBACK, for the case it was silently covering: a
+        // device that refused the logbook write has no `savedId`, and two files in one drop can
+        // share a name, so the index is what keeps their ids distinct.
+        const inputs = results.map((r, i) => ({ id: r.savedId ?? `${r.name}-${i}`, name: r.name, formatLabel: r.formatLabel, analysis: r.analysis, ...(r.flight.flownAt ? { flownAt: r.flight.flownAt } : {}), ...(isSynthetic(r.flight) ? { synthetic: true } : {}) }));
         const notes: string[] = [];
         // What the cap held back, from `ingestFiles` itself rather than recomputed here. The
         // two surfaces each worked this out their own way, which is what this module exists to
@@ -843,6 +857,11 @@ export default function Analyzer() {
             {state.note}
           </Notice>
         )}
+        {/* What the drop DELETED, on the screen the drop landed on. This branch returns without
+            the logbook, so a banner rendered only inside `RecentFlights` was invisible at exactly
+            the moment it applies — the same measurement that moved `GroupProposalBanner` out, and
+            worse here, because a prune is already done and the rows do not come back. */}
+        <ForgottenBanner forgotten={logbook.forgotten} onDismiss={logbook.clearForgotten} />
         <FlightReport
           flight={state.flight}
           analysis={state.analysis}
@@ -879,6 +898,7 @@ export default function Analyzer() {
           onGroup={logbook.group}
           onDismiss={logbook.clearArrived}
         />
+        <ForgottenBanner forgotten={logbook.forgotten} onDismiss={logbook.clearForgotten} />
         <CompareView
           comparison={state.comparison}
           note={state.note}

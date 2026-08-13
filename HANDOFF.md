@@ -6,150 +6,145 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **THREE squashed commits, all merged** — `f6ce4db` (PR #179, D10 slice 5i + a Sev-1), `1537fa2` (PR #180, P1's contrast slice) and `88e27f1` (PR #181, D10 slice 5j). Each was green on CI's own two jobs, corpus half included, before merging. Production was serving `cc48363` when this run started and `1537fa2` when `88e27f1` merged, so **re-measure the last one before believing it is live**: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **Nothing.** The branch is `origin/main` plus this correction. |
-| **Sev-1** | **One INHERITED, found by the opening sweep and fixed in `f6ce4db`** — see below. The baseline gate itself was green before anything was touched: unit 1354→1366 with the corpus attached, build clean, e2e 323. |
-| **D — capability** | **D10 slices 5i and 5j.** The channel explorer's four data exports carry the made-up claim, then the plot figures and both `.zip` bundles. `SINKS` **27 → 28**, `labelled` **12 → 18**, `todo` **10 → 5**. |
-| **P — product & craft** | **P1: both of `DESIGN.md` §9's recorded REACH gaps CLOSED** — the exported report's hand-written palette, and a census that rated only zinc. Three of §2's four semantic tokens turned out to be sub-AA as text; §2 moved with the sites. |
+| **Shipped to production** | **One squashed commit, merged** — `d7dee41` (PR #183), carrying D10 slices **5k and 5l**. Both CI jobs were green on it, corpus half included, before the merge. Re-measure before believing anything is live: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | Whatever sits on the working branch above `origin/main` — measure it, do not trust this line: `git rev-list --count origin/main..HEAD`. |
+| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched: unit 1,381 with the corpus attached, build clean, e2e 327. **Two Sev-1s were FOUND by the opening sweep and one is fixed** (the comparison's apogee cross-check, below); **two more survived refutation and are fixed too** — see below. Four Sev-1s found, four fixed. |
+| **D — capability** | **D10's labelling half is DONE.** `SINKS` reads **24 labelled · 5 carries · 0 todo across 29 rows**, from 18/5/5 across 28. What is left of D10 is (c) and (d): OFFERING the samples, which is the half a flyer can see. |
+| **P — product & craft** | **P1: the RENDERED contrast check reaches the states and the themes nothing audited** — 15 audits → 26, over 13 states × 2 themes. And **the design-system audit `MAINTAINING.md` asks for every long run was finally RUN**: 11 divergences, all queued into P1 in `ROADMAP.md`. |
 
 ## The corpus sweep, stated plainly
 
-**Ran, and found nothing.** `lib/parsers/corpus.test.ts` names its own count — **9 committed
-fixtures and 50 corpus recordings** — and the full unit suite finished **1376 passed across 91
-files** with it attached. An empty sweep is a result; the number is here so the next session can
-tell it apart from a suite that skipped itself. CI's `frontend` job ran the same suite plus the
-116-test corpus half and was green on `f6ce4db`.
+**Ran, and the metric-vs-series sweep found nothing.** `lib/parsers/corpus.test.ts` names its own
+count — **9 committed fixtures and 50 corpus recordings** — and the full unit suite finished **1,399
+passed across 91 files** with it attached. A throwaway probe also recomputed apogee (50 recordings),
+max speed (34), Mach (34), max acceleration (25) and deceleration (24), max-Q (34), rail exit (21),
+burnout time/altitude/velocity (39/37/34), drogue/main/whole descent rates (13/11/31), flight and
+descent time (29/30), TWR (18) and average boost (25) directly from `analysis.series` and diffed
+them against the reported scalars: **no Sev-1**. One low finding came out of it and is in
+`BACKLOG.md` (`maxDeceleration` is documented as "most negative" and is only the ascent minimum).
+
+**An empty sweep is a result.** The numbers are here so the next session can tell it apart from a
+suite that skipped itself.
+
+## The two other Sev-1s the sweep found — both FIXED this run
+
+Both were confirmed 3/3 by independent refuters, and both are one-way doors with real lost work.
+
+1. **`components/Analyzer.tsx` — the "N flights were forgotten to make room" notice reached only
+   `RecentFlights`,** which the report and compare early-returns never render. So the logbook
+   prune's IndexedDB deletions happened SILENTLY on every screen a drop actually lands on, while
+   the pruned rows' labels, notes and read windows were already gone. `e2e/logbook.spec.ts:504`
+   only ever saw the notice because it clicks "Analyze another flight" after every drop — the one
+   gesture that puts a flyer back on the logbook. Hoisted into `ForgottenBanner` and rendered on
+   the report, on the analyze route's comparison and on `/compare`'s own drop branch, which is
+   verbatim what `GroupProposalBanner` was hoisted out of the same component to fix.
+2. **`components/Analyzer.tsx` — a comparison built by dropping a folder minted `${name}-${i}`**
+   while `r.savedId` sat four lines below feeding the permalink the same screen offers.
+   `lib/compareMemory.ts` keys the label, the notes, the column order, the sort and the per-flight
+   colours by `captionKey(ids)`, so everything a flyer typed was filed under a key nothing could
+   read back: pressing "Give this comparison an address →" reloaded the same flights under their
+   real ids, blank, and the orphaned entry burned one of the 40 kept slots for good. The id is the
+   logbook's now, with the positional form kept as the fallback it was silently covering — a
+   device that refused the logbook write, where two files in one drop can share a name.
+
+Two other candidates from the same sweep were **REFUTED** and are recorded at their true severity:
+the batch-drop comparison DOES have an address (`Analyzer.tsx:523-526` computes `ids`/`addressable`
+from the logbook saves), and the channel explorer's preset ✕ is a one-tap delete but the view is
+trivially rebuildable, so it is friction rather than a one-way door.
+
+## What shipped, in order
+
+- **`65fff90` → merged in `d7dee41` — D10 slice 5k, the three exports a flyer WALKS TO.** `.gpx`,
+  `.kml` and the landing-coordinate copy. Each placement follows what its reader displays: the tag
+  on the track and waypoint names a handheld shows, the sentence in a document-level description
+  ahead of them, all three names Google Earth draws, and a trailing parenthetical on the coordinate
+  so a paste into a maps app still resolves.
+- **`16a7481` → merged in `d7dee41` — D10 slice 5l, the composite and the share link.** Per-row
+  provenance off `CompositeMark.synthetic`, set POSITIONALLY, because two logbook rows can share a
+  file name. Plus two defects it found: a `check` that read its own implementation file, and the
+  timeline card on screen, which carried no claim while sitting above the only notice the route had.
+- **`b9380aa` — the comparison stops publishing a spread over apogees it will not read plainly.**
+  The Sev-1, plus `(baro)` naming the wrong sensor, `(at least)` having no legend anywhere, and the
+  channel explorer publishing a bare apogee. See below.
+- **P1's rendered-contrast slice** — audits 15 → 26, over 13 states × 2 themes.
+- **The two remaining Sev-1s**, above: the prune banner where the drop lands, and the comparison's
+  ids. Each pinned by a walk that goes red against the code as it was, and each falsified beside
+  the walk that already existed and stayed green — which is what proves the old check could not
+  see the defect.
 
 ## The one thing to read before anything else
 
-**The pre-push review found, in the very panel the D-track slice had just finished, a FOURTH export
-that the sink audit had never enumerated** — while the slice had written, four lines away, that the
-claim "rides on every column this panel writes out". `ChannelExplorer`'s *"Copy these stats"* puts
-min/max/mean/Δ/rate per channel on the clipboard, and the comment above it calls those *"the numbers
-a cert document quotes"*. Unwire it and the new walk prints `Altitude (AGL)  ft  -8  5,459  3,574`
-going out bare.
+**Falsifying a check is what found everything worth knowing this run, and one of the falsifications
+found a blind spot in the checker rather than in the code.**
 
-**The lesson is the audit's, not the code's: a sink row named after one EXPORT cannot stand in for
-the other exports of the same component** — which is verbatim the correction that table recorded on
-2026-08-11 about a row named after a component. The `todo` count went 10 → 7 while `SINKS.length`
-went 27 → 28. **A `todo` count is a floor.**
+Injecting `text-zinc-400` (2.51:1) into the logbook note's resting class left the new a11y audit
+**green**. The saved note renders where the Save button was, so the click leaves the pointer on top
+of it and `hover:text-zinc-900` applies — axe rated the hover value at about 16:1. **A walk that
+ends on a click rates whatever the cursor is sitting on.** `page.mouse.move(0, 0)` before the audit
+closes it, and the same mutant then reddens. This is the identical blind spot `DESIGN.md` §9 already
+records for the SOURCE census (variant-prefixed states are not rated), arriving from the other side.
 
-## The Sev-1, and why the refutations mattered as much as the confirmation
+Eleven mutants were built across the run and every one went red for its own reason. Two of them are
+worth copying as a pattern: reverting `RailExit`'s caution to `amber-600` reddens *a marginal rail
+exit (light)* while the report, the mapper and the dark run stay green, and reverting the mapper's
+live region reddens *nothing mapped yet (light)* while *column mapper (light)* — the ready state that
+already existed — passes. **A pair like that is the proof a new walk reaches the STATE and not
+merely the route.** Without it, "I added an audit" is unfalsifiable.
 
-`crossCheck` excludes made-up flights. `recoveryDisagreement` — same panel, same list — did not, so
-a demonstration counted as a recording that *"resolved a deployment"* and two real recordings that
-AGREE could be told they differ about the flyer's own recovery system. Fixed in `lib/compare.ts`,
-filtering internally where a second caller cannot reintroduce it, alongside `statedDaySplit` and
-`undatedNote` (whose count parameter is now the flight array, because the count shape is what had
-all three callers passing the wrong number from one line each).
+## What the opening fan-out returned, and what it cost
 
-**Two other Sev-1 candidates from the same sweep did NOT survive**, and both refutations are in
-`BACKLOG.md` at their true severity:
+Seven investigators and 33 adversarial refuters, 40 agents. Findings that survived 3/3 are above and
+in `BACKLOG.md`; **two candidates were killed by refutation**, which is the point of running it that
+way. Two operational notes for the next session:
 
-- the recordings strip printing a bare apogee — refuted 3/3, because `RecordingPicker.tsx:88` already
-  withholds every figure for the recording you are *reading*. What survives is the SIBLING rows.
-- the logbook ✕ as a one-way door — refuted 2/3: the column mapping survives in `localStorage` and
-  auto-reapplies, the caption survives, the grouping is re-read from the file text. Only the typed
-  note is lost.
+- **This container has 4 CPUs, so the workflow ran 2 agents at a time and took ~80 minutes.** It
+  competed with the gate the whole time: one baseline e2e test failed at 15.9 s and passed in 1.5 s
+  re-run alone, and a full unit run exited 1 with all 1,390 tests passing on a
+  `[vitest-worker]: Timeout calling "onTaskUpdate"`. **Read the counts, not the exit code.**
+- **An investigation agent left `probe-refute-tmp.test.ts` in the repo root and it failed
+  `npm test`** while `git status` stayed clean — the vitest half of a trap `MAINTAINING.md` records
+  for `tsc` only. `npx vitest run lib` scopes to where all 91 test files actually live. Filed.
 
-**Send findings to be refuted, not confirmed.** Three of this run's own conclusions were overturned
-that way, and one of them was the headline number of the P-track slice.
+## The Sev-1, and the three siblings on the same surface
 
-## The pattern this run kept hitting, and it is the most useful thing here
+`crossCheck`'s apogee spec had no marker for a qualified apogee, so the agreement panel — the
+sentence a flyer reads to decide whether to trust a set — published a spread over numbers the table
+beside it tags `(at least)` / `(unproven)` and already refuses to crown. Measured: two intrepid
+TeleMetrum recordings print `996 m (at least)` and `1,082 m (at least)` and were reported as an
+**8.2%** disagreement between two lower bounds; a Blue Raven reading 9 m (unproven) beside a
+StratoLogger's 465 m was reported as **192.0%**.
 
-**Every one of the three pre-push reviews rejected work that the full gate had passed**, and in two
-cases the reason was that the check itself could not fail:
+The flag is fed by `apogeeIsQualified`, the table's own predicate, so the two cannot drift. **The
+contributors stay IN the spread rather than being dropped** — a two-recording group would otherwise
+fall to one contributor and print no apogee row at all, and a 192% gap is exactly the signal that one
+instrument is broken.
 
-- slice 5i's SINKS rows pointed at unit tests of the *writer*; delete the button's wiring and the
-  named check stayed green.
-- slice 5j's geometry assertion compared the band's own rect in one figure against the plot frame in
-  the other, so it asserted only "a band was drawn". **Three independent lenses each built the
-  mutant and showed it passing**, and two SINKS rows cited that string as their evidence.
-- the P-track census was extended to new hues and *narrowed* in the same edit; the counter that
-  should have seen it did not move, because the new rating replaced the old one for one.
+Three more of the same shape, all found by pointing the sweep at one surface:
 
-The gate going green is not evidence a check works. **Build the mutant.** Every assertion this run
-shipped was falsified by breaking the thing it names and watching it go red for the right reason —
-and that is the step that found all three.
-
-## Four things this run learned the hard way
-
-1. **This repo ships Tailwind 4, and every palette table in it was Tailwind 3.** `lib/design-system.test.ts`'s
-   `ZINC` map, and the hue ramps first written this run, were v3 hex; the app renders `oklch()`.
-   zinc agrees between the two to about a unit per channel — which is why that map has been quietly
-   correct for months, and exactly why extending to other hues is what exposed it. On indigo the
-   difference **decides an AA verdict**: §9 recorded `indigo-500` at "4.47:1, three hundredths under
-   AA" and v4's renders **4.58:1, passing**. The ramps are rasterised from the built stylesheet's
-   own `oklch()` onto a 1×1 canvas now. Do not hand-edit an entry; re-measure.
-2. **Widening a check can NARROW it, silently.** Adding hues to the contrast census made the
-   per-literal match take an indigo where it used to take a zinc, and **eight sites lost their grey
-   rating** with the `rated` counter unmoved, because the new rating replaced the old one for one.
-   Every ramp has a floor of its own now. Reverting to zinc-only had left `rated` at 359 against a
-   `> 60` assertion — and green.
-3. **The rendered contrast check §9 asks for already existed; nobody had opened the FILE.** axe's
-   `color-contrast` is inside the `wcag2aa` tag every audit in `e2e/a11y.spec.ts` already ran, with
-   no rule disabled. Six e2e sites download the exported HTML report and every one asserts the
-   filename and discards the bytes. `dl.saveAs()` with a real `.html` name plus
-   `page.goto('file://…')` is the whole check. **Save it with an extension** — the raw download path
-   has none, and Chromium then offers it as a download instead of rendering, so the audit "passes"
-   over an empty page.
-4. **A `<` is not always a tag opener.** The census scanned every `<`, and `Math.abs(v) < 100` opened
-   a "tag" it ran forward through real JSX, fabricating two failures at 1.77:1 and 2.34:1 on text
-   that renders above 7:1 and 5:1. It had never fired only because that span happened to contain no
-   `text-zinc-`. Fixed at the scanner, not exempted.
-
-## One process lesson, because it cost an hour
-
-**Do not push four times in three minutes to a branch with an open pull request.** `test.yml` fires
-on every `pull_request` synchronize with no `concurrency:` group, so four pushes queued four full
-runs — unit + the 116-test corpus half + e2e, each — and they starved each other on shared runners.
-The run that mattered took **~6 minutes of work and about an hour of waiting**. Batch the docs
-commits with the code commit, or push once and amend; and if a `concurrency: cancel-in-progress`
-group ever goes into that workflow, this is the measurement that justifies it.
-
-## Two clocks, fixed rather than re-diagnosed
-
-Both were pre-existing and both read as a broken tree. `lib/canonical.test.ts`'s corpus round-trip
-ran **29,814 ms against `vitest.config.ts`'s 30,000 ms** and went red at 31,890 ms under load — that
-config's own reasoning ("30 s is ~12× the slowest test that runs on this default") had been overtaken
-by the corpus growing. `e2e/audit3.spec.ts` waited on a whole analysis at Playwright's **5 s** default
-where every sibling spec names 20–60 s. Both now name a timeout.
-
-**One or two failures in a full run that pass in isolation is a clock, not a defect.** Check what
-else is running before reading a line of the diff — a review workflow with three agents is enough
-load to do it, and a vitest run under that also emitted `[vitest-worker]: Timeout calling
-"onTaskUpdate"` twice and exited 1 with all 1,381 tests passing.
+- **`(baro)` named the wrong sensor.** `maxVelocitySource`'s `'baro'` means DERIVED; the altitude it
+  came from is `derivedVelocityFrom`. A GPS-differentiated peak was blamed on a barometer on Max
+  velocity, Max Mach and Max Q at once. `(GPS)` is its own tag with its own legend, because the two
+  fail in opposite directions.
+- **`(at least)` had no legend anywhere** — not on screen, not in the Markdown footer, not in the
+  HTML notes — while the four tags around it had all three.
+- **The channel explorer published a bare apogee**: its stats table takes each plotted channel's max,
+  and the max of the altitude IS the apogee.
 
 ## Pick this up first
 
-**The P-track's next slice is named by §9's own new limits section**, and it is cheaper than it
-looks: **grow the RENDERED check to the app's own routes in the states nothing audits today** — an
-unmapped column, a marginal rail exit, an undetected liftoff, a flight with a note. axe is already
-reaching for those rules; what is missing is a walk that reaches the STATE. That also routes around
-every limit the source census still has, and they are listed in §9: ancestor fills, the `/NN`
-opacity suffix, variant-prefixed states (`hover:` — five links carried the failing value one
-pointer-move away and were found by hand, not by check), and the largest one, **the `ui.tsx` tone
-TABLES are not read at all** because `CARD_TONES` / `CHIP_TONES` / `NOTICE_TONES` are `const` object
-literals rather than opening tags. §5 is where the hue vocabulary is supposed to live, and the
-census cannot see it.
-
-**The D-track continues inside D10**, whose FIVE remaining `todo` sinks are listed in `ROADMAP.md`
-with the code that has to change: `/stitch`'s timeline clipboard table (wants `PROVENANCE_COLUMN`
-from `lib/logbook.ts`, not a second answer), `.gpx` and `.kml` (both named in D10's own *done when*;
-`trackGpx` already writes a `<desc>` a sentence can ride in and `trackKml` has two `<name>` slots),
-the landing-coordinate copy, and the share link — where the behaviour is already right and only the
-assertion is missing.
-
-**Then (c): offer the mapper sample.** The generated file has been written and tested since
-2026-08-09 and is held back, not missing. Note the trap recorded in `ROADMAP.md`:
-`lib/samples.test.ts` asserts every single-file sample auto-detects as a flight, which a mapper
-sample cannot do by definition — that needs a second KIND, not a loosened assertion.
-
-**Then, in `BACKLOG.md` and ranked there**, four verified findings this run filed and did not take,
-newest first: `recoveryDisagreement` is on the SCREEN only, so the saved `.md`/`.html`/`.json`
-comparison is silent about a recovery split the panel calls out; the recordings strip's bare sibling
-figures; the logbook ✕'s note loss; and `lib/composite.ts:148`'s transitive simultaneity grouping,
-which can print `/stitch` marks out of time order.
+1. **P1's next slices are the design-system audit's top three, now queued in `ROADMAP.md`** —
+   `app/methods/page.tsx`'s `scroll-mt-12` under a 62 px strip (51 heading ids, and 21 readings link
+   into that page, so every `?` a flyer presses lands behind the bar); `/compare`'s hand-rolled
+   loading state where §5's `Loading` exists; and `CropControl`'s two raw number inputs where
+   `NumberField` is the primitive that owns the refusal behaviour.
+2. **D10 (c): offer the mapper sample.** Written and tested since 2026-08-09, held back rather than
+   missing. The trap is recorded in `ROADMAP.md`: `lib/samples.test.ts` asserts every single-file
+   sample auto-detects as a flight, which a mapper sample cannot do — that needs a second KIND, not
+   a loosened assertion.
+3. **`COMPETITION.md` row 44's action**, which is also row 43's: `<src>` in the GPX and
+   `<ExtendedData>` in the KML carrying the board identity `flight.meta` already holds. One
+   increment, two rows resolved. AltosUI puts serial and flight number on every CSV row and in the
+   KML document name; both track schemas reserve a provenance field and Debrief uses neither.
 
 ## The corpus
 
@@ -160,13 +155,16 @@ did not have a corpus.
 
 ## Environment
 
-`npx playwright install chromium` is needed every session: the image ships chromium-1194 and this
-Playwright wants 1228, and `playwright.config.ts` refuses the mismatch on purpose. It succeeds
-through the proxy in about a minute. Do **not** set `PLAYWRIGHT_CHROMIUM_PATH` afterwards — plain
-`npx playwright test` is what runs green. **`node_modules` also arrives empty**, so `npm install`
-is the first command of the run, not an assumption. Both are standing candidates for the
-environment's setup script; paying for them every session is the only reason they are here.
+`npm install` first — `node_modules` arrives empty. Then `npx playwright install chromium`: the image
+ships chromium-1194, this Playwright wants 1228, and `playwright.config.ts` refuses the mismatch on
+purpose. It succeeds through the proxy in about a minute. Do **not** set `PLAYWRIGHT_CHROMIUM_PATH`
+afterwards. Both are standing candidates for the environment's setup script; paying for them every
+session is the only reason they are here.
+
+**Four CPUs.** Do not run a heavy fan-out and a gate at the same time and then believe the gate —
+re-run any single failure in isolation before reading a line of the diff.
 
 The git identity arrives as the harness vendor's default and must be set per-repo before the first
 commit: `Neer Patel <135655563+nrdptel@users.noreply.github.com>`. The harness also appends an
-attribution footer to a pull request body after posting; read the body back and strip it.
+attribution footer to a pull request body after posting; read the body back and strip it. It did
+this run, and it was stripped.

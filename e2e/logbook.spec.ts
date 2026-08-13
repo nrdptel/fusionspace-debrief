@@ -556,6 +556,45 @@ test('the logbook says what it keeps, and names what it forgot', async ({ page }
   await expect(page.getByRole('status').filter({ hasText: 'forgotten' })).toHaveCount(0);
 });
 
+/**
+ * The same prune, on the screen the drop actually lands on.
+ *
+ * The walk above only ever saw the banner because it clicks "Analyze another flight" after every
+ * drop — and that is the one gesture that puts a flyer back on the logbook. A flyer who drops a
+ * file and READS IT was told nothing: the report branch returns without `RecentFlights`, so the
+ * notice was rendered nowhere on the screen they were standing on, while the deletion had already
+ * happened and the pruned rows' labels, notes and read windows were gone for good.
+ */
+test('a flight forgotten to make room is named on the report the drop landed on', async ({ page }) => {
+  await page.goto('/');
+  const dropAndReturn = async (i: number) => {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name: `room-${String(i).padStart(2, '0')}.csv`, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  };
+  // Fill the window exactly, then drop ONE more and STAY on its report.
+  for (let i = 1; i <= 12; i++) await dropAndReturn(i);
+  await expect(page.getByRole('heading', { name: /Recent flights/ })).toContainText('12/12 un-noted');
+
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({ name: 'room-13.csv', mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv()) });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 30_000 });
+  // Still on the report — the logbook is not on this screen at all.
+  await expect(page.getByRole('heading', { name: /Recent flights/ })).toHaveCount(0);
+
+  const message = page.getByRole('status').filter({ hasText: 'forgotten' }).first();
+  await expect(message, 'the prune is named where the flyer is standing').toBeVisible();
+  await expect(message).toContainText(/room-\d\d\.csv/);
+  // The same structure the logbook's copy is held to: the live region is the MESSAGE, and the
+  // dismiss control sits outside it.
+  await expect(message.getByRole('button', { name: 'Got it' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Got it' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'forgotten' })).toHaveCount(0);
+});
+
 // The report lived only in React state, so all seven in-app links on that screen — Analyze
 // and Compare in the header, "Read the methods →", and Methods/Validation/Privacy in the
 // footer — destroyed it, and Back landed on an empty drop zone. `?open=<id>` already restored

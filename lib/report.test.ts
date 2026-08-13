@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RawFlight } from './flight/types';
 import { analyzeFlight } from './analyze';
-import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasClippedAccel, recordingLine } from './report';
+import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasClippedAccel, compareHasFloorApogee, compareHasGpsDerivedSpeed, compareHasBaroDerived, LEGEND_FLOOR, recordingLine } from './report';
 import { buildComparison, type CompareInput } from './compare';
 import { PROVENANCE_COLUMN, provenanceCell } from './synthetic';
 import { landingRateIsWholeDescent } from './readings';
@@ -216,6 +216,40 @@ describe('report exports', () => {
     expect(JSON.stringify(settled).includes('(at least)')).toBe(false);
   });
 
+  it('explains the “(at least)” tag it prints, on the screen, the .md and the .html', () => {
+    // Every other per-cell tag in this table — `(baro)`, `(clipped)`, `(unproven)`, `(stops in the
+    // air)` — earned a legend line in all three places. This one had none anywhere, so the tag
+    // that says *the rocket was still climbing when the recording stopped* travelled into a cert
+    // package as a bare parenthetical. `CompareFlight` carries no warnings, so the parenthetical
+    // is the only signal there is.
+    const flight = tinyFlight();
+    const analysis = analyzeFlight(flight);
+    const build = (metricsList: (typeof analysis.metrics)[]) =>
+      buildComparison(
+        metricsList.map((m, i) => ({
+          id: `f${i}`,
+          name: `flight ${i}.csv`,
+          formatLabel: 'Test',
+          flight,
+          analysis: { ...analysis, metrics: m },
+        })) as unknown as CompareInput[],
+      );
+
+    const withFloor = build([analysis.metrics, { ...analysis.metrics, apogeeIsFloor: true }]);
+    const settled = build([analysis.metrics, analysis.metrics]);
+    expect(compareHasFloorApogee(withFloor.flights)).toBe(true);
+    // The half that makes this able to fail: an ordinary pair must not carry the line.
+    expect(compareHasFloorApogee(settled.flights)).toBe(false);
+
+    for (const doc of [compareMarkdown(withFloor, 'metric'), compareHtml(withFloor, 'metric')]) {
+      expect(doc, 'the tag is explained where it is printed').toContain('LOWER BOUND');
+      expect(doc).toContain('no “highest” is crowned');
+    }
+    expect(compareMarkdown(settled, 'metric'), 'and not where it is not').not.toContain('LOWER BOUND');
+    // One sentence, shared, so the three surfaces cannot drift into three accounts of one tag.
+    expect(LEGEND_FLOOR).toContain('LOWER BOUND');
+  });
+
   it('tags a derived peak speed and Mach on the comparison, even when every flight derived it', () => {
     // The Sev-1 this test exists for, reproduced before it was fixed: two PerfectFlite altimeters
     // in one airframe — the canonical comparison — are BOTH baro, so the old `velMixed` gate
@@ -257,6 +291,65 @@ describe('report exports', () => {
     // …and the crown on max Q, for the same reason: a column mixing a measured speed with a
     // differentiated one cannot say which airframe was worked hardest.
     expect(mixed.find((r) => r.label === 'Max Q')!.best, 'no crown on a v² figure across two methods').toBe(-1);
+  });
+
+  it('names the altitude a derived peak was actually differentiated from, not the enum', () => {
+    // `maxVelocitySource`'s `'baro'` means DERIVED, not barometric; which altitude it came from is
+    // `derivedVelocityFrom`. So a GPS-differentiated peak was blamed on a barometer, on Max
+    // velocity, Max Mach and Max Q at once. `lib/analyze/types.ts` states why that is not
+    // cosmetic: a barometer is distorted by the shock over its port from about Mach 0.9, a GPS is
+    // not — but a coarse, lagging GPS altitude differentiates HIGH instead. Naming the wrong one
+    // names the wrong failure, on a supersonic claim, in the one artifact with no warnings block.
+    const flight = tinyFlight();
+    const analysis = analyzeFlight(flight);
+    const inputs = (metricsList: (typeof analysis.metrics)[]): CompareInput[] =>
+      metricsList.map((m, i) => ({ id: `f${i}`, name: `flight ${i}`, flight, analysis: { ...analysis, metrics: m } })) as unknown as CompareInput[];
+    const rowsFor = (metricsList: (typeof analysis.metrics)[]) =>
+      compareMetricRows(buildComparison(inputs(metricsList)).flights, 'metric');
+    const cellsOf = (rows: ReturnType<typeof compareMetricRows>, label: string) => rows.find((r) => r.label === label)!.cells;
+
+    const base = { ...analysis.metrics, maxVelocity: 447, mach: 1.32, maxVelocityWithheld: null, maxDynamicPressure: 116_400 };
+    const fromGps = { ...base, maxVelocitySource: 'baro' as const, derivedVelocityFrom: 'gps' as const };
+    const fromBaro = { ...base, maxVelocitySource: 'baro' as const, derivedVelocityFrom: 'baro' as const };
+
+    // All three rows that ride on the speed, because the defect was on all three at once.
+    for (const label of ['Max velocity', 'Max Mach', 'Max Q']) {
+      for (const cell of cellsOf(rowsFor([fromGps, fromGps]), label)) {
+        expect(cell, `${label} names the GPS`).toContain('(GPS)');
+        expect(cell, `${label} does not blame the barometer`).not.toContain('(baro)');
+      }
+      // The other direction, so the tag still means something: a barometric derivation is still
+      // `(baro)` and is never relabelled.
+      for (const cell of cellsOf(rowsFor([fromBaro, fromBaro]), label)) {
+        expect(cell, `${label} still names the barometer`).toContain('(baro)');
+        expect(cell, `${label} is not a GPS`).not.toContain('(GPS)');
+      }
+    }
+
+    // And the legends follow the cells: each tag earns its own line, and neither appears alone.
+    const gpsFlights = buildComparison(inputs([fromGps, fromGps])).flights;
+    const baroFlights = buildComparison(inputs([fromBaro, fromBaro])).flights;
+    expect(compareHasGpsDerivedSpeed(gpsFlights)).toBe(true);
+    expect(compareHasGpsDerivedSpeed(baroFlights)).toBe(false);
+    expect(compareHasBaroDerived(baroFlights)).toBe(true);
+    // The GPS-only set may still read `(baro)` on ACCELERATION, which is genuinely barometric —
+    // that is the one legitimate reason the barometric legend appears beside a GPS-derived speed.
+    expect(compareHasBaroDerived(gpsFlights)).toBe(gpsFlights[0].metrics.accelerationSource === 'baro');
+    const named = [fromGps, fromGps].map((m, i) => ({
+      id: `f${i}`,
+      name: `flight ${i}.csv`,
+      formatLabel: 'Test',
+      flight,
+      analysis: { ...analysis, metrics: m },
+    })) as unknown as CompareInput[];
+    const md = compareMarkdown(buildComparison(named), 'metric');
+    expect(md, 'the .md explains the tag it prints').toContain('(GPS) — differentiated out of a GPS altitude');
+    // The barometric legend may ALSO be there, and legitimately: this fixture's acceleration is
+    // derived, which is genuinely barometric. What must not happen is the speed cells carrying the
+    // barometer's name, and that is asserted cell by cell above.
+    expect(md.includes('(baro) — differentiated out of the barometric altitude')).toBe(
+      compareHasBaroDerived(gpsFlights),
+    );
   });
 
   it('tells a withheld peak speed apart from a flight that never had one, on the comparison', () => {

@@ -5,7 +5,7 @@
 
 import type { RawFlight } from './flight/types';
 import type { FlightSeries, FlightMetrics } from './analyze/types';
-import { withheldReason } from './readings';
+import { apogeeCaveat, apogeeIsQualified, withheldReason, type ApogeeCaveatFacts } from './readings';
 import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, unitsOf, type UnitChoice, accelIn } from './display';
 import { formulaGuard } from './csv';
 import { PROVENANCE_COLUMN, PROVENANCE_MIXED, provenanceCell, syntheticHeader } from './synthetic';
@@ -239,7 +239,7 @@ export function windowStats(
 export function buildPlotChannels(
   flight: RawFlight,
   series: FlightSeries,
-  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'>,
+  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'> & ApogeeCaveatFacts,
 ): PlotChannel[] {
   // The peak speed the report refused, and why. `series.velocityUnusable` is the flag; the
   // REASON lives on the metrics, so the caveat is fuller when a caller has them — and a caller
@@ -251,11 +251,20 @@ export function buildPlotChannels(
       }`
     : undefined;
 
+  // **The same rule, one channel over.** This panel's stats table publishes each plotted
+  // channel's max — and the max of the altitude IS the apogee, the reading every other surface
+  // qualifies when the log ends at its own peak or when Debrief has disowned the channel. Only
+  // the velocity carried a caveat here, so `Copy these stats` and the `.csv` beside it wrote a
+  // bare apogee out of a report whose grid, print card and every export said it was a lower
+  // bound. `apogeeCaveat` is the tile's own sentence, shared rather than restated.
+  const altitudeCaveat = metrics && apogeeIsQualified(metrics) ? apogeeCaveat(metrics) : undefined;
+
   const out: PlotChannel[] = [
-    { key: 'd-altitude', label: 'Altitude (AGL)', group: 'Debrief', values: series.altitude, ...display('m') },
+    { key: 'd-altitude', label: 'Altitude (AGL)', group: 'Debrief', values: series.altitude, ...display('m'), caveat: altitudeCaveat },
     // The pre-filter altitude — overlay it with the cleaned line to see exactly
-    // what spike-removal took out (e.g. an ejection charge's pressure pop).
-    { key: 'd-altitude-raw', label: 'Altitude (raw)', group: 'Debrief', values: series.altitudeRaw, ...display('m') },
+    // what spike-removal took out (e.g. an ejection charge's pressure pop). It carries the same
+    // caveat: a reader comparing the two lines is reading the same apogee off both.
+    { key: 'd-altitude-raw', label: 'Altitude (raw)', group: 'Debrief', values: series.altitudeRaw, ...display('m'), caveat: altitudeCaveat },
     { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s'), caveat: velocityCaveat },
   ];
   // Acceleration is offered only when it was measured. A baro-derived acceleration is the

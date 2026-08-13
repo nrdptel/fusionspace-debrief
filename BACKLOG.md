@@ -14,6 +14,15 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-13 — `maxDeceleration` is documented as "most negative" and is only the ASCENT
+  minimum.** `lib/analyze/types.ts:70` says most negative; `lib/analyze/index.ts:1851` computes
+  `argMin(signedAccel, liftoffRef, apogeeIdx + 1)`, so the window stops at apogee and a harder
+  deceleration under drogue or at main deploy is never seen. Confirmed by a corpus sweep this run
+  and left unfixed because it is not clear which reading the surfaces WANT: the ascent minimum is
+  the airframe's boost-phase load case, and widening the window would change a published number on
+  every flight with a main deploy. Decide the meaning first, then change the docstring or the
+  window — not both at once, and say which in the changelog if the number moves.
+
 - **2026-08-13 — a throwaway probe in the repo root fails `npm test`, not just `npm run build`, and
   `git status` stays clean while it does.** `MAINTAINING.md` records the `tsc --noEmit` half of this
   (a probe with a type error turns the build red over an apparently clean tree); the vitest half is
