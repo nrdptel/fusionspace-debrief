@@ -506,6 +506,19 @@ runs.
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
+- **2026-08-13 — a `DESIGN.md` §9 change is OWED to the sibling repo and unshipped there**, because
+  it was not attached to this session. §9's contrast block gains what the rendered check now covers
+  (13 states × 2 themes, replacing a paragraph that said the states "should" be covered), the two
+  falsification pairs that prove a walk reaches a STATE rather than a route, and **a limit of the
+  rendered check that is new and applies to both apps: a walk that ends on a click rates whatever
+  the cursor is sitting on.** Injecting a 2.51:1 value into a resting class left an audit green
+  because the pointer was parked on the element and its `hover:` colour rendered instead;
+  `page.mouse.move(0, 0)` before the audit closes it. Neither §9 nor §5 is in
+  `lib/design-shared.test.ts`'s digest span, so nothing fails in either repo today — the drift is
+  silent, which is exactly the condition that span exists to end. **Proceeding on: Debrief ships it
+  now and the sibling inherits it in the first run that has both attached** — one paste of the §9
+  contrast block, plus the one-line pointer fix in whatever a11y walks that repo has.
+
 - **2026-08-11 — a `DESIGN.md` §2 and §9 change is OWED to the sibling repo and unshipped there**,
   because it was not attached to this session. §2's `tertiary` row gains a hard restriction —
   *nothing a flyer reads* — with the measurement behind it (4.12:1 on the dark page, 3.67:1 on dark

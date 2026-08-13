@@ -3815,6 +3815,36 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — the RENDERED contrast check reaches the states and the themes nothing audited, which
+was §9's own named next slice.** Two gaps, and the second was not in the brief: the four state
+audits §9 asked for (an unmapped column, a marginal rail exit, an undetected liftoff, a flight with
+a note) plus **the theme half of the contract** — every audit in `e2e/a11y.spec.ts` except the
+four-route loop ran in ONE theme, because `playwright.config.ts` sets no `colorScheme` and
+Playwright's default is light. So the report, the mapper, the comparison and the logbook had been
+rated at half of what §9 defines the check as, for as long as they have been audited.
+
+**Audits 15 → 26, over 13 states × 2 themes.** Every state is written once and run in both. The
+three reached by a fixture rather than by hand are the useful part: the mapper's blocking live
+region only renders when the guess FAILS (its headers are guessed, so `ready` is true on arrival and
+the region renders an empty string); the marginal rail exit needed a fixture reading 15.2 m/s at 8 ft
+against a bundled sample that reads 29.4 and is never marginal at any rail length; and no fixture
+anywhere reaches `liftoffDetected === false`, so the walk builds one by keeping a real record from
+its own apogee onward.
+
+**Falsified by putting a failing value back and watching exactly ONE audit go red** — `amber-600` on
+the rail caution reddens *a marginal rail exit (light)* while the report, the mapper and the dark run
+stay green; on the mapper's live region it reddens *nothing mapped yet (light)* while *column mapper
+(light)*, the ready state that already existed, passes. That pair is what proves the walks reach the
+STATE rather than the route.
+
+**And falsifying it found a blind spot in the rendered check itself.** Injecting `text-zinc-400`
+(2.51:1) into the logbook note's resting class left the audit GREEN: the saved note renders where
+the Save button was, so the click leaves the pointer on it and `hover:text-zinc-900` applies — axe
+rated the hover value at about 16:1. **A walk that ends on a click rates whatever the cursor is
+sitting on.** One `page.mouse.move(0, 0)` closes it, and with it in place the same mutant reddens.
+Recorded in §9 beside the source census's own variant-prefix limit, which is the identical blind spot
+from the other side.
+
 **The DESIGN-SYSTEM AUDIT `MAINTAINING.md` has asked for every long run was finally RUN, 2026-08-13,
 and it is queued P1 work rather than a defect ledger.** Eleven divergences, every one confirmed by
 opening the file, and the headline is what they have in common: `npx vitest run

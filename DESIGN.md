@@ -960,10 +960,44 @@ admitted.** The source census reads only what a JSX opening tag carries:
   design, since a hover hint is not the resting colour. The five `hover:text-indigo-500` links this
   run found by hand rather than by check are what that limit costs.
 
-The RENDERED check has none of these limits and should grow to cover the app's own routes in the
-states nothing audits today — an unmapped column, a marginal rail exit, an undetected liftoff. That
-is the next slice, and it is cheaper than it looks: `color-contrast` is already inside the `wcag2aa`
-tag every audit runs, so it is reaching those states, not writing a checker.
+**The RENDERED check now covers those states, 2026-08-13, and in BOTH themes.** It had none of the
+source census's limits and one of its own: **every audit in `e2e/a11y.spec.ts` except the four-route
+loop ran in ONE theme**, because `playwright.config.ts` sets no `colorScheme` and Playwright's
+default is light — so the report, the mapper, the comparison and the logbook were rated at half of
+what this block defines the check as. Every surface audit is now written once and run in both, and
+five states nothing had reached are walked:
+
+```bash
+npx playwright test e2e/a11y.spec.ts        # target: green — 26 audits over 13 states × 2 themes
+```
+
+| state | why nothing reached it | what it rates |
+|---|---|---|
+| the mapper with nothing mapped | `elapsed`/`height` are GUESSED, so `ready` is true on arrival and the amber live region renders an empty string | the sentence standing between a flyer and a reading |
+| a marginal rail exit | the bundled sample reads 29.4 m/s at 8 ft and is never marginal at any rail length | a flight-safety caution |
+| a comparison with no detected liftoff | no fixture reaches it — every one that parses yields a liftoff | the `≈ est. liftoff` column caveat |
+| a logbook note, being written and saved | the logbook audit only ever rendered the UN-noted branch | four treatments, incl. the ✎'s noted branch |
+| the clear-confirm with a note at risk | same | the extra sentence it grows |
+
+**Each was falsified by putting a failing value back and watching exactly ONE audit go red.** Revert
+`RailExit`'s caution to `text-amber-600` and *a marginal rail exit (light)* fails while the report,
+the mapper and the dark run stay green; revert the mapper's live region and *column mapper, nothing
+mapped yet (light)* fails while *column mapper (light)* — the ready state, the one that already
+existed — passes. That pair is the proof the walks reach the STATE and not merely the route.
+
+**And the rendered check has a blind spot of its own, found by falsifying it.** Injecting
+`text-zinc-400` (2.51:1) into the logbook note's resting class left the audit GREEN: the saved note
+renders where the Save button was, so the click leaves the pointer on top of it and
+`hover:text-zinc-900` applies — axe rated the hover value at about 16:1. **A walk that ends on a
+click rates whatever the cursor is sitting on.** `page.mouse.move(0, 0)` before the audit closes it,
+and it is the same blind spot this block already records for the source census (variant-prefixed
+states are not rated), arriving from the other side.
+
+**One limit stated rather than hidden:** `audit()` asserts on axe's `violations` and ignores its
+`incomplete` bucket, which on the logbook state holds **10** `color-contrast` nodes axe declined to
+decide — decorative `aria-hidden` glyphs and controls whose background it could not resolve. Those
+are unrated rather than passing. Promoting them wholesale would turn the gate red on compliant code;
+the useful next step is to read that list once and either fix or exempt each node by name.
 
 ---
 
