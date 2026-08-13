@@ -30,7 +30,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button, Card, ChipButton, CopyTableButton, Segmented } from './ui';
+import { Button, Card, Chip, ChipButton, CopyTableButton, DismissibleChip, Segmented } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -324,31 +324,47 @@ export default function ChannelExplorer({
 
       {/* Selected Y channels as removable chips */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {selected.map((c, i) => (
-          <span
-            key={c.key}
-            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white py-1 pl-2 pr-1 text-xs dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: COMPARE_PALETTE[i % COMPARE_PALETTE.length] }}
-              aria-hidden="true"
+        {selected.map((c, i) =>
+          // **A `Chip` on the LAST one, not a `DismissibleChip` with a hidden ✕**, and the two are
+          // the same height by construction — §5's rule. The remove control disappears on the last
+          // channel because a plot of nothing is not a state this panel has; a chip that keeps the
+          // control and refuses the press would be the "control that lies" tell instead.
+          selected.length > 1 ? (
+            <DismissibleChip
+              key={c.key}
+              swatch={COMPARE_PALETTE[i % COMPARE_PALETTE.length]}
+              onDismiss={() => setYKeys((ks) => ks.filter((k) => k !== c.key))}
+              dismissLabel={`Remove ${c.label} from the plot`}
+              dismissTitle="Remove"
+            >
+              {c.label}
+              {c.unitLabel(sys) && <span className="ml-1.5 font-normal text-zinc-600 dark:text-zinc-400">{c.unitLabel(sys)}</span>}
+            </DismissibleChip>
+          ) : (
+            <Chip
+              key={c.key}
+              mono={false}
+              lead={
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: COMPARE_PALETTE[i % COMPARE_PALETTE.length] }}
+                  aria-hidden="true"
+                />
+              }
+              value={
+                <>
+                  <span className="font-medium">{c.label}</span>
+                  {/* `zinc-600`, not the `zinc-500` this chip carried when it was hand-rolled on `bg-white`.
+                      `Chip`'s `default` tone is a raised `zinc-100` tile, and the same ink over that fill
+                      measures 4.4:1 — under AA. §9's SOURCE census cannot see it (the class has a `dark:`
+                      partner and no `/NN` opacity, so it rates clean); axe caught it on the report the first
+                      time this branch rendered. Same ink, different FILL. */}
+                  {c.unitLabel(sys) && <span className="ml-1.5 text-zinc-600 dark:text-zinc-400">{c.unitLabel(sys)}</span>}
+                </>
+              }
             />
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.label}</span>
-            {c.unitLabel(sys) && <span className="text-zinc-500 dark:text-zinc-400">{c.unitLabel(sys)}</span>}
-            {selected.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setYKeys((ks) => ks.filter((k) => k !== c.key))}
-                aria-label={`Remove ${c.label} from the plot`}
-                title="Remove"
-                className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              >
-                ✕
-              </button>
-            )}
-          </span>
-        ))}
+          ),
+        )}
         {offerable.length > 0 && (
           <select
             aria-label="Add a channel to the plot"
@@ -410,31 +426,21 @@ export default function ChannelExplorer({
             {b.name}
           </ChipButton>
         ))}
+        {/* A saved view is the one chip here with TWO things to do — apply it, and forget it — so
+            it is `DismissibleChip` with `onActivate` rather than a `ChipButton`. It used to hand-roll
+            the shape at `py-0.5 pl-1.5 pr-0.5` with a `Button variant="link"` re-padded at the call
+            site, and measured 34 px beside the 26 px built-in views next to it. */}
         {presets.map((p) => (
-          <span
+          <DismissibleChip
             key={p.name}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white py-0.5 pl-1.5 pr-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+            onActivate={() => applyPreset(p)}
+            activateTitle={`Plot the “${p.name}” view`}
+            onDismiss={() => setPresets(deletePreset(p.name))}
+            dismissLabel={`Forget the ${p.name} view`}
+            dismissTitle="Forget this view"
           >
-            <Button
-              variant="link"
-              onClick={() => applyPreset(p)}
-              title={`Plot the “${p.name}” view`}
-              // Keeps its own min-height: on a FINE pointer nothing floors this, and the saved
-              // view's name sits in a chip row beside 28 px built-in view buttons.
-              className="min-h-[1.75rem] px-1"
-            >
-              {p.name}
-            </Button>
-            <button
-              type="button"
-              onClick={() => setPresets(deletePreset(p.name))}
-              aria-label={`Forget the ${p.name} view`}
-              title="Forget this view"
-              className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            >
-              ✕
-            </button>
-          </span>
+            {p.name}
+          </DismissibleChip>
         ))}
         {naming ? (
           <span className="inline-flex items-center gap-1">

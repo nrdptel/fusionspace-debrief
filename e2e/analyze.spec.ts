@@ -3333,3 +3333,76 @@ test('a made-up flight is marked in the comparison table a flyer looks at', asyn
   // here. Adding a third flight to this one to prove an absence is a longer path to a weaker
   // check, on a walk whose subject is the positive case.
 });
+
+/**
+ * The explorer's chip row is ONE height — `DESIGN.md` §5, and the reason that rule is worded
+ * "a static chip beside an actionable one must not be two heights".
+ *
+ * Measured before P1's audit row 4 was closed, on this exact row: `ChipButton` 26 px, the
+ * plotted-channel chip 30 px, the saved-view chip 34 px, and on a phone 44 / 54 / 50 — because
+ * `app/globals.css`'s coarse block floors every `button` at 44 px, and a chip that PADS a floored
+ * child is 44 plus its own padding. Both hand-rolls took `DismissibleChip`.
+ *
+ * **A rendered check, not a class census, because the class census structurally cannot see this.**
+ * `lib/design-system.test.ts` pins that the primitives are adopted; it rates strings, and a height
+ * is a composition of a container's padding with a child's floored minimum. Nothing in the source
+ * says 54.
+ */
+async function chipRowHeights(page: import('@playwright/test').Page): Promise<Record<string, number>> {
+  return page.evaluate(() => {
+    const out: Record<string, number> = {};
+    const h = (el: Element | null | undefined) =>
+      el ? Math.round((el as HTMLElement).getBoundingClientRect().height) : -1;
+    const label = [...document.querySelectorAll('span')].find((s) => s.textContent?.trim() === 'Views');
+    out.builtInView = h(label?.parentElement?.querySelector('button'));
+    out.channelChip = h(document.querySelector('button[aria-label^="Remove "]')?.closest('span'));
+    out.savedViewChip = h(document.querySelector('button[aria-label^="Forget the "]')?.closest('span'));
+    return out;
+  });
+}
+
+/** Get the explorer into the state that has all three: two channels (so a channel chip carries its
+ *  remove control) and one saved view. */
+async function fillTheChipRow(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/altusmetrum-telemetrum.csv'));
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: /Save this view|Name this view/i }).first().click();
+  await page.getByRole('textbox').last().fill('probe view');
+  await page.getByRole('button', { name: /^Save$/i }).first().click();
+  await page.getByLabel(/Add a channel/i).first().selectOption({ index: 1 });
+  await expect(page.locator('button[aria-label^="Remove "]').first()).toBeVisible();
+}
+
+test('the explorer’s chips are one height beside each other', async ({ page }) => {
+  await fillTheChipRow(page);
+  const m = await chipRowHeights(page);
+  expect(m.builtInView, 'a built-in view ChipButton is on screen').toBeGreaterThan(0);
+  expect(m.channelChip, 'a plotted-channel chip is on screen').toBeGreaterThan(0);
+  expect(m.savedViewChip, 'a saved-view chip is on screen').toBeGreaterThan(0);
+  // Exactly equal on a pointer device: nothing here is floored, so the three are the primitives'
+  // own geometry and any difference is a hand-roll coming back.
+  expect(m.channelChip, `channel chip ${m.channelChip} vs ChipButton ${m.builtInView}`).toBe(m.builtInView);
+  expect(m.savedViewChip, `saved-view chip ${m.savedViewChip} vs ChipButton ${m.builtInView}`).toBe(m.builtInView);
+});
+
+test.describe('on a phone', () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test('the explorer’s chips stay one row-height when every control is floored to 44 px', async ({ page }) => {
+    await fillTheChipRow(page);
+    const m = await chipRowHeights(page);
+    // **2 px, not 0, and the tolerance is a measurement rather than slack.** A chip CONTAINING a
+    // floored 44 px button is 44 plus its own border; `ChipButton` IS the floored button, so its
+    // border sits inside the 44. Anything above that is padding around a floored child, which is
+    // what took this row to 54 before. Asserted as a bound so a regression to 50 fails here.
+    for (const [what, got] of Object.entries(m)) {
+      expect(got, `${what} is ${got} px against ChipButton's ${m.builtInView}`).toBeLessThanOrEqual(
+        m.builtInView + 2,
+      );
+      expect(got, `${what} is ${got} px, under the 44 px floor`).toBeGreaterThanOrEqual(m.builtInView);
+    }
+  });
+});

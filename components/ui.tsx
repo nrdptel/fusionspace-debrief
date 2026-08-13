@@ -907,6 +907,7 @@ export type ChipTone = keyof typeof CHIP_TONES;
 
 export function Chip({
   label,
+  lead,
   value,
   tone = 'default',
   mono = true,
@@ -914,6 +915,20 @@ export function Chip({
   className,
 }: {
   label?: React.ReactNode;
+  /**
+   * A decorative node before the label — today, a colour swatch tying a chip to the line it names.
+   *
+   * **Separate from `label` because `label` is the KEY of a key/value token** and gets `zinc-500`
+   * ink for that reason; a swatch put through it would inherit a text colour it has no use for and
+   * would read to a later session as this chip's key. Added 2026-08-13 for `ChannelExplorer`'s
+   * plotted-channel chips, where the same swatch appears on `DismissibleChip` one branch away — the
+   * two shapes alternate on the same row as the last channel loses its remove control, so a swatch
+   * one of them could not carry would pop in and out as a flyer removes channels.
+   *
+   * The caller marks it `aria-hidden`: a colour is never the only thing telling two chips apart
+   * here, because the label beside it says which channel it is.
+   */
+  lead?: React.ReactNode;
   value: React.ReactNode;
   tone?: ChipTone;
   mono?: boolean;
@@ -942,6 +957,7 @@ export function Chip({
         className,
       )}
     >
+      {lead}
       {label != null && <span className="text-zinc-500 dark:text-zinc-400">{label}</span>}
       <span
         className={cx(
@@ -1029,6 +1045,100 @@ export function ChipButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * A chip you can take off the row — `DESIGN.md` §5.
+ *
+ * `Chip` is a token that says what something is; `ChipButton` is a token that DOES one thing. This
+ * is the third shape: a token that names something and carries a control for **removing** it, and
+ * optionally a second control on the label. A chip with a trailing ✕ cannot be either of the other
+ * two — `ChipButton` is one button, so a nested one would be a button inside a button.
+ *
+ * **Built from a census of two, and the census is why the props are these two.** Both hand-rolls
+ * were in `ChannelExplorer`: the plotted-channel chip (a colour swatch, a label, a unit, and an ✕
+ * that stops plotting it) and the saved-view chip (a name that APPLIES the view, and an ✕ that
+ * forgets it). They vary in exactly two things — whether there is a leading swatch, and whether the
+ * label is itself a control — so those are the two props and there are no others.
+ *
+ * **How both stayed invisible to the census that exists to find them, which is the eighth time this
+ * file has recorded that shape.** The hand-rolled-chip scan requires `px-…` in the opening tag, and
+ * a chip with a trailing glyph is padded ASYMMETRICALLY by definition — `pl-2 pr-1`, so the ✕ sits
+ * closer to the edge than the label does. So the predicate could not see the one form a hand-rolled
+ * chip takes the moment it grows an action. Widened to accept `pl-` + `pr-` together, it names
+ * exactly these two and nothing else.
+ *
+ * **The geometry is `Chip`'s and `ChipButton`'s, with the vertical padding moved OFF the container
+ * and onto the glyph.** §5's rule is that a static chip beside an actionable one must not be two
+ * heights, and measured in the app the row held three: 26 / 30 / 34 px on a pointer device and
+ * 44 / 54 / 50 px on a phone, because `app/globals.css`'s coarse block floors every `button` at
+ * 44 px and a chip that pads a floored child is 44 px PLUS its own padding. A container with no
+ * vertical padding is as tall as its tallest child, so the row reads 26 / 26 on a pointer device
+ * and 44 / 46 on a phone — the 2 px being this element's own border, which `ChipButton` carries
+ * inside its floored 44. Stated rather than rounded off: 2 px is not two heights, and 10 px was.
+ */
+export function DismissibleChip({
+  swatch,
+  onActivate,
+  activateTitle,
+  onDismiss,
+  dismissLabel,
+  dismissTitle,
+  children,
+}: {
+  /** A colour for the leading dot, or omitted for no dot. Decorative — the label carries the
+   *  meaning, so the dot is `aria-hidden` and never the only thing distinguishing two chips. */
+  swatch?: string;
+  /** Given, the label becomes a button. Omitted, it is text — because a label that looks like a
+   *  control and does nothing is worse than a label. */
+  onActivate?: () => void;
+  activateTitle?: string;
+  onDismiss: () => void;
+  /** Names what goes and what it goes from, e.g. "Remove Altitude from the plot". Required: "✕"
+   *  reads as nothing, and this is the one control here that destroys something. */
+  dismissLabel: string;
+  dismissTitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white pl-2 pr-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+      {swatch && (
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: swatch }}
+          aria-hidden="true"
+        />
+      )}
+      {onActivate ? (
+        <button
+          type="button"
+          onClick={onActivate}
+          title={activateTitle}
+          className="py-1 font-medium text-zinc-700 transition hover:text-indigo-600 dark:text-zinc-300 dark:hover:text-indigo-400"
+        >
+          {children}
+        </button>
+      ) : (
+        <span className="py-1 font-medium text-zinc-700 dark:text-zinc-300">{children}</span>
+      )}
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label={dismissLabel}
+        title={dismissTitle}
+        // One string, and the light/dark pair stays IN it. §9's contrast census rates a class
+        // string, so splitting `text-zinc-500` from its `dark:text-zinc-400` partner across two
+        // `cx()` arguments reads as an unpartnered light-mode value at 3.67:1 in dark — which the
+        // census correctly flagged the moment this was written that way.
+        className={cx(
+          'flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200',
+          'touch-area',
+        )}
+      >
+        ✕
+      </button>
+    </span>
   );
 }
 

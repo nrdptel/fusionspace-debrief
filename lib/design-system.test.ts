@@ -547,7 +547,12 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  control that OFFERS it. Every other synthetic sink answers "does the claim leave the app with
    *  the figure"; this answers whether a flyer knows what they are about to open, which is decided
    *  on a button sitting beside three real recordings. */
-  Chip: 9,
+  /** 9 → 10 on 2026-08-13: `ChannelExplorer`, whose plotted-channel chip becomes a `Chip` on the
+   *  LAST channel and a `DismissibleChip` on every other. The two alternate on one row as a flyer
+   *  removes channels, which is why the file now holds both and why `Chip` grew a `lead` slot —
+   *  the colour swatch tying a chip to its plotted line has to survive that switch, or it pops out
+   *  of existence when the second-to-last channel goes. */
+  Chip: 10,
   /** **FOUR primitives had no entry here at all, and the ratchet could not see any of them move.**
    *  Found 2026-08-09 by checking this list against `components/ui.tsx`'s own exports rather than
    *  against memory — the same class of omission `lib/synthetic.test.ts` recorded about its export
@@ -559,6 +564,16 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  `ChipButton` — the chip that DOES something: the explorer's channel toggles, the event chips,
    *  the figure toggles, the sample table's column picks, the simulation choice. */
   ChipButton: 5,
+  /** `DismissibleChip` — added 2026-08-13, from P1's audit row 4 and a census of exactly two, both
+   *  in `ChannelExplorer`: the plotted-channel chip and the saved-view chip.
+   *
+   *  **One adopter is the whole population, and that is the point rather than a shortfall.** The
+   *  census below was widened in the same commit to see asymmetric horizontal padding — a chip with
+   *  a trailing ✕ is `pl-2 pr-1` by definition, so the predicate's `px-` requirement made the entire
+   *  class of "chip that grew an action" invisible to it — and with that fixed it names these two
+   *  and nothing else in the repo. A second file wanting this shape now has a primitive to reach
+   *  for, and this number is what says so when one arrives. */
+  DismissibleChip: 1,
   /** `CopyTableButton` — the two tables that cannot BE a `DataTable` and still owe a flyer the way
    *  out to a spreadsheet. Deliberately two, and the primitive's own comment says why. */
   CopyTableButton: 2,
@@ -1587,7 +1602,21 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
    *  not hypothetical — it hid `RecognizedFormats.tsx:28`, a real hand-rolled chip written as an
    *  `<li>` because it lives in a `<ul>`, which is the natural form for a token list and so the
    *  form a future one is most likely to take. Enumerating the tag in front of you is the mistake
-   *  this file has now corrected seven times. */
+   *  this file has now corrected seven times.
+   *
+   *  **Eight, as of 2026-08-13, and this one was not about the TAG.** Horizontal padding was
+   *  matched as `px-…` alone — and a chip with a trailing control is padded ASYMMETRICALLY by
+   *  definition, `pl-2 pr-1`, so the ✕ sits nearer the edge than the label does. So the predicate
+   *  could not see the one form a hand-rolled chip takes the moment it grows an action, which is
+   *  also the form most likely to be hand-rolled in the first place: `Chip` and `ChipButton` are
+   *  both single-purpose, so a chip that needs a second control has no primitive to reach for and
+   *  someone writes a `<span>`. Widened to accept `pl-` and `pr-` together, it named
+   *  `ChannelExplorer`'s two at once — P1 audit row 4, which had found them by eye and could not
+   *  say what the census was missing. Both took `DismissibleChip` in the same commit.
+   *
+   *  **The falsification, which is the only thing that makes "the check now finds one more" mean
+   *  anything:** with both hand-rolls present, the OLD predicate returns green and the NEW one
+   *  names the file — measured before either was converted. */
   const handRolledChips = (): string[] => {
     const out: string[] = [];
     for (const f of uiSources(['components', 'app'], ['.tsx'])) {
@@ -1604,7 +1633,9 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
         const chipish =
           /rounded-(md|lg|full)/.test(tag) &&
           /\bborder\b/.test(tag) &&
-          /\bpx-[\d.]+/.test(tag) &&
+          // `px-` OR a `pl-`/`pr-` pair — see the docblock. A chip with a trailing control is
+          // asymmetric by construction, and that made the whole class invisible here.
+          (/\bpx-[\d.]+/.test(tag) || (/\bpl-[\d.]+/.test(tag) && /\bpr-[\d.]+/.test(tag))) &&
           /text-xs|text-\[11px\]/.test(tag);
         if (chipish) out.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length}`);
       }

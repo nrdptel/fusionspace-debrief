@@ -4032,8 +4032,24 @@ the ratchet structurally cannot see**. Ranked by what a flyer meets:
    the recorded seventh non-adopter in `lib/design-system.test.ts`, pinned by the exact
    `NumberField: 6` ratchet. **An audit that reads source finds divergence and cannot weigh it** —
    the same lesson row 1 taught by measurement, arriving here by refutation.
-4. `components/ChannelExplorer.tsx:330` and `:416` — two hand-rolled chips at two different
-   heights beside real `ChipButton`s, which §5 names outright.
+4. ~~`components/ChannelExplorer.tsx:330` and `:416` — two hand-rolled chips at two different
+   heights beside real `ChipButton`s, which §5 names outright.~~ **SHIPPED 2026-08-13, and the
+   reading was right but understated by one.** Measured in the app rather than read off the source:
+   the row held THREE heights, not two — `ChipButton` 26 px, the channel chip 30 px, the saved-view
+   chip 34 px — and on a phone 44 / 54 / 50, because §8's coarse floor puts every `button` at 44 px
+   and a chip that PADS a floored child is 44 plus its own padding, which the source cannot say.
+   Both took a new `DismissibleChip`, built from that census of two; the row now reads 26 / 26 / 26
+   and 44 / 46 / 46.
+
+   **The census that exists to find these could not see either, and the reason generalises.** The
+   hand-rolled-chip scan required `px-…`, and a chip with a trailing ✕ is `pl-2 pr-1` by
+   definition — so the entire class of "chip that grew an action" was invisible to it, which is
+   also the class most likely to be hand-rolled, since `Chip` is one token and `ChipButton` is one
+   button and neither can hold a nested control. Widened to accept a `pl-`/`pr-` pair it names
+   exactly these two. Eighth entry in §9's running list of checks that enumerate the thing in front
+   of them, and the first that was not about the tag name. Pinned by a RENDERED walk in
+   `e2e/analyze.spec.ts` on both pointer types, because a height is a container's padding composed
+   with a child's floored minimum and nothing in the source says 54.
 5. `components/ChannelExplorer.tsx:513` — the explorer's chart is a bare `Card` plus a
    hand-written axis line where §5's `Figure` owns exactly that row.
 6. `components/ChannelExplorer.tsx:259` — `if (selected.length === 0) return null;` deletes the
@@ -4052,8 +4068,18 @@ the ratchet structurally cannot see**. Ranked by what a flyer meets:
 **What the list is really saying, and it belongs in the ratchet rather than in prose:** every count
 in §9 matches a class NAME or a variant STRING, so a primitive re-padded at its call site (8), a
 geometry that never reaches a primitive at all (9), and a `return null` where a state belongs (6)
-are all invisible to it. Rows 1–3 are the next P1 slices; 4–11 are one sweep of `ChannelExplorer`
-plus two small ones.
+are all invisible to it. Rows 1–3 shipped or were refuted; row 4 shipped 2026-08-13 and widened the
+census in the same commit; 5 and 7–11 are what is left, mostly one more sweep of `ChannelExplorer`.
+
+**Row 6 is REFUTED, and it took a measurement the audit could not make.** `if (selected.length === 0)
+return null` is real, and the state it guards is not reachable: `selected` is `yKeys` resolved
+against this flight's channels, `yKeys` falls back to `channels[0]` and `resolveView` returns only
+keys the flight has — so `selected` is empty exactly when `channels` is, and `buildPlotChannels`
+pushes altitude, raw altitude and velocity **unconditionally** before any branch. There is no flight
+with no plottable channels. The one thing the branch does catch is a single render between a new
+flight's channels arriving and the effect that re-seeds `yKeys` running, where the old flight's keys
+resolve to nothing — one frame, and returning null for it is better than an empty chart. Same lesson
+as rows 1 and 3: an audit that reads source finds divergence and cannot weigh it.
 
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
