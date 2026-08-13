@@ -2046,9 +2046,26 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5l SHIPPED, and every sink the audit has found
-now carries the claim (`todo: 0`).** What is left of this milestone is (c) and (d) below — OFFERING
-the samples, which is the half a flyer can see. (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l and (c) SHIPPED.** Every sink the audit has
+found carries the claim (`todo: 0`), and the mapper sample is OFFERED, which was the half a flyer
+could see. **What is left is (d) alone: the other synthesized logs** — a saturated accelerometer, a
+coarse-GPS flight, and a staged pair on two devices.
+
+**Measured against this milestone's own *done when*, 2026-08-13.** It asks for a named sample for
+each shipped capability that has none, each opening through the same `ingest()` path a dropped file
+takes, and every synthetic flight labelled on every surface that can carry it out of the app.
+- **Labelling: MET.** `SINKS` 24 labelled · 5 carries · 0 todo across 29 rows, pinned by the
+  asymmetry check plus a named test or walk per row. `todo: 0` is a floor rather than a finish —
+  three of the last four slices each found a sink the audit had never enumerated.
+- **The `ingest()` clause: MET** and has been since slice 1; the mapper sample goes through
+  `onFiles` with a real `File`, the drop path itself.
+- **Samples: 4 of 6.** One flight end to end, two altimeters on one flight, a log beside its
+  board's own summary, and now the column mapper. **Missing: a saturated accelerometer, a
+  coarse-GPS flight, and the staged pair** — the last is the highest value of the three, because it
+  is the only thing that will give `/stitch` a sample at all and `COMPETITION.md` row 40 names the
+  one rival that demonstrably beats us there.
+- **`/validation` never counts a synthetic flight: MET**, by construction — it reads the corpus.
+- **`/stitch` still offers no sample.** It cannot until (d)'s staged pair exists. (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2791,6 +2808,21 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**Measured against this milestone's own *done when*, 2026-08-13** — "§9 runs clean and is pinned by
+a test", with six named counts. Run on the shipped tree: **radius drift 0** (target 0) · **off-scale
+spacing 0** (0) · **off-scale type 1** (0, honest floor 1 — the brand wordmark, which §10 makes
+shared and non-negotiable) · **card treatments 3** (1 + the named non-card primitives; the honest
+floor recorded below is 4) · **files where `text-xs` > `text-sm` 10 of 51** (target 0 — read item 2
+below before treating that as a defect total; `Chip` is `text-xs` by definition, so a chip-built
+surface is permanently "inverted" while fully compliant) · **components importing `./ui` 39 of 51**
+(target: most).
+
+**Nothing moved the wrong way this run**, and the two counts that MOVED both moved forward and for
+the right reason: `Notice` adopters 9 → 10 and `Loading` 3 → 4, each in the commit that earned it,
+each caught by the ratchet going red first. The gap that remains is the type-inversion count and the
+`./ui` adoption tail — and the eleven rows the design-system audit added below, of which two shipped
+and one was refuted this run.
 
 **2026-08-11 — §9's contrast block named two checks that DID NOT EXIST, and the token they should
 have been guarding failed AA in dark.** P1's *done when* is "`DESIGN.md`'s compliance block (§9) runs
