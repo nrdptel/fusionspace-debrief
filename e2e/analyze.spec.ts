@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { storedZip } from './orkFixture';
+import { openMadeUpFlight, SYNTH_SENTENCE, SYNTH_SHORT, SYNTH_TAIL } from './madeUp';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 import { mkdtemp, readFile } from 'node:fs/promises';
@@ -2827,83 +2828,11 @@ test('two designs claiming one flight are not offered a picker that would delete
  * A flight Debrief MADE UP has to say so where the numbers are, on every surface a figure can
  * travel out through — `ROADMAP.md`'s D10, and the hardest clause of it.
  *
- * The file is the shape `lib/synthetic.ts#toMapperCsv` writes: a `Synthetic` row in the metadata
- * block ahead of the header, and column names no parser claims, so it arrives through the COLUMN
- * MAPPER — which is the only route a generated demonstration file takes and therefore the only
- * route this can be walked on.
- *
- * Built here rather than imported from `lib/` on purpose: this spec is what would catch the
- * marker being read at parse time and then dropped on the way to a surface, and a fixture that
- * shares the producer cannot see a change to the consumer.
+ * The file and the mapper walk that opens it live in `./madeUp`, because three specs drive the
+ * same made-up flight now — this one, `stitch.spec.ts` for the composite timeline, and
+ * `audit.spec.ts` for the share link. Read that module's header for why it is written test-side
+ * rather than imported from `lib/`.
  */
-const SYNTH_SENTENCE = 'This flight is SYNTHETIC';
-/** The tail of the full sentence — present at the top of the report, deliberately absent from
- *  the readings grid, which carries the one-line form. */
-const SYNTH_TAIL = 'no figure from it means anything';
-const SYNTH_SHORT = 'SYNTHETIC — Debrief made this flight up';
-
-/** The pad these made-up fixes start over, when the walk asks for GPS. A real place on the map
- *  and a real distance to walk, so the recovery panel has something to measure. */
-const MADE_UP_PAD = { lat: 34.49, lon: -116.95 };
-
-function madeUpCsv(gps = false): string {
-  const rows: string[] = [
-    'Synthetic,"This flight is SYNTHETIC — numbers Debrief made up to demonstrate what it can read. It is not a recording of anything, nothing here was flown, and no figure from it means anything about a real rocket."',
-    'Demonstrates,"the column mapper"',
-    '',
-    gps ? 'Elapsed,Height,Rate,Lat,Lon' : 'Elapsed,Height,Rate',
-  ];
-  // A boost, a coast to a single apogee and a two-rate descent — enough shape for the analysis
-  // to produce readings worth labelling, and short enough to drop instantly.
-  let alt = 0;
-  let v = 0;
-  let apogeeAt = 0;
-  // 400 samples is 20 s — a boost and the start of a descent, which is all the other walks need.
-  // The GPS walk runs to the GROUND instead, because "Landing" versus "Last fix (record ends in
-  // the air)" is a real distinction in both exports and the landing coordinate is the whole point
-  // of the copy button. That costs ~4,800 samples at 20 Hz, about what the real generator writes.
-  const maxSamples = gps ? 6000 : 400;
-  for (let i = 0; i < maxSamples; i++) {
-    const t = i * 0.05;
-    const a = t < 1.6 ? 108.2 : -9.80665;
-    if (v >= 0) {
-      v += a * 0.05;
-      alt = Math.max(0, alt + v * 0.05);
-      apogeeAt = t;
-    } else {
-      v = alt > 150 ? -7.5 : -4.2;
-      alt = Math.max(0, alt + v * 0.05);
-    }
-    // Straight up, then drifting east-north-east under canopy — a walkback of a few hundred
-    // metres, which is what makes the landing coordinate worth copying at all.
-    const drift = Math.max(0, t - apogeeAt);
-    const cols = gps
-      ? `,${(MADE_UP_PAD.lat + drift * 0.00001).toFixed(6)},${(MADE_UP_PAD.lon + drift * 0.00002).toFixed(6)}`
-      : '';
-    rows.push(`${t.toFixed(2)},${alt.toFixed(2)},${v.toFixed(2)}${cols}`);
-    if (alt <= 0 && t > 5) break;
-  }
-  return rows.join('\n') + '\n';
-}
-
-async function openMadeUpFlight(page: import('@playwright/test').Page, gps = false) {
-  await page.goto('/');
-  await page
-    .getByLabel('Choose a flight log file')
-    .setInputFiles({ name: 'demo-mapper-flight.csv', mimeType: 'text/csv', buffer: Buffer.from(madeUpCsv(gps)) });
-  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible();
-  await page.getByLabel('Role for the Elapsed column').selectOption('time');
-  await page.getByLabel('Role for the Height column').selectOption('altitude');
-  await page.getByLabel('Role for the Rate column').selectOption('velocity');
-  await page.getByLabel('Unit for the Height column').selectOption('m');
-  await page.getByLabel('Unit for the Rate column').selectOption('m/s');
-  if (gps) {
-    await page.getByLabel('Role for the Lat column').selectOption('latitude');
-    await page.getByLabel('Role for the Lon column').selectOption('longitude');
-  }
-  await page.getByRole('button', { name: 'Analyze flight' }).click();
-  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
-}
 
 test('a flight Debrief made up says so at the top of the report AND beside the readings', async ({ page }) => {
   await openMadeUpFlight(page);
@@ -3001,7 +2930,7 @@ test('the three exports a flyer navigates by say the flight was made up', async 
   // that leave with no report around them and whose whole purpose is to send somebody to a place.
   // Everything below is read back out of the real download or the real clipboard, so a call site
   // that passes `synthetic={false}` fails here even though every unit case still passes.
-  await openMadeUpFlight(page, true);
+  await openMadeUpFlight(page, { gps: true });
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
   const saveGpx = page.getByRole('button', { name: 'Save GPX' });

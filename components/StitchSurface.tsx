@@ -17,7 +17,7 @@ import { fmtLength } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Loading, Notice, Readout } from './ui';
-import { SYNTHETIC_SHORT } from '@/lib/synthetic';
+import { PROVENANCE_COLUMN, provenanceCell, SYNTHETIC_SHORT } from '@/lib/synthetic';
 
 /**
  * One timeline across several per-stage recordings of one launch.
@@ -107,7 +107,15 @@ export default function StitchSurface() {
     }
     const stated = readFirstStage(wanted);
     setFirstStage(stated);
-    const recordings: CompositeRecording[] = inputs.map((i) => ({ name: i.name, analysis: i.analysis }));
+    // `synthetic` per recording rather than once for the assembly: `compareFromLogbook` reads it
+    // off each flight itself (so it works on a logbook row saved before the field existed), and
+    // the timeline's rows come from DIFFERENT flights — one made-up stage beside a real one has to
+    // label exactly the marks it drew.
+    const recordings: CompositeRecording[] = inputs.map((i) => ({
+      name: i.name,
+      analysis: i.analysis,
+      synthetic: i.synthetic,
+    }));
     const built = buildComposite(recordings, stated);
     if (!built.ok) {
       setState({ kind: 'refused', refusal: built.refusal });
@@ -317,23 +325,49 @@ export default function StitchSurface() {
             Lined up on the launch · times in whole seconds
           </p>
         </div>
+        {/* The timeline is the card a cert write-up quotes and the card a flyer screenshots, and
+            it sat above the only notice this route carried — so a made-up composite read as a
+            launch until you scrolled past the table. Same treatment as the readings below and as
+            `MetricGrid`'s: the short form, above the numbers, on the card that holds them. */}
+        {synthetic && (
+          <div className="px-4 pb-3">
+            <Notice as="p" tone="warn" data-synthetic="timeline">
+              {SYNTHETIC_SHORT}
+            </Notice>
+          </div>
+        )}
         {/* A staged flight's mark timeline is the thing a cert write-up quotes, and it was
             readable and nothing else. The altitude column carries its unit in the header rather
             than in every cell, because a spreadsheet sorts a column of bare numbers and will not
             sort "1,234 ft". The tie marker travels as a word: "↳" says nothing once it is out of
-            this table and next to the row above it. */}
+            this table and next to the row above it.
+
+            The `Provenance` column appears only when one of these recordings is made up, and it
+            answers PER ROW off the MARK — the same column and the same wording the logbook's
+            clipboard table uses, because both land in a spreadsheet where a caption above the
+            header is a cell a sort moves away from the rows it was about. Per row matters more
+            here than anywhere else it appears: this is the one table whose rows come from
+            different flights. */}
         {composite.marks.length > 0 && (
           <div className="px-4 pb-2">
             <CopyTableButton
               label="Copy the timeline"
               title="Copy these marks — as a table for a spreadsheet or document, and as tab-separated text everywhere else"
-              header={['Time (s)', 'Mark', 'Recording', `Its own altitude (${fmtLength(0, sys).replace(/^[\d.,]+\s*/, '')})`, 'Note']}
+              header={[
+                'Time (s)',
+                'Mark',
+                'Recording',
+                `Its own altitude (${fmtLength(0, sys).replace(/^[\d.,]+\s*/, '')})`,
+                ...(synthetic ? [PROVENANCE_COLUMN] : []),
+                'Note',
+              ]}
               rows={() =>
                 composite.marks.map((m) => [
                   fmtCompositeTime(m.t),
                   m.label,
                   m.recording,
                   m.altitudeM == null ? '—' : fmtLength(m.altitudeM, sys).replace(/\s*[a-zA-Z]+$/, ''),
+                  ...(synthetic ? [provenanceCell(m.synthetic)] : []),
                   m.tiedWithPrevious ? 'within a second of the mark above — not ordered against it' : '',
                 ])
               }

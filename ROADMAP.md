@@ -2046,7 +2046,9 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5j SHIPPED.** (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5l SHIPPED, and every sink the audit has found
+now carries the claim (`todo: 0`).** What is left of this milestone is (c) and (d) below — OFFERING
+the samples, which is the half a flyer can see. (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2503,14 +2505,53 @@ is the first to drive a made-up flight with GPS: `madeUpCsv(gps)` adds `Lat`/`Lo
 maps by role, which is exactly the "no new generator" this table's own reason predicted.
 `SINKS` **labelled 18 → 21**, `todo` **5 → 2**.
 
+**Slice 5l SHIPPED 2026-08-13 — the last two `todo` sinks, and a third the slice found on the way.**
+`/stitch`'s timeline clipboard took a conditional `Provenance` column on the logbook table's rule,
+and the share link got the assertion it had been missing since it was first filed. **The composite is
+the one table in this app whose rows come from DIFFERENT flights**, so the per-row answer stops being
+a convention and becomes a requirement: a blanket flag can only label everything or nothing, and
+labelling a flyer's own recording as invented is the wrong claim in the direction that matters. The
+answer rides on `CompositeMark.synthetic`, set POSITIONALLY in `buildComposite` from the recording
+that drew the mark — the first cut keyed a `Set` by recording NAME, and two logbook rows can share a
+file name (two launch days both holding a `data.csv`), which cross-labels the real one.
+
+**Two things the slice found that were not in its scope, and both are the same failure.**
+
+1. **The `composite readings (screen, /stitch)` row's `check` named its own IMPLEMENTATION** —
+   `components/StitchSurface.tsx` for the string `data-synthetic="composite"` — so the coverage
+   assertion proved only that the component contains its own JSX. Flip that render to `{false && (`
+   and the string stays, the row stays green, and `/stitch` silently stops saying a composite was
+   made up. Verified by building exactly that mutant. It now names a walk that reads the notice off
+   the page, and the mutant goes red.
+2. **The timeline CARD on screen carried no claim at all** — it is what a cert write-up quotes and
+   what a flyer screenshots, and it sits ABOVE the only notice this route had, so a made-up composite
+   read as a launch until you scrolled past the table. Added as `SINKS` row 29 rather than folded
+   into the clipboard row, on the rule this table keeps re-learning: **a row named after a CLIPBOARD
+   cannot stand in for the SCREEN that clipboard is copied from**, which is the same correction it
+   already records about a row named after a COMPONENT and a row named after one EXPORT.
+
+The share link's fixture is decided by a measurement rather than by taste: the shipped `demoFlight()`
+CSV encodes to **38,479 characters against `MAX_SHARE_URL`'s 16,000**, so it renders *"Too big to
+link"* and has no button to press; the walk's 400-sample file encodes to about 5,000. And the walk
+asserts the notice on the RECIPIENT's report rather than round-tripping `encodeFlight`/`decodeFlight`,
+because that unit round trip already exists in `lib/share.test.ts` and cannot fail independently of
+itself — what this holds shut is the plausible future payload trim, built as a mutant and confirmed
+red. `SINKS` **labelled 21 → 24, todo 2 → 0**, `SINKS.length` **28 → 29**.
+
 **What is left, in order — and the count in this paragraph was WRONG three slices running before
 it was measured.** It read "nine", then "seven", then "six", each derived by subtracting from the
-last rather than by counting the file. Re-counted 2026-08-13 after slice 5k:
-`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **2**, against 21 `labelled` for
-`SINKS.length` **28** — and the suite asserts that exact split, so the number here and the number in
+last rather than by counting the file. Re-counted 2026-08-13 after slice 5l:
+`grep -oE "state: 'todo'" lib/synthetic.test.ts | wc -l` returns **0**, against 24 `labelled` for
+`SINKS.length` **29** — and the suite asserts that exact split, so the number here and the number in
 the file fail together rather than drifting. (The 5 `carries` are not greppable the same way: they
 come from the `documentsCarryingProse()` spread, so the grep above returns 2 for that state. Said
 because presenting one grep as *the* way to count is how this paragraph goes wrong.)
+
+**Every sink this audit has found is now labelled, and that is a floor rather than a finish.** Three
+of the last four slices each found a sink the audit had never enumerated — one on the very surface
+the slice was about — so the honest reading of `todo: 0` is "nothing known is open", not "nothing is
+open". What remains for the milestone is (c) and (d) below: OFFERING the samples, which is the half a
+flyer can actually see.
 
 **Two things the split does not say, and both are the point.** Slice 5i closed three rows and the
 TOTAL went UP, because its pre-push review found a sink the audit had never enumerated — a `todo`
@@ -2519,8 +2560,9 @@ attribution and its "the total went UP by one this slice" gloss for one commit a
 which is the same derive-rather-than-count drift it exists to shame, committed one line below the
 shaming. Caught by a pre-push review.
 
-(b) **The two still `todo`:**
-    1. `/stitch`'s timeline clipboard table — wants `PROVENANCE_COLUMN` like the other tables;
+(b) **The `todo` list, now empty:**
+    1. ~~`/stitch`'s timeline clipboard table~~ **SHIPPED 2026-08-13** as slice 5l above, and it
+       took `PROVENANCE_COLUMN` per row off the MARK rather than by name;
     2. ~~the two `exploreCsv` exports plus the sample-table column copy~~ **SHIPPED 2026-08-12** as
        slice 5i above;
     3. ~~the plot `.png`/`.svg`~~ **SHIPPED 2026-08-12** as slice 5j above;
@@ -2533,8 +2575,8 @@ shaming. Caught by a pre-push review.
        slice 5j, by construction — both read the same builders the individual buttons do;
     6. ~~the landing-coordinate copy~~ **SHIPPED 2026-08-13** as slice 5k above, and the mapper's
        `latitude`/`longitude` roles were indeed the whole route — no new generator;
-    7. the share link, which carries the raw file text and therefore the marker — what is missing
-       is the assertion, not the behaviour.
+    7. ~~the share link~~ **SHIPPED 2026-08-13** as slice 5l above — the behaviour was already
+       right and the assertion was what was missing, which is exactly why it needed one.
 (c) **Then, and only then, offer the mapper sample** — the generated file is already written and
     tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
     single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so

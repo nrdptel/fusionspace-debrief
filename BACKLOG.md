@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-13 — a throwaway probe in the repo root fails `npm test`, not just `npm run build`, and
+  `git status` stays clean while it does.** `MAINTAINING.md` records the `tsc --noEmit` half of this
+  (a probe with a type error turns the build red over an apparently clean tree); the vitest half is
+  the same trap and was measured this run — an investigation agent's `probe-refute-tmp.test.ts` gave
+  `Test Files 1 failed | 91 passed (92)` with **1390 of 1390 real tests passing**, which reads as a
+  broken suite until you look at the file name. `vitest.config.ts` has no `exclude` entry for the
+  `*-tmp.*` / `probe-*` convention `.gitignore` already knows about, so the ignore glob protects the
+  repository and not the gate. One line in that config removes a failure mode every parallel session
+  pays for; not taken here because it is unqueued work and the run's quota was spent on the milestone.
+  Workaround while it is open: `npx vitest run lib` scopes to where all 91 test files actually live.
+
 - **2026-08-13 — `e2e/compare.spec.ts:384` waits on Playwright's 5 s default for a two-file
   analysis, and that is the third instance of the clock this repo has now measured.** It failed the
   baseline run at **15.9 s** with `element(s) not found — waiting for getByRole('heading', { name:
