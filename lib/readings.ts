@@ -197,6 +197,9 @@ const FLOOR = 'at least this high — the log ends at its own peak, so the rocke
 export const APOGEE_TAG_UNPROVEN = ' (unproven)';
 export const APOGEE_TAG_FLOOR = ' (at least)';
 
+/** The two facts that qualify an apogee, and the whole input either helper needs. */
+export type ApogeeCaveatFacts = Partial<Pick<FlightMetrics, 'altitudeUnproven' | 'apogeeIsFloor'>>;
+
 /**
  * What makes this apogee less than a plain reading — the CAVEATS alone, no "N s to apogee".
  *
@@ -211,7 +214,10 @@ export const APOGEE_TAG_FLOOR = ' (at least)';
  * The reason it needs to be separate from `apogeeSub` rather than just called: a table that
  * prints "Time to apogee" as its own row must not repeat it inside the apogee cell.
  */
-export function apogeeCaveat(m: FlightMetrics): string | undefined {
+/** Takes only what it reads, so a caller holding a narrower shape than a whole `FlightMetrics`
+ *  can share this sentence rather than restate it — which is how the channel explorer's altitude
+ *  channels came to publish a bare apogee while every other surface qualified it. */
+export function apogeeCaveat(m: ApogeeCaveatFacts): string | undefined {
   const parts = [m.altitudeUnproven ? UNPROVEN : undefined, m.apogeeIsFloor ? FLOOR : undefined].filter(Boolean);
   return parts.length ? parts.join(' · ') : undefined;
 }
@@ -225,7 +231,7 @@ export function apogeeCaveatFlags(m: FlightMetrics): { floor?: boolean; unproven
   return { ...(m.apogeeIsFloor ? { floor: true } : {}), ...(m.altitudeUnproven ? { unproven: true } : {}) };
 }
 
-export function apogeeIsQualified(m: FlightMetrics): boolean {
+export function apogeeIsQualified(m: ApogeeCaveatFacts): boolean {
   return !!m.altitudeUnproven || !!m.apogeeIsFloor;
 }
 

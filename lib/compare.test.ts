@@ -53,6 +53,55 @@ describe('crossCheck', () => {
     expect(a.find((x) => x.key === 'maxVelocity')!.mixedSource).toBe(false);
   });
 
+  const apogeeFlight = (apogee: number, caveat?: 'floor' | 'unproven'): CompareFlight =>
+    ({
+      metrics: {
+        apogeeAltitude: apogee,
+        ...(caveat === 'floor' ? { apogeeIsFloor: true } : {}),
+        ...(caveat === 'unproven' ? { altitudeUnproven: true } : {}),
+      } as FlightMetrics,
+    }) as CompareFlight;
+
+  it('flags an apogee spread the comparison table already refuses to read plainly', () => {
+    // The defect: this panel published a spread over apogees the table beside it tags
+    // `(at least)` / `(unproven)` and refuses to crown. Measured on the corpus, two intrepid
+    // TeleMetrum recordings printed `996 m (at least)` and `1,082 m (at least)` and were reported
+    // as an 8.2% disagreement between two LOWER BOUNDS.
+    const floors = crossCheck([apogeeFlight(996, 'floor'), apogeeFlight(1082, 'floor')]);
+    expect(floors.find((x) => x.key === 'apogee')!.qualified).toBe(true);
+    // One qualified contributor is enough — the spread is between a measurement and a bound.
+    const one = crossCheck([apogeeFlight(996, 'floor'), apogeeFlight(1082)]);
+    expect(one.find((x) => x.key === 'apogee')!.qualified).toBe(true);
+    // And the other branch: an altitude channel Debrief has disowned.
+    const unproven = crossCheck([apogeeFlight(9, 'unproven'), apogeeFlight(465)]);
+    expect(unproven.find((x) => x.key === 'apogee')!.qualified).toBe(true);
+  });
+
+  it('leaves an ordinary apogee unflagged, and never flags another metric', () => {
+    // The half that makes the case above able to fail: a plain pair must come back clean, or the
+    // footnote is on every comparison and says nothing.
+    const plain = crossCheck([apogeeFlight(2440), apogeeFlight(2490)]);
+    expect(plain.find((x) => x.key === 'apogee')!.qualified).toBe(false);
+    // `qualified` is the apogee's own caveat, so a qualified apogee does not leak onto the speed
+    // row sitting beside it in the same panel.
+    const withSpeed = crossCheck([
+      { metrics: { apogeeAltitude: 996, apogeeIsFloor: true, maxVelocity: 300 } as FlightMetrics } as CompareFlight,
+      { metrics: { apogeeAltitude: 1082, maxVelocity: 305 } as FlightMetrics } as CompareFlight,
+    ]);
+    expect(withSpeed.find((x) => x.key === 'apogee')!.qualified).toBe(true);
+    expect(withSpeed.find((x) => x.key === 'maxVelocity')!.qualified).toBe(false);
+  });
+
+  it('keeps the qualified recording in the spread rather than dropping it', () => {
+    // The call that was not obvious. Dropping an unproven apogee would leave a two-recording group
+    // with one contributor and no apogee row at all — so a flyer whose second altimeter recorded
+    // garbage would be told nothing, when the gap is exactly the signal that it is broken.
+    const a = crossCheck([apogeeFlight(9, 'unproven'), apogeeFlight(465)]).find((x) => x.key === 'apogee')!;
+    expect(a.count).toBe(2);
+    expect(a.min).toBe(9);
+    expect(a.max).toBe(465);
+  });
+
   const accelFlight = (maxA: number, source: 'device' | 'baro'): CompareFlight =>
     ({ metrics: { apogeeAltitude: 2000, maxVelocity: 300, maxAcceleration: maxA, accelerationSource: source } as FlightMetrics }) as CompareFlight;
 

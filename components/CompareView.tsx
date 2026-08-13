@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Comparison, CompareFlight } from '@/lib/compare';
-import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT, distinguishingLabels, recoveryDisagreement } from '@/lib/compare';
+import { crossCheck, crossCheckLede, CROSS_CHECK_WIDE, statedDaySplit, statedDaysPhrase, undatedNote, DIFFERENT_DAYS_CAVEAT, QUALIFIED_APOGEE_CAVEAT, distinguishingLabels, recoveryDisagreement } from '@/lib/compare';
 import { lengthIn, pressureIn, pressureUnit, speedIn, systemOf, unitsOf, accelIn } from '@/lib/display';
 import type { UnitChoice, Units } from '@/lib/display';
 import { exploreCsv } from '@/lib/explore';
@@ -19,7 +19,7 @@ import FigureChooser from './FigureChooser';
 import EventChips, { eventTypesPresent } from './EventChips';
 import type { EventType } from '@/lib/analyze/types';
 import { zip, type ZipEntry } from '@/lib/zip';
-import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasBaroMix, compareHasClippedAccel, compareHasPartialDescent, compareHasUnprovenApogee, type ReportMeta } from '@/lib/report';
+import { compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasClippedAccel, compareHasPartialDescent, compareHasUnprovenApogee, compareHasFloorApogee, compareHasBaroDerived, compareHasGpsDerivedSpeed, LEGEND_FLOOR, type ReportMeta } from '@/lib/report';
 import { captionKey, loadMemory, memoryCarriedForward, rememberCompare, rememberShown, EMPTY, type CompareMemory, type CompareSort } from '@/lib/compareMemory';
 import { plotSvg } from '@/lib/svgChart';
 import { loadSeriesColors, saveSeriesColors, withSeriesColors } from '@/lib/seriesColor';
@@ -334,10 +334,14 @@ export default function CompareView({
     },
     [flights, sys],
   );
-  const baroMix = compareHasBaroMix(flights);
+  const baroDerived = compareHasBaroDerived(flights);
+  const gpsDerived = compareHasGpsDerivedSpeed(flights);
   const clippedAccel = compareHasClippedAccel(flights);
   const partialDescent = compareHasPartialDescent(flights);
   const unprovenApogee = compareHasUnprovenApogee(flights);
+  const floorApogee = compareHasFloorApogee(flights);
+  /** The tag itself, so the mono span and the shared sentence cannot disagree about its text. */
+  const FLOOR_TAG = '(at least)';
 
   // Which events are called out, from the same stored answer the single-flight explorer uses —
   // a flyer who turned landing off there does not find it back here.
@@ -773,6 +777,7 @@ export default function CompareView({
                     {a.mixedSource ? '*' : ''}
                     {a.saturated ? '†' : ''}
                     {a.partialLeg ? '‡' : ''}
+                    {a.qualified ? '§' : ''}
                   </span>
                 </span>
               ))}
@@ -812,6 +817,19 @@ export default function CompareView({
                     the flight. It reads high, by 13% and 21% on the two corpus groups that pair a
                     truncated leg with a landed one, because a leg cut short over-weights the fast
                     moments just after deployment.
+                  </span>
+                </>
+              )}
+              {/* The apogee's own qualification, which this panel published a spread over for as
+                  long as it existed while the table beside it tagged the very same cells
+                  `(at least)` / `(unproven)` and withheld their crown. One sentence, shared with
+                  the .md and .html so three surfaces cannot give three accounts of one footnote. */}
+              {agree.some((a) => a.qualified) && (
+                <>
+                  {' '}
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    §{QUALIFIED_APOGEE_CAVEAT.charAt(0).toLowerCase()}
+                    {QUALIFIED_APOGEE_CAVEAT.slice(1)}
                   </span>
                 </>
               )}
@@ -1132,10 +1150,23 @@ export default function CompareView({
         noun="comparison"
       />
 
-      {baroMix && (
+      {baroDerived && (
         <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="font-mono">(baro)</span> — differentiated out of the altitude rather than
-          logged by the device, so its peak reads high, not soft; compare those values with that in mind.
+          <span className="font-mono">(baro)</span> — differentiated out of the barometric altitude
+          rather than logged by the device, so its peak reads high, not soft; compare those values with
+          that in mind.
+        </p>
+      )}
+
+      {/* Its own line, and not a clause of the one above: a GPS is not distorted by the shock over
+          a barometric port, so naming the barometer over a GPS log names the wrong sensor AND the
+          wrong failure — `lib/analyze/types.ts` says so in as many words. */}
+      {gpsDerived && (
+        <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-mono">(GPS)</span> — differentiated out of a GPS altitude rather than
+          logged by the device. A GPS is not distorted by the shock over a barometric port, but a
+          coarse, lagging altitude differentiates high at the peak, so read that value as an
+          upper-leaning estimate rather than a measurement.
         </p>
       )}
 
@@ -1152,6 +1183,18 @@ export default function CompareView({
           <span className="font-mono">(unproven)</span> — Debrief does not trust that recording&apos;s
           altitude channel: its climb is too slow to be a flight, so the height it reports is in doubt
           and no “highest” is crowned.
+        </p>
+      )}
+
+      {/* The one per-cell tag in this table that had no legend line anywhere — not here, not in the
+          Markdown footer, not in the HTML notes — while the four around it had all three. */}
+      {floorApogee && (
+        <p className="-mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          {/* The sentence itself comes from `LEGEND_FLOOR` rather than being re-typed here, so the
+              screen, the Markdown footer and the HTML notes cannot become three accounts of one
+              tag — which is the drift this legend was missing in the first place. */}
+          <span className="font-mono">{FLOOR_TAG}</span>
+          {LEGEND_FLOOR.slice(FLOOR_TAG.length)}
         </p>
       )}
 

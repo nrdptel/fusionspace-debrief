@@ -888,3 +888,68 @@ test('a colour the flyer picks reaches the exported figure, and can be undone', 
   expect(undone, 'the palette colour is back').toContain('#6366f1');
   expect(undone).not.toContain('#ff0000');
 });
+
+/**
+ * The cross-check panel is the sentence a flyer reads to decide whether to trust a set of
+ * recordings, and it published a spread over apogees the table beside it refuses to read plainly.
+ *
+ * Measured on the corpus before this was fixed: two intrepid TeleMetrum recordings print
+ * `996 m (at least)` and `1,082 m (at least)` — two LOWER BOUNDS — and the panel reported an
+ * 8.2% apogee disagreement between them; a Blue Raven reading 9 m (unproven) beside a
+ * StratoLogger's 465 m was reported as 192.0%.
+ *
+ * Walked on two hand-built logs that STOP AT THEIR OWN PEAK, which is exactly what
+ * `apogeeIsFloor` means, because no committed fixture is in that state. They differ, so the
+ * spread is non-zero and the footnote has something to qualify.
+ */
+function climbOnlyCsv(peakM: number): string {
+  // A pad wait, a boost, a coast — and the record ends while the altitude is still its own
+  // maximum. No descent, so the analyzer has a liftoff and an apogee at the last sample.
+  const lines = ['time,altitude'];
+  let t = 0;
+  const push = (alt: number) => {
+    lines.push(`${t.toFixed(2)},${alt.toFixed(2)}`);
+    t += 0.05;
+  };
+  for (let i = 0; i < 40; i++) push(0);
+  // Quadratic-ish climb to the peak over 8 s, ending at the top.
+  for (let i = 0; i <= 160; i++) push(peakM * Math.sin((Math.PI / 2) * (i / 160)));
+  return lines.join('\n');
+}
+
+test('a spread over two apogees Debrief will not read plainly says so', async ({ page }) => {
+  await page.goto('/');
+  for (const [name, peak] of [
+    ['floor-a.csv', 996],
+    ['floor-b.csv', 1082],
+  ] as const) {
+    await page.getByLabel('Choose a flight log file').setInputFiles({
+      name,
+      mimeType: 'text/csv',
+      buffer: Buffer.from(climbOnlyCsv(peak)),
+    });
+    // These headers are auto-guessed, so the mapper opens with Analyze already enabled.
+    await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Analyze flight' }).click();
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  await page.getByLabel('Select floor-a.csv to compare').check();
+  await page.getByLabel('Select floor-b.csv to compare').check();
+  await page.getByRole('button', { name: /Compare 2 flights/ }).click();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 30_000 });
+
+  // The table already refused to read these plainly — that part was never broken.
+  await expect(page.getByRole('row', { name: /Apogee/ }).first()).toContainText('(at least)');
+  // …and the tag now has a line saying what it means, which it did not on any surface.
+  await expect(page.getByText(/that recording’s log ends at its own highest sample/)).toBeVisible();
+
+  // The panel's own sentence: the spread is marked, and the footnote explains why it is not a
+  // disagreement between two measurements of one apogee.
+  const panel = page.getByText(/independent readings/).locator('..');
+  await expect(panel).toContainText('% on apogee§');
+  // The screen lowercases the leading word to run on from the sentence before it, so the
+  // assertion takes a mid-sentence fragment rather than the opening one.
+  await expect(panel).toContainText('apogee is qualified where this comparison prints it');
+  await expect(panel, 'and it names the direction, not just the fact').toContainText('LOWER BOUND');
+});

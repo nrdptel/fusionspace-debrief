@@ -5,7 +5,7 @@
 // the resampling is what makes the overlay possible at all.
 
 import { formatFlownDay, type FlownAt } from './flight/flownAt';
-import { landedInRecord } from './readings';
+import { apogeeIsQualified, landedInRecord } from './readings';
 import type { EventType, FlightAnalysis, FlightMetrics } from './analyze/types';
 
 // Distinct, colour-blind-friendly-ish strokes; one per flight, in order.
@@ -243,6 +243,30 @@ export interface Agreement {
    *  row, not an edge one. The same reasoning already keeps a main leg and a whole descent
    *  on separate keys; this is the half of it that a shared key could still get wrong. */
   partialLeg: boolean;
+  /** True when at least one contributing APOGEE carries a caveat — it is a floor (the log ends at
+   *  its own peak, so the rocket was still climbing) or the altitude channel is one Debrief has
+   *  said it does not trust.
+   *
+   *  **This existed on the table and not in the panel, which is the defect it closes.** The
+   *  comparison already tags those cells `(at least)` / `(unproven)` and already withholds the
+   *  "highest" crown over them, both off `apogeeIsQualified` — while this panel read the same
+   *  numbers as plain measurements and published a spread over them. Measured on the corpus: the
+   *  two intrepid TeleMetrum recordings print `996 m (at least)` and `1,082 m (at least)` and were
+   *  reported as an **8.2%** apogee disagreement, and a Blue Raven reading 9 m (unproven) beside a
+   *  StratoLogger's 465 m was reported as **192.0%** — a number with no meaning, in the sentence a
+   *  flyer reads to decide whether to trust the set.
+   *
+   *  Not folded into `saturated`: that flag's own sentence is about an accelerometer railing at
+   *  its full-scale limit, which is not what either of these is. Fed by `apogeeIsQualified` rather
+   *  than by a second reading of the two metric fields, so the panel and the table cannot drift
+   *  about which apogees are qualified.
+   *
+   *  The contributors are kept rather than dropped, and that was the harder call. Dropping an
+   *  unproven apogee would leave a two-recording group with one contributor and no apogee row at
+   *  all — so a flyer whose second altimeter recorded garbage would be told nothing, when a 192%
+   *  gap is exactly the signal that one instrument is broken. The disagreement is real; what was
+   *  missing is that one side of it is a number Debrief does not stand behind. */
+  qualified: boolean;
 }
 
 /**
@@ -464,10 +488,16 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     soft?: (m: FlightMetrics) => boolean;
     /** Marks a contributing value as measured over a leg that stops before the ground. */
     partial?: (m: FlightMetrics) => boolean;
+    /** Marks a contributing value as one the app already qualifies where it PRINTS it. */
+    caveated?: (m: FlightMetrics) => boolean;
   }[] = [
     // Apogee is altitude-sourced on every logger, so there's no measured/derived
     // mix to flag — even a GPS-vs-baro apogee pair is independent corroboration.
-    { key: 'apogee', label: 'apogee', get: (m) => m.apogeeAltitude },
+    //
+    // But it can be qualified, and this panel published a spread over qualified apogees for as
+    // long as it has existed. The predicate is the table's own, so a cell tagged `(at least)` or
+    // `(unproven)` and a footnote on this sentence cannot disagree about which apogees those are.
+    { key: 'apogee', label: 'apogee', get: (m) => m.apogeeAltitude, caveated: (m) => apogeeIsQualified(m) },
     // Time to apogee is a pure timing (liftoff → apogee) — a temporal cross-check that
     // corroborates the spatial apogee agreement and shares no measurement source with it.
     // Two recordings of one flight saw the same climb, so it should match tightly.
@@ -557,9 +587,10 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
         src: s.source?.(f.metrics),
         soft: s.soft?.(f.metrics) ?? false,
         partial: s.partial?.(f.metrics) ?? false,
+        caveated: s.caveated?.(f.metrics) ?? false,
       }))
       .filter(
-        (c): c is { v: number; src: string | undefined; soft: boolean; partial: boolean } =>
+        (c): c is { v: number; src: string | undefined; soft: boolean; partial: boolean; caveated: boolean } =>
           c.v != null && Number.isFinite(c.v) && c.v > 0,
       );
     if (contrib.length < 2) continue;
@@ -572,11 +603,28 @@ export function crossCheck(flights: CompareFlight[]): Agreement[] {
     const mixedSource = new Set(contrib.map((c) => c.src).filter((x): x is string => x != null)).size > 1;
     const saturated = contrib.some((c) => c.soft);
     const partialLeg = contrib.some((c) => c.partial);
-    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource, saturated, partialLeg });
+    const qualified = contrib.some((c) => c.caveated);
+    out.push({ key: s.key, label: s.label, min, max, spreadPct: mean > 0 ? ((max - min) / mean) * 100 : 0, count: vals.length, mixedSource, saturated, partialLeg, qualified });
   }
   return out;
 }
 
+
+/**
+ * What the `§` on a cross-check spread says, in one place so the panel, the Markdown footer and
+ * the HTML notes cannot become three accounts of one footnote.
+ *
+ * It names the DIRECTION of each branch, because "qualified" on its own tells a flyer nothing they
+ * can act on: a floor reads LOW, so two floors are two lower bounds and the true gap is unknown
+ * in either direction; a distrusted altitude is not a reading of the apogee at all, so the
+ * percentage beside it is arithmetic rather than a disagreement.
+ */
+export const QUALIFIED_APOGEE_CAVEAT =
+  'At least one recording’s apogee is qualified where this comparison prints it — either “at least” ' +
+  '(its log ends at its own peak, so that number is a LOWER BOUND and the true apogee is higher by ' +
+  'an unknown amount) or “unproven” (Debrief does not trust that altitude channel at all). So this ' +
+  'spread is not two measurements of one apogee disagreeing: read it as a flag on the recordings ' +
+  'rather than as a gap between them.';
 
 /** Trim a file extension, for a tidier column/legend label. */
 function labelStem(name: string): string {

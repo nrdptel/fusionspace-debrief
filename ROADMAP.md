@@ -3815,6 +3815,48 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**The DESIGN-SYSTEM AUDIT `MAINTAINING.md` has asked for every long run was finally RUN, 2026-08-13,
+and it is queued P1 work rather than a defect ledger.** Eleven divergences, every one confirmed by
+opening the file, and the headline is what they have in common: `npx vitest run
+lib/design-system.test.ts` is green 30/30 and every §9 grep is at target, so **all eleven are drift
+the ratchet structurally cannot see**. Ranked by what a flyer meets:
+
+1. **`app/methods/page.tsx:98` — every anchor on the longest surface in the app lands UNDER the
+   header.** Targets carry `scroll-mt-12` (48 px) beneath a strip measured at **62 px** at 390 px
+   coarse, against §5 `SectionNav`'s own contract that *"targets carry a scroll-margin-top so a
+   heading lands below it rather than under it"*. It is not one link: 51 `h3` ids, 11 group
+   sections, and **21 readings link into this page by id**, so every `?` a flyer presses — which is
+   owner note `ON-3`'s whole subject — arrives at a heading hidden behind the bar.
+2. **`components/CompareSurface.tsx:431` — `/compare` hand-rolls `<p role="status">Reading the
+   flights…</p>`** where §5's `Loading` exists and three other surfaces use it. The working
+   indicator `/` and `/stitch` show while files parse is absent on the one surface that re-reads
+   several files at once.
+3. **`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`** where
+   `NumberField` is the primitive that owns the refusal behaviour, at `h-11 w-28 px-2` with no `py`
+   against §4's `px-3 py-1.5`, and the unit baked into the label string.
+4. `components/ChannelExplorer.tsx:330` and `:416` — two hand-rolled chips at two different
+   heights beside real `ChipButton`s, which §5 names outright.
+5. `components/ChannelExplorer.tsx:513` — the explorer's chart is a bare `Card` plus a
+   hand-written axis line where §5's `Figure` owns exactly that row.
+6. `components/ChannelExplorer.tsx:259` — `if (selected.length === 0) return null;` deletes the
+   whole Explore-the-data section, heading included, with no `EmptyState`.
+7. `components/SampleTable.tsx:262`, `:271`, `:275` — `text-[11px]` on body text and on a live
+   region, where §3 reserves that size for axis ticks.
+8. `components/ChannelExplorer.tsx:424` — `Button variant="link"` re-adds control padding at the
+   call site, which is the one thing that weight is defined by not having.
+9. `components/ChannelExplorer.tsx:345` and six more — seven one-glyph controls hand-roll
+   `IconButton` across **five** geometries, and none wears `ghost`'s tint.
+10. `components/ChannelExplorer.tsx:751` (and `StitchSurface:377`, `CompareView:854`,
+    `ColumnMapper:186`) — four hand-rolled tables that cannot be sorted.
+11. `components/FlightReport.tsx:1256` — the range picker hand-rolls a one-of-N chip where
+    `Segmented` is the primitive.
+
+**What the list is really saying, and it belongs in the ratchet rather than in prose:** every count
+in §9 matches a class NAME or a variant STRING, so a primitive re-padded at its call site (8), a
+geometry that never reaches a primitive at all (9), and a `return null` where a state belongs (6)
+are all invisible to it. Rows 1–3 are the next P1 slices; 4–11 are one sweep of `ChannelExplorer`
+plus two small ones.
+
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
 
@@ -4447,6 +4489,26 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-13 — a qualified apogee stays IN the cross-check spread and carries a footnote, rather
+  than being dropped from it.** *Rejected:* excluding a contributor whose apogee is `(unproven)`,
+  which is what "a number Debrief does not stand behind is not a measurement" argues for on its own
+  terms. It loses more than it protects: a two-recording group would fall to one contributor and
+  print no apogee row at all, so a flyer whose second altimeter recorded garbage would be told
+  nothing — when a 192% gap is exactly the signal that one instrument is broken. The disagreement is
+  real; what was missing is that one side of it is disowned. Reversal cost: one `.filter()` in
+  `crossCheck`.
+
+- **2026-08-13 — the made-up claim rides in a trailing parenthetical on the copied landing
+  coordinate.** *Rejected:* a leading tag, which labels it more loudly and breaks the paste into a
+  maps app that the control exists for; and labelling only the screen, which is the surface that
+  does not travel. Reversal cost: one line in `GroundTrack`.
+
+- **2026-08-13 — `(GPS)` is its own tag and its own legend line rather than a clause of `(baro)`.**
+  *Rejected:* one tag reading "(derived)" for both. `lib/analyze/types.ts` already records why the
+  distinction is not cosmetic — a barometer is distorted by the shock over its port from about Mach
+  0.9 while a GPS is not, but a coarse, lagging GPS altitude differentiates HIGH instead — so one
+  tag would name a failure mode that is wrong half the time. Reversal cost: merge two predicates.
 
 - **2026-08-12 — a made-up flight's FIGURE grows the image rather than having the band drawn over
   the plot.** *Rejected:* a fixed canvas with the plot squeezed to fit, which is what `FlightCard`

@@ -24,7 +24,11 @@ test('a rocketeer compares two flights end to end', async ({ page, context }) =>
 
   // Mixed velocity sources → the baro flight is marked, with an explaining note.
   await expect(page.getByText(/\(baro\)/).first()).toBeVisible();
-  await expect(page.getByText(/differentiated out of the altitude rather than logged/)).toBeVisible();
+  // "barometric altitude" rather than "altitude": `maxVelocitySource`'s `'baro'` means DERIVED,
+  // and the altitude it was derived from can be a GPS — which gets its own `(GPS)` tag and its own
+  // legend, because a barometer and a receiver fail in different directions.
+  await expect(page.getByText(/differentiated out of the barometric altitude rather than logged/)).toBeVisible();
+  await expect(page.getByText(/\(GPS\) —/), 'neither of these two flights is GPS-derived').toHaveCount(0);
   // …and the cross-check itself says what a mixed measured/derived spread is worth. Asserted as
   // the CLAIM rather than as a sentence: the figures come from `lib/derivedPeak.ts` and move as
   // the corpus does, so pinning the exact wording made this test fail for a caveat getting more

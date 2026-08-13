@@ -129,6 +129,45 @@ describe('buildPlotChannels', () => {
     });
   });
 
+  /** The same argument, one channel over — and it took until 2026-08-13 to be applied there.
+   *  The max of the ALTITUDE is the apogee, so a stats table that publishes it bare publishes an
+   *  apogee the grid, the print card and every export qualify. Only the velocity had a caveat. */
+  describe('a statistic taken off a qualified apogee carries the qualification with it', () => {
+    const altitudeChannels = (m?: Parameters<typeof buildPlotChannels>[2]) =>
+      buildPlotChannels(flight, series, m).filter((c) => c.key.startsWith('d-altitude'));
+
+    it('caveats BOTH altitude channels when the log ends at its own peak', () => {
+      // Both, because a reader overlaying the cleaned line with the raw one reads the same
+      // apogee off either, and the per-column copy takes one channel on its own.
+      const chans = altitudeChannels({ maxVelocityWithheld: null, apogeeIsFloor: true });
+      expect(chans.length).toBe(2);
+      for (const c of chans) {
+        expect(c.caveat, `${c.key} says the number is a bound`).toBeTruthy();
+        expect(c.caveat).toContain('at least this high');
+      }
+    });
+
+    it('says the other thing when Debrief has disowned the channel', () => {
+      const chans = altitudeChannels({ maxVelocityWithheld: null, altitudeUnproven: true });
+      for (const c of chans) expect(c.caveat).toContain('unproven');
+    });
+
+    it('says nothing on an ordinary flight, or when the caller brought no metrics', () => {
+      // The half that makes the two above able to fail. A caveat on every flight is a caveat
+      // nobody reads.
+      for (const c of altitudeChannels({ maxVelocityWithheld: null })) expect(c.caveat).toBeUndefined();
+      for (const c of altitudeChannels()) expect(c.caveat).toBeUndefined();
+    });
+
+    it('does not put the apogee’s qualification on any other channel', () => {
+      // `caveat` is per channel; a floor apogee says nothing about the battery trace.
+      const all = buildPlotChannels(flight, series, { maxVelocityWithheld: null, apogeeIsFloor: true });
+      const others = all.filter((c) => !c.key.startsWith('d-altitude'));
+      expect(others.length).toBeGreaterThan(0);
+      for (const c of others) expect(c.caveat).toBeUndefined();
+    });
+  });
+
   it('converts known units by the unit system and leaves native units alone', () => {
     const alt = channels.find((c) => c.key === 'd-altitude')!;
     expect(alt.toDisplay(100, 'imperial')).toBeCloseTo(328.084, 1);
