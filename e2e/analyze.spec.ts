@@ -3406,3 +3406,48 @@ test.describe('on a phone', () => {
     }
   });
 });
+
+/**
+ * The sample whose whole subject is a REFUSAL, walked the way a stranger meets it.
+ *
+ * Debrief's hardest promise to show someone is the one about what it will NOT say: an
+ * accelerometer pinned at its full-scale limit reads a flat top, so the peak in the file is a floor
+ * rather than the truth, and the report says so instead of publishing the number. No public log in
+ * the repo rails and the private corpus cannot ship, so until this sample existed the behaviour
+ * that best expresses the measurement invariant had no demonstration at all.
+ *
+ * The file is its own evidence: the height and speed columns are integrated from a 24 g boost and
+ * the accelerometer column is that boost clipped at 16 g, because a barometer does not saturate
+ * when an accelerometer does.
+ */
+test('the sample that demonstrates a refusal says the peak is a floor, not the truth', async ({ page }) => {
+  await page.goto('/');
+  const offer = page.getByRole('button', { name: /A sensor that ran out of range/ });
+  await expect(offer).toBeVisible();
+  // Before it is opened, like every made-up sample.
+  await expect(offer.locator('..'), 'the button says what it opens before it is pressed').toContainText('SYNTHETIC');
+  await offer.click();
+
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible({ timeout: 30_000 });
+  await page.getByLabel('Role for the Elapsed column').selectOption('time');
+  await page.getByLabel('Role for the Height column').selectOption('altitude');
+  await page.getByLabel('Role for the Rate column').selectOption('velocity');
+  // The fourth column is the point of this sample, and the mapper suggests it off the header.
+  await page.getByLabel('Role for the G force column').selectOption('accelTotal');
+  await page.getByLabel('Unit for the Height column').selectOption('ft');
+  await page.getByLabel('Unit for the Rate column').selectOption('ft/s');
+  await page.getByLabel('Unit for the G force column').selectOption('g');
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // **The refusal, on the page.** Not "a warning exists" — the words that tell a flyer the number
+  // beside it is a floor.
+  const worth = page.getByRole('heading', { name: /Worth knowing/i });
+  await expect(worth).toBeVisible();
+  await expect(page.getByText(/hit its full-scale limit and saturated/i)).toBeVisible();
+  await expect(page.getByText(/the true maximum could be higher/i)).toBeVisible();
+
+  // …and it is still a made-up flight on every surface, from the file's own marker.
+  await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
+  await expect(page.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);
+});

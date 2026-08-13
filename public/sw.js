@@ -39,6 +39,7 @@ const SAMPLE_FILES = [
   '/samples/sample-blueraven.csv',
   '/samples/sample-blueraven.summary.csv',
   '/samples/sample-mapper.csv',
+  '/samples/sample-saturated.csv',
   '/samples/sample-stage-booster.csv',
   '/samples/sample-stage-sustainer.csv',
 ];

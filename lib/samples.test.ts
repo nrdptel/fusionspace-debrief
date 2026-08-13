@@ -8,8 +8,9 @@ import { decodeBytes } from './encoding';
 import { analyzeTable } from './flight/columns';
 import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
+import type { ColumnRole } from './flight/columns';
 import { buildComposite } from './composite';
-import { demoFlight, isSynthetic, stagedPair, toLoggerCsv, toMapperCsv } from './synthetic';
+import { demoFlight, isSynthetic, saturatedFlight, stagedPair, toLoggerCsv, toMapperCsv } from './synthetic';
 
 const PUBLIC = fileURLToPath(new URL('../public/samples/', import.meta.url));
 
@@ -87,6 +88,29 @@ describe('the sample flights', () => {
     }
   });
 
+  /** What a flyer picks in the mapper for each sample, by id — the journey each one demonstrates.
+   *  A sample with no entry here fails rather than being skipped, because a sample this file does
+   *  not know the columns of is one nothing checks. */
+  const MAPPINGS: Record<string, { headers: string[]; mappings: { index: number; role: ColumnRole; unit: string | null }[] }> = {
+    'column-mapper': {
+      headers: ['Elapsed', 'Height', 'Rate'],
+      mappings: [
+        { index: 0, role: 'time', unit: 's' },
+        { index: 1, role: 'altitude', unit: 'ft' },
+        { index: 2, role: 'velocity', unit: 'ft/s' },
+      ],
+    },
+    'saturated-accelerometer': {
+      headers: ['Elapsed', 'Height', 'Rate', 'G force'],
+      mappings: [
+        { index: 0, role: 'time', unit: 's' },
+        { index: 1, role: 'altitude', unit: 'ft' },
+        { index: 2, role: 'velocity', unit: 'ft/s' },
+        { index: 3, role: 'accelTotal', unit: 'g' },
+      ],
+    },
+  };
+
   it('opens a mapping sample into the MAPPER, and into a flight once its columns are set', () => {
     // Both halves, because either alone is satisfiable by a broken sample: a file that reaches the
     // mapper and cannot be mapped into a flight demonstrates the mapper failing, and a file that
@@ -101,19 +125,22 @@ describe('the sample flights', () => {
 
       // …and it maps. The roles are the ones a flyer would choose off the header row, which is
       // the journey being demonstrated.
+      //
+      // **Per SAMPLE, not one hard-coded triple.** This asserted `['Elapsed','Height','Rate']` for
+      // every mapping sample, which was true while there was one and silently stops meaning
+      // anything the moment a second arrives with a fourth column: the loop would still run, still
+      // pass its apogee check, and never look at the column the new sample exists for.
       const table = analyzeTable(parseTable(text).rows);
-      expect(table.headers, `${s.id}: headers no parser claims`).toEqual(['Elapsed', 'Height', 'Rate']);
+      const want = MAPPINGS[s.id];
+      expect(want, `${s.id}: this test knows what columns that sample carries`).toBeTruthy();
+      expect(table.headers, `${s.id}: headers no parser claims`).toEqual(want.headers);
       const flight = buildFlight({
         source: name,
         format: 'csv',
         formatLabel: 'Mapped by hand',
         headers: table.headers,
         dataRows: table.dataRows,
-        mappings: [
-          { index: 0, role: 'time', unit: 's' },
-          { index: 1, role: 'altitude', unit: 'ft' },
-          { index: 2, role: 'velocity', unit: 'ft/s' },
-        ],
+        mappings: want.mappings,
         notes: [],
         ...(table.synthetic ? { synthetic: table.synthetic } : {}),
       });
@@ -127,13 +154,68 @@ describe('the sample flights', () => {
     }
   });
 
-  it('regenerates the mapping sample byte for byte, so the file cannot drift from its generator', () => {
-    // The file is committed because the app serves it statically; the generator is deterministic
-    // for exactly this reason. Without this, editing `demoFlight` changes what the sample
-    // DEMONSTRATES while the bytes on disk go on showing the old curve.
-    const s = SAMPLES.find((x) => x.kind === 'mapping');
-    expect(s, 'there is a mapping sample to check').toBeTruthy();
-    expectGenerated(s!.files[0], toMapperCsv(demoFlight('the column mapper')));
+  it('regenerates both mapping samples byte for byte, so the files cannot drift from their generators', () => {
+    // The files are committed because the app serves them statically; the generators are
+    // deterministic for exactly this reason. Without this, editing a generator changes what a
+    // sample DEMONSTRATES while the bytes on disk go on showing the old curve.
+    //
+    // **`find` became a map when the second one arrived**, and the single-`find` version is why:
+    // it checked whichever mapping sample sorted first and said nothing about any other.
+    const generated: Record<string, string> = {
+      'column-mapper': toMapperCsv(demoFlight('the column mapper')),
+      'saturated-accelerometer': toMapperCsv(saturatedFlight('an accelerometer that ran out of range')),
+    };
+    const mapping = SAMPLES.filter((x) => x.kind === 'mapping');
+    expect(mapping.length, 'there are mapping samples to check').toBeGreaterThan(0);
+    expect(mapping.map((x) => x.id).sort(), 'every mapping sample has a generator here').toEqual(
+      Object.keys(generated).sort(),
+    );
+    for (const s of mapping) expectGenerated(s.files[0], generated[s.id]);
+  });
+
+  it('gives the saturated sample a railed accelerometer and an honest barometer', () => {
+    // The capability this sample exists to demonstrate, so it is the one asserted. Debrief reads a
+    // flat top at the accelerometer's peak and says the reported maximum is a FLOOR — and the file
+    // has to actually contain that, or the sample demonstrates a warning about nothing.
+    const s = SAMPLES.find((x) => x.id === 'saturated-accelerometer')!;
+    const text = readFileSync(PUBLIC + s.files[0], 'utf8');
+    const table = analyzeTable(parseTable(text).rows);
+    const flight = buildFlight({
+      source: s.files[0],
+      format: 'csv',
+      formatLabel: 'Mapped by hand',
+      headers: table.headers,
+      dataRows: table.dataRows,
+      mappings: MAPPINGS[s.id].mappings,
+      notes: [],
+      ...(table.synthetic ? { synthetic: table.synthetic } : {}),
+    });
+    const a = analyzeFlight(flight);
+
+    // The warning is the product. Matched on the same words `lib/analyze/index.ts` writes, so a
+    // rewording that stops saying "saturated" fails here rather than silently changing what a
+    // stranger is shown.
+    const saturation = a.warnings.filter((w) => /saturat|full-scale|flat top/i.test(w));
+    expect(saturation, `warnings were: ${a.warnings.join(' | ')}`).toHaveLength(1);
+    expect(saturation[0], 'and it says the true maximum could be higher').toMatch(/could be higher/i);
+
+    // **It is the ONLY thing the report has to say about this flight**, which is the difference
+    // between a demonstration and a pile of caveats. The file carries pad time at 1 g precisely so
+    // the "cannot read the resting value / loggers differ about gravity" caveat is not also on
+    // screen, standing between a stranger and the one sentence they came for.
+    expect(a.warnings, `warnings were: ${a.warnings.join(' | ')}`).toHaveLength(1);
+
+    // The peak Debrief reports is the RAIL, not the boost — 16 g against a curve built to 24.
+    const g = (a.metrics.maxAcceleration ?? 0) / 9.80665;
+    expect(g, `peak read as ${g.toFixed(1)} g`).toBeGreaterThan(15.5);
+    expect(g, `peak read as ${g.toFixed(1)} g — it must not see the unclipped 24`).toBeLessThan(16.5);
+
+    // …and the barometer did NOT saturate, which is what makes the file its own evidence: the
+    // speed column could not have come from a 16 g boost. Kept subsonic, the same discipline
+    // `demoFlight` states, so Debrief is never asked to make a transonic claim about a made-up
+    // flight.
+    expect(a.metrics.maxVelocity ?? 0, 'the speed the barometer implies').toBeGreaterThan(150);
+    expect(a.metrics.maxVelocity ?? 0, 'and it stays subsonic on purpose').toBeLessThan(280);
   });
 
   it('gives the two-altimeter sample two recordings of ONE flight, not two flights', () => {

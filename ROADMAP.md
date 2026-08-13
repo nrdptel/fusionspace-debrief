@@ -2046,10 +2046,21 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c) and (d)'s STAGED PAIR SHIPPED.** Every
-sink the audit has found carries the claim (`todo: 0`), the mapper sample is OFFERED, and `/stitch`
-has a demonstration for the first time. **What is left is two of (d)'s three logs: a saturated
-accelerometer and a coarse-GPS flight.**
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c) and TWO of (d)'s three logs SHIPPED.**
+Every sink the audit has found carries the claim (`todo: 0`), the mapper sample is OFFERED, `/stitch`
+has a demonstration for the first time, and so does the app's own refusal to publish a railed peak.
+**What is left is a coarse-GPS flight — and one thing this milestone's own two lists disagree
+about, below.**
+
+**The *done when* names SIX capabilities and (d) lists THREE logs, and they are not the same set.**
+Noticed 2026-08-13 while marking the saturated accelerometer shipped, and written down rather than
+quietly resolved either way: the *done when* asks for a sample for multi-recording reconciliation,
+per-stage stitching, the column mapper, **the OpenRocket design overlay**, a saturated accelerometer
+and a coarse-GPS flight. Four of those six now have one. (d) never listed the design overlay, so it
+has been invisible to every status line this milestone has written, including the one above this
+paragraph before today. It is a real remaining item, it is NOT a synthesized log (an `.ork` is a
+design, and `e2e/orkFixture.ts` already builds one), and whoever closes this milestone has to
+either ship it or move it out of the *done when* with a reason.
 
 **Measured against this milestone's own *done when*, 2026-08-13.** It asks for a named sample for
 each shipped capability that has none, each opening through the same `ingest()` path a dropped file
@@ -2059,10 +2070,12 @@ takes, and every synthetic flight labelled on every surface that can carry it ou
   three of the last four slices each found a sink the audit had never enumerated.
 - **The `ingest()` clause: MET** and has been since slice 1; the mapper sample goes through
   `onFiles` with a real `File`, the drop path itself.
-- **Samples: 5 of 6.** One flight end to end, two altimeters on one flight, a log beside its
-  board's own summary, the column mapper, and now a staged pair. **Missing: a saturated
-  accelerometer and a coarse-GPS flight** — both single files, both reachable now that the marker
-  survives a named parser, and neither of them is the one `COMPETITION.md` row 40 was about.
+- **Samples: 7 offered, and 4 of the *done when*'s 6 capabilities covered.** Counted both ways on
+  purpose, because the old line said "5 of 6" against a list of samples rather than against the
+  clause. Offered: one flight end to end, two altimeters on one flight, a log beside its board's own
+  summary, the column mapper, a staged pair, a saturated accelerometer, and the staged pair's two
+  files count once. Against the clause: reconciliation ✓, stitching ✓, the mapper ✓, a saturated
+  accelerometer ✓, **a coarse-GPS flight ✗, the OpenRocket design overlay ✗**.
 - **`/validation` never counts a synthetic flight: MET**, by construction — it reads the corpus.
 - **`/stitch` offers a sample: MET 2026-08-13.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
@@ -2608,10 +2621,39 @@ shaming. Caught by a pre-push review.
     three buttons that open real recordings — a different question from every sink in the ledger,
     which all ask whether the claim leaves the app *with the figure*. This one asks whether a flyer
     knows what they are about to look at.
-(d) **The other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and ~~a staged
-    pair on two devices, which is also the only thing that will give `/stitch` a sample~~ **the
-    staged pair SHIPPED 2026-08-13**. Each revisits the `.gpx`/`.kml`/composite rows the current
-    check marks unreachable.
+(d) **The other synthesized logs** — ~~a saturated accelerometer~~ **SHIPPED 2026-08-13**, a
+    coarse-GPS flight, and ~~a staged pair on two devices, which is also the only thing that will
+    give `/stitch` a sample~~ **SHIPPED 2026-08-13**. Each revisits the `.gpx`/`.kml`/composite rows
+    the current check marks unreachable.
+
+    **The saturated accelerometer demonstrates a REFUSAL, which is the hardest thing in this app to
+    show a stranger and the closest any sample comes to the measurement invariant itself.** Debrief
+    reads a flat top at an accelerometer's peak — a real boost rounds over its maximum, because the
+    airframe loses mass through the burn — and says the reported figure is a floor rather than the
+    truth. No public log in the repo rails and the corpus cannot ship, so that behaviour had no
+    demonstration at all.
+
+    **The file is its own evidence, and that is what makes it a demonstration rather than an
+    assertion.** The height and speed columns are integrated from a 24 g boost; the accelerometer
+    column is that same curve clipped at 16 g. So the columns really are inconsistent in the way
+    Debrief says they are — a reader who checks can see the speed could not have come from a 16 g
+    boost. Measured: apogee 1,531 m, peak speed 167.8 m/s (subsonic, the same discipline
+    `demoFlight` states), reported peak **16.0 g** against a curve built to 24.
+
+    **A mapper file, and that was a choice rather than a constraint this time.** The staged pair had
+    to borrow a logger's column names because a pair cannot go through the mapper; one file can, the
+    mapper offers `Acceleration (total)` as a role, and a file that borrows nothing makes no claim
+    about any device.
+
+    **It carries 3 s of pad time at 1 g, and that is load-bearing.** Without it the report also says
+    *"the record starts too close to liftoff to read the accelerometer's resting value, and loggers
+    differ on whether that channel already has gravity removed"* — true, earned by nothing, and
+    standing between a stranger and the one sentence the sample exists to show them. The walk asserts
+    the report has **exactly one** thing to say about this flight, so a second caveat creeping back
+    fails rather than merely reading worse. Falsified four ways: a rail above the true peak (no
+    warning at all), no pad (two warnings), a barometer integrated from the clipped curve too (the
+    file stops being its own evidence — peak speed falls to 134 m/s), and the e2e pair, where the
+    new walk reddens while the pre-existing mapper-sample walk stays green.
 
     **A PREREQUISITE for all three was found and fixed 2026-08-13, and it was a hole in this
     milestone's own guarantee.** Every generated file so far has been a MAPPER file by

@@ -214,6 +214,14 @@ export interface SynthSample {
   t: number;
   altitude: number;
   velocity: number;
+  /**
+   * What an ACCELEROMETER aboard would have written, m/s², where the flight has one.
+   *
+   * Separate from the acceleration implied by `velocity` on purpose, and that separation is the
+   * whole of `saturatedFlight`: a railed sensor and an honest barometer disagree, and a file where
+   * they cannot disagree cannot demonstrate the disagreement.
+   */
+  accel?: number;
 }
 
 /** The shape of a generated flight, in SI, before it is written to any format. */
@@ -300,6 +308,115 @@ function round(v: number, places: number): number {
 /** Feet per metre. The generated files are written in feet, because every logger whose column
  *  shape they borrow writes feet by default. */
 const M_TO_FT = 3.280839895;
+
+/** Standard gravity, for writing an accelerometer's column in g. */
+const G0 = 9.80665;
+
+/**
+ * A flight whose ACCELEROMETER RAN OUT OF RANGE, and whose barometer did not.
+ *
+ * **What this exists to demonstrate is a REFUSAL, which is the hardest thing in the app to show a
+ * stranger.** Debrief detects a flat top at an accelerometer's peak — a real boost rounds over its
+ * maximum, because the rocket loses mass through the burn, so a plateau held dead flat at the
+ * highest value in the record is a sensor against its stop — and says the reported maximum is a
+ * floor rather than the truth. No public log in the repo rails, and the private corpus cannot ship,
+ * so until this file the one shipped behaviour that best expresses the measurement invariant had no
+ * demonstration at all.
+ *
+ * **The file contains its own evidence, and that is what makes it a demonstration rather than an
+ * assertion.** The boost curve peaks at 24 g; the accelerometer column is that curve CLIPPED at
+ * 16 g, a full-scale limit a flyer will recognise; and the height and speed columns are integrated
+ * from the UNCLIPPED curve, because a barometer does not saturate when an accelerometer does. So
+ * the numbers in the file really are inconsistent in the way Debrief says they are — a reader who
+ * checks can see that the speed column could not have come from the acceleration column.
+ *
+ * **A mapper file, not a logger's format, and that is a choice this time rather than a constraint.**
+ * `stagedPair` had to borrow a real logger's column names because a pair cannot go through the
+ * mapper. One file can, the mapper offers `Acceleration (total)` as a role, and a file that borrows
+ * nothing makes no claim about any device — so this one borrows nothing.
+ *
+ * The curve, and the arithmetic is deliberately visible:
+ *   3 s on the pad  at rest, and the accelerometer reads 1 g there — which is what an accelerometer
+ *                DOES at rest: it measures proper acceleration, so a board sitting on the rail
+ *                reads one gravity and a board in free fall reads zero. Without these rows Debrief
+ *                says *"the record starts too close to liftoff to read the accelerometer's resting
+ *                value, and loggers differ on whether that channel already has gravity removed"* —
+ *                a true caveat about a file that need not have earned it, standing between a
+ *                stranger and the one sentence this sample exists to show them
+ *   0.00–1.20 s  boost. The true acceleration is a half-sine to 24 g and back, which is a SHAPE
+ *                chosen to round over its peak the way a real boost does — not a thrust model, and
+ *                it must never be described as one. The recorded column is `min(that, 16 g)`
+ *   coast        0 g. Drag is ignored here as it is in `demoFlight`, so an unpowered airframe is in
+ *                free fall and an accelerometer aboard reads nothing
+ *   then         apogee, drogue, main, landing — the same legs `demoFlight` uses, so a reader
+ *                comparing the two samples sees one difference and not five. Under a canopy at a
+ *                steady rate the net acceleration is zero again, so the column returns to 1 g
+ */
+export function saturatedFlight(demonstrates: string): SynthFlight {
+  const PAD = 3;
+  const BURN = 1.2;
+  /** What the airframe actually pulled, at the top of the half-sine. */
+  const TRUE_PEAK_G = 24;
+  /** Where the part stops. ±16 g is an ordinary full-scale limit, which is the point of choosing
+   *  it: a flyer reading "about 16 g" beside "the sensor hit its limit" should recognise both. */
+  const RAIL_G = 16;
+  const DROGUE = 7.5;
+  const MAIN = 4.2;
+  const MAIN_AT = 150;
+  const DT = 0.05;
+
+  const samples: SynthSample[] = [];
+  let t = 0;
+  let altitude = 0;
+  let velocity = 0;
+
+  while (velocity >= 0 || altitude <= 0) {
+    // The half-sine is the TRUE thrust acceleration, before gravity. What a sensor aboard would
+    // read is the same thing: an accelerometer measures the airframe's specific force, so it reads
+    // the thrust term and not the gravity term.
+    const thrust = t < BURN ? TRUE_PEAK_G * G0 * Math.sin((Math.PI * t) / BURN) : 0;
+    samples.push({
+      t,
+      altitude,
+      velocity,
+      // Clipped, and clipped to EXACTLY the rail — a sensor at its stop returns its stop, and the
+      // detector looks for a run of samples within a tight band of the record's maximum.
+      accel: Math.min(thrust, RAIL_G * G0),
+    });
+    velocity += (thrust - G0) * DT;
+    altitude += velocity * DT;
+    t += DT;
+    if (t > 60) break; // a bound, never reached by the numbers above
+  }
+
+  // Down, on the same two legs `demoFlight` uses. The accelerometer reads free fall under a canopy
+  // — a steady descent is no net specific force beyond the drag holding it up, which is 1 g — so
+  // the column continues rather than stopping, the way a real record does.
+  while (altitude > 0) {
+    const rate = altitude > MAIN_AT ? DROGUE : MAIN;
+    velocity = -rate;
+    altitude = Math.max(0, altitude - rate * DT);
+    t += DT;
+    samples.push({ t, altitude, velocity, accel: G0 });
+  }
+
+  // On the rail, at 1 g, ahead of everything. Prepended rather than integrated into the loop above
+  // so the boost arithmetic stays readable as boost arithmetic.
+  const pad: SynthSample[] = [];
+  for (let i = 0; i < Math.round(PAD / DT); i++) {
+    pad.push({ t: i * DT, altitude: 0, velocity: 0, accel: G0 });
+  }
+
+  return {
+    demonstrates,
+    samples: [...pad, ...samples.map((s) => ({ ...s, t: s.t + PAD }))].map((s) => ({
+      t: round(s.t, 2),
+      altitude: round(s.altitude, 2),
+      velocity: round(s.velocity, 2),
+      accel: round(s.accel ?? 0, 3),
+    })),
+  };
+}
 
 /** One recording of a staged launch, and everything that separates it from the other one. */
 export interface SynthStage {
@@ -484,16 +601,23 @@ export function toLoggerCsv(rec: SynthStage): string {
  * it costs the reader nothing new: `AnalyzedTable.headerRow` already skips it.
  */
 export function toMapperCsv(flight: SynthFlight): string {
+  // A fourth column only where the flight HAS one, so the flight that had three before this
+  // existed still writes exactly three and its byte-for-byte check does not move. `G force`
+  // rather than a bare `G` because `lib/flight/columns.ts` suggests `Acceleration (total)` off
+  // that word: the mapper is being demonstrated, not fought, and a flyer should be confirming a
+  // sensible guess rather than hunting for a role.
+  const hasAccel = flight.samples.some((s) => s.accel !== undefined);
   const lines: string[] = [
     `${SYNTHETIC_KEY},${JSON.stringify(SYNTHETIC_NOTE)}`,
     `Demonstrates,${JSON.stringify(flight.demonstrates)}`,
     '',
-    'Elapsed,Height,Rate',
+    hasAccel ? 'Elapsed,Height,Rate,G force' : 'Elapsed,Height,Rate',
   ];
   for (const s of flight.samples) {
-    lines.push(
-      `${s.t.toFixed(2)},${(s.altitude * M_TO_FT).toFixed(1)},${(s.velocity * M_TO_FT).toFixed(1)}`,
-    );
+    const row =
+      `${s.t.toFixed(2)},${(s.altitude * M_TO_FT).toFixed(1)},${(s.velocity * M_TO_FT).toFixed(1)}` +
+      (hasAccel ? `,${((s.accel ?? 0) / G0).toFixed(2)}` : '');
+    lines.push(row);
   }
   return lines.join('\n') + '\n';
 }
