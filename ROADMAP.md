@@ -2626,6 +2626,17 @@ shaming. Caught by a pre-push review.
     give `/stitch` a sample~~ **SHIPPED 2026-08-13**. Each revisits the `.gpx`/`.kml`/composite rows
     the current check marks unreachable.
 
+    **A COARSE-GPS log cannot be a mapper file, and that is the next session's first line.**
+    Measured 2026-08-13 while the saturated sample was being built, so the same discovery does not
+    have to be made twice: everything the GPS demonstration rests on hangs off
+    `flight.meta.altitudeSource === 'gps'` — the branch that omits acceleration outright and calls
+    the derived velocity approximate — and that field is set in exactly two places, both inside
+    `lib/parsers/featherweightGps.ts`. The column mapper cannot set it: `mappingOptions.ts` offers
+    `GPS latitude` and `GPS longitude` as roles and has nothing that says "this altitude came from
+    the constellation". So the last log in this list is either a file in a real GPS logger's format
+    (the staged pair's route, and its honesty argument applies unchanged) or a new mapper role,
+    which is a product change rather than a sample.
+
     **The saturated accelerometer demonstrates a REFUSAL, which is the hardest thing in this app to
     show a stranger and the closest any sample comes to the measurement invariant itself.** Debrief
     reads a flat top at an accelerometer's peak — a real boost rounds over its maximum, because the

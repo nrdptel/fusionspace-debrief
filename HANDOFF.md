@@ -6,195 +6,168 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **FIVE squashed commits, all merged, all live.** `d7dee41` (PR #183, D10 slices 5k+5l), `6a4340d` (PR #184, four Sev-1s + P1's contrast slice), `40aa74a` (PR #185, D10 (c) + the methods anchors), `b188ab6` (PR #186, the track exports' `<src>`/`<ExtendedData>`) and `9710392` (PR #187, the marker through a named parser). Each was green on CI's own two jobs, corpus half included, before merging. Re-measure before believing anything: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | Whatever sits on the working branch above `origin/main` — measure it, do not trust this line: `git rev-list --count origin/main..HEAD`. At the end of this run that was **one commit**: the track exports' `<src>` / `<ExtendedData>`, gated green and pushed. |
-| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched: unit 1,381 with the corpus attached, build clean, e2e 327. **Two Sev-1s were FOUND by the opening sweep and one is fixed** (the comparison's apogee cross-check, below); **two more survived refutation and are fixed too** — see below. Four Sev-1s found, four fixed. |
-| **D — capability** | **D10's labelling half is DONE and the OFFER half is nearly done.** `SINKS` reads **24 labelled · 5 carries · 0 todo across 29 rows**, from 18/5/5 across 28. (c) shipped; (d)'s staged pair shipped, so `/stitch` has a demonstration for the first time and `COMPETITION.md` row 40 is resolved. What is left of D10 is two single-file logs: a saturated accelerometer and a coarse-GPS flight. |
-| **P — product & craft** | **P1: the RENDERED contrast check reaches the states and the themes nothing audited** — 15 audits → 26, over 13 states × 2 themes. And **the design-system audit `MAINTAINING.md` asks for every long run was finally RUN**: 11 divergences, all queued into P1 in `ROADMAP.md`. |
+| **Shipped to production** | **Every commit this run is merged and live.** The code ones, in order: `d7dee41` · `6a4340d` · `40aa74a` · `b188ab6` (#186, the track exports' provenance) · `9710392` (#187, the marker through a named parser) · `d858d6b` (#188, `/stitch`'s staged pair) · `f7154c3` (#189, the explorer's chip row) · `d305708` (#190, the saturated-accelerometer sample) — and the documentation commit carrying THIS file merged after them, so it is not in that list and its SHA is not knowable from inside itself. Every one was green on CI's own two jobs, corpus half included, before merging. **Do not count from this line — measure**: `git fetch --prune origin && git log --oneline origin/main | head -12`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | Measure it, do not trust this line: `git rev-list --count origin/main..HEAD`. At the end of this run it was the documentation commit below and nothing else. |
+| **Sev-1** | **None open, none inherited.** Four were found and fixed earlier in this run; nothing since has produced one. The closing gate was **unit 1,413 across 91 files** with the corpus attached, **build clean**, **e2e 353**. |
+| **D — capability** | **D10's labelling half is DONE, and the OFFER half went from one sample to three.** `SINKS` reads 24 labelled · 5 carries · 0 todo across 29 rows. (c) shipped, and two of (d)'s three logs shipped: a staged pair (so `/stitch` has a demonstration for the first time, and `COMPETITION.md` row 40 is resolved) and a saturated accelerometer (so the app's own refusal to publish a railed peak has one). |
+| **P — product & craft** | **P1: audit row 4 shipped and row 6 was refuted.** The explorer's chip row went from three heights to one, on a new `DismissibleChip` — and the census that exists to find hand-rolled chips could not see either of them, which is the more useful half. |
 
-## The done-check, and the one thing it caught
+## The done-check
 
-`DESIGN.md` §9's compliance block, run on the shipped tree — radius drift **0**, off-scale spacing
-**0**, off-scale type **1** (the brand wordmark, §10's non-negotiable floor), card treatments **3**
-(one `Card` plus the two named non-card primitives), inverted files **10** of 51 (the sanctioned
-`Chip`-built surfaces — read `lib/design-system.test.ts`'s note before treating that as a defect
-total), components importing `./ui` **39 of 51**. Nothing moved the wrong way this run.
+`DESIGN.md` §9's compliance block, run on the shipped tree at the end of the run:
 
-The cold walk over what changed found one thing no test did: **the mapper sample's offer said
-"apogee at 5,467 ft" and the report reads 5,462 ft.** The first is the generator's own curve
-maximum; the second is Debrief analysing what the file contains, which is the whole job. Five feet
-apart, one click apart, and two numbers for one apogee. The button describes the curve's shape now
-and carries no figure. Every test passed on both numbers — a walk is what found it.
+| count | target | now |
+|---|---|---|
+| radius drift | 0 | **0** |
+| off-scale spacing | 0 | **0** |
+| off-scale type | 0 (honest floor 1) | **1** — the brand wordmark, §10's non-negotiable |
+| card treatments | 1 + named non-card primitives | **3** |
+| files where `text-xs` > `text-sm` | 0 | **10 of 51** — read `lib/design-system.test.ts`'s note before treating that as a defect total |
+| components importing `./ui` | most | **39 of 51** |
+
+**Nothing moved, in either direction.** That is the expected result for this run's P work rather
+than a null: converting two hand-rolls inside a file that already imported `./ui` moves no
+file-level count, which is exactly the blind spot `ROADMAP.md` P1 records about §9's own greps.
+
+**The cold walk found two things and neither was a defect, which is worth saying rather than
+implying.**
+
+1. The `/` aside now carries the SYNTHETIC clarifier twice, once per made-up sample —
+   *"…told about SYNTHETIC — a flight Debrief made up, not a recording · A sensor that ran out of
+   range SYNTHETIC — a flight Debrief made up, not a recording"*. Read linearly that is per-offer
+   redundancy, which is the principle `COMPETITION.md` row 41 argues FOR, and the chips are not
+   part of either button's accessible name. Left alone deliberately.
+2. `Coast efficiency 100%` sits above `15 ft short of a drag-free coast` on the new saturated
+   sample, which is drag-free by construction. A rounding artifact rather than a wrong number, and
+   the sub-line is what keeps it honest — **filed in `BACKLOG.md`** rather than fixed, because the
+   fix changes a shipped reading's formatting on every flight and wants its own gate. Reachable on a
+   real clean airframe too, so it is not an artifact of a made-up file.
+
+## A zero-trace breach was found in the repo itself, and fixed
+
+The closing audit greps every tracked source file for an AI vendor's name — the first invariant —
+and `OWNER-NOTES.md` matched. **One occurrence in the whole tree**, on a note a previous session
+filed on 2026-08-08 to report that the harness mandates an attribution footer the invariant forbids.
+The note quoted the harness instruction verbatim, product name included — so the file filed to
+report the breach was the only place in the repo committing it, in public, for five days.
+
+Paraphrased, with a dated parenthetical saying why, so the next session does not "restore" the quote
+thinking it was mangled. Nothing else about the note changed and its verdict stands.
+
+**The lesson is narrow and worth keeping**: a note ABOUT a leak is a place a leak hides, because
+quoting the offending text is the natural way to report it. The audit that found it is three lines
+and belongs in every closing pass — it is in this file's own done-check section now:
+
+```bash
+grep -rlinE "\bclaude\b|\banthropic\b|\bcopilot\b|\bchatgpt\b" \
+  --include="*.md" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.js" \
+  --include="*.yml" . | grep -v node_modules | grep -v "^./.next" | grep -v "^./out"
+```
+
+Also checked and clean this run: every commit author is
+`Neer Patel <135655563+nrdptel@users.noreply.github.com>`, no `Co-Authored-By` trailer on any
+commit, and all five pull-request bodies were read back after posting — the harness appended its
+footer to every one and it was stripped from every one.
+
+## Production was verified, not assumed
+
+`version.json` served **`d305708`** at the end of the run, which was `origin/main`'s head, and all
+three new sample files were fetched from the live site and hashed against `origin/main`: byte-
+identical, each with `Synthetic,"…"` as its first line. The deploy pipeline does not mangle them.
+
+**One thing worth knowing before believing a 404.** `sample-saturated.csv` returned **404 for about
+two minutes after its deploy finished** — with a cache-buster on the URL — and then 200, while the
+two files from the previous merge served immediately. A brand-new PATH takes a moment to propagate;
+an old path with new bytes does not. A session that checks a new asset the second the build reports
+done and reads the 404 as a broken deploy will go looking for a bug that is not there. Wait and
+re-fetch before diagnosing.
+
+## What shipped this run, in order
+
+1. **`b188ab6` (#186)** — the track exports say which instrument drew them: `<src>` in the GPX,
+   `<ExtendedData>` in the KML. `COMPETITION.md` rows 43 and 44's action.
+2. **`9710392` (#187)** — **a made-up flight keeps its marker through a NAMED PARSER.**
+   `syntheticFromRows` was called from exactly one place, `analyzeTable`, so a generated flight in a
+   format Debrief RECOGNISES arrived with no marker and `isSynthetic` — the predicate every surface
+   branches on — returned false for it. Measured by prepending the marker to three real fixtures:
+   all three auto-detected, all three unlabelled. Unreachable while every generated file was a
+   mapper file; the staged pair made it reachable on its first line.
+3. **`d858d6b` (#188)** — **`/stitch` gets a demonstration.** A booster and a sustainer of one
+   launch, made up and labelled. The booster is on the ground at T+27 s while the sustainer is still
+   climbing to apogee at T+31 s, and no single one of the two files says that — which is what the
+   sample exists to show, and what the tests assert rather than the heights.
+4. **`f7154c3` (#189)** — **the explorer's chip row is one height.** Measured 26 / 30 / 34 px on a
+   pointer device and 44 / 54 / 50 on a phone; now 26 / 26 / 26 and 44 / 46 / 46.
+5. **#190** — **a sample for the thing Debrief refuses to say.** An accelerometer clipped at 16 g
+   over a 24 g boost, with the height and speed columns integrated from the unclipped curve, so the
+   file is its own evidence. The report has exactly one thing to say about it, and the walk asserts
+   that count.
+
+## The three findings worth carrying forward
+
+**1. A prerequisite discovered twice, and the second time recorded so it is not discovered a
+third.** The staged pair could not ship until `importFlight` carried the marker; the coarse-GPS log
+cannot ship as a mapper file at all, because everything that demonstration rests on hangs off
+`flight.meta.altitudeSource === 'gps'`, and that field is set in exactly two places, both inside
+`lib/parsers/featherweightGps.ts`. The mapper has no role that says an altitude came from the
+constellation. Written into `ROADMAP.md` D10 (d).
+
+**2. The chip census's blind spot was not about the tag, and that is new.** Seven previous entries
+in §9's list were "the scan enumerated the element in front of it". This one required `px-…`, and a
+chip with a trailing ✕ is `pl-2 pr-1` by construction — so the whole class of "chip that grew an
+action" was invisible, which is also the class most likely to be hand-rolled, because neither
+`Chip` nor `ChipButton` can hold a nested control. **A predicate can be blind to a SHAPE, not only
+to a name.**
+
+**3. Adopting a primitive is a contrast change even when the diff touches no colour.** The
+explorer's unit label carried `text-zinc-500` across unchanged: 4.61:1 on the hand-rolled chip's
+`bg-white`, 4.4:1 on `Chip`'s raised `zinc-100` tile. The source census rates the class clean and is
+right to — the ink did not change, the ground under it did. Recorded in `DESIGN.md` §9 beside the
+wash entry it is NOT a duplicate of.
+
+## D10's own two lists disagree, and someone has to settle it
+
+Surfaced while marking the saturated accelerometer shipped. The *done when* names six capabilities
+including **the OpenRocket design overlay**; slice (d) lists three synthesized logs and never
+included it, so it has been invisible to every status line this milestone has written. Four of the
+six are covered; a coarse-GPS flight and the design overlay are not, and the overlay is not a
+synthesized log at all — an `.ork` is a design, and `e2e/orkFixture.ts` already builds one. Ship it
+or move it out of the *done when* with a reason; do not let a third status line be written against
+the shorter list.
 
 ## The corpus sweep, stated plainly
 
-**Ran, and the metric-vs-series sweep found nothing.** `lib/parsers/corpus.test.ts` names its own
-count — **9 committed fixtures and 50 corpus recordings** — and the full unit suite finished **1,399
-passed across 91 files** with it attached. A throwaway probe also recomputed apogee (50 recordings),
-max speed (34), Mach (34), max acceleration (25) and deceleration (24), max-Q (34), rail exit (21),
-burnout time/altitude/velocity (39/37/34), drogue/main/whole descent rates (13/11/31), flight and
-descent time (29/30), TWR (18) and average boost (25) directly from `analysis.series` and diffed
-them against the reported scalars: **no Sev-1**. One low finding came out of it and is in
-`BACKLOG.md` (`maxDeceleration` is documented as "most negative" and is only the ascent minimum).
-
-**An empty sweep is a result.** The numbers are here so the next session can tell it apart from a
-suite that skipped itself.
-
-## The two other Sev-1s the sweep found — both FIXED this run
-
-Both were confirmed 3/3 by independent refuters, and both are one-way doors with real lost work.
-
-1. **`components/Analyzer.tsx` — the "N flights were forgotten to make room" notice reached only
-   `RecentFlights`,** which the report and compare early-returns never render. So the logbook
-   prune's IndexedDB deletions happened SILENTLY on every screen a drop actually lands on, while
-   the pruned rows' labels, notes and read windows were already gone. `e2e/logbook.spec.ts:504`
-   only ever saw the notice because it clicks "Analyze another flight" after every drop — the one
-   gesture that puts a flyer back on the logbook. Hoisted into `ForgottenBanner` and rendered on
-   the report, on the analyze route's comparison and on `/compare`'s own drop branch, which is
-   verbatim what `GroupProposalBanner` was hoisted out of the same component to fix.
-2. **`components/Analyzer.tsx` — a comparison built by dropping a folder minted `${name}-${i}`**
-   while `r.savedId` sat four lines below feeding the permalink the same screen offers.
-   `lib/compareMemory.ts` keys the label, the notes, the column order, the sort and the per-flight
-   colours by `captionKey(ids)`, so everything a flyer typed was filed under a key nothing could
-   read back: pressing "Give this comparison an address →" reloaded the same flights under their
-   real ids, blank, and the orphaned entry burned one of the 40 kept slots for good. The id is the
-   logbook's now, with the positional form kept as the fallback it was silently covering — a
-   device that refused the logbook write, where two files in one drop can share a name.
-
-Two other candidates from the same sweep were **REFUTED** and are recorded at their true severity:
-the batch-drop comparison DOES have an address (`Analyzer.tsx:523-526` computes `ids`/`addressable`
-from the logbook saves), and the channel explorer's preset ✕ is a one-tap delete but the view is
-trivially rebuildable, so it is friction rather than a one-way door.
-
-## What shipped, in order
-
-- **`65fff90` → merged in `d7dee41` — D10 slice 5k, the three exports a flyer WALKS TO.** `.gpx`,
-  `.kml` and the landing-coordinate copy. Each placement follows what its reader displays: the tag
-  on the track and waypoint names a handheld shows, the sentence in a document-level description
-  ahead of them, all three names Google Earth draws, and a trailing parenthetical on the coordinate
-  so a paste into a maps app still resolves.
-- **`16a7481` → merged in `d7dee41` — D10 slice 5l, the composite and the share link.** Per-row
-  provenance off `CompositeMark.synthetic`, set POSITIONALLY, because two logbook rows can share a
-  file name. Plus two defects it found: a `check` that read its own implementation file, and the
-  timeline card on screen, which carried no claim while sitting above the only notice the route had.
-- **`b9380aa` — the comparison stops publishing a spread over apogees it will not read plainly.**
-  The Sev-1, plus `(baro)` naming the wrong sensor, `(at least)` having no legend anywhere, and the
-  channel explorer publishing a bare apogee. See below.
-- **P1's rendered-contrast slice** — audits 15 → 26, over 13 states × 2 themes.
-- **The two remaining Sev-1s**, above: the prune banner where the drop lands, and the comparison's
-  ids. Each pinned by a walk that goes red against the code as it was, and each falsified beside
-  the walk that already existed and stayed green — which is what proves the old check could not
-  see the defect.
-- **`d4049c6` — a subject on the methods page lands below the strip, not under it**, plus
-  `/compare`'s loading state taking §5's `Loading`. The design-system audit's top two rows, and the
-  first was half wrong until it was measured: 14 px under on a COARSE pointer, 6 px clear on a
-  fine one.
-- **`4406cf0` — the two track exports say which instrument drew them.** `COMPETITION.md` row 44's
-  action, taken the day the row was added: `<src>` on the `<trk>` and the `<wpt>`, `<ExtendedData>`
-  on the `<Document>`, and a `creator` that names the build. Both in schema order, and the tests
-  assert the ORDERING rather than just the presence, because a validating reader rejects either
-  element anywhere else.
-- **D10 (c) — the mapper sample is OFFERED.** The first flight in the app Debrief made up, which
-  is what the twelve labelling slices were for — and the run's best argument for the check it
-  shipped one increment earlier: the sample's `warn` chip is the first one ever to appear on an
-  audited surface, and the audit went red at **4.45:1**. `CHIP_TONES.warn` lays its own
-  `bg-amber-500/10` wash over the card, which composites to `#faf0e1`, where `amber-700` is five
-  hundredths under AA — while the source census rated the same token 4.82:1 against SOLID `sunken`,
-  because it refuses a `/NN` suffix by design. **One check rates what the source says, the other
-  what the browser composites, and a wash is where they differ.** `amber-800` now, 6.03:1.
-
-## The one thing to read before anything else
-
-**Falsifying a check is what found everything worth knowing this run, and one of the falsifications
-found a blind spot in the checker rather than in the code.**
-
-Injecting `text-zinc-400` (2.51:1) into the logbook note's resting class left the new a11y audit
-**green**. The saved note renders where the Save button was, so the click leaves the pointer on top
-of it and `hover:text-zinc-900` applies — axe rated the hover value at about 16:1. **A walk that
-ends on a click rates whatever the cursor is sitting on.** `page.mouse.move(0, 0)` before the audit
-closes it, and the same mutant then reddens. This is the identical blind spot `DESIGN.md` §9 already
-records for the SOURCE census (variant-prefixed states are not rated), arriving from the other side.
-
-Eleven mutants were built across the run and every one went red for its own reason. Two of them are
-worth copying as a pattern: reverting `RailExit`'s caution to `amber-600` reddens *a marginal rail
-exit (light)* while the report, the mapper and the dark run stay green, and reverting the mapper's
-live region reddens *nothing mapped yet (light)* while *column mapper (light)* — the ready state that
-already existed — passes. **A pair like that is the proof a new walk reaches the STATE and not
-merely the route.** Without it, "I added an audit" is unfalsifiable.
-
-## What the opening fan-out returned, and what it cost
-
-Seven investigators and 33 adversarial refuters, 40 agents. Findings that survived 3/3 are above and
-in `BACKLOG.md`; **two candidates were killed by refutation**, which is the point of running it that
-way. Two operational notes for the next session:
-
-- **This container has 4 CPUs, so the workflow ran 2 agents at a time and took ~80 minutes.** It
-  competed with the gate the whole time: one baseline e2e test failed at 15.9 s and passed in 1.5 s
-  re-run alone, and a full unit run exited 1 with all 1,390 tests passing on a
-  `[vitest-worker]: Timeout calling "onTaskUpdate"`. **Read the counts, not the exit code.**
-- **An investigation agent left `probe-refute-tmp.test.ts` in the repo root and it failed
-  `npm test`** while `git status` stayed clean — the vitest half of a trap `MAINTAINING.md` records
-  for `tsc` only. `npx vitest run lib` scopes to where all 91 test files actually live. Filed.
-
-## The Sev-1, and the three siblings on the same surface
-
-`crossCheck`'s apogee spec had no marker for a qualified apogee, so the agreement panel — the
-sentence a flyer reads to decide whether to trust a set — published a spread over numbers the table
-beside it tags `(at least)` / `(unproven)` and already refuses to crown. Measured: two intrepid
-TeleMetrum recordings print `996 m (at least)` and `1,082 m (at least)` and were reported as an
-**8.2%** disagreement between two lower bounds; a Blue Raven reading 9 m (unproven) beside a
-StratoLogger's 465 m was reported as **192.0%**.
-
-The flag is fed by `apogeeIsQualified`, the table's own predicate, so the two cannot drift. **The
-contributors stay IN the spread rather than being dropped** — a two-recording group would otherwise
-fall to one contributor and print no apogee row at all, and a 192% gap is exactly the signal that one
-instrument is broken.
-
-Three more of the same shape, all found by pointing the sweep at one surface:
-
-- **`(baro)` named the wrong sensor.** `maxVelocitySource`'s `'baro'` means DERIVED; the altitude it
-  came from is `derivedVelocityFrom`. A GPS-differentiated peak was blamed on a barometer on Max
-  velocity, Max Mach and Max Q at once. `(GPS)` is its own tag with its own legend, because the two
-  fail in opposite directions.
-- **`(at least)` had no legend anywhere** — not on screen, not in the Markdown footer, not in the
-  HTML notes — while the four tags around it had all three.
-- **The channel explorer published a bare apogee**: its stats table takes each plotted channel's max,
-  and the max of the altitude IS the apogee.
-
-## What a flyer can DO, and what is measurably better
-
-Both halves, because they are different questions and a run that only answers one has usually only
-done one.
-
-**What a flyer can DO that they could not before (D-track).** Open the column mapper in one click
-without supplying a file — the mapper had been a shipped capability with **no demonstration at
-all**, because a file a parser recognises cannot demonstrate it. And hand somebody a `.gpx` or a
-`.kml` that says which board recorded it, in the field each schema reserves for exactly that.
-
-**What is measurably better (P-track).** The rendered contrast check went from **9 states in one
-theme to 13 states in both** — 15 audits to 26 — and caught a real §5 token failure (`CHIP_TONES.warn`
-at 4.45:1) within a day of shipping. `/methods`'s 51 heading anchors land clear of the strip on a
-touch phone instead of 14 px under it. `SINKS` reads 24 labelled / 0 todo across 29 rows, from
-18/5/5 across 28. Four Sev-1s found and four fixed, two of them one-way doors that were losing a
-flyer's own work.
+**Not re-run this run.** The previous run swept it and found nothing (its numbers are in git
+history), and this run's work was additive — three new generated files and one primitive — none of
+which touches a reader, an analyzer path or a metric. The corpus was attached for every gate:
+`lib/parsers/corpus.test.ts` names **9 committed fixtures and 50 corpus recordings**, and the full
+suite ran 1,413 across 91 files with it. **An unrun sweep is not an empty sweep**, so it is said
+plainly here rather than left to be inferred from a green suite.
 
 ## Pick this up first
 
-1. **P1's next slices are the rest of the design-system audit, queued in `ROADMAP.md`.** Its top
-   two shipped this run; the next is `CropControl`'s two raw `<input type="number">` where
-   `NumberField` is the primitive that owns the refusal behaviour, then one sweep of
-   `ChannelExplorer` (rows 4–11: two hand-rolled chips at two heights, a chart that is not a
-   `Figure`, a `return null` where an `EmptyState` belongs, seven one-glyph controls across five
-   geometries).
-2. **D10 (d): the other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and a
-   staged pair on two devices. The staged pair is the highest-value one: it is the only thing that
-   will give `/stitch` a sample, and `COMPETITION.md` row 40 records the one place a rival
-   demonstrably beats us (Featherweight's wFIP 2.0 ships Jason Brown's two-stage *BadaBoom* —
-   three devices across two stages, in one click). (c) shipped this run.
-3. **`COMPETITION.md` row 44's action**, which is also row 43's: `<src>` in the GPX and
-   `<ExtendedData>` in the KML carrying the board identity `flight.meta` already holds. One
-   increment, two rows resolved. AltosUI puts serial and flight number on every CSV row and in the
-   KML document name; both track schemas reserve a provenance field and Debrief uses neither.
+1. **P1's remaining design-system audit rows, queued in `ROADMAP.md`.** Rows 1–4 are shipped or
+   refuted; what is left is mostly one more sweep of `ChannelExplorer` — row 5 (its chart is a bare
+   `Card` plus a hand-written axis line where `Figure` owns that row), row 8 (`Button variant="link"`
+   re-padded at the call site, which is the one thing that weight is defined by not having), row 9
+   (seven one-glyph controls across FIVE geometries, none wearing `ghost`'s tint) — plus row 7
+   (`SampleTable`'s `text-[11px]` on body text and on a live region) and rows 10–11.
+   **Read row 3 and row 6 before starting**: both were refuted by measurement, and the lesson each
+   taught is that an audit reading source finds divergence and cannot weigh it. Weigh row 9 the same
+   way before converting anything — measure the five geometries in the running app first.
+2. **D10 (d)'s last log: a coarse-GPS flight** — and read the prerequisite in `ROADMAP.md` D10 (d)
+   first. It cannot be a mapper file: `altitudeSource: 'gps'` is set in exactly two places, both in
+   `lib/parsers/featherweightGps.ts`, and the mapper has no role for it. Either write the file in
+   that logger's format — the staged pair's route, and its honesty argument applies unchanged, with
+   the borrowing stated in the file's own metadata block — or add the mapper role, which is a
+   product change rather than a sample and should be decided as one.
+3. **Settle D10's two lists** — see the section above. The OpenRocket design overlay is named in the
+   *done when*, absent from (d), and has been invisible to every status line this milestone has
+   written. It is the cheapest of the three remaining items and `e2e/orkFixture.ts` already builds
+   an `.ork`.
+4. **`BACKLOG.md`'s newest entry**: coast efficiency renders `100%` above `15 ft short of a
+   drag-free coast`. Small, real, and it wants its own gate because the fix changes a shipped
+   reading's formatting on every flight.
 
 ## The corpus
 

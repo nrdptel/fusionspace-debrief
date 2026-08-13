@@ -2392,6 +2392,19 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **Coast efficiency rounds to `100%` beside a sub-line saying the coast fell short.** Found
+  2026-08-13 by the run's cold walk over the new saturated-accelerometer sample, which is drag-free
+  by construction so its coast really is ~99.7% of the drag-free ideal. The report renders
+  **`Coast efficiency 100%` / `15 ft short of a drag-free coast`** — a headline claiming perfection
+  and a detail line denying it, one above the other. It is a rounding artifact rather than a wrong
+  number, and the sub-line is what keeps it honest, so it is filed rather than fixed: the fix
+  (floor rather than round, or a decimal above 99.5%) changes a shipped reading's formatting on
+  every flight and wants its own gate. **Reachable on a real flight too** — a clean, low-drag
+  airframe on a short coast gets there — so this is not an artifact of a made-up sample. The
+  neighbouring rule is the one this offends: never manufacture precision, and `100%` is a claim of
+  exactness produced by rounding.
+
+
 - **FIXED 2026-08-04 (`#125`): Max Q carries the speed's provenance now, in its own words.**
   `maxQProvenance` sits beside `velocityProvenance` and says what the speed's caveat cannot: not
   merely that the figure came from a derived speed, but that `q = ½ρv²` squares it, so a peak that
