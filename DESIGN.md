@@ -401,6 +401,38 @@ hand-rolls it instead is not done.
   the vocabulary being short a word, which is the same shape as the `link` button weight two
   entries up. `danger` ships with no adopter, on §2's symmetry rather than on measurement.
 
+- **`DismissibleChip`** — a chip you can take OFF the row: a token that names something and carries
+  a control for removing it, and optionally a second control on the label itself. `Chip` is one
+  token and `ChipButton` is one button, so neither can hold a nested ✕ — a button inside a button is
+  not a thing to render.
+
+  **Added 2026-08-13 from a census of two, both in `ChannelExplorer`:** the plotted-channel chip (a
+  colour swatch, a label, a unit, and an ✕ that stops plotting it) and the saved-view chip (a name
+  that APPLIES the view, and an ✕ that forgets it). They varied in exactly two things — whether
+  there is a leading swatch, and whether the label is itself a control — so those are the two props
+  and there are no others. `Chip` gained a `lead` slot in the same commit, because the two shapes
+  alternate on one row as the last channel loses its remove control and a swatch only one of them
+  could carry would pop out of existence.
+
+  **The vertical padding is on the GLYPH, not on the container, and that is the whole geometry
+  decision.** Measured on this row before the conversion: `ChipButton` 26 px, the channel chip
+  30 px, the saved-view chip 34 px — and on a phone 44 / 54 / 50, because §8's coarse floor sets
+  every `button` to 44 px and a chip that PADS a floored child is 44 plus its own padding. A
+  container with no vertical padding is as tall as its tallest child, so the row reads 26 / 26 on a
+  pointer device and 44 / 46 on a phone. The 2 px is this element's own border, which `ChipButton`
+  carries inside its floored 44; it is stated rather than rounded away, because 2 px is not two
+  heights and 10 px was.
+
+  **How both hand-rolls hid from the census built to find them, which is the eighth time §9 has
+  recorded that shape and the first time it was not about the TAG.** The scan required `px-…` in
+  the opening tag. A chip with a trailing control is padded asymmetrically by definition — `pl-2
+  pr-1`, so the ✕ sits nearer the edge than the label — so the predicate could not see the one form
+  a hand-rolled chip takes the moment it grows an action, which is also the form most likely to be
+  hand-rolled, since neither existing primitive could express it. Widened to accept a `pl-`/`pr-`
+  pair, it names exactly these two and nothing else in the repo. The falsification is what makes
+  that worth writing down: with both hand-rolls present the OLD predicate returns green and the NEW
+  one names the file.
+
 - **`ChipButton`** — a chip that DOES something: a filter you toggle, an action on a row, an
   "apply this view" affordance. Same geometry as `Chip` (`text-xs`, `rounded-md`, `px-2 py-1`), a
   `focus-visible` ring, and `touch-area` so a token-sized control still meets §8's hit minimum.
@@ -1003,6 +1035,16 @@ rendered check found it the first time a `warn` chip appeared on an audited surf
 `amber-800` now (6.03:1 on the same ground, still ahead of its zinc neighbours, so the ordering
 above is unchanged). **The two checks are not redundant: one rates what the source says and the
 other rates what the browser composites, and a wash is exactly where those differ.**
+
+**A second one the same day, and the cause is different enough to be worth both entries.** P1's
+audit row 4 moved `ChannelExplorer`'s plotted-channel chip onto `Chip`, carrying its unit label's
+`text-zinc-500` across unchanged. On the hand-rolled chip that ink sat on `bg-white` — 4.61:1, over
+AA. `Chip`'s `default` tone is a raised `zinc-100` tile, and the identical class over THAT fill
+measures **4.4:1**, under. The source census rates the class clean and is right to: it has a `dark:`
+partner, no opacity suffix, and nothing wrong with it — **the ink did not change, the ground under
+it did.** So the rule is narrower than "washes are where the two checks differ": any conversion that
+moves text onto a primitive moves it onto that primitive's fill, and a contrast rating belongs to
+the pair. Adopting a primitive is a contrast change even when the diff touches no colour.
 
 **One limit stated rather than hidden:** `audit()` asserts on axe's `violations` and ignores its
 `incomplete` bucket, which on the logbook state holds **10** `color-contrast` nodes axe declined to
