@@ -66,6 +66,7 @@ export default function GroundTrack({
   landed,
   events,
   synthetic,
+  recordedBy,
 }: {
   lat: Float64Array;
   lon: Float64Array;
@@ -109,6 +110,11 @@ export default function GroundTrack({
    *  keeps its plain label. `/stitch` is the case that differs, because it is a top-level route
    *  with nothing above it. */
   synthetic: boolean;
+  /** Which instrument recorded these fixes, as the file stated it. Rides into the `.gpx`'s `<src>`
+   *  and the `.kml`'s `<ExtendedData>` — the fields both schemas reserve for exactly this, and
+   *  which Debrief left empty while every vendor tool in `COMPETITION.md` row 43 repeats the board
+   *  identity on every record it writes. Null when the file named nothing. */
+  recordedBy?: string | null;
 }) {
   const dark = useIsDark();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -676,7 +682,7 @@ export default function GroundTrack({
           size="sm"
           onClick={() =>
             download(
-              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed, synthetic)], {
+              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed, synthetic, recordedBy)], {
                 type: 'application/gpx+xml',
               }),
               `${stem}-track.gpx`,
@@ -694,7 +700,7 @@ export default function GroundTrack({
           size="sm"
           onClick={() =>
             download(
-              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed, synthetic, kmlAltitudeNote)], {
+              new Blob([trackKml(stem, lat, lon, altitude, stats.landingIndex, landed, synthetic, recordedBy, kmlAltitudeNote)], {
                 type: 'application/vnd.google-earth.kml+xml',
               }),
               `${stem}-track.kml`,

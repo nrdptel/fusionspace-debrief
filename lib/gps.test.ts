@@ -98,6 +98,25 @@ describe('trackGpx', () => {
     expect(made).toContain('<trkpt lat="34.100000" lon="-116.100000"/>');
   });
 
+  it('names the instrument in the field GPX reserves for it, and the software in `creator`', () => {
+    // `COMPETITION.md` row 44: GPX 1.1's `<src>` is annotated "Source of data. Included to give
+    // user some idea of reliability and accuracy of data", and Debrief wrote neither it nor a
+    // real `creator` — while AltosUI repeats serial and flight number on every row of its CSV.
+    const named = trackGpx('rocket', lat, lon, 2, true, false, 'Featherweight Blue Raven · serial 1537');
+    expect(named).toContain('<src>Featherweight Blue Raven · serial 1537</src>');
+    // On BOTH records a reader can select: the track and the waypoint they navigate to.
+    expect((named.match(/<src>/g) ?? []).length, 'the trk and the wpt each carry it').toBe(2);
+    // Schema order — `<src>` follows `<desc>` in both `wptType` and `trkType`, and a validating
+    // reader rejects it anywhere else.
+    expect(named.indexOf('<desc>')).toBeLessThan(named.indexOf('<src>', named.indexOf('<desc>')));
+    expect(named, 'the software says which build wrote the file').toMatch(/creator="Debrief [^"]+"/);
+
+    // Nothing invented when the file named nothing: no empty element, which is worse than none.
+    const anonymous = trackGpx('rocket', lat, lon, 2, true, false, null);
+    expect(anonymous).not.toContain('<src>');
+    expect(trackGpx('rocket', lat, lon, 2, true, false)).not.toContain('<src>');
+  });
+
   it('names the last fix honestly on a record that ends in the air, made up or not', () => {
     // The landing claim and the made-up claim are independent, and a file can need both.
     const air = trackGpx('r', lat, lon, 2, false, true);
@@ -207,7 +226,7 @@ describe('trackKml — the flight in Google Earth', () => {
     // The one thing that is easy to get wrong and impossible to see afterwards: KML is
     // longitude first, which is the reverse of every other coordinate in this codebase.
     // A swapped pair puts a Mojave launch in the Indian Ocean and still opens fine.
-    const kml = trackKml('flight', lat, lon, alt, 2, true, false);
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, null);
     expect(kml).toContain('-116.957700,34.494900,0.0');
     expect(kml).toContain('-116.957100,34.495200,812.3');
     expect(kml).toContain('<altitudeMode>relativeToGround</altitudeMode>');
@@ -219,27 +238,27 @@ describe('trackKml — the flight in Google Earth', () => {
   });
 
   it('flattens a flight with no altitude channel rather than refusing one', () => {
-    const kml = trackKml('flight', lat, lon, undefined, -1, true, false);
+    const kml = trackKml('flight', lat, lon, undefined, -1, true, false, null);
     expect(kml).toContain('-116.957100,34.495200,0.0');
     expect(kml).not.toContain('Landing');
   });
 
   it('skips fixes the receiver never made, and escapes the name', () => {
     const gappy = Float64Array.from([34.4949, NaN, 34.4958]);
-    const kml = trackKml('a & b', gappy, lon, alt, -1, true, false);
+    const kml = trackKml('a & b', gappy, lon, alt, -1, true, false, null);
     expect(kml).toContain('<name>a &amp; b</name>');
     expect(kml.match(/,34\./g)?.length).toBe(2);
   });
 
   it('says nothing about being made up when the flight was flown', () => {
-    const kml = trackKml('flight', lat, lon, alt, 2, true, false, 'the barometer drew the height');
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, null, 'the barometer drew the height');
     expect(kml).not.toContain(SYNTHETIC_TAG);
     // The altitude note still gets the description to itself, exactly as before.
     expect(kml).toContain('<description>the barometer drew the height</description>');
   });
 
   it('marks a made-up flight on every name Google Earth draws, and in one description', () => {
-    const kml = trackKml('flight', lat, lon, alt, 2, true, true, 'the barometer drew the height');
+    const kml = trackKml('flight', lat, lon, alt, 2, true, true, null, 'the barometer drew the height');
     // Three names: the document, the landing placemark, and the track placemark. Each is a label
     // Earth writes on the sidebar or on the ground, and each is a place a reader might look.
     expect((kml.match(new RegExp(`<name>${SYNTHETIC_TAG} — `, 'g')) ?? []).length).toBe(3);
@@ -252,11 +271,27 @@ describe('trackKml — the flight in Google Earth', () => {
     expect(kml).toContain('-116.957100,34.495200,812.3');
   });
 
+  it('names the instrument in the field KML reserves for it, where Earth shows it', () => {
+    // `<ExtendedData>` is what Google Earth puts in the balloon by default — the field a consumer
+    // parses, rather than a label baked into a name the way AltosUI does it.
+    const named = trackKml('flight', lat, lon, alt, 2, true, false, 'Altus Metrum TeleMetrum · serial 2098 · flight 12');
+    expect(named).toContain('<Data name="Recorded by"><value>Altus Metrum TeleMetrum · serial 2098 · flight 12</value></Data>');
+    expect(named, 'and which build wrote it').toMatch(/<Data name="Written by"><value>Debrief [^<]+<\/value><\/Data>/);
+    // Inside the Document and ahead of its features, which is where AbstractFeatureType's own
+    // sequence puts it.
+    expect(named.indexOf('<ExtendedData>')).toBeGreaterThan(named.indexOf('<Document>'));
+    expect(named.indexOf('<ExtendedData>')).toBeLessThan(named.indexOf('<Placemark>'));
+    // Escaped like every other value that reaches the file.
+    expect(trackKml('f', lat, lon, alt, 2, true, false, 'a & b <x>')).toContain('a &amp; b &lt;x&gt;');
+    // And absent entirely when the file named nothing.
+    expect(trackKml('f', lat, lon, alt, 2, true, false, null)).not.toContain('<ExtendedData>');
+  });
+
   it('still carries the claim when there is no altitude note to carry it beside', () => {
     // The description used to exist only when an altitude note did, so the made-up sentence had
     // to be able to open it on its own — a flight with no GPS altitude to disagree about is the
     // common case, not the exception.
-    const kml = trackKml('flight', lat, lon, alt, 2, true, true);
+    const kml = trackKml('flight', lat, lon, alt, 2, true, true, null);
     expect(kml).toContain(`<description>${SYNTHETIC_NOTE}</description>`);
   });
 });
@@ -313,7 +348,7 @@ describe('an exported track says which instrument drew which part of it', () => 
     // The defect this closes: the file drew a 3D trajectory whose horizontal came from the
     // receiver and whose vertical came from the barometer, and said nothing at all. Measured over
     // the corpus, nine flights carry both altitudes and they differ by 197-1,771 m on average.
-    const kml = trackKml('flight', lat, lon, alt, 2, true, false, 'Positions are the GPS receiver’s. Heights are the barometer’s.');
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, null, 'Positions are the GPS receiver’s. Heights are the barometer’s.');
     expect(kml, 'the note reaches the file').toContain('<description>');
     expect(kml).toContain('Heights are the barometer');
     // Inside the Document, so Google Earth shows it against the whole track rather than a point.
@@ -322,12 +357,12 @@ describe('an exported track says which instrument drew which part of it', () => 
   });
 
   it('a KML written without a note is unchanged, so nothing claims a provenance it was not given', () => {
-    const kml = trackKml('flight', lat, lon, alt, 2, true, false);
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, null);
     expect(kml).not.toContain('<description>');
   });
 
   it('the note is escaped like every other value that reaches the file', () => {
-    const kml = trackKml('flight', lat, lon, alt, 2, true, false, 'baro & GPS <not> merged');
+    const kml = trackKml('flight', lat, lon, alt, 2, true, false, null, 'baro & GPS <not> merged');
     expect(kml).toContain('baro &amp; GPS &lt;not&gt; merged');
     expect(kml, 'no raw angle bracket from the note').not.toContain('<not>');
   });

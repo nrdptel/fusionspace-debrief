@@ -60,3 +60,40 @@ export function describeLog(flight: RawFlight): LogInfo {
 
   return { sampleHz, sampleCount: n, durationSec, uniform, channels, meta };
 }
+
+/**
+ * Who recorded this, in one line — the board's own identity as the FILE stated it.
+ *
+ * **Written for the two exports that had nowhere to put it and a schema field waiting.**
+ * `COMPETITION.md` row 44: GPX 1.1 reserves `<src>`, annotated verbatim *"Source of data. Included
+ * to give user some idea of reliability and accuracy of data"* and legal on `trk`, `wpt` and
+ * `trkpt`; KML 2.2 reserves `<ExtendedData>`, which Google Earth shows in the balloon by default.
+ * Debrief used neither, so a track handed to somebody else said nothing about which instrument
+ * drew it — while AltosUI puts serial and flight number in its KML document name and repeats them
+ * on every row of its CSV. Row 43 measured that: device identity is the one metadata field this
+ * field does not omit.
+ *
+ * Only the keys that IDENTIFY the recording, and in a fixed order — the whole `meta` map is a
+ * parser's free-form bag and includes ground level, sample rate and whatever else a file carried,
+ * which is a panel's job rather than a track file's. Returns null when the file named nothing, so
+ * a caller writes no element at all rather than an empty one.
+ */
+export function recordedBy(flight: RawFlight): string | null {
+  const meta = flight.meta;
+  const at = (want: string): string | null => {
+    for (const [k, v] of Object.entries(meta)) {
+      if (k.toLowerCase().replace(/[^a-z]/g, '') === want) {
+        const s = String(v).trim();
+        if (s) return s;
+      }
+    }
+    return null;
+  };
+  const parts = [
+    at('device') ?? at('product'),
+    at('serial') != null ? `serial ${at('serial')}` : null,
+    at('flight') != null ? `flight ${at('flight')}` : null,
+    at('callsign') != null ? `callsign ${at('callsign')}` : null,
+  ].filter((x): x is string => !!x);
+  return parts.length ? parts.join(' · ') : null;
+}

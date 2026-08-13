@@ -57,6 +57,7 @@ import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
 import { Button, Card, Chip, Disclosure, Figure, Frame, Notice, SectionNav } from './ui';
 import { SYNTHETIC_NOTE, isSynthetic, syntheticBandLine } from '@/lib/synthetic';
+import { recordedBy as recordedByLine } from '@/lib/logInfo';
 
 function round(v: number, p: number): string {
   const f = Math.pow(10, p);
@@ -156,6 +157,9 @@ export default function FlightReport({
   /** Did Debrief make this flight up? Read from the flight's own notes, so it is equally true of
    *  a file just dropped, a saved record re-opened, and a logbook entry restored from a backup. */
   const synthetic = isSynthetic(flight);
+  /** The board's own identity, as the FILE stated it — for the two track exports, which are the
+   *  only artifacts Debrief writes that a reader opens in somebody else's software. */
+  const recordedBy = useMemo(() => recordedByLine(flight), [flight]);
   // Every figure this surface writes is this one flight's, so the band is all-or-nothing here —
   // unlike the comparison's, which counts. Computed once: three SVGs and a PNG read it.
   const bandNote = syntheticBandLine(synthetic ? 1 : 0, 1);
@@ -1521,6 +1525,7 @@ export default function FlightReport({
           apogeeAltitude={metrics.apogeeAltitude}
           events={events}
           synthetic={synthetic}
+          recordedBy={recordedBy}
         />
       )}
 

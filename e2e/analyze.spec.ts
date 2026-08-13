@@ -2989,6 +2989,10 @@ test('the three exports a flyer navigates by say the flight was made up', async 
   // …and it is still a track with fixes in it, not a labelled stub.
   expect((gpx.match(/<trkpt /g) ?? []).length, 'a whole track, not a stub').toBeGreaterThan(100);
 
+  // …and it says which software wrote it, which the schema's own annotation on `creator` asks for
+  // and a bare product name does not answer.
+  expect(gpx).toMatch(/creator="Debrief [^"]+"/);
+
   const [kmlDl] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Save KML' }).click(),

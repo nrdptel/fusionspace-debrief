@@ -311,6 +311,13 @@ that navigates away costs the flyer their place in the report, which is the spec
 is about.
 
 VERDICT: **→ DESIGN.md, then → ROADMAP · 2026-08-08 · P8 — "The explanation comes to the reading"**.
+
+TRIAGED 2026-08-13 — **read, not moved.** P8 is still unstarted and this run spent the P-track on
+P1's contrast slice and the first two rows of the design-system audit. One thing that HELPS it
+shipped anyway and is worth knowing: every `?` on this page links into `/methods` by id, and those
+anchors were landing 14 px UNDER the sticky strip on a touch phone. So the navigate-away behaviour
+this note asks to replace was also arriving in the wrong place; it now lands clear. That does not
+close the note — a popover is still the right answer — it removes the compounding defect.
 **Reproduced exactly.** The question marks are at `components/MetricGrid.tsx:33`: every reading tile
 whose term of art has a write-up renders a superscript `?` that is an
 `<a href={`/methods#${tile.method}`} target="_blank">`. **21 of the grid's tiles carry one**
@@ -445,6 +452,25 @@ something the owner said about this repo.
 
 VERDICT: **→ DESIGN.md · 2026-08-08 · the literal complaint is UNREPRODUCED here; the missing CHECK is
 real and one token genuinely fails.** Both halves measured, neither assumed.
+
+PROGRESS · 2026-08-13 — **the missing CHECK is now most of the way there, and it found a real token
+failure on its first outing.** The rendered audit (axe's `color-contrast`, which was always inside
+the `wcag2aa` tag every walk ran) reaches **13 states in BOTH themes** rather than nine states in
+one: every surface audit had been running at Playwright's default light only, which is half of what
+`DESIGN.md` §9 defines the check as. Four states nothing had reached are walked now — the column
+mapper when it cannot guess, a marginal rail-exit caution, a comparison including a flight with no
+detected liftoff, and a logbook note being written and saved.
+
+Two things it caught that no source check could. **`CHIP_TONES.warn` renders 4.45:1** — under AA —
+because a chip lays its own 10% wash over the card it sits on, where the source census refuses a
+`/NN` opacity suffix by design and rated the same token 4.82:1 against a solid ground. Fixed to
+`amber-800`, 6.03:1. And **a walk that ends on a click rates whatever the cursor is sitting on**: a
+2.51:1 value injected into a resting class left the audit green, because the pointer was parked on
+the element and its `hover:` colour rendered instead.
+
+**What is still open on this note:** the tone TABLES in `ui.tsx` are `const` object literals rather
+than opening tags, so the source census cannot see them at all, and §9 records that as its largest
+unclosed limit.
 
 **UNREPRODUCED, and stated plainly because a note closed on a guess is worse than one left open.**
 Debrief's docs are not grey-in-dark. All three long-form routes use §2's *secondary* role

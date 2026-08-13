@@ -3826,6 +3826,26 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — `COMPETITION.md` row 44's action, taken: the two track exports say which instrument
+drew them, in the field each schema reserves for exactly that.** GPX 1.1's `<src>` is annotated
+verbatim *"Source of data. Included to give user some idea of reliability and accuracy of data"* and
+is legal on `trk` and `wpt`; KML 2.2's `<ExtendedData>` is what Google Earth shows in the balloon by
+default. Debrief used neither, and wrote `creator="Debrief"` — a bare product name where every other
+export it writes carries the build it came from. So a `.gpx` handed to somebody else said nothing
+about which board drew it, while AltosUI puts serial and flight number in its KML document name and
+repeats them on every row of its CSV (row 43's measurement).
+
+`lib/logInfo.ts#recordedBy` takes only the keys that IDENTIFY a recording — device, serial, flight
+number, callsign — in a fixed order, because `flight.meta` is a parser's free-form bag whose key
+order is whatever the file happened to state, and ground level and sample rate are a panel's job
+rather than a track file's. It returns null when the file named nothing, so no empty element is
+written: an element with nothing in it is worse than none.
+
+**Both fields, on both records a reader can select** — the `<trk>` and the `<wpt>` a handheld
+navigates to — and both in schema order (`<src>` follows `<desc>` in `wptType` and `trkType` alike;
+`<ExtendedData>` sits inside the Document ahead of its features, where `AbstractFeatureType`'s own
+sequence puts it). A validating reader rejects either anywhere else.
+
 **2026-08-13 — the rendered check caught the first thing the source census structurally cannot see,
 one day after it was written, and it was a real defect in a §5 token.** `CHIP_TONES.warn` lays its
 own `bg-amber-500/10` wash over whatever it sits on; on a `sunken` card that composites to
@@ -3912,9 +3932,19 @@ the ratchet structurally cannot see**. Ranked by what a flyer meets:
    entry at the top of this milestone.
 2. ~~**`components/CompareSurface.tsx:431` — `/compare` hand-rolls `<p role="status">Reading the
    flights…</p>`**~~ **SHIPPED 2026-08-13.** `Loading` adopters 3 → 4.
-3. **`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`** where
-   `NumberField` is the primitive that owns the refusal behaviour, at `h-11 w-28 px-2` with no `py`
-   against §4's `px-3 py-1.5`, and the unit baked into the label string.
+3. ~~**`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`**~~
+   **REFUTED 3/3, and it is the most useful row in the list.** Three independent verifiers killed
+   it and each stated reason turned out backwards: `NumberField`'s own input is `px-2 py-1`, not
+   §4's `px-3 py-1.5`, so adopting it would not produce the padding the finding prescribed; `h-11`
+   is §8's 44 px touch floor **always**, where `NumberField` only reaches it under
+   `app/globals.css`'s `pointer: coarse` rule, so conversion would SHRINK a desktop target to
+   ~30 px; the safety argument is inverted, because `CropControl` already refuses across four
+   conditions including a pair constraint (`t <= f`, `MIN_CROP_SAMPLES`) that a single field's
+   min/max live region structurally cannot express; and the "unit baked into the label" cannot be
+   reached by a unit switch at all, since `lib/display.ts` has no time quantity. It is also already
+   the recorded seventh non-adopter in `lib/design-system.test.ts`, pinned by the exact
+   `NumberField: 6` ratchet. **An audit that reads source finds divergence and cannot weigh it** —
+   the same lesson row 1 taught by measurement, arriving here by refutation.
 4. `components/ChannelExplorer.tsx:330` and `:416` — two hand-rolled chips at two different
    heights beside real `ChipButton`s, which §5 names outright.
 5. `components/ChannelExplorer.tsx:513` — the explorer's chart is a bare `Card` plus a
