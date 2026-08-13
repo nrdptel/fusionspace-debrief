@@ -6,6 +6,7 @@
 import { ParseGuidanceError, type FileInput, type ParseInput, type Parser } from './types';
 import type { RawFlight } from '../flight/types';
 import { decodeBytes } from '../encoding';
+import { syntheticFromText } from '../synthetic';
 import { parseTable } from '../csv';
 import { analyzeTable, hasMappableColumns, type AnalyzedTable } from '../flight/columns';
 import type { ColumnMapping } from '../flight/build';
@@ -113,6 +114,30 @@ export function suggestMapping(table: AnalyzedTable): ColumnMapping[] {
 }
 
 /**
+ * Carry a made-up file's own marker onto the flight a NAMED parser produced.
+ *
+ * **The mapper path did this and the parser path did not**, which was a hole in `ROADMAP.md`'s D10
+ * rather than a defect anyone could reach: `syntheticFromRows` is called only from `analyzeTable`,
+ * so a generated flight written in a format Debrief recognises would have arrived with no marker
+ * and been read as a recording on every surface. Measured 2026-08-13 by prepending the marker to
+ * three real fixtures — `aim-xtra`, `altimetercloud-mercury` and `altusmetrum-telemetrum`: all
+ * three still auto-detected, and all three came back `isSynthetic === false`.
+ *
+ * A parser is free to put its own notes on a flight, so the marker goes FIRST — the same position
+ * `buildFlight` gives it, for the same reason: `isSynthetic` matches on the note's presence, but
+ * every surface that renders `notes` renders them in order, and the claim that the numbers were
+ * invented outranks whatever the parser had to say about them.
+ *
+ * Returns the flight unchanged when there is no marker, so an ordinary recording allocates nothing
+ * and its notes array keeps its identity.
+ */
+function withSyntheticNote(flight: RawFlight, text: string): RawFlight {
+  const note = syntheticFromText(text);
+  if (!note || flight.notes.includes(note)) return flight;
+  return { ...flight, notes: [note, ...flight.notes] };
+}
+
+/**
  * Identify and import a flight file. Named formats parse straight through;
  * anything else comes back as a table + suggested mapping for confirmation.
  */
@@ -132,7 +157,12 @@ export function importFlight(raw: FileInput, parsers: Parser[] = PARSERS): Impor
       // a truncated capture, or a firmware variant it didn't expect. Treat an
       // empty result like a parse failure and fall through to the generic mapper.
       if (flight.time.length >= 2 && flight.channels.length > 0) {
-        return { kind: 'flight', flight, parser: best.parser, confidence: best.score };
+        return {
+          kind: 'flight',
+          flight: withSyntheticNote(flight, input.text),
+          parser: best.parser,
+          confidence: best.score,
+        };
       }
     } catch (err) {
       // A deliberate, user-facing message (e.g. "this is the high-rate file —

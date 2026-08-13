@@ -2613,6 +2613,20 @@ shaming. Caught by a pre-push review.
     pair on two devices, which is also the only thing that will give `/stitch` a sample. Each
     revisits the `.gpx`/`.kml`/composite rows the current check marks unreachable.
 
+    **A PREREQUISITE for all three was found and fixed 2026-08-13, and it was a hole in this
+    milestone's own guarantee.** Every generated file so far has been a MAPPER file by
+    construction, and `syntheticFromRows` is called from exactly one place — `analyzeTable`, the
+    mapper path. So a made-up flight written in a format Debrief RECOGNISES arrived with **no
+    marker at all**, and `isSynthetic` — the predicate every surface in the table above branches
+    on — returned false for it. Measured by prepending the marker to three real fixtures
+    (`aim-xtra`, `altimetercloud-mercury`, `altusmetrum-telemetrum`): all three still auto-detected,
+    and all three came back unlabelled.
+
+    It was unreachable while every generated file was a mapper file, and (d) makes it reachable on
+    its first line: **a staged pair cannot go through the mapper, which takes one file at a time.**
+    `importFlight` now carries the marker onto a parsed flight's notes, first, ahead of whatever the
+    parser had to say. Falsified both ways — dropping it, and claiming it of every file.
+
 **Also still left:** the samples are offered on `/` and `/compare`; `/stitch` offers none.
 
 **Outcome.** Someone who has never flown a rocket can see everything Debrief does, in one click each,

@@ -344,3 +344,31 @@ export function syntheticFromRows(rows: string[][]): string | null {
   }
   return null;
 }
+
+/** How far into a file the marker may sit. See `syntheticFromText`. */
+const METADATA_SCAN_LINES = 40;
+
+/**
+ * The same marker, read straight off a file's TEXT — for the route `syntheticFromRows` cannot see.
+ *
+ * **`syntheticFromRows` is called from exactly one place: `analyzeTable`, on the COLUMN-MAPPER
+ * path.** A file a named parser recognises never goes through it, so a made-up flight written in a
+ * format Debrief parses arrived with no marker at all and every surface downstream read it as a
+ * recording — the whole labelling chain rests on `isSynthetic`, which reads a note only the mapper
+ * path was adding. Measured 2026-08-13 by prepending the marker to three real fixtures: all three
+ * still auto-detected, and all three came back `isSynthetic === false`.
+ *
+ * Not reachable before that date, because every generated file was a mapper file by construction.
+ * It becomes reachable the moment a generated flight is written in a real logger's format, which is
+ * what D10's staged pair needs — a pair cannot go through the mapper, which takes one file at a
+ * time.
+ *
+ * **Only the leading lines**, because the marker rides in the metadata block ahead of the header by
+ * definition, and a scan of a 100 MB log for a word that can only be in its first few rows is a
+ * cost paid on every import for nothing. Deliberately generous: a logger's own summary block can be
+ * long, and `AnalyzedTable.headerRow` already skips blocks of this size.
+ */
+export function syntheticFromText(text: string): string | null {
+  const lines = text.split(/\r?\n/, METADATA_SCAN_LINES);
+  return syntheticFromRows(lines.map((l) => l.split(',')));
+}
