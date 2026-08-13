@@ -230,7 +230,20 @@ app, never counted in any accuracy or validation figure.** The surface audit is 
 than trusted from memory, because this repo's own history is that a caveat lands on one panel and a
 confident claim on another.
 
-PROGRESS · 2026-08-13 — **the hard half is done, and the thing standing between you and a sample is
+PROGRESS · 2026-08-13 (second entry, same run) — **the sample is now OFFERED, which is the half of
+this note you can actually see.** `/` carries a fourth way in: *"A spreadsheet Debrief has to be
+told about"* — columns no parser recognises, mapped by hand into a flight, which is the answer to
+any log Debrief does not know and was a shipped capability with **no demonstration at all**, because
+a file a parser recognises cannot demonstrate the mapper. It is the first flight in the app Debrief
+made up, and it says so on the button before you press it and on every surface afterwards. That is
+what the twelve labelling slices were for.
+
+Still open on this note: the other synthesized logs — a saturated accelerometer, a coarse-GPS
+flight, and a staged pair on two devices, which is the only thing that will give `/stitch` a sample
+and the one place a competitor (Featherweight's wFIP 2.0, with Jason Brown's two-stage *BadaBoom*)
+demonstrably beats us.
+
+
 now the samples themselves rather than the labelling.** Every sink this audit has found carries the
 claim: **24 of 29 by a named check, 5 by prose in the document itself, 0 left open**, against 21 of
 28 a run ago. The three that closed this run are the ones a figure does not get *read* through but

@@ -543,7 +543,11 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  `BACKLOG.md` 2026-08-09), so this is one adopter arriving next to one hand-roll that stays.
    *  Said plainly rather than counted as a clean conversion: the row now shows a primitive chip
    *  and a hand-rolled chip side by side, and closing that is P1 work this slice did not do. */
-  Chip: 8,
+  /** 8 → 9 on 2026-08-13: `DropZone`, tagging the mapper sample as one Debrief MADE UP on the
+   *  control that OFFERS it. Every other synthetic sink answers "does the claim leave the app with
+   *  the figure"; this answers whether a flyer knows what they are about to open, which is decided
+   *  on a button sitting beside three real recordings. */
+  Chip: 9,
   /** **FOUR primitives had no entry here at all, and the ratchet could not see any of them move.**
    *  Found 2026-08-09 by checking this list against `components/ui.tsx`'s own exports rather than
    *  against memory — the same class of omission `lib/synthetic.test.ts` recorded about its export

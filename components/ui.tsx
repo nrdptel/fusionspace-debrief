@@ -887,7 +887,15 @@ const CHIP_TONES = {
   default: 'border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800',
   accent: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:text-indigo-300',
   good: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-400',
-  warn: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-500/40 dark:text-amber-400',
+  /** `amber-800`, not `amber-700`, and the difference was MEASURED rather than chosen. A chip lays
+   *  its own `bg-amber-500/10` wash over whatever it sits on, and on a `sunken` card that
+   *  composites to `#faf0e1` — where `amber-700` (`#bb4d00`) renders **4.45:1**, five hundredths
+   *  under AA. `DESIGN.md` §9's source census cannot see this by construction: it REFUSES a `/NN`
+   *  opacity suffix and falls back to the page surfaces, so it rated this against solid `sunken`
+   *  at 4.82:1 and passed. Found the first time a `warn` chip appeared on a surface the RENDERED
+   *  check audits, which is what that check is for. `amber-800` is 6.03:1 on the same ground and
+   *  still leads its zinc neighbours, so the ordering §9 records is unchanged. */
+  warn: 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:border-amber-500/40 dark:text-amber-400',
   /** `dark:text-red-400`, matching `good` and `warn` rather than `CARD_TONES.danger`'s `-200`.
    *  A card's danger text sits on a tinted PANEL and can go lighter; a chip's sits on a `500/10`
    *  wash the same depth as the other two tones, so it takes their step. Written down because a

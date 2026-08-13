@@ -3,7 +3,8 @@
 import { useRef } from 'react';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
 import { SAMPLES, type Sample } from '@/lib/samples';
-import { Button, Card } from './ui';
+import { Button, Card, Chip } from './ui';
+import { SYNTHETIC_TAG } from '@/lib/synthetic';
 
 export default function DropZone({
   onFiles,
@@ -63,6 +64,27 @@ export default function DropZone({
                 <Button variant="link" onClick={() => onSample(s)} disabled={busy} title={s.shows}>
                   {s.label}
                 </Button>
+                {/* A sample Debrief MADE UP says so BEFORE it is opened, not only afterwards on
+                    the report. Every sink in `lib/synthetic.test.ts` answers "does the claim
+                    leave the app with the figure"; this answers a different question — does a
+                    flyer know what they are about to look at — and a button offering an invented
+                    flight beside three real recordings is where that is decided. The tag rather
+                    than the sentence: this is a line of asides, and `s.shows` carries the whole
+                    of it on the control's own title. */}
+                {s.synthetic && (
+                  <>
+                    {' '}
+                    <Chip
+                      tone="warn"
+                      value={
+                        <>
+                          {SYNTHETIC_TAG}
+                          <span className="sr-only"> — a flight Debrief made up, not a recording</span>
+                        </>
+                      }
+                    />
+                  </>
+                )}
               </span>
             ))}
           </p>

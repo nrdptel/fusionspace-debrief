@@ -71,6 +71,18 @@ trivially rebuildable, so it is friction rather than a one-way door.
   ids. Each pinned by a walk that goes red against the code as it was, and each falsified beside
   the walk that already existed and stayed green — which is what proves the old check could not
   see the defect.
+- **`d4049c6` — a subject on the methods page lands below the strip, not under it**, plus
+  `/compare`'s loading state taking §5's `Loading`. The design-system audit's top two rows, and the
+  first was half wrong until it was measured: 14 px under on a COARSE pointer, 6 px clear on a
+  fine one.
+- **D10 (c) — the mapper sample is OFFERED.** The first flight in the app Debrief made up, which
+  is what the twelve labelling slices were for — and the run's best argument for the check it
+  shipped one increment earlier: the sample's `warn` chip is the first one ever to appear on an
+  audited surface, and the audit went red at **4.45:1**. `CHIP_TONES.warn` lays its own
+  `bg-amber-500/10` wash over the card, which composites to `#faf0e1`, where `amber-700` is five
+  hundredths under AA — while the source census rated the same token 4.82:1 against SOLID `sunken`,
+  because it refuses a `/NN` suffix by design. **One check rates what the source says, the other
+  what the browser composites, and a wash is where they differ.** `amber-800` now, 6.03:1.
 
 ## The one thing to read before anything else
 
@@ -132,15 +144,17 @@ Three more of the same shape, all found by pointing the sweep at one surface:
 
 ## Pick this up first
 
-1. **P1's next slices are the design-system audit's top three, now queued in `ROADMAP.md`** —
-   `app/methods/page.tsx`'s `scroll-mt-12` under a 62 px strip (51 heading ids, and 21 readings link
-   into that page, so every `?` a flyer presses lands behind the bar); `/compare`'s hand-rolled
-   loading state where §5's `Loading` exists; and `CropControl`'s two raw number inputs where
-   `NumberField` is the primitive that owns the refusal behaviour.
-2. **D10 (c): offer the mapper sample.** Written and tested since 2026-08-09, held back rather than
-   missing. The trap is recorded in `ROADMAP.md`: `lib/samples.test.ts` asserts every single-file
-   sample auto-detects as a flight, which a mapper sample cannot do — that needs a second KIND, not
-   a loosened assertion.
+1. **P1's next slices are the rest of the design-system audit, queued in `ROADMAP.md`.** Its top
+   two shipped this run; the next is `CropControl`'s two raw `<input type="number">` where
+   `NumberField` is the primitive that owns the refusal behaviour, then one sweep of
+   `ChannelExplorer` (rows 4–11: two hand-rolled chips at two heights, a chart that is not a
+   `Figure`, a `return null` where an `EmptyState` belongs, seven one-glyph controls across five
+   geometries).
+2. **D10 (d): the other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and a
+   staged pair on two devices. The staged pair is the highest-value one: it is the only thing that
+   will give `/stitch` a sample, and `COMPETITION.md` row 40 records the one place a rival
+   demonstrably beats us (Featherweight's wFIP 2.0 ships Jason Brown's two-stage *BadaBoom* —
+   three devices across two stages, in one click). (c) shipped this run.
 3. **`COMPETITION.md` row 44's action**, which is also row 43's: `<src>` in the GPX and
    `<ExtendedData>` in the KML carrying the board identity `flight.meta` already holds. One
    increment, two rows resolved. AltosUI puts serial and flight number on every CSV row and in the

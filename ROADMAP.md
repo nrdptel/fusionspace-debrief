@@ -2577,10 +2577,21 @@ shaming. Caught by a pre-push review.
        `latitude`/`longitude` roles were indeed the whole route — no new generator;
     7. ~~the share link~~ **SHIPPED 2026-08-13** as slice 5l above — the behaviour was already
        right and the assertion was what was missing, which is exactly why it needed one.
-(c) **Then, and only then, offer the mapper sample** — the generated file is already written and
-    tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
-    single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so
-    that assertion needs a second kind rather than a loosened tolerance.
+(c) ~~**Then, and only then, offer the mapper sample**~~ **SHIPPED 2026-08-13**, and the trap this
+    line predicted was real: `lib/samples.test.ts` asserts every single-file sample auto-detects as
+    a flight, which a mapper sample cannot do by definition. It took a second KIND — `Sample.kind:
+    'flight' | 'mapping'` — with each branch asserted on its own terms, rather than a widened
+    assertion that would have stopped failing and stopped meaning anything: a real sample silently
+    losing its parser would have passed too. The mapping branch asserts BOTH halves, because either
+    alone is satisfiable by a broken sample — it must NOT auto-detect, and it must yield an apogee
+    once its columns are set. A third case regenerates the committed file byte for byte, so editing
+    `demoFlight` cannot change what the sample demonstrates while the bytes on disk go on showing
+    the old curve.
+
+    **The offer says it too.** `Sample.synthetic` puts the tag on the control that opens it, beside
+    three buttons that open real recordings — a different question from every sink in the ledger,
+    which all ask whether the claim leaves the app *with the figure*. This one asks whether a flyer
+    knows what they are about to look at.
 (d) **The other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and a staged
     pair on two devices, which is also the only thing that will give `/stitch` a sample. Each
     revisits the `.gpx`/`.kml`/composite rows the current check marks unreachable.
@@ -3814,6 +3825,17 @@ the artifact rather than the tree.
     These are not new work invented here; they are §5 as written, unimplemented. Recorded so the
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
+
+**2026-08-13 — the rendered check caught the first thing the source census structurally cannot see,
+one day after it was written, and it was a real defect in a §5 token.** `CHIP_TONES.warn` lays its
+own `bg-amber-500/10` wash over whatever it sits on; on a `sunken` card that composites to
+`#faf0e1`, where `text-amber-700` renders **4.45:1** — five hundredths under AA. The source census
+rated it **4.82:1** against SOLID `sunken`, because it refuses a `/NN` opacity suffix and falls back
+to the page surfaces, which §9 records as a deliberate under-report. It could not have found this.
+The rendered check found it the moment a `warn` chip first appeared on an audited surface — the
+mapper sample's tag, shipped in the same run — and the tone is `amber-800` now, 6.03:1 on the same
+ground. **The two checks are not redundant: one rates what the source SAYS and the other rates what
+the browser COMPOSITES, and a wash is exactly where those differ.**
 
 **2026-08-13 — the design-system audit's top two rows, SHIPPED, and the first one was half wrong
 until it was measured here.**
