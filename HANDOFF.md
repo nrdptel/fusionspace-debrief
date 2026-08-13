@@ -8,7 +8,7 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 |---|---|
 | **Shipped to production** | **One squashed commit, merged** — `d7dee41` (PR #183), carrying D10 slices **5k and 5l**. Both CI jobs were green on it, corpus half included, before the merge. Re-measure before believing anything is live: `git fetch --prune origin`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
 | **Pending** | Whatever sits on the working branch above `origin/main` — measure it, do not trust this line: `git rev-list --count origin/main..HEAD`. |
-| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched: unit 1,381 with the corpus attached, build clean, e2e 327. **Two Sev-1s were FOUND by the opening sweep and one is fixed** (the comparison's apogee cross-check, below); **two more survived refutation and are NOT fixed** — see *The two Sev-1s still open*. |
+| **Sev-1** | **None inherited.** The baseline gate was green before anything was touched: unit 1,381 with the corpus attached, build clean, e2e 327. **Two Sev-1s were FOUND by the opening sweep and one is fixed** (the comparison's apogee cross-check, below); **two more survived refutation and are fixed too** — see below. Four Sev-1s found, four fixed. |
 | **D — capability** | **D10's labelling half is DONE.** `SINKS` reads **24 labelled · 5 carries · 0 todo across 29 rows**, from 18/5/5 across 28. What is left of D10 is (c) and (d): OFFERING the samples, which is the half a flyer can see. |
 | **P — product & craft** | **P1: the RENDERED contrast check reaches the states and the themes nothing audited** — 15 audits → 26, over 13 states × 2 themes. And **the design-system audit `MAINTAINING.md` asks for every long run was finally RUN**: 11 divergences, all queued into P1 in `ROADMAP.md`. |
 
@@ -26,26 +26,26 @@ them against the reported scalars: **no Sev-1**. One low finding came out of it 
 **An empty sweep is a result.** The numbers are here so the next session can tell it apart from a
 suite that skipped itself.
 
-## The two Sev-1s still open — take these first
+## The two other Sev-1s the sweep found — both FIXED this run
 
-Both were confirmed 3/3 by independent refuters and are the highest-value work waiting. Neither is
-in `BACKLOG.md`, on purpose: they are Sev-1s, not ledger entries.
+Both were confirmed 3/3 by independent refuters, and both are one-way doors with real lost work.
 
-1. **`components/Analyzer.tsx:972` — the "N flights were forgotten to make room" notice reaches only
-   `RecentFlights`, which the report (`:831`) and compare (`:869`) early-returns never render.** So
-   the logbook prune's IndexedDB deletions happen SILENTLY on every screen a drop actually lands on;
-   `CompareSurface.tsx:565` has the identical shape. Repro: drop 13 distinct logs and stay on the
-   report — nothing says a flight was deleted, and the pruned rows' labels, notes and read windows
-   are already gone. `e2e/logbook.spec.ts:511` only ever sees the notice because it clicks "Analyze
-   another flight" after every drop. The same file already hoisted `GroupProposalBanner` out of
-   `RecentFlights` (`:874`) for exactly this reason.
-2. **`components/Analyzer.tsx:506` — a comparison built by dropping a folder mints synthetic ids
-   `${name}-${i}`,** so everything `CompareView` stores about it (label, notes, hand-made column
-   order, metric sort, per-flight colours) is filed under a key nothing can read back — and the one
-   navigation the screen offers ("Give this comparison an address →") reloads the same flights under
-   their real logbook ids, blank. `memoryCarriedForward` is module-level memory the full-page
-   navigation kills, and the orphaned entry permanently burns one of `compareMemory`'s 40 slots.
-   Repro is in `e2e/compare-page.spec.ts:139-157`'s own journey, one step further.
+1. **`components/Analyzer.tsx` — the "N flights were forgotten to make room" notice reached only
+   `RecentFlights`,** which the report and compare early-returns never render. So the logbook
+   prune's IndexedDB deletions happened SILENTLY on every screen a drop actually lands on, while
+   the pruned rows' labels, notes and read windows were already gone. `e2e/logbook.spec.ts:504`
+   only ever saw the notice because it clicks "Analyze another flight" after every drop — the one
+   gesture that puts a flyer back on the logbook. Hoisted into `ForgottenBanner` and rendered on
+   the report, on the analyze route's comparison and on `/compare`'s own drop branch, which is
+   verbatim what `GroupProposalBanner` was hoisted out of the same component to fix.
+2. **`components/Analyzer.tsx` — a comparison built by dropping a folder minted `${name}-${i}`**
+   while `r.savedId` sat four lines below feeding the permalink the same screen offers.
+   `lib/compareMemory.ts` keys the label, the notes, the column order, the sort and the per-flight
+   colours by `captionKey(ids)`, so everything a flyer typed was filed under a key nothing could
+   read back: pressing "Give this comparison an address →" reloaded the same flights under their
+   real ids, blank, and the orphaned entry burned one of the 40 kept slots for good. The id is the
+   logbook's now, with the positional form kept as the fallback it was silently covering — a
+   device that refused the logbook write, where two files in one drop can share a name.
 
 Two other candidates from the same sweep were **REFUTED** and are recorded at their true severity:
 the batch-drop comparison DOES have an address (`Analyzer.tsx:523-526` computes `ids`/`addressable`
@@ -67,6 +67,10 @@ trivially rebuildable, so it is friction rather than a one-way door.
   The Sev-1, plus `(baro)` naming the wrong sensor, `(at least)` having no legend anywhere, and the
   channel explorer publishing a bare apogee. See below.
 - **P1's rendered-contrast slice** — audits 15 → 26, over 13 states × 2 themes.
+- **The two remaining Sev-1s**, above: the prune banner where the drop lands, and the comparison's
+  ids. Each pinned by a walk that goes red against the code as it was, and each falsified beside
+  the walk that already existed and stayed green — which is what proves the old check could not
+  see the defect.
 
 ## The one thing to read before anything else
 
@@ -128,17 +132,16 @@ Three more of the same shape, all found by pointing the sweep at one surface:
 
 ## Pick this up first
 
-1. **The two Sev-1s above.** Both are one-way doors with real lost work.
-2. **P1's next slices are the design-system audit's top three, now queued in `ROADMAP.md`** —
+1. **P1's next slices are the design-system audit's top three, now queued in `ROADMAP.md`** —
    `app/methods/page.tsx`'s `scroll-mt-12` under a 62 px strip (51 heading ids, and 21 readings link
    into that page, so every `?` a flyer presses lands behind the bar); `/compare`'s hand-rolled
    loading state where §5's `Loading` exists; and `CropControl`'s two raw number inputs where
    `NumberField` is the primitive that owns the refusal behaviour.
-3. **D10 (c): offer the mapper sample.** Written and tested since 2026-08-09, held back rather than
+2. **D10 (c): offer the mapper sample.** Written and tested since 2026-08-09, held back rather than
    missing. The trap is recorded in `ROADMAP.md`: `lib/samples.test.ts` asserts every single-file
    sample auto-detects as a flight, which a mapper sample cannot do — that needs a second KIND, not
    a loosened assertion.
-4. **`COMPETITION.md` row 44's action**, which is also row 43's: `<src>` in the GPX and
+3. **`COMPETITION.md` row 44's action**, which is also row 43's: `<src>` in the GPX and
    `<ExtendedData>` in the KML carrying the board identity `flight.meta` already holds. One
    increment, two rows resolved. AltosUI puts serial and flight number on every CSV row and in the
    KML document name; both track schemas reserve a provenance field and Debrief uses neither.

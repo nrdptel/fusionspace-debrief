@@ -672,7 +672,14 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  stage's apogee, max speed and burn by name with no surface above it to carry a caveat, so a
    *  composite assembled from made-up recordings read exactly like a launch. Found by the pre-push
    *  review of the slice that was supposed to have found every such sink. */
-  Notice: 9,
+  /** 9 → 10 on 2026-08-13: `ForgottenBanner`, and it is a MOVE that also fixes a Sev-1 rather than
+   *  a new adopter. The prune notice was JSX inside `RecentFlights`, which the report and compare
+   *  branches never render — so a flyer told the logbook had deleted a flight was only ever told
+   *  it on the one screen a drop does not leave them on. Hoisted into its own component and
+   *  rendered on all three, exactly as `GroupProposalBanner` was, one file away, for the same
+   *  reason. The count moves because a fourth call site would otherwise have been three more
+   *  copies of one sentence about a flyer's deleted data. */
+  Notice: 10,
   /** The bordered-no-background container, lifted 2026-08-01 from the five sites that had written
    *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
    *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical

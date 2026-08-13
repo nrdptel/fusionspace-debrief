@@ -156,6 +156,43 @@ test('a comparison built from a drop can be given an address', async ({ page }) 
   await expect(page).toHaveURL(/[?&]u=/);
 });
 
+/**
+ * The write-up a flyer builds on top of a comparison has to survive the one navigation the screen
+ * offers — and it did not, because the two halves of that navigation used different ids.
+ *
+ * A comparison built by dropping files minted `${name}-${i}` for each flight while the real
+ * logbook id sat four lines away feeding the permalink. `lib/compareMemory.ts` keys the label, the
+ * notes, the hand-made column order, the metric sort and the per-flight colours by
+ * `captionKey(ids)`, so everything a flyer typed was filed under a key nothing could read back —
+ * and the orphaned entry burned one of the 40 kept slots for good.
+ */
+test('the label a flyer types on a dropped comparison survives being given an address', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles([fixture('altusmetrum-telemetrum.csv'), fixture('featherweight-raven-fip.csv')]);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 30_000 });
+
+  await page.getByText(/Label this comparison/).click();
+  const label = page.getByLabel(/Title for this comparison|Label/).first();
+  await label.fill('L2 cert — both bays');
+  // The write is debounced through `rememberCompare`; the ✓ on the disclosure is the app's own
+  // signal that it took, and waiting on it is what stops this racing the storage write.
+  await expect(page.getByText(/Label this comparison ✓/)).toBeVisible();
+
+  await page.getByRole('link', { name: /Give this comparison an address/ }).click();
+  await expect(page).toHaveURL(/\/compare\/?\?ids=[^&]+,[^&]+/);
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 30_000 });
+
+  // The whole point: the same flights at their real address still carry what was written about
+  // them. Asserted after a reload too, because the in-memory carry-forward would otherwise hide a
+  // key that never matched.
+  await expect(page.getByText('L2 cert — both bays')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Comparing 2 flights' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('L2 cert — both bays')).toBeVisible();
+});
+
 // The surface called "Compare flights" could not take a flight. A flyer landing on it with
 // a launch day's folder was sent to the analyze page to drop it and come back — the one
 // action the page is named for was the one it couldn't do, while its own source comment

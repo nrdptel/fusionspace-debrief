@@ -3815,6 +3815,13 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — `Notice` adopters 9 → 10, and the count moved for a Sev-1 rather than for a
+conversion.** `ForgottenBanner` is the logbook's prune notice hoisted out of `RecentFlights`,
+because the report and compare branches return without the logbook and so a flyer told a flight had
+been deleted was only ever told it on the one screen a drop does not leave them on. The ratchet
+caught the count itself: the suite went red on `Notice: 9` in the same run that earned the tenth,
+which is exactly what §9's exact-match adopter table is for.
+
 **2026-08-13 — the RENDERED contrast check reaches the states and the themes nothing audited, which
 was §9's own named next slice.** Two gaps, and the second was not in the brief: the four state
 audits §9 asked for (an unmapped column, a marginal rail exit, an undetected liftoff, a flight with
@@ -4519,6 +4526,18 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-13 — the prune notice was hoisted into its own component rather than duplicated into
+  the two branches that were missing it.** *Rejected:* pasting the JSX into the report and compare
+  branches, which is what the fastest fix looks like and would have made four copies of one
+  sentence about a flyer's deleted data. `GroupProposalBanner` set the precedent one file away, on
+  the identical argument. Reversal cost: inline it again.
+
+- **2026-08-13 — a dropped comparison's flight id is the LOGBOOK's, with the positional
+  `${name}-${i}` kept as a fallback.** *Rejected:* using `savedId` unconditionally, which is
+  cleaner and breaks the case the positional form was silently covering — a device that refused the
+  logbook write has no id at all, and two files in one drop can share a name, so the index is what
+  keeps them distinct. Reversal cost: drop the `??`.
 
 - **2026-08-13 — a qualified apogee stays IN the cross-check spread and carries a footnote, rather
   than being dropped from it.** *Rejected:* excluding a contributor whose apogee is `(unproven)`,
