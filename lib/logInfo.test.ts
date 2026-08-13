@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeLog } from './logInfo';
+import { describeLog, recordedBy } from './logInfo';
 import type { RawFlight } from './flight/types';
 
 function flight(time: number[], over: Partial<RawFlight> = {}): RawFlight {
@@ -46,5 +46,39 @@ describe('describeLog', () => {
     expect(info.sampleHz).toBeNull();
     expect(info.durationSec).toBe(0);
     expect(info.uniform).toBe(true);
+  });
+});
+
+describe('recordedBy — who the file says drew these fixes', () => {
+  const flight = (meta: Record<string, string | number>) =>
+    ({ meta, channels: [], series: {} } as unknown as Parameters<typeof recordedBy>[0]);
+
+  it('names the board, its serial and the flight number, in that order', () => {
+    // The order is fixed rather than the map's, because `flight.meta` is a parser's free-form bag
+    // and its key order is whatever the file happened to state.
+    expect(recordedBy(flight({ flight: 12, device: 'Altus Metrum TeleMetrum', serial: 2098 }))).toBe(
+      'Altus Metrum TeleMetrum · serial 2098 · flight 12',
+    );
+  });
+
+  it('takes only the keys that IDENTIFY the recording', () => {
+    // Ground level and sample rate are a panel's job. A track file gets the identity and nothing
+    // else, or the field stops being one a reader can act on.
+    expect(recordedBy(flight({ device: 'Entacore AIM', groundLevel: 231, sampleRate: '50 Hz (low-rate)' }))).toBe(
+      'Entacore AIM',
+    );
+  });
+
+  it('returns null when the file named nothing, so no empty element is written', () => {
+    expect(recordedBy(flight({}))).toBeNull();
+    expect(recordedBy(flight({ groundLevel: 231 }))).toBeNull();
+    // An empty or whitespace value is the same as absent — a parser that read a blank field must
+    // not produce `serial ` with nothing after it.
+    expect(recordedBy(flight({ device: '   ' }))).toBeNull();
+  });
+
+  it('reads a key however the parser spelled it', () => {
+    // Parsers write `device`, `Serial`, `flight_number` — the map is free-form by design.
+    expect(recordedBy(flight({ Device: 'Blue Raven', SERIAL: '1537' }))).toBe('Blue Raven · serial 1537');
   });
 });

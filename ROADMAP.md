@@ -2046,9 +2046,26 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4 and 5a–5l SHIPPED, and every sink the audit has found
-now carries the claim (`todo: 0`).** What is left of this milestone is (c) and (d) below — OFFERING
-the samples, which is the half a flyer can see. (This line read "1, 2 and 3" for a
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l and (c) SHIPPED.** Every sink the audit has
+found carries the claim (`todo: 0`), and the mapper sample is OFFERED, which was the half a flyer
+could see. **What is left is (d) alone: the other synthesized logs** — a saturated accelerometer, a
+coarse-GPS flight, and a staged pair on two devices.
+
+**Measured against this milestone's own *done when*, 2026-08-13.** It asks for a named sample for
+each shipped capability that has none, each opening through the same `ingest()` path a dropped file
+takes, and every synthetic flight labelled on every surface that can carry it out of the app.
+- **Labelling: MET.** `SINKS` 24 labelled · 5 carries · 0 todo across 29 rows, pinned by the
+  asymmetry check plus a named test or walk per row. `todo: 0` is a floor rather than a finish —
+  three of the last four slices each found a sink the audit had never enumerated.
+- **The `ingest()` clause: MET** and has been since slice 1; the mapper sample goes through
+  `onFiles` with a real `File`, the drop path itself.
+- **Samples: 4 of 6.** One flight end to end, two altimeters on one flight, a log beside its
+  board's own summary, and now the column mapper. **Missing: a saturated accelerometer, a
+  coarse-GPS flight, and the staged pair** — the last is the highest value of the three, because it
+  is the only thing that will give `/stitch` a sample at all and `COMPETITION.md` row 40 names the
+  one rival that demonstrably beats us there.
+- **`/validation` never counts a synthetic flight: MET**, by construction — it reads the corpus.
+- **`/stitch` still offers no sample.** It cannot until (d)'s staged pair exists. (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2791,6 +2808,21 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**Measured against this milestone's own *done when*, 2026-08-13** — "§9 runs clean and is pinned by
+a test", with six named counts. Run on the shipped tree: **radius drift 0** (target 0) · **off-scale
+spacing 0** (0) · **off-scale type 1** (0, honest floor 1 — the brand wordmark, which §10 makes
+shared and non-negotiable) · **card treatments 3** (1 + the named non-card primitives; the honest
+floor recorded below is 4) · **files where `text-xs` > `text-sm` 10 of 51** (target 0 — read item 2
+below before treating that as a defect total; `Chip` is `text-xs` by definition, so a chip-built
+surface is permanently "inverted" while fully compliant) · **components importing `./ui` 39 of 51**
+(target: most).
+
+**Nothing moved the wrong way this run**, and the two counts that MOVED both moved forward and for
+the right reason: `Notice` adopters 9 → 10 and `Loading` 3 → 4, each in the commit that earned it,
+each caught by the ratchet going red first. The gap that remains is the type-inversion count and the
+`./ui` adoption tail — and the eleven rows the design-system audit added below, of which two shipped
+and one was refuted this run.
 
 **2026-08-11 — §9's contrast block named two checks that DID NOT EXIST, and the token they should
 have been guarding failed AA in dark.** P1's *done when* is "`DESIGN.md`'s compliance block (§9) runs
@@ -3826,6 +3858,35 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — the done-check's cold walk caught two numbers for one apogee, and the fix is a
+deletion.** The mapper sample's offer read *"apogee at 5,467 ft"* — the GENERATOR's own curve
+maximum, taken from `lib/synthetic.ts`'s docblock — while the app reads **5,462 ft** off the same
+file, because Debrief analyses what the file contains rather than what wrote it. Five feet apart is
+small, and it is still two numbers for one apogee on two surfaces a flyer sees within one click of
+each other, which is the shape `MAINTAINING.md` names as worse than either alone. The button now
+describes the SHAPE of the curve and no figure; the report is where the number belongs. Worth
+recording because the walk is what found it — every test passed, on both numbers.
+
+**2026-08-13 — `COMPETITION.md` row 44's action, taken: the two track exports say which instrument
+drew them, in the field each schema reserves for exactly that.** GPX 1.1's `<src>` is annotated
+verbatim *"Source of data. Included to give user some idea of reliability and accuracy of data"* and
+is legal on `trk` and `wpt`; KML 2.2's `<ExtendedData>` is what Google Earth shows in the balloon by
+default. Debrief used neither, and wrote `creator="Debrief"` — a bare product name where every other
+export it writes carries the build it came from. So a `.gpx` handed to somebody else said nothing
+about which board drew it, while AltosUI puts serial and flight number in its KML document name and
+repeats them on every row of its CSV (row 43's measurement).
+
+`lib/logInfo.ts#recordedBy` takes only the keys that IDENTIFY a recording — device, serial, flight
+number, callsign — in a fixed order, because `flight.meta` is a parser's free-form bag whose key
+order is whatever the file happened to state, and ground level and sample rate are a panel's job
+rather than a track file's. It returns null when the file named nothing, so no empty element is
+written: an element with nothing in it is worse than none.
+
+**Both fields, on both records a reader can select** — the `<trk>` and the `<wpt>` a handheld
+navigates to — and both in schema order (`<src>` follows `<desc>` in `wptType` and `trkType` alike;
+`<ExtendedData>` sits inside the Document ahead of its features, where `AbstractFeatureType`'s own
+sequence puts it). A validating reader rejects either anywhere else.
+
 **2026-08-13 — the rendered check caught the first thing the source census structurally cannot see,
 one day after it was written, and it was a real defect in a §5 token.** `CHIP_TONES.warn` lays its
 own `bg-amber-500/10` wash over whatever it sits on; on a `sunken` card that composites to
@@ -3912,9 +3973,19 @@ the ratchet structurally cannot see**. Ranked by what a flyer meets:
    entry at the top of this milestone.
 2. ~~**`components/CompareSurface.tsx:431` — `/compare` hand-rolls `<p role="status">Reading the
    flights…</p>`**~~ **SHIPPED 2026-08-13.** `Loading` adopters 3 → 4.
-3. **`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`** where
-   `NumberField` is the primitive that owns the refusal behaviour, at `h-11 w-28 px-2` with no `py`
-   against §4's `px-3 py-1.5`, and the unit baked into the label string.
+3. ~~**`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`**~~
+   **REFUTED 3/3, and it is the most useful row in the list.** Three independent verifiers killed
+   it and each stated reason turned out backwards: `NumberField`'s own input is `px-2 py-1`, not
+   §4's `px-3 py-1.5`, so adopting it would not produce the padding the finding prescribed; `h-11`
+   is §8's 44 px touch floor **always**, where `NumberField` only reaches it under
+   `app/globals.css`'s `pointer: coarse` rule, so conversion would SHRINK a desktop target to
+   ~30 px; the safety argument is inverted, because `CropControl` already refuses across four
+   conditions including a pair constraint (`t <= f`, `MIN_CROP_SAMPLES`) that a single field's
+   min/max live region structurally cannot express; and the "unit baked into the label" cannot be
+   reached by a unit switch at all, since `lib/display.ts` has no time quantity. It is also already
+   the recorded seventh non-adopter in `lib/design-system.test.ts`, pinned by the exact
+   `NumberField: 6` ratchet. **An audit that reads source finds divergence and cannot weigh it** —
+   the same lesson row 1 taught by measurement, arriving here by refutation.
 4. `components/ChannelExplorer.tsx:330` and `:416` — two hand-rolled chips at two different
    heights beside real `ChipButton`s, which §5 names outright.
 5. `components/ChannelExplorer.tsx:513` — the explorer's chart is a bare `Card` plus a

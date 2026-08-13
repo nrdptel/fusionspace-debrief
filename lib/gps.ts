@@ -4,6 +4,7 @@
 // few hundred metres, where the flat-earth error is millimetres.
 
 import { SYNTHETIC_NOTE, SYNTHETIC_SHORT, syntheticHeader } from './synthetic';
+import { buildLine } from './buildInfo';
 
 const M_PER_DEG_LAT = 111320; // metres per degree of latitude (near enough everywhere)
 
@@ -163,6 +164,11 @@ export function trackGpx(
   landingIndex: number,
   landed: boolean,
   synthetic: boolean,
+  /** Which instrument recorded these fixes, as the file stated it — `lib/logInfo.ts#recordedBy`.
+   *  Written into `<src>`, the field GPX 1.1 reserves for exactly this and annotates *"Source of
+   *  data. Included to give user some idea of reliability and accuracy of data"*. Absent when the
+   *  file named nothing, in which case no element is written rather than an empty one. */
+  recordedBy?: string | null,
 ): string {
   const n = Math.min(lat.length, lon.length);
   const fix = (v: number) => v.toFixed(6);
@@ -172,13 +178,19 @@ export function trackGpx(
     pts.push(`      <trkpt lat="${fix(lat[i])}" lon="${fix(lon[i])}"/>`);
   }
   const wptName = syntheticHeader(landed ? 'Landing' : 'Last fix (record ends in the air)', synthetic);
+  // `<src>` sits after `<desc>` in both `wptType` and `trkType`'s sequence — schema order, and a
+  // GPX reader that validates will reject it anywhere else.
+  const src = recordedBy ? `    <src>${xmlEscape(recordedBy)}</src>\n` : '';
   const wpt =
     landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
-      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${xmlEscape(wptName)}</name>\n  </wpt>\n`
+      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${xmlEscape(wptName)}</name>\n${src}  </wpt>\n`
       : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<gpx version="1.1" creator="Debrief" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+    // The schema's own annotation on `creator`: "You must include the name or URL of the software
+    // that created your GPX document." A bare product name is the least a reader can act on, and
+    // every other Debrief export carries the build it came from.
+    `<gpx version="1.1" creator="${xmlEscape(buildLine())}" xmlns="http://www.topografix.com/GPX/1/1">\n` +
     // GPX 1.1 puts `<metadata>` first, ahead of every `<wpt>` and `<trk>` — schema order, not
     // preference.
     (synthetic ? `  <metadata>\n    <desc>${xmlEscape(SYNTHETIC_NOTE)}</desc>\n  </metadata>\n` : '') +
@@ -191,6 +203,7 @@ export function trackGpx(
     // says there what drew it. This `<desc>` exists so the two exports of one flight do not
     // silently disagree about whether the track has a height.
     `    <desc>${xmlEscape(synthetic ? `${SYNTHETIC_SHORT} ${GPX_TRACK_DESC}` : GPX_TRACK_DESC)}</desc>\n` +
+    src +
     `    <trkseg>\n` +
     pts.join('\n') +
     '\n    </trkseg>\n  </trk>\n</gpx>\n'
@@ -225,6 +238,11 @@ export function trackKml(
    *  only when something is clicked, so the tag goes on all three names and the sentence goes in
    *  the document description beside the altitude note. */
   synthetic: boolean,
+  /** Which instrument recorded these fixes, as the file stated it — written into
+   *  `<ExtendedData>`, which Google Earth shows in the placemark balloon by default and which is
+   *  the KML 2.2 analogue of GPX's `<src>`. AltosUI puts the same fact in its `<Document><name>`;
+   *  `ExtendedData` is the field a consumer parses rather than a label it renders. */
+  recordedBy: string | null | undefined,
   /** What drew the HEIGHT of each fix, in the flyer's words. The geometry in this file is
    *  measured by two independent instruments — the receiver put each fix on the map, the
    *  barometer put it at a height — and a document that shows a trajectory without saying so is
@@ -256,12 +274,19 @@ export function trackKml(
   // KML allows one description per feature, and a second element would be dropped silently by
   // whichever reader parses strictly.
   const description = [synthetic ? SYNTHETIC_NOTE : null, altitudeNote].filter(Boolean).join(' ');
+  // `<ExtendedData>` comes after the Document's own descriptive elements and before its features,
+  // which is where `AbstractFeatureType`'s sequence puts it.
+  const extended = recordedBy
+    ? `    <ExtendedData>\n      <Data name="Recorded by"><value>${xmlEscape(recordedBy)}</value></Data>\n` +
+      `      <Data name="Written by"><value>${xmlEscape(buildLine())}</value></Data>\n    </ExtendedData>\n`
+    : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<kml xmlns="http://www.opengis.net/kml/2.2">\n' +
     '  <Document>\n' +
     `    <name>${xmlEscape(syntheticHeader(name, synthetic))}</name>\n` +
     (description ? `    <description>${xmlEscape(description)}</description>\n` : '') +
+    extended +
     '    <Style id="track">\n' +
     '      <LineStyle><color>ff5e63e0</color><width>2</width></LineStyle>\n' +
     '      <PolyStyle><color>335e63e0</color></PolyStyle>\n' +

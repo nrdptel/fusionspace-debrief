@@ -1944,7 +1944,7 @@ describe('a last GPS fix is only a landing if the record reached the ground', ()
 
     const landed = landedInRecord(a.metrics);
     const gpx = trackGpx('x', lat!.values, lon!.values, stats!.landingIndex, landed, false);
-    const kml = trackKml('x', lat!.values, lon!.values, undefined, stats!.landingIndex, landed, false);
+    const kml = trackKml('x', lat!.values, lon!.values, undefined, stats!.landingIndex, landed, false, null);
     expect(gpx, 'the GPX waypoint does not claim a landing').not.toMatch(/<name>Landing<\/name>/);
     expect(kml, 'nor does the KML placemark').not.toMatch(/<name>Landing<\/name>/);
     expect(gpx, 'and says what the point actually is').toMatch(/Last fix \(record ends in the air\)/);
