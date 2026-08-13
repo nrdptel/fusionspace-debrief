@@ -1,16 +1,42 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { MULTI_SAMPLE, SAMPLES, SAMPLE_FILES } from './samples';
+import { DROPPABLE_SAMPLES, MULTI_SAMPLE, SAMPLES, SAMPLE_FILES, STAGES_SAMPLE } from './samples';
 import { importFlight } from './parsers/index';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
 import { analyzeTable } from './flight/columns';
 import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
-import { demoFlight, isSynthetic, toMapperCsv } from './synthetic';
+import { buildComposite } from './composite';
+import { demoFlight, isSynthetic, stagedPair, toLoggerCsv, toMapperCsv } from './synthetic';
 
 const PUBLIC = fileURLToPath(new URL('../public/samples/', import.meta.url));
+
+/**
+ * A committed sample file is exactly what its generator writes today — or, under
+ * `WRITE_SAMPLES=1`, it is made so.
+ *
+ * **The write path is here because its absence has a measured cost.** Editing a generator turns
+ * this check red with a diff of two 100 KB strings and no way to act on it: the app serves these
+ * files statically, so they have to be regenerated, and nothing in the repo did that. The session
+ * that added the staged pair wrote a throwaway test file to do it and deleted it afterwards, which
+ * is the shape of a missing tool.
+ *
+ * It is opt-in and never on in CI, because a check that silently rewrites the thing it is checking
+ * is not a check. `npm test` compares; `WRITE_SAMPLES=1 npx vitest run lib/samples.test.ts` updates
+ * and then the diff is reviewed like any other.
+ */
+function expectGenerated(name: string, want: string): void {
+  if (process.env.WRITE_SAMPLES === '1') {
+    writeFileSync(PUBLIC + name, want);
+    return;
+  }
+  expect(
+    readFileSync(PUBLIC + name, 'utf8'),
+    `${name} has drifted from its generator — regenerate with WRITE_SAMPLES=1 npx vitest run lib/samples.test.ts`,
+  ).toBe(want);
+}
 
 /**
  * A sample is a promise the landing page makes: click this and see the tool work. Every way
@@ -107,8 +133,7 @@ describe('the sample flights', () => {
     // DEMONSTRATES while the bytes on disk go on showing the old curve.
     const s = SAMPLES.find((x) => x.kind === 'mapping');
     expect(s, 'there is a mapping sample to check').toBeTruthy();
-    const onDisk = readFileSync(PUBLIC + s!.files[0], 'utf8');
-    expect(onDisk).toBe(toMapperCsv(demoFlight('the column mapper')));
+    expectGenerated(s!.files[0], toMapperCsv(demoFlight('the column mapper')));
   });
 
   it('gives the two-altimeter sample two recordings of ONE flight, not two flights', () => {
@@ -132,6 +157,93 @@ describe('the sample flights', () => {
     expect(spread, `apogees ${apogees.map((a) => a.toFixed(0)).join(' vs ')} m`).toBeLessThan(0.1);
   });
 
+  it('gives the staged pair two recordings that ALIGN into one launch, and says they are made up', () => {
+    // The capability this sample exists for, asserted rather than assumed — the same shape the
+    // two-altimeter case above takes, and a different claim: those two agree about one apogee,
+    // these two are parts of one launch that are SUPPOSED to disagree about it.
+    const s = STAGES_SAMPLE;
+    expect(s, 'the registry holds a staged pair').toBeTruthy();
+    expect(s!.files, 'a composite needs at least two recordings').toHaveLength(2);
+
+    const recs = s!.files.map((name) => {
+      const bytes = readFileSync(PUBLIC + name);
+      const res = importFlight({ name, text: decodeBytes(bytes), bytes });
+      // A NAMED PARSER, not the mapper, and that is the constraint that shaped the whole file: a
+      // pair cannot go through the mapper, which takes one file at a time.
+      expect(res.kind, `${name} is auto-detected as a flight`).toBe('flight');
+      if (res.kind !== 'flight') throw new Error(`${name} did not parse`);
+      // The marker rides through `importFlight`. It did not before 2026-08-13 — the whole
+      // labelling chain reads this predicate, and on the parser path it answered false.
+      expect(isSynthetic(res.flight), `${name} says Debrief made it up`).toBe(true);
+      return { name, analysis: analyzeFlight(res.flight) };
+    });
+    expect(s!.synthetic, 'and the registry says so where the OFFER can read it').toBe(true);
+
+    const built = buildComposite(recs.map((r) => ({ ...r, synthetic: true })));
+    expect(built.ok, built.ok ? '' : `refused: ${built.refusal.why}`).toBe(true);
+    if (!built.ok) return;
+
+    // **Two DIFFERENT offsets, which is the demonstration itself.** `alignStages` puts recordings
+    // on one clock by their own detected liftoffs; two boards armed at the same moment come out
+    // with equal offsets and the composite looks exactly like two files that needed no aligning.
+    const [a, b] = built.composite.offsets;
+    expect(Math.abs(a - b), `offsets ${a} and ${b} are the same, so this shows nothing`).toBeGreaterThan(1);
+
+    // **The order is the product**, and it is the claim `shows` makes: the booster is on the
+    // ground before the sustainer reaches apogee, which no single one of these files says.
+    const at = (type: string, file: string) =>
+      built.composite.marks.find((m) => m.type === type && m.recording.includes(file))?.t;
+    const boosterDown = at('landing', 'booster');
+    const sustainerUp = at('apogee', 'sustainer');
+    expect(boosterDown, 'the booster marks a landing').toBeTypeOf('number');
+    expect(sustainerUp, 'the sustainer marks an apogee').toBeTypeOf('number');
+    expect(boosterDown!, `booster landed at ${boosterDown}s, sustainer apogee at ${sustainerUp}s`).toBeLessThan(
+      sustainerUp!,
+    );
+
+    // Every mark carries the claim, because a composite's rows come from different flights and one
+    // made-up stage beside a real one has to label exactly the marks it drew.
+    expect(built.composite.marks.every((m) => m.synthetic), 'every mark is labelled').toBe(true);
+    // Neither file is quiet: a sample whose second recording marked nothing would demonstrate the
+    // `silent` branch rather than a composite.
+    expect(built.composite.silent, 'both recordings carry marks').toEqual([]);
+  });
+
+  it('regenerates the staged pair byte for byte, so the files cannot drift from their generator', () => {
+    // Same reason as the mapping sample: the files are committed because the app serves them
+    // statically, so editing the generator has to move the bytes or the sample goes on
+    // demonstrating the old curve.
+    const s = STAGES_SAMPLE!;
+    const pair = stagedPair();
+    expect(pair.map((p) => `sample-stage-${p.stage}.csv`), 'the registry names what the generator writes').toEqual(
+      s.files,
+    );
+    for (const p of pair) expectGenerated(`sample-stage-${p.stage}.csv`, toLoggerCsv(p));
+  });
+
+  it('keeps the staged pair off the surfaces that would open it as a comparison', () => {
+    // A booster and a sustainer dropped together build a COMPARISON, and a comparison reports
+    // their apogees disagreeing by a factor of ten as though that were a finding — on a set that is
+    // behaving exactly as designed. `components/StitchSurface.tsx` says so at length; this is the
+    // registry being held to it, because both selectors would otherwise take it on `files.length`.
+    expect(DROPPABLE_SAMPLES.some((x) => x.kind === 'stages'), 'the analyze page offers no staged pair').toBe(false);
+    expect(MULTI_SAMPLE?.kind, '/compare gets a pair that really is one flight twice').not.toBe('stages');
+    // …and the exclusion is not vacuous: there IS one to exclude.
+    expect(SAMPLES.some((x) => x.kind === 'stages'), 'there is a staged pair in the registry').toBe(true);
+    // **`MULTI_SAMPLE` is checked at the SELECTOR, not only at today's answer**, because the
+    // assertion above passes either way while the staged pair happens to sort last — and "someone
+    // reorders the registry" is precisely the failure the neighbouring test exists for. A `find`
+    // on `files.length` alone would hand `/compare` two stages the day they move up.
+    const src = readFileSync(new URL('./samples.ts', import.meta.url), 'utf8');
+    expect(
+      src.match(/MULTI_SAMPLE[^;]*;/s)?.[0] ?? '',
+      "the multi-file selector excludes stages, whatever order they're in",
+    ).toMatch(/kind !== 'stages'/);
+    // The primary button on the analyze page indexes the filtered list, so a `stages` sample
+    // ordered first must not become the one thing a first-time visitor is offered.
+    expect(DROPPABLE_SAMPLES[0]?.kind ?? 'flight', 'the front door is a droppable flight').not.toBe('stages');
+  });
+
   it('says what each sample shows and where the recording came from', () => {
     // A flyer reading numbers is entitled to know whose flight they are. And a sample whose
     // `shows` restates its label teaches nothing — the craft bar's "tooltips that restate the
@@ -151,6 +263,24 @@ describe('the sample flights', () => {
 
 describe('the surfaces whose subject is more than one file offer a way in', () => {
   const COMPARE = readFileSync(new URL('../components/CompareSurface.tsx', import.meta.url), 'utf8');
+  const STITCH = readFileSync(new URL('../components/StitchSurface.tsx', import.meta.url), 'utf8');
+
+  it('offers the staged pair on /stitch, through the same reader a dropped folder goes through', () => {
+    // `/stitch` asks for the rarest thing in the app — two per-stage recordings of one launch —
+    // and until this sample existed its empty state's only exit needed exactly that. A private
+    // loader here would be slice 1's defect back: the sample path that could only ever be one
+    // UTF-8 text file, on the one surface whose subject is never one file.
+    expect(STITCH).toContain('sampleFiles(sample)');
+    expect(STITCH, 'read by ingestFiles, not a second parser call site').toMatch(/ingestFiles\(await sampleFiles/);
+    expect(STITCH, 'no second fetch of /samples/').not.toContain("fetch(`/samples/");
+    // A composite is assembled from logbook ids and its product is an address that reloads, so the
+    // sample has to land in both. A sample that skipped the address would mint a composite that
+    // could not be bookmarked — the one thing this surface exists to do.
+    expect(STITCH, 'the sample lands in the address like every other composite').toMatch(/withIds\(new URL/);
+    // §5's five states, on a control that fetches: what happens when it cannot be fetched.
+    expect(STITCH).toMatch(/could not be loaded/);
+    expect(STITCH, 'and it says what the sample shows').toContain('title={STAGES_SAMPLE.shows}');
+  });
 
   it('names a sample that really is several recordings', () => {
     // D10: `/compare` offered nothing to a visitor who has not flown two boards — an empty state

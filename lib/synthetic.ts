@@ -297,6 +297,180 @@ function round(v: number, places: number): number {
   return Math.round(v * f) / f;
 }
 
+/** Feet per metre. The generated files are written in feet, because every logger whose column
+ *  shape they borrow writes feet by default. */
+const M_TO_FT = 3.280839895;
+
+/** One recording of a staged launch, and everything that separates it from the other one. */
+export interface SynthStage {
+  /** Which part of the launch this board was bolted to. Written into the file as its own metadata
+   *  row, so the two files are told apart by reading either one rather than by their names. */
+  stage: 'booster' | 'sustainer';
+  /** Seconds this board recorded before the launch, on its own clock.
+   *
+   *  **The two differ, and that difference is the whole demonstration.** `alignStages` puts N
+   *  recordings on one clock by their own detected liftoffs; give both boards the same lead-in and
+   *  the offsets come out equal, so a composite would look exactly like two files that needed no
+   *  aligning at all. Two flyers arming two boards do not press the buttons together. */
+  padS: number;
+  flight: SynthFlight;
+}
+
+/**
+ * A staged launch, as the two boards aboard it would have recorded it — and the only thing that
+ * gives `/stitch` a demonstration.
+ *
+ * **Why this cannot be a mapper file, which is the constraint that shaped it.** Every other
+ * generated file goes through the column mapper, which takes ONE file at a time
+ * (`ingestFiles` sets a mappable file aside in a multi-file drop and never asks about it). A pair
+ * is two files by definition, so both have to be in a shape a named parser claims — which is why
+ * `importFlight` had to learn to carry the marker in the first place.
+ *
+ * **The column names are an Eggtimer Classic's, and no Eggtimer wrote these files.** Said plainly
+ * here and again in the file's own metadata block, because it is the one claim in this module that
+ * could be read as a provenance claim. The parsers in this repo detect on the SHAPE of a header
+ * row — `T`, `Alt`, `VRaw`, `VFilt` — not on a brand string, a serial number or a firmware banner,
+ * and none of those appears in what `toLoggerCsv` writes. What the app reports is that it read the
+ * file with the Eggtimer reader, which is true.
+ *
+ * **Nothing marks the separation, and that is honest rather than unfinished.** With drag ignored
+ * (as it is in `demoFlight`, and said there), a booster that has separated and a sustainer that
+ * has not yet lit follow the same path — so there is nothing in either curve at the moment they
+ * part, and inventing a step in one of them would be modelling. `lib/composite.ts` refuses to draw
+ * a separation mark for its own measured reason; a generated pair that implied one would be
+ * feeding that surface exactly what it declines to say.
+ *
+ * The piecewise curve. Both recordings run the SAME loop and the same constants — the second burn
+ * is the only branch — so the segment the two boards shared is identical between the files by
+ * construction rather than by a promise:
+ *   0.00–1.60 s  first-stage burn, net 45.2 m/s² after gravity
+ *   1.60–6.00 s  coast, both boards still recording the same airframe
+ *   6.00–8.50 s  SUSTAINER ONLY: second burn, net 80.0 m/s². Kept subsonic on purpose, the same
+ *                choice `demoFlight` makes and for the same reason
+ *   then         each coasts to its own apogee. The booster comes down on one leg (a streamer, at
+ *                18 m/s); the sustainer on two (drogue 20 m/s, main at 150 m AGL at 5 m/s)
+ *
+ * Every figure a comment or a `shows` line quotes about these two was MEASURED off the generator,
+ * never predicted from the constants above — `lib/synthetic.test.ts` pins the ones that matter.
+ */
+export function stagedPair(): SynthStage[] {
+  return [
+    {
+      stage: 'booster',
+      // Armed first, and by the larger margin: the booster is the bottom of the stack and the last
+      // thing anyone can reach once the rocket is on the rail.
+      padS: 12,
+      flight: {
+        demonstrates: 'the booster half of a staged launch, on its own altimeter',
+        samples: stageSamples('booster'),
+      },
+    },
+    {
+      stage: 'sustainer',
+      padS: 3.5,
+      flight: {
+        demonstrates: 'the sustainer half of the same staged launch, on a second altimeter',
+        samples: stageSamples('sustainer'),
+      },
+    },
+  ];
+}
+
+function stageSamples(stage: 'booster' | 'sustainer'): SynthSample[] {
+  const G = 9.80665;
+  const DT = 0.05;
+  const BURN1_S = 1.6;
+  const BURN1_ACCEL = 55;
+  const IGNITE2_S = 6;
+  const BURN2_S = 2.5;
+  const BURN2_ACCEL = 89.8;
+  /** One leg down for the booster — a streamer, which is what most of them come home on. Its
+   *  single rate against the sustainer's two is a second thing the pair demonstrates. */
+  const BOOSTER_RATE = 18;
+  const DROGUE = 20;
+  const MAIN = 5;
+  const MAIN_AT = 150;
+
+  const samples: SynthSample[] = [];
+  let t = 0;
+  let altitude = 0;
+  let velocity = 0;
+
+  // Up. The branch is the ONLY difference between the two recordings, so everything before
+  // `IGNITE2_S` is the same arithmetic on both — see the docblock.
+  while (velocity >= 0 || altitude <= 0) {
+    samples.push({ t, altitude, velocity });
+    const lit =
+      t < BURN1_S
+        ? BURN1_ACCEL
+        : stage === 'sustainer' && t >= IGNITE2_S && t < IGNITE2_S + BURN2_S
+          ? BURN2_ACCEL
+          : 0;
+    velocity += (lit - G) * DT;
+    altitude += velocity * DT;
+    t += DT;
+    if (t > 120) break; // a bound, never reached by the numbers above
+  }
+
+  // Down, at whatever this stage comes home under.
+  while (altitude > 0) {
+    const rate = stage === 'booster' ? BOOSTER_RATE : altitude > MAIN_AT ? DROGUE : MAIN;
+    velocity = -rate;
+    altitude = Math.max(0, altitude - rate * DT);
+    t += DT;
+    samples.push({ t, altitude, velocity });
+  }
+
+  return samples.map((s) => ({
+    t: round(s.t, 2),
+    altitude: round(s.altitude, 2),
+    velocity: round(s.velocity, 2),
+  }));
+}
+
+/**
+ * Write one stage's recording as a CSV a NAMED PARSER claims — the opposite of `toMapperCsv`, and
+ * for a reason that is a constraint rather than a preference (see `stagedPair`).
+ *
+ * **The clock starts at power-on, not at the launch**, which is what gives the two files different
+ * liftoff times and therefore gives `alignStages` something to do. `padS` seconds of a board
+ * sitting on the rail come first, at rest on its own pad datum.
+ *
+ * The metadata block says three things a reader opening the raw file is owed: that Debrief made it
+ * up, which stage it is, and that the column names are borrowed. `AnalyzedTable.headerRow` and
+ * every named parser's own header scan already skip a block this shape, so it costs the readers
+ * nothing.
+ */
+export function toLoggerCsv(rec: SynthStage): string {
+  const DT = 0.05;
+  const lines: string[] = [
+    `${SYNTHETIC_KEY},${JSON.stringify(SYNTHETIC_NOTE)}`,
+    `Demonstrates,${JSON.stringify(rec.flight.demonstrates)}`,
+    `Stage,${JSON.stringify(rec.stage)}`,
+    `Columns,${JSON.stringify(
+      'The column names below are the ones an Eggtimer Classic writes, so that Debrief reads this ' +
+        'file without being told about it. No Eggtimer recorded anything here and no device of any ' +
+        'kind did: see the Synthetic row above.',
+    )}`,
+    '',
+    'T,Alt,VRaw,VFilt',
+  ];
+  // On the rail: the board is recording and the rocket has not moved.
+  for (let i = 0; i < Math.round(rec.padS / DT); i++) {
+    lines.push(`${(i * DT).toFixed(2)},0.0,0.0,0.0`);
+  }
+  for (const s of rec.flight.samples) {
+    const ft = (s.altitude * M_TO_FT).toFixed(1);
+    // `VRaw` and `VFilt` are an Eggtimer's unfiltered and filtered readings of the same speed. One
+    // made-up number written into both, rather than a second curve derived from the first: a
+    // filtered channel that differs from its raw one is a model of a filter, which this module
+    // does not do.
+    const fps = (s.velocity * M_TO_FT).toFixed(1);
+    lines.push(`${(s.t + rec.padS).toFixed(2)},${ft},${fps},${fps}`);
+  }
+  return lines.join('\n') + '\n';
+}
+
 /**
  * Write a flight as a CSV the COLUMN MAPPER has to handle — which is the whole point of it.
  *
@@ -310,7 +484,6 @@ function round(v: number, places: number): number {
  * it costs the reader nothing new: `AnalyzedTable.headerRow` already skips it.
  */
 export function toMapperCsv(flight: SynthFlight): string {
-  const M_TO_FT = 3.280839895;
   const lines: string[] = [
     `${SYNTHETIC_KEY},${JSON.stringify(SYNTHETIC_NOTE)}`,
     `Demonstrates,${JSON.stringify(flight.demonstrates)}`,

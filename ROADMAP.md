@@ -2046,10 +2046,10 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l and (c) SHIPPED.** Every sink the audit has
-found carries the claim (`todo: 0`), and the mapper sample is OFFERED, which was the half a flyer
-could see. **What is left is (d) alone: the other synthesized logs** — a saturated accelerometer, a
-coarse-GPS flight, and a staged pair on two devices.
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c) and (d)'s STAGED PAIR SHIPPED.** Every
+sink the audit has found carries the claim (`todo: 0`), the mapper sample is OFFERED, and `/stitch`
+has a demonstration for the first time. **What is left is two of (d)'s three logs: a saturated
+accelerometer and a coarse-GPS flight.**
 
 **Measured against this milestone's own *done when*, 2026-08-13.** It asks for a named sample for
 each shipped capability that has none, each opening through the same `ingest()` path a dropped file
@@ -2059,13 +2059,12 @@ takes, and every synthetic flight labelled on every surface that can carry it ou
   three of the last four slices each found a sink the audit had never enumerated.
 - **The `ingest()` clause: MET** and has been since slice 1; the mapper sample goes through
   `onFiles` with a real `File`, the drop path itself.
-- **Samples: 4 of 6.** One flight end to end, two altimeters on one flight, a log beside its
-  board's own summary, and now the column mapper. **Missing: a saturated accelerometer, a
-  coarse-GPS flight, and the staged pair** — the last is the highest value of the three, because it
-  is the only thing that will give `/stitch` a sample at all and `COMPETITION.md` row 40 names the
-  one rival that demonstrably beats us there.
+- **Samples: 5 of 6.** One flight end to end, two altimeters on one flight, a log beside its
+  board's own summary, the column mapper, and now a staged pair. **Missing: a saturated
+  accelerometer and a coarse-GPS flight** — both single files, both reachable now that the marker
+  survives a named parser, and neither of them is the one `COMPETITION.md` row 40 was about.
 - **`/validation` never counts a synthetic flight: MET**, by construction — it reads the corpus.
-- **`/stitch` still offers no sample.** It cannot until (d)'s staged pair exists. (This line read "1, 2 and 3" for a
+- **`/stitch` offers a sample: MET 2026-08-13.** (This line read "1, 2 and 3" for a
 day after 4 shipped; corrected 2026-08-09, and the paragraph below is the reason the rule exists to
 update the status in the same commit as the work.) Slice 1 2026-08-08, pinned by `lib/samples.test.ts` (6 cases,
 including *"gives the two-altimeter sample two recordings of ONE flight, not two flights"* and a
@@ -2609,9 +2608,10 @@ shaming. Caught by a pre-push review.
     three buttons that open real recordings — a different question from every sink in the ledger,
     which all ask whether the claim leaves the app *with the figure*. This one asks whether a flyer
     knows what they are about to look at.
-(d) **The other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and a staged
-    pair on two devices, which is also the only thing that will give `/stitch` a sample. Each
-    revisits the `.gpx`/`.kml`/composite rows the current check marks unreachable.
+(d) **The other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and ~~a staged
+    pair on two devices, which is also the only thing that will give `/stitch` a sample~~ **the
+    staged pair SHIPPED 2026-08-13**. Each revisits the `.gpx`/`.kml`/composite rows the current
+    check marks unreachable.
 
     **A PREREQUISITE for all three was found and fixed 2026-08-13, and it was a hole in this
     milestone's own guarantee.** Every generated file so far has been a MAPPER file by
@@ -2627,7 +2627,39 @@ shaming. Caught by a pre-push review.
     `importFlight` now carries the marker onto a parsed flight's notes, first, ahead of whatever the
     parser had to say. Falsified both ways — dropping it, and claiming it of every file.
 
-**Also still left:** the samples are offered on `/` and `/compare`; `/stitch` offers none.
+    **THE STAGED PAIR SHIPPED 2026-08-13**, and it is the half of (d) that `COMPETITION.md` row 40
+    was about. `stagedPair()` writes two recordings of one launch — a booster and a sustainer — and
+    `/stitch` offers them from its empty state, which is the first sample that surface has ever had.
+    Measured off the generator: the booster reaches 324.4 m and is **on the ground at T+27 s, while
+    the sustainer is still climbing to its apogee at T+31 s** (3,269.8 m). That ordering is the
+    product — no single one of the two files says it — and it is what `lib/samples.test.ts` and the
+    new walk in `e2e/stitch.spec.ts` assert rather than the heights.
+
+    **Three decisions inside it, each of which could have gone the other way.**
+    - **The files borrow an Eggtimer Classic's COLUMN NAMES**, because a pair has to be in a shape a
+      named parser claims and this repo's parsers detect on a header row rather than on a brand
+      string, a serial or a firmware banner — none of which appears in what `toLoggerCsv` writes.
+      The file's own metadata block says the names are borrowed and that no device recorded it,
+      above the marker row, for a reader who opens the raw file rather than the app.
+    - **Nothing marks the separation in either file.** With drag ignored — as `demoFlight` ignores
+      it, and says so — a separated booster and an unlit sustainer follow the same path, so there is
+      nothing at the moment they part and a step invented into one of them would be modelling. That
+      is also exactly what `lib/composite.ts` refuses to draw, for its own measured reason.
+    - **The pair is NOT offered on `/` or `/compare`,** and that is a correctness clause rather than
+      tidiness: dropped together these two files build a comparison, and a comparison of a booster
+      against a sustainer reports their apogees disagreeing by a factor of ten as though it were a
+      finding. `Sample.kind: 'stages'` is what keeps both selectors off it; `MULTI_SAMPLE` is
+      checked at the SELECTOR as well as at today's answer, because the behavioural assertion passes
+      either way while the pair happens to sort last.
+
+    Falsified five ways on the unit side (both boards armed together → the offsets come out equal
+    and the demonstration is vacuous; a slower booster → it lands after the sustainer's apogee; the
+    marker row dropped → `isSynthetic` false; either selector's clause removed) and paired on the
+    e2e side: the new walk reddens when the registry stops offering a pair and when the sample mints
+    no address, while the pre-existing empty-state walk stays green both times.
+
+**Also still left:** nothing on the offer side — `/`, `/compare` and `/stitch` each offer a sample
+now.
 
 **Outcome.** Someone who has never flown a rocket can see everything Debrief does, in one click each,
 without supplying a file — and can never mistake a demonstration for a flight.
