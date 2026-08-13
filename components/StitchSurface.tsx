@@ -12,12 +12,17 @@ import { download } from '@/lib/download';
 import { buildComposite, fmtCompositeTime, type Composite, type CompositeRecording } from '@/lib/composite';
 import { stageTiles } from '@/lib/readings';
 import { compareFromLogbook, idsFromParam, withIds } from '@/lib/compareFromLogbook';
+import { MAX_COMPARE } from '@/lib/compare';
+import { ingestFiles } from '@/lib/ingest';
+import { STAGES_SAMPLE, sampleFiles } from '@/lib/samples';
+import { STORAGE_WRITE_REFUSED } from '@/lib/recents';
 import type { StitchRefusal } from '@/lib/stitch';
 import { fmtLength } from '@/lib/display';
 import { useUnits } from './UnitsProvider';
 import { EVENT_COLOR } from '@/lib/eventStyle';
+import ForgottenBanner from './ForgottenBanner';
 import { Button, Card, Chip, CopyTableButton, EmptyState, ErrorState, Frame, Loading, Notice, Readout } from './ui';
-import { PROVENANCE_COLUMN, provenanceCell, SYNTHETIC_SHORT } from '@/lib/synthetic';
+import { PROVENANCE_COLUMN, provenanceCell, SYNTHETIC_TAG, SYNTHETIC_SHORT } from '@/lib/synthetic';
 
 /**
  * One timeline across several per-stage recordings of one launch.
@@ -83,6 +88,14 @@ export default function StitchSurface() {
   /** What the last "Save records" press did. `DESIGN.md` §5's five states: a control that writes
    *  files says whether it wrote them. */
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  /** What the sample offer did, when it did not simply work. §5 again: the files come from this
+   *  site, so a lost connection is the real failure and the flyer is told which one it was. */
+  const [sampleNote, setSampleNote] = useState<string | null>(null);
+  /** What loading the sample COST, if the logbook's prune took flights to make room. Reported here
+   *  rather than swallowed, because this surface renders no logbook of its own and a flyer who
+   *  pressed one button is owed the same accounting a drop gets — that silence was a Sev-1 on the
+   *  two surfaces that already had this banner. */
+  const [forgotten, setForgotten] = useState<string[]>([]);
 
   const load = useCallback(async (wanted: string[]) => {
     setIds(wanted);
@@ -131,6 +144,58 @@ export default function StitchSurface() {
       synthetic: inputs.some((i) => i.synthetic),
     });
   }, []);
+
+  /**
+   * Open the staged-pair sample: a booster and a sustainer this surface can assemble.
+   *
+   * **Why this surface offers a sample of its own rather than sending the flyer to `/compare`.**
+   * The empty state's only exit needed two per-stage recordings of one launch, which is the rarest
+   * thing a first-time visitor could be asked for — rarer than the two boards `/compare` asks for,
+   * because it takes a two-stage rocket AND two altimeters AND a flyer who kept both files. So the
+   * one surface demonstrating a capability no rival tool has (`COMPETITION.md` row 40) could not
+   * demonstrate it at all.
+   *
+   * **It goes into the LOGBOOK and then into the address, which is not a detour.** A composite here
+   * is assembled from logbook ids by construction (`compareFromLogbook`) and its whole product is
+   * an address that reloads — so a sample that skipped the logbook would be a second, private path
+   * to a composite that could not be bookmarked, which is the defect `lib/samples.ts` records
+   * slice 1 removing. `ingestFiles` is the same reader a dropped folder goes through.
+   *
+   * A `stages` sample is deliberately NOT offered on the analyze page: dropped together these two
+   * files build a comparison, and a comparison of a booster against a sustainer reports their
+   * apogees disagreeing by a factor of ten as if that were a finding. See `Sample.kind`.
+   */
+  const openStagesSample = useCallback(async () => {
+    const sample = STAGES_SAMPLE;
+    if (!sample) return;
+    setState({ kind: 'loading' });
+    setSampleNote(null);
+    setForgotten([]);
+    try {
+      const { results, forgotten: pruned } = await ingestFiles(await sampleFiles(sample), MAX_COMPARE);
+      setForgotten(pruned);
+      const got = results.map((r) => r.savedId).filter((v): v is string => !!v);
+      if (got.length < 2) {
+        // A browser that refuses the write is the one real failure that is not the network, and it
+        // is not recoverable HERE: a composite is read back out of the logbook, so two recordings
+        // that were never kept cannot be assembled however well they parsed.
+        setState({ kind: 'empty' });
+        setSampleNote(
+          results.length < 2
+            ? 'The sample loaded but could not be read as two recordings — please reload the page and try again.'
+            : `The sample was read, but ${STORAGE_WRITE_REFUSED} — and a composite is assembled from your logbook, so there is nothing here to assemble.`,
+        );
+        return;
+      }
+      window.history.pushState(null, '', withIds(new URL(window.location.href), got));
+      await load(got);
+    } catch {
+      setState({ kind: 'empty' });
+      setSampleNote(
+        'The sample could not be loaded — it is fetched from this site, so a lost connection is the usual cause.',
+      );
+    }
+  }, [load]);
 
   // Follow the address bar rather than keeping a private idea of what is on screen — the same
   // contract `/compare` settled on, so a Back that returns here shows what the URL says.
@@ -214,21 +279,57 @@ export default function StitchSurface() {
 
   if (state.kind === 'empty') {
     return (
-      <EmptyState
-        title="Nothing to assemble yet"
-        what={
-          <>
-            A composite needs two or more recordings of one launch — a booster and a sustainer, each on
-            its own altimeter. Tick them in the logbook on the comparison surface, then come back with
-            them in the address.
-          </>
-        }
-        action={
-          <Button href="/compare" variant="primary">
-            Pick flights on Compare
-          </Button>
-        }
-      />
+      <>
+        {/* What loading the sample cost, if anything. Above the empty state, because it is about
+            the press the flyer just made rather than about the state they are looking at. */}
+        <ForgottenBanner forgotten={forgotten} onDismiss={() => setForgotten([])} />
+        {sampleNote && (
+          <Notice className="mb-3">
+            <p role="status">{sampleNote}</p>
+          </Notice>
+        )}
+        <EmptyState
+          title="Nothing to assemble yet"
+          what={
+            <>
+              A composite needs two or more recordings of one launch — a booster and a sustainer, each on
+              its own altimeter. Tick them in the logbook on the comparison surface, then come back with
+              them in the address.
+            </>
+          }
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button href="/compare" variant="primary">
+                Pick flights on Compare
+              </Button>
+              {/* The one surface whose subject a first-time visitor almost certainly cannot supply.
+                  Offered second, because a flyer who HAS their own two files should reach for them
+                  first — `DESIGN.md` §5 gives one primary per state. */}
+              {STAGES_SAMPLE && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Button onClick={() => void openStagesSample()} title={STAGES_SAMPLE.shows}>
+                    {STAGES_SAMPLE.label}
+                  </Button>
+                  {/* A sample Debrief MADE UP says so BEFORE it is opened — the same question the
+                      analyze page's offers answer, and a different one from every export sink:
+                      does a flyer know what they are about to look at. */}
+                  {STAGES_SAMPLE.synthetic && (
+                    <Chip
+                      tone="warn"
+                      value={
+                        <>
+                          {SYNTHETIC_TAG}
+                          <span className="sr-only"> — flights Debrief made up, not recordings</span>
+                        </>
+                      }
+                    />
+                  )}
+                </span>
+              )}
+            </div>
+          }
+        />
+      </>
     );
   }
 

@@ -300,6 +300,58 @@ test('an empty composite says what would fill it and offers the one control that
   await expect(page).toHaveURL(/\/compare/);
 });
 
+/**
+ * The empty state's OTHER exit: the staged-pair sample, walked by a visitor who has never flown a
+ * two-stage rocket — which is the visitor this surface could not serve at all.
+ *
+ * `/compare` and `/` have offered a sample since D10's slices 1 and 2; `/stitch` asked for the
+ * rarest input in the app and offered nothing, so the capability `COMPETITION.md` row 40 tracks
+ * could not be seen without bringing two per-stage logs of your own.
+ */
+test('a visitor with no files of their own can assemble a composite from the sample', async ({ page }) => {
+  await page.goto('/stitch/');
+  const offer = page.getByRole('button', { name: /A staged flight, on two altimeters/i });
+  await expect(offer).toBeVisible();
+  // It says what it is BEFORE it is opened — a different question from every export sink, which
+  // all ask whether the claim leaves the app with the figure. Matched WITH the chip's sr-only
+  // clarifier: a bare `SYNTHETIC` on a button is four syllables of nothing to a screen reader, and
+  // the tag and the clarifier are one text node here, so asserting them apart would assert less.
+  await expect(page.getByText(new RegExp(`${SYNTH_TAG} — flights Debrief made up`))).toBeVisible();
+  await offer.click();
+
+  // The composite assembles…
+  const table = page.getByRole('table');
+  await expect(table).toBeVisible({ timeout: 30_000 });
+  // …at an address that reloads, which is the surface's whole product. A sample that skipped the
+  // logbook would have produced a composite nobody could bookmark.
+  await expect(page).toHaveURL(/ids=/);
+
+  const rows = await table.locator('tbody tr').evaluateAll((trs) =>
+    trs.map((tr) => {
+      const c = tr.querySelectorAll('td');
+      return { time: c[0].textContent!.trim(), mark: c[1].textContent!.trim(), rec: c[2].textContent!.trim() };
+    }),
+  );
+  // Both recordings are in it, each mark naming its own — the thing a composite adds.
+  expect(rows.some((r) => /booster/.test(r.rec))).toBe(true);
+  expect(rows.some((r) => /sustainer/.test(r.rec))).toBe(true);
+  // **The ORDER the sample exists to show**: the booster is on the ground before the sustainer
+  // reaches apogee, and no single one of these files says so.
+  const boosterDown = rows.findIndex((r) => /landing/i.test(r.mark) && /booster/.test(r.rec));
+  const sustainerUp = rows.findIndex((r) => /apogee/i.test(r.mark) && /sustainer/.test(r.rec));
+  expect(boosterDown, 'the booster marks a landing').toBeGreaterThanOrEqual(0);
+  expect(sustainerUp, 'the sustainer marks an apogee').toBeGreaterThanOrEqual(0);
+  expect(boosterDown).toBeLessThan(sustainerUp);
+
+  // And every one of those marks came from a flight Debrief made up, which the page says.
+  await expect(page.getByText(SYNTH_SHORT).first()).toBeVisible();
+
+  // The address really is the state: a reload brings the same composite back rather than the
+  // empty state, which is what makes the sample worth minting an address for.
+  await page.reload();
+  await expect(page.getByRole('table')).toBeVisible({ timeout: 30_000 });
+});
+
 // `hasTouch` matters as much as the width, and setting only the width measures a desktop. The 44 px
 // floor — both `app/globals.css`'s rule and the `TOUCH_TARGET` token the primitives carry — is
 // `@media (pointer: coarse)`, which a Playwright context arms only when `hasTouch` is set. Without

@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
-import { SAMPLES, type Sample } from '@/lib/samples';
+import { DROPPABLE_SAMPLES, type Sample } from '@/lib/samples';
 import { Button, Card, Chip } from './ui';
 import { SYNTHETIC_TAG } from '@/lib/synthetic';
 
@@ -46,8 +46,12 @@ export default function DropZone({
           <Button variant="primary" onClick={() => inputRef.current?.click()} disabled={busy}>
             Choose files
           </Button>
-          <Button onClick={() => onSample(SAMPLES[0])} disabled={busy}>
-            {SAMPLES[0].label}
+          {/* `DROPPABLE_SAMPLES`, not the whole registry: a staged pair is offered on `/stitch`,
+              because dropping a booster beside a sustainer here builds a COMPARISON and the
+              comparison reports their apogees disagreeing by 30% — which is what two stages of one
+              launch are supposed to do. See `Sample.kind`. */}
+          <Button onClick={() => onSample(DROPPABLE_SAMPLES[0])} disabled={busy}>
+            {DROPPABLE_SAMPLES[0].label}
           </Button>
         </div>
         {/* The other samples, in a sentence rather than as a row of equal buttons.
@@ -55,10 +59,10 @@ export default function DropZone({
             these are exactly that: a first-time visitor wants ONE obvious way in, not three
             competing ones, and the rest are an aside for someone who has already seen a flight.
             Until 2026-08-08 there was one sample and no aside — owner note ON-2. */}
-        {SAMPLES.length > 1 && (
+        {DROPPABLE_SAMPLES.length > 1 && (
           <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
             or see what else it reads:{' '}
-            {SAMPLES.slice(1).map((s, i) => (
+            {DROPPABLE_SAMPLES.slice(1).map((s, i) => (
               <span key={s.id}>
                 {i > 0 && ' · '}
                 <Button variant="link" onClick={() => onSample(s)} disabled={busy} title={s.shows}>
