@@ -993,6 +993,17 @@ click rates whatever the cursor is sitting on.** `page.mouse.move(0, 0)` before 
 and it is the same blind spot this block already records for the source census (variant-prefixed
 states are not rated), arriving from the other side.
 
+**And on 2026-08-13 it caught the first thing the source census structurally cannot see, one day
+after it was written.** `CHIP_TONES.warn` lays its own `bg-amber-500/10` wash over whatever it sits
+on; on a `sunken` card that composites to `#faf0e1`, where `text-amber-700` (`#bb4d00`) renders
+**4.45:1** — five hundredths under AA. The source census rated it 4.82:1 against SOLID `sunken`,
+because it REFUSES a `/NN` opacity suffix and falls back to the page surfaces, which is the limit
+recorded two bullets down and is deliberately an under-report. It could never have found this. The
+rendered check found it the first time a `warn` chip appeared on an audited surface, and the tone is
+`amber-800` now (6.03:1 on the same ground, still ahead of its zinc neighbours, so the ordering
+above is unchanged). **The two checks are not redundant: one rates what the source says and the
+other rates what the browser composites, and a wash is exactly where those differ.**
+
 **One limit stated rather than hidden:** `audit()` asserts on axe's `violations` and ignores its
 `incomplete` bucket, which on the logbook state holds **10** `color-contrast` nodes axe declined to
 decide — decorative `aria-hidden` glyphs and controls whose background it could not resolve. Those

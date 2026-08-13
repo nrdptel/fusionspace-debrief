@@ -24,7 +24,7 @@ import DropOverlay from './DropOverlay';
 import { useWindowFileDrop } from './useWindowFileDrop';
 import { emptyFolderMessage } from './Analyzer';
 import { FLIGHT_FILE_ACCEPT } from '@/lib/fileAccept';
-import { Button, Card, Notice } from './ui';
+import { Button, Card, Loading, Notice } from './ui';
 
 /**
  * The comparison surface: a launch day's flights lined up side by side, as its own route.
@@ -430,11 +430,12 @@ export default function CompareSurface() {
         </p>
       </div>
 
-      {state === 'loading' && (
-        <p role="status" className="text-sm text-zinc-600 dark:text-zinc-300">
-          Reading the flights…
-        </p>
-      )}
+      {/* §5's `Loading`, not a hand-rolled line. This surface re-reads and re-analyses several
+          whole files at once — the longest wait in the app — and it was the one place that showed
+          no working indicator while doing it: `/` and `/stitch` both take the primitive, and this
+          one wrote its own `<p role="status">` with neither the pulse that marks a wait as moving
+          nor the `aria-live` that makes it announce. Found by the design-system audit. */}
+      {state === 'loading' && <Loading>Reading the flights…</Loading>}
 
       {note && (
         <Notice as="p" role="status">

@@ -2577,10 +2577,21 @@ shaming. Caught by a pre-push review.
        `latitude`/`longitude` roles were indeed the whole route — no new generator;
     7. ~~the share link~~ **SHIPPED 2026-08-13** as slice 5l above — the behaviour was already
        right and the assertion was what was missing, which is exactly why it needed one.
-(c) **Then, and only then, offer the mapper sample** — the generated file is already written and
-    tested; it is held back, not missing. Note the trap: `lib/samples.test.ts` asserts every
-    single-file sample auto-detects as a flight, which a mapper sample cannot do by definition, so
-    that assertion needs a second kind rather than a loosened tolerance.
+(c) ~~**Then, and only then, offer the mapper sample**~~ **SHIPPED 2026-08-13**, and the trap this
+    line predicted was real: `lib/samples.test.ts` asserts every single-file sample auto-detects as
+    a flight, which a mapper sample cannot do by definition. It took a second KIND — `Sample.kind:
+    'flight' | 'mapping'` — with each branch asserted on its own terms, rather than a widened
+    assertion that would have stopped failing and stopped meaning anything: a real sample silently
+    losing its parser would have passed too. The mapping branch asserts BOTH halves, because either
+    alone is satisfiable by a broken sample — it must NOT auto-detect, and it must yield an apogee
+    once its columns are set. A third case regenerates the committed file byte for byte, so editing
+    `demoFlight` cannot change what the sample demonstrates while the bytes on disk go on showing
+    the old curve.
+
+    **The offer says it too.** `Sample.synthetic` puts the tag on the control that opens it, beside
+    three buttons that open real recordings — a different question from every sink in the ledger,
+    which all ask whether the claim leaves the app *with the figure*. This one asks whether a flyer
+    knows what they are about to look at.
 (d) **The other synthesized logs** — a saturated accelerometer, a coarse-GPS flight, and a staged
     pair on two devices, which is also the only thing that will give `/stitch` a sample. Each
     revisits the `.gpx`/`.kml`/composite rows the current check marks unreachable.
@@ -3815,6 +3826,43 @@ the artifact rather than the tree.
     milestone's *done when* can be judged against the whole vocabulary rather than against the part
     that happened to have adopters.
 
+**2026-08-13 — the rendered check caught the first thing the source census structurally cannot see,
+one day after it was written, and it was a real defect in a §5 token.** `CHIP_TONES.warn` lays its
+own `bg-amber-500/10` wash over whatever it sits on; on a `sunken` card that composites to
+`#faf0e1`, where `text-amber-700` renders **4.45:1** — five hundredths under AA. The source census
+rated it **4.82:1** against SOLID `sunken`, because it refuses a `/NN` opacity suffix and falls back
+to the page surfaces, which §9 records as a deliberate under-report. It could not have found this.
+The rendered check found it the moment a `warn` chip first appeared on an audited surface — the
+mapper sample's tag, shipped in the same run — and the tone is `amber-800` now, 6.03:1 on the same
+ground. **The two checks are not redundant: one rates what the source SAYS and the other rates what
+the browser COMPOSITES, and a wash is exactly where those differ.**
+
+**2026-08-13 — the design-system audit's top two rows, SHIPPED, and the first one was half wrong
+until it was measured here.**
+
+1. **`/methods`'s anchors, measured rather than assumed.** The audit reported them landing under a
+   62 px strip; re-measured in a real browser, a jumped-to heading lands **6 px BELOW** the strip on
+   a pointer device and **14 px UNDER** it on a coarse-pointer phone, where `globals.css`'s
+   `@media (pointer: coarse)` block holds every strip link to the 44 px touch floor and takes the
+   strip from 42 px to 62. So the finding is real, and only on touch — which is exactly why nothing
+   had noticed, and why the walk that pins it now builds a `hasTouch` context rather than just
+   narrowing the window. Playwright's default context is a fine pointer at any width, so a walk
+   that only sets a 390 px viewport measures the wrong strip and passes over the defect.
+   The clearance is stated ONCE for both surfaces that carry a `SectionNav`: `app/globals.css`'s
+   existing rule gains a `.section-strip-target` class, which `/methods` wears in place of
+   `scroll-mt-12`. A class rather than sixty-three more ids. Falsified by putting `scroll-mt-12`
+   back — the walk reddens with the real numbers in its message.
+2. **`/compare`'s loading state takes §5's `Loading`.** It re-reads and re-analyses several whole
+   files at once, which is the longest wait in the app, and it was the one surface showing no
+   working indicator while doing it — a hand-rolled `<p role="status">` with neither the pulse that
+   marks a wait as moving nor the `aria-live` that makes it announce. `Loading` adopters 3 → 4.
+
+**The point the first one makes about the audit itself:** an agent reading source can find the
+divergence and cannot measure the consequence. The 62 px figure was right, the "all 51 ids land
+behind the bar" reading was right on touch and wrong on a pointer, and both halves only became
+knowable by driving a browser. Reproduce before you scope, and reproduce in the state the defect
+lives in.
+
 **2026-08-13 — `Notice` adopters 9 → 10, and the count moved for a Sev-1 rather than for a
 conversion.** `ForgottenBanner` is the logbook's prune notice hoisted out of `RecentFlights`,
 because the report and compare branches return without the logbook and so a flyer told a flight had
@@ -3858,16 +3906,12 @@ opening the file, and the headline is what they have in common: `npx vitest run
 lib/design-system.test.ts` is green 30/30 and every §9 grep is at target, so **all eleven are drift
 the ratchet structurally cannot see**. Ranked by what a flyer meets:
 
-1. **`app/methods/page.tsx:98` — every anchor on the longest surface in the app lands UNDER the
-   header.** Targets carry `scroll-mt-12` (48 px) beneath a strip measured at **62 px** at 390 px
-   coarse, against §5 `SectionNav`'s own contract that *"targets carry a scroll-margin-top so a
-   heading lands below it rather than under it"*. It is not one link: 51 `h3` ids, 11 group
-   sections, and **21 readings link into this page by id**, so every `?` a flyer presses — which is
-   owner note `ON-3`'s whole subject — arrives at a heading hidden behind the bar.
-2. **`components/CompareSurface.tsx:431` — `/compare` hand-rolls `<p role="status">Reading the
-   flights…</p>`** where §5's `Loading` exists and three other surfaces use it. The working
-   indicator `/` and `/stitch` show while files parse is absent on the one surface that re-reads
-   several files at once.
+1. ~~**`app/methods/page.tsx:98` — every anchor on the longest surface in the app lands UNDER the
+   header.**~~ **SHIPPED 2026-08-13**, and the reading above is corrected by measurement: it lands
+   under the strip on a COARSE pointer only (14 px), and 6 px clear on a pointer device. See the
+   entry at the top of this milestone.
+2. ~~**`components/CompareSurface.tsx:431` — `/compare` hand-rolls `<p role="status">Reading the
+   flights…</p>`**~~ **SHIPPED 2026-08-13.** `Loading` adopters 3 → 4.
 3. **`components/CropControl.tsx:111` and `:125` — two raw `<input type="number">`** where
    `NumberField` is the primitive that owns the refusal behaviour, at `h-11 w-28 px-2` with no `py`
    against §4's `px-3 py-1.5`, and the unit baked into the label string.

@@ -95,7 +95,7 @@ export default function MethodsPage() {
         </nav>
 
         {METHOD_GROUPS.map((g) => (
-          <section key={g.title} id={groupId(g.title)} className="mt-12 scroll-mt-12">
+          <section key={g.title} id={groupId(g.title)} className="mt-12 section-strip-target">
             <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
               {g.title}
             </h2>
@@ -125,7 +125,7 @@ export default function MethodsPage() {
             Every entry names what Debrief takes from it, so a reader can check the citation
             rather than take it on trust. That clause is the difference between a bibliography and
             a decoration. */}
-        <section id="references" className="mt-12 scroll-mt-12">
+        <section id="references" className="mt-12 section-strip-target">
           <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Sources</h2>
           <p className="mt-1 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">
             The published work the methods above are implemented from. Most of this page is
@@ -137,7 +137,7 @@ export default function MethodsPage() {
             {REFERENCE_IDS.map((id) => {
               const r = REFERENCES[id];
               return (
-                <li key={id} id={`ref-${id}`} className="scroll-mt-12">
+                <li key={id} id={`ref-${id}`} className="section-strip-target">
                   <span className="font-medium text-zinc-800 dark:text-zinc-200">{r.short}</span>
                   {' — '}
                   {r.by}, <em>{r.title}</em>, {r.year}.{' '}
@@ -181,7 +181,7 @@ function Method({ id }: { id: MethodId }) {
   const { title, body, cites } = METHOD_CONTENT[id];
   return (
     <div>
-      <h3 id={id} className="scroll-mt-12 text-base font-medium text-zinc-800 dark:text-zinc-200">
+      <h3 id={id} className="section-strip-target text-base font-medium text-zinc-800 dark:text-zinc-200">
         {title}
       </h3>
       {/* A DIV, not a `<p>`. Until 2026-08-08 this wrapped each block's whole body in one

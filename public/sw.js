@@ -38,6 +38,7 @@ const SAMPLE_FILES = [
   '/samples/sample-raven-fip.csv',
   '/samples/sample-blueraven.csv',
   '/samples/sample-blueraven.summary.csv',
+  '/samples/sample-mapper.csv',
 ];
 
 const PRECACHE = [

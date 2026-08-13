@@ -2924,6 +2924,48 @@ test('the channel explorer is a second data export, and it says so too', async (
   ).toBe(0);
 });
 
+/**
+ * D10's second half, walked: a flyer who has never flown a rocket can SEE the column mapper work,
+ * in one click, without supplying a file — and cannot mistake what they are looking at.
+ *
+ * The mapper was a shipped capability with no demonstration at all, because a sample a parser
+ * recognises cannot demonstrate it: the only file that reaches the mapper is one no parser claims.
+ * So this sample is generated rather than borrowed, which makes it the first flight in the app
+ * that Debrief made up — and the reason the previous twelve slices existed.
+ */
+test('the made-up sample opens the column mapper, and says it is made up before and after', async ({ page }) => {
+  await page.goto('/');
+  const offer = page.getByRole('button', { name: /A spreadsheet Debrief has to be told about/ });
+  await expect(offer).toBeVisible();
+  // BEFORE: the offer itself carries the tag, beside three buttons that open real recordings.
+  const aside = offer.locator('..');
+  await expect(aside, 'the button says what it opens before it is pressed').toContainText('SYNTHETIC');
+
+  await offer.click();
+  // The mapper, which is the capability being demonstrated — not a report.
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Role for the Elapsed column')).toBeVisible();
+
+  // The roles a flyer would pick off the header row. Height and Rate are in feet, which is what
+  // the generated file writes and what makes the unit selects worth demonstrating.
+  await page.getByLabel('Role for the Elapsed column').selectOption('time');
+  await page.getByLabel('Role for the Height column').selectOption('altitude');
+  await page.getByLabel('Role for the Rate column').selectOption('velocity');
+  await page.getByLabel('Unit for the Height column').selectOption('ft');
+  await page.getByLabel('Unit for the Rate column').selectOption('ft/s');
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // AFTER: the same two notices every made-up flight carries, from the file's own marker rather
+  // than from the button that offered it — so it is still true of the file a flyer saves and
+  // drops back in.
+  await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
+  await expect(page.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);
+  // …and it is a real reading of the generated curve, not a stub: apogee 1,666.4 m = 5,467 ft.
+  await expect(page.locator('[data-reading]').first()).toBeVisible();
+  await expect(page.getByText(/5,4\d\d ft|1,66\d m/).first()).toBeVisible();
+});
+
 test('the three exports a flyer navigates by say the flight was made up', async ({ page }) => {
   // **The sink where an unlabelled figure is not read but WALKED TO.** A `.gpx` goes into a
   // handheld, a `.kml` into Google Earth, and the coordinate pair into a maps app — three files

@@ -5,6 +5,10 @@ import { MULTI_SAMPLE, SAMPLES, SAMPLE_FILES } from './samples';
 import { importFlight } from './parsers/index';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
+import { analyzeTable } from './flight/columns';
+import { parseTable } from './csv';
+import { buildFlight } from './flight/build';
+import { demoFlight, isSynthetic, toMapperCsv } from './synthetic';
 
 const PUBLIC = fileURLToPath(new URL('../public/samples/', import.meta.url));
 
@@ -39,8 +43,14 @@ describe('the sample flights', () => {
   it('opens every single-file sample into a real flight, through the real parsers', () => {
     // Not "the file exists" — the file PARSES and ANALYSES. A sample that 404s is obvious; a
     // sample that loads and yields no apogee is the one that would ship.
+    //
+    // **`kind: 'mapping'` is excluded here and asserted on its own terms below, rather than this
+    // assertion being widened.** `ROADMAP.md`'s D10 flagged the trap before the sample existed: a
+    // mapper sample cannot auto-detect BY DEFINITION, and softening this to "parses or needs
+    // mapping" would have stopped it failing and stopped it meaning anything — a real sample that
+    // silently lost its parser would have passed too.
     for (const s of SAMPLES) {
-      if (s.files.length !== 1) continue;
+      if (s.files.length !== 1 || s.kind === 'mapping') continue;
       const name = s.files[0];
       const bytes = readFileSync(PUBLIC + name);
       const res = importFlight({ name, text: decodeBytes(bytes), bytes });
@@ -49,6 +59,56 @@ describe('the sample flights', () => {
       const a = analyzeFlight(res.flight);
       expect(a.metrics.apogeeAltitude, `${s.id}: ${name} yields an apogee`).toBeGreaterThan(0);
     }
+  });
+
+  it('opens a mapping sample into the MAPPER, and into a flight once its columns are set', () => {
+    // Both halves, because either alone is satisfiable by a broken sample: a file that reaches the
+    // mapper and cannot be mapped into a flight demonstrates the mapper failing, and a file that
+    // auto-detects demonstrates something else entirely.
+    for (const s of SAMPLES.filter((x) => x.kind === 'mapping')) {
+      expect(s.files.length, `${s.id}: a mapping sample is one file`).toBe(1);
+      const name = s.files[0];
+      const bytes = readFileSync(PUBLIC + name);
+      const text = decodeBytes(bytes);
+      const res = importFlight({ name, text, bytes });
+      expect(res.kind, `${s.id}: ${name} is NOT auto-detected — that is the point of it`).toBe('mapping');
+
+      // …and it maps. The roles are the ones a flyer would choose off the header row, which is
+      // the journey being demonstrated.
+      const table = analyzeTable(parseTable(text).rows);
+      expect(table.headers, `${s.id}: headers no parser claims`).toEqual(['Elapsed', 'Height', 'Rate']);
+      const flight = buildFlight({
+        source: name,
+        format: 'csv',
+        formatLabel: 'Mapped by hand',
+        headers: table.headers,
+        dataRows: table.dataRows,
+        mappings: [
+          { index: 0, role: 'time', unit: 's' },
+          { index: 1, role: 'altitude', unit: 'ft' },
+          { index: 2, role: 'velocity', unit: 'ft/s' },
+        ],
+        notes: [],
+        ...(table.synthetic ? { synthetic: table.synthetic } : {}),
+      });
+      const a = analyzeFlight(flight);
+      expect(a.metrics.apogeeAltitude, `${s.id}: yields an apogee once mapped`).toBeGreaterThan(0);
+
+      // A sample Debrief made up says so in the FILE, not only on the button — so it is still
+      // true after a flyer mails the file to a club-mate and drops it back in six months later.
+      expect(isSynthetic(flight), `${s.id}: the marker survives the mapper`).toBe(true);
+      expect(s.synthetic, `${s.id}: and the registry says so where the OFFER can read it`).toBe(true);
+    }
+  });
+
+  it('regenerates the mapping sample byte for byte, so the file cannot drift from its generator', () => {
+    // The file is committed because the app serves it statically; the generator is deterministic
+    // for exactly this reason. Without this, editing `demoFlight` changes what the sample
+    // DEMONSTRATES while the bytes on disk go on showing the old curve.
+    const s = SAMPLES.find((x) => x.kind === 'mapping');
+    expect(s, 'there is a mapping sample to check').toBeTruthy();
+    const onDisk = readFileSync(PUBLIC + s!.files[0], 'utf8');
+    expect(onDisk).toBe(toMapperCsv(demoFlight('the column mapper')));
   });
 
   it('gives the two-altimeter sample two recordings of ONE flight, not two flights', () => {
