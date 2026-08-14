@@ -6,11 +6,11 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **`a6fac4a` (PR #192) — two Sev-1s, merged and live**, verified by fetching `version.json` rather than assumed. Also merged this run: `099104c` (PR #191), the previous session's own done-check, which was open and green when this run started. **Do not count from this line — measure**: `git fetch --prune origin && git log --oneline origin/main \| head -5`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | Measure it: `git rev-list --count origin/main..HEAD`. |
+| **Shipped to production** | **Four pull requests merged, all green on CI's own two jobs including the corpus half.** `099104c` (#191, the previous session's done-check, open and green when this run started) · `a6fac4a` (#192, two Sev-1s) · `55f021f` (#193, P1's `TextField` + the half-step ratchet + the sample offers) · `966524d` (#194, the flight timeline's empty state). Production was verified by fetching `version.json`, not assumed. **Do not count from this line — measure**: `git fetch --prune origin && git log --oneline origin/main \| head -5`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **Nothing.** The branch was clean and level with `main` at the end of the run. Measure it: `git rev-list --count origin/main..HEAD`. |
 | **Sev-1** | **None inherited, two FOUND and both fixed and live.** The baseline gate was green before anything was touched: unit 1,413 across 91 files with the corpus attached, build clean, e2e 353. |
 | **D — capability** | **D10's front door was advertising a different flight's apogee.** Fixed, with the check that makes it impossible again. The `.ork` design-overlay sample is scoped in detail below and is the next slice. |
-| **P — product & craft** | **P1: `TextField` built from a census of seven, two files adopted — and §9's spacing check, which had been reporting a clean 0 over 91 half-step utilities, can now see them.** |
+| **P — product & craft** | **P1: `TextField` built from a census of seven, two files adopted; §9's spacing check, which had been reporting a clean 0 over 91 half-step utilities, can now see them; a named tell closed (the explorer's Save was always enabled and failed silently); and the flight timeline stopped deleting its own section.** §9's counts at the end of the run: radius drift **0**, off-scale spacing **0**, half-step **42** (the shell figure; 66 in the test — see §9 for why both are right), off-scale type **1** (the wordmark), card treatments **3**, inverted files **10 of 51**, `./ui` importers **39 of 51**. Nothing moved the wrong way. |
 
 ## The two Sev-1s, both found by the opening sweep and both confirmed 2/2 by refuters
 
@@ -70,6 +70,17 @@ copying:
   §9's census (it refuses variant-prefixed classes) and to axe (which rates a placeholder only on
   an empty field it walks).
 - **The sample offers, held against their own files** — see below.
+- **`4b5131e` → merged in `55f021f` (#193) — the explorer's Save refuses an empty view name before
+  it is pressed.** *"A control that is always enabled and fails only when pressed"* is a named tell
+  and this was one: `commitPreset` opens with `if (!name) return`, so Save on an empty or
+  whitespace name did nothing and said nothing. Enter took the same silent path.
+- **`966524d` (#194) — the flight timeline says why it has nothing to lay out.** It returned `null`
+  and took its own heading with it. **Measured before it was touched, which is what separates it
+  from the `ChannelExplorer` row that was refuted**: over every real recording the repo can reach
+  (52 that analyse end to end), **3 render no timeline** — two Eggtimer logs and a Blue Raven
+  sustainer, one of them the early-deploy anomaly file. All three resolve a `coast` and nothing
+  else. The condition is pinned in `lib/phases.test.ts`; the component's branch has no walk,
+  because all three files are private-corpus, and that is said rather than implied.
 
 ## §9's spacing check had been reporting a clean 0 over 91 half-steps
 
@@ -147,8 +158,12 @@ ships chromium-1194, this Playwright wants 1228, and `playwright.config.ts` refu
 purpose. It succeeds through the proxy in about a minute. Do **not** set `PLAYWRIGHT_CHROMIUM_PATH`
 afterwards. Both are standing candidates for the environment's setup script.
 
-**Four CPUs.** The opening fan-out ran 2 agents at a time and took ~35 minutes for 11 agents. Do not
-run it and a gate at the same time and then believe the gate.
+**Four CPUs, and ONE GATE AT A TIME — this run proved it again from the other side.** The opening
+fan-out ran 2 agents at a time and took ~35 minutes for 11 agents. Later, a gate started while the
+previous one was still running **exited 1 with all 1,423 tests passing**, on three
+`[vitest-worker]: Timeout calling "onTaskUpdate"` unhandled errors. Re-run alone: `rc=0`, no worker
+errors. Read the counts, not the exit code — and check what else is in flight before reading a line
+of the diff.
 
 The git identity arrives as the harness vendor's default and must be set per-repo before the first
 commit: `Neer Patel <135655563+nrdptel@users.noreply.github.com>`. The harness also appends an
