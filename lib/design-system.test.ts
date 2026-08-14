@@ -673,7 +673,19 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  `Notice` and no surface beneath it at all, which is the one thing §5's `Notice` entry forbids
    *  in as many words. `EmptyState` is a `Card tone="muted"`, so the radius, the type size and the
    *  buried action go together. */
-  EmptyState: 2,
+  /** 2 → 3 on 2026-08-14: `FlightTimeline`, whose `if (phases.length < 2 || total <= 0) return null`
+   *  deleted the whole section — its own `<h3>` included — so a flyer met a gap between two panels
+   *  with nothing saying a section was missing or why.
+   *
+   *  **Reachable, and measured rather than argued**, which is the difference between this row and
+   *  the `ChannelExplorer` `return null` that was REFUTED: over every real recording the repo can
+   *  reach (52 that analyse end to end, across committed fixtures, served samples and the private
+   *  corpus), **3 produce fewer than two phases** — two Eggtimer logs and a Blue Raven sustainer,
+   *  one of them the early-deploy anomaly file. All three resolve a `coast` and nothing else.
+   *  Pinned at the condition by `lib/phases.test.ts`; the component's own branch has no walk,
+   *  because all three files are private-corpus and reaching it in a browser needs a synthesized
+   *  log, which is D10's machinery and a slice of its own. Said here rather than left implied. */
+  EmptyState: 3,
   ErrorState: 2,
   /** 2 → 3 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
    *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —
