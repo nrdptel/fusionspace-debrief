@@ -264,6 +264,27 @@ const BUDGET = {
    *  attempt flattened away), and `space-y-5`/`gap-5`/`gap-y-5` to `4`, the "between related
    *  things" mapping the rest of the conversion already used. */
   offScaleSpacing: 0,
+  /**
+   * Half-step spacing §4 never mentions — every `-0.5` and `-2.5` in the tree.
+   *
+   * **A SEPARATE counter rather than a raised `offScaleSpacing`, and the reason is how the next
+   * session will read it.** That one is documented as a guard that "may never rise", and taking it
+   * from 0 to 66 in a commit that widened its pattern is indistinguishable, at a glance, from
+   * weakening the gate. It is the opposite: the whole-step check is unchanged and still asserts 0,
+   * and this counts a class it was structurally blind to — `-([0-9]+)` cannot match `2.5`, because
+   * the dot is not a digit and the pattern is anchored.
+   *
+   * **`-1.5` is excluded because §4's own table sanctions it** (`inside a control | px-3 py-1.5`),
+   * which is also why the earlier note declined to widen this at all. The conclusion did not
+   * follow from the premise: forbidding every half-step would contradict §4, and counting only the
+   * ones §4 never mentions does not. Measured 2026-08-13 over the whole tree: 91 half-step
+   * utilities, 45 of them `-1.5`.
+   *
+   * Pinned at the honest number, on the way down. P1 converts in slices — one surface per
+   * increment, never one sweeping diff — so a target of 0 here would force every remaining edit
+   * into whichever increment happened to widen the pattern.
+   */
+  halfStepSpacing: 66,
   /** Component files where caption size OUTNUMBERS the body default.
    *
    *  **The target is NOT 0, and this is measured rather than conceded.** The ratio is a proxy: it
@@ -625,6 +646,23 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  other), and folding it in would add layout config for one caller — the same call
    *  `ColumnMapper`'s table and `CompareView`'s transposed one already got. */
   NumberField: 6,
+  /** §5's field for everything a flyer TYPES that is not a number, built 2026-08-13 from a census
+   *  of the whole tree: seven hand-rolled text inputs and textareas across four files, in four
+   *  geometries, two focus treatments and two placeholder tokens, with nothing to reach for —
+   *  `NumberField` covers only the numeric case, so this is the same "the vocabulary is short a
+   *  word" shape §5 records for `link`, `ChipButton` and `Popover`.
+   *
+   *  **2 of the four files, deliberately, and the other two are named rather than forgotten.**
+   *  `CompareView` and `FlightReport` hold four of the seven and were byte-identical to each
+   *  other, so they convert with no judgement call and carry the real defect with them: all four
+   *  wore `dark:placeholder:text-zinc-500`, the value §2 retired on 2026-08-11 at 3.67:1 on dark
+   *  `raised`. The remaining three each need a decision this slice did not take — `RecentFlights`'
+   *  search wants the browser's `type="search"` affordance and a `max-w-xs`, its note editor is
+   *  `text-xs` (§3's body floor, which is its own correction), and `ChannelExplorer`'s view name
+   *  is a `w-36` inline field beside a Save button. Converting those is P1's next slice; a
+   *  primitive that grows three shapes' worth of config on its first day is the config surface
+   *  that stops anyone using it. */
+  TextField: 2,
   IconButton: 2,
   Extrapolated: 1,
   /** 1 → 2 on 2026-08-09: `RecentFlights`. **This count is per FILE, so it moves by ONE while
@@ -780,9 +818,31 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
     // there. An enumeration of what is forbidden goes stale; an enumeration of what is allowed
     // cannot.
     //
-    // Half-steps are out of scope on purpose: §4's own table sanctions `px-3 py-1.5`, so forbidding
-    // every `-1.5` would contradict the section this asserts. The unsanctioned ones are counted in
-    // `BACKLOG.md` instead of being quietly swept in here.
+    // **Half-steps used to be out of scope, and that left the check blind to 46 live values.**
+    // The reasoning was right as far as it went — §4's own table sanctions `px-3 py-1.5`, so
+    // forbidding every `-1.5` would contradict the section this asserts — but the conclusion did
+    // not follow: the fix is to allow the half-step §4 SANCTIONS and count the ones it never
+    // mentions. Measured 2026-08-13 before changing anything: 91 half-step utilities in the tree,
+    // of which 45 are `-1.5` (§4's own value, on a different property in most cases) and **46 are
+    // `-0.5` or `-2.5`, which appear nowhere in §4** — 36 and 10 respectively. Every one was
+    // invisible here, because `-([0-9]+)` cannot match `2.5`: the dot is not a digit, and the
+    // pattern is anchored.
+    //
+    // This is the third reach gap of the same shape §9 records — a check that enumerates the thing
+    // in front of it — and the most expensive, because it was reporting a clean **0** the whole
+    // time. A compliance command that cannot fail is worse than none, which is §9's own sentence.
+    //
+    // **Pinned at the honest number rather than at 0, deliberately.** P1's own rule is to convert
+    // in slices, one surface per increment, never one sweeping diff; a target of 0 here would
+    // force 46 edits across the tree into whatever increment happened to widen the pattern. An
+    // exact ratchet makes the drift visible, stops it growing, and lets each slice take its share
+    // — the same shape `NumberField: 6` and `Notice: 10` already have.
+    //
+    // §4 itself says "The scale is 1 2 3 4 6 8 12. Nothing else" two lines above a table that uses
+    // `py-1.5`, so the section contradicts itself on exactly this point. It is a SHARED section
+    // (`lib/design-shared.test.ts` digests §4, §6, §7, §8, §10 against the sibling repo), and that
+    // repo is not attached to this session, so correcting the wording is owed to both and is
+    // parked in `OWNER-NOTES.md` under *Awaiting the owner* rather than done here unilaterally.
     // `gap` and `space` take their axis as a SEPARATE segment (`gap-y-5`), where padding and
     // margin fold it into one (`py-5`) — so they cannot share a prefix pattern. Writing them
     // as one was this fix's own first draft, and it was blind to `gap-y-5` in
@@ -791,6 +851,21 @@ describe('DESIGN.md §9 — the design system is binding, and this is what check
       /\b(?:(?:p|m)[xytblr]?|(?:gap|space)(?:-[xy])?)-(?!(?:0|1|2|3|4|6|8|12)\b)[0-9]+\b/g;
     const { total, byFile } = countMatches(ui, offScale);
     expect(total, `off-scale spacing, by file:\n${byFile.join('\n')}`).toBe(BUDGET.offScaleSpacing);
+  });
+
+  it(`uses exactly ${BUDGET.halfStepSpacing} half-step spacing values §4 does not sanction`, () => {
+    // The class the check above is structurally blind to — see `BUDGET.halfStepSpacing`. The
+    // lookahead has to clear the WHOLE numeric token before it can exempt one: written
+    // `(?:…|2)\b`, the `2` of `px-2.5` satisfies it (a dot is a word boundary) and the value is
+    // exempted as though it were `px-2`. That single detail is why the first attempt at this
+    // reported a clean 0 twice, and it is the whole reason this test exists rather than a wider
+    // pattern on the assertion above.
+    const halfStep =
+      /\b(?:(?:p|m)[xytblr]?|(?:gap|space)(?:-[xy])?)-(?!(?:0|1|1\.5|2|3|4|6|8|12)(?![0-9.]))[0-9]+(?:\.5)?\b/g;
+    const { total, byFile } = countMatches(ui, halfStep);
+    expect(total, `half-step spacing off §4's scale, by file:\n${byFile.join('\n')}`).toBe(
+      BUDGET.halfStepSpacing,
+    );
   });
 
   // The SUITE-WIDE `text-sm` vs `text-xs` ratio is deliberately NOT asserted, and the reason is a

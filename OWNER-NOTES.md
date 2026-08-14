@@ -545,6 +545,23 @@ runs.
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
+- **2026-08-14 — `DESIGN.md` §4 contradicts itself about half-steps, and §4 is a SHARED section, so
+  the wording cannot be fixed from inside one repo.** It says *"The scale is `1 2 3 4 6 8 12`.
+  Nothing else — no `5`, `7`, `9`, `10`, no arbitrary values"* two lines above a table whose own
+  entry is *"inside a control | `px-3 py-1.5`"*. So `1.5` is simultaneously off the scale and the
+  prescribed value for every control in both apps. This surfaced because §9's spacing check was
+  widened to see half-steps at all: it had been reporting a clean **0** over 91 of them, and the
+  exemption for `-1.5` now leans on the table rather than on the sentence, which is the weaker of
+  the two places to lean.
+  **Proceeding on: the check exempts `-1.5` and ratchets the other 66** — the reading that matches
+  what both apps actually do, and the only one that does not turn every control in either tree into
+  a violation overnight. The wording fix is one sentence in §4 (naming `1.5` as on the scale for
+  control padding, or moving the table's value onto `py-1`/`py-2`), and `lib/design-shared.test.ts`
+  digests §4 against the sibling, so it must land in both copies in one run with the digest updated.
+  Nothing fails today; the contradiction is silent, which is the condition the digest exists to end.
+  **What the owner decides:** whether `1.5` joins the stated scale, or the table changes to match
+  the sentence. The first is what the code already does in both repos.
+
 - **2026-08-13 — a `DESIGN.md` §9 change is OWED to the sibling repo and unshipped there**, because
   it was not attached to this session. §9's contrast block gains what the rendered check now covers
   (13 states × 2 themes, replacing a paragraph that said the states "should" be covered), the two

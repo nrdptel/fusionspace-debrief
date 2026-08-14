@@ -660,6 +660,12 @@ grep -roh 'rounded-xl border[a-z0-9:/ -]*' components \
 cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-([0-9]+|\[[^]]+\])' \
   | grep -vxE '.*-(0|1|2|3|4|6|8|12)' | wc -l                       # target: 0
 
+# HALF-STEPS, which the line above cannot see at all: `-([0-9]+)` does not match `2.5`, because
+# the dot is not a digit. `-1.5` is exempt because §4's own table sanctions `px-3 py-1.5`; every
+# other half-step appears nowhere in §4. Ratcheted rather than zeroed — see the note below.
+cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+(\.5)?' \
+  | grep -vxE '.*-(0|1|1\.5|2|3|4|6|8|12)' | wc -l                  # ratchet: 66, on the way down
+
 # a size that is not on the scale at all — every text- size INCLUDING an arbitrary one,
 # minus the six in §3 and the one annotation size it sanctions.
 cls components app | grep -xE 'text-([a-z0-9]+|\[[^]]+\])' \
@@ -765,12 +771,31 @@ pattern that named the drift somebody had in front of them rather than the class
   with `gap-y-5` sitting live in `app/methods/page.tsx` — a second false green inside the commit
   that existed to remove the first. Caught by review, not by the grep.
 
-**Half-steps are deliberately out of this grep's scope, and that is a decision rather than an
-oversight.** §4's own table sanctions `px-3 py-1.5` and `px-2 py-1`, so `-1.5` is *in* the system and
-a grep that forbade every half-step would contradict the section it enforces. The unsanctioned ones
-(`-0.5` ×48, `-2.5` ×21, `-3.5` ×1; `-1.5` ×78 is sanctioned) are recorded in `BACKLOG.md` rather than
-silently swept in or silently ignored; settling them means saying in §4 which half-steps are on the
-scale, and that is a change to this file in both repos.
+**Half-steps WERE deliberately out of this grep's scope, and closing that on 2026-08-13 is the
+third and most expensive reach gap this block has recorded.** The premise was right: §4's own table
+sanctions `px-3 py-1.5` and `px-2 py-1`, so `-1.5` is *in* the system and a grep forbidding every
+half-step would contradict the section it enforces. The conclusion did not follow. Exempting the
+half-step §4 sanctions and counting the ones it never mentions contradicts nothing, and until it
+was done this check reported a clean **0** across a tree holding 91 half-step utilities — 45 of
+them `-1.5`, and **46 `-0.5` or `-2.5` that appear nowhere in §4**.
+
+**The mechanism is one character wide and worth copying.** `-([0-9]+)` cannot match `2.5`: the dot
+is not a digit. Worse, the obvious repair does not work either — written `(?:…|2)\b`, the exemption
+list matches the `2` of `px-2.5` and exempts it as though it were `px-2`, because a dot IS a word
+boundary. The lookahead has to clear the whole numeric token (`(?![0-9.])`) before it may exempt
+anything. Two drafts of this fix reported 0 for exactly that reason.
+
+**Ratcheted at 66 rather than targeted at 0**, because P1 converts in slices and a zero target
+would force every remaining edit into whichever increment happened to widen the pattern. The
+whole-step count above is untouched and still 0: this is a second counter for a class that check
+was blind to, not a relaxed version of it.
+
+**What is still owed: §4 says "The scale is `1 2 3 4 6 8 12`. Nothing else" two lines above a table
+that uses `py-1.5`.** The section contradicts itself on precisely this point, and the exemption
+above leans on the table rather than the sentence. §4 is a SHARED section — `lib/design-shared.test.ts`
+digests §4, §6, §7, §8 and §10 against the sibling repo — so correcting the wording is owed to both
+copies in one run, and it is parked in `OWNER-NOTES.md` under *Awaiting the owner* rather than taken
+unilaterally from inside one repo.
 
 **The two copies of this block had DRIFTED, and the weaker side hid real drift in its app.**
 Reconciled 2026-08-02 — the first session in which both repos could be attached at once and the

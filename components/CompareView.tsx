@@ -28,7 +28,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import { TOUCH_TARGET_SQUARE } from '@/lib/ui-tokens';
-import { Button, Card, Disclosure, Figure, Notice, Segmented } from './ui';
+import { Button, Card, Disclosure, Figure, Notice, Segmented, TextField } from './ui';
 
 const METRIC_KEYS = ['altitude', 'velocity', 'acceleration', 'mach', 'dynamicPressure'] as const;
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -682,32 +682,21 @@ export default function CompareView({
       {/* Optional caption for a redundant-altimeter or staged-flight write-up; rides into
           the exported bundle's Markdown and JSON. Tucked away so it never clutters the read. */}
       <Disclosure summary={<>Label this comparison{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}</>}>
-          <div>
-            <label htmlFor="compare-label" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Label
-            </label>
-            <input
-              id="compare-label"
-              type="text"
-              value={reportLabel}
-              onChange={(e) => remember({ label: e.target.value })}
-              placeholder="e.g. Nimbus IV — booster vs sustainer"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="compare-notes" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Notes
-            </label>
-            <textarea
-              id="compare-notes"
-              value={reportNotes}
-              onChange={(e) => remember({ notes: e.target.value })}
-              rows={3}
-              placeholder="What these recordings are, conditions — anything you'd add to a write-up."
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            />
-          </div>
+          <TextField
+            id="compare-label"
+            label="Label"
+            value={reportLabel}
+            onChange={(v) => remember({ label: v })}
+            placeholder="e.g. Nimbus IV — booster vs sustainer"
+          />
+          <TextField
+            id="compare-notes"
+            label="Notes"
+            multiline
+            value={reportNotes}
+            onChange={(v) => remember({ notes: v })}
+            placeholder="What these recordings are, conditions — anything you'd add to a write-up."
+          />
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Rides into the exported bundle&apos;s Markdown, HTML and JSON. Kept on this device for
             these flights — along with the order you put the columns in — so a reload, or adding

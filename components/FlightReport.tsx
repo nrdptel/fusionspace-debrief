@@ -55,7 +55,7 @@ import DeployAltitude from './DeployAltitude';
 import FlightCard from './FlightCard';
 import GroundTrack from './GroundTrack';
 import { padOrigin } from '@/lib/gps';
-import { Button, Card, Chip, Disclosure, Figure, Frame, Notice, SectionNav } from './ui';
+import { Button, Card, Chip, Disclosure, Figure, Frame, Notice, SectionNav, TextField } from './ui';
 import { SYNTHETIC_NOTE, isSynthetic, syntheticBandLine } from '@/lib/synthetic';
 import { recordedBy as recordedByLine } from '@/lib/logInfo';
 
@@ -1050,34 +1050,23 @@ export default function FlightReport({
           label and free-text notes that ride into every text/Markdown/JSON export and
           the printed card. Tucked in a disclosure so it never clutters the common read. */}
       <Disclosure summary={<>Label this report{reportLabel.trim() || reportNotes.trim() ? ' ✓' : ' (optional)'}</>} className="print:hidden">
-          <div>
-            <label htmlFor="report-label" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Label
-            </label>
-            <input
-              id="report-label"
-              type="text"
-              value={reportLabel}
-              onChange={(e) => setReportLabel(e.target.value)}
-              onBlur={flushCaption}
-              placeholder="e.g. Nimbus IV · J450 · Flight 3"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="report-notes" className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Notes
-            </label>
-            <textarea
-              id="report-notes"
-              value={reportNotes}
-              onChange={(e) => setReportNotes(e.target.value)}
-              onBlur={flushCaption}
-              rows={3}
-              placeholder="Conditions, motor, anomalies — anything you'd add to a write-up."
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            />
-          </div>
+          <TextField
+            id="report-label"
+            label="Label"
+            value={reportLabel}
+            onChange={setReportLabel}
+            onBlur={flushCaption}
+            placeholder="e.g. Nimbus IV · J450 · Flight 3"
+          />
+          <TextField
+            id="report-notes"
+            label="Notes"
+            multiline
+            value={reportNotes}
+            onChange={setReportNotes}
+            onBlur={flushCaption}
+            placeholder="Conditions, motor, anomalies — anything you'd add to a write-up."
+          />
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Appears at the top of the text, Markdown and JSON exports and the printed card.
             {!ownsCaption
