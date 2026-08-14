@@ -3,6 +3,7 @@ import { fmtSpeed, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { flightPhases, type Phase } from '@/lib/phases';
 import { landedInRecord } from '@/lib/readings';
+import { EmptyState } from './ui';
 
 // Phase colours drawn from the app's existing palette (altitude indigo, velocity
 // emerald, acceleration amber, plus a sky for the drogue leg).
@@ -28,7 +29,47 @@ export default function FlightTimeline({
 }) {
   const phases = flightPhases(events);
   const total = phases.reduce((s, p) => s + p.duration, 0);
-  if (phases.length < 2 || total <= 0) return null;
+  /**
+   * **This returned `null` and took the heading with it** — the whole *Flight timeline* section
+   * vanished, so a flyer met a gap between two other panels with nothing saying a section was
+   * missing or why. §5: a surface with no empty state is not finished, and it is the state a flyer
+   * sees first.
+   *
+   * **Reachable, measured rather than assumed** — which is the check the audit row for this could
+   * not make, and the reason a sibling row about `ChannelExplorer`'s `return null` was REFUTED
+   * instead of fixed. Over every real recording the repo can reach (52 committed fixtures, served
+   * samples and private-corpus files that analyse end to end), **3 render no timeline**: two
+   * Eggtimer logs and a Blue Raven sustainer — and one of those three is the early-deploy anomaly
+   * file, which is exactly the flight a flyer most wants laid out. All three resolve a `coast` and
+   * nothing else: Debrief found an apogee but neither the liftoff/burnout that open the flight nor
+   * the landing that closes it, so there is one span and nothing to set it against.
+   *
+   * No `action`, and §5's `EmptyState` makes that explicit — *"omitted only where the surface
+   * genuinely has none"*. There is nothing a flyer can press to make marks appear in a file that
+   * does not carry them; offering one would be decoration that cannot work.
+   */
+  if (phases.length < 2 || total <= 0) {
+    return (
+      <div>
+        <h3 className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+          Flight timeline
+        </h3>
+        <EmptyState
+          className="mt-2"
+          title="Not enough marks to lay out a timeline"
+          what={
+            <>
+              A timeline divides the flight at liftoff, burnout, apogee, deployment and landing.
+              This record resolved {phases.length === 1 ? 'only one span' : 'none'} — Debrief did not
+              find the marks that bracket the rest — so there is nothing here to set side by side.
+              Every reading above is unaffected; it is the division into phases that this file does
+              not support.
+            </>
+          }
+        />
+      </div>
+    );
+  }
 
   // A descent-rate sub-label where the phase has one. `flightPhases` emits `drogue` +
   // `main` where it resolved a deployment and a single `descent` where it did not — and in
