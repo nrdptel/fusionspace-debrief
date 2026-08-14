@@ -2392,6 +2392,15 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **Four e2e specs each carry their own copy of the same filler log generator.** Found 2026-08-13
+  by the pre-push review of the `/stitch` prune fix, which was about to add a fifth. `audit`,
+  `audit2`, `audit3` and `logbook` each declare an `eggtimerCsv()` with a slightly different curve,
+  and every one of them exists only to fill the logbook — none asserts anything about the flight it
+  makes. `e2e/fillerLog.ts` is the shared one now and the new spec uses it; the four are unchanged
+  because a mechanical edit across four spec files should ride along with other work in those files
+  rather than spend a gate of its own. The suite already shares `madeUp.ts`, `touchTargets.ts`,
+  `hoverOnly.ts` and `orkFixture.ts`, so the pattern is established.
+
 - **`accelClipped: false` means "not clipped" OR "never tested", and nothing can tell them
   apart.** Found 2026-08-13 by the pre-push review of the saturation-caveat change, and it is that
   change that makes it matter: once the ABSENCE of a caveat is a claim, a flag that is false for two

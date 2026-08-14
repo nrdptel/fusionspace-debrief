@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { underSizedTargets } from './touchTargets';
 import { dropMadeUpFile, mapMadeUpColumns, MADE_UP_NAME, SYNTH_SHORT, SYNTH_TAG } from './madeUp';
+import { fillerCsv } from './fillerLog';
 import path from 'node:path';
 import os from 'node:os';
 import { readFileSync } from 'node:fs';
@@ -575,4 +576,56 @@ test('the prerendered page does not tell a flyer their composite is missing', as
   expect(html, 'it says it is looking instead').toContain('Looking for the recordings');
   // And it says so to a screen reader, not only on screen — the whole point of `Loading`.
   expect(html, 'the wait is announced, not merely drawn').toMatch(/role="status"|aria-live/);
+});
+
+/**
+ * Pressing the sample can DELETE a flyer's flights, and this surface was the one that never said so.
+ *
+ * `ForgottenBanner` exists because a prune notice that renders only where a flyer is NOT standing
+ * is the same as no notice at all — the deletion has already happened, and the pruned rows' file
+ * text, labels, notes, crops and grouping do not come back. That fix reached the report and
+ * `/compare`; here the banner was mounted on the `empty` branch alone, which is the branch a
+ * FAILED sample lands on. A successful press sets `forgotten` and then goes to `ready`, so the one
+ * path that actually prunes was the one path that said nothing.
+ *
+ * Walked rather than unit-tested because the defect is entirely about which branch renders it: the
+ * state was always correct and always invisible.
+ */
+test('the /stitch sample says which flights it deleted to make room', async ({ page }) => {
+  await page.goto('/');
+  const dropAndReturn = async (i: number) => {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name: `stitchroom-${String(i).padStart(2, '0')}.csv`, mimeType: 'text/csv', buffer: Buffer.from(fillerCsv()) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  };
+
+  // Fill the un-noted window exactly, so the next save has to evict. 12 is `UNNOTED_MAX`
+  // (`lib/recents.ts`); if it moves, the heading assertion below fails loudly rather than the
+  // walk quietly stopping to test anything.
+  for (let i = 1; i <= 12; i++) await dropAndReturn(i);
+  await expect(page.getByRole('heading', { name: /Recent flights/ })).toContainText('12/12 un-noted');
+
+  // Now press the sample on /stitch. It saves TWO recordings, so two flights go.
+  await page.goto('/stitch/');
+  await page.getByRole('button', { name: /A staged flight, on two altimeters/ }).click();
+
+  // The composite assembles — this is the READY branch, the one the banner never reached.
+  await expect(page.getByRole('heading', { name: /marks across .* recordings/ })).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByRole('heading', { name: /Recent flights/ }),
+    'the logbook is not on this screen, so the notice has to be',
+  ).toHaveCount(0);
+
+  const message = page.getByRole('status').filter({ hasText: 'forgotten' }).first();
+  await expect(message, 'the prune is named where the press left the flyer').toBeVisible();
+  await expect(message).toContainText(/stitchroom-\d\d\.csv/);
+  // The same structure every other copy of this banner is held to: the live region is the
+  // MESSAGE, and the dismiss control sits outside it so a press does not re-announce the lot.
+  await expect(message.getByRole('button', { name: 'Got it' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Got it' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'forgotten' })).toHaveCount(0);
 });

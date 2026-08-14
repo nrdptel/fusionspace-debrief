@@ -202,8 +202,15 @@ export default function StitchSurface() {
   useEffect(() => {
     const apply = () => void load(idsFromParam(new URLSearchParams(window.location.search).get('ids')));
     apply();
-    window.addEventListener('popstate', apply);
-    return () => window.removeEventListener('popstate', apply);
+    // Back/forward is a different composite, so whatever the last press cost is not about the
+    // screen the flyer is arriving at. Same reasoning as `chooseFirstStage`, and it cannot swallow
+    // the sample's own report: that press calls `load` directly rather than going through here.
+    const onPop = () => {
+      setForgotten([]);
+      apply();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, [load]);
 
   const state1 = state.kind === 'ready' ? state : null;
@@ -258,10 +265,46 @@ export default function StitchSurface() {
     (name: string | undefined) => {
       writeFirstStage(ids, name);
       setFirstStage(name);
+      // The prune report belongs to the press that caused it. It could not outlive anything while
+      // it rendered on one branch a successful press never reaches; now that it reaches `ready`,
+      // reordering the stages would carry a report of a deletion two interactions ago. Cleared
+      // here rather than inside `load`, which the sample press itself calls immediately after
+      // setting it — clearing there would wipe the report before it was ever shown.
+      setForgotten([]);
       void load(ids);
     },
     [ids, load],
   );
+
+  /**
+   * What the last press COST, on whatever screen it leaves the flyer.
+   *
+   * **It was mounted on ONE of the five branches, and that one is the failure path.**
+   * `openStagesSample` sets `forgotten` and then, on success, `load(got)` puts this surface into
+   * `ready` — so the accounting rendered only when the sample could NOT be assembled, which is
+   * exactly when nothing was saved and nothing was pruned. Press the sample with a nearly-full
+   * logbook and Debrief deleted rows — their stored text, labels, notes, crops and grouping — and
+   * said nothing on the screen it left you on. IndexedDB rows do not come back and there is no
+   * undo.
+   *
+   * This is verbatim the Sev-1 that put `ForgottenBanner` in its own file: the notice reached only
+   * the surface a flyer is NOT on after a drop. That fix hoisted it out of `RecentFlights` and
+   * fitted it to the report and to `/compare`; this route got the import and one call site on the
+   * branch a flyer rarely sees. It was blind on `unreadable` and `refused` too — both reachable
+   * from the same press, since `load(got)` can land on either.
+   *
+   * **Every branch a press can LEAVE a flyer on, which is not the same as every branch.**
+   * `loading` deliberately does not get it: `openStagesSample` sets `forgotten` and then `load()`
+   * sets `loading` in the same batch, so mounting it there would announce a completed deletion on
+   * a screen that says Debrief is still looking. The report belongs on the screen the press
+   * settles on.
+   *
+   * One element rather than four copies of the JSX — but note that is a convenience and not a
+   * guard: a sixth branch returning without `{forgottenBanner}` compiles and renders exactly as
+   * this bug did. What would make it structural is a wrapper the branches return INTO, and that is
+   * a larger refactor of a 650-line component than a Sev-1 fix should carry.
+   */
+  const forgottenBanner = <ForgottenBanner forgotten={forgotten} onDismiss={() => setForgotten([])} />;
 
   if (state.kind === 'loading') {
     // Was a `<Card aria-busy>` with no live region: `aria-busy` marks a region stale, it
@@ -282,7 +325,7 @@ export default function StitchSurface() {
       <>
         {/* What loading the sample cost, if anything. Above the empty state, because it is about
             the press the flyer just made rather than about the state they are looking at. */}
-        <ForgottenBanner forgotten={forgotten} onDismiss={() => setForgotten([])} />
+        {forgottenBanner}
         {sampleNote && (
           <Notice className="mb-3">
             <p role="status">{sampleNote}</p>
@@ -335,37 +378,43 @@ export default function StitchSurface() {
 
   if (state.kind === 'unreadable') {
     return (
-      <ErrorState
-        what="One of these recordings could not be read, so there is a hole in the timeline."
-        expected={
-          <>
-            {state.why}. A composite is only worth reading when every stage is in it, so Debrief will
-            not assemble a partial one.
-          </>
-        }
-        action={
-          <Button href={`/compare/?ids=${ids.join(',')}`}>Open what did read, side by side</Button>
-        }
-      />
+      <>
+        {forgottenBanner}
+        <ErrorState
+          what="One of these recordings could not be read, so there is a hole in the timeline."
+          expected={
+            <>
+              {state.why}. A composite is only worth reading when every stage is in it, so Debrief will
+              not assemble a partial one.
+            </>
+          }
+          action={
+            <Button href={`/compare/?ids=${ids.join(',')}`}>Open what did read, side by side</Button>
+          }
+        />
+      </>
     );
   }
 
   if (state.kind === 'refused') {
     return (
-      <ErrorState
-        what={`Debrief can’t put ${state.refusal.recordings.length === 1 ? 'this recording' : 'these recordings'} on one clock: ${state.refusal.recordings.join(', ')}`}
-        expected={
-          <>
-            {state.refusal.why} Debrief lines stages up on the launch, because that is the one instant
-            every stage of a rocket shares. A stage that missed it could only be placed by guessing a
-            staging delay, and a guessed composite reads exactly like a measured one — so there is no
-            fallback here on purpose.
-          </>
-        }
-        action={
-          <Button href={`/compare/?ids=${ids.join(',')}`}>Read them side by side instead</Button>
-        }
-      />
+      <>
+        {forgottenBanner}
+        <ErrorState
+          what={`Debrief can’t put ${state.refusal.recordings.length === 1 ? 'this recording' : 'these recordings'} on one clock: ${state.refusal.recordings.join(', ')}`}
+          expected={
+            <>
+              {state.refusal.why} Debrief lines stages up on the launch, because that is the one instant
+              every stage of a rocket shares. A stage that missed it could only be placed by guessing a
+              staging delay, and a guessed composite reads exactly like a measured one — so there is no
+              fallback here on purpose.
+            </>
+          }
+          action={
+            <Button href={`/compare/?ids=${ids.join(',')}`}>Read them side by side instead</Button>
+          }
+        />
+      </>
     );
   }
 
@@ -379,8 +428,18 @@ export default function StitchSurface() {
   }));
 
   return (
-    <div className="space-y-4">
-      {/* The method and its standing caveat, once, above the readings — never per row, which would
+    <>
+      {/* **The branch a successful sample press actually lands on**, and the one this banner never
+          reached. Above the standing caveat, because it is about the press the flyer just made
+          rather than about the composite they are now reading.
+
+          OUTSIDE the `space-y-4` below, deliberately: the banner carries its own `mb-3`, and as a
+          first child of that container it would compose into a 28 px gap — off §4's scale, and
+          unlike the two surfaces that already render this banner, where `mb-3` is its only
+          spacing. */}
+      {forgottenBanner}
+      <div className="space-y-4">
+        {/* The method and its standing caveat, once, above the readings — never per row, which would
           be twenty repetitions of one sentence. `verified` is false on every composite there is. */}
       <Card tone="warn">
         <p className="text-sm font-medium">This composite is your statement, not a measurement.</p>
@@ -641,7 +700,8 @@ export default function StitchSurface() {
         >
           Copy a link to this composite
         </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
