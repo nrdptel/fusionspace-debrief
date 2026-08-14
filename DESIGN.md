@@ -664,7 +664,12 @@ cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-([0-9]+|\[[^
 # the dot is not a digit. `-1.5` is exempt because §4's own table sanctions `px-3 py-1.5`; every
 # other half-step appears nowhere in §4. Ratcheted rather than zeroed — see the note below.
 cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+(\.5)?' \
-  | grep -vxE '.*-(0|1|1\.5|2|3|4|6|8|12)' | wc -l                  # ratchet: 66, on the way down
+  | grep -vxE '.*-(0|1|1\.5|2|3|4|6|8|12)' | wc -l                  # 42 here; 66 in the test —
+# ...and the two numbers are BOTH right, which is worth stating so a future session does not read
+# the difference as drift. `cls` strips a variant prefix and only sees class ATTRIBUTES, while
+# `lib/design-system.test.ts` counts raw occurrences in the file text — so a `sm:px-2.5`, and any
+# class built in a `const` or a template literal rather than written into `className=`, is one
+# match there and none here. The test's number is the pinned one because it is the wider net.
 
 # a size that is not on the scale at all — every text- size INCLUDING an arbitrary one,
 # minus the six in §3 and the one annotation size it sanctions.

@@ -460,7 +460,14 @@ export default function ChannelExplorer({
               placeholder="Boost check"
               className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
             />
-            <Button size="sm" onClick={commitPreset}>
+            {/* **A control that is always enabled and fails only when pressed** is a tell
+                `MAINTAINING.md` names outright, and this was one: `commitPreset` opens with
+                `if (!name) return`, so pressing Save on an empty or whitespace-only name did
+                nothing at all, said nothing, and left the field open as though the press had not
+                landed. Enter took the same silent path. The refusal is on the control now, where
+                a flyer can see it before they press — which is the same argument §5 makes about a
+                control that fails only on use. */}
+            <Button size="sm" onClick={commitPreset} disabled={!presetName.trim()}>
               Save
             </Button>
           </span>

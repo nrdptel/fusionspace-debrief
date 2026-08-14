@@ -238,6 +238,18 @@ a file a parser recognises cannot demonstrate the mapper. It is the first flight
 made up, and it says so on the button before you press it and on every surface afterwards. That is
 what the twelve labelling slices were for.
 
+TRIAGED 2026-08-14 — **still open, and this run found that the OFFERS themselves were wrong before
+the remaining samples were built.** This note asked for more sample flights; twelve slices went into
+making sure a made-up one says so everywhere. Nobody had checked the simpler thing: two of the six
+offers stated a figure the file does not support. *"Try a sample flight"* advertised an apogee of
+**9,322 ft** while the report reads **8,022 ft** — a DIFFERENT flight's number, the fixture's, not
+the served sample's — and promised *"the recovery track"* on a file with no latitude or longitude at
+all. *"Two altimeters, one flight"* quoted a single agreement figure that is neither recording's.
+Both fixed, and every offer's figures are now held against its own files by a check that took three
+attempts to make able to fail. **What is still open is what this note actually asked for**: the
+coarse-GPS log, and the OpenRocket design overlay — the *done when*'s sixth capability, which
+`HANDOFF.md` now carries a full build plan for.
+
 Still open on this note: the other synthesized logs — a saturated accelerometer, a coarse-GPS
 flight, and a staged pair on two devices, which is the only thing that will give `/stitch` a sample
 and the one place a competitor (Featherweight's wFIP 2.0, with Jason Brown's two-stage *BadaBoom*)
@@ -341,6 +353,12 @@ hand-rolled one without it: the per-quantity units panel is a raw `<details>` th
 is the second site reaching for the same missing word, which §5 records twice already as the
 vocabulary being wrong rather than surfaces being undisciplined. **§5 gains `Popover`.**
 
+TRIAGED 2026-08-14 — **read, not moved, and no work was done against it this run.** The P-track went
+to P1's `TextField` and to §9's spacing check; neither touches the `?` affordance. Recorded so the
+count is honest rather than implying progress: `Popover` exists in §5 and in `components/ui.tsx`, and
+`MetricGrid`'s reading labels already use it — so the primitive this note needed is BUILT and the
+remaining work is the surfaces that still navigate away. That is P8, still unstarted.
+
 **Owed to the sibling repo and not shipped there** — `DESIGN.md` is identical in both and the sibling
 was not attached to this session. Parked under *Awaiting the owner*. The sibling's `ON-5` (clicking a
 body tube opens a popover to customize it) is the same primitive arriving from the other direction, so
@@ -401,6 +419,12 @@ allows one, and spends the exact hue Debrief's safety posture leans on — in a 
 sits above every report a flyer scans for amber caveats. That cost does not exist in a motor
 catalogue, which is why the same choice is right there and wrong here.
 
+TRIAGED 2026-08-14 — **unchanged, and still parked on the same one question.** Nothing this run
+touched either control. One thing did move that bears on it: `DESIGN.md` §4 turns out to contradict
+itself about half-step spacing, and §4 is one of the five digest-shared sections — so this run has a
+second item owed to the sibling repo in the same run, filed below. If a session is ever created with
+both repos attached, these two should be cleared together in one pass rather than one at a time.
+
 **The outcome the note wants is a consistent suite, and the cheaper direction is the other one:** the
 motor finder adopts the neutral treatment its own shared `DESIGN.md` already specifies. Only the owner
 can make that change — that repo is not attached — so it is parked under *Awaiting the owner* with the
@@ -431,6 +455,13 @@ the tool actually does, and the done-check gains a step that looks at the repo p
 is the gap the note identifies precisely — nothing in the workflow ever looked at it, so it could not
 go stale visibly.
 
+TRIAGED 2026-08-14 — **read, nothing done, and the reason is the queue rather than the note.** P5 is
+`IN PROGRESS` with only its repo-METADATA half outstanding, which is exactly this note; this run
+spent the P-track on P1 and the D-track on D10. Worth stating plainly because it is the second
+consecutive run to leave it: it is the cheapest open item in the file — a GitHub description, topics,
+and one image in a 28 KB README — and it needs no gate, no corpus and no browser. A session short of
+a clean increment should take it.
+
 Kept in P5 rather than made its own milestone because splitting "the README" from "the repo page it
 sits on" would guarantee one ships without the other.
 
@@ -452,6 +483,15 @@ something the owner said about this repo.
 
 VERDICT: **→ DESIGN.md · 2026-08-08 · the literal complaint is UNREPRODUCED here; the missing CHECK is
 real and one token genuinely fails.** Both halves measured, neither assumed.
+
+TRIAGED 2026-08-14 — **the check this note produced paid again, on a token no census could see.**
+`TextField` was built this run from a census of seven hand-rolled inputs, and four of them wore
+`dark:placeholder:text-zinc-500` — the exact value §2 retired for 3.67:1 on dark `raised`, which is
+the failure this note's own verdict found. **Neither check caught it**: §9's source census refuses
+variant-prefixed classes by design and `placeholder:` is one, and axe rates a placeholder only on an
+empty field it happens to walk. So the note's finding was right and its remedy has a blind spot on
+exactly the same token, in a variant. Recorded here rather than filed as new, because it is this
+note's own subject arriving from a third direction.
 
 PROGRESS · 2026-08-13 — **the missing CHECK is now most of the way there, and it found a real token
 failure on its first outing.** The rendered audit (axe's `color-contrast`, which was always inside
@@ -522,6 +562,14 @@ version of each would be. That is a P-track question, not a defect.
 **Confirm before treating this as direction.**
 
 VERDICT: **→ ROADMAP · 2026-08-08 · folded into P4 ("The range on a phone"), not a new milestone.**
+
+TRIAGED 2026-08-14 — **no phone work this run, and one thing that touches it shipped anyway.** P4 is
+`SHIPPED` for slices 1–5, so this note is not open on a milestone that is standing still. `TextField`
+removed two arbitrary `min-h-[…]` values whose only job was reaching for a touch target that
+`app/globals.css`'s `@media (pointer: coarse)` block already provides on every `input` — so two
+fields now get the floor from the one rule that owns it rather than from a hand-written height that
+could drift below it. That is a small, real piece of this note's subject; it is not the vertical-first
+layout question the note actually asks, which stays with P4's after-list.
 P4 already exists, is `NOT STARTED`, and its *outcome* is this note in the queue's own words — *"a
 phone at the range is a first-class tool, not a rescaled desktop."* Creating a P10 beside it would put
 two milestones on one subject and let each run pick whichever it preferred, which is the thrash the
