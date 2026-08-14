@@ -197,6 +197,104 @@ const FLOOR = 'at least this high — the log ends at its own peak, so the rocke
 export const APOGEE_TAG_UNPROVEN = ' (unproven)';
 export const APOGEE_TAG_FLOOR = ' (at least)';
 
+/**
+ * What a railed accelerometer does to the two readings taken off it — in the words every
+ * surface uses, for the reason `withheldReason` above is exported: a caveat worded one way on
+ * the grid and another in a cert document is two accounts of one fact.
+ *
+ * **The peak and the average need DIFFERENT words for the one cause, and that is the whole
+ * point of this pair.** A clipped peak MAY be higher than the number printed, which is what
+ * "may be clipped" says and why the tile has said it since the detector was written. The
+ * average over the boost is not itself clipped — it is dragged down by the samples that were,
+ * and clipping is one-sided, so the figure is a FLOOR whose error has a known direction.
+ * `MAINTAINING.md` asks a caveat to name that direction, so this one does.
+ *
+ * **Measured on a REAL recording, and it has to be**: `public/samples/sample-altusmetrum.csv` is
+ * an Altus Metrum TeleMetrum log of a flight somebody actually flew, it is the file behind "Try a
+ * sample flight", and it rails. Over the boost window the analyzer itself averages
+ * (2.00 s → 3.56 s, 79 samples) its peak is **18.874 g** and **75 of those 79 samples — 95% —
+ * sit inside the detector's band at that peak**. The average it reported was **18.713 g**: a
+ * sixth of a g under the rail, because almost the whole boost IS the flat top. That is the
+ * clearest statement of why the average needs its own caveat — where the peak is a bound the
+ * flat top imposes, the average is very nearly the bound itself.
+ *
+ * *(A first version of this note cited `sample-saturated.csv` instead — a file Debrief MADE UP,
+ * whose own first line says no figure from it means anything about a real rocket. Citing a
+ * generated curve as a measurement is the exact confusion the measurement invariant exists to
+ * prevent, and the real railed recording was in the repo the whole time. The generated file
+ * remains a useful cross-check because its velocity column is integrated from the unclipped
+ * curve, so the truth is recoverable from it: over its burn, Δv/Δt is 14.92 g NET of gravity,
+ * which is 15.92 g of specific force once the 1 g is added back — the quantity
+ * `avgBoostAcceleration` actually reports — against the 12.90 g it reported, 19.0% low. Both
+ * numbers in one convention; the first draft quoted the net figure under the specific-force
+ * name, which is the trap `lib/report.ts` already records.)*
+ */
+export const AVG_ACCEL_CLIPPED = 'a floor — the trace reads as clipped';
+/** The comparison cell's short form, shared with the saved document so the two agree. */
+export const ACCEL_TAG_CLIPPED = ' (clipped)';
+
+/** The two facts that qualify an acceleration reading, and the whole input either helper needs —
+ *  shaped like `ApogeeCaveatFacts` above, and PARTIAL for the same reason: a caller that holds
+ *  only some of a flight's metrics (the channel explorer builds its channels from a series) still
+ *  gets an honest answer rather than a type error, and a missing flag reads as "not clipped",
+ *  which is what an absent measurement means. */
+export type AccelCaveatFacts = Partial<Pick<FlightMetrics, 'accelClipped' | 'maxAcceleration'>>;
+
+/** Whether the readings taken off this accelerometer are qualified by saturation. The peak's
+ *  own `Number.isFinite` guard rides along, because a flight with no acceleration at all has
+ *  nothing to qualify — and that guard is here rather than at the four call sites so the grid,
+ *  the document, the card and the comparison cell cannot drift on the edge case.
+ *
+ *  **`false` means one of TWO things and cannot tell them apart**, which matters now that the
+ *  ABSENCE of a caveat is itself a claim. `lib/analyze/index.ts` evaluates `accelClipped` only
+ *  inside `if (ascentPresent && !ascentGapBreaksPeak)`, so on an ascent with a gap that breaks
+ *  the peak the flag is false because the plateau test never RAN, not because the sensor behaved.
+ *  In that state `maxAcceleration` is `NaN` — which this predicate already refuses — so no
+ *  surface prints a bare peak; but `avgBoostAcceleration` has no such guard and is published, and
+ *  it will read as unqualified. Filed in `BACKLOG.md` rather than fixed here: separating "not
+ *  clipped" from "never tested" is a change to what the analyzer returns and wants its own gate
+ *  and its own corpus run. */
+export function accelIsClipped(m: AccelCaveatFacts): boolean {
+  return m.accelClipped === true && Number.isFinite(m.maxAcceleration);
+}
+
+/** The sub-line under "Max acceleration", on the grid and on the share card.
+ *
+ *  **Shared because it was already duplicated byte for byte.** `lib/flightCard.ts` carried this
+ *  exact ternary — the one artifact that leaves the device as an image — so the card and the grid
+ *  were two copies of one sentence, which the architecture invariant names outright ("where two
+ *  surfaces do the same job, they share a module rather than a resemblance"). Collapsed here
+ *  2026-08-13 while its sibling `avgBoostSub` was being written, because writing the second
+ *  caveat beside a duplicated first one is how a third copy gets made. */
+export function maxAccelSub(m: Pick<FlightMetrics, 'accelerationSource'> & AccelCaveatFacts): string {
+  if (m.accelerationSource !== 'device') return 'derived';
+  return accelIsClipped(m) ? 'measured · may be clipped' : 'measured';
+}
+
+/** The sub-line under "Avg acceleration", on the grid and in the saved document. */
+export function avgBoostSub(m: AccelCaveatFacts): string {
+  return accelIsClipped(m) ? `over the boost · ${AVG_ACCEL_CLIPPED}` : 'over the boost';
+}
+
+/** The full sentence, for a surface with room for one — the channel explorer's statistics and the
+ *  report's own acceleration chart. That table publishes each plotted channel's `max` AND its
+ *  `mean`, and on this channel those are the two readings the grid qualifies, so the sentence
+ *  names both.
+ *
+ *  **Deliberately NOT worded like the withheld-velocity caveat beside it, and that is a
+ *  correction.** A first draft opened "not a reading Debrief stands behind", copied from the
+ *  velocity channel — where the peak really is WITHHELD and the trace is drawn only so a
+ *  mis-scaled column can be diagnosed. Debrief does publish this peak: on the grid, the share
+ *  card, the comparison, the JSON and the saved document. Disowning it here while five other
+ *  surfaces headline it would be the same one-surface-disagrees defect this whole change exists
+ *  to close, pointing the other way. It is an honest lower bound, and that is what it says.
+ *
+ *  "Reads as" rather than "railed", for the same reason the tile says *may* be clipped: the flag
+ *  is a heuristic (`lib/analyze/index.ts` — a sustained run of samples inside a tight band at the
+ *  peak), and a caveat may not be more certain than the test behind it. */
+export const ACCEL_CLIPPED_CAVEAT =
+  'the trace reads as clipped — the accelerometer looks to have hit its full-scale limit, so the true peak is higher than this max, and the mean over a railed stretch is a floor too';
+
 /** The two facts that qualify an apogee, and the whole input either helper needs. */
 export type ApogeeCaveatFacts = Partial<Pick<FlightMetrics, 'altitudeUnproven' | 'apogeeIsFloor'>>;
 
@@ -345,18 +443,13 @@ export function metricTiles(m: FlightMetrics, sys: UnitChoice): Tile[] {
     out.push({
       label: 'Max acceleration', method: 'acceleration',
       value: fmtAccel(m.maxAcceleration, sys),
-      sub:
-        m.accelerationSource === 'device'
-          ? m.accelClipped
-            ? 'measured · may be clipped'
-            : 'measured'
-          : 'derived',
+      sub: maxAccelSub(m),
       primary: true,
     });
   }
 
   if (m.avgBoostAcceleration != null)
-    out.push({ label: 'Avg acceleration', method: 'acceleration', value: fmtAccel(m.avgBoostAcceleration, sys), sub: 'over the boost' });
+    out.push({ label: 'Avg acceleration', method: 'acceleration', value: fmtAccel(m.avgBoostAcceleration, sys), sub: avgBoostSub(m) });
   if (m.liftoffTWR != null)
     out.push({ label: 'Thrust-to-weight', method: 'thrust-to-weight', value: `${m.liftoffTWR.toFixed(1)}:1`, sub: 'off the pad' });
   // All three burnout readings carry the same provenance, because all three are read at the

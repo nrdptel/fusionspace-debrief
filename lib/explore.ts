@@ -5,7 +5,7 @@
 
 import type { RawFlight } from './flight/types';
 import type { FlightSeries, FlightMetrics } from './analyze/types';
-import { apogeeCaveat, apogeeIsQualified, withheldReason, type ApogeeCaveatFacts } from './readings';
+import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, apogeeCaveat, apogeeIsQualified, withheldReason, type AccelCaveatFacts, type ApogeeCaveatFacts } from './readings';
 import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, unitsOf, type UnitChoice, accelIn } from './display';
 import { formulaGuard } from './csv';
 import { PROVENANCE_COLUMN, PROVENANCE_MIXED, provenanceCell, syntheticHeader } from './synthetic';
@@ -239,7 +239,7 @@ export function windowStats(
 export function buildPlotChannels(
   flight: RawFlight,
   series: FlightSeries,
-  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'> & ApogeeCaveatFacts,
+  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'> & ApogeeCaveatFacts & AccelCaveatFacts,
 ): PlotChannel[] {
   // The peak speed the report refused, and why. `series.velocityUnusable` is the flag; the
   // REASON lives on the metrics, so the caveat is fuller when a caller has them — and a caller
@@ -259,6 +259,14 @@ export function buildPlotChannels(
   // bound. `apogeeCaveat` is the tile's own sentence, shared rather than restated.
   const altitudeCaveat = metrics && apogeeIsQualified(metrics) ? apogeeCaveat(metrics) : undefined;
 
+  // **And one channel further over, for the identical reason.** The paragraph above was written
+  // about the apogee and applies unchanged to the acceleration: the max of this trace IS the
+  // peak the grid tags "may be clipped", the comparison tags "(clipped)" and the analysis warns
+  // about outright — and this table published it bare into `Copy these stats` and the `.csv`
+  // beside it. Found 2026-08-13 by the surface audit that followed the saturated sample, on the
+  // one channel that sample exists to qualify.
+  const accelerationCaveat = metrics && accelIsClipped(metrics) ? ACCEL_CLIPPED_CAVEAT : undefined;
+
   const out: PlotChannel[] = [
     { key: 'd-altitude', label: 'Altitude (AGL)', group: 'Debrief', values: series.altitude, ...display('m'), caveat: altitudeCaveat },
     // The pre-filter altitude — overlay it with the cleaned line to see exactly
@@ -273,7 +281,7 @@ export function buildPlotChannels(
   // would just wreck the axis. Its peak is already withheld for the same reason, so the
   // trace isn't presented either; the velocity trace (a usable first derivative) stays.
   if (series.accelerationSource === 'device') {
-    out.push({ key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2') });
+    out.push({ key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2'), caveat: accelerationCaveat });
   }
 
   // Mach number and dynamic pressure — the quantities a rocket is designed

@@ -4,7 +4,7 @@
 // drawing itself (canvas) lives in the component, since it needs the DOM.
 
 import type { FlightMetrics } from './analyze/types';
-import { apogeeCaveat } from './readings';
+import { apogeeCaveat, maxAccelSub } from './readings';
 import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from './display';
 import type { UnitChoice } from './display';
 import { visibleRows } from './reportProfile';
@@ -75,12 +75,9 @@ export function flightCardStats(metrics: FlightMetrics, sys: UnitChoice, hidden?
       label: 'Max accel',
       reading: 'Max acceleration',
       value: fmtAccel(metrics.maxAcceleration, sys),
-      sub:
-        metrics.accelerationSource === 'device'
-          ? metrics.accelClipped
-            ? 'measured · may be clipped'
-            : 'measured'
-          : 'derived',
+      // The grid's own sentence, from the grid's own module — this was a byte-identical copy of
+      // that ternary, and a caveat maintained in two places is one that eventually differs.
+      sub: maxAccelSub(metrics),
     });
   }
   if (metrics.flightTime != null) {

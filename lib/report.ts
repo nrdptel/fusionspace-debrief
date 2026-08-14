@@ -42,7 +42,7 @@ import {
 } from './compare';
 import { derivedPeakCaveat } from './derivedPeak';
 import { buildFields, buildLine } from './buildInfo';
-import { apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
+import { accelIsClipped, ACCEL_TAG_CLIPPED, apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, avgBoostSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -227,12 +227,19 @@ export function headlineRows(
         : 'withheld — the speed this trace gives is not physically possible',
     ]);
   }
-  if (Number.isFinite(m.maxAcceleration)) rows.push(['Max acceleration', fmtAccel(m.maxAcceleration, sys)]);
+  // The tag travels with the number, which is this function's own rule three rows up and the
+  // one the peak speed and the apogee floor each had to be taught. The grid has said
+  // "may be clipped" under this reading since the detector was written and the document printed
+  // it bare, so a cert write-up carried a railed peak as a flat measurement — filed in
+  // `BACKLOG.md` on 2026-08-11 and closed here, alongside the average below, because they are
+  // one sensor's two readings and splitting the fix would leave the worse half open.
+  if (Number.isFinite(m.maxAcceleration))
+    rows.push(['Max acceleration', fmtAccel(m.maxAcceleration, sys) + (accelIsClipped(m) ? ACCEL_TAG_CLIPPED : '')]);
   // These four were on screen and in no saved report — so a flyer who read the
   // thrust-to-weight off the page and saved a Markdown write-up got a document without it.
   // A report that says less than the screen it came from is the export half-finished.
   if (m.avgBoostAcceleration != null)
-    rows.push(['Avg acceleration', `${fmtAccel(m.avgBoostAcceleration, sys)} over the boost`]);
+    rows.push(['Avg acceleration', `${fmtAccel(m.avgBoostAcceleration, sys)} ${avgBoostSub(m)}`]);
   if (m.liftoffTWR != null) rows.push(['Thrust-to-weight', `${m.liftoffTWR.toFixed(1)}:1 off the pad`]);
   if (m.maxDynamicPressure != null) {
     const at = m.maxDynamicPressureAltitude != null ? ` at ${fmtLength(m.maxDynamicPressureAltitude, sys)}` : '';
@@ -979,7 +986,7 @@ export function compareMetricRows(
   // A saturated peak is a floor, so a clipped cell is tagged and — since the true
   // maximum is unknown — the row's "highest" crown is withheld: which flight actually
   // pulled the most g can't be settled when one reading railed at its limit.
-  const anyClipped = flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
+  const anyClipped = flights.some((f) => accelIsClipped(f.metrics));
   // The same argument as `anyClipped`, one row up. A floor apogee is a LOWER BOUND — the log
   // ends at its own peak and the rocket was still climbing — so which flight actually went
   // highest cannot be settled from these numbers, and crowning one says it can.
@@ -990,7 +997,9 @@ export function compareMetricRows(
   const anyApogeeQualified = flights.some(
     (f) => apogeeIsQualified(f.metrics) && Number.isFinite(f.metrics.apogeeAltitude),
   );
-  const clipTag = (m: FlightMetrics) => (m.accelClipped && Number.isFinite(m.maxAcceleration) ? ' (clipped)' : '');
+  // The same predicate and the same word the single-flight document uses, rather than a second
+  // copy of both — this cell and that row are one fact about one sensor.
+  const clipTag = (m: FlightMetrics) => (accelIsClipped(m) ? ACCEL_TAG_CLIPPED : '');
   /** A peak speed Debrief DECLINED to report, said as such rather than as an em dash.
    *
    *  `fmtSpeed(NaN)` is `—`, which is also what a flight carrying no speed channel prints, so the
@@ -1262,7 +1271,7 @@ export const LEGEND_GPS_DERIVED =
 /** Whether any compared flight tags its max acceleration "(clipped)" — a saturated
  *  reading, so a footnote is warranted and the "highest" crown was withheld. */
 export function compareHasClippedAccel(flights: CompareFlight[]): boolean {
-  return flights.some((f) => f.metrics.accelClipped && Number.isFinite(f.metrics.maxAcceleration));
+  return flights.some((f) => accelIsClipped(f.metrics));
 }
 
 /** Whether any compared flight tags a descent rate "(stops in the air)". Every other per-cell

@@ -3447,6 +3447,22 @@ test('the sample that demonstrates a refusal says the peak is a floor, not the t
   await expect(page.getByText(/hit its full-scale limit and saturated/i)).toBeVisible();
   await expect(page.getByText(/the true maximum could be higher/i)).toBeVisible();
 
+  // **BOTH readings taken off that sensor, because the warning above qualifies only the peak.**
+  // The tile beside it published the boost AVERAGE bare, and clipping drags a mean down without
+  // ever lifting it. This generated file happens to make the size of that visible, because its
+  // velocity column is integrated from the UNCLIPPED curve and so cannot be biased by the rail:
+  // across the detected burn Δv/Δt is 14.92 g net of gravity, which is 15.92 g of specific force
+  // once the 1 g is added back — the quantity the tile reports — against the 12.90 g it printed,
+  // 19.0% low. (Both figures in one convention; a first draft quoted the net number under the
+  // specific-force name.) The behaviour is pinned on a REAL railed recording in
+  // `e2e/audit3.spec.ts`, because a made-up file is a demonstration and not evidence. A flyer
+  // reads these two tiles side by side; one carrying a caveat and the other not is the shape
+  // `MAINTAINING.md` calls worse than either alone.
+  await expect(page.locator('[data-reading="Max acceleration"]')).toContainText('may be clipped');
+  await expect(page.locator('[data-reading="Avg acceleration"]')).toContainText(
+    'a floor — the trace reads as clipped',
+  );
+
   // …and it is still a made-up flight on every surface, from the file's own marker.
   await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
   await expect(page.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);

@@ -168,6 +168,55 @@ describe('buildPlotChannels', () => {
     });
   });
 
+  /** And one channel further over again, found 2026-08-13 by the surface audit that followed the
+   *  saturated-accelerometer sample. The max of the ACCELERATION trace is the peak the grid tags
+   *  "may be clipped", the comparison tags "(clipped)" and the analysis warns about outright — and
+   *  this table published it bare into `Copy these stats` and the `.csv` beside it, on the one
+   *  channel that sample exists to qualify. */
+  describe('a statistic taken off a railed accelerometer carries the qualification with it', () => {
+    const accel = (m?: Parameters<typeof buildPlotChannels>[2]) =>
+      buildPlotChannels(flight, series, m).find((c) => c.key === 'd-acceleration');
+
+    it('caveats the acceleration channel when the sensor railed', () => {
+      const c = accel({ maxVelocityWithheld: null, accelClipped: true, maxAcceleration: 157 });
+      expect(c, 'the channel is offered at all on a device-measured trace').toBeTruthy();
+      expect(c!.caveat, 'the statistic says the peak is not one to quote').toBeTruthy();
+      expect(c!.caveat).toContain('clipped');
+      // BOTH statistics the table publishes off this channel, because `windowStats` prints a
+      // `mean` beside the `max` and a flyer who zooms to the burn is reading exactly the boost
+      // average this change declared a floor. A caveat that named only the peak left the other
+      // one bare on the same row.
+      expect(c!.caveat, 'names the peak').toContain('true peak is higher');
+      expect(c!.caveat, 'and the mean beside it').toContain('mean over a railed stretch is a floor');
+      // Hedged to the same degree as the detector behind it — the tile says "may be clipped", so
+      // this must not assert the rail as settled fact.
+      expect(c!.caveat, 'no more certain than the heuristic').toMatch(/reads as|looks to/);
+    });
+
+    it('says nothing on an unrailed trace, or when the caller brought no metrics', () => {
+      // The half that lets the case above fail. A caveat on every flight is a caveat nobody reads.
+      expect(accel({ maxVelocityWithheld: null, accelClipped: false, maxAcceleration: 157 })!.caveat).toBeUndefined();
+      expect(accel()!.caveat).toBeUndefined();
+    });
+
+    it('needs a peak before it qualifies one', () => {
+      // The same edge the grid and the comparison share, through the one predicate: a clip flag
+      // on a channel that produced no maximum has nothing to qualify.
+      expect(accel({ maxVelocityWithheld: null, accelClipped: true, maxAcceleration: NaN })!.caveat).toBeUndefined();
+    });
+
+    it('does not put the accelerometer’s qualification on any other channel', () => {
+      const all = buildPlotChannels(flight, series, {
+        maxVelocityWithheld: null,
+        accelClipped: true,
+        maxAcceleration: 157,
+      });
+      const others = all.filter((c) => c.key !== 'd-acceleration');
+      expect(others.length).toBeGreaterThan(0);
+      for (const c of others) expect(c.caveat, `${c.key} is not about the accelerometer`).toBeUndefined();
+    });
+  });
+
   it('converts known units by the unit system and leaves native units alone', () => {
     const alt = channels.find((c) => c.key === 'd-altitude')!;
     expect(alt.toDisplay(100, 'imperial')).toBeCloseTo(328.084, 1);

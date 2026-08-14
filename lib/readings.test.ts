@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { descentStoppedAloft, metricTiles, stageTiles, STAGE_READINGS } from './readings';
+import { ACCEL_TAG_CLIPPED, accelIsClipped, AVG_ACCEL_CLIPPED, descentStoppedAloft, metricTiles, stageTiles, STAGE_READINGS } from './readings';
 import { headlineRows, type RecoveryFigures } from './report';
 import { maxQProvenance, velocityProvenance } from './readings';
 import type { FlightMetrics } from './analyze/types';
@@ -515,5 +515,62 @@ describe('a burnout speed says what the SPEED is, not how the instant was found'
       expect(sub, 'the tile has a provenance at all').toBeTruthy();
       expect(row, `the report row repeats the tile's exact words: ${sub}`).toContain(sub as string);
     }
+  });
+});
+
+/**
+ * A railed accelerometer qualifies BOTH readings taken off it, on every surface.
+ *
+ * The peak has carried "may be clipped" on the grid since the detector was written. The average
+ * over the boost carried nothing anywhere, and the peak's own row in the saved document carried
+ * nothing either — so a cert write-up quoted a railed maximum as flat fact and a railed average
+ * beside it, while the grid three clicks away qualified one of the two.
+ *
+ * **The average's error has a KNOWN DIRECTION and that is why it gets its own words.** Clipping
+ * removes only the samples above the rail, so the mean it drags down can only be dragged down:
+ * the figure is a floor. Measured on `public/samples/sample-saturated.csv`, whose velocity column
+ * is integrated from the unclipped curve and so cannot be biased by the rail — Δv/Δt across the
+ * detected burn gives a true boost mean of 15.9 g against the 12.9 g reported, 19% low.
+ */
+describe('a railed accelerometer qualifies both readings taken off it', () => {
+  const CLIPPED = { ...EVERYTHING, accelClipped: true };
+
+  it('marks the average as a floor on the grid, and says why', () => {
+    const sub = metricTiles(CLIPPED, 'metric').find((t) => t.label === 'Avg acceleration')?.sub;
+    expect(sub, 'the average names the direction of its error').toContain(AVG_ACCEL_CLIPPED);
+    // Falsified against the same fixture unclipped: the words appear for the clip and not
+    // merely for the reading, which is the half a one-sided assertion cannot tell apart.
+    expect(metricTiles(EVERYTHING, 'metric').find((t) => t.label === 'Avg acceleration')?.sub).toBe(
+      'over the boost',
+    );
+  });
+
+  it('carries both tags into the saved document, which had neither', () => {
+    const rows = headlineRows(CLIPPED, 'metric');
+    const peak = rows.find(([l]) => l === 'Max acceleration')?.[1];
+    const avg = rows.find(([l]) => l === 'Avg acceleration')?.[1];
+    expect(peak, 'the document tags the railed peak').toContain(ACCEL_TAG_CLIPPED.trim());
+    expect(avg, 'and says the average is a floor').toContain(AVG_ACCEL_CLIPPED);
+
+    // Unclipped, the document says neither — so this pins the caveat rather than the row.
+    const plain = headlineRows(EVERYTHING, 'metric');
+    expect(plain.find(([l]) => l === 'Max acceleration')?.[1]).not.toContain(ACCEL_TAG_CLIPPED.trim());
+    expect(plain.find(([l]) => l === 'Avg acceleration')?.[1]).toMatch(/ over the boost$/);
+    expect(plain.find(([l]) => l === 'Avg acceleration')?.[1]).not.toContain(AVG_ACCEL_CLIPPED);
+  });
+
+  it('says the same thing on the grid and in the document, word for word', () => {
+    const sub = metricTiles(CLIPPED, 'metric').find((t) => t.label === 'Avg acceleration')?.sub;
+    const row = headlineRows(CLIPPED, 'metric').find(([l]) => l === 'Avg acceleration')?.[1];
+    expect(row, `the document repeats the tile's exact words: ${sub}`).toContain(sub as string);
+  });
+
+  it('needs a peak for there to be anything to qualify', () => {
+    // `accelClipped` without a finite maximum is a flag about a channel that produced no
+    // reading. The predicate carries the guard the comparison's cell tag already had, so the
+    // three surfaces cannot drift on the edge case.
+    expect(accelIsClipped({ accelClipped: true, maxAcceleration: NaN })).toBe(false);
+    expect(accelIsClipped({ accelClipped: true, maxAcceleration: 178 })).toBe(true);
+    expect(accelIsClipped({ accelClipped: false, maxAcceleration: 178 })).toBe(false);
   });
 });

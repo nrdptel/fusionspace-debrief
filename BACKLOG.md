@@ -2392,6 +2392,81 @@ wild, ideas too big for one pass. One line each, newest first.
 
 ## Correctness / honesty
 
+- **Four e2e specs each carry their own copy of the same filler log generator.** Found 2026-08-13
+  by the pre-push review of the `/stitch` prune fix, which was about to add a fifth. `audit`,
+  `audit2`, `audit3` and `logbook` each declare an `eggtimerCsv()` with a slightly different curve,
+  and every one of them exists only to fill the logbook — none asserts anything about the flight it
+  makes. `e2e/fillerLog.ts` is the shared one now and the new spec uses it; the four are unchanged
+  because a mechanical edit across four spec files should ride along with other work in those files
+  rather than spend a gate of its own. The suite already shares `madeUp.ts`, `touchTargets.ts`,
+  `hoverOnly.ts` and `orkFixture.ts`, so the pattern is established.
+
+- **`accelClipped: false` means "not clipped" OR "never tested", and nothing can tell them
+  apart.** Found 2026-08-13 by the pre-push review of the saturation-caveat change, and it is that
+  change that makes it matter: once the ABSENCE of a caveat is a claim, a flag that is false for two
+  different reasons is making one of them falsely. `lib/analyze/index.ts:1841` evaluates the
+  plateau test only inside `if (ascentPresent && !ascentGapBreaksPeak)`, so on an ascent with a gap
+  that breaks the peak the flag stays false because the test never ran. `maxAcceleration` is `NaN`
+  in that state and `accelIsClipped` refuses it, so no surface prints a bare PEAK — but
+  `avgBoostAcceleration` (`:2937`) carries no such guard, is published, and now reads as
+  affirmatively unqualified. **Not fixed here** because separating the two states changes what the
+  analyzer returns — a third value, or a second flag — and that wants its own gate and its own
+  corpus run rather than riding along with a presentation change. The limit is written into
+  `accelIsClipped`'s docstring so the next reader is not misled by the predicate.
+
+- **Debrief's own computed acceleration is bare in the cross-check table while the row above it
+  says `(clipped)`.** Found 2026-08-13 by the pre-push review. `lib/report.ts:446`'s
+  `crossCheckRows` prints `g.computed` through `fmtReported` with no clip tag and stamps an
+  agreement verdict on it, and that table ships inside the same `.txt`/`.md`/`.html` whose
+  headline rows now write `18.9 g (clipped)`. One document, two accounts of one reading — and this
+  change created it, because both were bare before. Reachable only on a flight whose device summary
+  states an acceleration figure (`lib/flight/reported.ts:31`, `lib/parsers/deviceSummary.ts:88`);
+  **unreproduced** — no committed fixture was found that states one, which is why it is filed rather
+  than fixed. Check that first: if nothing can reach it, the fix is a comment saying so.
+
+- **The `.json` export says nothing about the boost average being a floor.** Found 2026-08-13 by
+  the pre-push review. `lib/report.ts:1586` writes `avgBoostAcceleration` beside
+  `accelerationClipped`, which is documented as the PEAK's flag — so every text export now carries
+  "a floor" and the machine-readable one a script builds a cert table from does not. Small, and it
+  is a schema addition (`avgBoostAccelerationIsFloor`, or widening what `accelerationClipped` is
+  documented to cover), so it wants deciding rather than sneaking in.
+
+- **The saved document's acceleration row says less than the grid tile.** `lib/report.ts:242`'s
+  peak row gained `(clipped)` and still drops the `measured` / `derived` word `metricTiles` shows
+  for the same reading, so `headlineRows` remains the shorter account. Pre-existing and narrowed
+  rather than caused by that change. One line, but it is a wording change to every saved report on
+  every flight, so it wants its own walk.
+
+- **The `.kml`'s new `<ExtendedData>` is in the wrong slot, so a device-named track is
+  schema-invalid.** Found 2026-08-13 by the opening fan-out and confirmed by reading
+  `lib/gps.ts:279-292`: the block is written between `<description>` and `<Style id="track">`, while
+  KML 2.2's `kml:AbstractFeatureType` sequence puts `ExtendedData` **after**
+  `AbstractStyleSelectorGroup` and `Region` — i.e. last. The comment directly above it asserts the
+  opposite ("which is where `AbstractFeatureType`'s sequence puts it"), so the reasoning is what
+  went wrong rather than the placement being an oversight. **Shipped in `b188ab6` (#186)**, whose
+  pull-request body claimed "both in schema order, and the tests assert the ORDERING" — the GPX half
+  is right and the KML half is not. `lib/gps.test.ts:282-283` pins the block only between
+  `<Document>` and `<Placemark>`, which both orders satisfy, and that is exactly the gap that let it
+  through. **Reproduce in under a minute:** `trackKml('f', lat, lon, alt, 2, true, false, 'TeleMetrum
+  serial 1234', 'note')` and read the element order. Google Earth is lenient, but ogr2ogr/libkml and
+  any XSD validator reject it — and the whole point of the export is that somebody else's software
+  opens it. A `.kml` from a flight whose file names no device still validates, so this bites only the
+  files the feature was added for. Fix is one string move plus an assertion that names `<Style>`.
+
+- **The comparison publishes a spread against a flight nobody flew.** Found 2026-08-13 by the
+  opening fan-out at `lib/report.ts:1167`: `compareMetricRows`'s per-row `Δ`/`Spread (%)` is computed
+  over `flights` unfiltered, while `crossCheck` (`lib/compare.ts:481`) and the ★ crown
+  (`lib/report.ts:1146`) both exclude `f.synthetic`. So on a real flight compared with one of the
+  made-up samples the agreement panel correctly says nothing and the table beside it prints a
+  percentage disagreement anyway. Measured by the finder over the `aim-xtra` fixture plus
+  `sample-saturated`: `crossCheck` returns `[]` while the table prints Apogee **80.7%**, Flight time
+  **115.2%**, Main deploy at **143.4%**, Drogue descent **92.3%**. Those numbers reach the screen, the
+  copied CSV (`components/CompareView.tsx:497`), the `.md`, the `.html` and the `.json` `spreads`
+  array, where the entry is a bare `{metric, spreadPct}` with no provenance beside it. The module's
+  own rule is that a made-up flight never enters a cross-check and two of the three places honour it.
+  **Not fixed here** because it is a spread definition change touching five export paths and wants its
+  own gate; **unreproduced by me** — filed on the finder's measurement, so reproduce before scoping.
+
 - **Coast efficiency rounds to `100%` beside a sub-line saying the coast fell short.** Found
   2026-08-13 by the run's cold walk over the new saturated-accelerometer sample, which is drag-free
   by construction so its coast really is ~99.7% of the drag-free ideal. The report renders
