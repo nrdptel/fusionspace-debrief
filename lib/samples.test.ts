@@ -5,6 +5,7 @@ import { DROPPABLE_SAMPLES, MULTI_SAMPLE, SAMPLES, SAMPLE_FILES, STAGES_SAMPLE }
 import { importFlight } from './parsers/index';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
+import { fmtLength, fmtSpeed } from './display';
 import { analyzeTable } from './flight/columns';
 import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
@@ -171,6 +172,105 @@ describe('the sample flights', () => {
       Object.keys(generated).sort(),
     );
     for (const s of mapping) expectGenerated(s.files[0], generated[s.id]);
+  });
+
+  /**
+   * **Every figure an offer states is held against what the app reads off that offer's own files.**
+   *
+   * Added 2026-08-13 because two of the six offers were wrong, on the surface a stranger meets
+   * first and in the sentence they read BEFORE pressing anything:
+   *
+   * - `one-flight` advertised *"Apogee ≈ 9,322 ft"* while the report reads **8,022 ft**. Not a
+   *   rounding gap — 9,322 ft is a DIFFERENT FLIGHT, the `altusmetrum-telemetrum.csv` fixture
+   *   (serial 2098, flight 12), where `lib/parsers/__fixtures__/README.md` attributes it
+   *   correctly. The served sample is serial 2718, flight 14.
+   * - `two-altimeters` said the pair *"agree at ≈ 1,009 ft"* while Debrief reads **1,025 ft** and
+   *   **1,029 ft** — so the single number stated was neither recording's, and the 0.4% spread
+   *   quoted everywhere else in the repo cannot be derived from it.
+   *
+   * Both had been true of something, once, which is exactly why a test rather than a proofread:
+   * an offer is prose beside a file, and prose does not move when an analysis does. This is the
+   * repo's own rule for two things that must agree — hold them side by side and fail on drift.
+   *
+   * **A figure is allowed if it is EITHER the app's own read of one of the sample's files, OR
+   * present verbatim in one of those files.** The second clause is not a loophole, it is the
+   * `device-summary` sample: its offer quotes *"The board states 4,034.98 ft and 700.36 ft/s"*,
+   * which is the board's own claim printed in its summary file, and the whole point of that
+   * sample is that Debrief's independent read (4,036 ft) sits beside it. Quoting an instrument is
+   * a different act from asserting a reading, and the check has to be able to tell them apart.
+   */
+  it('states no figure in an offer that the sample’s own files contradict', async () => {
+    // Length and speed only. A percentage, a count, a serial or a date is not a reading, and
+    // matching them would make this fail on "0.4% spread" and "serial 2718".
+    const FIGURE = /\b[\d,]+(?:\.\d+)?\s*(?:ft\/s|m\/s|ft|m)\b/g;
+    const digits = (x: string) => x.replace(/[^\d.]/g, '');
+
+    let checked = 0;
+    for (const s of SAMPLES) {
+      const stated = [...`${s.shows} ${s.source}`.matchAll(FIGURE)].map((m) => m[0]);
+      if (stated.length === 0) continue;
+
+      // What the app itself would print for these files, plus what the files literally contain.
+      const ours = new Set<string>();
+      let quotable = '';
+      for (const name of s.files) {
+        const bytes = new Uint8Array(readFileSync(PUBLIC + name));
+        // A device-summary file REFUSES to open as a flight, by design, and that is the very
+        // sample whose offer quotes it — so a throw here is an expected shape, not a failure. Its
+        // bytes are already in `raw` above, which is the half that case needs.
+        let res;
+        try {
+          res = importFlight({ name, text: decodeBytes(bytes), bytes });
+        } catch {
+          // A file that REFUSES to open as a flight is an instrument's own summary, and its
+          // numbers are the only ones an offer may quote without Debrief having read them.
+          quotable += decodeBytes(bytes);
+          continue;
+        }
+        if (res.kind !== 'flight') {
+          quotable += decodeBytes(bytes);
+          continue;
+        }
+        const a = analyzeFlight(res.flight);
+        for (const sys of ['imperial', 'metric'] as const) {
+          ours.add(digits(fmtLength(a.metrics.apogeeAltitude, sys)));
+          if (Number.isFinite(a.metrics.maxVelocity)) ours.add(digits(fmtSpeed(a.metrics.maxVelocity, sys)));
+        }
+      }
+      // **Only files that are NOT flights are quotable, and that took two failed attempts to get
+      // right.** The first cut flattened every file to its digits and asked whether the figure
+      // appeared as a substring — but a flight log is tens of thousands of numbers, so "9322"
+      // turns up inside that soup by coincidence. Matching whole numeric TOKENS instead was
+      // better and still not enough: 9322 and 1009 both occur as real values in these logs, so
+      // both mutants this test exists for still passed.
+      //
+      // The rule that works is semantic rather than textual. An offer may quote an INSTRUMENT's
+      // own stated figures — that is the `device-summary` sample, whose whole subject is a board's
+      // claim set beside Debrief's independent read — and may not quote a number it happened to
+      // find inside a data log. A summary file refuses to open as a flight, and that refusal is
+      // exactly the discriminator: `sample-blueraven.summary.csv` throws, `sample-altusmetrum.csv`
+      // does not. So the escape hatch is open only where quoting is the point.
+      const fileNumbers = new Set(
+        [...quotable.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => digits(m[0])),
+      );
+
+      for (const fig of stated) {
+        checked++;
+        const d = digits(fig);
+        const isOurs = ours.has(d);
+        // Separators stripped on both sides, so "4,034.98 ft" matches a file that writes
+        // "4034.98" with the unit spelled out.
+        const inFile = fileNumbers.has(d);
+        expect(
+          isOurs || inFile,
+          `${s.id}: the offer states "${fig}", which is neither Debrief's own read of its files ` +
+            `(${[...ours].join(', ') || 'none'}) nor written in them`,
+        ).toBe(true);
+      }
+    }
+    // A check that examined nothing passes for the wrong reason — this is the count that says it
+    // ran, and it drops to 0 the moment every offer stops quoting a figure.
+    expect(checked, 'offers stating a figure at all').toBeGreaterThan(2);
   });
 
   it('gives the saturated sample a railed accelerometer and an honest barometer', () => {
