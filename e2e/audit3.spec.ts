@@ -188,12 +188,34 @@ test('reads roll/spin from a mapped roll-rate column', async ({ page }) => {
   await expect(page.getByText('Revolutions', { exact: true })).toBeVisible();
 });
 
-test('reports average boost acceleration alongside the peak', async ({ page }) => {
+test('reports average boost acceleration alongside the peak, and calls it a floor when the sensor railed', async ({
+  page,
+}) => {
+  // **The bundled sample RAILS**, which is why this test asserts the caveat rather than the bare
+  // words it used to. Measured 2026-08-13 over every committed file in the repo:
+  // `sample-altusmetrum.csv` is the only REAL recording that saturates — and it is the one behind
+  // "Try a sample flight", the first thing a stranger opens. Over the boost window the analyzer
+  // averages (2.00 s → 3.56 s, 79 samples) the peak is 18.874 g and **75 of those 79 samples —
+  // 95% — sit inside the detector's band at it**, so the reported average of 18.713 g is a sixth
+  // of a g under a rail the tile beside it already tagged "may be clipped". Almost the whole boost
+  // IS the flat top: the average is very nearly the bound itself, and the true mean is higher.
+  // Clipping only ever removes samples from the top, so the figure is a floor and the sub-line
+  // says so.
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
   await expect(page.getByText('Apogee', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText('Avg acceleration', { exact: true })).toBeVisible();
-  await expect(page.getByText('over the boost', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-reading="Avg acceleration"]')).toContainText(
+    'over the boost · a floor — the trace reads as clipped',
+  );
+
+  // …and the other direction, on a real file whose accelerometer did NOT rail — otherwise this
+  // pins the reading rather than the caveat, and a caveat on every flight is one nobody reads.
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('aim-xtra.csv'));
+  await reachesReport(page);
+  await expect(page.locator('[data-reading="Avg acceleration"]')).toContainText('over the boost');
+  await expect(page.locator('[data-reading="Avg acceleration"]')).not.toContainText('a floor');
 });
 
 test('reports thrust-to-weight off the pad on a clean accel flight, withholds it on a saturated one', async ({

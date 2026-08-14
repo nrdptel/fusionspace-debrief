@@ -36,7 +36,7 @@ import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
 import { toCanonical } from '@/lib/canonical';
-import { landedInRecord, landingRate, liftoffOnLogClock, withheldReason } from '@/lib/readings';
+import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, landedInRecord, landingRate, liftoffOnLogClock, withheldReason } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import FigureChooser from './FigureChooser';
@@ -832,7 +832,10 @@ export default function FlightReport({
       : '') +
     ` Marked events: ${eventSummary}.`;
   const velLabel = `Line chart: velocity against time${Number.isFinite(metrics.maxVelocity) ? `, peaking at ${fmtSpeed(metrics.maxVelocity, sys)}` : ''}.`;
-  const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration, sys)}` : ''}.`;
+  // The peak is qualified for a reader who can see the chart's caveat line; a screen reader gets
+  // this string and nothing else, so the qualification has to be IN it. Without the clause, the
+  // one surface a blind flyer reads the peak from was the only unqualified one left.
+  const accLabel = `Line chart: ${series.accelerationResultant ? 'total (resultant) ' : ''}acceleration against time${Number.isFinite(metrics.maxAcceleration) ? `, peaking at ${fmtAccel(metrics.maxAcceleration, sys)}${accelIsClipped(metrics) ? ' — a floor, because the trace reads as clipped' : ''}` : ''}.`;
 
   // Where liftoff falls on the log's own clock, when that isn't zero — the Events list is on
   // that clock and every reading is on seconds-since-liftoff, so the offset is what tells a
@@ -1352,6 +1355,13 @@ export default function FlightReport({
                   ? 'logged by the device'
                   : 'derived from velocity'
             }
+            // The velocity chart above has carried a `caveat` since its peak could be withheld,
+            // and this one carried none — so once the explorer's acceleration channel started
+            // saying the trace reads as clipped, the SAME trace was qualified in the explorer and
+            // bare on the chart directly above it. One page, two accounts, which is the failure
+            // the rest of this change closes everywhere else. Same shared sentence as the
+            // explorer's, so the two cannot drift.
+            caveat={accelIsClipped(metrics) ? ACCEL_CLIPPED_CAVEAT : undefined}
           >
             <Chart
               time={series.time}

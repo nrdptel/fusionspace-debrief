@@ -740,7 +740,11 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           the average over the same boost (ignition to burnout), and max deceleration over the ascent.
           If the trace flat-tops at its peak — how a sensor reads once it hits its full-scale limit
           and saturates — the maximum is flagged as <em>may be clipped</em>, since the real peak could
-          be higher. With no accelerometer, acceleration is a second derivative of the barometric
+          be higher. <strong>The average over that boost is flagged too, and differently</strong>: it
+          is not itself clipped, it is dragged down by every sample that was, and clipping can only
+          ever remove readings from the top. So the average is reported as a <em>floor</em> — the true
+          mean is higher, never lower — and the direction of that error is the useful half of knowing
+          it. With no accelerometer, acceleration is a second derivative of the barometric
           altitude, and the coarse, quantised baro trace makes its <em>peak</em> (and even its boost
           average) noise, not a measurement — a real flight can read hundreds of g off a single
           altitude step — so those numbers are withheld, and the acceleration trace isn&apos;t charted,
