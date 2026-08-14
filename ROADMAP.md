@@ -2046,6 +2046,37 @@ standalone refusal must survive it, exactly as it had to for the device summary.
 
 ## D10 (from ON-2) — A sample for every capability, and every one says what it is
 
+**2026-08-14 — the OFFERS themselves were checked against their own files for the first time, and
+two of six were wrong.** This milestone has spent twelve slices making sure a made-up flight says
+so on every surface it reaches. Nobody had asked the simpler question: does what the button SAYS
+match what the file contains? On the front door, it did not.
+
+- **`one-flight` advertised *"Apogee ≈ 9,322 ft"*; the report reads 8,022 ft.** Not a rounding gap —
+  9,322 ft is a DIFFERENT FLIGHT, the `altusmetrum-telemetrum.csv` fixture (serial 2098, flight 12),
+  where that directory's own README attributes it correctly. The served sample is serial 2718,
+  flight 14. Two numbers for one apogee, one click apart, on the first thing a stranger presses —
+  and this milestone removed a figure from the mapper sample's offer when the gap was **five feet**.
+- **The same offer promised *"the recovery track"***, and the file has 20 columns and no latitude or
+  longitude at all. Every GPS walk in the suite uses a fixture, which is why nothing caught it.
+- **`two-altimeters` said the pair *"agree at ≈ 1,009 ft"***, while Debrief reads 1,025 ft and
+  1,029 ft — so the number stated was neither recording's, and the 0.4% spread this file quotes
+  elsewhere cannot be derived from it. The figure stays there, corrected, because agreement is the
+  capability that sample demonstrates and a spread has to be quotable to mean anything.
+- **`device-summary` was checked and is right.** It quotes the board's own summary file verbatim,
+  which is a different act from asserting a reading.
+
+**Pinned by `lib/samples.test.ts`** — every figure an offer states must be either Debrief's own read
+of that sample's files or present in a file that REFUSES to open as a flight, i.e. an instrument's
+own summary. That last clause is the whole design: quoting an instrument and asserting a reading are
+different acts, and a check that cannot tell them apart either bans the `device-summary` sample or
+permits anything.
+
+**It took three attempts to make that check able to fail, and the sequence is the transferable
+part.** A digits-only substring match passed both mutants, because a flight log is tens of thousands
+of numbers and `9322` occurs inside the soup by coincidence. Matching whole numeric tokens passed
+them too — `9322` and `1009` are both real values in those logs. Only the semantic rule works. Two
+mutants, each reddening with its own figure named, is the only reason this counts as a check.
+
 **Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c) and TWO of (d)'s three logs SHIPPED.**
 Every sink the audit has found carries the claim (`todo: 0`), the mapper sample is OFFERED, `/stitch`
 has a demonstration for the first time, and so does the app's own refusal to publish a railed peak.
@@ -2907,6 +2938,43 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**2026-08-14 — §5 gains `TextField`, and §9's spacing check stops reporting a clean 0 over 91
+half-steps.** Two halves of one finding: the vocabulary was short a word, and the check that should
+have caught what filled the gap could not see it.
+
+Seven hand-rolled text inputs and textareas across four files — four geometries, two focus
+treatments, two placeholder tokens, and nothing in `components/ui.tsx` to reach for, because
+`NumberField` covers only the numeric case. Sites reaching for a missing word are the vocabulary
+being wrong rather than surfaces being undisciplined, which is the shape §5 already records for
+`link`, `ChipButton` and `Popover`. Built on §4's own `px-3 py-1.5` — **none of the seven was on
+it**, `px-2.5` is not on §4's scale, and the two arbitrary `min-h-[…]` values were reaching for a
+touch floor `globals.css` already gives every input. `TextField: 2` of the four files; the other
+three each need a decision and are named in the ratchet rather than folded in, because a primitive
+that grows three shapes' worth of config on its first day is the config surface that stops anyone
+using it.
+
+**The defect the four carried is the part worth keeping.** All of them wore
+`dark:placeholder:text-zinc-500` — the exact value §2 retired on 2026-08-11 at 3.67:1 on dark
+`raised` — while two other sites already had the corrected `zinc-400`. **Neither check could see
+it**: §9's source census refuses variant-prefixed classes by design and `placeholder:` is one, and
+axe rates a placeholder only on an empty field it happens to walk. Found by reading, which is the
+argument for building a primitive from a census rather than from one surface's need.
+
+**And §9's off-scale spacing check had been reporting a clean 0 across 91 half-step utilities.**
+`-([0-9]+)` cannot match `2.5`, because a dot is not a digit — and the obvious repair does not work
+either: written `(?:…|2)\b` the exemption list matches the `2` of `px-2.5` and lets it through as
+though it were `px-2`, since a dot is a word boundary too. Two drafts reported 0 for that reason.
+Measured: 45 of the 91 are `-1.5`, which §4's own table sanctions; **46 are `-0.5` or `-2.5`, which
+appear nowhere in §4**. Pinned as a SEPARATE ratchet (`halfStepSpacing: 66` raw occurrences) rather
+than by raising `offScaleSpacing`, which is documented as a guard that may never rise — taking it
+from 0 to 66 in the commit that widened its pattern would be indistinguishable from weakening the
+gate. Falsified by putting `px-2.5` back into the new primitive: 67 against 66.
+
+**Parked, not skipped:** §4 says *"The scale is 1 2 3 4 6 8 12. Nothing else"* two lines above a
+table whose entry is `px-3 py-1.5`. §4 is digest-shared with the sibling repo, which is not attached
+to this session, so the wording is owed to both copies in one run and sits in `OWNER-NOTES.md` under
+*Awaiting the owner*.
 
 **Measured against this milestone's own *done when*, 2026-08-13** — "§9 runs clean and is pinned by
 a test", with six named counts. Run on the shipped tree: **radius drift 0** (target 0) · **off-scale

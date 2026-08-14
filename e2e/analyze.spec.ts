@@ -379,8 +379,20 @@ test('the explorer keeps named views and applies them to the next flight', async
   await page.getByLabel('Add a channel to the plot').selectOption({ label: 'Velocity' });
   await expect(page.getByRole('button', { name: 'Remove Velocity from the plot' })).toBeVisible();
   await page.getByRole('button', { name: '+ Save this view' }).click();
+
+  // **The refusal, before the success** — `MAINTAINING.md` names "a control that is always enabled
+  // and fails only when pressed" as a tell, and this was one: `commitPreset` opens with
+  // `if (!name) return`, so Save on an empty name did nothing, said nothing, and left the field
+  // open as though the press had not landed. Whitespace as well as empty, because `trim()` is what
+  // the guard uses and " " is what a flyer actually types before thinking better of it.
+  const save = page.getByRole('button', { name: 'Save', exact: true });
+  await expect(save, 'nothing typed yet, so there is nothing to save').toBeDisabled();
+  await page.getByLabel('Name for this view').fill('   ');
+  await expect(save, 'whitespace is not a name').toBeDisabled();
+
   await page.getByLabel('Name for this view').fill('Boost check');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(save, 'and it becomes pressable the moment there is one').toBeEnabled();
+  await save.click();
   // Exact: the delete button beside it is named "Forget the Boost check view", which a
   // substring match would also claim.
   const chip = page.getByRole('button', { name: 'Boost check', exact: true });

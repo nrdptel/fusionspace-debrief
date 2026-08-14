@@ -260,8 +260,23 @@ wild, ideas too big for one pass. One line each, newest first.
   format, so every sample is also a parser test"* — those go down the vendor route and lose the
   claim silently. The fix is one read in `importFlight` after a parser succeeds, not ten reads in
   ten parsers.
-- **2026-08-09 — `DESIGN.md` §9's spacing grep cannot see a FRACTIONAL step, and the tree uses
-  them.** The command is `grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-([0-9]+|\[[^]]+\])'`, whose
+- **FIXED 2026-08-14 — `DESIGN.md` §9's spacing grep cannot see a FRACTIONAL step, and the tree uses
+  them.** Closed by the route this entry itself proposed: decide which half-steps §4 sanctions,
+  write them into the subtraction, and move the ratchet in the same commit. `-1.5` is exempt (§4's
+  own table gives `px-3 py-1.5`), everything else is counted, and it is a SEPARATE
+  `halfStepSpacing` ratchet rather than a raised `offScaleSpacing` — that one is documented as a
+  guard that may never rise, and taking it from 0 to 66 in the commit that widened its pattern
+  would read as weakening the gate rather than widening it. **The entry's one wrong reading,
+  corrected:** it says `px-2.5` is `Button size="sm"` deliberately, per `ON-B1`. `ON-B1` says the
+  opposite — the motor finder hand-rolls `px-2.5` and Debrief's `Button size="sm"` is `px-2`,
+  deliberately NOT converged. The five `px-2.5` in this tree were hand-rolled text inputs, and four
+  of them are now `TextField` on §4's `px-3`. **And the mechanism was subtler than this entry
+  knew:** adding an alternative for `[0-9]+\.[0-9]+` is not enough, because the exemption list is
+  what leaks — written `(?:…|2)\b`, the `2` of `px-2.5` satisfies it and the value is exempted as
+  though it were `px-2`, since a dot is a word boundary. Two drafts reported 0 for that reason. The
+  original text follows.
+
+  ~~2026-08-09 — the grep cannot see a FRACTIONAL step, and the tree uses them.~~ The command is `grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-([0-9]+|\[[^]]+\])'`, whose
   `[0-9]+` arm stops at the first `.`, so every half-step is invisible and the count reads 0.
   **Measured 2026-08-09 — 87 uses across 21 distinct utilities**, by adding one alternative to the
   existing command: `cls components app | grep -xE '((p|m)[xytblr]?|(gap|space)(-[xy])?)-[0-9]+\.[0-9]+'`
@@ -1941,8 +1956,17 @@ wild, ideas too big for one pass. One line each, newest first.
   a real limit of where the bound lives, not an oversight. The wrap bound is unaffected, being a
   property of the field rather than of the flight.
 
-- **`DESIGN.md` §4 does not say which half-steps are on the spacing scale, and the code uses four of
-  them 148 times.** §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
+- **PARTLY CLOSED 2026-08-14 — `DESIGN.md` §4 does not say which half-steps are on the spacing
+  scale, and the code uses four of them 148 times.** The CHECK half is done: §9 now counts every
+  half-step §4 does not mention and exempts the one it does, pinned as `halfStepSpacing`. The
+  DOCUMENT half stands exactly as this entry describes and is the reason it stays open — §4 is one
+  of the five digest-shared sections, so the sentence has to change in both repos in one run, and
+  the sibling has not been attached to a session since. It is now stated in `OWNER-NOTES.md` under
+  *Awaiting the owner* with the two options spelled out, rather than only here. **One line below is
+  now out of date and is left with this note rather than rewritten:** "the widened §9 spacing grep
+  deliberately excludes half-steps for this reason" was true until this run and is not any more.
+
+  Original entry follows. §4 states the scale as `1 2 3 4 6 8 12` and "nothing else, no arbitrary values",
   but §4's OWN table then sanctions `px-3 py-1.5` and `px-2 py-1` for controls — so `-1.5` is
   simultaneously forbidden by the sentence and required by the table. Measured 2026-07-31 over
   `components/` and `app/`: `-1.5` ×78, `-0.5` ×48, `-2.5` ×21, `-3.5` ×1. The widened §9 spacing

@@ -67,9 +67,27 @@ export type Sample = {
 export const SAMPLES: Sample[] = [
   {
     id: 'one-flight',
+    // **Both halves of this offer were wrong, and it is the first thing a stranger presses.**
+    // Measured 2026-08-13 against the served file rather than against memory:
+    //
+    // - It advertised "Apogee ≈ 9,322 ft" and the report reads **8,022 ft** — not a rounding
+    //   difference but a DIFFERENT FLIGHT's number. 9,322 ft belongs to
+    //   `lib/parsers/__fixtures__/altusmetrum-telemetrum.csv` (serial 2098, flight 12), where that
+    //   directory's own README correctly attributes it; the served sample is serial 2718, flight
+    //   14. Two numbers for one apogee, one click apart, on the front door — the shape
+    //   `MAINTAINING.md` calls worse than either alone, and the same shape the mapper sample's
+    //   figure was removed for when the gap was five feet.
+    // - It promised "the recovery track", and the file has **20 columns and no latitude or
+    //   longitude at all**. There is no ground track to show. The GPS walks all use a fixture,
+    //   which is why nothing caught it.
+    //
+    // No figure here now, for the reason the three generated samples already record: the report
+    // is where a number belongs, and an offer that states one has to be kept in step with an
+    // analysis that can legitimately move. `lib/samples.test.ts` now holds every offer's figures
+    // against what the app reads off its own files, so this cannot drift again in silence.
     label: 'Try a sample flight',
-    shows: 'One log, read end to end — apogee, speeds, deployments and the recovery track.',
-    source: 'Altus Metrum TeleMetrum, ISSUIUC flight-data (2021-10-30). Apogee ≈ 9,322 ft.',
+    shows: 'One log, read end to end — apogee, speeds, the deployment events and every channel the board recorded.',
+    source: 'Altus Metrum TeleMetrum, ISSUIUC flight-data (2021-10-30), serial 2718 flight 14.',
     files: ['sample-altusmetrum.csv'],
   },
   {
@@ -77,8 +95,13 @@ export const SAMPLES: Sample[] = [
     label: 'Two altimeters, one flight',
     shows:
       'The same flight recorded by two different boards, set side by side as cross-checks — never averaged into one number.',
+    // The figure stays here, unlike the offer above, because AGREEMENT is the capability this
+    // sample exists to demonstrate and a spread has to be quotable to mean anything. What changed
+    // is that it is now the app's own read of these two files: it said "≈ 1,009 ft" for both, and
+    // Debrief reads 1,025 ft and 1,029 ft — so the one number stated was neither recording's, and
+    // the 0.4% spread the milestone's own notes quote could not be derived from it.
     source:
-      'PerfectFlite Pnut and a Featherweight Raven, both aboard HMC AdvRoc’s Top_Shot. The two agree at ≈ 1,009 ft.',
+      'PerfectFlite Pnut and a Featherweight Raven, both aboard HMC AdvRoc’s Top_Shot. Debrief reads 1,025 ft and 1,029 ft off them — a 0.4% spread, never averaged into one.',
     files: ['sample-pnut.pf2', 'sample-raven-fip.csv'],
   },
   {

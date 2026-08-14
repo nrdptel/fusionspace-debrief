@@ -854,6 +854,137 @@ export function NumberField({
 }
 
 /**
+ * A labelled text field — one line or several. `DESIGN.md` §5's field for everything a flyer TYPES
+ * that is not a number.
+ *
+ * **Built 2026-08-13 from a census of the whole tree, not from one surface's need.** Five text
+ * inputs and two textareas across four files wore four different geometries, two focus treatments
+ * and two placeholder tokens, with no primitive to reach for — `NumberField` covers only the
+ * numeric case, and §5 had no word for this at all. Sites reaching for a missing word are the
+ * vocabulary being wrong rather than surfaces being undisciplined, which is the same finding §5
+ * already records for `link`, `ChipButton` and `Popover`.
+ *
+ * What the census actually held, so the next reader can check this against the tree rather than
+ * trust it:
+ *
+ * | site | padding | size | placeholder (dark) |
+ * |---|---|---|---|
+ * | `CompareView` label + notes | `px-2.5 py-1.5` | `text-sm` | `zinc-500` |
+ * | `FlightReport` label + notes | `px-2.5 py-1.5` | `text-sm` | `zinc-500` |
+ * | `RecentFlights` search | `min-h-[2.25rem] px-2.5 py-1` | `text-sm` | `zinc-400` |
+ * | `RecentFlights` note edit | `px-2 py-1` | `text-xs` | none |
+ * | `ChannelExplorer` view name | `min-h-[1.75rem] px-2 py-0.5` | `text-sm` | `zinc-400` |
+ *
+ * **`px-3 py-1.5`, which is §4's own value for "inside a control"** — none of the five was on it,
+ * and `px-2.5` is not on §4's scale at all. The two `min-h-[…]` are arbitrary values §4 forbids
+ * outright, and both were reaching for the touch floor that `app/globals.css`'s
+ * `@media (pointer: coarse)` block already gives every `input` — the same argument that retired
+ * `TOUCH_TARGET` from `Button`.
+ *
+ * **The placeholder token is the one that was a real defect rather than drift.**
+ * `dark:placeholder:text-zinc-500` is the exact value §2 retired on 2026-08-11 for rendering
+ * 3.67:1 on a dark `raised` surface — below AA — and four of the seven sites still wore it while
+ * two wore the corrected `zinc-400`. §9's source census cannot see it, by design: it refuses
+ * variant-prefixed classes, and `placeholder:` is one. axe cannot see it either unless it happens
+ * to walk an empty field. So this had no check on either side and was found by reading.
+ *
+ * `multiline` rather than a separate `TextArea`, because everything except the tag and `rows` is
+ * identical and two primitives would be two things to keep in step.
+ */
+export function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  multiline,
+  rows = 3,
+  type = 'text',
+  maxLength,
+  autoFocus,
+  onKeyDown,
+  onBlur,
+  ariaLabel,
+  labelHidden,
+  inputClassName,
+  className,
+}: {
+  id?: string;
+  /** Omit only when `ariaLabel` names the field instead — a search box beside its own icon. */
+  label?: React.ReactNode;
+  value: string;
+  onChange: (raw: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  rows?: number;
+  /** `search` gets the browser's clear affordance; everything else is `text`. */
+  type?: 'text' | 'search';
+  maxLength?: number;
+  autoFocus?: boolean;
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  /** Where a call site persists on blur rather than on every keystroke. */
+  onBlur?: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  /** The accessible name where no visible label is wanted. */
+  ariaLabel?: string;
+  /** Renders the label to screen readers only — a search field whose placeholder is its label on
+   *  screen still owes one to a screen reader. */
+  labelHidden?: boolean;
+  /** Width and flex behaviour, which is the one thing that genuinely varies between call sites. */
+  inputClassName?: string;
+  className?: string;
+}) {
+  const shared = cx(
+    'w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800',
+    // §2's `tertiary`, in the corrected form: `zinc-500` renders 3.67:1 on dark `raised`, which is
+    // why the token moved. A placeholder is real text and AA applies to it.
+    'placeholder:text-zinc-500 dark:placeholder:text-zinc-400',
+    'focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500',
+    'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+    inputClassName,
+  );
+  const common = {
+    id,
+    value,
+    placeholder,
+    maxLength,
+    autoFocus,
+    onKeyDown,
+    onBlur,
+    'aria-label': ariaLabel,
+    className: shared,
+  };
+  return (
+    <div className={className}>
+      {label != null && label !== false && (
+        <label
+          htmlFor={id}
+          className={cx(
+            labelHidden ? 'sr-only' : 'block text-xs font-medium text-zinc-600 dark:text-zinc-400',
+          )}
+        >
+          {label}
+        </label>
+      )}
+      {multiline ? (
+        <textarea
+          {...common}
+          rows={rows}
+          className={cx(shared, Boolean(label) && !labelHidden && 'mt-1')}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <input
+          {...common}
+          type={type}
+          className={cx(shared, Boolean(label) && !labelHidden && 'mt-1')}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
  * §2's hues, on §5's chip. `default` and `accent` are the two this primitive shipped with.
  *
  * **The three semantic tones were added 2026-08-03. Seven elements converted; FOUR of them were
