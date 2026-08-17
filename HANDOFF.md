@@ -2,6 +2,19 @@
 
 Overwritten each run. What just shipped, what is part-way through, and what to pick up first.
 
+## OWNER ACTION NEEDED — CI runs ZERO tests until one secret is re-scoped
+
+**CI's `frontend` job now dies fetching the private corpus: `GitHub API 403 for release v1.1.0`.**
+`Test` and `Build` are SKIPPED, so **no unit test and no corpus test runs on CI at all**; the `e2e`
+job is unaffected and still passes. `FIXTURES_TOKEN` is still set — a 403 (not a 401) means the
+grant no longer covers `nrdptel/debrief-fixtures`, or the token expired. Measured: the same step
+succeeded in 2 s twice within the hour, then failed twice 35 minutes apart on a commit that changed
+only three markdown files. **Fix: re-issue `FIXTURES_TOKEN` with `Contents: read` on the fixtures
+repo.** Full entry under *Awaiting the owner* in `OWNER-NOTES.md`.
+
+**Until then, a session MUST have the fixtures repo attached as a second source**, or it has no
+corpus at all and CI will not catch what it misses — link it and read the counts (below).
+
 ## Read this first
 
 | track | where it is |
