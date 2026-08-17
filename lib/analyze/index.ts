@@ -1542,6 +1542,10 @@ function analyzeWhole(
     speedOfSound,
     speedOfSoundProfile: sosProfile,
     airDensity,
+    // Filled in below, once apogee and liftoff are known — the same post-hoc pattern
+    // `velocityUnusable` uses, and for the same reason: both are decisions the derived
+    // channels must respect and neither can be made this early.
+    ascent: null,
   };
 
   // --- Apogee & whether there is an ascent at all ---------------------------
@@ -2096,6 +2100,13 @@ function analyzeWhole(
   // surfaces.
   const velocityUnusable = velocityImplausible || ascentGapBreaksPeak;
   series.velocityUnusable = velocityUnusable;
+
+  // **The ascent window, published for the surfaces that derive a load case off this trace.**
+  // Max-Q below reads only this range; until 2026-08-17 the explorer, the comparison overlay
+  // and the analyzed-data CSV each rebuilt ½ρv² over the whole record and republished the
+  // deployment transient the range exists to exclude. The window goes on the series so there is
+  // one answer to "where is the ascent" rather than four; `lib/dynamicPressure.ts` reads it.
+  series.ascent = ascentPresent ? { start: Math.max(0, liftoffRef), end: apogeeIdx } : null;
 
   // --- Burnout --------------------------------------------------------------
   // With accel: thrust end — acceleration first falls through zero after the

@@ -47,6 +47,8 @@ function coastFlight(opts: {
     speedOfSound: 340,
     speedOfSoundProfile: new Float64Array(n).fill(340),
     airDensity,
+    // The whole of this synthetic record is the coast up to apogee at the last sample.
+    ascent: { start: 0, end: n - 1 },
   };
   const events: FlightEvent[] = [
     { type: 'burnout', label: 'Burnout', time: time[2], index: 2, altitude: 0, provenance: 'measured' },

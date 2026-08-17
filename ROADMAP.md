@@ -4863,6 +4863,25 @@ Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.m
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
 
+- **2026-08-17 — the dynamic-pressure CURVE is truncated to the ascent rather than drawn whole with
+  a caveat attached.** *Rejected:* keeping the full-record curve and hanging a warning on it. The
+  analyzer had already made this exact call for the max-Q HEADLINE and said why in its own comment;
+  a curve that keeps a 47,322 kPa sample is publishing a load case no airframe ever saw, and a
+  caveat beside an impossible number is still an impossible number. Truncating also makes the
+  agreement between the four surfaces a property a test can pin exactly, rather than a tolerance.
+  **The cost, stated so it can be reversed cheaply:** a flyer can no longer read q on the descent in
+  the explorer or the comparison, where it is real but small. If that turns out to matter, the
+  reversal is to draw the descent as a separate, separately-labelled series rather than to widen
+  this window.
+
+- **2026-08-17 — the ascent note rides on a NEW `scope` field, not on `caveat`.** *Rejected:* reusing
+  `PlotChannel.caveat`, which was the one-line change and the first thing shipped. `caveat` renders
+  in §2's warning hue on "the one row whose numbers the report refused", and the ascent window is
+  not a refusal — those statistics are exactly right, over exactly the stretch a load case exists
+  in. Putting it there would have painted every flight's dynamic-pressure row amber forever, which
+  is the rule `lib/explore.test.ts` already states: *a caveat on every flight is a caveat nobody
+  reads*. Two meanings, two fields. Found by the pre-push review rather than by design.
+
 - **2026-08-17 — D10's design-overlay sample is GENERATED, not the real `.ork` this project can
   reach.** *Rejected:* serving OpenRocket's own shipped example design, which `debrief-fixtures`
   already holds and whose `SOURCES.md` explicitly contemplates publishing (*"If this file is ever

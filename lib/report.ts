@@ -48,6 +48,7 @@ import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
 import { isSynthetic, PROVENANCE_COLUMN, provenanceCell } from './synthetic';
+import { dynamicPressureSeries, hasDynamicPressure } from './dynamicPressure';
 import { landingEnergyJoules, joulesToFtLbf, MASS_TO_KG } from './landing';
 import { deployCheck } from './deploy';
 import { delayCheck } from './ejection';
@@ -854,6 +855,15 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   // believable wrong number is the dangerous one. The velocity column itself stays, exactly as
   // its trace stays on screen, so a mis-scaled column can still be seen and diagnosed.
   const velUsable = !analysis.series.velocityUnusable;
+  // **The dynamic-pressure column is gated on the SAME predicate the explorer gates its channel
+  // on, not on `velUsable` alone.** A record with a usable velocity but no ascent — a log that
+  // starts already coming down — has no load case: `analyzeFlight` reports no max-Q, the explorer
+  // offers no *Dynamic pressure* trace, and this writer would have printed a confident
+  // `dynamic pressure (kPa)` header over a column that is empty in every row. One panel
+  // withholding a channel while an export names it and delivers nothing is exactly the shape this
+  // repo keeps paying for. No corpus recording reaches it today, which is why nothing caught it;
+  // `lib/dynamicPressure.test.ts` builds the series that does.
+  const qUsable = velUsable && hasDynamicPressure(analysis.series);
   // **A flight Debrief MADE UP says so in a column of its own, on every row.** This is the one
   // export the sink audit named as the gap that would mislead most: it exists to be pasted into a
   // spreadsheet, so an unlabelled number here is the likeliest of all to be read as measured — and
@@ -870,7 +880,8 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
     `altitude (${L.length} AGL)`,
     `velocity (${L.speed})`,
     ...(hasAccel ? [`acceleration (${L.accel})`] : []),
-    ...(velUsable ? ['mach', `dynamic pressure (${pUnit})`] : []),
+    ...(velUsable ? ['mach'] : []),
+    ...(qUsable ? [`dynamic pressure (${pUnit})`] : []),
     ...recorded.map((c) => quoted(c.unitLabel(sys) ? `${c.label} (${c.unitLabel(sys)})` : c.label)),
   ].join(',');
   // Quoted, because the cell carries an em dash and a comma-free sentence today but is one edit
@@ -878,11 +889,18 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
   // one that is verbose.
   const provenance = synthetic ? `${quoted(provenanceCell(true))},` : '';
   const rows = [header];
+  // **The load case, over the ascent only, from the one module that computes it.** This writer
+  // built ½ρv² per sample over the whole record, so the file a flyer pastes into a cert document
+  // carried the deployment transient `analyzeFlight` restricts its own window to refuse — up to
+  // 47,322 kPa against an ascent peak of 404 kPa on a corpus flight. Samples outside the ascent
+  // are `NaN` and `cell()` writes them as an empty cell, which is what a spreadsheet reads as "no
+  // reading" — not a fabricated zero that would drag a chart and an average.
+  const qSeries = dynamicPressureSeries(analysis.series);
   for (let i = 0; i < time.length; i++) {
     const v = velocity[i];
     const sos = speedOfSoundProfile[i];
     const mach = Number.isFinite(sos) && sos > 0 ? v / sos : NaN;
-    const q = 0.5 * airDensity[i] * v * v;
+    const q = qSeries[i];
     rows.push(
       provenance +
       [
@@ -890,7 +908,8 @@ export function analyzedDataCsv(flight: RawFlight, analysis: FlightAnalysis, sys
         cell(Number(lengthIn(altitude[i], sys).toFixed(1))),
         cell(Number(speedIn(velocity[i], sys).toFixed(1))),
         ...(hasAccel ? [cell(Number(accelIn(acceleration[i], sys).toFixed(2)))] : []),
-        ...(velUsable ? [cell(Number(mach.toFixed(3))), cell(Number(pressureIn(q, sys).toFixed(2)))] : []),
+        ...(velUsable ? [cell(Number(mach.toFixed(3)))] : []),
+        ...(qUsable ? [cell(Number(pressureIn(q, sys).toFixed(2)))] : []),
         ...recorded.map((c) => sig6(c.toDisplay(c.values[i], sys))),
       ].join(','),
     );

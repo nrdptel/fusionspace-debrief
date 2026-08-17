@@ -6,131 +6,118 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **`92c913e` (#196) — merged and LIVE**, confirmed by fetching `version.json` rather than assumed. **Do not count from this line — measure**: `git fetch --prune origin && git log --oneline origin/main \| head -3`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **#197, two commits, both tracks, gate green locally and `frontend` green on CI.** Merging it on green is pre-authorised and is the FIRST thing to do next run if it is still open. |
-| **Sev-1** | **None inherited** — the baseline gate was green before anything was touched (unit 1,423 across 91 files with the corpus attached, build clean, e2e 354). **Two FOUND. One fixed and live; one MEASURED and deliberately NOT fixed** — see below, and read that entry before touching `padBaseline`. |
-| **D — capability** | **D10's OpenRocket design overlay SHIPPED** — the capability its own two lists disagreed about, uncounted for four runs. **Five of the six *done when* capabilities now have a sample. The coarse-GPS flight is the last one.** |
-| **P — product & craft** | **P1: the Recovery section stopped deleting itself**, and `EmptyState` adopters 3 → 4. §9 counts at the end of the run: radius drift **0**, off-scale spacing **0**, half-step **42** (shell; 66 in the test), off-scale type **1** (the wordmark floor), card treatments **3**, inverted **10 of 51**, `./ui` importers **40 of 51** (was 39). **Nothing moved the wrong way.** |
+| **Shipped to production** | **`311341c` (#199) was `main` when this run ended** — this run's own work is in **#201**, open. **Do not count from this line — measure**: `git fetch --prune origin && git log --oneline origin/main \| head -3`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **#201, one commit plus a merge of `main`.** Gate green locally, run ALONE. Merging on green is pre-authorised and is the FIRST thing to do next run if it is still open. |
+| **Sev-1** | **None inherited** — the baseline gate was green before anything was touched (unit 1,439 across 93 files with the corpus attached, build clean, e2e 358). **One FOUND and FIXED — see below.** |
+| **D — capability** | **No D-track slice shipped.** The Sev-1 preempted it, which is the rule working as written. D10's last capability is still the coarse-GPS flight, and this run bought it a real map instead of a guess — see *Pick this up first*. |
+| **P — product & craft** | **P1: the explorer's stats table gained a `scope` concept** distinct from `caveat`, so the warning hue keeps meaning "refused". §9 half-steps **66 → 65**; every other count unchanged, nothing moved the wrong way. |
 
-## The Sev-1 that is FILED rather than fixed — read this before touching the analyzer
+## The Sev-1 this run found and fixed — and the shape of it is the transferable part
 
-**`lib/analyze/index.ts:409` fabricates a ground datum from three CLIMBING samples, and four real L1
-logs file an apogee 67–116 ft low.** `padBaseline` walks forward while a sample stays within 6 m of
-the first, then does `baseEnd = Math.max(3, baseEnd)`. On a record that starts already airborne the
-loop never advances, so that `Math.max` does not extend a short pad window — it invents one out of
-three points on the ascent.
+**Four surfaces were computing ½ρv² and only one of them knew where the ascent was.** `analyzeFlight`
+restricts max-Q to liftoff → apogee, because q squares the speed and a deployment transient swings the
+derived velocity hard negative. That fix landed on the HEADLINE in an earlier run and **nowhere else**.
 
-| fixture | raw `Alt AGL (ft)` max | Debrief | error |
+| fixture | explorer | headline | ratio |
 |---|---|---|---|
-| `discovery-L1` | 2450.3 ft | 2353 ft | −97 ft (−4.0%) |
-| `penguin-L1` | 2526.5 ft | 2460 ft | −67 ft (−2.6%) |
-| `swiss-cheese-L1` | 2554.2 ft | 2452 ft | −102 ft (−4.0%) |
-| `the-gardener-L1` | 2536.7 ft | 2421 ft | −116 ft (−4.6%) |
+| `blueraven__reddit-meraki2-121km` | 47,322 kPa | 404 kPa | **×117** |
+| `missileworks-rrc3__euroc-stacarl2` | 401 kPa | 60 kPa | ×6.7 |
+| `blueraven__trf-f1machbuster-jan18` | 266 kPa | 84 kPa | ×3.2 |
+| `eggtimer__euroc-skyward-lynx` | 230 kPa | 103 kPa | ×2.2 |
 
-**It is not fixed because all four candidate repairs were measured and each breaks a different real
-log worse than the bug it fixes.** The full table is in `BACKLOG.md`; the short version:
+4 of 37 corpus recordings, none caveated, in a table whose own comment calls these "the numbers a cert
+document quotes" — and in the analyzed-data `.csv` a flyer pastes into a cert document. **After: 0 of
+37.** The window now lives on `FlightSeries.ascent` and `lib/dynamicPressure.ts` is the only reader.
 
-1. `datum = 0` — exact on the four AGL logs, turns a correct **171 ft** MSL reading into **6,220 ft**.
-2. a low-percentile floor — within ~0.5% on most, moves a 13,304 ft flight to **12,498 ft**.
-3. caveat every approximate baseline — fires on **25 of 59** records, most of which read correctly.
-4. believe an `AGL` header — killed by a file carrying BOTH `Alt AGL (ft)` and `TRACKER Alt asl`
-   whose altitude Debrief reads off the **asl** column.
+**The general lesson, which is bigger than this bug:** a fix applied to a HEADLINE is not applied to
+the CURVE, the STATS TABLE or the EXPORTS unless somebody carries it there. Search for the arithmetic,
+not for the metric name — `grep '0.5 \* .*airDensity'` found all four sites in one command.
 
-What is actually needed is a way to tell an AGL datum from an MSL one **for the column being read**,
-which no heuristic can do from inside the record. That is a milestone, not a patch. `expected.json`
-asserts no apogee on any of the four, which is why the gate is green over a number that is wrong.
+## The check that could not fail, and how it was caught
 
-## The finding that should change how the next session reads its own agents
+**Dropping the ascent window entirely — the exact bug — left every max-versus-headline assertion
+GREEN across all 37 recordings.** The transient that produces 47,322 kPa is NEGATIVE, and the sign
+guard alone already refuses it, so the obvious assertion was pinning the sign guard rather than the
+window. Only an assertion on the window's own contract reddens on that mutant, and that is what
+shipped. **Falsify by mutating the thing you claim to have fixed, not by re-reading the assertion.**
 
-**Three pre-push reviews ran this session and every one found something real** — and in two cases the
-worst finding was an honesty error inside an honesty fix, which is now the third consecutive run to
-record that shape:
+The mirror image: dropping the SIGN guard changes nothing today, because no corpus ascent contains a
+negative sample. It is recorded in the module as defensive rather than load-bearing, so nobody later
+reads it as protection it is not providing.
 
-- The parachute-Cd card, whose whole purpose was to stop asserting a terminal rate, **still closed
-  with "Assumes the main reached a steady rate" on the very branch that had none.**
-- Its caveat said the whole-descent average is *"the faster of the two legs"*. It is
-  `legRate(apogee, landing)` — a time-weighted blend lying strictly BETWEEN them. The code comment
-  eight lines above had it right and the user-facing sentence did not.
-- The design sample's `groundhitvelocity` was the **drogue** rate, because the variable was named
-  `landingSpeed`; `optimumdelay` was a typed-in 2.8 s against a seventeen-second coast.
+## What the pre-push review caught — read this before trusting your own new test
 
-**And an opening-fan-out finding was REFUTED by measurement, which is the other half of the lesson.**
-An agent reported that `sm:min-h-0` defeats `globals.css`'s coarse-pointer 44 px floor on the mapper's
-selects, with a specificity argument. Measured in a real browser at 834 px with `hasTouch`: **all six
-render at exactly 44.0 px.** The floor holds. A whole P-track slice was scoped on that finding and
-was not built. **Reproduce before you scope, and reproduce in the state the defect lives in.**
+Four real defects in one diff, and one of them would have reddened every public clone:
 
-## Checks that could not fail — four found, three shipped by me
+1. **The new corpus block walked only `__corpus__`, which is gitignored.** On a public clone or fork
+   CI it found zero files, asserted over empty arrays, and the floor assertion failed. It now walks
+   `__fixtures__` too and clears a real floor of **8 with no corpus, 45 with it**. Paths resolve
+   against the FILE (`fileURLToPath(new URL(...))`), not the cwd.
+2. **The analyzed-data `.csv` gated its q column on `velUsable` alone**, so a no-ascent record would
+   print a confident header over an all-empty column while the explorer offered no channel at all.
+3. **`resample` dropped the first finite sample at the leading edge of any gap** — `NaN + (vb − NaN) *
+   1` is `NaN`. Pre-existing; exposed the moment a series acquired an interior NaN.
+4. **The ascent note was initially put in `caveat`**, which renders amber for "numbers the report
+   refused". It fires on every flight, and `explore.test.ts` already states the rule that breaks: *a
+   caveat on every flight is a caveat nobody reads*. It is a `scope` now, rendered in zinc.
 
-1. `parachuteCd(m, A, 0.8v, ρ) > parachuteCd(m, A, v, ρ)` — true of every positive input by the
-   definition of the function; green with the whole change reverted.
-2. `expect(ParachuteCd.tsx).not.toMatch(/mainDescentRate/)` — the card is handed a number and never
-   sees a `FlightMetrics`, so there was nothing there to find.
-3. `maxvelocity / maxmach` inside the parser's band — the generator writes
-   `maxmach = maxvelocity / SOUND_MS`, so that ratio is identically `SOUND_MS`.
-4. The ground-track sweep's `expect(withGps).toBeGreaterThan(0)` — passes on a public clone that
-   examined one committed fixture, turning "0 recordings reach this branch" into "no recordings were
-   examined". It now asserts a floor of 3 without the corpus and 16 with it, **and prints the count**.
+## An agent finding that was REFUTED, kept so it is not "found" again
 
-**The replacement for (3) took two mutants to get right**, and that is the transferable part: scaling
-the flight's heights and speeds alone freezes `timetoapogee`/`flighttime`/`optimumdelay`, which are
-read off a clock the mutant never touched; scaling heights, speeds AND time together freezes
-`maxacceleration`, because dv/dt is invariant when both halves are halved. A figure counts as
-typed-in only if it is frozen under **both**.
-
-## What shipped, in order
-
-- **`191316f` + `6a05b71` → merged as `92c913e` (#196), LIVE.** The parachute Cd names which descent
-  it was read off, and the `.json` gained `landingEnergyBasis`. Over the corpus the whole-descent
-  fallback carries **23 of the 38 flights that land inside their own record**.
-- **`11e5fd9` (#197, pending)** — the Recovery section says why it has no ground track, instead of
-  deleting itself. **It also repaired a link to nowhere**: `FlightReport` adds a *Recovery* nav entry
-  on the same condition, pointing at an id that lived on the heading the branch deleted.
-- **`e52b0a6` (#197, pending)** — D10's design overlay. Reads **Predicted 5,248 ft against a flown
-  5,467 ft**, verified by driving the app.
+The competitive probe reported that a GPS track losing lock at altitude is presented as a landing.
+**The data half reproduces — 5 of the 12 corpus recordings carrying lat/lon end with their last fix
+above the pad, two above 3,200 ft — and the conclusion is wrong.** `landedInRecord` is already `false`
+on every one, and every surface branches on it: the tile reads "Last fix from pad", the GPX waypoint
+is named `Last fix (record ends in the air)`, the prose says "not a direction to walk". The guard's own
+docstring cites **the same 3,548 ft flight the probe rediscovered**. Full refutation in
+`COMPETITION.md` row 47 and `BACKLOG.md`. What IS missing is small and real: the not-landed branch
+never says how HIGH the last fix was.
 
 ## Pick this up first
 
-1. **Merge #197 if it is still open.** Both jobs were green on the previous SHA and `frontend` on
-   this one; check `e2e` and merge. Then confirm production moved.
-2. **D10's LAST capability: the coarse-GPS flight.** Everything it needs now exists —
-   `lib/synthetic.ts` has `toSingleLoggerCsv` (a generated flight that PARSES, which the mapper
-   samples cannot), and the labelling plumbing is done. That closes D10's *done when*.
-3. **P1's remaining audit rows, which this run RE-RANKED by measurement** and the ranking is the
-   useful part: row 8 is **already fixed**, row 11 is **refuted and pinned refuted** by
-   `e2e/analyze.spec.ts:710`, row 10 is **three-quarters refuted** (the capability exists in four
-   places; adopting `DataTable` would delete three measured phone layouts), and row 9 has **shrunk by
-   more than half with both its stated reasons now false**. What is genuinely left: **row 7**
-   (`SampleTable`'s `text-[11px]` on the caption that TELLS a flyer the table sorts and copies) and
-   **the caveat half of row 5** (the explorer plots a `velocityUnusable` trace with the caveat only
-   in the stats table below). Two NEW rows worth more than most of the list: **`GroundTrack.tsx`'s
-   legend swatch hand-rolled at eight sites in two sizes**, and **six raw `<select>` in four
-   geometries with no §5 word** — but read the refutation above before scoping the second.
+1. **Merge #201 if it is still open**, then confirm production moved.
+2. **D10's last capability: the coarse-GPS flight — but read the map first.** This run's GPS surface
+   audit enumerated **38 distinct sinks** that present, label or withhold a GPS-derived value, and
+   found that **exactly one** of them states horizontal fix quality (`GroundTrack.tsx:789`, prose).
+   `lib/synthetic.ts` has no lat/lon on `SynthSample` at all and no writer emits a GPS column, so the
+   generator needs extending before a sample exists. Consider whether the honest order is
+   *surface first, sample second*: a sample demonstrates a capability, and this one is thin.
+3. **`COMPETITION.md` row 47's quality half** — the satellite signal-strength bins are already in the
+   committed fixture and Featherweight publishes the dB-Hz→accuracy table; `featherweightGps.ts:256`
+   names them in a comment and pushes only the total. Settle the 2D-fix inconsistency first
+   (`altusmetrum.ts:250` keeps a 2D position, `featherweightGps.ts:72` drops the row).
+4. **`BACKLOG.md`'s two new pre-existing entries**: the comparison overlay's q peak runs up to **27.5%
+   BELOW** its own printed max-Q (800-point decimation, not the window), and the ascent scope note
+   reaches three sinks and not the other four.
 
 ## The corpus
 
 Attached as a second repository and symlinked, which is the intended path:
 `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`. Confirm it took by reading the suite's
-own counts — **50 corpus recordings**, **59 flights that analyse end to end**, and now **16 GPS
-recordings** named by `lib/groundTrackEmpty.test.ts`, which prints its own count for exactly this
-reason. A run that cannot say those numbers did not have a corpus.
+own counts — **50 corpus recordings**, **37 that analyse end to end** through the new agreement check
+(**45 including the committed fixtures**), and **16 GPS recordings** named by
+`lib/groundTrackEmpty.test.ts`. A run that cannot say those numbers did not have a corpus.
 
 ## Environment
 
 `npm install` first — `node_modules` arrives empty. Then `npx playwright install chromium`: the image
 ships chromium-1194, this Playwright wants 1228, and `playwright.config.ts` refuses the mismatch on
 purpose. It succeeds through the proxy in about a minute. Do **not** set `PLAYWRIGHT_CHROMIUM_PATH`
-afterwards. Both remain standing candidates for the environment's setup script — this is the third
-run to pay for them by hand.
+afterwards. **Both remain standing candidates for the environment's setup script — this is the fourth
+run to pay for them by hand.**
 
-**Four CPUs.** The opening fan-out ran 8 agents at 2 concurrent and took ~38 minutes; size it
-accordingly. ONE GATE AT A TIME still holds.
+**Four CPUs, and ONE GATE AT A TIME is not advice.** This run started a second gate while an earlier
+e2e was still running and a 34 s unit test tripped its own 30 s timeout — which reads exactly like a
+regression and was CPU starvation. Check `pgrep -f "playwright test"` before starting a gate. Note
+that `pgrep -f` also matches this agent's own command line, so confirm with `ps aux` before concluding
+a process is stuck.
 
-**Read the LOG, not the harness's exit status.** A backgrounded `( … ) & sleep 5; echo started`
-reports the *launcher's* exit code, and the harness announces "completed (exit code 0)" while the
-build is still running. Write the rc to a file and poll for the file. This cost time again this run.
+**Read the LOG, not the harness's exit status.** A backgrounded compound command reports the exit code
+of its last element; the harness announced "completed (exit code 0)" for a run whose unit half had
+failed. Write the rc of each stage to its own file and read those.
+
+**`main` moved underneath this run** (155dd0b → 311341c, #199) and another session's branch appeared
+mid-run. Fetch before every claim about the remote, and merge `main` before merging a PR.
 
 The git identity arrives as the harness vendor's default and must be set per-repo before the first
-commit: `Neer Patel <135655563+nrdptel@users.noreply.github.com>`. The harness also appends an
-attribution footer to a pull-request body after posting; read the body back and strip it. It did on
-#196 and it was stripped. (It did not on the `update` path used for #197.)
+commit: `Neer Patel <135655563+nrdptel@users.noreply.github.com>`. **The harness appended an
+attribution footer to #201's body on CREATE**; it was read back and stripped. Do that every time.

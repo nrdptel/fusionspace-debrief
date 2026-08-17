@@ -705,6 +705,19 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           and none of those six samples was a descent. A record with no ascent in it has no boost, so
           no load case, and gets no max-Q at all.
         </p>
+        <p>
+          <strong>The plotted curve is drawn over that same window</strong>, and so is every column
+          of it that leaves the app — the channel explorer&apos;s trace and statistics, the
+          comparison overlay, and the dynamic-pressure column in the analyzed-data and plotted-data
+          CSVs. Past apogee the curve simply stops, and the panel says why. Until 2026-08-17 only the
+          headline figure above was windowed while all four of those surfaces rebuilt ½&nbsp;ρv² over
+          the whole record, so each of them republished exactly the transient this section describes
+          — including the 47,322&nbsp;kPa sample, in a table beside a copy button. The Mach curve is
+          <em> not</em> truncated, and the difference is the squaring: Mach keeps the sign of the
+          velocity, so the same negative sample reads as a large negative Mach and never becomes a
+          peak. Measured over the corpus, the plotted Mach exceeded its own headline on none of the
+          recordings.
+        </p>
       </>
     ),
   },

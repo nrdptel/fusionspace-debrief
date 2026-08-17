@@ -14,6 +14,43 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-17 — the ascent-window SCOPE note reaches the explorer's three sinks and NOT the other
+  four, so the comparison overlay, `compare-data.csv`, the analyzed-data `.csv` and the plot's
+  `.png`/`.svg` each show a dynamic-pressure curve that stops at apogee with nothing saying why.**
+  Found by the pre-push review of the fix that windowed the curve. `lib/dynamicPressure.ts`'s
+  `Q_ASCENT_CAVEAT` has three consumers (`lib/explore.ts:356`, the stats table, `CsvColumn.scope`);
+  `lib/compare.ts` and `lib/report.ts` import only `dynamicPressureSeries`. The plot writers are the
+  reason this is a slice rather than a line: `lib/plotPng.ts:48` and `lib/svgChart.ts:107` take only
+  `syntheticNote` and have **no caveat channel at all**, so an exported image of any qualified curve
+  — a withheld velocity, a floor apogee, a railed accelerometer — leaves the app unqualified today,
+  and this is one more instance rather than a new class. Not a wrong number: the curve is correct
+  over its own domain; what is missing is the sentence that says what the domain is.
+
+- **2026-08-17 — the comparison overlay's dynamic-pressure peak runs up to 27.5% BELOW the max-Q
+  printed in its own table, invisibly, and the cause is decimation rather than the window.**
+  Measured over the 30 corpus flights that report a headline: `perfectflite AL1` draws 285,209 Pa
+  against 393,375 Pa printed one panel away (`lib/compare.ts:560`). `GRID_POINTS = 800` resamples
+  every flight onto a shared grid, and a peak between two grid points is simply not drawn. PRE-DATES
+  the ascent-window fix and is untouched by it — filed because the panel's stated purpose
+  (`lib/compare.ts:181`) is surfacing a max-Q disagreement BETWEEN recordings, and it disagrees with
+  its own table by more than any two recordings in the corpus disagree with each other. The honest
+  fix is peak-preserving decimation (min/max per bucket), not a denser grid.
+
+- **2026-08-17 — REFUTED, filed so it is not "found" again: a GPS track that loses lock at altitude
+  is NOT presented as a landing.** The opening fan-out's competitive probe reported that
+  `lib/gps.ts:450` (*"last valid fix wins → the resting place"*) makes Debrief print "Landed from
+  pad" and offer "Copy the landing coordinates" for a rocket still in the air. The DATA half
+  reproduces — **5 of the 12 corpus recordings carrying lat/lon end with their last fix above the
+  pad, two of them above 3,200 ft** — and the conclusion is wrong. `landedInRecord(metrics)` is
+  already `false` on every one of them and every surface branches on it: the tile reads "Last fix
+  from pad" (`components/GroundTrack.tsx:717`), the button "Copy the last-fix coordinates" (`:747`),
+  the GPX waypoint is named `Last fix (record ends in the air)` (`lib/gps.ts:180`), and the prose
+  says *"not where the rocket came down, and not a direction to walk"* (`:792`). The guard's own
+  docstring (`:76-79`) cites the same 3,548 ft flight the probe rediscovered. **What IS genuinely
+  missing, and is the small real item:** the not-landed branch never says how HIGH the last fix was,
+  and 3,548 ft of unrecorded descent is a very different search radius from 30 ft. `COMPETITION.md`
+  row 47 carries the full refutation.
+
 - **2026-08-17 — `lib/analyze/index.ts:409` fabricates a ground datum from three CLIMBING samples,
   and four real L1 logs file an apogee 67–116 ft low because of it. MEASURED, and deliberately NOT
   fixed this run: every candidate repair breaks a different real log worse than the bug it fixes.**
