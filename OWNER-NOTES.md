@@ -311,6 +311,11 @@ and go through `onFiles`, the drop path itself.
 
 
 TRIAGED 2026-08-17 (second run this date) — **still open, unchanged, and no sample work this run.**
+A third increment aimed at the GPS surface this note's last capability sits on was BUILT, gated
+green and **reverted** rather than shipped: on the very corpus flight its headline figure came from,
+the record ends at its peak, so the new reading restated an apogee that every other surface
+qualifies as *"at least this high"* — one number, two surfaces, one qualified. `BACKLOG.md` carries
+the full entry and what a correct version needs.
 The run opened on the corpus sweep this note's own milestone keeps paying for, and it returned a
 Sev-1 that preempted both tracks: the max-Q a flyer sizes an airframe from was being republished on
 four surfaces at up to 117x the analysis's own figure. D10's last capability — the coarse-GPS flight
@@ -694,6 +699,27 @@ is answered.
 
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
+
+- **2026-08-17 — CI's `frontend` job can no longer fetch the private corpus: `GitHub API 403 for
+  release v1.1.0`. Only you can fix this, and it is one setting.** `FIXTURES_TOKEN` is still SET
+  (the runner masks it as `***`), so this is not a missing secret — it is a **403**, which for a
+  fine-grained token on a private repo means the grant no longer covers
+  `nrdptel/debrief-fixtures` (or the token has expired). Measured rather than guessed: the same
+  step **succeeded in 2 s** on run `32034845483` (main, `7a888d8`) and on `32033856248`, then
+  **failed twice, 35 minutes apart**, on a commit that changed only three markdown files. The
+  script maps 404 → "not found" and 401 → "token rejected" and leaves 403 unexplained, which is
+  why it took a log read to tell apart.
+  **What it costs while it stands:** the `frontend` job dies at step 5 of 7, so `Test` and `Build`
+  are SKIPPED and **zero tests run on CI** — the 116-test corpus half that is the whole reason this
+  secret exists. The `e2e` job is unaffected and still passes. A session with the fixtures repo
+  attached as a second source still runs the corpus locally (this run did: 1,450 tests, 37
+  recordings analysing end to end), so work is still verifiable — but **the protection a fortnight
+  of unreviewed merges actually rests on is off**, and a future run whose container lacks the
+  fixtures repo would have neither.
+  **The fix:** re-issue or re-scope `FIXTURES_TOKEN` with `Contents: read` on
+  `nrdptel/debrief-fixtures`, in this repository's Actions secrets. Filed in `BACKLOG.md` is the
+  separate, session-fixable half: the script should retry a 403 with backoff and print the response
+  body, so the next occurrence reads as a rate limit or a permission loss without a log dive.
 
 - **2026-08-17 — may a GPL-3 file be published from this MIT repo? One question, one line of
   answer, and it decides D10's design sample and nothing else.** `debrief-fixtures` holds
