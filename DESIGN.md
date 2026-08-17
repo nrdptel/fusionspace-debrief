@@ -58,6 +58,29 @@ A raised surface on a page needs a border to separate it. A sunken surface insid
 not — the tone change is the separation. Never nest raised inside raised; promote the inner one to
 sunken or drop the outer border.
 
+### Elevation — one step, and it means "floating over the page"
+
+| Role | Value | Use for |
+|---|---|---|
+| `floating` | `shadow-lg` | a surface that leaves the document flow and covers content — a toast, a popover anchored over the page |
+
+**One value, and it is not decoration.** A shadow here says the surface is not part of the page
+underneath it, which is a fact about behaviour rather than a style: the reader needs to know that
+what is behind it is still there and still theirs. Nothing that sits IN the flow takes one — a card
+does not float, and a card with a shadow is a card pretending to be a dialog.
+
+**Named here because it was being invented at call sites.** Added 2026-08-17 in the sibling repo,
+where a `shadow-lg` shipped inside a hand-rolled card string while this file mentioned no shadow
+token at all — the only occurrence of the word was §9's prohibition on a `shadow` prop on `Card`.
+§9's greps are blind to it: they enumerate radius, border-colour, spacing and type, and an elevation
+nobody declared is not off-scale to any of them. That is the same "wrong text" blindness §9 records
+about the radius grep, one property over.
+
+**This copy is the shared text and the audit against this app is NOT done.** The rule is now binding
+here; whether anything in this tree already floats without declaring it, and whether `Popover` should
+adopt `floating`, is a question for the run that next touches those surfaces. Recorded rather than
+assumed either way.
+
 ### Borders
 
 | Role | Value | Use for |
@@ -235,6 +258,16 @@ hand-rolls it instead is not done.
 ### Containers
 - **`Card`** — the raised container. `rounded-xl border-hairline bg-raised p-4`. Optional `title` and
   `actions` slot. This replaces all 12 measured variants.
+- **`Toast`** — a short, dismissible message that floats over the page: a new build is ready, a save
+  landed, a background run finished. Renders a `Card` at §2's `floating` elevation, pinned to the
+  bottom of the viewport clear of the device inset, with `role="status"` so it is announced without
+  stealing focus. Takes one action at most and a dismiss. **It is a `Card` composed, not a `Card`
+  with a shadow** — §9 forbids the second, because a generic elevation prop lets any surface opt out
+  of "a card does not float". Never use it for an error the reader must act on: that is `ErrorState`,
+  in the flow, where it cannot be dismissed unread.
+  *Shipped in the sibling repo 2026-08-17; not yet implemented here. Declared because this file is
+  the shared vocabulary and a name that means two things in two apps is worse than a missing one —
+  the app that next needs a floating message builds THIS, rather than a second shape.*
 - **`Panel`** — a `Card` with a header row and a close affordance, for anything dismissible. Owns
   focus return (see `useReturnFocus`).
 - **`Section`** — a titled region within a route: heading, optional description, children. This is
