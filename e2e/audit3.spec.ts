@@ -269,6 +269,61 @@ test('measures the parachute Cd from the descent, and remembers the inputs', asy
   await expect(page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/)).toHaveValue('53');
 });
 
+// The other basis, which no bundled sample reaches — every sample that opens as a flight
+// resolves a main leg, so the walk above can only ever see the terminal case. This one drops
+// a committed fixture that resolves NEITHER leg, which is the branch the card was publishing
+// bare: it said "at X terminal" over an apogee-to-ground average, while the landing-energy
+// card directly above it said so. Over the private corpus that branch carries 23 of the 38
+// flights that land inside their own record.
+test('a Cd read off the whole descent says so, and does not call the rate terminal', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altimetercloud-mercury.csv'));
+
+  const panel = page.getByRole('region', { name: 'Parachute Cd (measured)' });
+  await expect(panel).toBeVisible();
+  await page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/).fill('53');
+  await panel.getByLabel(/Canopy diameter/).fill('36');
+
+  // The number computes — this is a qualifier, never a withholding.
+  await expect(panel.getByText(/^\d\.\d{2}$/)).toBeVisible();
+  await expect(panel.getByText(/over the whole descent · rule of thumb/)).toBeVisible();
+  await expect(panel.getByText(/terminal · rule of thumb/)).toHaveCount(0);
+  // The direction is stated, since it is the half a flyer can act on: an average that includes
+  // an unresolved drogue leg is faster than the main leg alone, and a Cd goes as 1/v².
+  await expect(panel.getByText(/no deployment change is in this record/)).toBeVisible();
+  await expect(panel.getByText(/faster than the main leg alone/)).toBeVisible();
+
+  // **The card must not contradict itself, and it did.** Its closing formula note ended
+  // "Assumes the main reached a steady rate" on EVERY branch where a Cd computes — so it
+  // asserted a steady main directly under the sentence saying no main leg was resolved. Caught
+  // by the pre-push review, not by the first version of this walk, which only excluded the
+  // sub-line above and so could not see it.
+  await expect(panel.getByText(/Assumes the main reached a steady rate/)).toHaveCount(0);
+  // The claim is against the MAIN leg. `wholeDescentRate` is legRate(apogee, landing) — a
+  // time-weighted blend lying strictly BETWEEN the legs — so "the faster of the two legs",
+  // which a first draft of the card said, is simply false.
+  await expect(panel.getByText(/faster of the two legs/)).toHaveCount(0);
+});
+
+// The other side of the same contract, so the pair pins BOTH branches rather than only the new
+// one: a flight that really does resolve a main leg must still say "terminal" and must carry no
+// whole-descent language at all. Without this, deleting the `wholeDescent` ternary and hard-coding
+// the qualified copy would leave the walk above green.
+test('a Cd read off a resolved main leg still calls the rate terminal', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('aim-xtra.csv'));
+
+  const panel = page.getByRole('region', { name: 'Parachute Cd (measured)' });
+  await expect(panel).toBeVisible();
+  await page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/).fill('53');
+  await panel.getByLabel(/Canopy diameter/).fill('36');
+
+  await expect(panel.getByText(/terminal · rule of thumb/)).toBeVisible();
+  await expect(panel.getByText(/Assumes the main reached a steady rate/)).toBeVisible();
+  await expect(panel.getByText(/over the whole descent/)).toHaveCount(0);
+  await expect(panel.getByText(/no deployment change is in this record/)).toHaveCount(0);
+});
+
 test('measures the drogue Cd from the drogue-phase descent on a dual-deploy flight', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();
