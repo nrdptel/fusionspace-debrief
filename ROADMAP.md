@@ -2084,6 +2084,24 @@ the app's own refusal to publish a railed peak, and as of 2026-08-17 so does the
 overlay. **Five of the *done when*'s six capabilities now have a sample; what is left is the
 coarse-GPS flight.**
 
+**2026-08-17 (second run this date) — NO D-track slice shipped, and the reason is the rule working
+rather than the milestone stalling.** A Sev-1 came out of the opening corpus sweep and preempted
+both tracks: the max-Q a flyer sizes an airframe from was being republished on four surfaces at up
+to 117x the analysis's own figure. Stated plainly rather than dressed up as progress.
+
+**What the run DID buy this milestone is a map, and it reorders the last slice.** A GPS surface
+audit enumerated **38 distinct sinks** that present, label or withhold a GPS-derived value, and
+found that **exactly one** of them states horizontal fix quality at all (`GroundTrack.tsx:789`, in
+prose, at caption size). Two consequences for whoever closes this:
+- `lib/synthetic.ts` cannot express a coarse-GPS flight today. `SynthSample` is `{t, altitude,
+  velocity, accel?}` — no lat, no lon, no satellites, no fix quality — and **no writer emits a GPS
+  column at all**, so the generator needs extending before a sample can exist.
+- More importantly, **a sample demonstrates a capability, and this capability is thin.** A
+  coarse-GPS log dropped into Debrief today is read like any other GPS log; almost nothing on any
+  surface says the fix was coarse. Consider taking the SURFACE first and the sample second —
+  `COMPETITION.md` row 47 carries the measured comparison against the vendor tools, which draw
+  satellite-signal histograms against a published dB-Hz→accuracy table.
+
 **2026-08-17 — the design overlay, which was invisible to every status line this milestone wrote.**
 It was named in the *done when* and never in (d)'s list of three logs, so it went unshipped and
 uncounted for four runs. Two decisions settled it, both recorded in full under *Decisions taken
@@ -2966,6 +2984,34 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**2026-08-17 — audit row 5's caveat half SHIPPED, and the explorer stops giving a different answer
+from the report about one curve.** The channel explorer plotted a `velocityUnusable` trace with the
+refusal only in the statistics table BELOW the plot, while the report's own Velocity chart carried
+*"Debrief will not report a peak off this trace… read no speed off it"* above its rendering of the
+same data. One page, two answers, and the reader who came for the chart never scrolls past it. The
+explorer now renders that refusal above its plot in `Notice tone="warn"` — the same primitive
+`Figure` itself renders. `Figure` could not simply be adopted here and the reason is worth keeping:
+it renders its own heading (this panel already has one) and takes no `ref`, which
+`savePlotPng(chartRef.current)` needs. **A first version of this entry claimed the exported `.png`
+now carries the refusal because the notice sits inside `chartRef`. That was false and the pre-push
+review caught it:** `savePlotPng` does `host.querySelector('canvas')` and composites the CANVAS,
+not the surrounding DOM, and this repo has no rasteriser. The image sinks stay open in
+`BACKLOG.md`; the placement is right for the reader of the plot, not for the export.
+
+§9 counts: `Notice` adopters **10 → 11**, half-steps **66 → 65** in the ratchet (42 → 41 in the
+shell count). Nothing moved the wrong way. **Pinned by** `e2e/analyze.spec.ts` → *"the explorer
+answers about a withheld trace the same way the report does"*, which took two attempts to make able
+to fail: scoped to the explorer SECTION it passed on the old code, because the section already held
+that sentence in the stats table — the very defect. It anchors on the card holding the canvas now,
+and reddens when the notice is removed.
+
+**And a `scope` distinct from a `caveat`, which is the vocabulary half.** A caveat is a refusal and
+wears §2's warning hue on "the one row whose numbers the report refused"; a scope says which stretch
+a curve covers, and the dynamic-pressure curve's statistics are exactly right over the ascent. Put
+in `caveat` it would paint every flight's row amber forever — the rule `lib/explore.test.ts` already
+states: *a caveat on every flight is a caveat nobody reads*. Two meanings, two fields, two places on
+the page.
 
 **2026-08-14 — §5 gains `TextField`, and §9's spacing check stops reporting a clean 0 over 91
 half-steps.** Two halves of one finding: the vocabulary was short a word, and the check that should

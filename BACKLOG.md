@@ -14,6 +14,24 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-17 — one sentence, two sizes, in one panel: the explorer's chart caveat and its stats
+  row.** `DESIGN.md` §5 fixes `Notice` at `text-sm`, and `components/ChannelExplorer.tsx:852`
+  already argues that size explicitly for this exact sentence ("this is a sentence saying the value
+  beside it is not one to quote"). `components/ui.tsx`'s `Figure` overrides it to `text-xs`
+  (`:673`), so the report's chart caveats render at 12 px while the stats table renders the same
+  words at 14 px. The explorer's new notice takes §5's size rather than copying `Figure`'s
+  override, which leaves `Figure` as the single remaining divergence — a change there touches every
+  chart on the report, so it is a slice rather than a line, and it belongs in §5 first if `text-xs`
+  is the intended answer.
+
+- **2026-08-17 — the explorer now shows a caveat sentence TWICE on one page**: above the plot (new)
+  and verbatim in the statistics row below it (pre-existing). Not contradictory, and above-the-plot
+  is the correct home — a reader who came for the chart never scrolls past it. The visible span
+  below could shrink to a short tag without losing anything, because the clipboard and the `.csv`
+  build from `c.caveat` directly (`ChannelExplorer.tsx:787`, `:309`) rather than from the rendered
+  text. Left as-is this run: the stats row's wording is pinned by an existing walk, and shrinking it
+  is a presentation decision worth its own increment rather than a rider on this one.
+
 - **2026-08-17 — the ascent-window SCOPE note reaches the explorer's three sinks and NOT the other
   four, so the comparison overlay, `compare-data.csv`, the analyzed-data `.csv` and the plot's
   `.png`/`.svg` each show a dynamic-pressure curve that stops at apogee with nothing saying why.**
@@ -25,6 +43,13 @@ wild, ideas too big for one pass. One line each, newest first.
   — a withheld velocity, a floor apogee, a railed accelerometer — leaves the app unqualified today,
   and this is one more instance rather than a new class. Not a wrong number: the curve is correct
   over its own domain; what is missing is the sentence that says what the domain is.
+  **UNCHANGED, and the correction is worth more than the entry.** A first pass at this line claimed
+  the `.png` was now covered, because the explorer's notice was placed inside the card `chartRef`
+  points at. `savePlotPng` does `host.querySelector('canvas')` and composites the **canvas**, not
+  the surrounding DOM — there is no rasteriser in this repo — so the placement buys nothing for the
+  image. **Five sinks, not four**, and the `.png` and `.svg` still agree with each other (both
+  bare). Caught by the pre-push review; recorded because "the notice is inside the snapshotted
+  element" is a plausible-sounding claim that will occur to the next session too.
 
 - **2026-08-17 — the comparison overlay's dynamic-pressure peak runs up to 27.5% BELOW the max-Q
   printed in its own table, invisibly, and the cause is decimation rather than the window.**

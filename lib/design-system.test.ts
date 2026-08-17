@@ -774,7 +774,7 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  rendered on all three, exactly as `GroupProposalBanner` was, one file away, for the same
    *  reason. The count moves because a fourth call site would otherwise have been three more
    *  copies of one sentence about a flyer's deleted data. */
-  Notice: 10,
+  Notice: 11,
   /** The bordered-no-background container, lifted 2026-08-01 from the five sites that had written
    *  it out by hand. Counted here as well as in `cardTreatments` because the two checks catch
    *  different things: the treatment count is a `sort -u`, so a SIXTH file writing the identical
