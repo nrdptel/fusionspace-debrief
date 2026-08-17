@@ -250,6 +250,20 @@ wild, ideas too big for one pass. One line each, newest first.
   not three more guards; `MAINTAINING.md`'s own list calls a chip that names something not on the
   page a craft-bar tell.
 
+  **CORRECTED 2026-08-17 — all three named instances are now closed, and by the OPPOSITE route to
+  the one this entry prescribed.** Not one predicate shared between chip and section: each section
+  simply stopped deleting itself, so the chip's target always exists and the two can no longer
+  disagree. `FlightTimeline`'s `return null` became an `EmptyState` in #194; `ChannelExplorer`'s was
+  **REFUTED** by measurement (`selected` is empty exactly when `channels` is, and
+  `buildPlotChannels` pushes altitude, raw altitude and velocity unconditionally, so the state is
+  unreachable); and `GroundTrack.tsx`'s `!track || !stats` became an `EmptyState` in #197, which is
+  what closes the specific mismatch this entry opened with — the chip asked `gpsLat && gpsLon` and
+  the section asked for a usable fix. **Worth keeping rather than deleting**, because the general
+  point outlived its three examples and the fix inverted the prescription: a section that always
+  renders needs no shared predicate, and a `return null` in a component the nav links to is the
+  defect rather than the guard being too weak. Any FOURTH section added to that chip row should be
+  read the same way.
+
 - **2026-08-11 — CORRECTION to the 2026-08-09 entries that treated the comparison's provenance
   marker as shipped on the screen: it was not, and the check that said so could not fail.** The
   provenance row was assembled in `components/CompareView.tsx`'s `metricsTable()`, which feeds the
