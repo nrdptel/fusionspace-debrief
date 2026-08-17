@@ -58,28 +58,49 @@ A raised surface on a page needs a border to separate it. A sunken surface insid
 not — the tone change is the separation. Never nest raised inside raised; promote the inner one to
 sunken or drop the outer border.
 
-### Elevation — one step, and it means "floating over the page"
+### Elevation — one surface value, and one sanctioned control affordance
 
 | Role | Value | Use for |
 |---|---|---|
-| `floating` | `shadow-lg` | a surface that leaves the document flow and covers content — a toast, a popover anchored over the page |
+| `floating` | `shadow-lg` | a SURFACE that leaves the document flow and covers content — a toast, a drop overlay, a popover anchored over the page |
+| `thumb` | `shadow-sm` | the selected option's lift inside `Segmented`, and nothing else |
 
-**One value, and it is not decoration.** A shadow here says the surface is not part of the page
-underneath it, which is a fact about behaviour rather than a style: the reader needs to know that
-what is behind it is still there and still theirs. Nothing that sits IN the flow takes one — a card
-does not float, and a card with a shadow is a card pretending to be a dialog.
+**`floating` is a claim about behaviour, not a style.** It says the surface is not part of the page
+underneath it — which the reader needs to know, because what is behind it is still there and still
+theirs. It follows that a floating surface must not swallow clicks outside its own box: a full-screen
+or full-width positioning wrapper takes `pointer-events-none` and gives the panel back
+`pointer-events-auto`. `components/DropOverlay.tsx` already does exactly this, and it is the pattern.
 
-**Named here because it was being invented at call sites.** Added 2026-08-17 in the sibling repo,
-where a `shadow-lg` shipped inside a hand-rolled card string while this file mentioned no shadow
-token at all — the only occurrence of the word was §9's prohibition on a `shadow` prop on `Card`.
-§9's greps are blind to it: they enumerate radius, border-colour, spacing and type, and an elevation
-nobody declared is not off-scale to any of them. That is the same "wrong text" blindness §9 records
-about the radius grep, one property over.
+**Nothing that sits IN the flow takes `floating`.** A card does not float, and a card with a shadow is
+a card pretending to be a dialog.
 
-**This copy is the shared text and the audit against this app is NOT done.** The rule is now binding
-here; whether anything in this tree already floats without declaring it, and whether `Popover` should
-adopt `floating`, is a question for the run that next touches those surfaces. Recorded rather than
-assumed either way.
+**`thumb` is the one in-flow shadow, and it is sanctioned by name rather than waved through.** It is
+not a surface level: it is the affordance that says which option of a `Segmented` is chosen, at the
+scale of a control rather than of a container. Enumerating it here is what lets §9 subtract exactly
+it — the enumerate-and-subtract pattern the radius and border greps already use, and the one that
+stops a check going stale the moment somebody adds a third value.
+
+**Both were being invented at call sites, and the first version of this section was wrong about
+that.** Added 2026-08-17 with the sibling's `Toast`. Before it, neither copy of this file mentioned a
+shadow token at all — the only occurrence of the word was §9's prohibition on a `shadow` prop on
+`Card`. That version said the sibling's hand-rolled `shadow-lg` was the only undeclared elevation
+anywhere. **It was not**: `Segmented`'s thumb has carried `shadow-sm` throughout, in BOTH apps, in
+the same file the section was written in. A section that declares "one value" while two ship is worse
+than no section, because the next reader trusts it.
+
+§9's greps could not see either: they enumerate radius, border-colour, spacing and type, and an
+elevation nobody declared is not off-scale to any of them. That is the same "wrong text" blindness §9
+records about the radius grep, one property over — which is why the sibling now ships this section
+with its own grep and its own ratchet rather than on discipline. **Porting that check here is owed
+and is not done in this change**; the shared text lands first so the two copies do not diverge while
+it waits.
+
+**Measured in THIS app on 2026-08-17, so the rule arrives with its audit rather than as an
+aspiration:** four shadow tokens in the tree, and every one of them is now declared. `shadow-lg` on
+`components/DropOverlay.tsx` (a full-screen drag overlay) and on `components/ui.tsx`'s popover panel —
+both genuinely floating, both correct. `shadow-sm` on `Segmented`'s thumb — the sanctioned `thumb`.
+The fourth is the bare word inside a comment quoting §9. **Nothing in this tree violates the new
+rule**, which is a real result and the reason it can be adopted here without a repaint.
 
 ### Borders
 
