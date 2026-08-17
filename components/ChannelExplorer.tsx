@@ -30,7 +30,7 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button, Card, Chip, ChipButton, CopyTableButton, DismissibleChip, Segmented } from './ui';
+import { Button, Card, Chip, ChipButton, CopyTableButton, DismissibleChip, Notice, Segmented } from './ui';
 
 const SELECT =
   'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
@@ -133,6 +133,25 @@ export default function ChannelExplorer({
   }, []);
 
   const selected = yKeys.map((k) => byKey.get(k)).filter((c): c is PlotChannel => !!c);
+  // Split rather than one list: a caveat is a refusal and rides in the warning notice above the
+  // plot; a scope says which stretch the curve covers and rides in the axis line beside it. Two
+  // meanings, two places, so the amber keeps meaning one thing — see `PlotChannel.scope`.
+  // Grouped by the SENTENCE rather than listed per channel: two channels can share one caveat
+  // verbatim (`d-altitude` and `d-altitude-raw` are handed the same `altitudeCaveat`), and a box
+  // that prints one sentence twice is the defect this notice exists to fix, one level down.
+  const groupBySentence = (pick: (c: PlotChannel) => string | undefined) => {
+    const byText = new Map<string, string[]>();
+    for (const c of selected) {
+      const text = pick(c);
+      if (!text) continue;
+      const labels = byText.get(text);
+      if (labels) labels.push(c.label);
+      else byText.set(text, [c.label]);
+    }
+    return [...byText].map(([text, labels]) => ({ text, labels }));
+  };
+  const caveatLines = groupBySentence((c) => c.caveat);
+  const scopeLines = groupBySentence((c) => c.scope);
   const { leftUnit, rightUnit } = planAxes(selected.map((c) => c.unitLabel(sys)));
 
   const xIsTime = xKey === 'time';
@@ -542,7 +561,45 @@ export default function ChannelExplorer({
             </>
           )}
           {' · '}X: <span className="font-medium text-zinc-700 dark:text-zinc-300">{xName}{xUnit && ` (${xUnit})`}</span>
+          {/* A SCOPE belongs in the line that already says what this chart is showing, not in the
+              warning notice below: a curve drawn over the ascent is exactly right over the ascent.
+              Here rather than only in the stats table because the truncation is visible ON THE
+              PLOT — a line that stops at apogee with nothing nearby saying why reads as a gap in
+              the data. */}
+          {scopeLines.map(({ text, labels }) => (
+            <span key={text} className="block">
+              {labels.join(' & ')}: {text}
+            </span>
+          ))}
         </div>
+        {/* **The refusal goes ABOVE the plot, in §5's warn notice — the same place and the same
+            words the report's own Velocity chart uses.** Until now the explorer put it only in the
+            statistics table BELOW the chart, so one page carried two answers about one curve: the
+            report said "read no speed off it" over its plot while this panel drew the same trace
+            bare and qualified it further down, where a reader who came for the chart never looks.
+            `Figure` owns this state and could not be reused directly — it renders its own heading
+            (this panel already has one) and takes no ref (the PNG snapshot needs one) — so this is
+            the same `Notice` primitive `Figure` itself renders, not a second treatment.
+
+            **It does NOT reach the exported .png, and an earlier version of this comment claimed it
+            did.** `savePlotPng` takes `host.querySelector('canvas')` and composites the CANVAS, not
+            the surrounding DOM — there is no rasteriser in this repo — so sitting inside `chartRef`
+            buys nothing for the image. The placement is still right, because above the plot is
+            where a reader of the plot looks; the image sinks stay open in `BACKLOG.md`.
+
+            Deduplicated by SENTENCE, not by channel: `d-altitude` and `d-altitude-raw` carry the
+            same `altitudeCaveat` string, so the built-in "Raw vs cleaned" view would otherwise
+            print one sentence twice inside one amber box — which is the shape this change exists
+            to remove, arriving one level down. */}
+        {caveatLines.length > 0 && (
+          <Notice as="div" tone="warn" className="mb-2">
+            {caveatLines.map(({ text, labels }) => (
+              <span key={text} className="block">
+                <span className="font-medium">{labels.join(' & ')}:</span> {text}
+              </span>
+            ))}
+          </Notice>
+        )}
         <Chart
           time={xVals}
           series={series}

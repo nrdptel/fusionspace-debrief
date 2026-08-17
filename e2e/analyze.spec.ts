@@ -2406,6 +2406,78 @@ test('a velocity trace the report will not read a peak off says so on the chart'
   await expect(ok, 'a believable speed gets no refusal').not.toContainText(/will not report a peak/i);
 });
 
+// **The same curve, one panel down, used to get a different answer.** The walk above pins the
+// REPORT's Velocity chart. The channel explorer plots that identical trace, and until 2026-08-17
+// it carried the refusal only in the statistics table BELOW the plot — so one page said "read no
+// speed off it" over one rendering of the trace and drew the other bare. A reader who came for the
+// chart never scrolls past it. `Figure` owns this state and could not be reused directly here (it
+// renders its own heading, and takes no ref, which the PNG snapshot needs), so the explorer uses
+// the same `Notice` primitive `Figure` itself renders.
+test('the explorer answers about a withheld trace the same way the report does', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles(path.join(__dirname, '../lib/parsers/__fixtures__/featherweight-gps-groundstation.csv'));
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+
+  await page.getByRole('heading', { name: 'Explore the data' }).scrollIntoViewIfNeeded();
+  // Put the withheld trace on the plot. The channel is offered on purpose — the curve stays
+  // visible so a mis-scaled column can be diagnosed — so this is the state the caveat is for.
+  await page.getByLabel(/Add a channel to the plot/i).selectOption({ label: 'Velocity' });
+
+  // **Scoped to the CHART CARD, not to the explorer section, and that distinction is the whole
+  // test.** The section already contained this sentence before this change — in the statistics
+  // table BELOW the plot, which is the defect. An assertion over the section passes on the old
+  // code: verified by mutation, it did. Anchoring on the card that holds the canvas is what makes
+  // it fail when the notice is removed.
+  const section = page.locator('#explore-the-data').locator('xpath=ancestor::div[1]');
+  const plot = section.locator('canvas').first().locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
+  await expect(plot, 'the explorer names the refusal ABOVE its plot').toContainText(
+    /not a reading Debrief stands behind/i,
+  );
+  // Same reason as the headline and the report's chart, from the same function — not a second
+  // vocabulary for one decision.
+  await expect(plot, 'and gives the headline’s own reason').toContainText(
+    /the ascent has a stretch the record doesn’t cover/i,
+  );
+  // **And the curve is still DRAWN**, which is the half the caveat depends on: the trace is kept
+  // on purpose so a mis-scaled column can be seen and diagnosed. Without this, a mutation that
+  // dropped the caveated series from the plot altogether would leave the notice standing and the
+  // test green — qualifying a curve that is not there. The report's sibling walk asserts the same
+  // thing for the same reason.
+  await expect(plot.locator('canvas').first(), 'the curve is still drawn').toBeVisible();
+
+  // The half that lets this fail: a flight whose speed Debrief stands behind gets no notice, so
+  // the assertion above cannot pass by the caveat being present on every flight.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: /Flight report for/ })).toBeVisible();
+  await page.getByRole('heading', { name: 'Explore the data' }).scrollIntoViewIfNeeded();
+  // **Only if it is not already there.** The explorer REMEMBERS the last view across flights —
+  // that is a feature, and it means Velocity is already plotted from the half above, so it is no
+  // longer among the options in "Add a channel…" and selecting it would hang. Asserted rather than
+  // assumed, so this half cannot quietly stop plotting the trace it is about.
+  const okSection = page.locator('#explore-the-data').locator('xpath=ancestor::div[1]');
+  // Wait for the saved view to be APPLIED before reading the option list. It is restored in an
+  // effect, so a bare `.count()` — which does not auto-wait — can be read before the effect runs
+  // and take the wrong branch. Anchoring on the plot having rendered its legend first makes the
+  // predicate deterministic rather than order-dependent.
+  await expect(okSection.locator('canvas').first()).toBeVisible();
+  const addable = await page
+    .getByLabel(/Add a channel to the plot/i)
+    .locator('option', { hasText: /^Velocity$/ })
+    .count();
+  if (addable > 0) await page.getByLabel(/Add a channel to the plot/i).selectOption({ label: 'Velocity' });
+  const okPlot = okSection
+    .locator('canvas')
+    .first()
+    .locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
+  await expect(okPlot, 'the velocity trace is on this plot too').toContainText(/Velocity/);
+  await expect(okPlot, 'a believable speed gets no refusal here either').not.toContainText(
+    /not a reading Debrief stands behind/i,
+  );
+});
+
 // `OWNER-NOTES.md` ON-2 — "there needs to be more sample flights for showing the different
 // capabilities of the project." Until 2026-08-08 there was ONE sample behind one hardcoded URL:
 // a single baro+GPS log, and the entire demonstration surface for ten parsers, the column
