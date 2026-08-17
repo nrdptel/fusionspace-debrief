@@ -14,6 +14,20 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-17 — `scripts/fetch-fixtures.mjs` hard-fails the whole CI gate on a transient 403, with
+  no retry and without printing the response body, so a rate limit is indistinguishable from a
+  permission loss.** Hit for real on run `32038034198`: the `frontend` job died in *Fetch private
+  fixtures corpus* with `ERROR: GitHub API 403 for release v1.1.0` after ~3.7 s, **before any test
+  body ran** — `Test` and `Build` were skipped and zero tests executed, while the `e2e` job passed
+  in full. The identical step had succeeded in 2 s twice within the previous hour on an unchanged
+  `corpus.lock.json`, and the commit was DOCS-ONLY, so the cause was not the change. A re-run of
+  the failed job was the correct fix (the manual's one sanctioned case: it died before any test
+  body ran). **What would make the next one cheap to read:** the script maps 404 → "not found" and
+  401 → "token rejected" but leaves 403 unexplained, and a 403 from GitHub is usually a secondary
+  rate limit rather than a revoked grant — so a bounded retry with backoff plus printing the
+  response body would turn a five-minute diagnosis into a log line. Filed rather than fixed: it is
+  CI plumbing, not a flyer-facing defect, and it wants its own increment.
+
 - **2026-08-17 — BUILT, GATED GREEN, and REVERTED rather than shipped: "how high was the last GPS
   fix" on a record that ends in the air.** The gap is real and the measurement stands — **5 of the
   12 corpus recordings carrying lat/lon end with their last fix above the pad, two of them above
