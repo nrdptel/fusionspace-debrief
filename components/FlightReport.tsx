@@ -1484,16 +1484,17 @@ export default function FlightReport({
           <LandingEnergy metrics={metrics} sys={sys} massKg={massKg} onMassKg={setMassKg} />
         )}
 
-        {/* Parachute Cd reads off the terminal main descent — shown with landing
-            energy, the other recovery measurement that needs the descending mass. A Cd is
-            solved from a terminal velocity, so a record that never reached the ground has
-            no input for it; the panel above says so rather than this one repeating it. */}
+        {/* Parachute Cd reads off whichever descent the record resolved — the main leg where
+            there is one, the whole descent where there is not, and the card names which. Shown
+            beside landing energy, the other recovery measurement that needs the descending mass.
+            A Cd is solved from a terminal velocity, so a record that never reached the ground has
+            no input for it; the landing-energy card says so rather than this one repeating it. */}
         {landingRate(metrics) != null && (
           <ParachuteCd
             descentRate={landingRate(metrics) as number}
-            // The same rule the landing-energy card above reads, from the same one
-            // place — a Cd goes as 1/v², so a whole-descent average is a stronger
-            // caveat here than it is there, not a weaker one.
+            // The same rule the landing-energy card reads, from the same one place — a Cd
+            // goes as 1/v², so a whole-descent average is a stronger caveat here than it is
+            // there, not a weaker one.
             wholeDescent={landingRateIsWholeDescent(metrics)}
             // Ground-level air density (first finite sample) — the main descends low,
             // where density is near the pad's, so this is the right ρ for terminal v.

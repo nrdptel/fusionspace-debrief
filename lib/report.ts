@@ -1808,9 +1808,15 @@ export function analysisJson(
       // reads, and a consumer branching on the fields it is given has no sentence to read.
       // Energy goes as v², so a whole-descent average that includes an unresolved drogue leg
       // publishes a joule figure that is HIGH, and a club or RSO ground-hazard limit is
-      // exactly what it gets checked against. Emitted always rather than only when true, so
-      // a consumer can tell "measured on a resolved main leg" from "this build is older
-      // than the flag" — an absent key means neither.
+      // exactly what it gets checked against. Emitted on every flight that emits the energy,
+      // rather than only when qualified, so a consumer can tell "measured on a resolved main
+      // leg" from "qualified" instead of having to read an absence as the good case.
+      //
+      // It does NOT tell a consumer that a build predates the flag, which a first draft of this
+      // comment claimed. The key sits inside the `joules != null` branch, so an absent key means
+      // any of three things — old build, no descending mass entered, or no landing rate at all —
+      // and a consumer branching on absence is in exactly the silent branch the field exists to
+      // close. Caught by the pre-push review.
       rec.landingEnergyBasis = landingRateIsWholeDescent(m) ? 'whole-descent-average' : 'main-leg';
     }
     if (recovery.mainDeploy) {

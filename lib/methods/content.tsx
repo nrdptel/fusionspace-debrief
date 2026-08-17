@@ -1092,25 +1092,32 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
     body: (
       <>
         <p>
-          How the main actually performed: under a steady canopy the rocket is at terminal
+          How the recovery system actually performed: under a steady canopy the rocket is at terminal
           velocity, where drag balances weight, so C<sub>d</sub> = 2&nbsp;·&nbsp;m&nbsp;·&nbsp;g ÷
-          (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A) falls straight out of the measured main descent rate, with
+          (ρ&nbsp;·&nbsp;v²&nbsp;·&nbsp;A) falls straight out of the flown descent rate, with
           the descending mass and canopy diameter you supply (A is the canopy area, ρ the low-air
           density). A measurement of the flown descent, not a prediction — check it against the
-          rule of thumb (~0.75 for a flat sheet, ~1.5 for a domed chute). It assumes the main
-          reached a steady rate. The same reading is offered for the <em>drogue</em> on a dual-deploy
-          flight — the fast fall between apogee and the main, worked with the thinner air density up
-          there — flagged approximate, since a small drogue may not be fully at terminal velocity.
+          rule of thumb (~0.75 for a flat sheet, ~1.5 for a domed chute). The same reading is offered
+          for the <em>drogue</em> on a dual-deploy flight — the fast fall between apogee and the main,
+          worked with the thinner air density up there — flagged approximate, since a small drogue may
+          not be fully at terminal velocity.
         </p>
         <p>
-          Where no deployment change is in the record, there is no main leg to resolve and the rate
-          used is the average over the <em>whole</em> descent — the card says so rather than calling it
-          terminal. That case is common rather than exotic: it covers 23 of the 38 flights in
-          Debrief&rsquo;s validation corpus that land inside their own record. Only the direction of the
-          error is claimable. A whole-descent average that includes a drogue leg is faster than the
-          main alone, and C<sub>d</sub> goes as 1&nbsp;÷&nbsp;v², so the figure is a floor — the real
-          canopy did at least this well. The size is not claimable, because a record that resolved no
-          main leg carries no second rate to measure the gap against.
+          <strong>Which descent the rate came off is stated on the card, because it is not always the
+          main.</strong> Where the record holds a main deployment, the rate is that leg and the
+          terminal assumption is one the record supports. Where it holds no deployment change there is
+          no main leg to resolve, so the rate is the average over the <em>whole</em> descent and the
+          card says so instead of calling it terminal — see <em>A main descent rate, or the whole
+          descent</em> above for how often that is, and for what it costs.
+        </p>
+        <p>
+          Only the <em>direction</em> of the error is claimable in that case, and it is worth stating
+          because it is the half you can act on. A whole-descent average is a time-weighted blend of
+          the legs the flight actually flew, so where an unresolved drogue leg is in it the average is
+          faster than the main leg alone — and C<sub>d</sub> goes as 1&nbsp;÷&nbsp;v², so the figure is
+          a <strong>floor</strong>: the canopy did at least this well. The <em>size</em> is not
+          claimable, because a record that resolved no main leg carries no second rate to measure the
+          gap against, and naming one would be the false precision this reading exists not to publish.
         </p>
       </>
     ),

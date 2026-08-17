@@ -4,9 +4,8 @@ import path from 'node:path';
 import { importFlight } from './parsers';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
-import { landedInRecord, landingRate, landingRateIsWholeDescent } from './readings';
+import { landedInRecord, landingRateIsWholeDescent } from './readings';
 import { analysisJson, headlineRows } from './report';
-import { parachuteCd } from './parachute';
 import type { FlightAnalysis } from './analyze/types';
 import type { RawFlight } from './flight/types';
 
@@ -94,8 +93,10 @@ describe('every document that publishes the landing energy publishes its basis',
   it('says main-leg — not silence — when the rate really is terminal', () => {
     const { prose, json } = documents(MAIN_LEG);
     expect(prose, 'no qualifier belongs on a resolved main leg').not.toMatch(/whole-descent average/);
-    // Stated positively rather than omitted. An ABSENT key cannot be told apart from a build
-    // older than the flag, which is the failure a consumer branching on it would hit silently.
+    // Stated positively rather than omitted, so a consumer reads the good case rather than
+    // inferring it from an absence. (Absence stays ambiguous — the key lives inside the
+    // `joules != null` branch, so it also covers "no descending mass entered". That is written
+    // down at the emit site rather than papered over here.)
     expect(json.recovery?.landingEnergyBasis).toBe('main-leg');
   });
 
@@ -111,28 +112,46 @@ describe('every document that publishes the landing energy publishes its basis',
   });
 });
 
+/**
+ * **Two checks here were written first in a form that could not fail, and the pre-push review
+ * killed both.** They are kept in the file's history through this comment because the shape
+ * recurs: a check that exercises a LAW rather than the code is green before the change and green
+ * after it.
+ *
+ * The first asserted that `parachuteCd(m, A, 0.8v, rho) > parachuteCd(m, A, v, rho)`. That is
+ * true of every positive input by the definition of the function — it never touched
+ * `wholeDescent`, `ParachuteCd`, or a single changed line, so reverting the whole commit left it
+ * passing. The second grepped `ParachuteCd.tsx` for `mainDescentRate` and asserted its absence;
+ * the card is handed a `descentRate: number | null` and never sees a `FlightMetrics` at all, so
+ * there was nothing there to find and a card that ignored `wholeDescent` entirely would pass.
+ *
+ * What the card SAYS is asserted in `e2e/audit3.spec.ts` instead, against the real card in a real
+ * browser. That is the right home for it rather than a convenience: `ParachuteCd` loads the canopy
+ * diameter from `localStorage` in an effect, so a server-rendered copy of it has no Cd to print and
+ * would assert against an empty card — a third check that passes for the wrong reason.
+ */
 describe('the parachute Cd rests on the same rate, so it carries the same basis', () => {
-  it('reads LOW on a whole-descent rate, which is why the direction is claimable', () => {
-    const { analysis } = read(WHOLE_DESCENT);
-    const rate = landingRate(analysis.metrics)!;
-    const rho = analysis.series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225;
-    const chute = 36 * 0.0254;
-    const onWhole = parachuteCd(MASS_KG, chute, rate, rho)!;
-    // A main leg can only be SLOWER than an average that includes a drogue leg above it, and
-    // Cd = 2mg/(rho v^2 A). So the published figure is a floor: any slower true rate raises it.
-    const onSlower = parachuteCd(MASS_KG, chute, rate * 0.8, rho)!;
-    expect(onSlower, 'a slower true main rate can only RAISE the Cd').toBeGreaterThan(onWhole);
+  it('has a rate whose two legs differ enough that the basis is worth naming', () => {
+    // The arithmetic the card's claim rests on, checked on the two real fixtures rather than
+    // asserted as a law. A whole-descent average is `legRate(apogee, landing)` — a time-weighted
+    // blend lying strictly BETWEEN the legs — so the claim that can be made is "faster than the
+    // MAIN leg alone", never "the faster of the two legs". On the dual-deploy fixture the two
+    // legs are ~3x apart, which is the size of the thing being qualified.
+    const dual = read(MAIN_LEG).analysis.metrics;
+    expect(dual.drogueDescentRate!).toBeGreaterThan(dual.mainDescentRate!);
+    const blend = (dual.drogueDescentRate! + dual.mainDescentRate!) / 2;
+    expect(blend, 'a blend sits above the main leg…').toBeGreaterThan(dual.mainDescentRate!);
+    expect(blend, '…and below the drogue leg, which is why "the faster of the two" is false').toBeLessThan(
+      dual.drogueDescentRate!,
+    );
   });
 
-  it('the card is fed the flag, not left to re-derive it', () => {
-    // The rule lives in `landingRateIsWholeDescent` and the card takes it as a prop. Asserting
-    // the wiring here rather than the wording keeps this check about the contract: a second
-    // panel deciding the same question for itself is how the two answers drifted apart before.
+  it('is fed the flag by the report rather than deciding it a second time', () => {
+    // The rule lives in `landingRateIsWholeDescent`. A second panel answering the same question
+    // for itself is how these two answers drifted apart in the first place.
     const source = readFileSync(path.join(__dirname, '..', 'components', 'FlightReport.tsx'), 'utf8');
     expect(source, 'FlightReport passes the basis to the Cd card').toMatch(
       /wholeDescent=\{landingRateIsWholeDescent\(metrics\)\}/,
     );
-    const card = readFileSync(path.join(__dirname, '..', 'components', 'ParachuteCd.tsx'), 'utf8');
-    expect(card, 'and the card never recomputes it').not.toMatch(/mainDescentRate/);
   });
 });
