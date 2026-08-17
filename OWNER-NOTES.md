@@ -311,6 +311,11 @@ and go through `onFiles`, the drop path itself.
 
 
 TRIAGED 2026-08-17 (second run this date) — **still open, unchanged, and no sample work this run.**
+A third increment aimed at the GPS surface this note's last capability sits on was BUILT, gated
+green and **reverted** rather than shipped: on the very corpus flight its headline figure came from,
+the record ends at its peak, so the new reading restated an apogee that every other surface
+qualifies as *"at least this high"* — one number, two surfaces, one qualified. `BACKLOG.md` carries
+the full entry and what a correct version needs.
 The run opened on the corpus sweep this note's own milestone keeps paying for, and it returned a
 Sev-1 that preempted both tracks: the max-Q a flyer sizes an airframe from was being republished on
 four surfaces at up to 117x the analysis's own figure. D10's last capability — the coarse-GPS flight

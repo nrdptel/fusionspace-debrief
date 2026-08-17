@@ -14,6 +14,33 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-17 — BUILT, GATED GREEN, and REVERTED rather than shipped: "how high was the last GPS
+  fix" on a record that ends in the air.** The gap is real and the measurement stands — **5 of the
+  12 corpus recordings carrying lat/lon end with their last fix above the pad, two of them above
+  3,200 ft** — and 3,548 ft of unrecorded descent is a completely different search radius from
+  30 ft. The card already refuses to call that fix a landing (`components/GroundTrack.tsx:76-79`,
+  and its docstring cites the same flight); what it never says is the distance still to fall.
+  **Three findings from the pre-push review killed the implementation, and each is a trap for the
+  next attempt:**
+  1. **On `altusmetrum__issuiuc-intrepid2` — the flight the 3,548 ft figure comes from — the record
+     ends AT its peak**, so `stats.landingIndex` IS the apogee index and the new tile restated the
+     apogee. Worse, `metrics.apogeeIsFloor` is true there: the Apogee tile and the report row both
+     say *"at least this high"* while the new tile and the GPX waypoint published the same number
+     bare. One number, two surfaces, one qualified — the exact defect this run spent itself fixing.
+  2. **Reading `altitude[i]` raw bypasses `altAt` (`lib/analyze/index.ts:1744`)**, the one reader
+     that adjudicates an altitude at an instant and returns NaN where the baro trace is
+     contradicted. `GroundTrack.tsx:41-47` already says the card carries no height *for this exact
+     reason* — so the implementation violated the component's own documented rule.
+  3. **`fmtLength` renders negatives verbatim**, so a record ending just below its pad datum
+     (several read −4 to −12 ft) would have read *"−12 ft above the pad"*. `index.ts:2347` already
+     branches `rest > 0 ? 'above' : 'below'` one file over.
+  Two smaller ones worth carrying: `lib/parsers/corpus.test.ts:1946` pins the OLD waypoint string
+  for this very record and would have gone green against a name the app no longer emits; and
+  `trackKml`'s identical branch had no test at all. **What a correct version needs:** the apogee
+  qualifier travelling with the number when the last fix IS the apogee, `altAt`'s adjudication
+  rather than a raw index, a sign-aware preposition, and the KML branch tested. That is an
+  increment, not a rider.
+
 - **2026-08-17 — one sentence, two sizes, in one panel: the explorer's chart caveat and its stats
   row.** `DESIGN.md` §5 fixes `Notice` at `text-sm`, and `components/ChannelExplorer.tsx:852`
   already argues that size explicitly for this exact sentence ("this is a sentence saying the value
