@@ -387,6 +387,13 @@ was not attached to this session. Parked under *Awaiting the owner*. The sibling
 body tube opens a popover to customize it) is the same primitive arriving from the other direction, so
 building it twice is the failure this verdict exists to prevent.
 
+
+TRIAGED 2026-08-17 — **read, not moved, and P8 remains the answer.** The P-track this run went to
+`GroundTrack`'s missing empty state, so nothing touched the `?` affordance. One thing that bears on
+it did move: the count of surfaces that explain a reading IN PLACE is now the thing to measure, and
+this run added a second `EmptyState` that explains a whole missing section rather than sending a
+flyer elsewhere — the same instinct one level up. The note stays open on its own terms; `Popover`
+exists and the remaining work is the surfaces that still navigate away.
 ---
 
 ---
@@ -454,6 +461,12 @@ can make that change — that repo is not attached — so it is parked under *Aw
 question stated in one line, a `COMPETITION.md` row records the comparison, and Debrief ships
 unchanged. Recorded in *Decisions taken without the owner* with the alternative rejected.
 
+
+TRIAGED 2026-08-17 — **unchanged, and nothing this run touched either control.** Stated so the
+count is honest rather than implying movement: the theme control remains UNREPRODUCED (the two are
+byte-identical in every property a flyer can perceive) and the tip control remains a deliberate
+colour divergence, because §2 gives amber the meaning *warn* and this app's ambers are real caveats.
+The question parked below is still the cheaper direction and is still the owner's.
 ---
 
 **ON-B2 · the GitHub repo page is a surface too · SOURCE: owner, 2026-08-08 · BOTH REPOS**
@@ -488,6 +501,12 @@ a clean increment should take it.
 Kept in P5 rather than made its own milestone because splitting "the README" from "the repo page it
 sits on" would guarantee one ships without the other.
 
+
+TRIAGED 2026-08-17 — **read, nothing done, and this is now the THIRD consecutive run to leave it.**
+That is worth saying plainly rather than repeating the same reason: it is the cheapest open item in
+this file — a GitHub description, topics, and one image in a 28 KB README — it needs no gate, no
+corpus and no browser, and three runs in a row have preferred a milestone slice to it. A session
+that finds itself short of a clean increment should take this one before extending the roadmap.
 ---
 
 **ON-5 · dark mode is not being checked · SOURCE: cross-applied from loft `ON-1` — NOT the owner's words**
@@ -568,6 +587,13 @@ the tokens move rather than when someone remembers to look.
 **Owed to the sibling repo in the same run and NOT shipped there** — not attached to this session.
 Parked under *Awaiting the owner*.
 
+
+TRIAGED 2026-08-17 — **read, and the check it produced was exercised rather than extended.** Two new
+states shipped this run — the ground-track empty state and the design sample's report — and both are
+rated by the rendered contrast audit in both themes without anything being added, which is what the
+check was built for. The note's one unclosed limit is unchanged: the tone TABLES in `ui.tsx` are
+`const` object literals rather than opening tags, so the SOURCE census still cannot see them, and
+§9 still records that as its largest gap.
 ---
 
 **ON-6 · the phone should be vertical · SOURCE: cross-applied from loft `ON-3` — NOT the owner's words**
@@ -609,6 +635,14 @@ question against: the comparison table, the channel explorer, and the chart lege
 milestone was queued before the note existed. The note changes what P4 must answer, not whether it
 runs.
 
+
+TRIAGED 2026-08-17 — **no phone work, and one phone claim was REFUTED by measurement, which is the
+useful part.** An opening fan-out agent reported that `sm:min-h-0` defeats `globals.css`'s
+coarse-pointer 44 px floor on the column mapper's two selects, with a CSS-specificity argument —
+which would have been a live breach of §8 on any tablet or landscape phone. Driven in a real browser
+at 834 px with `hasTouch`: **all six selects render at exactly 44.0 px.** The floor holds. Recorded
+here because this note is about phone layout being measured rather than assumed, and it is an
+instance of exactly that, arriving from the direction of a false alarm.
 ---
 
 ## Awaiting the owner
