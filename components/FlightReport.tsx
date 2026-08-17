@@ -1124,7 +1124,7 @@ export default function FlightReport({
       )}
 
       {flight.reported && flight.reported.length > 0 && (
-        <DeviceSummary reported={flight.reported} metrics={metrics} events={events} sys={sys} />
+        <DeviceSummary reported={flight.reported} metrics={metrics} events={events} sys={sys} synthetic={synthetic} />
       )}
 
       <GpsApogee metrics={metrics} sys={sys} />

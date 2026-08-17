@@ -559,11 +559,32 @@ function stageSamples(stage: 'booster' | 'sustainer'): SynthSample[] {
  * nothing.
  */
 export function toLoggerCsv(rec: SynthStage): string {
+  return loggerCsv(rec.flight, rec.padS, rec.stage);
+}
+
+/**
+ * The same file for a flight that is not part of a staged pair — one board, one launch.
+ *
+ * **Written for the design-overlay sample, and the reason it needs a PARSING file is the point.**
+ * Every other synthesized sample lands in the column mapper, so `results.length === 0` and a design
+ * dropped beside one has nothing to pair with: `lib/ingest.ts`'s one-of-each fallback needs exactly
+ * one parsed flight and exactly one design. A mapper file cannot supply the first half.
+ *
+ * It shares its body with the staged writer rather than resembling it, so the two cannot drift into
+ * writing the same made-up flight two ways — and so the `Stage` row, which is a fact about the pair
+ * and not about a flight, is absent here instead of carrying a value that would be a small lie.
+ */
+export function toSingleLoggerCsv(flight: SynthFlight, padS: number): string {
+  return loggerCsv(flight, padS, null);
+}
+
+function loggerCsv(flight: SynthFlight, padS: number, stage: 'booster' | 'sustainer' | null): string {
+  const rec = { flight, padS, stage };
   const DT = 0.05;
   const lines: string[] = [
     `${SYNTHETIC_KEY},${JSON.stringify(SYNTHETIC_NOTE)}`,
     `Demonstrates,${JSON.stringify(rec.flight.demonstrates)}`,
-    `Stage,${JSON.stringify(rec.stage)}`,
+    ...(rec.stage === null ? [] : [`Stage,${JSON.stringify(rec.stage)}`]),
     `Columns,${JSON.stringify(
       'The column names below are the ones an Eggtimer Classic writes, so that Debrief reads this ' +
         'file without being told about it. No Eggtimer recorded anything here and no device of any ' +

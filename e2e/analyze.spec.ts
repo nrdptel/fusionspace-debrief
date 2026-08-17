@@ -2147,6 +2147,46 @@ const ONE_SIM_ORK = storedZip(
     `</simulations></openrocket>`,
 );
 
+/**
+ * D10's sixth and last capability: the design overlay had no demonstration, so a visitor could
+ * only see predicted-versus-flown by bringing both a log and a `.ork` of their own.
+ *
+ * **Both halves are made up, and that is the honest arrangement rather than the convenient one.**
+ * Pairing a generated design with a real recording would publish a fabricated error percentage
+ * about somebody's actual flight — an invented figure attached to a measurement, which is worse
+ * than either alone. So the sample is a generated flight beside a generated design of the same
+ * rocket, and the two claims are DIFFERENT sentences: `lib/ingest.ts` merges a design's notes into
+ * the flight's, and `isSynthetic` matches the flight sentence exactly, so a design carrying it
+ * would make a real recording announce itself as invented the moment somebody dropped this design
+ * beside their own log.
+ */
+test('the design sample opens both halves, and each says separately that Debrief made it up', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /A design, and the flight it flew/ }).click();
+  await expect(page.getByRole('heading', { name: /Flight report/i })).toBeVisible({ timeout: 60_000 });
+
+  // The pairing worked: one parsed flight plus one design, through `ingest`'s one-of-each fallback.
+  const panel = page.getByRole('region', { name: /Predicted, logged, and read|design’s prediction/ });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('columnheader', { name: 'Predicted' })).toBeVisible();
+  await expect(panel.getByRole('row', { name: /Apogee/ }).first()).toContainText('5,248 ft');
+
+  // TWO claims, not one, and neither standing in for the other. The flight sentence says the
+  // recording was invented; the design sentence says the PREDICTION was — the distinction that
+  // survives a flyer dropping this design beside a log they really flew.
+  await expect(page.getByText(/This flight is SYNTHETIC/)).toBeVisible();
+  await expect(page.getByText(/This PREDICTION is SYNTHETIC/)).toBeVisible();
+
+  // **the cross-check table a cert document quotes carries it too** — the sink this sample
+  // CREATED. `DeviceSummary` renders only where a file carries a logger's own summary or a design
+  // pairs with it, and no made-up sample did either before this one, so it was the only
+  // table-bearing child of the report never passed `synthetic`. Its copy button emits exactly the
+  // column headers, so the tag rides there: a block pasted into a spreadsheet arrives with the
+  // claim on the columns whose numbers are invented, rather than on a caption a sort moves away.
+  await expect(panel.getByRole('columnheader', { name: /SYNTHETIC — Predicted/ })).toBeVisible();
+  await expect(panel.getByRole('columnheader', { name: /SYNTHETIC — Debrief/ })).toBeVisible();
+});
+
 test('a design dropped beside a log is compared against it, and never called a measurement', async ({ page }) => {
   // D9 slice 3. The prediction is a THIRD source in the cross-check — not a second measurement,
   // and the wording has to keep those apart: a flight that missed its prediction is the answer,
